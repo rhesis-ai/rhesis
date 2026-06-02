@@ -1,13 +1,17 @@
 'use client';
 
 import React, { useState, useRef, useMemo } from 'react';
-import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
+import {
+  Box,
+  Tabs,
+  Tab,
+  Typography,
+  Skeleton,
+  useTheme,
+  Button,
+  Stack,
+} from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
-import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
-import HistoryIcon from '@mui/icons-material/History';
-import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
-import RateReviewIcon from '@mui/icons-material/RateReview';
 import {
   TestResultDetail,
   REVIEW_TARGET_TYPES,
@@ -299,75 +303,61 @@ export default function TestResultDrawer({
             scrollButtons="auto"
             sx={{
               '& .MuiTab-root': {
-                minHeight: 56,
+                minHeight: 43,
+                minWidth: 'auto',
+                paddingX: 0,
+                paddingY: '5px',
+                marginRight: '50px',
                 textTransform: 'none',
-                fontWeight: 500,
-                color: theme.palette.text.secondary,
-                '& .MuiSvgIcon-root': {
-                  color: 'inherit',
-                },
+                fontSize: '18px',
+                fontWeight: 700,
+                lineHeight: '25px',
+                color: theme.palette.text.disabled,
                 '&:hover:not(.Mui-selected)': {
-                  backgroundColor: theme.palette.action.hover,
-                  color: theme.palette.text.primary,
+                  color: theme.palette.text.secondary,
+                  backgroundColor: 'transparent',
                 },
                 '&.Mui-selected': {
+                  color: theme.palette.text.primary,
+                  fontWeight: 700,
                   backgroundColor: 'transparent',
-                  color: theme.palette.primary.main,
-                  fontWeight: 600,
-                  '& .MuiSvgIcon-root': {
-                    color: theme.palette.primary.main,
-                  },
-                  '& .MuiTab-iconWrapper': {
-                    color: theme.palette.primary.main,
-                  },
                 },
               },
               '& .MuiTabs-indicator': {
-                height: 3,
-                backgroundColor: theme.palette.primary.main,
-                borderTopLeftRadius: theme.shape.borderRadius,
-                borderTopRightRadius: theme.shape.borderRadius,
+                height: 2,
+                backgroundColor: theme.palette.text.primary,
+              },
+              '& .MuiTabs-flexContainer': {
+                gap: 0,
               },
             }}
           >
             <Tab
-              icon={<InfoOutlinedIcon fontSize="small" />}
-              iconPosition="start"
               label="Overview"
               id="test-detail-tab-0"
               aria-controls="test-detail-tabpanel-0"
             />
             <Tab
-              icon={<ChatOutlinedIcon fontSize="small" />}
-              iconPosition="start"
               label="Conversation"
               id="test-detail-tab-1"
               aria-controls="test-detail-tabpanel-1"
             />
             <Tab
-              icon={<AssessmentOutlinedIcon fontSize="small" />}
-              iconPosition="start"
               label="Metrics"
               id="test-detail-tab-2"
               aria-controls="test-detail-tabpanel-2"
             />
             <Tab
-              icon={<RateReviewIcon fontSize="small" />}
-              iconPosition="start"
               label="Reviews"
               id="test-detail-tab-3"
               aria-controls="test-detail-tabpanel-3"
             />
             <Tab
-              icon={<HistoryIcon fontSize="small" />}
-              iconPosition="start"
               label="History"
               id="test-detail-tab-4"
               aria-controls="test-detail-tabpanel-4"
             />
             <Tab
-              icon={<CommentOutlinedIcon fontSize="small" />}
-              iconPosition="start"
               label="Tasks & Comments"
               id="test-detail-tab-5"
               aria-controls="test-detail-tabpanel-5"
@@ -454,25 +444,49 @@ export default function TestResultDrawer({
           </TabPanel>
 
           <TabPanel value={activeTab} index={TAB.tasks}>
-            <TasksAndCommentsWrapper
-              entityType="TestResult"
-              entityId={test.id}
-              sessionToken={sessionToken}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              currentUserPicture={currentUserPicture}
-              elevation={0}
-              onCountsChange={handleCountsChange}
-              additionalMetadata={{ test_run_id: testRunId }}
-            />
+            <Box sx={{ pt: '40px' }}>
+              <TasksAndCommentsWrapper
+                entityType="TestResult"
+                entityId={test.id}
+                sessionToken={sessionToken}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                currentUserPicture={currentUserPicture}
+                onCountsChange={handleCountsChange}
+                additionalMetadata={{ test_run_id: testRunId }}
+              />
+            </Box>
           </TabPanel>
+        </Box>
+
+        <Box
+          sx={{
+            flexShrink: 0,
+            borderTop: 1,
+            borderColor: 'divider',
+            px: 2,
+            py: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Button variant="contained" onClick={onClose}>
+              Close
+            </Button>
+          </Stack>
         </Box>
       </Box>
     );
   };
 
   return (
-    <BaseDrawer open={open} onClose={onClose} width="75%" showHeader={false}>
+    <BaseDrawer
+      open={open}
+      onClose={onClose}
+      width="75%"
+      showHeader={false}
+      closeButtonText=""
+    >
       {drawerContent()}
     </BaseDrawer>
   );
