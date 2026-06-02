@@ -69,7 +69,7 @@ jobs:
 
       - name: Resolve GCP credentials
         run: |
-          trap 'rm -f sa-key.json' ERR
+          trap 'rm -f sa-key.json' EXIT
           if [ "$ENVIRONMENT" = "dev" ]; then
             echo '${{ secrets.GCP_SA_KEY_DEV }}' > sa-key.json
             echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> $GITHUB_ENV
