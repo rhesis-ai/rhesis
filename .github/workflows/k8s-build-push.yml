@@ -51,10 +51,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Resolve GCP credentials
+      - name: Resolve GCP credentials and authenticate
         run: |
           SA_KEY_PATH="${RUNNER_TEMP}/sa-key.json"
           echo "SA_KEY_PATH=$SA_KEY_PATH" >> "$GITHUB_ENV"
+          # EXIT trap: cleans up if this step fails. Auth runs in this same step so the
+          # key is not deleted before gcloud can read it (unlike a separate auth step).
           trap 'rm -f "$SA_KEY_PATH"' EXIT
 
           if [ -z "$ENVIRONMENT" ]; then
@@ -80,10 +82,10 @@ jobs:
           fi
           chmod 600 "$SA_KEY_PATH"
 
-      - name: Authenticate to Google Cloud
-        run: |
           gcloud auth activate-service-account --key-file="$SA_KEY_PATH"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$SA_KEY_PATH" >> "$GITHUB_ENV"
+          # Credentials live in gcloud config; remove key before later steps (build/push).
+          rm -f "$SA_KEY_PATH"
+          trap - EXIT
 
       - name: Set registry and tag
         run: |
@@ -146,6 +148,8 @@ jobs:
           echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
           echo "Pushed $REGISTRY/$IMAGE:$TAG ($DIGEST)"
 
+      # Safety net for SIGKILL on the credentials step (trap cannot fire on SIGKILL).
+      # Key is deleted inside the credentials step on normal/SIGTERM paths; this covers forced kills.
       - name: Cleanup SA key
         if: always()
-        run: rm -f "$SA_KEY_PATH"
+        run: rm -f "${SA_KEY_PATH:-${RUNNER_TEMP}/sa-key.json}"
