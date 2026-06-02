@@ -1,7 +1,7 @@
 """Remove tool_type column and ToolType lookup entries
 
 Revision ID: 709e4ae75c8e
-Revises: fe4a8b2c9d1e
+Revises: d4e5f6a7b8c3
 Create Date: 2026-06-01
 
 """
@@ -18,7 +18,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "709e4ae75c8e"
-down_revision: Union[str, Sequence[str], None] = ("fe4a8b2c9d1e", "f3a4b5c6d7e8")
+down_revision: Union[str, Sequence[str], None] = "d4e5f6a7b8c3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
