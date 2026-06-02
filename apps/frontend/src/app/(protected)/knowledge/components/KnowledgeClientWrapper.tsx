@@ -6,14 +6,13 @@ import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { MenuBookIcon } from '@/components/icons';
-import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
+import { MenuBookIcon, BuildIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
-import MCPImportDrawer from './MCPImportDrawer';
+import ToolImportDrawer from './ToolImportDrawer';
 
 interface KnowledgeClientWrapperProps {
   sessionToken: string;
@@ -25,7 +24,7 @@ export default function KnowledgeClientWrapper({
   const [refreshKey, setRefreshKey] = useState(0);
   const [sourceCount, setSourceCount] = useState<number | null>(null);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
-  const [mcpImportDrawerOpen, setMcpImportDrawerOpen] = useState(false);
+  const [toolImportDrawerOpen, setToolImportDrawerOpen] = useState(false);
 
   useDocumentTitle('Knowledge');
 
@@ -62,7 +61,7 @@ export default function KnowledgeClientWrapper({
   }, [handleRefresh]);
 
   const handleMcpImportSuccess = useCallback(() => {
-    setMcpImportDrawerOpen(false);
+    setToolImportDrawerOpen(false);
     handleRefresh();
   }, [handleRefresh]);
 
@@ -100,10 +99,10 @@ export default function KnowledgeClientWrapper({
               onClick={() => setUploadDrawerOpen(true)}
             />
             <Fab
-              icon={<ModelContextProtocolIcon />}
-              tooltip="Import from MCP"
-              aria-label="Import from MCP"
-              onClick={() => setMcpImportDrawerOpen(true)}
+              icon={<BuildIcon />}
+              tooltip="Import from Tool"
+              aria-label="Import from Tool"
+              onClick={() => setToolImportDrawerOpen(true)}
             />
           </FabGroup>
         }
@@ -113,7 +112,7 @@ export default function KnowledgeClientWrapper({
             <EntityEmptyState
               icon={MenuBookIcon}
               title="No knowledge sources yet"
-              description="Upload files or import from MCP tools to use as context for test generation and evaluation."
+              description="Upload files or import from tool connections to use as context for test generation and evaluation."
               actionLabel="Upload source"
               onAction={() => setUploadDrawerOpen(true)}
             />
@@ -145,9 +144,9 @@ export default function KnowledgeClientWrapper({
         sessionToken={sessionToken}
       />
 
-      <MCPImportDrawer
-        open={mcpImportDrawerOpen}
-        onClose={() => setMcpImportDrawerOpen(false)}
+      <ToolImportDrawer
+        open={toolImportDrawerOpen}
+        onClose={() => setToolImportDrawerOpen(false)}
         onSuccess={handleMcpImportSuccess}
         sessionToken={sessionToken}
       />

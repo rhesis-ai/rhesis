@@ -32,6 +32,7 @@ import {
   ToolUpdate,
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
+import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -96,11 +97,11 @@ function normalizeUrl(url: string): string {
   return trimmed;
 }
 
-interface MCPConnectionDrawerProps {
+interface ToolConnectionDrawerProps {
   open: boolean;
   provider?: TypeLookup | null;
   providers?: TypeLookup[];
-  mcpToolType: TypeLookup | null; // MCP tool type (always 'mcp')
+  toolType?: TypeLookup | null;
   tool?: Tool | null; // For edit mode
   mode?: 'create' | 'edit';
   onClose: () => void;
@@ -108,17 +109,16 @@ interface MCPConnectionDrawerProps {
   onUpdate?: (toolId: UUID, updates: Partial<ToolUpdate>) => Promise<void>;
 }
 
-export function MCPConnectionDrawer({
+export function ToolConnectionDrawer({
   open,
   provider: providerProp,
   providers = [],
-  mcpToolType,
   tool,
   mode = 'create',
   onClose,
   onConnect,
   onUpdate,
-}: MCPConnectionDrawerProps) {
+}: ToolConnectionDrawerProps) {
   const theme = useTheme();
   const { data: session } = useSession();
   const _notifications = useNotifications();
@@ -577,8 +577,11 @@ export function MCPConnectionDrawer({
         };
       }
 
-      // Test the connection
-      const result = await servicesClient.testMCPConnection(testRequest);
+      // Test the connection — use lightweight REST health check for known providers,
+      // fall back to MCP agent for custom providers
+      const result = isCustomProvider
+        ? await servicesClient.testMCPConnection(testRequest)
+        : await servicesClient.testToolConnection(testRequest);
       setTestResult(result);
 
       // Mark as tested if successful
@@ -759,7 +762,9 @@ export function MCPConnectionDrawer({
         onClose();
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to update MCP connection'
+          err instanceof Error
+            ? err.message
+            : 'Failed to update tool connection'
         );
         setLoading(false);
       }
@@ -802,8 +807,8 @@ export function MCPConnectionDrawer({
         setLoading(true);
         setError(null);
         try {
-          if (!mcpToolType || !provider) {
-            setError('MCP tool type or provider not found. Please try again.');
+          if (!provider) {
+            setError('Provider not found. Please try again.');
             setLoading(false);
             return;
           }
@@ -887,8 +892,7 @@ export function MCPConnectionDrawer({
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
-            tool_type_id: mcpToolType.id, // MCP tool type ID
-            tool_provider_type_id: provider.id, // Provider type ID
+            tool_provider_type_id: provider.id,
             credentials,
             tool_metadata: parsedMetadata,
           };
@@ -906,9 +910,16 @@ export function MCPConnectionDrawer({
     }
   };
 
+  // Determine icon and display name
+  const providerIconKey = provider?.type_value || 'custom';
+  const providerIcon = TOOL_PROVIDER_ICONS[providerIconKey] || (
+    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
+  );
+
+
   const displayName = provider?.type_value
     ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
-    : 'MCP Provider';
+    : 'Tool Provider';
 
   const basicFieldsChanged =
     isEditMode &&
@@ -956,12 +967,27 @@ export function MCPConnectionDrawer({
       error={error ?? undefined}
       width={640}
     >
-      <Stack spacing={5}>
+      <Stack spacing={2}>
+        <Typography variant="body2" color="text.secondary">
+          {isEditMode
+            ? 'Update your tool connection settings'
+            : 'Configure your tool connection settings below'}{' '}
+          <Link
+            href="https://docs.rhesis.ai/platform/mcp#provider-setup-instructions"
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ textDecoration: 'none' }}
+          >
+            (setup guide)
+          </Link>
+        </Typography>
+
+
         {!isEditMode && providers.length > 0 && (
           <FormControl fullWidth>
-            <InputLabel id="mcp-provider-label">Provider</InputLabel>
+            <InputLabel id="tool-provider-label">Provider</InputLabel>
             <Select
-              labelId="mcp-provider-label"
+              labelId="tool-provider-label"
               value={provider?.id ?? ''}
               label="Provider"
               onChange={e => {
@@ -1247,102 +1273,121 @@ export function MCPConnectionDrawer({
             </Stack>
           )}
 
-        {/* MCP Server Configuration */}
-        {isCustomProvider && (
-          <Stack spacing={3}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-              }}
-              onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
-            >
-              <Typography sx={sectionHeadingSx}>
-                MCP Server Configuration
-              </Typography>
-              <IconButton size="small">
-                {showAdvancedConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              </IconButton>
-            </Box>
-
-            <Collapse in={showAdvancedConfig}>
-              <Stack spacing={2}>
-                <Typography variant="body2" color="text.secondary">
-                  Provide your API token above, then paste your MCP server
-                  config below using <code>{'{{ TOKEN }}'}</code> as a
-                  placeholder wherever the token is required.
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Example:
-                </Typography>
-                <Box
-                  component="pre"
-                  sx={{
-                    m: 0,
-                    p: 2,
-                    bgcolor: 'background.default',
-                    border: 1,
-                    borderColor: 'greyscale.border',
-                    borderRadius: BORDER_RADIUS.md,
-                    fontSize: theme => theme.typography.body2.fontSize,
-                    fontFamily: 'monospace',
-                    overflow: 'auto',
-                  }}
+          {isCustomProvider && (
+            <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mt: 2,
+                  mb: 1,
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+              >
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600, color: 'primary.main' }}
                 >
-                  {`{
+                  Tool Server Configuration
+                </Typography>
+                <IconButton size="small">
+                  {showAdvancedConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Box>
+
+              <Collapse in={showAdvancedConfig}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Provide your API token above, then paste your tool server
+                    config below using <code>{'{{ TOKEN }}'}</code> as a
+                    placeholder wherever the token is required.
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Example:
+                  </Typography>
+                  <Box
+                    component="pre"
+                    sx={{
+                      p: 2,
+                      bgcolor: 'background.default',
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: theme => theme.shape.borderRadius,
+                      fontSize: theme => theme.typography.body2.fontSize,
+                      overflow: 'auto',
+                      mb: 2,
+                    }}
+                  >
+                    {`{
   "command": "npx",
   "args": ["@example/mcp-server"],
   "env": {
     "API_TOKEN": "{{ TOKEN }}"
   }
 }`}
+                  </Box>
+                  {jsonError && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      {jsonError}
+                    </Alert>
+                  )}
+                  <Box sx={getEditorWrapperStyle()}>
+                    <Editor
+                      key={`tool-metadata-${editorTheme}`}
+                      height="300px"
+                      defaultLanguage="json"
+                      theme={editorTheme}
+                      value={toolMetadata}
+                      onChange={handleToolMetadataChange}
+                      loading={
+                        <Box
+                          sx={{
+                            height: 300,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <CircularProgress size={24} />
+                        </Box>
+                      }
+                      options={{
+                        minimap: { enabled: false },
+                        lineNumbers: 'on',
+                        folding: true,
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                        formatOnPaste: true,
+                        formatOnType: true,
+                        padding: { top: 8, bottom: 8 },
+                        scrollbar: { vertical: 'visible', horizontal: 'visible' },
+                        fontSize: 14,
+                      }}
+                    />
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mt: 1, display: 'block' }}
+                  >
+                    Required for custom providers. Define the tool server
+                    command, arguments, and environment variables with credential
+                    placeholders.
+                  </Typography>
                 </Box>
-                {jsonError && <Alert severity="error">{jsonError}</Alert>}
-                <Box sx={getEditorWrapperStyle()}>
-                  <Editor
-                    key={`tool-metadata-${editorTheme}`}
-                    height="300px"
-                    defaultLanguage="json"
-                    theme={editorTheme}
-                    value={toolMetadata}
-                    onChange={handleToolMetadataChange}
-                    loading={
-                      <Box
-                        sx={{
-                          height: 300,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <CircularProgress size={24} />
-                      </Box>
-                    }
-                    options={{
-                      minimap: { enabled: false },
-                      lineNumbers: 'on',
-                      folding: true,
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      formatOnPaste: true,
-                      formatOnType: true,
-                      padding: { top: 8, bottom: 8 },
-                      scrollbar: { vertical: 'visible', horizontal: 'visible' },
-                      fontSize: 14,
-                    }}
-                  />
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  Required for custom providers. Define the MCP server command,
-                  arguments, and environment variables with credential
-                  placeholders.
-                </Typography>
-              </Stack>
-            </Collapse>
-          </Stack>
-        )}
+              </Collapse>
+            </>
+          )}
 
         {!isEditMode && !connectionTested && !testResult && (
           <Alert severity="info">

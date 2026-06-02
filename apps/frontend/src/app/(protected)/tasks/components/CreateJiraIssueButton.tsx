@@ -146,7 +146,7 @@ export default function CreateJiraIssueButton({
   const hasNoJiraTools = !loading && jiraTools.length === 0;
 
   const tooltip = hasNoJiraTools
-    ? 'Connect Jira in Connect → MCP to create issues from this task'
+    ? 'Connect Jira in Connect → Tools to create issues from this task'
     : loading
       ? 'Loading Jira tools…'
       : isCreating

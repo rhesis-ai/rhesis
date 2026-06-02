@@ -9,41 +9,37 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 
-export interface MCPFilters {
+export interface ToolFilters {
   providers: string[];
 }
 
-export const EMPTY_MCP_FILTERS: MCPFilters = {
+export const EMPTY_TOOL_FILTERS: ToolFilters = {
   providers: [],
 };
 
-export function hasActiveMCPFilters(f: MCPFilters): boolean {
+export function hasActiveToolFilters(f: ToolFilters): boolean {
   return f.providers.length > 0;
 }
 
-export function countActiveMCPFilters(f: MCPFilters): number {
-  return f.providers.length;
-}
-
-interface MCPFilterDrawerProps {
+interface ToolFilterDrawerProps {
   open: boolean;
   onClose: () => void;
-  filters: MCPFilters;
+  filters: ToolFilters;
   availableProviders: string[];
-  onApply: (filters: MCPFilters) => void;
+  onApply: (filters: ToolFilters) => void;
 }
 
-export default function MCPFilterDrawer({
+export default function ToolFilterDrawer({
   open,
   onClose,
   filters,
   availableProviders,
   onApply,
-}: MCPFilterDrawerProps) {
+}: ToolFilterDrawerProps) {
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
     open,
     filters,
-    EMPTY_MCP_FILTERS,
+    EMPTY_TOOL_FILTERS,
     onApply,
     onClose
   );
