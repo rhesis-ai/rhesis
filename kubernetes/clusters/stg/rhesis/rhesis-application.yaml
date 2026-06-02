@@ -16,7 +16,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: feat/separate-dev-stg-prd-gcp-project
+    targetRevision: main
     path: charts/rhesis
     helm:
       valueFiles:
