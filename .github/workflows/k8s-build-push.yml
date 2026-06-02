@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     permissions:
-      contents: read
+      contents: write
 
     env:
       ENVIRONMENT: ${{ inputs.environment }}
@@ -147,6 +147,66 @@ jobs:
           echo "Digest: $DIGEST"
           echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
           echo "Pushed $REGISTRY/$IMAGE:$TAG ($DIGEST)"
+
+      - name: Pin imageTag in Helm values
+        env:
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "github-actions[bot]@users.noreply.github.com"
+          GIT_COMMITTER_NAME: "github-actions[bot]"
+          GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        run: |
+          case "$ENVIRONMENT" in
+            dev) VALUES_FILE="charts/rhesis/values-dev.yaml" ;;
+            stg) VALUES_FILE="charts/rhesis/values-stg.yaml" ;;
+            prd) VALUES_FILE="charts/rhesis/values-prd.yaml" ;;
+            *)   echo "ERROR: Unknown ENVIRONMENT: $ENVIRONMENT"; exit 1 ;;
+          esac
+
+          # Map image name → per-service yq path.
+          # Each service tracks its own SHA so a single-service build (e.g. backend-only)
+          # does not change the running tag of any other service.
+          case "$IMAGE" in
+            rhesis-backend)             YQ_PATH=".backend.image.tag" ;;
+            rhesis-frontend)            YQ_PATH=".frontend.image.tag" ;;
+            rhesis-worker)              YQ_PATH=".workers[0].image.tag" ;;
+            rhesis-chatbot)             YQ_PATH=".chatbot.image.tag" ;;
+            rhesis-polyphemus)          YQ_PATH=".polyphemus.image.tag" ;;
+            rhesis-otel-collector)      YQ_PATH=".otelCollector.image.tag" ;;
+            rhesis-telemetry-processor) YQ_PATH=".telemetryProcessor.image.tag" ;;
+            rhesis-docs)                YQ_PATH=".docs.image.tag" ;;
+            *)                          echo "ERROR: Unknown IMAGE: $IMAGE"; exit 1 ;;
+          esac
+
+          # Fetch main so we patch the branch ArgoCD watches, regardless of trigger branch.
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          CURRENT_TAG=$(yq "${YQ_PATH}" "$VALUES_FILE")
+          if [ "$CURRENT_TAG" = "$TAG" ]; then
+            echo "${YQ_PATH} already $TAG in $VALUES_FILE — nothing to commit"
+            exit 0
+          fi
+
+          # Use env(TAG) to avoid shell-quoting issues with special characters in the tag.
+          TAG="$TAG" yq -i "${YQ_PATH} = env(TAG)" "$VALUES_FILE"
+          git config user.name  "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+          git add "$VALUES_FILE"
+          git commit -m "ci($ENVIRONMENT): pin $IMAGE to $TAG [skip ci]"
+
+          # Retry up to 3 times: deploy-all runs all 8 builds in parallel and they
+          # all race to push to main. The loser fetches + rebases and retries.
+          PUSH_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          for attempt in 1 2 3; do
+            if git push "$PUSH_URL" HEAD:main; then
+              echo "Pushed imageTag commit (attempt $attempt)"
+              break
+            fi
+            echo "Push attempt $attempt rejected — fetching and rebasing"
+            git fetch origin main
+            git rebase origin/main
+          done
 
       # Safety net for SIGKILL on the credentials step (trap cannot fire on SIGKILL).
       # Key is deleted inside the credentials step on normal/SIGTERM paths; this covers forced kills.

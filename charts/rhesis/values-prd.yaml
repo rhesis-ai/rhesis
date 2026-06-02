@@ -4,8 +4,9 @@
 # Production Auth0: set nextPublicAuth0ClientId and nextPublicAuth0Domain to the
 # production Auth0 application.
 #
-# REQUIRED FOR PROD: set global.imageTag to an immutable release tag (git SHA from CI).
-# Helm render fails if imageTag is empty or "latest" (see _helpers.tpl rhesis.image).
+# REQUIRED FOR PROD: each service must have its image.tag pinned to an immutable git SHA.
+# CI writes <service>.image.tag via the "Pin imageTag in Helm values" step.
+# Helm render fails if a service tag is empty or "latest" (enforced by requirePinnedTag).
 
 # ---------------------------------------------------------------------------
 # Global — Artifact Registry
@@ -13,8 +14,8 @@
 global:
   registry: "europe-west4-docker.pkg.dev/rhesis-prd/rhesis"
   imagePullPolicy: Always
-  # Set to a pinned tag before deploy, e.g. "v1.2.3" or the Artifact Registry digest tag.
-  # Helm render fails if this is empty or "latest" — enforced by requirePinnedTag below.
+  # Fallback only — CI pins per-service tags via <service>.image.tag.
+  # Leave empty; set only for emergency one-shot all-services override.
   imageTag: ""
   requirePinnedTag: true
 
