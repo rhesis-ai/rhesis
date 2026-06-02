@@ -8,7 +8,8 @@
 global:
   registry: "europe-west4-docker.pkg.dev/rhesis-dev-494712/rhesis"
   imagePullPolicy: Always
-  imageTag: "latest"
+  # Pin via GitOps after CI build (git SHA). Do not deploy on floating latest.
+  imageTag: ""
 
 # ---------------------------------------------------------------------------
 # Non-sensitive config overrides for dev

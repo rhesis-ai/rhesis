@@ -9,7 +9,8 @@ global:
   #   europe-west4-docker.pkg.dev/<project-id>/rhesis
   registry: ""
   imagePullPolicy: IfNotPresent
-  imageTag: "latest"
+  # Default for local/chart-only use. CI publishes immutable git SHA tags; pin in env values.
+  imageTag: ""
   requirePinnedTag: false
 
 nameOverride: ""

@@ -1,0 +1,151 @@
+name: "[Build & Push] K8s Image (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: 'Artifact Registry image name (e.g. rhesis-backend)'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: true
+        type: string
+      context:
+        description: 'Docker build context path'
+        required: false
+        type: string
+        default: '.'
+      target:
+        description: 'Optional Docker multi-stage target'
+        required: false
+        type: string
+        default: ''
+      build_args:
+        description: 'Optional extra docker build --build-arg lines (one per line)'
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: 'Target environment (dev, stg, prd)'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      IMAGE: ${{ inputs.image }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve GCP credentials
+        run: |
+          SA_KEY_PATH="${RUNNER_TEMP}/sa-key.json"
+          echo "SA_KEY_PATH=$SA_KEY_PATH" >> "$GITHUB_ENV"
+          trap 'rm -f "$SA_KEY_PATH"' EXIT
+
+          if [ -z "$ENVIRONMENT" ]; then
+            echo "ERROR: ENVIRONMENT is not set"
+            exit 1
+          fi
+
+          if [ "$ENVIRONMENT" = "dev" ]; then
+            echo '${{ secrets.GCP_SA_KEY_DEV }}' > "$SA_KEY_PATH"
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> "$GITHUB_ENV"
+            echo "REGISTRY_REGION=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
+          elif [ "$ENVIRONMENT" = "stg" ]; then
+            echo '${{ secrets.GCP_SA_KEY_STG }}' > "$SA_KEY_PATH"
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_STG }}" >> "$GITHUB_ENV"
+            echo "REGISTRY_REGION=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
+          elif [ "$ENVIRONMENT" = "prd" ]; then
+            echo '${{ secrets.GCP_SA_KEY_PRD }}' > "$SA_KEY_PATH"
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_PRD }}" >> "$GITHUB_ENV"
+            echo "REGISTRY_REGION=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
+          else
+            echo "ERROR: Unknown ENVIRONMENT: $ENVIRONMENT"
+            exit 1
+          fi
+          chmod 600 "$SA_KEY_PATH"
+
+      - name: Authenticate to Google Cloud
+        run: |
+          gcloud auth activate-service-account --key-file="$SA_KEY_PATH"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$SA_KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Set registry and tag
+        run: |
+          REGISTRY="${{ env.REGISTRY_REGION }}/${{ env.PROJECT_ID }}/rhesis"
+          echo "REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
+
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(echo "${{ github.sha }}" | cut -c1-8)
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+          echo "Registry region: ${{ env.REGISTRY_REGION }}"
+          echo "Registry:        $REGISTRY"
+          echo "Tag:             $TAG"
+          echo "Image:           $IMAGE"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.REGISTRY_REGION }}" --quiet
+
+      - name: Build Container
+        run: |
+          TARGET_ARGS=()
+          if [ -n "${{ inputs.target }}" ]; then
+            TARGET_ARGS=(--target "${{ inputs.target }}")
+          fi
+
+          BUILD_ARG_LINES="${{ inputs.build_args }}"
+          BUILD_ARG_FLAGS=()
+          if [ -n "$BUILD_ARG_LINES" ]; then
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              BUILD_ARG_FLAGS+=(--build-arg "$line")
+            done <<< "$BUILD_ARG_LINES"
+          fi
+
+          docker build --platform linux/amd64 \
+            "${TARGET_ARGS[@]}" \
+            "${BUILD_ARG_FLAGS[@]}" \
+            -t "$REGISTRY/$IMAGE:$TAG" \
+            -f "${{ inputs.dockerfile }}" \
+            "${{ inputs.context }}"
+          echo "Built $REGISTRY/$IMAGE:$TAG"
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: "${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ env.TAG }}"
+          format: table
+          exit-code: 1
+          severity: CRITICAL
+          ignore-unfixed: true
+          version: v0.69.2
+
+      - name: Push Container
+        run: |
+          docker push "$REGISTRY/$IMAGE:$TAG"
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$REGISTRY/$IMAGE:$TAG")
+          echo "Digest: $DIGEST"
+          echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
+          echo "Pushed $REGISTRY/$IMAGE:$TAG ($DIGEST)"
+
+      - name: Cleanup SA key
+        if: always()
+        run: rm -f "$SA_KEY_PATH"

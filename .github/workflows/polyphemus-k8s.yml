@@ -1,10 +1,10 @@
-name: "[Deploy] Polyphemus (K8s)"
+name: "[Build & Push] Polyphemus (K8s)"
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: 'Environment to build and push to'
         required: true
         default: 'dev'
         type: choice
@@ -20,7 +20,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: 'Environment to build and push to'
         required: true
         type: string
       tag:
@@ -47,8 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
-      - name: Approve deploy
-        run: echo "Deploy approved for ${{ github.event.inputs.environment }}"
+      - name: Approve build and push
+        run: echo "Build and push approved for ${{ github.event.inputs.environment }}"
 
   build:
     needs: [validate-inputs, gate]
@@ -56,68 +56,11 @@ jobs:
       always() &&
       needs.validate-inputs.result == 'success' &&
       (needs.gate.result == 'success' || needs.gate.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    env:
-      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
-      IMAGE: rhesis-polyphemus
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Resolve GCP credentials
-        run: |
-          trap 'rm -f sa-key.json' EXIT
-          if [ "$ENVIRONMENT" = "dev" ]; then
-            echo '${{ secrets.GCP_SA_KEY_DEV }}' > sa-key.json
-            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> $GITHUB_ENV
-          elif [ "$ENVIRONMENT" = "stg" ]; then
-            echo '${{ secrets.GCP_SA_KEY_STG }}' > sa-key.json
-            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_STG }}" >> $GITHUB_ENV
-          else
-            echo '${{ secrets.GCP_SA_KEY_PRD }}' > sa-key.json
-            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_PRD }}" >> $GITHUB_ENV
-          fi
-
-      - name: Authenticate to Google Cloud
-        run: |
-          gcloud auth activate-service-account --key-file=sa-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa-key.json" >> $GITHUB_ENV
-
-      - name: Set registry and tag
-        run: |
-          REGISTRY="europe-west4-docker.pkg.dev/${{ env.PROJECT_ID }}/rhesis"
-          echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
-
-          TAG="${{ inputs.tag || github.event.inputs.tag }}"
-          if [ -z "$TAG" ]; then
-            TAG=$(echo "${{ github.sha }}" | cut -c1-8)
-          fi
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-          echo "Registry: $REGISTRY"
-          echo "Tag:      $TAG"
-          echo "Image:    $IMAGE"
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker europe-west4-docker.pkg.dev --quiet
-
-      - name: Build Container
-        run: |
-          docker build --platform linux/amd64 \
-            -t "$REGISTRY/$IMAGE:$TAG" \
-            -t "$REGISTRY/$IMAGE:latest" \
-            -f apps/polyphemus/Dockerfile .
-          echo "Built $REGISTRY/$IMAGE:$TAG"
-
-      - name: Push Container
-        run: |
-          docker push "$REGISTRY/$IMAGE:$TAG"
-          docker push "$REGISTRY/$IMAGE:latest"
-          echo "Pushed $REGISTRY/$IMAGE:$TAG and :latest"
-
-      - name: Cleanup SA key
-        if: always()
-        run: rm -f sa-key.json
+    uses: ./.github/workflows/k8s-build-push.yml
+    with:
+      image: rhesis-polyphemus
+      dockerfile: apps/polyphemus/Dockerfile
+      context: .
+      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      tag: ${{ inputs.tag || github.event.inputs.tag }}
+    secrets: inherit
