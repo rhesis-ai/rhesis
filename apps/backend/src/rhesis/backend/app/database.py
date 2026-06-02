@@ -274,7 +274,7 @@ def get_db_with_tenant_variables(
     Yields:
         Session: Database session with tenant context set and RequestScope bound
     """
-    from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
+    from rhesis.backend.app.scope import RequestScope
 
     scope = RequestScope(
         organization_id=organization_id or None,
@@ -285,30 +285,19 @@ def get_db_with_tenant_variables(
     with get_db() as db:
         _set_session_variables(db, organization_id, user_id, project_id)
 
-        # Primary: store scope on Session.info so SQLAlchemy event listeners
+        # Store scope on Session.info so SQLAlchemy event listeners
         # (auto_filter, auto_stamp) can read it via query.session.info / session.info
         # regardless of whether the caller is an async or sync route handler.
-        # This avoids ContextVar thread-boundary issues when FastAPI runs sync deps
-        # in a threadpool but the route itself runs in the async event loop.
+        # Session.info is the authoritative source for FastAPI request paths;
+        # ContextVar (bind_scope) is reserved for Celery tasks and background scripts
+        # that call current_scope() or bind_scope() explicitly outside a DB session.
         db.info[_SCOPE_KEY] = scope
-
-        # Secondary: also bind ContextVar for Celery tasks, background scripts, and
-        # any code that calls current_scope() directly outside a DB listener.
-        token = bind_scope(scope)
         try:
             yield db
         finally:
-            # Remove scope from Session.info before the session is closed/returned.
+            # Remove scope so it cannot be observed after the session is returned to
+            # the pool / closed.
             db.info.pop(_SCOPE_KEY, None)
-            # FastAPI runs sync generator dependencies in a threadpool worker thread
-            # via anyio. The cleanup callback runs in a *different* worker thread with
-            # a copied context, so token.reset() raises ValueError("created in a
-            # different Context"). We catch that and fall back to binding an empty
-            # scope, which is a no-op for the current (cleanup) thread anyway.
-            try:
-                reset_scope(token)
-            except ValueError:
-                bind_scope(RequestScope())
             # Belt-and-suspenders: reset RLS vars before connection returns to pool.
             # _set_session_variables uses is_local=true (transaction-scoped) so this
             # is only needed when the connection is reused across transactions.

@@ -93,7 +93,12 @@ __all__ = [
 
 
 def task_launcher(
-    task: T, *args: Any, current_user=None, task_id: Optional[str] = None, **kwargs: Any
+    task: T,
+    *args: Any,
+    current_user=None,
+    task_id: Optional[str] = None,
+    db=None,
+    **kwargs: Any,
 ):
     """
     Launch a task with proper context from a FastAPI route.
@@ -108,6 +113,9 @@ def task_launcher(
         task_id: Optional pre-generated Celery task ID.  Pass a UUID string to
             ensure the task is dispatched under a known ID so the caller can
             persist it before the worker starts.
+        db: Optional SQLAlchemy Session. When supplied, project_id is read from
+            db.info['_scope'] which is reliable for both sync and async route
+            handlers. If omitted, falls back to the ContextVar (Celery / scripts).
         **kwargs: Keyword arguments to pass to the task
 
     Returns:
@@ -122,16 +130,25 @@ def task_launcher(
         if hasattr(current_user, "organization_id") and current_user.organization_id is not None:
             headers["organization_id"] = str(current_user.organization_id)
 
-    # Forward project_id from the ambient RequestScope so the Celery worker can
-    # re-bind the same scope and stamp / filter by project correctly.
-    try:
-        from rhesis.backend.app.scope import current_scope
+    # Forward project_id to the Celery worker so it can re-bind the same scope
+    # and stamp / filter by project correctly.
+    #
+    # Prefer Session.info['_scope'] (works for both sync and async route handlers)
+    # over the ContextVar fallback (unreliable across anyio threadpool boundaries).
+    scope_project_id = None
+    if db is not None:
+        session_scope = db.info.get("_scope")
+        if session_scope is not None:
+            scope_project_id = session_scope.project_id
+    if scope_project_id is None:
+        try:
+            from rhesis.backend.app.scope import current_scope
 
-        scope_project_id = current_scope().project_id
-        if scope_project_id:
-            headers["project_id"] = str(scope_project_id)
-    except Exception:
-        pass  # Scope not bound or not applicable — task runs without project context
+            scope_project_id = current_scope().project_id
+        except Exception:
+            pass
+    if scope_project_id:
+        headers["project_id"] = str(scope_project_id)
 
     apply_kwargs: Dict[str, Any] = dict(args=args, kwargs=kwargs)
     if headers:
