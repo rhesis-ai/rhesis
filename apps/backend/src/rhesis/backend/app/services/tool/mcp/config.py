@@ -43,10 +43,6 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
             f"Tool '{tool_id}' not found. Please add it in /integrations/tools"
         )
 
-    # Verify tool type supports MCP
-    if tool.tool_type.type_value not in ("mcp", "hybrid"):
-        raise MCPConfigurationError(f"Tool '{tool.name}' does not support MCP")
-
     # Get provider name for the client
     provider = tool.tool_provider_type.type_value
 

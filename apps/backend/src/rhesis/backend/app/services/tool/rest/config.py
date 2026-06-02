@@ -19,10 +19,8 @@ def get_rest_source(
 ) -> Union[NotionSource, GitHubSource]:
     """Resolve a REST-capable tool to its source implementation.
 
-    Valid for tools with tool_type 'api' or 'hybrid'.
-
     Raises:
-        MCPConfigurationError: If tool not found, deleted, or does not support REST.
+        MCPConfigurationError: If tool not found, deleted, or no REST implementation exists.
     """
     try:
         tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
@@ -35,9 +33,6 @@ def get_rest_source(
         raise MCPConfigurationError(
             f"Tool '{tool_id}' not found. Please add it in /integrations/tools"
         )
-
-    if tool.tool_type.type_value not in ("api", "hybrid"):
-        raise MCPConfigurationError(f"Tool '{tool.name}' does not support REST")
 
     try:
         credentials = json.loads(tool.credentials)

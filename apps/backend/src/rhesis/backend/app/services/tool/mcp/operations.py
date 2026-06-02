@@ -146,7 +146,8 @@ async def extract_mcp(
         if not tool:
             raise ValueError(f"Tool '{tool_id}' not found")
 
-        if tool.tool_type.type_value == "hybrid":
+        REST_CAPABLE = {"notion", "github"}
+        if tool.tool_provider_type.type_value in REST_CAPABLE:
             source = get_rest_source(db, tool_id, ctx.organization_id, ctx.user_id)
             identifier = item_id or item_url
             docs = await source.fetch_all(identifier, include_children=include_children)
