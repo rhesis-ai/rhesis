@@ -59,12 +59,10 @@ type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Queued', value: 'Queued' },
   { label: 'In Progress', value: 'Progress' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Partial', value: 'Partial' },
   { label: 'Failed', value: 'Failed' },
-  { label: 'Cancelled', value: 'Cancelled' },
 ];
 
 // ── Toolbar context ──────────────────────────────────────────────────────────
