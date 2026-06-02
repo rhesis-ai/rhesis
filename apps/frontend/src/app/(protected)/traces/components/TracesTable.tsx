@@ -50,7 +50,11 @@ const TracesToolbarContext = React.createContext<TracesToolbarState>({
   hasActiveDrawerFilters: false,
 });
 
-function TracesUnifiedToolbar() {
+function TracesUnifiedToolbar({
+  hideTypeFilter,
+}: {
+  hideTypeFilter?: boolean;
+}) {
   const {
     searchQuery,
     setSearchQuery,
@@ -68,11 +72,13 @@ function TracesUnifiedToolbar() {
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
       middleContent={
-        <ToolbarPillTabs
-          tabs={PILL_TABS}
-          activeValue={typeFilter}
-          onChange={setTypeFilter}
-        />
+        hideTypeFilter ? undefined : (
+          <ToolbarPillTabs
+            tabs={PILL_TABS}
+            activeValue={typeFilter}
+            onChange={setTypeFilter}
+          />
+        )
       }
       rightContent={
         <>
@@ -104,6 +110,7 @@ interface TracesTableProps {
   onFilterDrawerOpen: () => void;
   onFilterDrawerClose: () => void;
   sessionToken: string;
+  fixedTestRunId?: string;
 }
 
 export default function TracesTable({
@@ -125,8 +132,12 @@ export default function TracesTable({
   onFilterDrawerOpen,
   onFilterDrawerClose,
   sessionToken,
+  fixedTestRunId,
 }: TracesTableProps) {
-  const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters);
+  const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
+    testRunScope: Boolean(fixedTestRunId),
+    excludeTestRunId: Boolean(fixedTestRunId),
+  });
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -400,7 +411,9 @@ export default function TracesTable({
         pageSizeOptions={[25, 50, 100]}
         disablePaperWrapper
         showToolbar
-        toolbarSlot={TracesUnifiedToolbar}
+        toolbarSlot={() => (
+          <TracesUnifiedToolbar hideTypeFilter={Boolean(fixedTestRunId)} />
+        )}
         persistState
         storageKey="traces-grid"
         sx={{
@@ -420,6 +433,7 @@ export default function TracesTable({
         filters={drawerFilters}
         onApply={onApplyDrawerFilters}
         sessionToken={sessionToken}
+        fixedTestRunId={fixedTestRunId}
       />
     </TracesToolbarContext.Provider>
   );

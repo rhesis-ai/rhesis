@@ -9,6 +9,7 @@ import { TestRunStatsAll } from '@/utils/api-client/interfaces/test-run-stats';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import TestRunHeader from './TestRunHeader';
+import TestRunTags from './TestRunTags';
 
 interface TestRunStatsTabProps {
   testRun: TestRunDetail;
@@ -285,6 +286,8 @@ export default function TestRunStatsTab({
           )}
         </Grid>
       )}
+
+      <TestRunTags sessionToken={sessionToken} testRun={testRun} />
     </Box>
   );
 }

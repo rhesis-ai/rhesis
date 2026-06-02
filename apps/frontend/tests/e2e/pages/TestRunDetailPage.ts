@@ -36,7 +36,7 @@ export class TestRunDetailPage extends BasePage {
    * The test run detail always renders either a populated grid or a message.
    */
   async goToLinkedEntitiesTab() {
-    const tab = this.page.getByRole('tab', { name: /linked entities/i });
+    const tab = this.page.getByRole('tab', { name: /test cases/i });
     if (await tab.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await tab.click();
       await this.page.waitForLoadState('networkidle');

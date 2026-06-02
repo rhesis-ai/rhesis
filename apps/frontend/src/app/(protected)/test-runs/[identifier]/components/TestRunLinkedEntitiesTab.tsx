@@ -2,9 +2,11 @@
 
 import React from 'react';
 import { Paper } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsTableView from './TestsTableView';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface TestRunLinkedEntitiesTabProps {
   filteredTests: TestResultDetail[];
@@ -74,7 +76,24 @@ export default function TestRunLinkedEntitiesTab({
   metricsSource,
 }: TestRunLinkedEntitiesTabProps) {
   return (
-    <>
+    <Paper
+      elevation={0}
+      sx={{
+        p: '30px',
+        borderRadius: BORDER_RADIUS.md,
+        boxShadow: (theme: Theme) =>
+          theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
+        border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+        bgcolor: (theme: Theme) =>
+          theme.palette.mode === 'light'
+            ? '#ffffff'
+            : theme.palette.greyscale.surface1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '30px',
+        minWidth: 0,
+      }}
+    >
       <TestRunFilterBar
         filter={filter}
         onFilterChange={onFilterChange}
@@ -92,33 +111,24 @@ export default function TestRunLinkedEntitiesTab({
         hideViewModeToggle
       />
 
-      <Paper
-        elevation={0}
-        sx={{
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 2,
-          overflow: 'hidden',
-        }}
-      >
-        <TestsTableView
-          tests={filteredTests}
-          prompts={prompts}
-          behaviors={behaviors}
-          testRunId={testRunId}
-          sessionToken={sessionToken}
-          loading={loading}
-          onTestResultUpdate={onTestResultUpdate}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          currentUserPicture={currentUserPicture}
-          initialSelectedTestId={initialSelectedTestId}
-          testSetType={testSetType}
-          project={project}
-          projectName={projectName}
-          metricsSource={metricsSource}
-        />
-      </Paper>
-    </>
+      <TestsTableView
+        tests={filteredTests}
+        prompts={prompts}
+        behaviors={behaviors}
+        testRunId={testRunId}
+        sessionToken={sessionToken}
+        loading={loading}
+        onTestResultUpdate={onTestResultUpdate}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserPicture={currentUserPicture}
+        initialSelectedTestId={initialSelectedTestId}
+        testSetType={testSetType}
+        project={project}
+        projectName={projectName}
+        metricsSource={metricsSource}
+        embedded
+      />
+    </Paper>
   );
 }

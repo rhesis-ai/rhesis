@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -42,9 +43,15 @@ export default async function TestRunComparePage({
   const testResultsClient = apiFactory.getTestResultsClient();
   const behaviorClient = apiFactory.getBehaviorClient();
 
-  const testRun = await testRunsClient
-    .getTestRun(identifier)
-    .catch(() => notFound());
+  let testRun;
+  try {
+    testRun = await testRunsClient.getTestRun(identifier);
+  } catch (error) {
+    if (isNotFoundApiError(error)) {
+      notFound();
+    }
+    throw error;
+  }
 
   let testResults: TestResultDetail[] = [];
   let skip = 0;

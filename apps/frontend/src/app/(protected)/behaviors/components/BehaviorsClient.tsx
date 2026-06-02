@@ -5,7 +5,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -23,7 +22,7 @@ import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
@@ -534,7 +533,7 @@ export default function BehaviorsClient({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create behavior"
             aria-label="Create behavior"
             onClick={handleAddNewBehavior}

@@ -4,10 +4,9 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PlayArrowIcon } from '@/components/icons';
 import TestRunsGrid from './components/TestRunsGrid';
@@ -82,7 +81,7 @@ export default function TestRunsPage() {
         actions={
           <FabGroup>
             <Fab
-              icon={<AddIcon />}
+              icon={<FabAddIcon />}
               tooltip="New Test Run"
               onClick={() => setCreateDrawerOpen(true)}
             />

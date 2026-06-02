@@ -4,9 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -385,7 +384,7 @@ export default function ModelsPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Add model"
             aria-label="Add model"
             onClick={handleFabClick}

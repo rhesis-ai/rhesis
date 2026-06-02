@@ -8,30 +8,26 @@ import {
   ButtonGroup,
   InputAdornment,
   Badge,
-  Popover,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
-  Typography,
-  Divider,
   useTheme,
-  Chip,
-  Stack,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import DownloadIcon from '@mui/icons-material/Download';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
 import ListIcon from '@mui/icons-material/List';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import TableRowsIcon from '@mui/icons-material/TableRows';
-import RateReviewIcon from '@mui/icons-material/RateReview';
-import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
-import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ReplayIcon from '@mui/icons-material/Replay';
+import GridToolbar, {
+  PrimarySegmentedPills,
+} from '@/components/common/GridToolbar';
+import TestRunDetailFilterDrawer, {
+  extractDetailDrawerFilters,
+  hasActiveTestRunDetailDrawerFilters,
+  type TestRunDetailDrawerFilters,
+} from './TestRunDetailFilterDrawer';
 
 export interface FilterState {
   searchQuery: string;
@@ -86,14 +82,7 @@ export default function TestRunFilterBar({
   const showHeaderActions = variant !== 'linkedEntities';
   const showViewMode = !hideViewModeToggle && onViewModeChange;
   const theme = useTheme();
-  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
-  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleFilterClose = () => {
-    setAnchorEl(null);
-  };
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     onFilterChange({
@@ -109,97 +98,76 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleBehaviorToggle = (behaviorId: string) => {
-    const newBehaviors = filter.selectedBehaviors.includes(behaviorId)
-      ? filter.selectedBehaviors.filter(id => id !== behaviorId)
-      : [...filter.selectedBehaviors, behaviorId];
-
+  const handleDrawerApply = (drawerFilters: TestRunDetailDrawerFilters) => {
     onFilterChange({
       ...filter,
-      selectedBehaviors: newBehaviors,
+      ...drawerFilters,
     });
   };
 
-  const _handleClearBehaviors = () => {
-    onFilterChange({
-      ...filter,
-      selectedBehaviors: [],
-    });
-  };
+  const drawerFilters = extractDetailDrawerFilters(filter);
+  const hasActiveDrawerFilters =
+    hasActiveTestRunDetailDrawerFilters(drawerFilters);
 
-  const handleOverruleFilterChange = (
-    overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting'
-  ) => {
-    onFilterChange({
-      ...filter,
-      overruleFilter,
-    });
-  };
+  const advancedFilterDrawer = (
+    <TestRunDetailFilterDrawer
+      open={filterDrawerOpen}
+      onClose={() => setFilterDrawerOpen(false)}
+      filters={drawerFilters}
+      availableBehaviors={availableBehaviors}
+      availableMetrics={availableMetrics}
+      onApply={handleDrawerApply}
+    />
+  );
 
-  const handleMetricToggle = (metricName: string) => {
-    const newMetrics = filter.selectedMetrics.includes(metricName)
-      ? filter.selectedMetrics.filter(name => name !== metricName)
-      : [...filter.selectedMetrics, metricName];
-
-    onFilterChange({
-      ...filter,
-      selectedMetrics: newMetrics,
-    });
-  };
-
-  const handleCommentFilterChange = (
-    commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range'
-  ) => {
-    onFilterChange({
-      ...filter,
-      commentFilter,
-    });
-  };
-
-  const _handleCommentRangeChange = (range: { min: number; max: number }) => {
-    onFilterChange({
-      ...filter,
-      commentCountRange: range,
-    });
-  };
-
-  const handleTaskFilterChange = (
-    taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range'
-  ) => {
-    onFilterChange({
-      ...filter,
-      taskFilter,
-    });
-  };
-
-  const _handleTaskRangeChange = (range: { min: number; max: number }) => {
-    onFilterChange({
-      ...filter,
-      taskCountRange: range,
-    });
-  };
-
-  const handleClearAllFilters = () => {
-    onFilterChange({
-      ...filter,
-      selectedBehaviors: [],
-      overruleFilter: 'all',
-      selectedMetrics: [],
-      commentFilter: 'all',
-      taskFilter: 'all',
-    });
-  };
-
-  const activeFilterCount =
-    filter.selectedBehaviors.length +
-    (filter.statusFilter !== 'all' ? 1 : 0) +
-    (filter.overruleFilter !== 'all' ? 1 : 0) +
-    filter.selectedMetrics.length +
-    (filter.commentFilter !== 'all' ? 1 : 0) +
-    (filter.taskFilter !== 'all' ? 1 : 0);
-
-  const hasActiveFilters = activeFilterCount > 0;
-  const open = Boolean(anchorEl);
+  if (variant === 'linkedEntities') {
+    return (
+      <>
+        <GridToolbar
+          searchQuery={filter.searchQuery}
+          onSearchChange={value =>
+            onFilterChange({ ...filter, searchQuery: value })
+          }
+          searchPlaceholder="Search tests..."
+          searchWidth={288}
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          hasActiveFilters={hasActiveDrawerFilters}
+          sx={{
+            px: 0,
+            py: 0,
+            minHeight: 'auto',
+            gap: 2.5,
+            width: '100%',
+            flexWrap: { xs: 'wrap', lg: 'nowrap' },
+            justifyContent: 'space-between',
+          }}
+          middleContent={
+            <PrimarySegmentedPills
+              mode="single"
+              tabs={[
+                { value: 'all', label: 'All' },
+                {
+                  value: 'passed',
+                  label: 'Passed',
+                  icon: <CheckCircleOutlineIcon />,
+                },
+                {
+                  value: 'failed',
+                  label: 'Failed',
+                  icon: <BlockOutlinedIcon />,
+                },
+              ]}
+              activeValue={filter.statusFilter}
+              onSingleChange={value =>
+                handleStatusFilterChange(value as 'all' | 'passed' | 'failed')
+              }
+            />
+          }
+        />
+        {advancedFilterDrawer}
+      </>
+    );
+  }
 
   return (
     <Box
@@ -212,7 +180,6 @@ export default function TestRunFilterBar({
         justifyContent: 'space-between',
       }}
     >
-      {/* Left side: Search and Filters */}
       <Box
         sx={{
           display: 'flex',
@@ -222,7 +189,6 @@ export default function TestRunFilterBar({
           alignItems: { xs: 'stretch', sm: 'center' },
         }}
       >
-        {/* Search */}
         <TextField
           size="small"
           placeholder="Search tests..."
@@ -238,7 +204,6 @@ export default function TestRunFilterBar({
           sx={{ minWidth: { xs: '100%', sm: 250 } }}
         />
 
-        {/* Status Filter Buttons */}
         <ButtonGroup size="small" variant="outlined">
           <Button
             onClick={() => handleStatusFilterChange('all')}
@@ -269,7 +234,7 @@ export default function TestRunFilterBar({
             variant={
               filter.statusFilter === 'failed' ? 'contained' : 'outlined'
             }
-            startIcon={<CancelOutlinedIcon fontSize="small" />}
+            startIcon={<BlockOutlinedIcon fontSize="small" />}
             sx={{
               ...(filter.statusFilter === 'failed' && {
                 backgroundColor: theme.palette.error.main,
@@ -283,22 +248,23 @@ export default function TestRunFilterBar({
           </Button>
         </ButtonGroup>
 
-        {/* Behavior Filter */}
-        {availableBehaviors.length > 0 && (
-          <Badge badgeContent={activeFilterCount} color="primary">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<FilterListIcon />}
-              onClick={handleFilterClick}
-            >
-              Filters
-            </Button>
-          </Badge>
-        )}
+        <Badge
+          badgeContent={hasActiveDrawerFilters ? ' ' : 0}
+          color="primary"
+          variant="dot"
+          invisible={!hasActiveDrawerFilters}
+        >
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FilterListIcon />}
+            onClick={() => setFilterDrawerOpen(true)}
+          >
+            Filters
+          </Button>
+        </Badge>
       </Box>
 
-      {/* Right side: View Mode and Actions */}
       <Box
         sx={{
           display: 'flex',
@@ -308,7 +274,6 @@ export default function TestRunFilterBar({
           alignItems: 'center',
         }}
       >
-        {/* View Mode Toggle */}
         {showViewMode && (
           <Box
             sx={{
@@ -374,351 +339,7 @@ export default function TestRunFilterBar({
         )}
       </Box>
 
-      {/* Advanced Filter Popover */}
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleFilterClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-        PaperProps={{
-          sx: {
-            p: 0,
-            width: 400,
-            maxHeight: 600,
-          },
-        }}
-      >
-        {/* Header */}
-        <Box
-          sx={{
-            p: 2,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Typography variant="subtitle1" fontWeight={600}>
-            Advanced Filters
-          </Typography>
-          {hasActiveFilters && (
-            <Button
-              size="small"
-              startIcon={<ClearAllIcon />}
-              onClick={handleClearAllFilters}
-              color="secondary"
-            >
-              Clear All
-            </Button>
-          )}
-        </Box>
-
-        {/* Content */}
-        <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
-          <Stack spacing={3}>
-            {/* Review Status */}
-            <Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
-              >
-                <RateReviewIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Review Status
-                </Typography>
-              </Box>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Chip
-                  label="All"
-                  size="small"
-                  onClick={() => handleOverruleFilterChange('all')}
-                  color={
-                    filter.overruleFilter === 'all' ? 'primary' : 'default'
-                  }
-                  variant={
-                    filter.overruleFilter === 'all' ? 'filled' : 'outlined'
-                  }
-                />
-                <Chip
-                  label="Reviewed"
-                  size="small"
-                  onClick={() => handleOverruleFilterChange('overruled')}
-                  color={
-                    filter.overruleFilter === 'overruled'
-                      ? 'primary'
-                      : 'default'
-                  }
-                  variant={
-                    filter.overruleFilter === 'overruled'
-                      ? 'filled'
-                      : 'outlined'
-                  }
-                />
-                <Chip
-                  label="Not Reviewed"
-                  size="small"
-                  onClick={() => handleOverruleFilterChange('original')}
-                  color={
-                    filter.overruleFilter === 'original' ? 'primary' : 'default'
-                  }
-                  variant={
-                    filter.overruleFilter === 'original' ? 'filled' : 'outlined'
-                  }
-                />
-                <Chip
-                  label="Conflicting"
-                  size="small"
-                  onClick={() => handleOverruleFilterChange('conflicting')}
-                  color={
-                    filter.overruleFilter === 'conflicting'
-                      ? 'warning'
-                      : 'default'
-                  }
-                  variant={
-                    filter.overruleFilter === 'conflicting'
-                      ? 'filled'
-                      : 'outlined'
-                  }
-                />
-              </Stack>
-            </Box>
-
-            <Divider />
-
-            {/* Activity Filters */}
-            <Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
-              >
-                <CommentOutlinedIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Activity
-                </Typography>
-              </Box>
-
-              {/* Comments */}
-              <Box sx={{ mb: 2 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    mb: 1,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Comments
-                  </Typography>
-                  <ButtonGroup size="small" variant="outlined">
-                    <Button
-                      onClick={() => handleCommentFilterChange('all')}
-                      variant={
-                        filter.commentFilter === 'all'
-                          ? 'contained'
-                          : 'outlined'
-                      }
-                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
-                    >
-                      All
-                    </Button>
-                    <Button
-                      onClick={() => handleCommentFilterChange('with_comments')}
-                      variant={
-                        filter.commentFilter === 'with_comments'
-                          ? 'contained'
-                          : 'outlined'
-                      }
-                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
-                    >
-                      With
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        handleCommentFilterChange('without_comments')
-                      }
-                      variant={
-                        filter.commentFilter === 'without_comments'
-                          ? 'contained'
-                          : 'outlined'
-                      }
-                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
-                    >
-                      Without
-                    </Button>
-                  </ButtonGroup>
-                </Box>
-              </Box>
-
-              {/* Tasks */}
-              <Box>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    mb: 1,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Tasks
-                  </Typography>
-                  <ButtonGroup size="small" variant="outlined">
-                    <Button
-                      onClick={() => handleTaskFilterChange('all')}
-                      variant={
-                        filter.taskFilter === 'all' ? 'contained' : 'outlined'
-                      }
-                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
-                    >
-                      All
-                    </Button>
-                    <Button
-                      onClick={() => handleTaskFilterChange('with_tasks')}
-                      variant={
-                        filter.taskFilter === 'with_tasks'
-                          ? 'contained'
-                          : 'outlined'
-                      }
-                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
-                    >
-                      With
-                    </Button>
-                    <Button
-                      onClick={() => handleTaskFilterChange('without_tasks')}
-                      variant={
-                        filter.taskFilter === 'without_tasks'
-                          ? 'contained'
-                          : 'outlined'
-                      }
-                      sx={{ fontSize: '0.75rem', px: 1.5, py: 0.5 }}
-                    >
-                      Without
-                    </Button>
-                  </ButtonGroup>
-                </Box>
-              </Box>
-            </Box>
-
-            <Divider />
-
-            {/* Metrics */}
-            {availableMetrics && availableMetrics.length > 0 && (
-              <>
-                <Box>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mb: 1.5,
-                    }}
-                  >
-                    <AssessmentOutlinedIcon fontSize="small" color="action" />
-                    <Typography variant="subtitle2" fontWeight={600}>
-                      Metrics
-                    </Typography>
-                    {filter.selectedMetrics.length > 0 && (
-                      <Chip
-                        label={filter.selectedMetrics.length}
-                        size="small"
-                        color="primary"
-                        sx={{
-                          height: 20,
-                          fontSize: theme => theme.typography.caption.fontSize,
-                          '& .MuiChip-label': {
-                            fontSize: 'inherit',
-                          },
-                        }}
-                      />
-                    )}
-                  </Box>
-                  <FormGroup>
-                    {availableMetrics.map(metric => (
-                      <FormControlLabel
-                        key={metric.name}
-                        control={
-                          <Checkbox
-                            checked={filter.selectedMetrics.includes(
-                              metric.name
-                            )}
-                            onChange={() => handleMetricToggle(metric.name)}
-                            size="small"
-                          />
-                        }
-                        label={
-                          <Typography variant="body2">{metric.name}</Typography>
-                        }
-                        sx={{ mb: 0.5 }}
-                      />
-                    ))}
-                  </FormGroup>
-                </Box>
-                <Divider />
-              </>
-            )}
-
-            {/* Behaviors */}
-            {availableBehaviors.length > 0 && (
-              <Box>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 1.5,
-                  }}
-                >
-                  <ListIcon fontSize="small" color="action" />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Behaviors
-                  </Typography>
-                  {filter.selectedBehaviors.length > 0 && (
-                    <Chip
-                      label={filter.selectedBehaviors.length}
-                      size="small"
-                      color="primary"
-                      sx={{
-                        height: 20,
-                        fontSize: theme => theme.typography.caption.fontSize,
-                        '& .MuiChip-label': {
-                          fontSize: 'inherit',
-                        },
-                      }}
-                    />
-                  )}
-                </Box>
-                <FormGroup>
-                  {availableBehaviors.map(behavior => (
-                    <FormControlLabel
-                      key={behavior.id}
-                      control={
-                        <Checkbox
-                          checked={filter.selectedBehaviors.includes(
-                            behavior.id
-                          )}
-                          onChange={() => handleBehaviorToggle(behavior.id)}
-                          size="small"
-                        />
-                      }
-                      label={
-                        <Typography variant="body2">{behavior.name}</Typography>
-                      }
-                      sx={{ mb: 0.5 }}
-                    />
-                  ))}
-                </FormGroup>
-              </Box>
-            )}
-          </Stack>
-        </Box>
-      </Popover>
+      {advancedFilterDrawer}
     </Box>
   );
 }

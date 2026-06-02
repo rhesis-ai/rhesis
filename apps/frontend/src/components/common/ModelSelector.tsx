@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -27,6 +28,10 @@ interface ModelSelectorProps {
   purpose?: ModelPurpose;
   disabled?: boolean;
   helperText?: string;
+  hideHelperText?: boolean;
+  /** Plain text in the closed select — matches Figma drawer dropdowns. */
+  compact?: boolean;
+  fieldSx?: SxProps<Theme>;
 }
 
 function ProviderIcon({ icon }: { icon?: string }) {
@@ -65,6 +70,9 @@ export default function ModelSelector({
   purpose,
   disabled = false,
   helperText,
+  hideHelperText = false,
+  compact = false,
+  fieldSx,
 }: ModelSelectorProps) {
   const theme = useTheme();
   const [models, setModels] = useState<Model[]>([]);
@@ -126,7 +134,7 @@ export default function ModelSelector({
 
   return (
     <Box>
-      <FormControl fullWidth disabled={disabled}>
+      <FormControl fullWidth disabled={disabled} sx={fieldSx}>
         <InputLabel shrink>{label}</InputLabel>
         <Select
           value={value}
@@ -134,6 +142,14 @@ export default function ModelSelector({
           onChange={e => onChange(e.target.value as string)}
           displayEmpty
           renderValue={selectedValue => {
+            if (compact) {
+              if (selectedValue === '') {
+                return defaultModelName ?? 'Default model';
+              }
+              const model = models.find(m => m.id === selectedValue);
+              return model?.name ?? String(selectedValue);
+            }
+
             if (selectedValue === '') {
               return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -192,7 +208,7 @@ export default function ModelSelector({
           )}
         </Select>
       </FormControl>
-      {effectiveHelperText && (
+      {effectiveHelperText && !hideHelperText && (
         <Typography
           variant="caption"
           color="text.secondary"

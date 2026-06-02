@@ -25,20 +25,44 @@ export const EMPTY_TRACE_DRAWER_FILTERS: TraceDrawerFilters = {
   timeRange: 'all',
 };
 
-export function hasActiveTraceDrawerFilters(f: TraceDrawerFilters): boolean {
+export function hasActiveTraceDrawerFilters(
+  f: TraceDrawerFilters,
+  options?: { excludeTestRunId?: boolean; testRunScope?: boolean }
+): boolean {
+  if (options?.testRunScope) {
+    return !!(f.traceMetricsStatus || f.testResultId || f.testId);
+  }
+
+  const filters = options?.excludeTestRunId
+    ? { ...f, testRunId: undefined }
+    : f;
   return !!(
-    f.projectId ||
-    f.endpointId ||
-    f.environment ||
-    f.traceSource ||
-    f.traceMetricsStatus ||
-    f.testRunId ||
-    f.testResultId ||
-    f.testId ||
-    f.startTimeBefore ||
-    (f.timeRange !== 'all' && f.timeRange !== 'custom') ||
-    (f.timeRange === 'custom' && f.startTimeAfter)
+    filters.projectId ||
+    filters.endpointId ||
+    filters.environment ||
+    filters.traceSource ||
+    filters.traceMetricsStatus ||
+    filters.testRunId ||
+    filters.testResultId ||
+    filters.testId ||
+    filters.startTimeBefore ||
+    (filters.timeRange !== 'all' && filters.timeRange !== 'custom') ||
+    (filters.timeRange === 'custom' && filters.startTimeAfter)
   );
+}
+
+/** Keep only filters meaningful when traces are scoped to a single test run. */
+export function sanitizeTraceDrawerFiltersForTestRunScope(
+  filters: TraceDrawerFilters,
+  testRunId: string
+): TraceDrawerFilters {
+  return {
+    timeRange: 'all',
+    testRunId,
+    traceMetricsStatus: filters.traceMetricsStatus,
+    testResultId: filters.testResultId,
+    testId: filters.testId,
+  };
 }
 
 export function timeRangeToStartTimeAfter(

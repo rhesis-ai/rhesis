@@ -6,6 +6,7 @@ import {
   getTestResultLabelWithReview,
   hasConflictingReview,
   hasExecutionError,
+  getTestEvaluationSummary,
 } from '../test-result-status';
 import {
   TestResultDetail,
@@ -405,6 +406,78 @@ describe('testResultStatus', () => {
       };
       expect(getTestResultStatusWithReview(test as TestResultDetail)).toBe(
         'Pass'
+      );
+    });
+  });
+
+  describe('getTestEvaluationSummary', () => {
+    it('prefers goal_evaluation reason', () => {
+      const test: Partial<TestResultDetail> = {
+        test_output: {
+          goal_evaluation: {
+            all_criteria_met: false,
+            confidence: 0.5,
+            reason: 'Goal not met due to missing confirmation.',
+            evidence: [],
+            criteria_evaluations: [],
+          },
+        } as TestResultDetail['test_output'],
+        test_metrics: {
+          metrics: {
+            'Goal Evaluation': createMetricResult(false),
+          },
+          execution_time: 1,
+        },
+      };
+
+      expect(getTestEvaluationSummary(test as TestResultDetail)).toBe(
+        'Goal not met due to missing confirmation.'
+      );
+    });
+
+    it('falls back to goal metric reason when goal_evaluation reason is empty', () => {
+      const test: Partial<TestResultDetail> = {
+        test_output: {
+          goal_evaluation: {
+            all_criteria_met: false,
+            confidence: 0.5,
+            reason: '',
+            evidence: [],
+            criteria_evaluations: [],
+          },
+        } as TestResultDetail['test_output'],
+        test_metrics: {
+          metrics: {
+            'Goal Achievement': {
+              ...createMetricResult(false),
+              reason: 'The assistant never confirmed the booking.',
+            },
+          },
+          execution_time: 1,
+        },
+      };
+
+      expect(getTestEvaluationSummary(test as TestResultDetail)).toBe(
+        'The assistant never confirmed the booking.'
+      );
+    });
+
+    it('uses failed metric reasons for single-turn tests', () => {
+      const test: Partial<TestResultDetail> = {
+        test_metrics: {
+          metrics: {
+            relevance: {
+              ...createMetricResult(false),
+              reason: 'Response was off-topic.',
+            },
+            safety: createMetricResult(true),
+          },
+          execution_time: 1,
+        },
+      };
+
+      expect(getTestEvaluationSummary(test as TestResultDetail)).toBe(
+        'Response was off-topic.'
       );
     });
   });

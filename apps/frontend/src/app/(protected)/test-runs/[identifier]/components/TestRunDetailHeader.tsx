@@ -1,18 +1,14 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Typography,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-} from '@mui/material';
+import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
-import DownloadIcon from '@mui/icons-material/Download';
-import ReplayIcon from '@mui/icons-material/Replay';
+import CompareArrowsOutlinedIcon from '@mui/icons-material/CompareArrowsOutlined';
+import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import { DownloadIcon } from '@/components/icons';
 import { formatDate } from '@/utils/date';
+import { getTestRunDisplayTimestamp } from '@/utils/test-run-utils';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
 interface TestRunDetailHeaderProps {
@@ -23,45 +19,6 @@ interface TestRunDetailHeaderProps {
   onRerun: () => void;
   isDownloading?: boolean;
   canRerun?: boolean;
-}
-
-function CircularActionButton({
-  title,
-  onClick,
-  disabled,
-  children,
-}: {
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Tooltip title={title}>
-      <span>
-        <IconButton
-          onClick={onClick}
-          disabled={disabled}
-          aria-label={title}
-          sx={{
-            width: 40,
-            height: 40,
-            bgcolor: 'primary.main',
-            color: 'primary.contrastText',
-            '&:hover': {
-              bgcolor: 'primary.dark',
-            },
-            '&.Mui-disabled': {
-              bgcolor: theme => theme.palette.action.disabledBackground,
-              color: theme => theme.palette.action.disabled,
-            },
-          }}
-        >
-          {children}
-        </IconButton>
-      </span>
-    </Tooltip>
-  );
 }
 
 export default function TestRunDetailHeader({
@@ -75,7 +32,7 @@ export default function TestRunDetailHeader({
 }: TestRunDetailHeaderProps) {
   const creatorName =
     testRun.user?.name || testRun.user?.email || 'Unknown user';
-  const createdOn = formatDate(testRun.created_at);
+  const createdOn = formatDate(getTestRunDisplayTimestamp(testRun));
 
   return (
     <Box
@@ -118,29 +75,28 @@ export default function TestRunDetailHeader({
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <CircularActionButton title="Compare runs" onClick={onCompare}>
-          <CompareArrowsIcon fontSize="small" />
-        </CircularActionButton>
-        <CircularActionButton
-          title="Download results"
+      <FabGroup>
+        <Fab
+          icon={<CompareArrowsOutlinedIcon />}
+          tooltip="Compare runs"
+          onClick={onCompare}
+          aria-label="Compare runs"
+        />
+        <Fab
+          icon={<DownloadIcon />}
+          tooltip="Download results"
           onClick={onDownload}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <CircularProgress size={20} color="inherit" />
-          ) : (
-            <DownloadIcon fontSize="small" />
-          )}
-        </CircularActionButton>
-        <CircularActionButton
-          title="Re-run test"
+          loading={isDownloading}
+          aria-label="Download results"
+        />
+        <Fab
+          icon={<RestartAltOutlinedIcon />}
+          tooltip="Re-run test"
           onClick={onRerun}
           disabled={!canRerun}
-        >
-          <ReplayIcon fontSize="small" />
-        </CircularActionButton>
-      </Box>
+          aria-label="Re-run test"
+        />
+      </FabGroup>
     </Box>
   );
 }

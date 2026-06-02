@@ -11,22 +11,36 @@ import {
   Button,
   TextField,
 } from '@mui/material';
-import ConstructionOutlinedIcon from '@mui/icons-material/ConstructionOutlined';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import TestRunDetailHeader from './TestRunDetailHeader';
 import TestRunConfigurationTab from './TestRunConfigurationTab';
 import TestRunStatsTab from './TestRunStatsTab';
 import TestRunLinkedEntitiesTab from './TestRunLinkedEntitiesTab';
-import RunDrawer from '@/components/common/RunDrawer';
+import TestRunTracesTab from './TestRunTracesTab';
+import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
 import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
+import { getTestEvaluationSummary } from '@/utils/test-result-status';
 
-const TAB_KEYS = ['configuration', 'stats', 'linked_entities', 'logs'] as const;
+const TAB_KEYS = [
+  'summary',
+  'linked_entities',
+  'configuration',
+  'traces',
+] as const;
 type TabKey = (typeof TAB_KEYS)[number];
+
+const TAB_LABELS: Record<TabKey, string> = {
+  summary: 'Summary',
+  configuration: 'Configuration',
+  linked_entities: 'Test Cases',
+  traces: 'Traces',
+};
 
 function tabIndexFromKey(
   key: string | null,
@@ -34,6 +48,12 @@ function tabIndexFromKey(
 ): number {
   if (key === 'results') {
     return TAB_KEYS.indexOf('linked_entities');
+  }
+  if (key === 'stats') {
+    return TAB_KEYS.indexOf('summary');
+  }
+  if (key === 'logs') {
+    return TAB_KEYS.indexOf('traces');
   }
   const idx = TAB_KEYS.indexOf(key as TabKey);
   if (idx >= 0) return idx;
@@ -69,16 +89,6 @@ interface TestRunMainViewProps {
   };
   testRun: TestRunDetail;
   sessionToken: string;
-  testResults: TestResultDetail[];
-  prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    metrics: Array<{ name: string; description?: string }>;
-  }>;
-  availableMetrics: string[];
-  loading?: boolean;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -90,11 +100,6 @@ export default function TestRunMainView({
   testRunData: _testRunData,
   testRun,
   sessionToken,
-  testResults: initialTestResults,
-  prompts,
-  behaviors,
-  availableMetrics,
-  loading = false,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -103,6 +108,18 @@ export default function TestRunMainView({
   const notifications = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const {
+    testResults: loadedTestResults,
+    prompts,
+    behaviors,
+    availableMetrics,
+    loading,
+    error: loadError,
+  } = useTestRunDetailData({
+    testRunId,
+    sessionToken,
+  });
 
   const preferLinkedEntities = Boolean(initialSelectedTestId);
   const activeTab = tabIndexFromKey(
@@ -142,11 +159,11 @@ export default function TestRunMainView({
   });
 
   const testResults = useMemo(() => {
-    if (testResultUpdates.size === 0) return initialTestResults;
-    return initialTestResults.map(
+    if (testResultUpdates.size === 0) return loadedTestResults;
+    return loadedTestResults.map(
       test => testResultUpdates.get(test.id) || test
     );
-  }, [initialTestResults, testResultUpdates]);
+  }, [loadedTestResults, testResultUpdates]);
 
   const filteredTests = useMemo(() => {
     let filtered = [...testResults];
@@ -161,11 +178,11 @@ export default function TestRunMainView({
         ).toLowerCase();
         const goalContent =
           test.test_output?.test_configuration?.goal?.toLowerCase() || '';
-        const responseContent = test.test_output?.output?.toLowerCase() || '';
+        const evaluationContent = getTestEvaluationSummary(test).toLowerCase();
         return (
           promptContent.includes(query) ||
           goalContent.includes(query) ||
-          responseContent.includes(query)
+          evaluationContent.includes(query)
         );
       });
     }
@@ -369,10 +386,7 @@ export default function TestRunMainView({
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
-    label:
-      key === 'linked_entities'
-        ? 'Linked entities'
-        : key.charAt(0).toUpperCase() + key.slice(1),
+    label: TAB_LABELS[key],
     id: `test-run-tab-${index}`,
     'aria-controls': `test-run-tabpanel-${index}`,
   }));
@@ -381,6 +395,12 @@ export default function TestRunMainView({
 
   return (
     <Box>
+      {loadError && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {loadError}
+        </Typography>
+      )}
+
       <TestRunDetailHeader
         testRun={testRun}
         onRename={handleRenameOpen}
@@ -436,13 +456,6 @@ export default function TestRunMainView({
       />
 
       <TabPanel value={activeTab} index={0}>
-        <TestRunConfigurationTab
-          testRun={testRun}
-          sessionToken={sessionToken}
-        />
-      </TabPanel>
-
-      <TabPanel value={activeTab} index={1}>
         <TestRunStatsTab
           testRun={testRun}
           testRunId={testRunId}
@@ -453,7 +466,7 @@ export default function TestRunMainView({
         />
       </TabPanel>
 
-      <TabPanel value={activeTab} index={2}>
+      <TabPanel value={activeTab} index={1}>
         <TestRunLinkedEntitiesTab
           filteredTests={filteredTests}
           filter={filter}
@@ -486,31 +499,21 @@ export default function TestRunMainView({
         />
       </TabPanel>
 
-      <TabPanel value={activeTab} index={3}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 10,
-            gap: 2,
-            color: 'text.secondary',
-          }}
-        >
-          <ConstructionOutlinedIcon sx={{ fontSize: 48, opacity: 0.4 }} />
-          <Typography variant="h6" color="text.secondary">
-            Logs coming soon
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Execution logs will be available here once the backend endpoint is
-            ready.
-          </Typography>
-        </Box>
+      <TabPanel value={activeTab} index={2}>
+        <TestRunConfigurationTab testRun={testRun} />
       </TabPanel>
 
-      <RunDrawer
-        mode="rerunTestRun"
+      <TabPanel value={activeTab} index={3}>
+        <TestRunTracesTab
+          testRunId={testRunId}
+          sessionToken={sessionToken}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+        />
+      </TabPanel>
+
+      <RerunTestRunDrawer
         open={isRerunDrawerOpen}
         onClose={() => setIsRerunDrawerOpen(false)}
         data={{

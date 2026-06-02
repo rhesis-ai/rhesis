@@ -17,8 +17,7 @@ import ProjectFilterDrawer, {
   EMPTY_FILTERS,
   hasActiveProjectFilters,
 } from './ProjectFilterDrawer';
-import AddIcon from '@mui/icons-material/Add';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -200,7 +199,7 @@ export default function ProjectsClientWrapper({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create project"
             aria-label="Create project"
             data-tour="create-project-button"

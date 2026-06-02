@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   directoryToolbarSx,
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -194,7 +193,7 @@ export default function MCPSPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Add MCP connection"
             aria-label="Add MCP connection"
             onClick={() => setConnectionDrawerOpen(true)}

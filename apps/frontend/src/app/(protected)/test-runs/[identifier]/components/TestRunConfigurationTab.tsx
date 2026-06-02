@@ -1,31 +1,51 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Grid,
-  Chip,
-  Switch,
-  FormControlLabel,
-  Typography,
-} from '@mui/material';
-import { SectionCard } from '@/components/common/SectionCard';
+import { Box, Chip, Grid, Paper, Switch, Typography } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import ViewField from '@/components/common/ViewField';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import {
   getMetricsSourceLabel,
   type ExecutionMetric,
 } from '@/utils/api-client/interfaces/test-configuration';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import TestRunTags from './TestRunTags';
 
 interface TestRunConfigurationTabProps {
   testRun: TestRunDetail;
-  sessionToken: string;
 }
+
+const combinedCardSx = {
+  p: '30px',
+  borderRadius: BORDER_RADIUS.md,
+  boxShadow: (theme: Theme) =>
+    theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
+  bgcolor: (theme: Theme) =>
+    theme.palette.mode === 'light'
+      ? '#ffffff'
+      : theme.palette.greyscale.surface1,
+  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '50px',
+} as const;
+
+const sectionSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '20px',
+} as const;
+
+const fieldsSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '30px',
+  width: '100%',
+} as const;
 
 export default function TestRunConfigurationTab({
   testRun,
-  sessionToken,
 }: TestRunConfigurationTabProps) {
   const config = testRun.test_configuration;
   const attrs = config?.attributes as Record<string, unknown> | undefined;
@@ -44,84 +64,98 @@ export default function TestRunConfigurationTab({
     (attrs?.run_preflight_checks as boolean | undefined) ?? true;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <SectionCard title="Execution Target">
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ViewField label="Test Set" value={config?.test_set?.name ?? '—'} />
+    <Paper elevation={0} sx={combinedCardSx}>
+      <Box sx={sectionSx}>
+        <FormSectionDivider headline="Execution Target" />
+        <Box sx={fieldsSx}>
+          <Grid container spacing="30px">
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <ViewField label="Test Set" value={config?.test_set?.name} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <ViewField
+                label="Project"
+                value={config?.endpoint?.project?.name}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <ViewField label="Endpoint" value={config?.endpoint?.name} />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ViewField
-              label="Project"
-              value={config?.endpoint?.project?.name ?? '—'}
-            />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <ViewField label="Endpoint" value={config?.endpoint?.name ?? '—'} />
-          </Grid>
-        </Grid>
-      </SectionCard>
+        </Box>
+      </Box>
 
-      <SectionCard title="Configuration Options">
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ViewField label="Execution Mode" value={executionMode ?? '—'} />
+      <Box sx={sectionSx}>
+        <FormSectionDivider headline="Configuration Options" />
+        <Box sx={fieldsSx}>
+          <Grid container spacing="30px">
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <ViewField label="Execution Mode" value={executionMode} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <ViewField label="Scoring Target" value={scoringTarget} />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ViewField label="Scoring Target" value={scoringTarget} />
-          </Grid>
-        </Grid>
-      </SectionCard>
+        </Box>
+      </Box>
 
-      <SectionCard title="Test Run Metrics">
-        <ViewField
-          label="Metric Source"
-          value={metricsSource ? getMetricsSourceLabel(metricsSource) : '—'}
-        />
-        {execMetrics.length > 0 && (
-          <Box sx={{ mt: 2 }}>
+      <Box sx={sectionSx}>
+        <FormSectionDivider headline="Test Run Metrics" />
+        <Box sx={fieldsSx}>
+          <ViewField
+            label="Metric Source"
+            value={
+              metricsSource ? getMetricsSourceLabel(metricsSource) : undefined
+            }
+          />
+          {execMetrics.length > 0 && (
+            <Box>
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  lineHeight: '22px',
+                  color: theme => theme.palette.greyscale.subtitle,
+                  px: '14px',
+                  mb: '6px',
+                }}
+              >
+                Metrics
+              </Typography>
+              <Box
+                sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, px: '14px' }}
+              >
+                {execMetrics.map(m => (
+                  <Chip
+                    key={m.id}
+                    label={m.name}
+                    size="small"
+                    variant="outlined"
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      <Box sx={sectionSx}>
+        <FormSectionDivider headline="Model Settings" />
+        <Box sx={fieldsSx}>
+          <ViewField label="Evaluation Model" value={evaluationModel} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Switch checked={preflightEnabled} disabled size="small" />
             <Typography
-              variant="body2"
               sx={{
-                fontSize: 14,
-                color: theme => theme.palette.greyscale.subtitle,
-                px: '14px',
-                mb: '6px',
+                fontSize: 16,
+                lineHeight: '24px',
+                color: theme => theme.palette.greyscale.title,
               }}
             >
-              Metrics
+              Run Preflight Checks
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, px: '14px' }}>
-              {execMetrics.map(m => (
-                <Chip
-                  key={m.id}
-                  label={m.name}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-            </Box>
           </Box>
-        )}
-      </SectionCard>
-
-      <SectionCard title="Model Settings">
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12 }}>
-            <ViewField label="Evaluation Model" value={evaluationModel} />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <FormControlLabel
-              control={<Switch checked={preflightEnabled} disabled />}
-              label="Run Preflight Checks"
-            />
-          </Grid>
-        </Grid>
-      </SectionCard>
-
-      <SectionCard title="Test Run Tags">
-        <TestRunTags sessionToken={sessionToken} testRun={testRun} />
-      </SectionCard>
-    </Box>
+        </Box>
+      </Box>
+    </Paper>
   );
 }
