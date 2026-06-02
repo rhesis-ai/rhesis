@@ -287,8 +287,6 @@ export default function TestResultDrawer({
         {/* Tabs Header */}
         <Box
           sx={{
-            borderBottom: 1,
-            borderColor: 'divider',
             backgroundColor: theme.palette.background.paper,
             position: 'sticky',
             top: 0,
@@ -462,15 +460,13 @@ export default function TestResultDrawer({
         <Box
           sx={{
             flexShrink: 0,
-            borderTop: 1,
-            borderColor: 'divider',
             px: 2,
             py: 2,
             bgcolor: 'background.paper',
           }}
         >
           <Stack direction="row" spacing={2} justifyContent="flex-end">
-            <Button variant="contained" onClick={onClose}>
+            <Button variant="outlined" onClick={onClose}>
               Close
             </Button>
           </Stack>

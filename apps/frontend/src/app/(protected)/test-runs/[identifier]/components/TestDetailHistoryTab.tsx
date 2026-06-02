@@ -10,7 +10,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   CircularProgress,
   Alert,
@@ -183,177 +182,253 @@ export default function TestDetailHistoryTab({
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-        Test Execution History
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Last 10 test runs where this test was executed
-      </Typography>
+      {/* Summary Statistics */}
+      {history.length > 0 && (
+        <Box sx={{ display: 'flex', gap: '26px', mb: 3 }}>
+          {[
+            {
+              label: 'Total Executions',
+              value: history.length,
+              color: '#1a1c20',
+            },
+            {
+              label: 'Pass Rate',
+              value: `${((history.filter(h => h.passed).length / history.length) * 100).toFixed(1)}%`,
+              color:
+                history.filter(h => h.passed).length / history.length >= 0.8
+                  ? '#38ad87'
+                  : '#de3355',
+            },
+            {
+              label: 'Passed',
+              value: history.filter(h => h.passed).length,
+              color: '#38ad87',
+            },
+            {
+              label: 'Failed',
+              value: history.filter(h => !h.passed).length,
+              color: '#de3355',
+            },
+          ].map(stat => (
+            <Box
+              key={stat.label}
+              sx={{
+                flex: 1,
+                bgcolor: '#f3f4f6',
+                borderRadius: '10px',
+                boxShadow: '0px 3px 5px rgba(0,0,0,0.09)',
+                p: '30px',
+                height: '140px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  lineHeight: '18px',
+                  color: '#1a1c20',
+                }}
+              >
+                {stat.label}
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: 36,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  color: stat.color,
+                }}
+              >
+                {stat.value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {history.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
+        <Box
+          sx={{
+            bgcolor: 'background.paper',
+            borderRadius: '12px',
+            border: '1px solid #cdd2da',
+            boxShadow: '0px 2px 4px rgba(84,90,101,0.25)',
+            p: 3,
+            textAlign: 'center',
+          }}
+        >
           <Typography variant="body2" color="text.secondary">
             No historical data available for this test
           </Typography>
-        </Paper>
+        </Box>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Status</TableCell>
-                <TableCell>Test Run</TableCell>
-                <TableCell>Metrics</TableCell>
-                <TableCell>Executed At</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {history.map(item => (
-                <TableRow
-                  key={item.id}
-                  sx={{
-                    backgroundColor:
-                      item.testRunId === testRunId
-                        ? theme.palette.action.selected
-                        : 'transparent',
-                    '&:hover': {
-                      backgroundColor: theme.palette.action.hover,
-                    },
-                  }}
-                >
-                  <TableCell>
-                    <StatusChip
-                      passed={item.passed}
-                      label={item.passed ? 'Pass' : 'Fail'}
-                      size="small"
-                      variant="filled"
-                      sx={{ minWidth: 80 }}
-                    />
+        <Box
+          sx={{
+            bgcolor: 'background.paper',
+            borderRadius: '12px',
+            border: '1px solid #cdd2da',
+            boxShadow: '0px 2px 4px rgba(84,90,101,0.25)',
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer>
+            <Table
+              sx={{
+                '& .MuiTableCell-root': {
+                  borderBottom: '1px solid #cdd2da',
+                  fontSize: 14,
+                  lineHeight: '22px',
+                  py: '13px',
+                  px: '12px',
+                  backgroundColor: '#ffffff',
+                },
+                '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root':
+                  {
+                    borderBottom: 'none',
+                  },
+                '& .MuiTableRow-root:hover .MuiTableCell-root': {
+                  backgroundColor: '#f9fafb',
+                },
+              }}
+            >
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
+                    Status
                   </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {item.testRunId !== 'unknown' ? (
-                        <Link
-                          href={`/test-runs/${item.testRunId}${test.test_id ? `?selectedresult=${test.test_id}` : ''}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ textDecoration: 'none' }}
-                          onClick={() => {}}
-                        >
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              '&:hover': {
-                                '& .test-run-name': {
-                                  color: theme.palette.primary.main,
-                                  textDecoration: 'underline',
-                                },
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              className="test-run-name"
-                              sx={{
-                                transition: 'color 0.2s',
-                                color:
-                                  item.testRunId === testRunId
-                                    ? 'primary.main'
-                                    : 'text.primary',
-                                fontWeight:
-                                  item.testRunId === testRunId ? 600 : 400,
-                              }}
-                            >
-                              {item.testRunName}
-                            </Typography>
-                            <OpenInNewIcon
-                              sx={{
-                                fontSize: 14,
-                                color: 'text.disabled',
-                              }}
-                            />
-                          </Box>
-                        </Link>
-                      ) : (
-                        <Typography variant="body2">
-                          {item.testRunName}
-                        </Typography>
-                      )}
-                      {item.testRunId === testRunId && (
-                        <Chip label="Current" size="small" color="primary" />
-                      )}
-                    </Box>
+                  <TableCell
+                    sx={{
+                      fontWeight: 700,
+                      color: '#2a2e36',
+                      borderLeft: '1px solid #cdd2da',
+                    }}
+                  >
+                    Test Run
                   </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {item.passedMetrics}/{item.totalMetrics} passed
-                    </Typography>
+                  <TableCell
+                    sx={{
+                      fontWeight: 700,
+                      color: '#2a2e36',
+                      borderLeft: '1px solid #cdd2da',
+                    }}
+                  >
+                    Metrics
                   </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(item.executedAt)}
-                    </Typography>
+                  <TableCell
+                    sx={{
+                      fontWeight: 700,
+                      color: '#2a2e36',
+                      borderLeft: '1px solid #cdd2da',
+                    }}
+                  >
+                    Executed At
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-
-      {/* Summary Statistics */}
-      {history.length > 0 && (
-        <Box sx={{ mt: 3 }}>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              Summary Statistics
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Total Executions
-                </Typography>
-                <Typography variant="h6">{history.length}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Pass Rate
-                </Typography>
-                <Typography
-                  variant="h6"
-                  color={
-                    history.filter(h => h.passed).length / history.length >= 0.8
-                      ? 'success.main'
-                      : 'error.main'
-                  }
-                >
-                  {(
-                    (history.filter(h => h.passed).length / history.length) *
-                    100
-                  ).toFixed(1)}
-                  %
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Passed
-                </Typography>
-                <Typography variant="h6" color="success.main">
-                  {history.filter(h => h.passed).length}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Failed
-                </Typography>
-                <Typography variant="h6" color="error.main">
-                  {history.filter(h => !h.passed).length}
-                </Typography>
-              </Box>
-            </Box>
-          </Paper>
+              </TableHead>
+              <TableBody>
+                {history.map(item => (
+                  <TableRow
+                    key={item.id}
+                    sx={{
+                      '&:hover .MuiTableCell-root': {
+                        bgcolor: '#f9fafb',
+                      },
+                    }}
+                  >
+                    <TableCell>
+                      <StatusChip
+                        passed={item.passed}
+                        label={item.passed ? 'Pass' : 'Fail'}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          borderColor: item.passed ? '#38ad87' : '#de3355',
+                          color: item.passed ? '#38ad87' : '#de3355',
+                          '& .MuiChip-icon': { color: 'inherit' },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        {item.testRunId !== 'unknown' ? (
+                          <Link
+                            href={`/test-runs/${item.testRunId}${test.test_id ? `?selectedresult=${test.test_id}` : ''}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ textDecoration: 'none' }}
+                            onClick={() => {}}
+                          >
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                '&:hover': {
+                                  '& .test-run-name': {
+                                    color: theme.palette.primary.main,
+                                    textDecoration: 'underline',
+                                  },
+                                },
+                              }}
+                            >
+                              <Typography
+                                className="test-run-name"
+                                sx={{
+                                  fontSize: 14,
+                                  lineHeight: '22px',
+                                  transition: 'color 0.2s',
+                                  color: '#2a2e36',
+                                  fontWeight:
+                                    item.testRunId === testRunId ? 600 : 400,
+                                }}
+                              >
+                                {item.testRunName}
+                              </Typography>
+                              <OpenInNewIcon
+                                sx={{ fontSize: 14, color: 'text.disabled' }}
+                              />
+                            </Box>
+                          </Link>
+                        ) : (
+                          <Typography
+                            sx={{
+                              fontSize: 14,
+                              lineHeight: '22px',
+                              color: '#2a2e36',
+                            }}
+                          >
+                            {item.testRunName}
+                          </Typography>
+                        )}
+                        {item.testRunId === testRunId && (
+                          <Chip
+                            label="Current"
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              borderColor: '#cdd2da',
+                              color: '#2a2e36',
+                              fontSize: 12,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ color: '#2a2e36' }}>
+                      {item.passedMetrics}/{item.totalMetrics} passed
+                    </TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>
+                      {formatDate(item.executedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Box>
       )}
     </Box>
