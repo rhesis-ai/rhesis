@@ -4,21 +4,31 @@ Ambient Request Scope for automatic tenant filtering and stamping.
 WHY THIS EXISTS
 ---------------
 Rather than threading (organization_id, user_id, project_id) through every router,
-service, CRUD helper, and Celery task, we bind this identity triple once per request
-into a ContextVar. Two SQLAlchemy event listeners in models/scope_events.py read it:
+service, CRUD helper, and Celery task, we carry this identity triple as ambient state
+that two SQLAlchemy event listeners in models/scope_events.py read:
 
 - auto_filter: adds WHERE organization_id=... (and project_id=...) to every SELECT
 - auto_stamp:  fills organization_id / user_id / project_id on INSERT when None
 
+WHERE THE SCOPE LIVES
+---------------------
+The listeners read the scope from Session.info['_scope'] first, falling back to the
+ContextVar below. Session.info is the authoritative source for DB-bound work because
+it is visible to the listeners no matter which thread issues the query (FastAPI runs
+sync deps in an anyio threadpool while async routes run in the event loop, so a
+ContextVar bound in the dep is not reliably visible to the handler's queries). The
+ContextVar is for callers that need ambient scope WITHOUT a DB session (e.g. explicit
+bind_scope() in scripts/tests).
+
 HOW TO USE
 ----------
 Normal flow (FastAPI):
-    The scope is bound automatically by get_db_with_tenant_variables() in database.py.
+    get_db_with_tenant_variables() stores the scope on Session.info automatically.
     Nothing extra to do in routers or CRUD.
 
 Normal flow (Celery):
-    BaseTask.get_db_session() routes through get_db_with_tenant_variables(), so scope
-    is bound for the lifetime of the task's DB session.
+    BaseTask.get_db_session() routes through get_db_with_tenant_variables(), so the
+    scope is stored on Session.info for the lifetime of the task's DB session.
 
 Admin / cross-org reads:
     with bypass_tenant_filter():
@@ -78,15 +88,23 @@ _tenant_filter_disabled: ContextVar[bool] = ContextVar("tenant_filter_disabled",
 
 
 def current_scope() -> RequestScope:
-    """Return the active RequestScope for the current async context."""
+    """
+    Return the ContextVar-bound RequestScope for the current context.
+
+    Note: for DB-bound work the listeners prefer Session.info['_scope'] over this
+    ContextVar (see module docstring). This returns the ContextVar value, which is
+    only populated by explicit bind_scope() callers (scripts/tests), not by the
+    normal FastAPI / Celery DB-session path.
+    """
     return _scope.get()
 
 
 def bind_scope(scope: RequestScope):
     """
-    Bind a RequestScope to the current context. Returns a token for reset_scope().
+    Bind a RequestScope to the ContextVar. Returns a token for reset_scope().
 
-    Called once by get_db_with_tenant_variables(); also callable in tests and scripts.
+    For scripts and tests that need ambient scope WITHOUT a DB session. The normal
+    request/Celery path does not use this — it stores scope on Session.info instead.
     """
     return _scope.set(scope)
 

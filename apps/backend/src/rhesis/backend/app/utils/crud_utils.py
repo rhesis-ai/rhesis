@@ -151,6 +151,16 @@ def _prepare_item_data(
     # This handles schema fields (e.g. project_id on Base) that are absent from
     # models like Organization, User, and Project itself.
     model_columns = set(inspect(model).columns.keys())
+    dropped_keys = [k for k in data if k not in model_columns]
+    if dropped_keys:
+        # Surfaced at debug level so an unexpected drop (e.g. a mistyped column or a
+        # relationship-style input like "tags"/"tests") is discoverable without
+        # changing behavior.
+        logger.debug(
+            "_prepare_item_data dropped non-column keys for %s: %s",
+            getattr(model, "__name__", model),
+            dropped_keys,
+        )
     data = {k: v for k, v in data.items() if k in model_columns}
 
     # Clean string fields

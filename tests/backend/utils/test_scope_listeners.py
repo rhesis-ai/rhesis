@@ -18,16 +18,19 @@ Coverage:
 - Auto-stamp no-ops when scope is unbound
 - Exempt models (User, Organization) bypass auto-filter
 - Bulk insert paths do NOT trigger auto-stamp (documented gap assertion)
+- Session.info scope path works with the ContextVar unbound (async-route regression guard)
 """
 
 import os
 import uuid
+from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.models.scope_events import _SESSION_SCOPE_KEY
 from rhesis.backend.app.scope import (
     RequestScope,
     bind_scope,
@@ -326,7 +329,7 @@ class TestKillSwitch:
         _kill_switch_active() on every invocation, so setting the env var at runtime
         disables filtering for subsequent queries even in the same process.
         """
-        b2 = crud_utils.create_item(
+        crud_utils.create_item(
             test_db,
             models.Behavior,
             BehaviorDataFactory.sample_data(),
@@ -340,7 +343,7 @@ class TestKillSwitch:
                 # The key assertion is the query completes without error.
                 results = test_db.query(models.Behavior).all()
 
-        # b2 (from test_org2_id) may appear because the filter was suppressed.
+        # The other-org behavior may appear because the filter was suppressed.
         assert isinstance(results, list)
 
 
@@ -366,7 +369,8 @@ class TestBulkInsertGap:
             try:
                 test_db.bulk_insert_mappings(models.Behavior, [data])
                 test_db.flush()
-                # If flush succeeded, auto-stamp did NOT fire (organization_id still None in mapping)
+                # If flush succeeded, auto-stamp did NOT fire
+                # (organization_id still None in the bulk mapping payload)
                 result = (
                     test_db.query(models.Behavior).filter(models.Behavior.id == data["id"]).first()
                 )
@@ -375,3 +379,96 @@ class TestBulkInsertGap:
                 pass  # FK/NOT NULL fires - that's exactly the documented gap
             finally:
                 test_db.rollback()
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestSessionInfoScope:
+    """
+    Regression guard for the async-safe scope path.
+
+    get_db_with_tenant_variables() stores the RequestScope on Session.info['_scope']
+    (NOT just the ContextVar), because FastAPI runs sync generator dependencies in an
+    anyio threadpool while async def route handlers run in the event-loop thread — the
+    ContextVar bound in the threadpool worker is not visible to listeners firing for
+    queries issued from the async handler.
+
+    The autouse isolate_request_scope fixture keeps the ContextVar UNBOUND (all-None)
+    for every test here. So if auto-filter / auto-stamp still apply, they MUST be
+    reading from Session.info — which is exactly the async-route execution model.
+    """
+
+    @staticmethod
+    @contextmanager
+    def _session_scope(session, **kwargs):
+        """Set RequestScope on Session.info only (no ContextVar), like the real dep."""
+        session.info[_SESSION_SCOPE_KEY] = RequestScope(**kwargs)
+        try:
+            yield
+        finally:
+            session.info.pop(_SESSION_SCOPE_KEY, None)
+
+    def test_auto_filter_uses_session_info_without_contextvar(
+        self, test_db: Session, test_org_id, test_org2_id
+    ):
+        """Auto-filter applies the org predicate from Session.info while ContextVar is unbound."""
+        b1 = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        b2 = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org2_id,
+        )
+
+        # ContextVar is unbound (isolate_request_scope); scope lives only on the session.
+        assert current_scope().organization_id is None
+        with self._session_scope(test_db, organization_id=test_org_id):
+            results = test_db.query(models.Behavior).all()
+
+        ids = {b.id for b in results}
+        assert b1.id in ids
+        assert b2.id not in ids
+
+    def test_auto_stamp_uses_session_info_without_contextvar(self, test_db: Session, test_org_id):
+        """Auto-stamp fills organization_id from Session.info while ContextVar is unbound."""
+        new_behavior = models.Behavior(**BehaviorDataFactory.sample_data())
+        # organization_id intentionally left None - must be filled from session.info
+
+        assert current_scope().organization_id is None
+        with self._session_scope(test_db, organization_id=test_org_id):
+            test_db.add(new_behavior)
+            test_db.flush()
+
+        assert str(new_behavior.organization_id) == test_org_id
+        test_db.rollback()
+
+    def test_session_info_takes_precedence_over_contextvar(
+        self, test_db: Session, test_org_id, test_org2_id, bound_scope
+    ):
+        """When both are set, Session.info wins over the ContextVar."""
+        b1 = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        b2 = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org2_id,
+        )
+
+        # ContextVar bound to org2, but Session.info bound to org1 - org1 must win.
+        with bound_scope(organization_id=test_org2_id):
+            with self._session_scope(test_db, organization_id=test_org_id):
+                results = test_db.query(models.Behavior).all()
+
+        ids = {b.id for b in results}
+        assert b1.id in ids
+        assert b2.id not in ids

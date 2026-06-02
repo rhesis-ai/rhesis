@@ -30,6 +30,11 @@ PRODUCTION KNOBS
 ----------------
 RHESIS_DISABLE_SCOPE_LISTENER=1   Kill switch. Both filter and stamp are no-ops.
                                    For emergency rollback without redeploy.
+                                   Scope ONLY of this switch: the ORM-layer
+                                   auto_filter / auto_stamp listeners. It does NOT
+                                   disable the PostgreSQL RLS GUCs (set in
+                                   database.py + re-applied by _reapply_tenant_vars);
+                                   RLS remains the security backstop regardless.
 
 PER-QUERY BYPASS
 ----------------
@@ -55,7 +60,17 @@ from sqlalchemy.orm import Query, Session
 
 logger = logging.getLogger(__name__)
 
-# Tables that should never be auto-filtered (queried before any tenant context)
+# Tables that should never be auto-filtered (queried before any tenant context).
+#
+# This is the ORM-layer exempt set and is deliberately NARROWER than the RLS-exempt
+# set in the migrations ({token, user, organization, refresh_token, alembic_version}).
+# The two serve different layers and are not required to match:
+#   - This set: tables the ORM auto_filter/auto_stamp listeners skip because they are
+#     queried before any tenant context exists (auth/identity lookups).
+#   - RLS-exempt set: tables with no tenant policy at the database level.
+# refresh_token / alembic_version are absent here only because they have no
+# organization_id column, so the listeners already no-op on them. If you add a tenant
+# column to an auth/infra table, reconcile both lists deliberately.
 EXEMPT_TABLES = frozenset({"user", "organization", "token"})
 
 # Guard against duplicate listener registration (e.g. test reloads, hot-reload)

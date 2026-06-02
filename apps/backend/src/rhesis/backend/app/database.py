@@ -66,6 +66,12 @@ def _reapply_tenant_vars(session: Session, transaction, connection) -> None:
     the stored tenant vars so that code that calls db.commit() mid-request
     (e.g. Celery tasks, nested CRUD helpers) continues to be RLS-filtered
     on subsequent queries within the same session.
+
+    NOTE: This is intentionally NOT gated by RHESIS_DISABLE_SCOPE_LISTENER. That
+    kill switch disables only the ORM-layer auto-filter/auto-stamp listeners; the
+    RLS GUCs are the database-level security backstop and must keep being applied
+    even when the ORM listeners are turned off. Disabling them would weaken, not
+    relax, tenant isolation.
     """
     vars = session.info.get(_TENANT_VARS_KEY)
     if not vars:
@@ -166,12 +172,13 @@ def set_session_variables(db: Session, organization_id: str, user_id: str, proje
     """
     Explicitly set PostgreSQL session variables for RLS policies.
 
-    Prefer get_db_with_tenant_variables() which also binds the RequestScope ContextVar
-    for automatic tenant filtering. Use this function only when you already have a
-    session and need to set RLS variables without creating a new one.
+    Prefer get_db_with_tenant_variables() which also stores the RequestScope on
+    Session.info for automatic auto-filter / auto-stamp. Use this function only when
+    you already have a session and need to set RLS variables without creating a new one.
 
-    NOTE: This function sets RLS variables but does NOT bind RequestScope. If you need
-    the auto-filter/auto-stamp listeners to activate, call bind_scope() separately.
+    NOTE: This function sets RLS variables but does NOT store a RequestScope on
+    Session.info. If you need the auto-filter/auto-stamp listeners to activate, set
+    db.info["_scope"] = RequestScope(...) yourself (or use get_db_with_tenant_variables).
 
     Args:
         db: Database session
@@ -287,10 +294,10 @@ def get_db_with_tenant_variables(
 
         # Store scope on Session.info so SQLAlchemy event listeners
         # (auto_filter, auto_stamp) can read it via query.session.info / session.info
-        # regardless of whether the caller is an async or sync route handler.
-        # Session.info is the authoritative source for FastAPI request paths;
-        # ContextVar (bind_scope) is reserved for Celery tasks and background scripts
-        # that call current_scope() or bind_scope() explicitly outside a DB session.
+        # regardless of whether the caller is an async or sync route handler. This is
+        # the authoritative source for all DB-bound work (FastAPI requests AND Celery
+        # tasks, which both go through this function). The ContextVar (bind_scope) is
+        # only for code that needs ambient scope without a DB session (scripts/tests).
         db.info[_SCOPE_KEY] = scope
         try:
             yield db
