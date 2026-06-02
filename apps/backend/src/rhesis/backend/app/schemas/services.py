@@ -386,13 +386,11 @@ class TestMCPConnectionRequest(BaseModel):
 
     Either tool_id (for existing tools) OR provider_type_id + credentials
     (for non-existent tools) must be provided.
-    For custom providers, tool_metadata is required when using provider_type_id.
     """
 
     tool_id: Optional[str] = None
     provider_type_id: Optional[UUID4] = None
     credentials: Optional[Dict[str, str]] = None
-    tool_metadata: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def validate_request(self):

@@ -126,7 +126,6 @@ export interface TestToolConnectionRequest {
   tool_id?: string;
   provider_type_id?: string;
   credentials?: Record<string, string>;
-  tool_metadata?: Record<string, unknown>;
 }
 
 export interface TestToolConnectionResponse {
@@ -357,26 +356,6 @@ export class ServicesClient extends BaseApiClient {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      }
-    );
-  }
-
-  /**
-   * Test MCP connection authentication
-   * @param request - Either tool_id (for existing tools) OR provider_type_id + credentials + optional tool_metadata (for non-existent tools)
-   * @returns Test result with authentication status and message
-   */
-  async testMCPConnection(
-    request: TestToolConnectionRequest
-  ): Promise<TestToolConnectionResponse> {
-    return this.fetch<TestToolConnectionResponse>(
-      `${API_ENDPOINTS.services}/mcp/test-connection`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(request),
       }
     );

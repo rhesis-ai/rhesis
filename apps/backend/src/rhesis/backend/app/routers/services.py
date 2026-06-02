@@ -633,8 +633,7 @@ async def test_mcp_connection(
     Args:
         request: TestMCPConnectionRequest with either:
             - tool_id: For testing existing tools
-            - provider_type_id + credentials + optional tool_metadata:
-              For testing non-existent tools
+            - provider_type_id + credentials: For testing non-existent tools
 
     Returns:
         TestMCPConnectionResponse with:
@@ -659,17 +658,6 @@ async def test_mcp_connection(
             "credentials": {"NOTION_TOKEN": "ntn_abc123..."}
         }
 
-        # Test non-existent tool (custom provider)
-        POST /mcp/test-connection
-        {
-            "provider_type_id": "provider-uuid-123",
-            "credentials": {"TOKEN": "token123"},
-            "tool_metadata": {
-                "command": "npx",
-                "args": ["@notionhq/notion-mcp-server"],
-                "env": {"NOTION_TOKEN": "{{ TOKEN }}"}
-            }
-        }
     """
     try:
         organization_id, user_id = tenant_context
