@@ -327,8 +327,8 @@ class ExtractToolRequest(BaseModel):
         return self
 
 
-class ExtractedDocument(BaseModel):
-    """A single extracted document."""
+class ExtractedSource(BaseModel):
+    """A single extracted source."""
 
     id: Optional[str] = None
     title: Optional[str] = None
@@ -339,10 +339,10 @@ class ExtractedDocument(BaseModel):
 class ExtractToolResponse(BaseModel):
     """Response from tool extract endpoint.
 
-    documents contains all extracted pages — more than one when include_children=True.
+    sources contains all extracted pages — more than one when include_children=True.
     """
 
-    documents: List[ExtractedDocument]
+    sources: List[ExtractedSource]
 
 
 class ToolCall(BaseModel):

@@ -27,6 +27,17 @@ class NotionSource:
             "Notion-Version": _NOTION_VERSION,
         }
 
+    async def health_check(self) -> Dict[str, Any]:
+        """Verify credentials by calling GET /v1/users/me."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://api.notion.com/v1/users/me", headers=self._headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            bot_owner = data.get("bot", {}).get("owner", {}).get("user", {})
+            name = data.get("name") or bot_owner.get("name", "")
+            return {"is_authenticated": "Yes", "message": f"Connected as {name}"}
+        return {"is_authenticated": "No", "message": f"Authentication failed: {resp.status_code}"}
+
     async def fetch(self, page_id_or_url: str) -> str:
         """Fetch a single Notion page as markdown text.
 

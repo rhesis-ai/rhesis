@@ -54,6 +54,15 @@ class GitHubSource:
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
+    async def health_check(self) -> Dict[str, Any]:
+        """Verify credentials by calling GET /user."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://api.github.com/user", headers=self._headers)
+        if resp.status_code == 200:
+            login = resp.json().get("login", "")
+            return {"is_authenticated": "Yes", "message": f"Connected as {login}"}
+        return {"is_authenticated": "No", "message": f"Authentication failed: {resp.status_code}"}
+
     async def fetch(self, url: str) -> str:
         """Fetch a single file or top-level directory listing from a GitHub URL."""
         sources = await self.fetch_all(url, include_children=False)
