@@ -27,6 +27,12 @@ def _parse_github_url(url: str) -> Tuple[str, str]:
         raise ValueError(f"Expected a full GitHub URL, got: {url!r}")
 
     parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if not (host == "github.com" or host.endswith(".github.com")):
+        raise ValueError(
+            f"Expected a GitHub URL (github.com) but got: {url!r}. "
+            "Make sure you selected the correct tool for this URL."
+        )
     parts = [p for p in parsed.path.split("/") if p]
     if len(parts) < 2:
         raise ValueError(f"Cannot parse owner/repo from URL: {url}")
