@@ -61,13 +61,17 @@ interface TabPanelProps {
 }
 
 function TabPanel({ children, value, index }: TabPanelProps) {
+  const isActive = value === index;
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
       id={`test-detail-tabpanel-${index}`}
       aria-labelledby={`test-detail-tab-${index}`}
-      style={{ height: '100%', display: value !== index ? 'none' : undefined }}
+      style={{
+        height: isActive ? '100%' : 0,
+        overflow: isActive ? undefined : 'hidden',
+        visibility: isActive ? undefined : 'hidden',
+      }}
     >
       <Box sx={{ height: '100%' }}>{children}</Box>
     </div>
