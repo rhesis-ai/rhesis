@@ -16,12 +16,17 @@ resource "google_container_cluster" "cluster" {
   }
 
   master_authorized_networks_config {
+    # WireGuard VPN: VPN clients reach the master via the WireGuard server (MASQUERADE).
     cidr_blocks {
       cidr_block   = var.wireguard_cidr
       display_name = "wireguard-vpn"
     }
-    # WireGuard server env NIC IPs: traffic forwarded by the WireGuard server
-    # to the GKE master is MASQUERADE'd to these IPs (one NIC per env VPC)
+    # Nodes subnet: IAP bastion lives here and needs to reach the private master endpoint.
+    cidr_blocks {
+      cidr_block   = var.node_cidr
+      display_name = "nodes-subnet-iap-bastion"
+    }
+    # Legacy: WireGuard server env NIC IPs (used for dev; stg/prd no longer have env NICs).
     dynamic "cidr_blocks" {
       for_each = var.extra_authorized_cidrs
       content {

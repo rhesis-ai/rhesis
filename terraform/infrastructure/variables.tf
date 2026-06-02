@@ -41,6 +41,12 @@ variable "gke_deletion_protection" {
   }
 }
 
+variable "bastion_iap_members" {
+  description = "IAM members that can IAP-tunnel into the stg/prd bastions (e.g. user:foo@example.com)"
+  type        = list(string)
+  default     = []
+}
+
 variable "wireguard_peers" {
   description = "WireGuard VPN peers with subnet access control"
   type = list(object({

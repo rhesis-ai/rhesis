@@ -220,7 +220,8 @@ module "gke_stg" {
   pod_cidr               = local.cidrs.stg.pods
   service_cidr           = local.cidrs.stg.services
   wireguard_cidr         = local.cidrs.wireguard.network
-  extra_authorized_cidrs = ["10.4.1.200/32"]
+  # Private endpoint via IAP bastion — no WireGuard NIC IP to authorize.
+  # node_cidr is already added to master_authorized_networks inside the kubernetes module.
   machine_type           = "e2-standard-2"
   min_node_count         = 1
   max_node_count         = 3
@@ -243,7 +244,8 @@ module "gke_prd" {
   pod_cidr               = local.cidrs.prd.pods
   service_cidr           = local.cidrs.prd.services
   wireguard_cidr         = local.cidrs.wireguard.network
-  extra_authorized_cidrs = ["10.6.1.200/32"]
+  # Private endpoint via IAP bastion — no WireGuard NIC IP to authorize.
+  # node_cidr is already added to master_authorized_networks inside the kubernetes module.
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5
@@ -470,7 +472,9 @@ module "wireguard_server" {
   subnet_self_link    = module.wireguard.subnet_self_links["main"]
   deletion_protection = var.wireguard_deletion_protection
 
-  machine_type = local.stg_enabled || local.prd_enabled ? "e2-standard-4" : "e2-medium"
+  # Only dev gets a WireGuard NIC (Shared VPC cross-project). stg/prd use IAP bastion.
+  # 2 NICs max (wireguard eth0 + dev eth1) → e2-medium (2 vCPU) is sufficient.
+  machine_type = "e2-medium"
 
   wireguard_peers = var.wireguard_peers
 
@@ -546,6 +550,8 @@ module "wireguard_server" {
     } : {}
   )
 
+  # dev NIC: Shared VPC cross-project, allows WireGuard to reach the dev private GKE master.
+  # stg/prd: no longer need WireGuard NICs — kubectl access is via IAP bastion.
   env_nics = concat(
     local.dev_enabled ? [{
       subnet_self_link = module.dev[0].subnet_self_links["nodes"]
@@ -556,28 +562,11 @@ module "wireguard_server" {
       service_cidr     = local.cidrs.dev.services
       node_cidr        = local.cidrs.dev.nodes
       vpc_name         = module.dev[0].vpc_name
-    }] : [],
-    local.stg_enabled ? [{
-      subnet_self_link = module.stg[0].subnet_self_links["nodes"]
-      network_ip       = "10.4.1.200"
-      master_cidr      = local.cidrs.stg.master
-      environment      = "stg"
-      pod_cidr         = local.cidrs.stg.pods
-      service_cidr     = local.cidrs.stg.services
-      node_cidr        = local.cidrs.stg.nodes
-      vpc_name         = module.stg[0].vpc_name
-    }] : [],
-    local.prd_enabled ? [{
-      subnet_self_link = module.prd[0].subnet_self_links["nodes"]
-      network_ip       = "10.6.1.200"
-      master_cidr      = local.cidrs.prd.master
-      environment      = "prd"
-      pod_cidr         = local.cidrs.prd.pods
-      service_cidr     = local.cidrs.prd.services
-      node_cidr        = local.cidrs.prd.nodes
-      vpc_name         = module.prd[0].vpc_name
     }] : []
   )
+
+  # stg/prd now use private endpoints via IAP bastion — no public endpoint to route to.
+  gke_public_endpoints = {}
 
   depends_on = [
     module.wireguard,
@@ -588,6 +577,40 @@ module "wireguard_server" {
     module.internal_dns_stg,
     module.internal_dns_prd
   ]
+}
+
+# ── IAP Bastions (stg/prd) ───────────────────────────────────────────
+# One bastion per env, in the nodes subnet. Access via gcloud IAP tunnel.
+# No external IP — IAP is the only ingress path.
+
+module "bastion_stg" {
+  source = "./modules/bastion/gcp"
+  count  = local.stg_enabled ? 1 : 0
+
+  project_id             = var.project_id
+  environment            = "stg"
+  region                 = var.region
+  zone                   = "${var.region}-a"
+  nodes_subnet_self_link = module.stg[0].subnet_self_links["nodes"]
+  vpc_name               = module.stg[0].vpc_name
+  iap_members            = var.bastion_iap_members
+
+  depends_on = [module.stg]
+}
+
+module "bastion_prd" {
+  source = "./modules/bastion/gcp"
+  count  = local.prd_enabled ? 1 : 0
+
+  project_id             = var.project_id
+  environment            = "prd"
+  region                 = var.region
+  zone                   = "${var.region}-a"
+  nodes_subnet_self_link = module.prd[0].subnet_self_links["nodes"]
+  vpc_name               = module.prd[0].vpc_name
+  iap_members            = var.bastion_iap_members
+
+  depends_on = [module.prd]
 }
 
 # ── ArgoCD Bootstrap ─────────────────────────────────────────────────

@@ -25,18 +25,6 @@ provider "google" {
   region  = var.region
 }
 
-# Read WireGuard server's reserved external IP from its Terraform state.
-# Avoids hardcoding the IP in cidrs.tf — if the VM is ever recreated the
-# google_compute_address resource retains the same address, and this reference
-# automatically picks up any change after a wireguard apply.
-data "terraform_remote_state" "wireguard" {
-  backend = "gcs"
-  config = {
-    bucket = var.state_bucket
-    prefix = "terraform/infrastructure/envs/wireguard"
-  }
-}
-
 module "stg" {
   source = "../../modules/network/gcp"
 
@@ -70,12 +58,7 @@ module "gke_stg" {
   max_node_count         = 3
   deletion_protection    = var.gke_deletion_protection
 
-  # stg/prd use public endpoint locked to WireGuard VPN CIDR (master_authorized_networks).
-  # dev keeps private endpoint via Shared VPC cross-project NIC (already running, immutable field).
-  # WireGuard external IP is read from wireguard env remote state (google_compute_address.wireguard)
-  # so it tracks automatically if the reserved address ever changes after a wireguard apply.
-  enable_private_endpoint = false
-  extra_authorized_cidrs  = ["${data.terraform_remote_state.wireguard.outputs.wireguard_public_ip}/32"]
+  # Private endpoint — kubectl access via IAP bastion in the nodes subnet.
 
   depends_on = [module.stg]
 }
@@ -179,7 +162,24 @@ resource "google_compute_firewall" "wireguard_dns" {
   depends_on = [module.stg]
 }
 
+module "bastion_stg" {
+  source = "../../modules/bastion/gcp"
+
+  project_id             = var.project_id
+  environment            = "stg"
+  region                 = var.region
+  zone                   = "${var.region}-a"
+  nodes_subnet_self_link = module.stg.subnet_self_links["nodes"]
+  vpc_name               = module.stg.vpc_name
+  iap_members            = var.bastion_iap_members
+
+  depends_on = [module.stg]
+}
+
 # ── Return-side peering: stg VPC → wireguard VPC (cross-project) ────
+# Kept for BIND9/DNS routing and VPN user → stg internal services (e.g. stg-app.rhesis.ai).
+# kubectl no longer routes this way — that now uses IAP bastion + private endpoint.
+# Both sides must exist for peering to be ACTIVE.
 resource "google_compute_network_peering" "stg_to_wireguard" {
   name         = "peering-stg-to-wireguard"
   network      = module.stg.vpc_self_link

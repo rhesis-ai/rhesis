@@ -88,7 +88,7 @@ module "wireguard_server" {
   wireguard_peers     = var.wireguard_peers
 
   # dev uses Shared VPC cross-project NIC (private endpoint, already running — immutable).
-  # stg/prd use public endpoint locked to WireGuard VPN CIDR — no extra NIC needed.
+  # stg/prd use private endpoints via IAP bastion — no WireGuard NIC needed.
   # 2 NICs max (wireguard eth0 + dev eth1) → e2-medium (2 vCPU) is sufficient.
   machine_type = "e2-medium"
 
@@ -110,10 +110,8 @@ module "wireguard_server" {
     if env != "wireguard" && lookup(local.env_enabled, env, false)
   }
 
-  gke_public_endpoints = merge(
-    local.stg_enabled ? { stg = data.terraform_remote_state.stg[0].outputs.cluster_endpoint } : {},
-    local.prd_enabled ? { prd = data.terraform_remote_state.prd[0].outputs.cluster_endpoint } : {}
-  )
+  # stg/prd now use private endpoints via IAP bastion — no public endpoint to route to.
+  gke_public_endpoints = {}
   master_cidrs = {
     for env, cidr in local.cidrs : env => cidr.master
     if env != "wireguard" && lookup(local.env_enabled, env, false)

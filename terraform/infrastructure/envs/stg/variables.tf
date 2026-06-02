@@ -32,9 +32,9 @@ variable "force_destroy" {
   default     = false
 }
 
-variable "state_bucket" {
-  description = "GCS bucket holding all env Terraform states (used to read wireguard remote state)"
-  type        = string
-  default     = "rhesis-platform-admin-tfstate"
+variable "bastion_iap_members" {
+  description = "IAM members that can IAP-tunnel into the bastion (e.g. user:foo@example.com)"
+  type        = list(string)
+  default     = []
 }
 
