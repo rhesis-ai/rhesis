@@ -421,7 +421,7 @@ describe('testResultStatus', () => {
             evidence: [],
             criteria_evaluations: [],
           },
-        } as TestResultDetail['test_output'],
+        } as unknown as TestResultDetail['test_output'],
         test_metrics: {
           metrics: {
             'Goal Evaluation': createMetricResult(false),
@@ -445,7 +445,7 @@ describe('testResultStatus', () => {
             evidence: [],
             criteria_evaluations: [],
           },
-        } as TestResultDetail['test_output'],
+        } as unknown as TestResultDetail['test_output'],
         test_metrics: {
           metrics: {
             'Goal Achievement': {

@@ -309,7 +309,7 @@ function FigmaPaginationFooter() {
   const isFirst = page === 0;
   const isLast = rowCount === 0 || to >= rowCount;
   const showRowsPerPage =
-    hideRowsPerPageBelow <= 0 || rowCount >= hideRowsPerPageBelow;
+    (hideRowsPerPageBelow ?? 0) <= 0 || rowCount >= (hideRowsPerPageBelow ?? 0);
 
   const navBtnSx = (active: boolean): SxProps<Theme> => ({
     border: '2px solid',
