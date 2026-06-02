@@ -46,35 +46,7 @@ def create_tool(
     - MCPs
     - APIs
 
-    Currently, we support the following MCP tool providers:
-
-    1. **Notion**
-    - Store the Notion token in the credentials dictionary with the key `"NOTION_TOKEN"`.
-    - Example:
-        ```json
-        {"NOTION_TOKEN": "ntn_abc..."}
-        ```
-
-    2. **Custom MCP provider**
-    - The MCP server configuration JSON should be provided in `tool_metadata`
-    - The API token should be stored in the credentials dictionary
-    - The custom provider should use **npx** to run the MCP server.
-
-    Example `tool_metadata` for a custom provider:
-    ```json
-    {
-        "command": "npx",
-        "args": ["@example/mcp-server"],
-        "env": {
-            "API_TOKEN": "{{ TOKEN }}"
-        }
-    }
-    ```
-
-    Where the credentials dictionary is:
-    ```json
-    {"TOKEN": "your_api_token_123"}
-    ```
+    Supported providers: notion, github, jira, confluence.
     """
     organization_id, user_id = tenant_context
 
@@ -157,8 +129,6 @@ def update_tool(
 
     Only provide credentials if you want to update them (they will be re-encrypted).
 
-    For custom providers, tool_metadata placeholders must use simple format like
-    {{ TOKEN }} (not {{ TOKEN | tojson }}) because the JSON must be valid before Jinja2 rendering.
     """
     organization_id, user_id = tenant_context
 
