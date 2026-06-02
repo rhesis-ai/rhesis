@@ -5,8 +5,12 @@ Demonstrates Rhesis observability for CrewAI orchestration workflows:
   - Multiple agents (planner, researcher, writer)
   - Task delegation and sequential orchestration
   - Nested trace hierarchy (pipeline → agents → LLM calls)
-  - Agent-to-agent handoff visibility (ai.agent.handoff spans)
-  - Automatic LLM telemetry via auto_instrument()
+  - Agent-level spans (ai.agent.invoke, ai.agent.handoff) via @observe below
+  - LLM call telemetry (tokens, cost, latency) via auto_instrument()
+
+Note: auto_instrument() traces LLM calls nested under each agent. Agent
+boundaries and handoffs use manual @observe wrappers. Native CrewAI
+auto-instrumentation for full traces is a follow-up.
 
 Prerequisites:
     1. Start the backend: docker compose up -d  (or ./rh dev up + ./rh dev backend)
@@ -40,9 +44,10 @@ if env_path.exists():
 # Initialize telemetry export to Rhesis
 RhesisClient.from_environment()
 
-print("\n🔧 Enabling auto_instrument() for installed AI frameworks...")
+print("\n🔧 Enabling auto_instrument() for LLM call spans (LangChain under CrewAI)...")
 instrumented = auto_instrument()
 print(f"✅ Auto-instrumented: {instrumented or '(none detected)'}\n")
+print("   Agent invoke/handoff spans use @observe decorators in this example.\n")
 
 
 def build_llm() -> LLM:
@@ -224,9 +229,8 @@ def main() -> None:
     print("=" * 70)
     print("\nAgents: planner → researcher → writer")
     print("Tracing:")
-    print("  • auto_instrument() for LLM cost, latency, and token spans")
-    print("  • ai.agent.invoke per agent")
-    print("  • ai.agent.handoff between agents")
+    print("  • @observe — ai.agent.invoke and ai.agent.handoff per agent")
+    print("  • auto_instrument() — LLM tokens, cost, and latency under each agent")
     print("  • Nested hierarchy under crewai_content_pipeline")
     model_name = os.getenv("CREWAI_MODEL", "gemini/gemini-2.0-flash")
     print(f"\nLLM: {model_name}")

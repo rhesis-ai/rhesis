@@ -35,12 +35,12 @@ Demonstrates:
 Demonstrates (see [issue #1166](https://github.com/rhesis-ai/rhesis/issues/1166)):
 - Multiple agents: **planner**, **researcher**, **writer**
 - Task delegation and sequential orchestration (CrewAI `Task` + `context`)
-- Nested trace hierarchy (pipeline → per-agent spans → LLM children)
-- Agent-to-agent handoff visibility (`ai.agent.handoff`)
-- Automatic LLM telemetry via `auto_instrument()`
+- Nested trace hierarchy (pipeline → per-agent spans via `@observe` → LLM children)
+- Agent-to-agent handoff visibility (`ai.agent.handoff` via `@observe`)
+- LLM call telemetry (tokens, cost, latency) via `auto_instrument()`
 - OpenAI or Gemini (set `CREWAI_MODEL` and the matching API key in `.env`)
 
-**Use Case**: Debug CrewAI workflows with cost, latency, and per-agent traces in Rhesis.
+**Use Case**: Debug CrewAI multi-agent workflows with per-agent spans, handoffs, and LLM cost/latency in Rhesis.
 
 ```bash
 uv run --extra crewai crewai_example.py
