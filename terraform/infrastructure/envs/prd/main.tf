@@ -60,7 +60,9 @@ module "gke_prd" {
 
   # prd uses a private endpoint via the WireGuard server's Shared VPC NIC in the prd nodes subnet.
   # The NIC IP (10.6.1.10) is the MASQUERADE'd source for kubectl → GKE master traffic.
-  extra_authorized_cidrs = ["${local.cidrs.prd.wireguard_nic_ip}/32"]
+  # Explicitly set to guard against a future module-default change accidentally making prd public.
+  enable_private_endpoint = true
+  extra_authorized_cidrs  = ["${local.cidrs.prd.wireguard_nic_ip}/32"]
 
   depends_on = [module.prd]
 }
