@@ -21,17 +21,7 @@ from rhesis.backend.app.config.settings import get_application_settings
 
 logger = logging.getLogger(__name__)
 
-_DEV_ENVIRONMENTS = ("local", "development", "staging")
 _LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
-
-
-def is_dev_environment() -> bool:
-    """True when BACKEND_ENV is local, development, or staging.
-
-    Used by SSO modules to relax localhost/HTTPS restrictions that are only
-    appropriate for production deployments.
-    """
-    return get_application_settings().backend_env in _DEV_ENVIRONMENTS
 
 _BLOCKED_NETWORKS = [
     # RFC 1918 private address space -- VPCs, Kubernetes pods, Docker networks,
@@ -107,7 +97,8 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
         raise SSRFError(f"Blocked hostname: {hostname}")
 
     skip_blocklist = (
-        is_dev_environment() and hostname.lower() in _LOCALHOST_NAMES
+        get_application_settings().is_development
+        and hostname.lower() in _LOCALHOST_NAMES
     )
 
     try:
@@ -266,7 +257,10 @@ class SSOHttpClient:
         addr_infos = _resolve_and_validate(hostname)
 
         is_https = parsed.scheme == "https"
-        is_localhost_dev = is_dev_environment() and hostname.lower() in _LOCALHOST_NAMES
+        is_localhost_dev = (
+            get_application_settings().is_development
+            and hostname.lower() in _LOCALHOST_NAMES
+        )
 
         if is_https:
             # Keep hostname URL intact so httpx presents the correct SNI and
