@@ -220,9 +220,12 @@ export default function LinkedEntitiesGrid({
                 borderWidth: 2,
                 fontWeight: 700,
                 fontSize: 14,
+                lineHeight: '22px',
                 borderRadius: BORDER_RADIUS.sm,
                 px: '16px',
                 py: '8px',
+                '& .MuiButton-startIcon': { marginRight: '4px', marginLeft: 0 },
+                '& .MuiButton-startIcon > *:nth-of-type(1)': { fontSize: 20 },
                 '&:hover': { borderWidth: 2 },
               }}
             >
