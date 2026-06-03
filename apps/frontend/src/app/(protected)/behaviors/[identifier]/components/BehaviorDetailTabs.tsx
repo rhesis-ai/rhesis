@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Chip, Stack, Paper, Typography } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
-import GridBadge from '@/components/common/GridBadge';
+import { Box, Chip, Stack, Typography } from '@mui/material';
 import {
-  createRowActionsColumn,
-  rowActionsHoverSx,
-} from '@/components/common/createRowActionsColumn';
+  GridColDef,
+  GridRenderCellParams,
+  GridRowModel,
+} from '@mui/x-data-grid';
+import GridBadge from '@/components/common/GridBadge';
+import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
+import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
@@ -22,6 +24,7 @@ import type {
   BehaviorWithMetrics,
   MetricWithRelationships,
 } from '@/utils/api-client/interfaces/behavior';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -278,20 +281,27 @@ function BehaviorLinkedMetrics({
   );
   const [loading, setLoading] = useState(false);
 
+  // Assign drawer state
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [available, setAvailable] = useState<MetricDetail[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+
+  const fetchLinked = useCallback(async () => {
+    setLoading(true);
+    try {
+      const client = new BehaviorClient(sessionToken);
+      const result = await client.getBehaviorWithMetrics(behavior.id as UUID);
+      setMetrics(result.metrics ?? []);
+    } catch {
+      // keep existing
+    } finally {
+      setLoading(false);
+    }
+  }, [behavior.id, sessionToken]);
+
   useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        const client = new BehaviorClient(sessionToken);
-        const result = await client.getBehaviorWithMetrics(behavior.id as UUID);
-        setMetrics(result.metrics ?? []);
-      } catch {
-        // keep existing
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMetrics();
+    fetchLinked();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount / id change
   }, [behavior.id, sessionToken]);
 
   const handleUnassign = useCallback(
@@ -310,7 +320,8 @@ function BehaviorLinkedMetrics({
     [behavior.id, sessionToken]
   );
 
-  const columns: GridColDef<MetricWithRelationships>[] = useMemo(
+  // Linked metrics columns (with unassign action)
+  const linkedColumns = useMemo<GridColDef[]>(
     () => [
       { field: 'name', headerName: 'Name', flex: 1, minWidth: 160 },
       {
@@ -318,16 +329,16 @@ function BehaviorLinkedMetrics({
         headerName: 'Description',
         flex: 2,
         minWidth: 200,
-        renderCell: params => (
+        renderCell: (params: GridRenderCellParams) => (
           <Box
-            title={params.value ?? ''}
+            title={typeof params.value === 'string' ? params.value : ''}
             sx={{
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
           >
-            {params.value || '—'}
+            {typeof params.value === 'string' ? params.value : '—'}
           </Box>
         ),
       },
@@ -335,9 +346,12 @@ function BehaviorLinkedMetrics({
         field: 'backend',
         headerName: 'Backend',
         width: 130,
-        valueGetter: (_value, row) => row.backend_type?.type_value ?? '',
-        renderCell: params =>
-          params.value ? (
+        valueGetter: (_value: unknown, row: GridRowModel) => {
+          const bt = row.backend_type as { type_value?: string } | null;
+          return bt?.type_value ?? '';
+        },
+        renderCell: (params: GridRenderCellParams) =>
+          typeof params.value === 'string' && params.value ? (
             <GridBadge size="detail" label={params.value} />
           ) : null,
       },
@@ -345,8 +359,8 @@ function BehaviorLinkedMetrics({
         field: 'score_type',
         headerName: 'Score Type',
         width: 130,
-        renderCell: params =>
-          params.value ? (
+        renderCell: (params: GridRenderCellParams) =>
+          typeof params.value === 'string' && params.value ? (
             <GridBadge size="detail" label={params.value} />
           ) : null,
       },
@@ -358,12 +372,91 @@ function BehaviorLinkedMetrics({
     [handleUnassign]
   );
 
-  const isEmpty = !loading && metrics.length === 0;
+  // Assign drawer columns (name + description + badges, no action)
+  const drawerColumns = useMemo<GridColDef[]>(
+    () => [
+      { field: 'name', headerName: 'Name', flex: 1, minWidth: 160 },
+      {
+        field: 'description',
+        headerName: 'Description',
+        flex: 2,
+        minWidth: 200,
+      },
+      {
+        field: 'backend',
+        headerName: 'Backend',
+        width: 130,
+        valueGetter: (_value: unknown, row: GridRowModel) => {
+          const bt = row.backend_type as { type_value?: string } | null;
+          return bt?.type_value ?? '';
+        },
+        renderCell: (params: GridRenderCellParams) =>
+          typeof params.value === 'string' && params.value ? (
+            <GridBadge size="detail" label={params.value} />
+          ) : null,
+      },
+      {
+        field: 'score_type',
+        headerName: 'Score Type',
+        width: 130,
+        renderCell: (params: GridRenderCellParams) =>
+          typeof params.value === 'string' && params.value ? (
+            <GridBadge size="detail" label={params.value} />
+          ) : null,
+      },
+    ],
+    []
+  );
+
+  const linkedIds = useMemo(
+    () => new Set(metrics.map(m => String(m.id))),
+    [metrics]
+  );
+
+  const availableFiltered: GridRowModel[] = useMemo(
+    () => available.filter(m => !linkedIds.has(String(m.id))),
+    [available, linkedIds]
+  );
+
+  const handleAssignClick = useCallback(async () => {
+    setLoadingAvailable(true);
+    setAssignOpen(true);
+    try {
+      const client = new MetricsClient(sessionToken);
+      const result = await client.getAllMetrics();
+      setAvailable(result);
+    } catch {
+      setAvailable([]);
+    } finally {
+      setLoadingAvailable(false);
+    }
+  }, [sessionToken]);
+
+  const handleAssign = useCallback(
+    async (selectedIds: string[]) => {
+      const client = new MetricsClient(sessionToken);
+      await Promise.all(
+        selectedIds.map(id =>
+          client.addBehaviorToMetric(id as UUID, behavior.id as UUID)
+        )
+      );
+      await fetchLinked();
+      setAssignOpen(false);
+    },
+    [behavior.id, sessionToken, fetchLinked]
+  );
 
   return (
     <>
-      {isEmpty ? (
-        <Paper elevation={1} sx={{ p: 3 }}>
+      <LinkedEntitiesGrid
+        title="Linked Metrics"
+        rows={metrics as GridRowModel[]}
+        columns={linkedColumns}
+        loading={loading}
+        getRowId={row => String(row.id)}
+        onRowClick={params => router.push(`/metrics/${String(params.id)}`)}
+        onAssignClick={handleAssignClick}
+        emptyState={
           <Box
             sx={{
               display: 'flex',
@@ -382,41 +475,23 @@ function BehaviorLinkedMetrics({
               No metrics assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No metrics have been assigned to this behavior yet. Navigate to
-              Metrics to assign a metric to start measuring this behavior.
+              No metrics have been assigned to this behavior yet. Click Assign
+              to link a metric and start measuring this behavior.
             </Typography>
           </Box>
-        </Paper>
-      ) : (
-        <Paper elevation={1} sx={{ p: 3 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 2,
-            }}
-          >
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 600, color: 'primary.main' }}
-            >
-              Linked Metrics ({metrics.length})
-            </Typography>
-          </Box>
-          <BaseDataGrid
-            rows={metrics}
-            columns={columns}
-            loading={loading}
-            getRowId={row => row.id}
-            onRowClick={params => router.push(`/metrics/${String(params.id)}`)}
-            pageSizeOptions={[5, 10, 25]}
-            disableRowSelectionOnClick
-            disablePaperWrapper={true}
-            sx={rowActionsHoverSx}
-          />
-        </Paper>
-      )}
+        }
+      />
+
+      <AssignEntityDrawer
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        title="Assign Metric"
+        rows={availableFiltered}
+        columns={drawerColumns}
+        loading={loadingAvailable}
+        getRowId={row => String(row.id)}
+        onAssign={handleAssign}
+      />
     </>
   );
 }
