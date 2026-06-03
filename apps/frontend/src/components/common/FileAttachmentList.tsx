@@ -98,7 +98,7 @@ function FileRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        borderTop: '1px solid #cdd2da',
+        borderTop: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
         overflow: 'hidden',
       }}
     >
@@ -111,7 +111,7 @@ function FileRow({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: '#cdd2da',
+            bgcolor: (theme: Theme) => theme.palette.greyscale.border,
             borderRadius: '8px',
             overflow: 'hidden',
           }}
@@ -134,7 +134,7 @@ function FileRow({
           sx={{
             fontSize: 14,
             lineHeight: '22px',
-            color: '#2a2e36',
+            color: (theme: Theme) => theme.palette.greyscale.body,
             wordBreak: 'break-word',
           }}
         >
@@ -157,7 +157,7 @@ function FileRow({
             fontSize: 14,
             fontWeight: 700,
             lineHeight: '22px',
-            color: '#2a2e36',
+            color: (theme: Theme) => theme.palette.greyscale.body,
             whiteSpace: 'nowrap',
           }}
         >

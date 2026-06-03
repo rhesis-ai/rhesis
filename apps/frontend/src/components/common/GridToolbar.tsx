@@ -155,7 +155,7 @@ export function PrimarySegmentedPills({
               justifyContent: 'center',
               px: '16px',
               py: '8px',
-              fontSize: 14,
+              fontSize: '0.875rem',
               fontWeight: 700,
               lineHeight: '22px',
               cursor: 'pointer',
@@ -169,7 +169,7 @@ export function PrimarySegmentedPills({
                   ? `0 ${BORDER_RADIUS.pill} ${BORDER_RADIUS.pill} 0`
                   : 0,
               bgcolor: isSelected ? 'primary.main' : 'transparent',
-              color: isSelected ? '#fff' : 'primary.main',
+              color: isSelected ? 'primary.contrastText' : 'primary.main',
               transition: 'background-color 0.15s, color 0.15s',
               '&:hover': {
                 bgcolor: isSelected

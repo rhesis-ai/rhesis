@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, type Theme } from '@mui/material/styles';
 import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
@@ -48,24 +48,21 @@ const STATUS_CHIP_STYLES: Record<string, { bg: string; color: string }> = {
   inactive: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' },
 };
 
-/** Figma greyscale/surface/default — matches linked-entity chips */
-const CHIP_SURFACE_DEFAULT = '#f3f4f6';
-
 function getStatusChipStyles(
   status: string,
-  isDark: boolean
+  theme: Theme
 ): { bg: string; color: string } {
   const preset = STATUS_CHIP_STYLES[status.toLowerCase()];
   if (preset) {
     return preset;
   }
   return {
-    bg: isDark ? '#0d1117' : CHIP_SURFACE_DEFAULT,
-    color: isDark ? '#c9d1d9' : '#2a2e36',
+    bg: theme.palette.greyscale.surface2,
+    color: theme.palette.greyscale.body,
   };
 }
 
-const DESCRIPTION_FONT_SIZE = 14;
+const DESCRIPTION_FONT_SIZE = '0.875rem';
 const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 3;
 const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
@@ -73,8 +70,7 @@ const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
 /** Status badge on entity cards — pill shape; semantic tint for active/inactive. */
 export function EntityCardStatusBadge({ status }: { status: string }) {
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const { bg, color } = getStatusChipStyles(status, isDark);
+  const { bg, color } = getStatusChipStyles(status, theme);
   const statusLabel =
     status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
@@ -210,7 +206,7 @@ export default function EntityCard({
           )}
           <Typography
             sx={{
-              fontSize: 18,
+              fontSize: '1.125rem',
               fontWeight: 700,
               lineHeight: '25px',
               color: 'text.primary',
@@ -249,7 +245,7 @@ export default function EntityCard({
             {!userAvatar && firstName ? firstName[0].toUpperCase() : undefined}
           </Avatar>
           <Typography
-            sx={{ fontSize: 12, fontWeight: 400, color: 'text.secondary' }}
+            sx={{ fontSize: '0.75rem', fontWeight: 400, color: 'text.secondary' }}
           >
             {firstName}
           </Typography>
@@ -287,7 +283,7 @@ export default function EntityCard({
                 {section.label && (
                   <Typography
                     sx={{
-                      fontSize: 12,
+                      fontSize: '0.75rem',
                       color: theme => theme.palette.greyscale.subtitle,
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
@@ -325,7 +321,7 @@ export default function EntityCard({
                 ) : (
                   <Typography
                     sx={{
-                      fontSize: 12,
+                      fontSize: '0.75rem',
                       fontWeight: 400,
                       color: 'text.secondary',
                     }}

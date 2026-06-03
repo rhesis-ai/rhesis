@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import BaseTag, { type BaseTagProps } from '@/components/common/BaseTag';
 import Tag from '@/components/common/Tag';
 
-const readOnlyBoxSx = {
-  border: '1px solid #c1c7d1',
+const readOnlyBoxSx: SxProps<Theme> = {
+  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   borderRadius: '4px',
   pl: '16px',
   pr: '12px',
@@ -16,7 +17,7 @@ const readOnlyBoxSx = {
   flexWrap: 'wrap',
   alignItems: 'center',
   minHeight: 56,
-} as const;
+};
 
 export interface TagsFieldProps {
   tagNames: string[];
@@ -68,7 +69,7 @@ export function TagsField({
           tagNames.map(tag => <Tag key={tag} label={tag} />)
         ) : (
           <Typography
-            sx={{ fontSize: 16, lineHeight: '24px', color: '#545a65' }}
+            sx={{ fontSize: '1rem', lineHeight: '24px', color: theme => theme.palette.greyscale.label }}
           >
             {emptyLabel}
           </Typography>
