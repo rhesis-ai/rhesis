@@ -61,6 +61,7 @@ def _assert_project_membership(db: Session, project_id_str: str, user: User) -> 
             detail=f"User is not a member of project {project_id_str}",
         )
 
+
 # --- Security limits (configurable via env) ---
 MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", str(1024 * 1024)))
 IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))

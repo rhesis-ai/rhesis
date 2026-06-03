@@ -87,9 +87,7 @@ def apply_auth_backstop(app: FastAPI) -> None:
             continue
         if route.path in PUBLIC_ROUTES:
             continue
-        sub_dependant = get_parameterless_sub_dependant(
-            depends=backstop, path=route.path_format
-        )
+        sub_dependant = get_parameterless_sub_dependant(depends=backstop, path=route.path_format)
         route.dependant.dependencies.insert(0, sub_dependant)
         route.dependencies.insert(0, backstop)
 

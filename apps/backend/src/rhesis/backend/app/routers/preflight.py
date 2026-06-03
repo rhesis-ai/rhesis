@@ -250,7 +250,9 @@ async def run_preflight(
     from rhesis.backend.app.database import _SCOPE_KEY
 
     active_scope = db.info.get(_SCOPE_KEY)
-    active_project_id = str(active_scope.project_id) if active_scope and active_scope.project_id else ""
+    active_project_id = (
+        str(active_scope.project_id) if active_scope and active_scope.project_id else ""
+    )
 
     asyncio.create_task(
         _run_preflight_background(

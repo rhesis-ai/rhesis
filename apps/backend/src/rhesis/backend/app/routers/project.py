@@ -130,9 +130,7 @@ def read_project_members(
 ):
     """List all members of a project."""
     organization_id, _user_id = tenant_context
-    db_project = crud.get_project(
-        db, project_id=project_id, organization_id=organization_id
-    )
+    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return crud.get_project_members(db=db, project_id=project_id, organization_id=organization_id)
@@ -148,9 +146,7 @@ def add_project_member(
 ):
     """Add a user as a member of a project."""
     organization_id, _user_id = tenant_context
-    db_project = crud.get_project(
-        db, project_id=project_id, organization_id=organization_id
-    )
+    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -166,9 +162,7 @@ def add_project_member(
         .first()
     )
     if target_user is None:
-        raise HTTPException(
-            status_code=404, detail="User not found in this organization"
-        )
+        raise HTTPException(status_code=404, detail="User not found in this organization")
 
     return crud.add_project_member(
         db=db,
@@ -197,9 +191,7 @@ def remove_project_member(
     )
 
     organization_id, _tenant_user_id = tenant_context
-    db_project = crud.get_project(
-        db, project_id=project_id, organization_id=organization_id
-    )
+    db_project = crud.get_project(db, project_id=project_id, organization_id=organization_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -212,9 +204,7 @@ def remove_project_member(
             requester_user_id=current_user.id,
         )
     except ProjectSelfRemovalError:
-        raise HTTPException(
-            status_code=400, detail="You cannot remove yourself from a project"
-        )
+        raise HTTPException(status_code=400, detail="You cannot remove yourself from a project")
     except ProjectOwnerRemovalError:
         raise HTTPException(status_code=400, detail="Cannot remove the project owner")
 

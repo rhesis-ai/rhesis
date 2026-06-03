@@ -26,9 +26,7 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                     else ""
                 )
                 project_id = (
-                    str(test_run.project_id)
-                    if getattr(test_run, "project_id", None)
-                    else ""
+                    str(test_run.project_id) if getattr(test_run, "project_id", None) else ""
                 )
                 bind_scope_to_session(db, org_id, user_id, project_id)
 

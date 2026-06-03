@@ -448,16 +448,12 @@ def apply_pending_conversation_links(
     # Derive the project per trace from the stored spans so project RLS / filtering
     # applies to the UPDATE (traces are project-scoped).
     project_by_trace = {
-        span.trace_id: str(span.project_id)
-        for span in stored_spans
-        if span.project_id is not None
+        span.trace_id: str(span.project_id) for span in stored_spans if span.project_id is not None
     }
 
     total = 0
     for trace_id, conversation_id, organization_id in matched:
-        bind_scope_to_session(
-            db, organization_id, "", project_by_trace.get(trace_id, "")
-        )
+        bind_scope_to_session(db, organization_id, "", project_by_trace.get(trace_id, ""))
 
         count = crud.update_conversation_id_for_trace(
             db, trace_id, conversation_id, organization_id

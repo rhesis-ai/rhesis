@@ -1002,10 +1002,7 @@ class ConnectionManager:
             # — e.g. tokens created before the membership backfill migration ran,
             # or service-account tokens where the owner has no membership row).
             auth_token_project_id = context.token_project_id
-            token_scoped = (
-                auth_token_project_id is not None
-                and auth_token_project_id == project_id
-            )
+            token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
 
             if not token_scoped:
                 membership = (
