@@ -154,7 +154,7 @@ export default function ProjectCreateDrawer({
     >
       {/* 2-column row: Owner | Project Icon */}
       <Box
-        sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}
+        sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3.75 }}
       >
         <FormControl variant="outlined" fullWidth>
           <InputLabel>Owner</InputLabel>

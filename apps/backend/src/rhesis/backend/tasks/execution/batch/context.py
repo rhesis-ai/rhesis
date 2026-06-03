@@ -77,14 +77,18 @@ def prefetch_execution_context(
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
     from rhesis.backend.app import crud
-    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.services.test_set import get_test_set
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
 
     organization_id = str(test_config.organization_id) if test_config.organization_id else ""
     user_id = str(test_config.user_id) if test_config.user_id else None
+    # Carry the project so project filtering / stamping applies. Without it this
+    # would wipe the project GUC set by BaseTask.get_db_session() and the batch
+    # would lose access to its project-scoped rows under fail-closed RLS.
+    project_id = str(test_config.project_id) if test_config.project_id else ""
 
-    set_session_variables(session, organization_id, user_id or "")
+    bind_scope_to_session(session, organization_id, user_id or "", project_id)
 
     test_set = get_test_set(session, str(test_config.test_set_id))
 

@@ -3,6 +3,8 @@ import { API_ENDPOINTS } from './config';
 import {
   Project,
   ProjectCreate,
+  ProjectMember,
+  ProjectMemberCreate,
   ProjectUpdate,
   ProjectsQueryParams,
 } from './interfaces/project';
@@ -71,5 +73,36 @@ export class ProjectsClient extends BaseApiClient {
     return this.fetch<void>(`${API_ENDPOINTS.projects}/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  /** Projects the current user is a member of (used by the project switcher). */
+  async getMyProjects(): Promise<Project[]> {
+    return this.fetch<Project[]>(`${API_ENDPOINTS.projects}/mine`);
+  }
+
+  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    return this.fetch<ProjectMember[]>(
+      `${API_ENDPOINTS.projects}/${projectId}/members`
+    );
+  }
+
+  async addProjectMember(
+    projectId: string,
+    body: ProjectMemberCreate
+  ): Promise<ProjectMember> {
+    return this.fetch<ProjectMember>(
+      `${API_ENDPOINTS.projects}/${projectId}/members`,
+      { method: 'POST', body: JSON.stringify(body) }
+    );
+  }
+
+  async removeProjectMember(
+    projectId: string,
+    userId: string
+  ): Promise<void> {
+    return this.fetch<void>(
+      `${API_ENDPOINTS.projects}/${projectId}/members/${userId}`,
+      { method: 'DELETE' }
+    );
   }
 }

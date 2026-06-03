@@ -9,6 +9,7 @@ import ProjectEndpoints from './components/ProjectEndpoints';
 import ProjectTraceMetrics from './components/ProjectTraceMetrics';
 import ProjectParameters from './components/ProjectParameters';
 import ProjectEnvironments from './components/ProjectEnvironments';
+import ProjectMembers from './components/ProjectMembers';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { BuiltInEnvironment } from '@/utils/api-client/interfaces/parameters';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -70,6 +71,11 @@ const PROJECT_TABS = [
       `${BuiltInEnvironment.ALL.join(', ')} — render even when no ` +
       `experiment is promoted.`,
   },
+  {
+    label: 'Members',
+    description:
+      'Manage who has access to this project. Members can see and create project-scoped resources.',
+  },
 ] as const;
 
 const PROJECT_TAB_QUERY_VALUES: Record<string, number> = {
@@ -77,6 +83,7 @@ const PROJECT_TAB_QUERY_VALUES: Record<string, number> = {
   traceMetrics: 1,
   parameters: 2,
   environments: 3,
+  members: 4,
 };
 
 export default function ClientWrapper({
@@ -256,6 +263,17 @@ export default function ClientWrapper({
           <ProjectEnvironments
             projectId={projectId}
             sessionToken={sessionToken}
+          />
+        </TabPanel>
+
+        <TabPanel value={currentTab} index={4}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {PROJECT_TABS[4].description}
+          </Typography>
+          <ProjectMembers
+            projectId={projectId}
+            sessionToken={sessionToken}
+            ownerId={currentProject.owner_id ? String(currentProject.owner_id) : undefined}
           />
         </TabPanel>
       </Paper>

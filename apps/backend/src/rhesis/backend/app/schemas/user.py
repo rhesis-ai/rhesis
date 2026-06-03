@@ -108,6 +108,13 @@ class PolyphemusAccess(BaseModel):
     requested_at: Optional[datetime] = Field(None, description="When access was requested")
 
 
+class DefaultProjectSetting(BaseModel):
+    """The user's default (auto-selected) project."""
+
+    id: UUID4 = Field(..., description="Project ID")
+    name: str = Field(..., description="Project name (denormalized for display)")
+
+
 class UserSettings(BaseModel):
     """Complete user settings schema"""
 
@@ -122,6 +129,9 @@ class UserSettings(BaseModel):
     onboarding: Optional[OnboardingProgress] = Field(default_factory=OnboardingProgress)
     polyphemus_access: Optional[PolyphemusAccess] = Field(
         None, description="Polyphemus access information"
+    )
+    default_project: Optional[DefaultProjectSetting] = Field(
+        None, description="The user's default project, auto-selected on login"
     )
     is_verified: Optional[bool] = Field(None, description="User verification status")
 
@@ -138,6 +148,7 @@ class UserSettingsUpdate(BaseModel):
     privacy: Optional[PrivacySettings] = None
     onboarding: Optional[OnboardingProgress] = None
     polyphemus_access: Optional[PolyphemusAccess] = None
+    default_project: Optional[DefaultProjectSetting] = None
 
 
 # User schemas

@@ -3,26 +3,23 @@
 import { useMemo } from 'react';
 import {
   Box,
-  CircularProgress,
-  FormControl,
   FormControlLabel,
   FormHelperText,
   Grid,
-  InputLabel,
-  ListItemIcon,
-  ListItemText,
   MenuItem,
   Select,
   Switch,
   TextField,
   Typography,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useEndpointDetailContext } from './EndpointDetailContext';
-import { ENVIRONMENTS, getProjectIcon } from './endpoint-detail-shared';
+import { ENVIRONMENTS } from './endpoint-detail-shared';
 
 interface IdentityDraft {
   name: string;
@@ -30,7 +27,6 @@ interface IdentityDraft {
 }
 
 interface ProjectDraft {
-  project_id: string;
   environment: string;
   disable_tracing: boolean;
 }
@@ -46,20 +42,17 @@ function identityFromEndpoint(endpoint: {
 }
 
 function projectFromEndpoint(endpoint: {
-  project_id?: string;
   environment: string;
   disable_tracing?: boolean;
 }): ProjectDraft {
   return {
-    project_id: endpoint.project_id || '',
     environment: endpoint.environment,
     disable_tracing: endpoint.disable_tracing ?? false,
   };
 }
 
 export default function EndpointOverviewTab() {
-  const { endpoint, projects, loadingProjects, saveFields } =
-    useEndpointDetailContext();
+  const { endpoint, projects, saveFields } = useEndpointDetailContext();
 
   const identityInitial = useMemo(
     () => identityFromEndpoint(endpoint),
@@ -129,7 +122,6 @@ export default function EndpointOverviewTab() {
         initialValue={projectInitial}
         onSave={async draft => {
           await saveFields({
-            project_id: draft.project_id || undefined,
             environment: draft.environment as Endpoint['environment'],
             disable_tracing: draft.disable_tracing,
           });
@@ -137,55 +129,18 @@ export default function EndpointOverviewTab() {
       >
         {({ draft, setDraft, isEditing }) => (
           <Grid container spacing={2}>
+            {/* Project is immutable after creation — always shown read-only */}
             <Grid size={12}>
-              {isEditing ? (
-                <FormControl fullWidth>
-                  <InputLabel>Project</InputLabel>
-                  <Select
-                    value={draft.project_id}
-                    label="Project"
-                    onChange={e =>
-                      setDraft(prev => ({
-                        ...prev,
-                        project_id: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="">
-                      <em>None</em>
-                    </MenuItem>
-                    {loadingProjects ? (
-                      <MenuItem disabled>
-                        <CircularProgress size={20} />
-                        <Box component="span" sx={{ ml: 1 }}>
-                          Loading projects...
-                        </Box>
-                      </MenuItem>
-                    ) : (
-                      Object.values(projects).map(project => (
-                        <MenuItem key={project.id} value={project.id}>
-                          <ListItemIcon>{getProjectIcon(project)}</ListItemIcon>
-                          <ListItemText
-                            primary={project.name}
-                            secondary={project.description}
-                          />
-                        </MenuItem>
-                      ))
-                    )}
-                  </Select>
-                </FormControl>
-              ) : (
-                <ViewField
-                  label="Project"
-                  value={
-                    endpoint.project_id
-                      ? projects[endpoint.project_id]?.name ||
-                        endpoint.project?.name ||
-                        'Loading project...'
-                      : 'No project assigned'
-                  }
-                />
-              )}
+              <ViewField
+                label="Project"
+                value={
+                  endpoint.project_id
+                    ? projects[endpoint.project_id]?.name ||
+                      endpoint.project?.name ||
+                      'Loading project...'
+                    : 'No project assigned'
+                }
+              />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               {isEditing ? (

@@ -94,6 +94,37 @@ def _apply_scope_variables(db: Session, scope) -> None:
     _execute_set_config(db, _scope_to_guc_params(scope))
 
 
+def bind_scope_to_session(
+    db: Session,
+    organization_id: str = "",
+    user_id: str = "",
+    project_id: str = "",
+) -> None:
+    """Bind a full RequestScope (org, user, project) onto an existing session.
+
+    Use this on a session you already own (e.g. a SessionLocal() created inside a
+    Celery task or a side-channel caller) when you cannot wrap the work in
+    ``get_db_with_tenant_variables``. It stores the RequestScope on
+    ``Session.info['_scope']`` -- the single source of truth the auto-filter /
+    auto-stamp listeners and the after_begin RLS re-apply read -- and applies the
+    RLS GUCs immediately.
+
+    Unlike ``set_session_variables`` (which only sets the RLS GUCs and leaves the
+    ORM listeners dormant), this activates BOTH layers and, crucially, carries the
+    ``project_id`` so project filtering / stamping behave the same as on the normal
+    request path.
+    """
+    from rhesis.backend.app.scope import RequestScope
+
+    scope = RequestScope(
+        organization_id=organization_id or None,
+        user_id=user_id or None,
+        project_id=project_id or None,
+    )
+    db.info[_SCOPE_KEY] = scope
+    _apply_scope_variables(db, scope)
+
+
 @event.listens_for(Session, "after_begin")
 def _reapply_tenant_vars(session: Session, transaction, connection) -> None:
     """

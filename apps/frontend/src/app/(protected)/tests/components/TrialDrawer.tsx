@@ -22,6 +22,7 @@ import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
+import { readActiveProjectId } from '@/utils/active-project';
 import { isMultiTurnTest } from '@/constants/test-types';
 import {
   isMultiTurnConfig,
@@ -159,6 +160,24 @@ export default function TrialDrawer({
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
           setProjects(processedProjects);
+
+          // Pre-select the active project from the session cookie
+          if (isInitialOpen) {
+            const activeProjectId = readActiveProjectId();
+            if (activeProjectId) {
+              const match = processedProjects.find(p => p.id === activeProjectId);
+              if (match) {
+                setSelectedProject(match.id);
+                // Fetch full project details for icon etc.
+                try {
+                  const projectData = await clientFactory.getProjectsClient().getProject(match.id);
+                  setSelectedProjectData(projectData);
+                } catch {
+                  setSelectedProjectData({ id: match.id, name: match.name } as Project);
+                }
+              }
+            }
+          }
         } catch (_projectsError) {
           setProjects([]);
           notifications.show(
@@ -219,11 +238,10 @@ export default function TrialDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToken, open]);
 
-  // Filter endpoints when project changes
+  // Filter endpoints by selected project; when no project is selected show all
   useEffect(() => {
     if (!selectedProject) {
-      setFilteredEndpoints([]);
-      setSelectedEndpoint(null);
+      setFilteredEndpoints(endpoints);
       return;
     }
 
@@ -429,9 +447,8 @@ export default function TrialDrawer({
             renderInput={params => (
               <TextField
                 {...params}
-                label="Project"
-                required
-                placeholder="Select a project"
+                label="Project (optional — filters endpoints)"
+                placeholder="Active project"
               />
             )}
             isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -449,15 +466,12 @@ export default function TrialDrawer({
             }
             onChange={(_, newValue) => handleEndpointChange(newValue)}
             getOptionLabel={option => option.name}
-            disabled={!selectedProject}
             renderInput={params => (
               <TextField
                 {...params}
                 label="Endpoint"
                 required
-                placeholder={
-                  selectedProject ? 'Select endpoint' : 'Select a project first'
-                }
+                placeholder="Select endpoint"
               />
             )}
             renderOption={(props, option) => {

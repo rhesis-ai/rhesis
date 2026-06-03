@@ -7,9 +7,11 @@ import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
+import { ActiveProjectProvider, useActiveProject } from '@/contexts/ActiveProjectContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
+import NoProjectAccess from '@/components/common/NoProjectAccess';
 
 interface ExtendedUser {
   id: string;
@@ -17,6 +19,35 @@ interface ExtendedUser {
   email?: string | null;
   image?: string | null;
   organization_id?: string | null;
+}
+
+/**
+ * Inner shell rendered only when the user has an organisation.
+ * Must be a child of ActiveProjectProvider so it can call useActiveProject().
+ */
+function AppContent({
+  children,
+  isOnboarding,
+}: {
+  children: React.ReactNode;
+  isOnboarding: boolean;
+}) {
+  const { projects, loading } = useActiveProject();
+  const hasNoProjects = !loading && projects.length === 0;
+
+  // Routes that bypass the no-project gate (project creation, onboarding)
+  const pathname = usePathname();
+  const isProjectCreation = pathname?.startsWith('/projects/create-new') ?? false;
+
+  if (hasNoProjects && !isOnboarding && !isProjectCreation) {
+    return (
+      <AppShell sidebar={<Sidebar />}>
+        <NoProjectAccess />
+      </AppShell>
+    );
+  }
+
+  return <AppShell sidebar={<Sidebar />}>{children}</AppShell>;
 }
 
 export default function ProtectedLayout({
@@ -45,7 +76,7 @@ export default function ProtectedLayout({
   const hasOrganization = !!user?.organization_id && !isOnboarding;
 
   const content = hasOrganization ? (
-    <AppShell sidebar={<Sidebar />}>{children}</AppShell>
+    <AppContent isOnboarding={isOnboarding}>{children}</AppContent>
   ) : (
     // During onboarding (or when org is missing) render without nav chrome
     <>{children}</>
@@ -55,10 +86,12 @@ export default function ProtectedLayout({
     <QueryClientProvider client={queryClient}>
       <AuthErrorBoundary>
         <FeaturesProvider>
-          <WebSocketProvider>
-            {!isOnboarding && <VerificationBanner />}
-            {content}
-          </WebSocketProvider>
+          <ActiveProjectProvider>
+            <WebSocketProvider>
+              {!isOnboarding && <VerificationBanner />}
+              {content}
+            </WebSocketProvider>
+          </ActiveProjectProvider>
         </FeaturesProvider>
       </AuthErrorBoundary>
     </QueryClientProvider>

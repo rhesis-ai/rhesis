@@ -25,6 +25,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { readActiveProjectId } from '@/utils/active-project';
 
 interface CreateExperimentDrawerProps {
   open: boolean;
@@ -56,7 +57,16 @@ export default function CreateExperimentDialog({
     setName('');
     setDescription('');
     setVisibility('private');
-    setProjectId(defaultProjectId ?? (projects[0]?.id as string) ?? '');
+    // Resolution order: explicit prop > active project cookie > first available project
+    const activeId = readActiveProjectId();
+    const resolved =
+      defaultProjectId ??
+      (activeId && projects.some(p => String(p.id) === activeId)
+        ? activeId
+        : undefined) ??
+      (projects[0]?.id as string) ??
+      '';
+    setProjectId(resolved);
   }, [open, defaultProjectId, projects]);
 
   const apiFactory = useMemo(

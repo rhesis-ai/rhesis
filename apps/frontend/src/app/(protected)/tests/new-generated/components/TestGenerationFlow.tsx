@@ -19,6 +19,7 @@ import {
   TestType,
 } from './shared/types';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { readActiveProjectId } from '@/utils/active-project';
 import { Model } from '@/utils/api-client/interfaces/model';
 import {
   GenerateTestsRequest,
@@ -282,7 +283,7 @@ export default function TestGenerationFlow({
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]); // Keep for display
   const [selectedSources, setSelectedSources] = useState<SourceData[]>([]); // Full source data
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null
+    () => readActiveProjectId()
   );
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null

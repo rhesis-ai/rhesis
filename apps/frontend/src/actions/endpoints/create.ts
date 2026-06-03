@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
 export interface CreateEndpointResult {
@@ -19,7 +19,7 @@ export async function createEndpoint(
       throw new Error('No session token available');
     }
 
-    const apiFactory = new ApiClientFactory(session.session_token);
+    const apiFactory = await createServerApiFactory(session.session_token);
     const endpointsClient = apiFactory.getEndpointsClient();
     const endpoint = await endpointsClient.createEndpoint(data);
 

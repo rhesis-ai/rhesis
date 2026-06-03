@@ -6,20 +6,13 @@ import {
   Typography,
   Grid,
   CircularProgress,
-  Avatar,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  ListItemAvatar,
-  ListItemText,
-  SelectChangeEvent,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { User } from '@/utils/api-client/interfaces/user';
-import { UsersClient } from '@/utils/api-client/users-client';
-import PersonIcon from '@mui/icons-material/Person';
 import styles from '@/styles/ProjectDetailsStep.module.css';
 
 // Import icons for selection
@@ -76,6 +69,9 @@ interface ProjectDetailsStepProps {
   sessionToken: string;
   userId: string;
 }
+
+// owner_id is intentionally not collected here — the backend always sets the
+// creator as owner. Ownership transfer is a post-creation action.
 
 // Define available icons for selection
 const PROJECT_ICONS = [
@@ -139,48 +135,20 @@ export default function ProjectDetailsStep({
   onNext,
   userName: _userName,
   userImage: _userImage,
-  sessionToken,
-  userId,
+  sessionToken: _sessionToken,
+  userId: _userId,
 }: ProjectDetailsStepProps) {
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({
     projectName: false,
     description: false,
-    owner_id: false,
   });
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
-
-  // Initialize formData.owner_id if not set
-  useEffect(() => {
-    if (!formData.owner_id) {
-      updateFormData({ owner_id: userId });
-    }
-  }, [formData.owner_id, userId, updateFormData]);
-
-  // Fetch users for the owner dropdown
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoadingUsers(true);
-      try {
-        const usersClient = new UsersClient(sessionToken);
-        const fetchedUsers = await usersClient.getUsers();
-        setUsers(fetchedUsers.data);
-      } catch (_error) {
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-
-    fetchUsers();
-  }, [sessionToken]);
 
   const validateForm = () => {
     const newErrors: FormErrors = {
       projectName: !formData.projectName,
       description: !formData.description,
-      owner_id: !formData.owner_id,
     };
 
     setErrors(newErrors);
@@ -194,7 +162,6 @@ export default function ProjectDetailsStep({
     if (validateForm()) {
       try {
         setLoading(true);
-        // Proceed to next step
         onNext();
       } catch (_error) {
       } finally {
@@ -207,18 +174,8 @@ export default function ProjectDetailsStep({
     const { name, value } = e.target;
     updateFormData({ [name]: value });
 
-    // Only clear errors after attempted submit
     if (attemptedSubmit && errors[name]) {
       setErrors(prev => ({ ...prev, [name]: false }));
-    }
-  };
-
-  const handleSelectChange = (event: SelectChangeEvent<string>) => {
-    updateFormData({ owner_id: event.target.value });
-
-    // Clear error when user selects
-    if (attemptedSubmit && errors.owner_id) {
-      setErrors(prev => ({ ...prev, owner_id: false }));
     }
   };
 
@@ -259,64 +216,6 @@ export default function ProjectDetailsStep({
         Please provide basic information about this project
       </Typography>
       <Grid container spacing={SPACING.betweenFields} sx={{ width: '100%' }}>
-        {/* Owner Dropdown */}
-        <Grid size={12}>
-          <FormControl fullWidth error={errors.owner_id && attemptedSubmit}>
-            <InputLabel>Owner</InputLabel>
-            <Select
-              value={formData.owner_id || ''}
-              label="Owner"
-              onChange={handleSelectChange}
-              disabled={loadingUsers}
-              renderValue={selected => {
-                const selectedUser = users.find(u => u.id === selected);
-                return selectedUser ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar
-                      src={selectedUser.picture}
-                      alt={selectedUser.name || selectedUser.email}
-                      sx={{ width: 24, height: 24 }}
-                    >
-                      <PersonIcon />
-                    </Avatar>
-                    <Typography>
-                      {selectedUser.name || selectedUser.email}
-                    </Typography>
-                  </Box>
-                ) : loadingUsers ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CircularProgress size={20} />
-                    <Typography>Loading users...</Typography>
-                  </Box>
-                ) : null;
-              }}
-            >
-              {users.map(user => (
-                <MenuItem key={user.id} value={user.id}>
-                  <ListItemAvatar>
-                    <Avatar
-                      src={user.picture}
-                      alt={user.name || user.email}
-                      sx={{ width: 32, height: 32 }}
-                    >
-                      <PersonIcon />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={user.name || user.email}
-                    secondary={user.email}
-                  />
-                </MenuItem>
-              ))}
-            </Select>
-            {errors.owner_id && attemptedSubmit && (
-              <Typography color="error" variant="caption">
-                {ERROR_MESSAGES.required('Owner')}
-              </Typography>
-            )}
-          </FormControl>
-        </Grid>
-
         {/* Icon Selector */}
         <Grid size={12}>
           <IconSelector
@@ -381,7 +280,7 @@ export default function ProjectDetailsStep({
           type="submit"
           variant="contained"
           color="primary"
-          disabled={loading || loadingUsers}
+          disabled={loading}
         >
           Continue
         </Button>

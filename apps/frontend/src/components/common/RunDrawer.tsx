@@ -68,6 +68,7 @@ import {
 import { BiotechIcon } from '@/components/icons';
 import tagStyles from '@/styles/BaseTag.module.css';
 import type { UUID } from 'crypto';
+import { readActiveProjectId } from '@/utils/active-project';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -351,7 +352,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     setPreflightChecks([]);
 
     if (cfg.projectEditable) {
-      setSelectedProject(null);
+      // Pre-select the session's active project so users don't have to choose
+      const activeId = readActiveProjectId();
+      setSelectedProject(activeId ? (activeId as UUID) : null);
       setSelectedEndpoint(null);
     } else if (experimentData) {
       setSelectedProject(experimentData.experiment.project_id as UUID);
@@ -572,15 +575,15 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   useEffect(() => {
     if (mode === 'runExperiment' || mode === 'rerunTestRun') return;
-    if (!selectedProject) {
-      setFilteredEndpoints([]);
-      setSelectedEndpoint(null);
-      return;
-    }
-    setFilteredEndpoints(
-      endpoints.filter(e => e.project_id === selectedProject)
+    // When a project is selected filter to its endpoints; otherwise show all
+    const filtered = selectedProject
+      ? endpoints.filter(e => e.project_id === selectedProject)
+      : endpoints;
+    setFilteredEndpoints(filtered);
+    // Clear endpoint selection if it no longer appears in the filtered list
+    setSelectedEndpoint(prev =>
+      prev && filtered.some(e => e.id === prev) ? prev : null
     );
-    setSelectedEndpoint(null);
   }, [selectedProject, endpoints, mode]);
 
   // Clear experiments on project switch (project-scoped)
@@ -1034,9 +1037,8 @@ export default function RunDrawer(props: RunDrawerProps) {
           renderInput={params => (
             <TextField
               {...params}
-              label="Project"
-              required
-              placeholder="Select a project"
+              label="Project (optional — filters endpoints)"
+              placeholder="Active project"
             />
           )}
           isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -1063,9 +1065,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       return null;
     }
 
-    const options =
-      mode === 'runExperiment' ? filteredEndpoints : filteredEndpoints;
-    const disabled = mode !== 'runExperiment' && !selectedProject;
+    const options = filteredEndpoints;
 
     return (
       <FormControl fullWidth>
@@ -1074,15 +1074,12 @@ export default function RunDrawer(props: RunDrawerProps) {
           value={options.find(e => e.id === selectedEndpoint) || null}
           onChange={(_, v) => setSelectedEndpoint(v?.id ?? null)}
           getOptionLabel={opt => opt.name}
-          disabled={disabled}
           renderInput={params => (
             <TextField
               {...params}
               label="Endpoint"
               required
-              placeholder={
-                disabled ? 'Select a project first' : 'Select endpoint'
-              }
+              placeholder="Select endpoint"
             />
           )}
           renderOption={(props, option) => {

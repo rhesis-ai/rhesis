@@ -64,8 +64,9 @@ def get_project_context(
             "Value must be a valid UUID that matches an existing project the authenticated user "
             "is a member of; non-members receive **403**. "
             "If omitted, the project_id bound to the API token (if any) is used as a fallback. "
-            "If neither is present the request runs without a project scope and sees all "
-            "org-wide rows."
+            "If neither is present the request runs without a project scope and sees only "
+            "org-level rows (project_id = NULL); project-scoped rows are NOT returned "
+            "(fail-closed)."
         ),
     ),
 ) -> Optional[str]:
@@ -83,6 +84,8 @@ def get_project_context(
 
     Returns:
         The project UUID as a string, or None if no project scope was requested.
+        When None, the request is fail-closed to org-level rows (project_id = NULL)
+        only -- project-scoped rows are not visible.
     """
     # 1. Prefer explicit header (FastAPI already parsed it via the Header() annotation)
     project_id_str = x_project_id or request.headers.get("X-Project-Id")
@@ -108,6 +111,7 @@ def get_project_context(
 
     # Validate membership using a tenant-scoped session so RLS GUCs are set
     # before querying project_membership (which has tenant_isolation RLS).
+    from rhesis.backend.app.models.project import Project
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
     org_id = str(current_user.organization_id)
@@ -123,7 +127,11 @@ def get_project_context(
             )
             .first()
         )
-    if not membership:
+        # The membership row can outlive a soft-deleted project (project delete
+        # does not cascade to project_membership). The soft-delete filter excludes
+        # deleted projects here, so a stale header/cookie resolves to None.
+        project = db.query(Project).filter_by(id=project_id).first()
+    if not membership or project is None:
         raise HTTPException(
             status_code=403,
             detail=f"User is not a member of project {project_id}",

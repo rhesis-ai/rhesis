@@ -65,6 +65,11 @@ export interface PolyphemusAccess {
   requested_at?: string;
 }
 
+export interface DefaultProjectSetting {
+  id: UUID;
+  name: string;
+}
+
 export interface UserSettings {
   version: number;
   models?: ModelsSettings;
@@ -74,6 +79,7 @@ export interface UserSettings {
   privacy?: PrivacySettings;
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
+  default_project?: DefaultProjectSetting;
   is_verified?: boolean;
 }
 
@@ -85,6 +91,7 @@ export interface UserSettingsUpdate {
   privacy?: PrivacySettings;
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
+  default_project?: DefaultProjectSetting;
 }
 
 // User Interfaces

@@ -18,6 +18,7 @@ import {
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { readActiveProjectId } from '@/utils/active-project';
 import { TRACE_METRICS_STATUS } from '@/utils/api-client/interfaces/telemetry';
 import {
   EMPTY_TRACE_DRAWER_FILTERS,
@@ -104,6 +105,14 @@ export default function TraceFilterDrawer({
           ? projectsResponse
           : projectsResponse?.data || [];
         setProjects(projectsData);
+
+        // Pre-select active project when no project filter is already set
+        if (!draft.projectId) {
+          const activeId = readActiveProjectId();
+          if (activeId && projectsData.some((p: { id: string }) => String(p.id) === activeId)) {
+            setDraft(prev => ({ ...prev, projectId: activeId }));
+          }
+        }
 
         const endpointsResponse = await clientFactory
           .getEndpointsClient()

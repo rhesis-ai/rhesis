@@ -34,7 +34,7 @@ import {
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
-import { ApiClientFactory } from '../utils/api-client/client-factory';
+import { createServerApiFactory } from '../utils/api-client/server-factory';
 import {
   type NavigationItem,
   type BrandingProps,
@@ -58,7 +58,7 @@ async function getNavigationItems(
   // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
     try {
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = await createServerApiFactory(session.session_token);
       const organizationsClient = clientFactory.getOrganizationsClient();
       const organization = await organizationsClient.getOrganization(
         session.user.organization_id

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -37,7 +37,7 @@ export default async function TestSetPage({ params }: PageProps) {
   }
 
   const { identifier } = await params;
-  const apiFactory = new ApiClientFactory(session.session_token);
+  const apiFactory = await createServerApiFactory(session.session_token);
   const testSetsClient = apiFactory.getTestSetsClient();
 
   const response = await testSetsClient.getTestSets({

@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { UUID } from 'crypto';
 import TestRunMainView from './components/TestRunMainViewClient';
@@ -51,7 +51,7 @@ export default async function TestRunPage({
     throw new Error('Authentication required');
   }
 
-  const apiFactory = new ApiClientFactory(session.session_token);
+  const apiFactory = await createServerApiFactory(session.session_token);
   const testRunsClient = apiFactory.getTestRunsClient();
   const testResultsClient = apiFactory.getTestResultsClient();
   const behaviorClient = apiFactory.getBehaviorClient();
