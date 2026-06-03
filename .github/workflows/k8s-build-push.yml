@@ -35,14 +35,19 @@ on:
         required: false
         type: string
         default: ''
+    outputs:
+      tag:
+        description: 'Resolved image tag (override or short git SHA)'
+        value: ${{ jobs.build.outputs.tag }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ inputs.environment }}
     permissions:
       contents: read
+    outputs:
+      tag: ${{ steps.set-tag.outputs.tag }}
 
     env:
       ENVIRONMENT: ${{ inputs.environment }}
@@ -67,15 +72,15 @@ jobs:
           if [ "$ENVIRONMENT" = "dev" ]; then
             echo '${{ secrets.GCP_SA_KEY_DEV }}' > "$SA_KEY_PATH"
             echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> "$GITHUB_ENV"
-            echo "REGISTRY_REGION=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
+            echo "REGISTRY_HOST=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
           elif [ "$ENVIRONMENT" = "stg" ]; then
             echo '${{ secrets.GCP_SA_KEY_STG }}' > "$SA_KEY_PATH"
             echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_STG }}" >> "$GITHUB_ENV"
-            echo "REGISTRY_REGION=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
+            echo "REGISTRY_HOST=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
           elif [ "$ENVIRONMENT" = "prd" ]; then
             echo '${{ secrets.GCP_SA_KEY_PRD }}' > "$SA_KEY_PATH"
             echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_PRD }}" >> "$GITHUB_ENV"
-            echo "REGISTRY_REGION=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
+            echo "REGISTRY_HOST=europe-west4-docker.pkg.dev" >> "$GITHUB_ENV"
           else
             echo "ERROR: Unknown ENVIRONMENT: $ENVIRONMENT"
             exit 1
@@ -89,7 +94,7 @@ jobs:
 
       - name: Set registry and tag
         run: |
-          REGISTRY="${{ env.REGISTRY_REGION }}/${{ env.PROJECT_ID }}/rhesis"
+          REGISTRY="${{ env.REGISTRY_HOST }}/${{ env.PROJECT_ID }}/rhesis"
           echo "REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
 
           TAG="${{ inputs.tag }}"
@@ -98,13 +103,17 @@ jobs:
           fi
           echo "TAG=$TAG" >> "$GITHUB_ENV"
 
-          echo "Registry region: ${{ env.REGISTRY_REGION }}"
+          echo "Registry host:   ${{ env.REGISTRY_HOST }}"
           echo "Registry:        $REGISTRY"
           echo "Tag:             $TAG"
           echo "Image:           $IMAGE"
 
+      - id: set-tag
+        name: Expose resolved tag as output
+        run: echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker "${{ env.REGISTRY_REGION }}" --quiet
+        run: gcloud auth configure-docker "${{ env.REGISTRY_HOST }}" --quiet
 
       - name: Build Container
         run: |

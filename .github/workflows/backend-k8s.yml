@@ -1,4 +1,4 @@
-name: "[Build & Push] Backend (K8s)"
+name: "[Build & Deploy] Backend (K8s)"
 
 on:
   workflow_dispatch:
@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: ''
+      deploy:
+        description: 'Patch values file to trigger ArgoCD deploy after build'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   validate-inputs:
@@ -45,7 +50,6 @@ jobs:
     needs: validate-inputs
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Approve build and push
         run: echo "Build and push approved for ${{ github.event.inputs.environment }}"
@@ -64,4 +68,14 @@ jobs:
       target: backend
       environment: ${{ inputs.environment || github.event.inputs.environment }}
       tag: ${{ inputs.tag || github.event.inputs.tag }}
+    secrets: inherit
+
+  deploy:
+    needs: build
+    if: inputs.deploy
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      tag: ${{ needs.build.outputs.tag }}
+      service: backend
     secrets: inherit

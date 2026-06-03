@@ -1,4 +1,4 @@
-name: "[Build & Push] All for K8s"
+name: "[Build & Deploy] All for K8s"
 
 on:
   workflow_dispatch:
@@ -25,13 +25,23 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    outputs:
+      tag: ${{ steps.resolve-tag.outputs.tag }}
     steps:
       - name: Approve build and push all K8s services
         run: |
           echo "Building and pushing all K8s service images to ${{ github.event.inputs.environment }}"
           echo "Tag override: ${{ github.event.inputs.tag || '(short git SHA)' }}"
-          echo "Note: cluster rollout requires a GitOps manifest update (ArgoCD)."
+
+      - id: resolve-tag
+        name: Resolve image tag
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(echo "${{ github.sha }}" | cut -c1-8)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
 
   backend-build:
     needs: gate
@@ -39,6 +49,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   worker-build:
@@ -47,6 +58,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   frontend-build:
@@ -55,6 +67,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   docs-build:
@@ -63,6 +76,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   chatbot-build:
@@ -71,6 +85,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   polyphemus-build:
@@ -79,6 +94,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   otel-collector-build:
@@ -87,6 +103,7 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
     secrets: inherit
 
   telemetry-processor-build:
@@ -95,4 +112,25 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
+      deploy: false
+    secrets: inherit
+
+  # After all images are pushed, update global.imageTag once so ArgoCD
+  # rolls all services to the same tag in a single Helm upgrade.
+  deploy-all:
+    needs:
+      - gate
+      - backend-build
+      - worker-build
+      - frontend-build
+      - docs-build
+      - chatbot-build
+      - polyphemus-build
+      - otel-collector-build
+      - telemetry-processor-build
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      tag: ${{ needs.gate.outputs.tag }}
+      # service left empty → patches global.imageTag for all services
     secrets: inherit
