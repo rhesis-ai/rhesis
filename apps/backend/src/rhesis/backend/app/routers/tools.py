@@ -17,6 +17,7 @@ from rhesis.backend.app.schemas.services import (
     TestToolConnectionRequest,
     TestToolConnectionResponse,
 )
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -209,7 +210,7 @@ async def extract_tool_item(
         )
     except HTTPException:
         raise
-    except ValueError as e:
+    except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Tool extract error: {e}", exc_info=True)
@@ -227,7 +228,6 @@ async def test_tool_connection(
     import logging
 
     from rhesis.backend.app.services.tool.rest import run_rest_health_check
-    from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
     logger = logging.getLogger(__name__)
 
@@ -242,7 +242,7 @@ async def test_tool_connection(
             user_id=user_id,
         )
         return result
-    except MCPConfigurationError as e:
+    except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Tool health check error: {e}", exc_info=True)

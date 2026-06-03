@@ -7,9 +7,9 @@ from typing import Dict
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp import MCPClientFactory
-from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
 
 def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_id: str = None):
@@ -28,18 +28,18 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         for GitHub repository-scoped connections.
 
     Raises:
-        MCPConfigurationError: If tool not found, deleted, not an MCP integration,
+        ToolConfigurationError: If tool not found, deleted, not an MCP integration,
             or invalid credentials
     """
     try:
         tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     except ItemDeletedException:
-        raise MCPConfigurationError(
+        raise ToolConfigurationError(
             f"Tool '{tool_id}' has been deleted. Please re-import the source."
         )
 
     if not tool:
-        raise MCPConfigurationError(
+        raise ToolConfigurationError(
             f"Tool '{tool_id}' not found. Please add it in /integrations/tools"
         )
 
@@ -50,7 +50,7 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
     try:
         credentials_dict = json.loads(tool.credentials)
     except (json.JSONDecodeError, TypeError) as e:
-        raise MCPConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
+        raise ToolConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
 
     repository_context = None
 

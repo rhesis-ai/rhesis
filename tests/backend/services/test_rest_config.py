@@ -6,13 +6,13 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.rest.config import build_client, get_rest_source
 from rhesis.backend.app.services.tool.rest.confluence import ConfluenceRestClient
 from rhesis.backend.app.services.tool.rest.github import GitHubRestClient
 from rhesis.backend.app.services.tool.rest.jira import JiraRestClient
 from rhesis.backend.app.services.tool.rest.notion import NotionRestClient
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
 
 @pytest.mark.unit
@@ -51,7 +51,7 @@ class TestBuildClient:
         assert isinstance(client, ConfluenceRestClient)
 
     def test_unknown_provider_raises(self):
-        with pytest.raises(MCPConfigurationError, match="No REST client registered"):
+        with pytest.raises(ToolConfigurationError, match="No REST client registered"):
             build_client("slack", {})
 
 
@@ -83,7 +83,7 @@ class TestGetRestSource:
             "rhesis.backend.app.services.tool.rest.config.crud"
         ) as mock_crud:
             mock_crud.get_tool.return_value = None
-            with pytest.raises(MCPConfigurationError, match="not found"):
+            with pytest.raises(ToolConfigurationError, match="not found"):
                 get_rest_source(db, str(uuid.uuid4()), str(uuid.uuid4()))
 
     def test_deleted_tool_raises(self):
@@ -92,7 +92,7 @@ class TestGetRestSource:
             "rhesis.backend.app.services.tool.rest.config.crud"
         ) as mock_crud:
             mock_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
-            with pytest.raises(MCPConfigurationError, match="has been deleted"):
+            with pytest.raises(ToolConfigurationError, match="has been deleted"):
                 get_rest_source(db, str(uuid.uuid4()), str(uuid.uuid4()))
 
     def test_invalid_credentials_json_raises(self):
@@ -101,5 +101,5 @@ class TestGetRestSource:
             "rhesis.backend.app.services.tool.rest.config.crud"
         ) as mock_crud:
             mock_crud.get_tool.return_value = self._tool(credentials="not json{")
-            with pytest.raises(MCPConfigurationError, match="Invalid credentials"):
+            with pytest.raises(ToolConfigurationError, match="Invalid credentials"):
                 get_rest_source(db, str(uuid.uuid4()), str(uuid.uuid4()))
