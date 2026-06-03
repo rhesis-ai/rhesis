@@ -30,6 +30,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
 
+    # Temporarily disable RLS on the tables joined by the backfill query.
+    # The tenant_isolation policies call current_setting('app.current_organization')
+    # without missing_ok=true; on Cloud SQL the migration user is not a superuser
+    # so RLS is evaluated, and the unregistered GUC raises an error.
+    conn.execute(sa.text("ALTER TABLE project DISABLE ROW LEVEL SECURITY"))
+    conn.execute(sa.text("ALTER TABLE project_membership DISABLE ROW LEVEL SECURITY"))
+
     conn.execute(
         sa.text(
             """
@@ -78,6 +85,9 @@ def upgrade() -> None:
             """
         )
     )
+
+    conn.execute(sa.text("ALTER TABLE project ENABLE ROW LEVEL SECURITY"))
+    conn.execute(sa.text("ALTER TABLE project_membership ENABLE ROW LEVEL SECURITY"))
 
 
 def downgrade() -> None:
