@@ -13,11 +13,11 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import SearchIcon from '@mui/icons-material/Search';
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import { FilterDrawerShell } from '@/components/common/FilterDrawer';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { getProjectIcon } from '@/components/common/ProjectIcons';
 
 interface ProjectSwitcherDrawerProps {
   open: boolean;
@@ -134,9 +134,10 @@ export default function ProjectSwitcherDrawer({
                     flexShrink: 0,
                     fontSize: 14,
                     fontWeight: 700,
+                    '& svg': { fontSize: 16 },
                   }}
                 >
-                  <GridViewOutlinedIcon sx={{ fontSize: 16 }} />
+                  {getProjectIcon(project)}
                 </Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography

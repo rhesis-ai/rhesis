@@ -9,6 +9,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -47,6 +48,10 @@ def mock_current_user():
     ``get_tenant_db_session`` (which transitively depend on
     ``require_current_user_or_token``). Overriding those two deps directly
     bypasses the entire auth/session machinery without needing a real DB.
+
+    The app's defense-in-depth backstop (``apply_auth_backstop``) also injects
+    ``require_current_user_or_token`` directly on the route, so we override it
+    too — otherwise the backstop would reject the mocked request with 401.
     """
     org_stub = Mock(spec=Organization)
     org_stub.id = _TEST_ORG_ID
@@ -55,6 +60,7 @@ def mock_current_user():
     db_stub.get.return_value = org_stub
 
     user_id = UUID("11111111-1111-1111-1111-111111111111")
+    user_stub = Mock(organization=org_stub, id=user_id)
 
     def _override_tenant_context():
         return (_TEST_ORG_ID, user_id)
@@ -64,7 +70,8 @@ def mock_current_user():
 
     app.dependency_overrides[get_tenant_context] = _override_tenant_context
     app.dependency_overrides[get_tenant_db_session] = _override_tenant_db_session
-    yield Mock(organization=org_stub)
+    app.dependency_overrides[require_current_user_or_token] = lambda: user_stub
+    yield user_stub
     app.dependency_overrides.clear()
 
 

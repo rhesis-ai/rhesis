@@ -21,9 +21,9 @@ import {
   Typography,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
+import { getProjectIcon } from '@/components/common/ProjectIcons';
 import { BORDER_RADIUS } from '@/styles/theme';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -562,9 +562,10 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                               flexShrink: 0,
                               fontSize: theme => theme.typography.body2.fontSize,
                               fontWeight: theme => theme.typography.fontWeightBold,
+                              '& svg': { fontSize: 'small' },
                             }}
                           >
-                            <GridViewOutlinedIcon fontSize="small" />
+                            {getProjectIcon(project)}
                           </Avatar>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography
