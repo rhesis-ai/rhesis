@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.tool.rest import create_jira_ticket_from_task
 from rhesis.backend.app.services.tool.rest.jira import JiraRestClient
-from rhesis.backend.app.services.tool.rest.notion import NotionSource
+from rhesis.backend.app.services.tool.rest.notion import NotionRestClient
 
 
 @pytest.mark.unit
@@ -86,7 +86,7 @@ class TestCreateJiraTicketFromTask:
             ) as mock_crud,
             patch(
                 "rhesis.backend.app.services.tool.rest.jira.get_rest_source",
-                return_value=Mock(spec=NotionSource),
+                return_value=Mock(spec=NotionRestClient),
             ),
         ):
             mock_crud.get_task.return_value = mock_task
