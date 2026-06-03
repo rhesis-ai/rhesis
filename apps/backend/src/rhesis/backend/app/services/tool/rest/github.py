@@ -110,15 +110,18 @@ class GitHubRestClient:
             sources: List[FetchedSource] = []
             for entry in data:
                 if entry["type"] == "file":
-                    sources.append(await self._fetch_file(client, entry["url"]))
+                    sources.append(await self._fetch_file(client, entry["url"], branch))
                 elif entry["type"] == "dir" and recursive:
                     sources.extend(await self._fetch(client, entry["url"], branch, recursive))
             return sources
 
         return [self._to_source(data)]
 
-    async def _fetch_file(self, client: httpx.AsyncClient, api_url: str) -> FetchedSource:
-        response = await client.get(api_url)
+    async def _fetch_file(
+        self, client: httpx.AsyncClient, api_url: str, branch: str = ""
+    ) -> FetchedSource:
+        params = {"ref": branch} if branch else {}
+        response = await client.get(api_url, params=params)
         response.raise_for_status()
         return self._to_source(response.json())
 
