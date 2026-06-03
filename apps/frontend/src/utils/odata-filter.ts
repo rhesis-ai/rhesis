@@ -1313,6 +1313,15 @@ export function hasActiveTeamFilters(f: TeamFilters): boolean {
   );
 }
 
+export function countActiveTeamFilters(f: TeamFilters): number {
+  return (
+    (f.memberStatus !== '' ? 1 : 0) +
+    (f.accountStatus !== null ? 1 : 0) +
+    (f.email.trim() !== '' ? 1 : 0) +
+    (f.name.trim() !== '' ? 1 : 0)
+  );
+}
+
 /**
  * Builds OData $filter for team member list queries (search pill + drawer).
  */

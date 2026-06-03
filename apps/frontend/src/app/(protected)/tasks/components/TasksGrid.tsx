@@ -30,7 +30,14 @@ import TaskFilterDrawer, {
   type TaskFilters,
   EMPTY_TASK_FILTERS,
   hasActiveTaskFilters,
+  countActiveTaskFilters,
 } from './TaskFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -53,6 +60,7 @@ interface TasksToolbarState {
   setStatusFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TasksToolbarContext = React.createContext<TasksToolbarState>({
@@ -62,6 +70,7 @@ const TasksToolbarContext = React.createContext<TasksToolbarState>({
   setStatusFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 function TasksUnifiedToolbar() {
@@ -72,6 +81,7 @@ function TasksUnifiedToolbar() {
     setStatusFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TasksToolbarContext);
 
   return (
@@ -81,6 +91,7 @@ function TasksUnifiedToolbar() {
       searchPlaceholder="Search tasks…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
         <ToolbarPillTabs
           tabs={[...STATUS_PILL_TABS]}
@@ -105,6 +116,7 @@ export default function TasksGrid({
   onRefresh: _onRefresh,
 }: TasksGridProps) {
   const router = useRouter();
+  const notifications = useNotifications();
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -129,6 +141,9 @@ export default function TasksGrid({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     if (!sessionToken) return;
@@ -262,8 +277,46 @@ export default function TasksGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!pendingDeleteId) return;
+    try {
+      setIsDeleting(true);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const tasksClient = clientFactory.getTasksClient();
+      await tasksClient.deleteTask(pendingDeleteId);
+      notifications.show('Successfully deleted task', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+      setPendingDeleteId(null);
+      fetchTasks();
+    } catch {
+      notifications.show('Failed to delete task', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+    }
+  }, [pendingDeleteId, sessionToken, notifications, fetchTasks]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+    setPendingDeleteId(null);
+  }, []);
+
+  const columns: GridColDef[] = useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => router.push(`/tasks/${id}`),
+      onDelete: id => handleRowDeleteAction(id),
+    });
+    return [
       {
         field: 'title',
         headerName: 'Title',
@@ -337,9 +390,9 @@ export default function TasksGrid({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [router, handleRowDeleteAction]);
 
   return (
     <TasksToolbarContext.Provider
@@ -350,6 +403,7 @@ export default function TasksGrid({
         setStatusFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
+        activeFilterCount: countActiveTaskFilters(drawerFilters),
       }}
     >
       <Box sx={{ position: 'relative' }}>
@@ -379,10 +433,21 @@ export default function TasksGrid({
           disablePaperWrapper={true}
           persistState
           sx={{
+            ...rowActionsHoverSx,
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
             },
           }}
+        />
+
+        <DeleteModal
+          open={deleteModalOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          isLoading={isDeleting}
+          title="Delete Task"
+          message="Are you sure you want to delete this task? This action cannot be undone."
+          itemType="task"
         />
 
         <TaskFilterDrawer

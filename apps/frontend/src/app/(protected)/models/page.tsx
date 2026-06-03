@@ -26,6 +26,7 @@ import {
 import ModelFilterDrawer, {
   EMPTY_MODEL_FILTERS,
   hasActiveModelFilters,
+  countActiveModelFilters,
   type ModelFilters,
 } from './components/ModelFilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
@@ -416,6 +417,7 @@ export default function ModelsPage() {
         searchPlaceholder="Search models..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveModelFilters(drawerFilters)}
+        activeFilterCount={countActiveModelFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs

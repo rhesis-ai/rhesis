@@ -17,6 +17,7 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridRenderCellParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -41,7 +42,12 @@ import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
   hasActiveTestFilters,
+  countActiveTestFilters,
 } from './TestFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import {
   getTestContentValue,
   renderTestContentCell,
@@ -64,6 +70,7 @@ interface TestsToolbarState {
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TestsToolbarContext = React.createContext<TestsToolbarState>({
@@ -73,6 +80,7 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 const PILL_TABS = [
@@ -89,6 +97,7 @@ function TestsUnifiedToolbar() {
     setTypeFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TestsToolbarContext);
 
   return (
@@ -98,6 +107,7 @@ function TestsUnifiedToolbar() {
       searchPlaceholder="Search tests…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
         <ToolbarPillTabs
           tabs={PILL_TABS}
@@ -145,6 +155,7 @@ export default function TestsTable({
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
@@ -326,9 +337,30 @@ export default function TestsTable({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
 
+  // Row action handlers
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleRowEditAction = useCallback(
+    (id: string) => {
+      const test = tests.find(t => t.id === id);
+      if (test) {
+        setSelectedTest(test);
+        setDrawerOpen(true);
+      }
+    },
+    [tests]
+  );
+
   // Column definitions
-  const columns: GridColDef[] = React.useMemo(
-    () => [
+  const columns: GridColDef[] = React.useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => handleRowEditAction(id),
+      onDelete: id => handleRowDeleteAction(id),
+    });
+    return [
       {
         field: 'prompt.content',
         headerName: 'Content',
@@ -346,8 +378,9 @@ export default function TestsTable({
         minWidth: 100,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.behavior?.name || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.behavior?.name || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
@@ -361,8 +394,9 @@ export default function TestsTable({
         minWidth: 100,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.topic?.name || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.topic?.name || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
@@ -376,8 +410,9 @@ export default function TestsTable({
         minWidth: 100,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.category?.name || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.category?.name || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
@@ -391,8 +426,9 @@ export default function TestsTable({
         minWidth: 90,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.test_type?.type_value || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.test_type?.type_value || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
@@ -549,9 +585,9 @@ export default function TestsTable({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [handleRowEditAction, handleRowDeleteAction]);
 
   // Event handlers
   const handleRowClick = useCallback(
@@ -614,25 +650,24 @@ export default function TestsTable({
   }, [selectedRows]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (selectedRows.length === 0) return;
+    const idsToDelete = pendingDeleteId
+      ? [pendingDeleteId]
+      : (selectedRows as string[]);
+    if (idsToDelete.length === 0) return;
 
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testsClient = clientFactory.getTestsClient();
 
-      // Delete all selected tests
-      await Promise.all(
-        selectedRows.map(id => testsClient.deleteTest(id as string))
-      );
+      await Promise.all(idsToDelete.map(id => testsClient.deleteTest(id)));
 
-      // Show success notification
       notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}`,
+        `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'test' : 'tests'}`,
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      // Clear selection and refresh data
+      setPendingDeleteId(null);
       setSelectedRows([]);
       fetchTests();
       onRefresh?.();
@@ -645,10 +680,18 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [selectedRows, sessionToken, notifications, fetchTests, onRefresh]);
+  }, [
+    pendingDeleteId,
+    selectedRows,
+    sessionToken,
+    notifications,
+    fetchTests,
+    onRefresh,
+  ]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   }, []);
 
   const _handleNewTest = useCallback(() => {
@@ -749,6 +792,7 @@ export default function TestsTable({
         setTypeFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
+        activeFilterCount: countActiveTestFilters(drawerFilters),
       }}
     >
       {error && (
@@ -809,6 +853,7 @@ export default function TestsTable({
             },
           },
         }}
+        sx={rowActionsHoverSx}
       />
 
       {sessionToken && (
@@ -832,8 +877,12 @@ export default function TestsTable({
             onClose={handleDeleteCancel}
             onConfirm={handleDeleteConfirm}
             isLoading={isDeleting}
-            title="Delete Tests"
-            message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+            title={pendingDeleteId ? 'Delete Test' : 'Delete Tests'}
+            message={
+              pendingDeleteId
+                ? 'Are you sure you want to delete this test? Related data will not be deleted.'
+                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+            }
             itemType="tests"
           />
         </>

@@ -60,6 +60,18 @@ export function hasActiveTestRunDetailDrawerFilters(
   );
 }
 
+export function countActiveTestRunDetailDrawerFilters(
+  filters: TestRunDetailDrawerFilters
+): number {
+  return (
+    (filters.overruleFilter !== 'all' ? 1 : 0) +
+    (filters.commentFilter !== 'all' ? 1 : 0) +
+    (filters.taskFilter !== 'all' ? 1 : 0) +
+    filters.selectedMetrics.length +
+    filters.selectedBehaviors.length
+  );
+}
+
 const REVIEW_STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'overruled', label: 'Reviewed' },

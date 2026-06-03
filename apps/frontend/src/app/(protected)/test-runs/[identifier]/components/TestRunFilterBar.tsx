@@ -27,6 +27,7 @@ import GridToolbar, {
 import TestRunDetailFilterDrawer, {
   extractDetailDrawerFilters,
   hasActiveTestRunDetailDrawerFilters,
+  countActiveTestRunDetailDrawerFilters,
   type TestRunDetailDrawerFilters,
 } from './TestRunDetailFilterDrawer';
 
@@ -111,6 +112,8 @@ export default function TestRunFilterBar({
   const drawerFilters = extractDetailDrawerFilters(filter);
   const hasActiveDrawerFilters =
     hasActiveTestRunDetailDrawerFilters(drawerFilters);
+  const activeDrawerFilterCount =
+    countActiveTestRunDetailDrawerFilters(drawerFilters);
 
   const advancedFilterDrawer = (
     <TestRunDetailFilterDrawer
@@ -135,6 +138,7 @@ export default function TestRunFilterBar({
           searchWidth={288}
           onFilterClick={() => setFilterDrawerOpen(true)}
           hasActiveFilters={hasActiveDrawerFilters}
+          activeFilterCount={activeDrawerFilterCount}
           sx={{
             px: 0,
             py: 0,
@@ -252,9 +256,10 @@ export default function TestRunFilterBar({
         </ButtonGroup>
 
         <Badge
-          badgeContent={hasActiveDrawerFilters ? ' ' : 0}
-          color="primary"
-          variant="dot"
+          badgeContent={
+            activeDrawerFilterCount > 0 ? activeDrawerFilterCount : 0
+          }
+          color="secondary"
           invisible={!hasActiveDrawerFilters}
         >
           <Button

@@ -26,6 +26,7 @@ import TokenFilterDrawer, {
   type TokenStatusFilter,
   EMPTY_TOKEN_FILTERS,
   hasActiveTokenFilters,
+  countActiveTokenFilters,
 } from './TokenFilterDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
@@ -240,6 +241,7 @@ export default function TokensPageClient({
         searchPlaceholder="Search tokens…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
+        activeFilterCount={countActiveTokenFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs

@@ -16,6 +16,7 @@ import ProjectFilterDrawer, {
   type ProjectFilters,
   EMPTY_FILTERS,
   hasActiveProjectFilters,
+  countActiveProjectFilters,
 } from './ProjectFilterDrawer';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
@@ -218,6 +219,7 @@ export default function ProjectsClientWrapper({
         searchPlaceholder="Search projects…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveProjectFilters(activeFilters)}
+        activeFilterCount={countActiveProjectFilters(activeFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs

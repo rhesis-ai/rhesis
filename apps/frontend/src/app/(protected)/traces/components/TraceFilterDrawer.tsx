@@ -30,6 +30,7 @@ export type { TraceDrawerFilters };
 export {
   EMPTY_TRACE_DRAWER_FILTERS,
   hasActiveTraceDrawerFilters,
+  countActiveTraceDrawerFilters,
 } from './trace-filter-params';
 
 const TIME_RANGE_OPTIONS: { label: string; value: TraceTimeRange }[] = [

@@ -23,6 +23,10 @@ export function hasActiveProjectFilters(f: ProjectFilters): boolean {
   return f.activeStatus !== null || f.environments.length > 0;
 }
 
+export function countActiveProjectFilters(f: ProjectFilters): number {
+  return (f.activeStatus !== null ? 1 : 0) + f.environments.length;
+}
+
 const ENVIRONMENTS = ['development', 'staging', 'production'] as const;
 const ENV_LABELS: Record<string, string> = {
   development: 'Development',

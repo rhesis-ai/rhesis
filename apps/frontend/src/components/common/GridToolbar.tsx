@@ -22,6 +22,8 @@ export interface GridToolbarProps {
   searchWidth?: number;
   onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
+  /** Number of active filters to display on the filter button badge */
+  activeFilterCount?: number;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   sx?: SxProps<Theme>;
@@ -203,6 +205,7 @@ export function GridToolbar({
   searchWidth = 240,
   onFilterClick,
   hasActiveFilters = false,
+  activeFilterCount,
   middleContent,
   rightContent,
   sx,
@@ -222,6 +225,7 @@ export function GridToolbar({
         <FilterButton
           onClick={onFilterClick}
           hasActiveFilters={hasActiveFilters}
+          activeFilterCount={activeFilterCount}
         />
       ) : null}
       <SearchPill
