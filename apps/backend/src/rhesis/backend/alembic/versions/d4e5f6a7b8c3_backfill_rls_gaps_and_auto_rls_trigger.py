@@ -191,6 +191,7 @@ def upgrade() -> None:
     for table in _NEED_TENANT_ISOLATION:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        op.execute(f"DROP POLICY IF EXISTS tenant_isolation ON {table}")
         op.execute(_TENANT_POLICY.format(table=table))
 
     # 2. Backfill project_isolation on tables with pre-existing project_id
@@ -198,10 +199,14 @@ def upgrade() -> None:
     for table in _NEED_PROJECT_ISOLATION:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        op.execute(f"DROP POLICY IF EXISTS project_isolation ON {table}")
         op.execute(_PROJECT_POLICY.format(table=table))
 
     # 3. Install the event trigger so future tables get policies automatically.
+    #    CREATE OR REPLACE handles re-runs for the function. DROP IF EXISTS makes
+    #    the event trigger itself idempotent too.
     op.execute(_EVENT_TRIGGER_FUNCTION)
+    op.execute("DROP EVENT TRIGGER IF EXISTS auto_rls_on_ddl")
     op.execute(_EVENT_TRIGGER)
 
 

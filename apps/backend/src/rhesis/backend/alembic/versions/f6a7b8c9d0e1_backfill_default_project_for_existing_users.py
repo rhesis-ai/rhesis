@@ -48,7 +48,7 @@ def upgrade() -> None:
                  AND pm.organization_id = u.organization_id
                 JOIN project p
                   ON p.id = pm.project_id
-                WHERE (u.user_settings -> 'default_project' ->> 'id') IS NULL
+                WHERE u.user_settings -> 'default_project' IS NULL
                   AND (u.deleted_at IS NULL OR u.deleted_at > now())
                   AND (p.deleted_at IS NULL OR p.deleted_at > now())
             ),
@@ -68,7 +68,7 @@ def upgrade() -> None:
                     COALESCE(u.user_settings, '{}'::jsonb),
                     '{default_project}',
                     jsonb_build_object(
-                        'id', chosen.project_id::text,
+                        'project_id', chosen.project_id::text,
                         'name', chosen.project_name
                     ),
                     true
