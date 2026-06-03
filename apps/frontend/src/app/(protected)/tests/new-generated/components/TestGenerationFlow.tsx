@@ -20,7 +20,6 @@ import {
 } from './shared/types';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { readActiveProjectId } from '@/utils/active-project';
-import { Model } from '@/utils/api-client/interfaces/model';
 import {
   GenerateTestsRequest,
   GenerationConfig,
@@ -297,8 +296,6 @@ export default function TestGenerationFlow({
   const [testSetName, setTestSetName] = useState('');
   const [customTestCount, setCustomTestCount] = useState<number>(50);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [models, setModels] = useState<Model[]>([]);
-  const [isLoadingModels, setIsLoadingModels] = useState(true);
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -418,37 +415,12 @@ export default function TestGenerationFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToken, show, handlePipelineEvent]);
 
-  // Fetch available models for the model selector
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        setIsLoadingModels(true);
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const modelsClient = apiFactory.getModelsClient();
-        const response = await modelsClient.getModels({
-          sort_by: 'name',
-          sort_order: 'asc',
-          skip: 0,
-          limit: 100,
-        });
-        setModels(response.data || []);
-      } catch (_error) {
-        show('Failed to load models', { severity: 'error' });
-      } finally {
-        setIsLoadingModels(false);
-      }
-    };
-
-    fetchModels();
-  }, [sessionToken, show]);
-
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
-    async (desc: string, sources: SourceData[], projectId: string | null) => {
+    async (desc: string, sources: SourceData[]) => {
       setDescription(desc);
       setSelectedSources(sources);
       setSelectedSourceIds(sources.map(s => s.id));
-      setSelectedProjectId(projectId);
       setCurrentScreen('interface');
       setConfigChips(createEmptyChips());
       setTestSamples([]);
@@ -466,10 +438,10 @@ export default function TestGenerationFlow({
       }
 
       // Fetch project for display purposes
-      if (projectId) {
+      if (selectedProjectId) {
         try {
           const projectsClient = apiFactory.getProjectsClient();
-          const fetchedProject = await projectsClient.getProject(projectId);
+          const fetchedProject = await projectsClient.getProject(selectedProjectId);
           setProject(fetchedProject);
         } catch (_error) {
           show('Failed to load project', { severity: 'warning' });
@@ -483,7 +455,7 @@ export default function TestGenerationFlow({
         await servicesClient.generateTestPipelineStream(
           {
             prompt: desc,
-            project_id: projectId || undefined,
+            project_id: selectedProjectId || undefined,
             test_type: testType,
             num_tests: 5,
             sources: sources,
@@ -499,7 +471,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [sessionToken, show, testType, selectedModelId, handlePipelineEvent]
+    [sessionToken, show, testType, selectedProjectId, selectedModelId, handlePipelineEvent]
   );
 
   // Generate test samples
@@ -1043,6 +1015,7 @@ export default function TestGenerationFlow({
       case 'input':
         return (
           <TestInputScreen
+            sessionToken={sessionToken}
             testType={testType}
             onTestTypeChange={handleTestTypeChange}
             onContinue={handleContinueFromInput}
@@ -1052,12 +1025,8 @@ export default function TestGenerationFlow({
               setSelectedSources(sources);
               setSelectedSourceIds(sources.map(s => s.id));
             }}
-            selectedProjectId={selectedProjectId}
-            onProjectChange={setSelectedProjectId}
             selectedModelId={selectedModelId}
             onModelChange={setSelectedModelId}
-            models={models}
-            isLoadingModels={isLoadingModels}
             isLoading={isGenerating}
             onBack={handleBackToTests}
           />

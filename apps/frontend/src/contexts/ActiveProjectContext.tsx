@@ -45,7 +45,7 @@ export function ActiveProjectProvider({
   const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProjectState] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchProjects = useCallback(async () => {
     if (!session?.session_token) return;
