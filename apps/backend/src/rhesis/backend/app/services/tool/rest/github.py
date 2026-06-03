@@ -50,7 +50,7 @@ def _parse_github_url(url: str) -> Tuple[str, str]:
     return api_url, branch
 
 
-class GitHubSource:
+class GitHubRestClient:
     """Fetches GitHub file content directly via the REST API."""
 
     def __init__(self, token: str):

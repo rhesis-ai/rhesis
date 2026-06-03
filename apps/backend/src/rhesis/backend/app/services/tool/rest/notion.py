@@ -14,7 +14,7 @@ _NOTION_API = "https://api.notion.com/v1"
 _NOTION_VERSION = "2022-06-28"
 
 
-class NotionSource:
+class NotionRestClient:
     """Fetches Notion page content directly via the REST API.
 
     Uses the Notion API to retrieve page blocks and convert them to
