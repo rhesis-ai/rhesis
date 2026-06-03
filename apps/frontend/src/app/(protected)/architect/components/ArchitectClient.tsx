@@ -5,12 +5,14 @@ import { Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
 
 export default function ArchitectClient() {
   const { data: session } = useSession();
+  const { activeProject } = useActiveProject();
   const [sessions, setSessions] = useState<ArchitectSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
@@ -23,11 +25,16 @@ export default function ArchitectClient() {
     return new ApiClientFactory(session.session_token).getArchitectClient();
   }, [session?.session_token]);
 
-  // Load sessions on mount
+  // Reload sessions whenever the active project changes so the sidebar always
+  // shows only sessions belonging to the current project. The backend already
+  // filters by project via RLS (X-Project-Id header); we just need to re-fetch
+  // when the project scope switches.
   useEffect(() => {
     const loadSessions = async () => {
       const client = getClient();
       if (!client) return;
+      setIsLoadingSessions(true);
+      setActiveSessionId(null);
       try {
         const data = await client.getSessions();
         setSessions(data);
@@ -38,7 +45,7 @@ export default function ArchitectClient() {
       }
     };
     loadSessions();
-  }, [getClient]);
+  }, [getClient, activeProject?.id]);
 
   const handleNewSession = useCallback(async () => {
     const client = getClient();
@@ -132,6 +139,7 @@ export default function ArchitectClient() {
             onSessionTitleUpdate={handleSessionTitleUpdate}
             initialMessage={pendingMessage}
             onInitialMessageSent={handleInitialMessageSent}
+            sessionProjectId={sessions.find(s => s.id === activeSessionId)?.project_id}
           />
         ) : !isCreatingSession ? (
           <ArchitectWelcome onSubmit={handleNewSessionWithMessage} />

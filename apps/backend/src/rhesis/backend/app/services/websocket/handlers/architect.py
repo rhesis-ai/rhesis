@@ -8,14 +8,13 @@ Streaming events flow back via Redis pub/sub → ChannelTarget.
 import logging
 from typing import TYPE_CHECKING
 
-from rhesis.backend.app.database import bind_scope_to_session, get_db_with_tenant_variables
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.websocket import (
     ConnectionTarget,
     EventType,
     WebSocketMessage,
 )
-from rhesis.backend.app.scope import bypass_tenant_filter
 
 if TYPE_CHECKING:
     from rhesis.backend.app.services.websocket.manager import WebSocketManager
@@ -45,6 +44,11 @@ async def handle_architect_message(
 
     session_id = payload.get("session_id")
     user_message = payload.get("message")
+    # The frontend sends the session's own project_id (not the currently active
+    # project cookie) so the DB lookup can satisfy the project_isolation RLS
+    # policy. These two values can differ when the user switches projects after
+    # creating the session, which previously caused "Session not found" errors.
+    client_project_id = payload.get("project_id") or ""
 
     if not session_id:
         await _send_architect_error(
@@ -68,35 +72,25 @@ async def handle_architect_message(
 
         from rhesis.backend.app import crud, schemas
 
-        with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as db:
-            # Bypass project filter to find sessions regardless of their project_id.
-            # We verify org ownership explicitly; the session's own project_id is
-            # then used to scope the Celery task.
-            with bypass_tenant_filter():
-                db_session = crud.get_architect_session(
-                    db,
-                    session_id=UUID(session_id),
-                    organization_id=str(user.organization_id),
-                    user_id=str(user.id),
-                )
+        with get_db_with_tenant_variables(
+            str(user.organization_id), str(user.id), client_project_id
+        ) as db:
+            db_session = crud.get_architect_session(
+                db,
+                session_id=UUID(session_id),
+                organization_id=str(user.organization_id),
+                user_id=str(user.id),
+            )
             if not db_session:
                 await _send_architect_error(
                     manager, conn_id, correlation_id, "Session not found or access denied"
                 )
                 return
 
-            # Carry the session's project_id so the Celery task scopes its DB sessions
-            # correctly, even when the WebSocket connection has no project context.
+            # Carry the session's project_id so the Celery task scopes its DB
+            # sessions correctly, even when the WebSocket payload had no project.
             active_project_id = str(db_session.project_id) if db_session.project_id else None
 
-            # Persist user message with the correct project scope if known.
-            session_project_id = active_project_id or ""
-            bind_scope_to_session(
-                db,
-                str(user.organization_id),
-                str(user.id),
-                session_project_id,
-            )
             crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(

@@ -30,6 +30,8 @@ interface ArchitectChatProps {
   onSessionTitleUpdate?: (sessionId: string, title: string) => void;
   initialMessage?: string | null;
   onInitialMessageSent?: () => void;
+  /** The project_id the session was created under (from the session object). */
+  sessionProjectId?: string | null;
 }
 
 interface PlanSpec {
@@ -125,6 +127,7 @@ export default function ArchitectChat({
   onSessionTitleUpdate: _onSessionTitleUpdate,
   initialMessage,
   onInitialMessageSent,
+  sessionProjectId,
 }: ArchitectChatProps) {
   const { data: authSession } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -145,7 +148,7 @@ export default function ArchitectChat({
     setCurrentPlan,
     sendMessage,
     setMessages,
-  } = useArchitectChat({ sessionId, initialUserMessage: initialMessage });
+  } = useArchitectChat({ sessionId, initialUserMessage: initialMessage, sessionProjectId });
 
   // Track sessions that were created with an initial message so we never
   // run loadMessages for them (the async fetch would wipe the messages
