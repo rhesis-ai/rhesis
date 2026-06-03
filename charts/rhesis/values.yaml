@@ -9,9 +9,7 @@ global:
   #   europe-west4-docker.pkg.dev/<project-id>/rhesis
   registry: ""
   imagePullPolicy: IfNotPresent
-  # Fallback tag used only when a service has no per-service image.tag set.
-  # CI pins each service independently via <service>.image.tag in the env values file.
-  # Set this only for a one-shot "deploy all services at the same tag" override.
+  # Default for local/chart-only use. CI publishes immutable git SHA tags; pin in env values.
   imageTag: ""
   requirePinnedTag: false
 
