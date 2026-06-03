@@ -29,17 +29,25 @@ class TestBuildClient:
         assert isinstance(client, GitHubRestClient)
 
     def test_jira(self):
-        client = build_client(
-            "jira",
-            {"JIRA_URL": "u", "JIRA_USERNAME": "n", "JIRA_API_TOKEN": "t"},
-        )
+        with patch(
+            "rhesis.backend.app.services.tool.rest.config.socket.getaddrinfo",
+            return_value=[(None, None, None, None, ("93.184.216.34", 0))],
+        ):
+            client = build_client(
+                "jira",
+                {"JIRA_URL": "https://example.atlassian.net", "JIRA_USERNAME": "n", "JIRA_API_TOKEN": "t"},
+            )
         assert isinstance(client, JiraRestClient)
 
     def test_confluence(self):
-        client = build_client(
-            "confluence",
-            {"CONFLUENCE_URL": "u", "CONFLUENCE_USERNAME": "n", "CONFLUENCE_API_TOKEN": "t"},
-        )
+        with patch(
+            "rhesis.backend.app.services.tool.rest.config.socket.getaddrinfo",
+            return_value=[(None, None, None, None, ("93.184.216.34", 0))],
+        ):
+            client = build_client(
+                "confluence",
+                {"CONFLUENCE_URL": "https://example.atlassian.net", "CONFLUENCE_USERNAME": "n", "CONFLUENCE_API_TOKEN": "t"},
+            )
         assert isinstance(client, ConfluenceRestClient)
 
     def test_unknown_provider_raises(self):
