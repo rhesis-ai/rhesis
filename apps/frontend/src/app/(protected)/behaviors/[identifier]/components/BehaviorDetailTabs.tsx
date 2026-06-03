@@ -11,6 +11,14 @@ import GridBadge from '@/components/common/GridBadge';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
+import LinkedEntitiesFilterDrawer, {
+  type LinkedFilterSectionConfig,
+  type LinkedFilterValues,
+  emptyLinkedFilters,
+  hasActiveLinkedFilters,
+  countActiveLinkedFilters,
+} from '@/components/common/LinkedEntitiesFilterDrawer';
+import type { ToolbarPillTab } from '@/components/common/GridToolbar';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
@@ -25,6 +33,7 @@ import type {
   MetricWithRelationships,
 } from '@/utils/api-client/interfaces/behavior';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type { Status } from '@/utils/api-client/interfaces/status';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -286,6 +295,15 @@ function BehaviorLinkedMetrics({
   const [available, setAvailable] = useState<MetricDetail[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
+  // Toolbar filter state
+  const [scorePill, setScorePill] = useState('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<LinkedFilterValues>({
+    backend: [],
+    score_type: [],
+    status: [],
+  });
+
   const fetchLinked = useCallback(async () => {
     setLoading(true);
     try {
@@ -446,6 +464,90 @@ function BehaviorLinkedMetrics({
     [behavior.id, sessionToken, fetchLinked]
   );
 
+  // Score Type pill tabs
+  const pillTabs: ToolbarPillTab[] = useMemo(
+    () => [
+      { label: 'All', value: 'all' },
+      { label: 'Numeric', value: 'numeric' },
+      { label: 'Categorical', value: 'categorical' },
+    ],
+    []
+  );
+
+  // Filter drawer sections: Backend, Score Type, Status (derived from rows)
+  const filterSections: LinkedFilterSectionConfig[] = useMemo(() => {
+    const backends = Array.from(
+      new Set(
+        metrics
+          .map(m => m.backend_type?.type_value)
+          .filter((value): value is string => !!value)
+      )
+    ).sort();
+    const scoreTypes = Array.from(
+      new Set(
+        metrics
+          .map(m => m.score_type)
+          .filter((value): value is string => !!value)
+      )
+    ).sort();
+    const statusNames = Array.from(
+      new Set(
+        metrics
+          .map(m => m.status?.name)
+          .filter((name): name is string => !!name)
+      )
+    ).sort();
+
+    return [
+      {
+        key: 'backend',
+        title: 'Backend',
+        options: backends.map(value => ({ value, label: value })),
+      },
+      {
+        key: 'score_type',
+        title: 'Score Type',
+        options: scoreTypes.map(value => ({
+          value,
+          label: value.charAt(0).toUpperCase() + value.slice(1),
+        })),
+      },
+      {
+        key: 'status',
+        title: 'Status',
+        options: statusNames.map(value => ({ value, label: value })),
+      },
+    ];
+  }, [metrics]);
+
+  const rowFilter = useCallback(
+    (row: GridRowModel) => {
+      const scoreType =
+        typeof row.score_type === 'string' ? row.score_type : '';
+      if (scorePill !== 'all' && scoreType !== scorePill) return false;
+
+      const backends = appliedFilters.backend ?? [];
+      if (backends.length > 0) {
+        const bt = row.backend_type as { type_value?: string } | null;
+        if (!backends.includes(bt?.type_value ?? '')) return false;
+      }
+
+      const scoreTypes = appliedFilters.score_type ?? [];
+      if (scoreTypes.length > 0 && !scoreTypes.includes(scoreType))
+        return false;
+
+      const statuses = appliedFilters.status ?? [];
+      if (statuses.length > 0) {
+        const statusName =
+          (row.status as Status | null | undefined)?.name ?? '';
+        if (!statuses.includes(statusName)) return false;
+      }
+
+      return true;
+    },
+    [scorePill, appliedFilters]
+  );
+
   return (
     <>
       <LinkedEntitiesGrid
@@ -456,6 +558,14 @@ function BehaviorLinkedMetrics({
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/metrics/${String(params.id)}`)}
         onAssignClick={handleAssignClick}
+        searchPlaceholder="Search metrics…"
+        rowFilter={rowFilter}
+        onFilterClick={() => setFilterOpen(true)}
+        hasActiveFilters={hasActiveLinkedFilters(appliedFilters)}
+        activeFilterCount={countActiveLinkedFilters(appliedFilters)}
+        pillTabs={pillTabs}
+        activePill={scorePill}
+        onPillChange={setScorePill}
         emptyState={
           <Box
             sx={{
@@ -491,6 +601,16 @@ function BehaviorLinkedMetrics({
         loading={loadingAvailable}
         getRowId={row => String(row.id)}
         onAssign={handleAssign}
+      />
+
+      <LinkedEntitiesFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        sections={filterSections}
+        filters={appliedFilters}
+        onApply={next =>
+          setAppliedFilters(next ?? emptyLinkedFilters(filterSections))
+        }
       />
     </>
   );

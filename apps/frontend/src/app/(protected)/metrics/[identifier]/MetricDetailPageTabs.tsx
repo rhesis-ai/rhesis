@@ -14,6 +14,13 @@ import DetailTabNav from '@/components/common/DetailTabNav';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
+import LinkedEntitiesFilterDrawer, {
+  type LinkedFilterSectionConfig,
+  type LinkedFilterValues,
+  emptyLinkedFilters,
+  hasActiveLinkedFilters,
+  countActiveLinkedFilters,
+} from '@/components/common/LinkedEntitiesFilterDrawer';
 import { RouteIcon } from '@/components/icons';
 import { MetricDetailView } from './MetricDetailView';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -22,7 +29,11 @@ import type {
   BehaviorReference,
   BehaviorWithMetrics,
 } from '@/utils/api-client/interfaces/behavior';
+import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
+
+/** Linked behaviors come back with the status relationship at runtime. */
+type LinkedBehaviorRow = BehaviorReference & { status?: Status | null };
 
 const TAB_KEYS = ['basic', 'linked-behaviors'] as const;
 
@@ -81,13 +92,19 @@ function MetricLinkedBehaviors({
   sessionToken: string;
 }) {
   const router = useRouter();
-  const [behaviors, setBehaviors] = useState<BehaviorReference[]>([]);
+  const [behaviors, setBehaviors] = useState<LinkedBehaviorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
   const [available, setAvailable] = useState<BehaviorWithMetrics[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
+
+  // Filter drawer state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<LinkedFilterValues>({
+    status: [],
+  });
 
   const fetchLinked = useCallback(async () => {
     if (!sessionToken) return;
@@ -96,7 +113,7 @@ function MetricLinkedBehaviors({
       const client = new MetricsClient(sessionToken);
       const result = await client.getMetricBehaviors(metricId as UUID);
       const data =
-        (result as unknown as { data: BehaviorReference[] }).data ?? [];
+        (result as unknown as { data: LinkedBehaviorRow[] }).data ?? [];
       setBehaviors(data);
     } catch {
       setBehaviors([]);
@@ -208,6 +225,34 @@ function MetricLinkedBehaviors({
     [metricId, sessionToken, fetchLinked]
   );
 
+  // Filter drawer: Status only (linked behaviors have no other filterable field)
+  const filterSections: LinkedFilterSectionConfig[] = useMemo(() => {
+    const statusNames = Array.from(
+      new Set(
+        behaviors
+          .map(b => b.status?.name)
+          .filter((name): name is string => !!name)
+      )
+    ).sort();
+    return [
+      {
+        key: 'status',
+        title: 'Status',
+        options: statusNames.map(name => ({ value: name, label: name })),
+      },
+    ];
+  }, [behaviors]);
+
+  const rowFilter = useCallback(
+    (row: GridRowModel) => {
+      const statuses = appliedFilters.status ?? [];
+      if (statuses.length === 0) return true;
+      const statusName = (row.status as Status | null | undefined)?.name ?? '';
+      return statuses.includes(statusName);
+    },
+    [appliedFilters]
+  );
+
   return (
     <>
       <LinkedEntitiesGrid
@@ -218,6 +263,11 @@ function MetricLinkedBehaviors({
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/behaviors/${String(params.id)}`)}
         onAssignClick={handleAssignClick}
+        searchPlaceholder="Search behaviors…"
+        rowFilter={rowFilter}
+        onFilterClick={() => setFilterOpen(true)}
+        hasActiveFilters={hasActiveLinkedFilters(appliedFilters)}
+        activeFilterCount={countActiveLinkedFilters(appliedFilters)}
         emptyState={
           <Box
             sx={{
@@ -253,6 +303,16 @@ function MetricLinkedBehaviors({
         loading={loadingAvailable}
         getRowId={row => String(row.id)}
         onAssign={handleAssign}
+      />
+
+      <LinkedEntitiesFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        sections={filterSections}
+        filters={appliedFilters}
+        onApply={next =>
+          setAppliedFilters(next ?? emptyLinkedFilters(filterSections))
+        }
       />
     </>
   );

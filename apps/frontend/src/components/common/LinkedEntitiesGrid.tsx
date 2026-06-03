@@ -13,29 +13,65 @@ import {
 } from '@mui/x-data-grid';
 import type { SxProps, Theme } from '@mui/material/styles';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { GridToolbar } from '@/components/common/GridToolbar';
+import {
+  GridToolbar,
+  PrimarySegmentedPills,
+  type ToolbarPillTab,
+} from '@/components/common/GridToolbar';
 import { rowActionsHoverSx } from '@/components/common/createRowActionsColumn';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
-// --- Context for sharing search state with the toolbar slot ---
+// --- Context for sharing toolbar state with the toolbar slot ---
 
 interface LinkedEntitiesContextValue {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
+  searchPlaceholder: string;
+  onFilterClick?: () => void;
+  hasActiveFilters?: boolean;
+  activeFilterCount?: number;
+  pillTabs?: ToolbarPillTab[];
+  activePill?: string;
+  onPillChange?: (value: string) => void;
 }
 
 const LinkedEntitiesContext = createContext<LinkedEntitiesContextValue>({
   searchQuery: '',
   setSearchQuery: () => {},
+  searchPlaceholder: 'Search…',
 });
 
 function LinkedEntitiesToolbar() {
-  const { searchQuery, setSearchQuery } = useContext(LinkedEntitiesContext);
+  const {
+    searchQuery,
+    setSearchQuery,
+    searchPlaceholder,
+    onFilterClick,
+    hasActiveFilters,
+    activeFilterCount,
+    pillTabs,
+    activePill,
+    onPillChange,
+  } = useContext(LinkedEntitiesContext);
+
   return (
     <GridToolbar
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      searchPlaceholder="Search…"
+      searchPlaceholder={searchPlaceholder}
+      onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
+      hasActiveFilters={hasActiveFilters}
+      activeFilterCount={activeFilterCount}
+      middleContent={
+        pillTabs && pillTabs.length > 0 ? (
+          <PrimarySegmentedPills
+            tabs={pillTabs}
+            mode="single"
+            activeValue={activePill ?? pillTabs[0]?.value ?? ''}
+            onSingleChange={value => onPillChange?.(value)}
+          />
+        ) : undefined
+      }
       rightContent={
         <>
           <GridToolbarColumnsButton />
@@ -60,6 +96,17 @@ export interface LinkedEntitiesGridProps {
   pageSizeOptions?: number[];
   sx?: SxProps<Theme>;
   emptyState?: React.ReactNode;
+  searchPlaceholder?: string;
+  /** Parent-supplied predicate for pill/drawer filtering (search is handled internally). */
+  rowFilter?: (row: GridRowModel) => boolean;
+  // Filter (tune) button
+  onFilterClick?: () => void;
+  hasActiveFilters?: boolean;
+  activeFilterCount?: number;
+  // Centered segmented pill tabs
+  pillTabs?: ToolbarPillTab[];
+  activePill?: string;
+  onPillChange?: (value: string) => void;
 }
 
 export default function LinkedEntitiesGrid({
@@ -73,26 +120,51 @@ export default function LinkedEntitiesGrid({
   pageSizeOptions = [5, 10, 25],
   sx,
   emptyState,
+  searchPlaceholder = 'Search…',
+  rowFilter,
+  onFilterClick,
+  hasActiveFilters,
+  activeFilterCount,
+  pillTabs,
+  activePill,
+  onPillChange,
 }: LinkedEntitiesGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return rows;
-    const q = searchQuery.toLowerCase();
-    return rows.filter(row => {
-      const name = typeof row.name === 'string' ? row.name : '';
-      const description =
-        typeof row.description === 'string' ? row.description : '';
-      return (
-        name.toLowerCase().includes(q) || description.toLowerCase().includes(q)
-      );
-    });
-  }, [rows, searchQuery]);
+  const displayedRows = useMemo(() => {
+    let result = rowFilter ? rows.filter(rowFilter) : rows;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(row => {
+        const name = typeof row.name === 'string' ? row.name : '';
+        const description =
+          typeof row.description === 'string' ? row.description : '';
+        return (
+          name.toLowerCase().includes(q) ||
+          description.toLowerCase().includes(q)
+        );
+      });
+    }
+    return result;
+  }, [rows, rowFilter, searchQuery]);
 
+  // Empty state is based on the total linked rows, not the filtered subset.
   const showEmptyState = !loading && rows.length === 0 && !!emptyState;
 
+  const contextValue: LinkedEntitiesContextValue = {
+    searchQuery,
+    setSearchQuery,
+    searchPlaceholder,
+    onFilterClick,
+    hasActiveFilters,
+    activeFilterCount,
+    pillTabs,
+    activePill,
+    onPillChange,
+  };
+
   return (
-    <LinkedEntitiesContext.Provider value={{ searchQuery, setSearchQuery }}>
+    <LinkedEntitiesContext.Provider value={contextValue}>
       <Paper
         elevation={0}
         sx={[
@@ -153,7 +225,7 @@ export default function LinkedEntitiesGrid({
           <Box sx={{ px: 2, pb: 2.5 }}>{emptyState}</Box>
         ) : (
           <BaseDataGrid
-            rows={filteredRows}
+            rows={displayedRows}
             columns={columns}
             loading={loading}
             getRowId={getRowId}
@@ -161,7 +233,18 @@ export default function LinkedEntitiesGrid({
             toolbarSlot={LinkedEntitiesToolbar}
             disablePaperWrapper
             pageSizeOptions={pageSizeOptions}
+            initialState={{
+              pagination: {
+                paginationModel: {
+                  page: 0,
+                  pageSize: pageSizeOptions.includes(10)
+                    ? 10
+                    : (pageSizeOptions[0] ?? 10),
+                },
+              },
+            }}
             disableRowSelectionOnClick
+            hideRowsPerPageBelow={0}
             sx={rowActionsHoverSx}
           />
         )}

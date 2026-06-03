@@ -97,7 +97,10 @@ export default function AssignEntityDrawer({
           onRowSelectionModelChange={setSelected}
           rowSelectionModel={selected}
           disablePaperWrapper
-          pageSizeOptions={[10, 25]}
+          pageSizeOptions={[10, 25, 50]}
+          initialState={{
+            pagination: { paginationModel: { page: 0, pageSize: 10 } },
+          }}
           hideRowsPerPageBelow={0}
         />
       </Box>
