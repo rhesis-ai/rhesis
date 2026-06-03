@@ -6,7 +6,6 @@ import {
   createTheme,
 } from '@mui/material/styles';
 import { getDesignTokens } from '../../styles/theme';
-import CssBaseline from '@mui/material/CssBaseline';
 
 export const ColorModeContext = React.createContext({
   toggleColorMode: () => {},
@@ -104,7 +103,6 @@ export default function ThemeContextProvider({
         theme={theme}
         disableTransitionOnChange={disableTransitionOnChange}
       >
-        <CssBaseline />
         {children}
       </MuiThemeProvider>
     </ColorModeContext.Provider>

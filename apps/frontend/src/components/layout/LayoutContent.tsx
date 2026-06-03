@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, useTheme } from '@mui/material';
+import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { SessionProvider } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -101,6 +102,7 @@ export function LayoutContent({
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
+        <CssBaseline />
         <NotificationProvider>
           <OnboardingProvider>
             <Box sx={boxSx}>

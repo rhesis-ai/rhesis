@@ -39,12 +39,16 @@ const ActiveProjectContext = createContext<ActiveProjectContextValue>({
 
 export function ActiveProjectProvider({
   children,
+  initialActiveProject = null,
 }: {
   children: React.ReactNode;
+  initialActiveProject?: Project | null;
 }) {
   const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProject, setActiveProjectState] = useState<Project | null>(null);
+  const [activeProject, setActiveProjectState] = useState<Project | null>(
+    initialActiveProject
+  );
   const [loading, setLoading] = useState(true);
 
   const fetchProjects = useCallback(async () => {
