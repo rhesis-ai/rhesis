@@ -268,32 +268,6 @@ class ItemResult(BaseModel):
     title: str
 
 
-class SearchMCPRequest(BaseModel):
-    """Request to search MCP server."""
-
-    query: str
-    tool_id: str
-
-
-class ExtractMCPRequest(BaseModel):
-    """Request to extract MCP item content.
-
-    Either 'id' or 'url' (or both) must be provided.
-    The agent will use whichever is more appropriate for the provider.
-    """
-
-    id: Optional[str] = None
-    url: Optional[str] = None
-    tool_id: str
-
-    @model_validator(mode="after")
-    def validate_id_or_url(self):
-        """Ensure at least one of id or url is provided."""
-        if not self.id and not self.url:
-            raise ValueError("Either 'id' or 'url' must be provided")
-        return self
-
-
 class QueryMCPRequest(BaseModel):
     """General-purpose request to query MCP server with custom task."""
 
@@ -303,10 +277,34 @@ class QueryMCPRequest(BaseModel):
     max_iterations: Optional[int] = 10
 
 
-class ExtractMCPResponse(BaseModel):
-    """Response containing extracted content from MCP item."""
+class _ToolCall(BaseModel):
+    tool_name: str
+    arguments: Dict[str, Any]
 
-    content: str
+
+class _ToolResult(BaseModel):
+    tool_name: str
+    success: bool
+    content: Optional[str] = None
+    error: Optional[str] = None
+
+
+class _ExecutionStep(BaseModel):
+    iteration: int
+    reasoning: str
+    action: str
+    tool_calls: List[_ToolCall]
+    tool_results: List[_ToolResult]
+
+
+class QueryMCPResponse(BaseModel):
+    """Response from general-purpose MCP query."""
+
+    final_answer: str
+    success: bool
+    iterations_used: int
+    max_iterations_reached: bool
+    execution_history: List[_ExecutionStep]
 
 
 class ExtractToolRequest(BaseModel):
@@ -345,44 +343,8 @@ class ExtractToolResponse(BaseModel):
     sources: List[ExtractedSource]
 
 
-class ToolCall(BaseModel):
-    """Tool call in agent execution."""
-
-    tool_name: str
-    arguments: Dict[str, Any]
-
-
-class ToolResult(BaseModel):
-    """Result from tool execution."""
-
-    tool_name: str
-    success: bool
-    content: Optional[str] = None
-    error: Optional[str] = None
-
-
-class ExecutionStep(BaseModel):
-    """Single step in agent execution history."""
-
-    iteration: int
-    reasoning: str
-    action: str
-    tool_calls: List[ToolCall]
-    tool_results: List[ToolResult]
-
-
-class QueryMCPResponse(BaseModel):
-    """Response from general-purpose MCP query."""
-
-    final_answer: str
-    success: bool
-    iterations_used: int
-    max_iterations_reached: bool
-    execution_history: List[ExecutionStep]
-
-
-class TestMCPConnectionRequest(BaseModel):
-    """Request to test MCP connection authentication.
+class TestToolConnectionRequest(BaseModel):
+    """Request to test tool connection credentials.
 
     Either tool_id (for existing tools) OR provider_type_id + credentials
     (for non-existent tools) must be provided.
@@ -411,12 +373,12 @@ class TestMCPConnectionRequest(BaseModel):
         return self
 
 
-class TestMCPConnectionResponse(BaseModel):
-    """Response from MCP connection authentication test."""
+class TestToolConnectionResponse(BaseModel):
+    """Response from a tool connection test."""
 
     is_authenticated: str  # "Yes" or "No"
     message: str
-    additional_metadata: Optional[Dict[str, Any]] = None  # For provider-specific data like spaces
+    additional_metadata: Optional[Dict[str, Any]] = None
 
 
 class CreateJiraTicketFromTaskRequest(BaseModel):
