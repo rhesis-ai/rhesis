@@ -62,6 +62,7 @@ function LinkedEntitiesToolbar() {
       onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
       hasActiveFilters={hasActiveFilters}
       activeFilterCount={activeFilterCount}
+      sx={{ px: '30px', pt: 0, pb: '30px', minHeight: 'auto' }}
       middleContent={
         pillTabs && pillTabs.length > 0 ? (
           <PrimarySegmentedPills
@@ -151,6 +152,16 @@ export default function LinkedEntitiesGrid({
   // Empty state is based on the total linked rows, not the filtered subset.
   const showEmptyState = !loading && rows.length === 0 && !!emptyState;
 
+  // Inset the first/last column content to 30px so it lines up with the
+  // header, toolbar and footer (which already use 30px horizontal padding).
+  const gridSx = {
+    ...(rowActionsHoverSx as Record<string, unknown>),
+    '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
+      { paddingLeft: '30px' },
+    '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
+      { paddingRight: '30px' },
+  } as SxProps<Theme>;
+
   const contextValue: LinkedEntitiesContextValue = {
     searchQuery,
     setSearchQuery,
@@ -185,9 +196,9 @@ export default function LinkedEntitiesGrid({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            px: 2,
-            pt: 2.5,
-            pb: showEmptyState ? 2.5 : 0,
+            px: '30px',
+            pt: '30px',
+            pb: '30px',
           }}
         >
           <Typography
@@ -222,7 +233,7 @@ export default function LinkedEntitiesGrid({
 
         {/* Empty state or grid */}
         {showEmptyState ? (
-          <Box sx={{ px: 2, pb: 2.5 }}>{emptyState}</Box>
+          <Box sx={{ px: '30px', pb: '30px' }}>{emptyState}</Box>
         ) : (
           <BaseDataGrid
             rows={displayedRows}
@@ -245,7 +256,7 @@ export default function LinkedEntitiesGrid({
             }}
             disableRowSelectionOnClick
             hideRowsPerPageBelow={0}
-            sx={rowActionsHoverSx}
+            sx={gridSx}
           />
         )}
       </Paper>
