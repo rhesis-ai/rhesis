@@ -25,18 +25,6 @@ provider "google" {
   region  = var.region
 }
 
-# Read WireGuard server's reserved external IP from its Terraform state.
-# Avoids hardcoding the IP in cidrs.tf — if the VM is ever recreated the
-# google_compute_address resource retains the same address, and this reference
-# automatically picks up any change after a wireguard apply.
-data "terraform_remote_state" "wireguard" {
-  backend = "gcs"
-  config = {
-    bucket = var.state_bucket
-    prefix = "terraform/infrastructure/envs/wireguard"
-  }
-}
-
 module "prd" {
   source = "../../modules/network/gcp"
 
@@ -70,12 +58,9 @@ module "gke_prd" {
   max_node_count         = 5
   deletion_protection    = var.gke_deletion_protection
 
-  # stg/prd use public endpoint locked to WireGuard VPN CIDR (master_authorized_networks).
-  # dev keeps private endpoint via Shared VPC cross-project NIC (already running, immutable field).
-  # WireGuard external IP is read from wireguard env remote state (google_compute_address.wireguard)
-  # so it tracks automatically if the reserved address ever changes after a wireguard apply.
-  enable_private_endpoint = false
-  extra_authorized_cidrs  = ["${data.terraform_remote_state.wireguard.outputs.wireguard_public_ip}/32"]
+  # prd uses a private endpoint via the WireGuard server's Shared VPC NIC in the prd nodes subnet.
+  # The NIC IP (10.6.1.10) is the MASQUERADE'd source for kubectl → GKE master traffic.
+  extra_authorized_cidrs = ["${local.cidrs.prd.wireguard_nic_ip}/32"]
 
   depends_on = [module.prd]
 }
@@ -150,7 +135,49 @@ module "cnpg_barman_prd" {
   depends_on = [module.gcs_prd, module.gke_prd]
 }
 
-# ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
+# ArgoCD bootstrap is done locally via VPN after GKE is up.
+
+# ── Shared VPC: prd project is the host, rhesis-platform-admin is a service project ──────────
+# This allows the WireGuard server (in rhesis-platform-admin) to attach a NIC directly into
+# the prd nodes subnet, bypassing GCP's non-transitive peering limitation. Same pattern as dev
+# previously used; rhesis-platform-admin can only be a service project of ONE host at a time,
+# so dev's Shared VPC host relationship must be removed before applying this.
+#
+# Subnet user grants are required for:
+#   - terraform-wireguard SA: creates the VM NIC during terraform apply
+#   - rhesis-platform-admin default compute SA: runtime access by the VM itself
+
+data "google_project" "platform_admin" {
+  project_id = "rhesis-platform-admin"
+}
+
+resource "google_compute_shared_vpc_host_project" "prd" {
+  project = var.project_id
+}
+
+resource "google_compute_shared_vpc_service_project" "platform_admin" {
+  host_project    = var.project_id
+  service_project = "rhesis-platform-admin"
+  depends_on      = [google_compute_shared_vpc_host_project.prd]
+}
+
+resource "google_compute_subnetwork_iam_member" "wireguard_tf_sa_subnet_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = module.prd.subnet_self_links["nodes"]
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com"
+  depends_on = [google_compute_shared_vpc_host_project.prd]
+}
+
+resource "google_compute_subnetwork_iam_member" "wireguard_compute_sa_subnet_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = module.prd.subnet_self_links["nodes"]
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:${data.google_project.platform_admin.number}-compute@developer.gserviceaccount.com"
+  depends_on = [google_compute_shared_vpc_host_project.prd]
+}
 
 # Allow DNS (port 53) from GKE nodes/pods to the WireGuard server's BIND9 resolver.
 # Managed here (not in the wireguard module) because TF_SA_WIREGUARD lacks firewall
