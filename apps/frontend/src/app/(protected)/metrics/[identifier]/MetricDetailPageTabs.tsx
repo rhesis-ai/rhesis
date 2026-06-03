@@ -11,6 +11,7 @@ import {
 } from '@mui/x-data-grid';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import DetailTabNav from '@/components/common/DetailTabNav';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
@@ -92,6 +93,7 @@ function MetricLinkedBehaviors({
   sessionToken: string;
 }) {
   const router = useRouter();
+  const notifications = useNotifications();
   const [behaviors, setBehaviors] = useState<LinkedBehaviorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -141,12 +143,21 @@ function MetricLinkedBehaviors({
           metricId as UUID,
           behaviorId as UUID
         );
-        setBehaviors(prev => prev.filter(b => b.id !== behaviorId));
-      } catch {
-        // ignore
+        setBehaviors(prev => prev.filter(b => String(b.id) !== behaviorId));
+        notifications.show('Behavior unassigned', {
+          severity: 'success',
+          autoHideDuration: 4000,
+        });
+      } catch (error) {
+        notifications.show(
+          error instanceof Error
+            ? `Failed to unassign behavior: ${error.message}`
+            : 'Failed to unassign behavior',
+          { severity: 'error', autoHideDuration: 6000 }
+        );
       }
     },
-    [metricId, sessionToken]
+    [metricId, sessionToken, notifications]
   );
 
   // Linked behaviors columns

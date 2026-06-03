@@ -8,6 +8,7 @@ import {
   GridRowModel,
 } from '@mui/x-data-grid';
 import GridBadge from '@/components/common/GridBadge';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
@@ -285,6 +286,7 @@ function BehaviorLinkedMetrics({
   sessionToken: string;
 }) {
   const router = useRouter();
+  const notifications = useNotifications();
   const [metrics, setMetrics] = useState<MetricWithRelationships[]>(
     behavior.metrics ?? []
   );
@@ -339,12 +341,21 @@ function BehaviorLinkedMetrics({
           metricId as UUID,
           behavior.id as UUID
         );
-        setMetrics(prev => prev.filter(m => m.id !== metricId));
-      } catch {
-        // ignore
+        setMetrics(prev => prev.filter(m => String(m.id) !== metricId));
+        notifications.show('Metric unassigned', {
+          severity: 'success',
+          autoHideDuration: 4000,
+        });
+      } catch (error) {
+        notifications.show(
+          error instanceof Error
+            ? `Failed to unassign metric: ${error.message}`
+            : 'Failed to unassign metric',
+          { severity: 'error', autoHideDuration: 6000 }
+        );
       }
     },
-    [behavior.id, sessionToken]
+    [behavior.id, sessionToken, notifications]
   );
 
   // Linked metrics columns (with unassign action)
