@@ -29,16 +29,18 @@ spec:
 
               BIND9_IP="${BIND9_IP}"
 
-              # Idempotency check — skip if already patched
+              # Idempotency check — skip if already patched.
+              # Match "forward . <IP>" (the exact line written into the stub zone) rather
+              # than the bare IP, so 10.0.0.10 cannot false-match 10.0.0.100.
               CURRENT=$(kubectl get configmap node-local-dns -n kube-system \
                 -o jsonpath='{.data.Corefile}')
-              if echo "$CURRENT" | grep -q "rhesis.ai:53" && echo "$CURRENT" | grep -q "${BIND9_IP}"; then
+              if echo "$CURRENT" | grep -Fq "rhesis.ai:53" && echo "$CURRENT" | grep -Fq "forward . ${BIND9_IP}"; then
                 echo "node-local-dns already has rhesis.ai zone with correct BIND9 IP, skipping."
                 exit 0
               fi
 
               # Remove stale rhesis.ai block if present with wrong IP
-              if echo "$CURRENT" | grep -q "rhesis.ai:53"; then
+              if echo "$CURRENT" | grep -Fq "rhesis.ai:53"; then
                 echo "Removing stale rhesis.ai zone (wrong BIND9 IP)..."
                 CURRENT=$(printf '%s' "$CURRENT" | python3 -c "import sys,re; c=sys.stdin.read(); print(re.sub(r'rhesis[.]ai:53 [{][^}]+[}]\n?','',c),end='')")
               fi
