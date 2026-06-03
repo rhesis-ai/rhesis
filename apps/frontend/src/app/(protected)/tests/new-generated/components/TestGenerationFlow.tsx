@@ -441,7 +441,8 @@ export default function TestGenerationFlow({
       if (selectedProjectId) {
         try {
           const projectsClient = apiFactory.getProjectsClient();
-          const fetchedProject = await projectsClient.getProject(selectedProjectId);
+          const fetchedProject =
+            await projectsClient.getProject(selectedProjectId);
           setProject(fetchedProject);
         } catch (_error) {
           show('Failed to load project', { severity: 'warning' });
@@ -471,7 +472,14 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [sessionToken, show, testType, selectedProjectId, selectedModelId, handlePipelineEvent]
+    [
+      sessionToken,
+      show,
+      testType,
+      selectedProjectId,
+      selectedModelId,
+      handlePipelineEvent,
+    ]
   );
 
   // Generate test samples

@@ -139,7 +139,9 @@ export default function ArchitectClient() {
             onSessionTitleUpdate={handleSessionTitleUpdate}
             initialMessage={pendingMessage}
             onInitialMessageSent={handleInitialMessageSent}
-            sessionProjectId={sessions.find(s => s.id === activeSessionId)?.project_id}
+            sessionProjectId={
+              sessions.find(s => s.id === activeSessionId)?.project_id
+            }
           />
         ) : !isCreatingSession ? (
           <ArchitectWelcome onSubmit={handleNewSessionWithMessage} />

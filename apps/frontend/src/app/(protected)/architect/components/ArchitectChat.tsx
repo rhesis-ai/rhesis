@@ -148,7 +148,11 @@ export default function ArchitectChat({
     setCurrentPlan,
     sendMessage,
     setMessages,
-  } = useArchitectChat({ sessionId, initialUserMessage: initialMessage, sessionProjectId });
+  } = useArchitectChat({
+    sessionId,
+    initialUserMessage: initialMessage,
+    sessionProjectId,
+  });
 
   // Track sessions that were created with an initial message so we never
   // run loadMessages for them (the async fetch would wipe the messages
