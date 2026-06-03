@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
+    targetRevision: feat/deploy-kubenetes-inprd
     path: kubernetes/clusters/dev/cluster-dns
   destination:
     server: https://kubernetes.default.svc
