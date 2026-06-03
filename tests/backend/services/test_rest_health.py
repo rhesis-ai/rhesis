@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.rest.health import run_rest_health_check
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
 _OK = {"is_authenticated": "Yes", "message": "Connected"}
 
@@ -73,21 +73,21 @@ class TestRunRestHealthCheck:
         db = Mock(spec=Session)
         with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:
             mock_crud.get_tool.return_value = None
-            with pytest.raises(MCPConfigurationError, match="not found"):
+            with pytest.raises(ToolConfigurationError, match="not found"):
                 await run_rest_health_check(db, "org", tool_id=str(uuid.uuid4()))
 
     async def test_deleted_tool_raises(self):
         db = Mock(spec=Session)
         with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:
             mock_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
-            with pytest.raises(MCPConfigurationError, match="has been deleted"):
+            with pytest.raises(ToolConfigurationError, match="has been deleted"):
                 await run_rest_health_check(db, "org", tool_id=str(uuid.uuid4()))
 
     async def test_unknown_provider_type_raises(self):
         db = Mock(spec=Session)
         with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:
             mock_crud.get_type_lookup.return_value = None
-            with pytest.raises(MCPConfigurationError, match="not found"):
+            with pytest.raises(ToolConfigurationError, match="not found"):
                 await run_rest_health_check(
                     db, "org", provider_type_id=uuid.uuid4(), credentials={}
                 )

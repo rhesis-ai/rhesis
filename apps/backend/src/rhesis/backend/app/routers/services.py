@@ -42,6 +42,7 @@ from rhesis.backend.app.services.test_config_generator import TestConfigGenerato
 from rhesis.backend.app.services.test_generation_pipeline import (
     test_generation_pipeline_stream,
 )
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     query_mcp,
@@ -645,6 +646,8 @@ async def create_jira_ticket_from_task_endpoint(
             user_id=user_id,
         )
         return result
+    except ToolConfigurationError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))

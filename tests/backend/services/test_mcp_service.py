@@ -22,6 +22,7 @@ from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     query_mcp,
 )
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
@@ -213,20 +214,20 @@ class TestGetMCPClientByToolId:
 
     @patch("rhesis.backend.app.services.tool.mcp.config.crud")
     def test_raises_when_tool_not_found(self, mock_crud):
-        """Test raises MCPConfigurationError when tool not found"""
+        """Test raises ToolConfigurationError when tool not found"""
         tool_id = str(uuid.uuid4())
         org_id = str(uuid.uuid4())
 
         mock_crud.get_tool.return_value = None
 
-        with pytest.raises(MCPConfigurationError) as exc_info:
+        with pytest.raises(ToolConfigurationError) as exc_info:
             _get_mcp_tool_config(Mock(), tool_id, org_id)
 
         assert "not found" in str(exc_info.value).lower()
 
     @patch("rhesis.backend.app.services.tool.mcp.config.crud")
     def test_raises_when_credentials_invalid_json(self, mock_crud):
-        """Test raises MCPConfigurationError when credentials JSON is invalid"""
+        """Test raises ToolConfigurationError when credentials JSON is invalid"""
         tool_id = str(uuid.uuid4())
         org_id = str(uuid.uuid4())
 
@@ -237,7 +238,7 @@ class TestGetMCPClientByToolId:
 
         mock_crud.get_tool.return_value = mock_tool
 
-        with pytest.raises(MCPConfigurationError) as exc_info:
+        with pytest.raises(ToolConfigurationError) as exc_info:
             _get_mcp_tool_config(Mock(), tool_id, org_id)
 
         assert "Invalid credentials format" in str(exc_info.value)
