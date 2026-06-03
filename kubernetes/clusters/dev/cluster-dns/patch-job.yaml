@@ -40,12 +40,7 @@ spec:
               # Remove stale rhesis.ai block if present with wrong IP
               if echo "$CURRENT" | grep -q "rhesis.ai:53"; then
                 echo "Removing stale rhesis.ai zone (wrong BIND9 IP)..."
-                CURRENT=$(printf '%s' "$CURRENT" | python3 -c "
-import sys, re
-content = sys.stdin.read()
-content = re.sub(r'rhesis\.ai:53 \{[^}]+\}\n?', '', content)
-print(content, end='')
-")
+                CURRENT=$(printf '%s' "$CURRENT" | python3 -c "import sys,re; c=sys.stdin.read(); print(re.sub(r'rhesis[.]ai:53 [{][^}]+[}]\n?','',c),end='')")
               fi
 
               echo "Adding rhesis.ai:53 stub zone (BIND9: ${BIND9_IP})..."
