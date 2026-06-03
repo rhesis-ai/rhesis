@@ -343,6 +343,8 @@ function MetricLinkedBehaviors({
         onFilterClick={() => setAssignFilterOpen(true)}
         hasActiveFilters={hasActiveLinkedFilters(assignFilters)}
         activeFilterCount={countActiveLinkedFilters(assignFilters)}
+        onCreateNew={() => router.push('/behaviors')}
+        createNewLabel="Create new behavior"
       />
 
       <LinkedEntitiesFilterDrawer

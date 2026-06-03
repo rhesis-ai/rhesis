@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper } from '@mui/material';
+import { Box, Button, Paper } from '@mui/material';
+import NorthEastIcon from '@mui/icons-material/NorthEast';
 import type { SxProps, Theme } from '@mui/material/styles';
 import {
   GridColDef,
@@ -38,6 +39,9 @@ export interface AssignEntityDrawerProps {
   pillTabs?: ToolbarPillTab[];
   activePill?: string;
   onPillChange?: (value: string) => void;
+  // Jump-off action (top-right) to create a brand-new entity elsewhere
+  onCreateNew?: () => void;
+  createNewLabel?: string;
 }
 
 export default function AssignEntityDrawer({
@@ -58,6 +62,8 @@ export default function AssignEntityDrawer({
   pillTabs,
   activePill,
   onPillChange,
+  onCreateNew,
+  createNewLabel = 'Create new',
 }: AssignEntityDrawerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
@@ -147,6 +153,33 @@ export default function AssignEntityDrawer({
                   activeValue={activePill ?? pillTabs[0]?.value ?? ''}
                   onSingleChange={value => onPillChange?.(value)}
                 />
+              ) : undefined
+            }
+            rightContent={
+              onCreateNew ? (
+                <Button
+                  variant="text"
+                  startIcon={<NorthEastIcon />}
+                  onClick={onCreateNew}
+                  sx={{
+                    fontWeight: 400,
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'primary.main',
+                    px: '16px',
+                    py: '8px',
+                    whiteSpace: 'nowrap',
+                    '& .MuiButton-startIcon': {
+                      marginRight: '4px',
+                      marginLeft: 0,
+                    },
+                    '& .MuiButton-startIcon > *:nth-of-type(1)': {
+                      fontSize: 20,
+                    },
+                  }}
+                >
+                  {createNewLabel}
+                </Button>
               ) : undefined
             }
           />

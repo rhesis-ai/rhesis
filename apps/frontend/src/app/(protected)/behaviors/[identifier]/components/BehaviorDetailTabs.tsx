@@ -678,6 +678,8 @@ function BehaviorLinkedMetrics({
         onFilterClick={() => setAssignFilterOpen(true)}
         hasActiveFilters={hasActiveLinkedFilters(assignFilters)}
         activeFilterCount={countActiveLinkedFilters(assignFilters)}
+        onCreateNew={() => router.push('/metrics/new')}
+        createNewLabel="Create new metric"
       />
 
       <LinkedEntitiesFilterDrawer
