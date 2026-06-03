@@ -1,6 +1,4 @@
-import json
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -14,24 +12,18 @@ from rhesis.backend.app.schemas.services import (
     ChatRequest,
     CreateJiraTicketFromTaskRequest,
     CreateJiraTicketFromTaskResponse,
-    ExtractMCPRequest,
-    ExtractMCPResponse,
     GenerateContentRequest,
     GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
-    ItemResult,
     PromptRequest,
     QueryMCPRequest,
     QueryMCPResponse,
     RecentActivitiesResponse,
-    SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
-    TestMCPConnectionRequest,
-    TestMCPConnectionResponse,
     TestPipelineRequest,
     TextResponse,
 )
@@ -46,16 +38,15 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.tool.mcp import (
-    create_jira_ticket_from_task,
-    handle_mcp_exception,
-    query_mcp,
-    run_mcp_authentication_test,
-)
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.app.services.test_generation_pipeline import (
     test_generation_pipeline_stream,
 )
+from rhesis.backend.app.services.tool.mcp import (
+    handle_mcp_exception,
+    query_mcp,
+)
+from rhesis.backend.app.services.tool.rest import create_jira_ticket_from_task
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.sdk.context import EndpointContext
 
@@ -615,78 +606,12 @@ async def query_mcp_server(
         raise handle_mcp_exception(e, "query")
 
 
-@router.post("/mcp/test-connection", response_model=TestMCPConnectionResponse)
-async def test_mcp_connection(
-    request: TestMCPConnectionRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Test MCP connection authentication by calling a tool that requires authentication.
-
-    This endpoint verifies that the MCP connection is properly authenticated by
-    instructing an agent to call a tool that requires authentication. If the
-    connection is not authenticated, a 401 unauthorized error will be detected.
-
-    Args:
-        request: TestMCPConnectionRequest with either:
-            - tool_id: For testing existing tools
-            - provider_type_id + credentials: For testing non-existent tools
-
-    Returns:
-        TestMCPConnectionResponse with:
-        - is_authenticated: str - "Yes" if authentication is valid, "No" otherwise
-        - message: str - Explanation of the authentication status
-
-    Raises:
-        HTTPException: 400 error if validation fails,
-            500 error if test fails due to connection issues
-
-    Examples:
-        # Test existing tool
-        POST /mcp/test-connection
-        {
-            "tool_id": "tool-uuid-123"
-        }
-
-        # Test non-existent tool (standard provider)
-        POST /mcp/test-connection
-        {
-            "provider_type_id": "provider-uuid-123",
-            "credentials": {"NOTION_TOKEN": "ntn_abc123..."}
-        }
-
-    """
-    try:
-        organization_id, user_id = tenant_context
-        result = await run_mcp_authentication_test(
-            db=db,
-            user=current_user,
-            organization_id=organization_id,
-            tool_id=request.tool_id,
-            provider_type_id=request.provider_type_id,
-            credentials=request.credentials,
-            user_id=user_id,
-        )
-        return result
-    except ValueError as e:
-        logger.warning(f"Invalid request for MCP connection test: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        # Use handle_mcp_exception to properly handle MCP errors (401, 403, etc.)
-        # This ensures authentication errors are properly mapped and don't log users out
-        raise handle_mcp_exception(e, "test-connection")
-
-
 @router.post("/mcp/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
 async def create_jira_ticket_from_task_endpoint(
     request: CreateJiraTicketFromTaskRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
 ):
     """
     Create a Jira ticket from a task.
@@ -724,7 +649,8 @@ async def create_jira_ticket_from_task_endpoint(
         logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise handle_mcp_exception(e, "create-jira-ticket")
+        logger.error(f"Failed to create Jira ticket: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)
