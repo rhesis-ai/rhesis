@@ -170,6 +170,12 @@ interface BaseDataGridProps {
   disablePaperWrapper?: boolean;
   /** Hide column resize handles (enabled by default). */
   disableColumnResize?: boolean;
+  /**
+   * Grow the grid to fit all rows (no internal vertical scroll). Default true.
+   * Set false to give the grid a fixed/flex height so its rows scroll
+   * internally and the header + pagination footer stay pinned.
+   */
+  autoHeight?: boolean;
   // Initial state props
   initialState?: GridInitialState;
   // State persistence props
@@ -461,6 +467,7 @@ export default function BaseDataGrid({
   toolbarSlot,
   disablePaperWrapper = false,
   disableColumnResize = false,
+  autoHeight = true,
   initialState,
   persistState = false,
   storageKey,
@@ -1100,7 +1107,7 @@ export default function BaseDataGrid({
               rows={serverSidePagination ? rows : filteredRows}
               columns={columns}
               getRowId={getRowId}
-              autoHeight
+              {...(autoHeight && { autoHeight: true })}
               pagination
               hideFooter={hideFooter}
               paginationMode={serverSidePagination ? 'server' : 'client'}
@@ -1170,7 +1177,7 @@ export default function BaseDataGrid({
                 rows={serverSidePagination ? rows : filteredRows}
                 columns={columns}
                 getRowId={getRowId}
-                autoHeight
+                {...(autoHeight && { autoHeight: true })}
                 pagination
                 hideFooter={hideFooter}
                 paginationMode={serverSidePagination ? 'server' : 'client'}

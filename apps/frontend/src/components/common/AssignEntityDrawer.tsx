@@ -104,9 +104,12 @@ export default function AssignEntityDrawer({
 
   const hasSelection = Array.isArray(selected) && selected.length > 0;
 
-  // Inset the first/last column content to 30px so it lines up with the
+  // Fill the card's remaining height (rows scroll internally, footer pinned)
+  // and inset the first/last column content to 30px so it lines up with the
   // toolbar and footer (which already use 30px horizontal padding).
   const gridSx = {
+    flex: 1,
+    minHeight: 0,
     '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
       { paddingLeft: '30px' },
     '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
@@ -128,6 +131,10 @@ export default function AssignEntityDrawer({
         elevation={0}
         sx={{
           width: '100%',
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
           borderRadius: BORDER_RADIUS.md,
           border: (theme: Theme) =>
             `1px solid ${theme.palette.greyscale.border}`,
@@ -135,7 +142,7 @@ export default function AssignEntityDrawer({
           overflow: 'hidden',
         }}
       >
-        <Box sx={{ px: '30px', pt: '30px', pb: '30px' }}>
+        <Box sx={{ px: '30px', pt: '30px', pb: '30px', flexShrink: 0 }}>
           <GridToolbar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -192,6 +199,7 @@ export default function AssignEntityDrawer({
           checkboxSelection
           disableRowSelectionOnClick
           disableColumnResize
+          autoHeight={false}
           onRowSelectionModelChange={setSelected}
           rowSelectionModel={selected}
           disablePaperWrapper
