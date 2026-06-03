@@ -149,10 +149,12 @@ export interface ProjectMember {
   project_id: string;
   user_id: string;
   organization_id: string;
+  role?: string | null;
   user?: ProjectMemberUser | null;
 }
 
 /** Body for POST /projects/{id}/members */
 export interface ProjectMemberCreate {
   user_id: string;
+  role?: string;
 }

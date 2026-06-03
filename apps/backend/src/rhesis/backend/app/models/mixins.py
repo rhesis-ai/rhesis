@@ -527,7 +527,9 @@ def _process_pending_embedding_jobs(session: Session) -> None:
 @event.listens_for(EmbeddableMixin, "after_insert", propagate=True)
 def on_entity_insert(mapper, connection, target):
     if getattr(target, "user_id", None) is None:
-        logger.warning(
+        # Expected for telemetry traces and other service-generated rows that
+        # carry no user context; downgraded from WARNING to avoid log noise.
+        logger.debug(
             "Skipping embedding for %s %s: user_id is None",
             target.__class__.__name__,
             target.id,
@@ -553,7 +555,7 @@ def on_entity_insert(mapper, connection, target):
 @event.listens_for(EmbeddableMixin, "after_update", propagate=True)
 def on_entity_update(mapper, connection, target):
     if getattr(target, "user_id", None) is None:
-        logger.warning(
+        logger.debug(
             "Skipping embedding for %s %s: user_id is None",
             target.__class__.__name__,
             target.id,

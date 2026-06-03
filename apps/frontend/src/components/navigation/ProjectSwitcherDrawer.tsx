@@ -68,7 +68,7 @@ export default function ProjectSwitcherDrawer({
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               </InputAdornment>
             ),
           },
@@ -128,22 +128,25 @@ export default function ProjectSwitcherDrawer({
               >
                 <Avatar
                   sx={{
-                    width: 32,
-                    height: 32,
+                    width: theme => theme.spacing(4),
+                    height: theme => theme.spacing(4),
                     bgcolor: 'primary.main',
                     flexShrink: 0,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    '& svg': { fontSize: 16 },
+                    fontSize: theme => theme.typography.body2.fontSize,
+                    fontWeight: theme => theme.typography.fontWeightBold,
+                    '& svg': { fontSize: theme => theme.spacing(2) },
                   }}
                 >
                   {getProjectIcon(project)}
                 </Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
+                    variant="body2"
                     sx={{
-                      fontSize: 14,
-                      fontWeight: isActive ? 700 : 400,
+                      fontWeight: theme =>
+                        isActive
+                          ? theme.typography.fontWeightBold
+                          : theme.typography.fontWeightRegular,
                       color: theme => theme.palette.greyscale.title,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -171,8 +174,8 @@ export default function ProjectSwitcherDrawer({
                   <CircularProgress size={16} sx={{ flexShrink: 0 }} />
                 ) : isActive ? (
                   <CheckIcon
+                    fontSize="small"
                     sx={{
-                      fontSize: 18,
                       color: 'primary.main',
                       flexShrink: 0,
                     }}

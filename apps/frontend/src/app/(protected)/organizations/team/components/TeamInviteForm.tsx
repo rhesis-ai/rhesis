@@ -562,7 +562,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                               flexShrink: 0,
                               fontSize: theme => theme.typography.body2.fontSize,
                               fontWeight: theme => theme.typography.fontWeightBold,
-                              '& svg': { fontSize: 'small' },
+                              '& svg': { fontSize: theme => theme.spacing(2) },
                             }}
                           >
                             {getProjectIcon(project)}

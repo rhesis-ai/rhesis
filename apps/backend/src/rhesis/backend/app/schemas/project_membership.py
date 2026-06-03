@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict
 
 class ProjectMemberCreate(BaseModel):
     user_id: UUID4
+    role: Optional[str] = "member"
 
 
 class ProjectMemberUser(BaseModel):
@@ -24,4 +25,5 @@ class ProjectMember(BaseModel):
     project_id: UUID4
     user_id: UUID4
     organization_id: UUID4
+    role: Optional[str] = "member"
     user: Optional[ProjectMemberUser] = None

@@ -22,6 +22,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { UsersClient } from '@/utils/api-client/users-client';
 import {
   ProjectMember,
   ProjectMemberUser,
@@ -66,7 +67,9 @@ export default function ProjectMembers({
 
   const [orgUsers, setOrgUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedRole] = useState<string>('member');
   const [adding, setAdding] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -91,15 +94,34 @@ export default function ProjectMembers({
     fetchMembers();
   }, [fetchMembers]);
 
-  // Load org users for the add-member autocomplete
+  // Load non-member org users for the add-member autocomplete.
+  // Waits for the members list to finish loading so we can pass an OData
+  // exclusion filter — only users not already in the project are fetched.
   useEffect(() => {
+    if (membersLoading) return;
+
     let cancelled = false;
     async function load() {
       setUsersLoading(true);
+      setUsersError(null);
       try {
-        const factory = new ApiClientFactory(sessionToken);
-        const result = await factory.getUsersClient().getUsers({ limit: 200 });
+        // Pass '' as projectId so getHeaders() skips X-Project-Id entirely.
+        // Users are org-scoped; the header would trigger project membership
+        // validation that is irrelevant here.
+        const usersClient = new UsersClient(sessionToken, undefined, '');
+
+        // Build an OData exclusion filter so the API only returns users who
+        // are not yet project members.
+        const memberIds = members.map(m => m.user_id);
+        const $filter =
+          memberIds.length > 0
+            ? memberIds.map(id => `id ne '${id}'`).join(' and ')
+            : undefined;
+
+        const result = await usersClient.getUsers({ limit: 100, $filter });
         if (!cancelled) setOrgUsers(result.data);
+      } catch {
+        if (!cancelled) setUsersError('Failed to load organisation members.');
       } finally {
         if (!cancelled) setUsersLoading(false);
       }
@@ -108,8 +130,10 @@ export default function ProjectMembers({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, [sessionToken, members, membersLoading]);
 
+  // addableUsers is now already pre-filtered by the API; keep the client-side
+  // guard as a safety net against any race between the two fetches.
   const memberUserIds = new Set(members.map(m => m.user_id));
   const addableUsers = orgUsers.filter(u => !memberUserIds.has(u.id));
 
@@ -120,6 +144,7 @@ export default function ProjectMembers({
       const factory = new ApiClientFactory(sessionToken);
       await factory.getProjectsClient().addProjectMember(projectId, {
         user_id: selectedUser.id,
+        role: selectedRole,
       });
       notifications.show(
         `${getUserDisplayName(selectedUser)} added to the project.`,
@@ -205,6 +230,19 @@ export default function ProjectMembers({
       ),
     },
     {
+      field: 'role',
+      headerName: 'Role',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',
+      renderCell: params => (
+        <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+          {(params.row as ProjectMember).role ?? 'member'}
+        </Typography>
+      ),
+    },
+    {
       field: 'actions',
       headerName: '',
       width: 56,
@@ -232,7 +270,7 @@ export default function ProjectMembers({
   return (
     <Box>
       {/* Add member row */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'flex-start' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 3, alignItems: 'center' }}>
         <Autocomplete<User>
           options={addableUsers}
           loading={usersLoading}
@@ -240,6 +278,13 @@ export default function ProjectMembers({
           onChange={(_e, value) => setSelectedUser(value)}
           getOptionLabel={getUserDisplayName}
           isOptionEqualToValue={(opt, val) => opt.id === val.id}
+          noOptionsText={
+            usersError
+              ? 'Failed to load members'
+              : addableUsers.length === 0 && !usersLoading
+                ? 'All organisation members are already in this project'
+                : 'No members found'
+          }
           renderInput={params => (
             <TextField
               {...params}
@@ -258,10 +303,11 @@ export default function ProjectMembers({
               }}
             />
           )}
-          sx={{ minWidth: 300 }}
+          sx={{ width: 320 }}
         />
         <Button
           variant="contained"
+          size="small"
           startIcon={
             adding ? (
               <CircularProgress size={16} color="inherit" />
@@ -272,9 +318,15 @@ export default function ProjectMembers({
           disabled={!selectedUser || adding}
           onClick={handleAdd}
         >
-          Add member
+          Add as member
         </Button>
       </Box>
+
+      {usersError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {usersError}
+        </Alert>
+      )}
 
       {membersError && (
         <Alert severity="error" sx={{ mb: 2 }}>
