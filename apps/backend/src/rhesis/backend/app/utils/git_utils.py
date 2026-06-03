@@ -48,7 +48,7 @@ def should_show_git_info() -> bool:
     settings = get_application_settings()
 
     # Don't show git info in production
-    return settings.backend_env != "production"
+    return settings.is_development
 
 
 def get_version_info() -> dict:

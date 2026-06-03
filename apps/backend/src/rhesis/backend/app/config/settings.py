@@ -115,6 +115,10 @@ class ApplicationSettings(BaseSettings):
         return not self.is_production
 
     @property
+    def is_local(self) -> bool:
+        return self.backend_env.lower() == "local"
+
+    @property
     def is_google_cloud(self) -> bool:
         return bool(self.cloud_run_service or self.cloud_run_revision)
 
