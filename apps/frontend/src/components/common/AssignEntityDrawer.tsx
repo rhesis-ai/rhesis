@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box } from '@mui/material';
+import { Box, Paper } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import {
   GridColDef,
   GridRowModel,
@@ -14,6 +15,7 @@ import {
   PrimarySegmentedPills,
   type ToolbarPillTab,
 } from '@/components/common/GridToolbar';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 export interface AssignEntityDrawerProps {
   open: boolean;
@@ -96,6 +98,15 @@ export default function AssignEntityDrawer({
 
   const hasSelection = Array.isArray(selected) && selected.length > 0;
 
+  // Inset the first/last column content to 30px so it lines up with the
+  // toolbar and footer (which already use 30px horizontal padding).
+  const gridSx = {
+    '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
+      { paddingLeft: '30px' },
+    '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
+      { paddingRight: '30px' },
+  } as SxProps<Theme>;
+
   return (
     <BaseDrawer
       open={open}
@@ -107,27 +118,39 @@ export default function AssignEntityDrawer({
       saveButtonText={saveButtonText}
       width="min(1186px, 95vw)"
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        <GridToolbar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder={searchPlaceholder}
-          searchWidth={288}
-          onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
-          hasActiveFilters={hasActiveFilters}
-          activeFilterCount={activeFilterCount}
-          sx={{ px: 0, py: 0, gap: '20px', minHeight: 'auto' }}
-          middleContent={
-            pillTabs && pillTabs.length > 0 ? (
-              <PrimarySegmentedPills
-                tabs={pillTabs}
-                mode="single"
-                activeValue={activePill ?? pillTabs[0]?.value ?? ''}
-                onSingleChange={value => onPillChange?.(value)}
-              />
-            ) : undefined
-          }
-        />
+      <Paper
+        elevation={0}
+        sx={{
+          width: '100%',
+          borderRadius: BORDER_RADIUS.md,
+          border: (theme: Theme) =>
+            `1px solid ${theme.palette.greyscale.border}`,
+          boxShadow: ELEVATION.xs,
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ px: '30px', pt: '30px', pb: '30px' }}>
+          <GridToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder={searchPlaceholder}
+            searchWidth={288}
+            onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
+            hasActiveFilters={hasActiveFilters}
+            activeFilterCount={activeFilterCount}
+            sx={{ px: 0, py: 0, gap: '20px', minHeight: 'auto' }}
+            middleContent={
+              pillTabs && pillTabs.length > 0 ? (
+                <PrimarySegmentedPills
+                  tabs={pillTabs}
+                  mode="single"
+                  activeValue={activePill ?? pillTabs[0]?.value ?? ''}
+                  onSingleChange={value => onPillChange?.(value)}
+                />
+              ) : undefined
+            }
+          />
+        </Box>
         <BaseDataGrid
           rows={filteredRows}
           columns={columns}
@@ -144,8 +167,9 @@ export default function AssignEntityDrawer({
             pagination: { paginationModel: { page: 0, pageSize: 10 } },
           }}
           hideRowsPerPageBelow={0}
+          sx={gridSx}
         />
-      </Box>
+      </Paper>
     </BaseDrawer>
   );
 }
