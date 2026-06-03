@@ -14,8 +14,8 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ExtractToolRequest,
     ExtractToolResponse,
-    TestMCPConnectionRequest,
-    TestMCPConnectionResponse,
+    TestToolConnectionRequest,
+    TestToolConnectionResponse,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -209,9 +209,9 @@ async def extract_tool_item(
         raise handle_mcp_exception(e, "extract")
 
 
-@router.post("/test-connection", response_model=TestMCPConnectionResponse)
+@router.post("/test-connection", response_model=TestToolConnectionResponse)
 async def test_tool_connection(
-    request: TestMCPConnectionRequest,
+    request: TestToolConnectionRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
