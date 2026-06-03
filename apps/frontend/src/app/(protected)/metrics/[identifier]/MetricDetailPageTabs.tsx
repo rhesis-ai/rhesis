@@ -209,7 +209,7 @@ function MetricLinkedBehaviors({
     setAssignFilters({ status: [] });
     try {
       const client = new BehaviorClient(sessionToken);
-      const result = await client.getBehaviors({ skip: 0, limit: 200 });
+      const result = await client.getBehaviors({ skip: 0, limit: 100 });
       setAvailable(result);
     } catch {
       setAvailable([]);
