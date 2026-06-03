@@ -70,7 +70,7 @@ export function TagsField({
         ) : (
           <Typography
             sx={{
-              fontSize: '1rem',
+              fontSize: theme => theme.typography.body1.fontSize,
               lineHeight: '24px',
               color: theme => theme.palette.greyscale.label,
             }}

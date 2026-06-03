@@ -402,7 +402,7 @@ class TestEnrollmentService:
 
         settings = user.user_settings or {}
         assert settings.get("default_project") is not None
-        assert settings["default_project"]["id"] == str(project.id)
+        assert settings["default_project"]["project_id"] == str(project.id)
 
         test_db.rollback()
 
@@ -458,7 +458,7 @@ class TestEnrollmentService:
         enroll_user_in_project(test_db, str(user.id), str(project_a.id), test_org_id)
         test_db.flush()
         test_db.refresh(user)
-        assert (user.user_settings or {}).get("default_project", {}).get("id") == str(project_a.id)
+        assert (user.user_settings or {}).get("default_project", {}).get("project_id") == str(project_a.id)
 
         enroll_user_in_project(test_db, str(user.id), str(project_b.id), test_org_id)
         test_db.flush()
@@ -471,7 +471,7 @@ class TestEnrollmentService:
         new_default = (user.user_settings or {}).get("default_project")
         # Default must either be None or switched to the remaining project.
         if new_default is not None:
-            assert new_default["id"] == str(project_b.id)
+            assert new_default["project_id"] == str(project_b.id)
 
         test_db.rollback()
 

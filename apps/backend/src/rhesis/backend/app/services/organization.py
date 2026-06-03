@@ -94,7 +94,9 @@ def _reassign_default_project_if_removed(
         .first()
     )
     if remaining is not None:
-        user.settings.update({"default_project": {"project_id": str(remaining.id), "name": remaining.name}})
+        user.settings.update(
+            {"default_project": {"project_id": str(remaining.id), "name": remaining.name}}
+        )
     else:
         settings = user.settings.raw
         settings.pop("default_project", None)

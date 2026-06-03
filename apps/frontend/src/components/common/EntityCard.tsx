@@ -253,7 +253,7 @@ export default function EntityCard({
           </Avatar>
           <Typography
             sx={{
-              fontSize: '0.75rem',
+              fontSize: theme => theme.typography.caption.fontSize,
               fontWeight: 400,
               color: 'text.secondary',
             }}
