@@ -8,10 +8,10 @@ Create Date: 2026-06-01
 
 from typing import Sequence, Union
 
-import rhesis.backend.app.models.guid
 import sqlalchemy as sa
 from alembic import op
 
+import rhesis.backend.app.models.guid
 from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_type_lookup_template,
     load_type_lookup_template,
@@ -24,9 +24,18 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_index(op.f("ix_tool_tool_type_id"), table_name="tool")
-    op.drop_constraint("tool_tool_type_id_fkey", "tool", type_="foreignkey")
-    op.drop_column("tool", "tool_type_id")
+    op.execute("DROP INDEX IF EXISTS ix_tool_tool_type_id")
+    op.execute("ALTER TABLE tool DROP CONSTRAINT IF EXISTS tool_tool_type_id_fkey")
+    # Column may not exist on a fresh DB that never had tool_type_id
+    conn = op.get_bind()
+    col_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name='tool' AND column_name='tool_type_id'"
+        )
+    ).fetchone()
+    if col_exists:
+        op.drop_column("tool", "tool_type_id")
 
     op.execute(load_cleanup_type_lookup_template("ToolType", "'mcp', 'api', 'hybrid'"))
 
