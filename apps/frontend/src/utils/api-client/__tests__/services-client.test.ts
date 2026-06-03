@@ -59,20 +59,6 @@ describe('ServicesClient', () => {
     expect(opts.method).toBe('POST');
   });
 
-  it('searches MCP with POST and query + tool_id in body', async () => {
-    fetchMock.mockResolvedValue(
-      makeFetch([{ id: 'item-1', url: 'http://a.com', title: 'A' }])
-    );
-    await client.searchTool('query', 'tool-1');
-    const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/services/mcp/search');
-    expect(opts.method).toBe('POST');
-    expect(JSON.parse(opts.body)).toMatchObject({
-      query: 'query',
-      tool_id: 'tool-1',
-    });
-  });
-
   it('extracts a tool item with POST to /tools/{id}/extract', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({ sources: [{ content: 'page body', title: 'Page' }] })

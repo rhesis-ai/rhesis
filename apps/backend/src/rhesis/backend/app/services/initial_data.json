@@ -563,21 +563,6 @@
             "description": "Metric applies to execution traces"
         },
         {
-            "type_name": "ToolType",
-            "type_value": "mcp",
-            "description": "Model Context Protocol tool"
-        },
-        {
-            "type_name": "ToolType",
-            "type_value": "api",
-            "description": "REST API tool"
-        },
-        {
-            "type_name": "ToolType",
-            "type_value": "hybrid",
-            "description": "Tool supporting both REST API and Model Context Protocol"
-        },
-        {
             "type_name": "ToolProviderType",
             "type_value": "notion",
             "description": "Notion integration"

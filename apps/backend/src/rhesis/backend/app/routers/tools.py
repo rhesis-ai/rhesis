@@ -195,6 +195,11 @@ async def extract_tool_item(
             organization_id=organization_id,
             user_id=user_id,
         )
+        if not hasattr(source, "fetch_all"):
+            raise HTTPException(
+                status_code=400,
+                detail="Extract is not supported for this tool provider.",
+            )
         identifier = request.url or request.id
         docs = await source.fetch_all(identifier, include_children=request.include_children)
         return ExtractToolResponse(

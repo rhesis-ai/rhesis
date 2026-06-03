@@ -327,25 +327,6 @@ export class ServicesClient extends BaseApiClient {
   }
 
   /**
-   * Search MCP server for items matching the query
-   * @param query - Search query string
-   * @param toolId - ID of the configured tool integration
-   * @returns Array of MCP items with id, url, and title
-   */
-  async searchTool(query: string, toolId: string): Promise<ToolItem[]> {
-    return this.fetch<ToolItem[]>(`${API_ENDPOINTS.services}/mcp/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        tool_id: toolId,
-      }),
-    });
-  }
-
-  /**
    * Test tool credentials via lightweight REST health check
    */
   async testToolConnection(
