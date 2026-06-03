@@ -9,6 +9,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.services.tool.rest.config import validate_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class JiraRestClient:
     """
 
     def __init__(self, base_url: str, username: str, api_token: str):
+        validate_base_url(base_url, "JIRA_URL")
         self._base_url = base_url.rstrip("/")
         self._auth = (username, api_token)
 

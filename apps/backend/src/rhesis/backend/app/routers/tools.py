@@ -207,6 +207,8 @@ async def extract_tool_item(
                 {"id": d.id, "title": d.title, "content": d.content, "url": d.url} for d in docs
             ]
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

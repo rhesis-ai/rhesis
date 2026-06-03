@@ -4,9 +4,12 @@ from typing import Any, Dict
 
 import httpx
 
+from rhesis.backend.app.services.tool.rest.config import validate_base_url
+
 
 class ConfluenceRestClient:
     def __init__(self, base_url: str, username: str, api_token: str):
+        validate_base_url(base_url, "CONFLUENCE_URL")
         self._base_url = base_url.rstrip("/")
         self._auth = (username, api_token)
 
