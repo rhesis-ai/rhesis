@@ -45,7 +45,7 @@ class TestCreateJiraTicketFromTask:
                 "rhesis.backend.app.services.tool.rest.jira.crud"
             ) as mock_crud,
             patch(
-                "rhesis.backend.app.services.tool.rest.jira.get_rest_source",
+                "rhesis.backend.app.services.tool.rest.config.get_rest_source",
                 return_value=mock_jira_client,
             ),
         ):
@@ -85,7 +85,7 @@ class TestCreateJiraTicketFromTask:
                 "rhesis.backend.app.services.tool.rest.jira.crud"
             ) as mock_crud,
             patch(
-                "rhesis.backend.app.services.tool.rest.jira.get_rest_source",
+                "rhesis.backend.app.services.tool.rest.config.get_rest_source",
                 return_value=Mock(spec=NotionRestClient),
             ),
         ):
@@ -109,7 +109,7 @@ class TestCreateJiraTicketFromTask:
                 "rhesis.backend.app.services.tool.rest.jira.crud"
             ) as mock_crud,
             patch(
-                "rhesis.backend.app.services.tool.rest.jira.get_rest_source",
+                "rhesis.backend.app.services.tool.rest.config.get_rest_source",
                 return_value=Mock(spec=JiraRestClient),
             ),
         ):
@@ -134,7 +134,7 @@ class TestCreateJiraTicketFromTask:
                 "rhesis.backend.app.services.tool.rest.jira.crud"
             ) as mock_crud,
             patch(
-                "rhesis.backend.app.services.tool.rest.jira.get_rest_source",
+                "rhesis.backend.app.services.tool.rest.config.get_rest_source",
                 return_value=Mock(spec=JiraRestClient),
             ),
         ):
