@@ -46,6 +46,9 @@ export function FilterButton({
         height: 36,
         flexShrink: 0,
         '&:hover': { bgcolor: 'primary.dark' },
+        // The MuiDrawer theme override force-colors `.MuiSvgIcon-root` dark in
+        // light mode; keep this button's icon on its (white) contrast text.
+        '& .MuiSvgIcon-root': { color: 'primary.contrastText' },
         ...sx,
       }}
       {...props}
