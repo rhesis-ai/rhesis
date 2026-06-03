@@ -27,6 +27,10 @@ export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
   return Object.values(f).some(v => v !== '');
 }
 
+export function countActiveTestRunFilters(f: TestRunFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
+}
+
 const textFieldSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: BORDER_RADIUS.sm,

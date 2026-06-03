@@ -139,7 +139,7 @@ export default function EntityCard({
         boxShadow: ELEVATION.xs,
         position: 'relative',
         gap: '20px',
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: onClick ? 'pointer' : 'inherit',
         height: '100%',
         boxSizing: 'border-box',
         transition: 'box-shadow 0.2s ease',

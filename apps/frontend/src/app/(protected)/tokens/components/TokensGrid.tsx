@@ -11,6 +11,7 @@ import {
 import {
   GridPaginationModel,
   type GridRenderCellParams,
+  type GridColDef,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
@@ -19,6 +20,10 @@ import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
 import GridBadge from '@/components/common/GridBadge';
+import {
+  ROW_ACTIONS_CLASS,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 
 interface TokensGridProps {
   tokens: Token[];
@@ -97,11 +102,23 @@ export default function TokensGrid({
     },
     {
       field: 'actions',
-      headerName: 'Actions',
-      flex: 0.5,
+      headerName: '',
+      width: 88,
       sortable: false,
+      disableColumnMenu: true,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => (
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box
+          className={ROW_ACTIONS_CLASS}
+          sx={{
+            display: 'flex',
+            gap: '4px',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
           <Tooltip title="Invalidate and refresh">
             <IconButton
               size="small"
@@ -109,8 +126,13 @@ export default function TokensGrid({
                 e.stopPropagation();
                 handleRefreshClick(params.row.id);
               }}
+              sx={{
+                p: 0.5,
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main', bgcolor: 'action.hover' },
+              }}
             >
-              <RefreshIcon />
+              <RefreshIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete Token">
@@ -120,13 +142,18 @@ export default function TokensGrid({
                 e.stopPropagation();
                 onDeleteToken(params.row.id);
               }}
+              sx={{
+                p: 0.5,
+                color: 'text.secondary',
+                '&:hover': { color: 'error.main', bgcolor: 'action.hover' },
+              }}
             >
-              <DeleteIcon />
+              <DeleteIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
         </Box>
       ),
-    },
+    } as GridColDef,
   ];
 
   // Initial load spinner — only when we don't have any rows yet.
@@ -165,6 +192,7 @@ export default function TokensGrid({
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             disablePaperWrapper={true}
+            sx={rowActionsHoverSx}
           />
         </Box>
       </Paper>

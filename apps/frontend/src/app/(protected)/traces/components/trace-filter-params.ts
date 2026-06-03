@@ -25,6 +25,34 @@ export const EMPTY_TRACE_DRAWER_FILTERS: TraceDrawerFilters = {
   timeRange: 'all',
 };
 
+export function countActiveTraceDrawerFilters(
+  f: TraceDrawerFilters,
+  options?: { excludeTestRunId?: boolean; testRunScope?: boolean }
+): number {
+  if (options?.testRunScope) {
+    return [f.traceMetricsStatus, f.testResultId, f.testId].filter(Boolean)
+      .length;
+  }
+  const filters = options?.excludeTestRunId
+    ? { ...f, testRunId: undefined }
+    : f;
+  return [
+    filters.projectId,
+    filters.endpointId,
+    filters.environment,
+    filters.traceSource,
+    filters.traceMetricsStatus,
+    filters.testRunId,
+    filters.testResultId,
+    filters.testId,
+    filters.startTimeBefore,
+    (filters.timeRange !== 'all' && filters.timeRange !== 'custom') ||
+    (filters.timeRange === 'custom' && filters.startTimeAfter)
+      ? true
+      : undefined,
+  ].filter(Boolean).length;
+}
+
 export function hasActiveTraceDrawerFilters(
   f: TraceDrawerFilters,
   options?: { excludeTestRunId?: boolean; testRunScope?: boolean }

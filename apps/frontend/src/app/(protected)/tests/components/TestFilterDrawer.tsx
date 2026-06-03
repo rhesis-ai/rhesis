@@ -37,6 +37,10 @@ export function hasActiveTestFilters(f: TestFilters): boolean {
   return Object.values(f).some(v => v !== '');
 }
 
+export function countActiveTestFilters(f: TestFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
+}
+
 const TEST_TYPE_OPTIONS = [
   { label: 'Single Turn', value: 'single_turn' },
   { label: 'Multi Turn', value: 'multi_turn' },

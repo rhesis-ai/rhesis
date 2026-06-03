@@ -24,6 +24,10 @@ export function hasActiveModelFilters(f: ModelFilters): boolean {
   return f.providers.length > 0 || f.status !== '';
 }
 
+export function countActiveModelFilters(f: ModelFilters): number {
+  return f.providers.length + (f.status !== '' ? 1 : 0);
+}
+
 const selectSx = {
   borderRadius: BORDER_RADIUS.sm,
   fontSize: 14,

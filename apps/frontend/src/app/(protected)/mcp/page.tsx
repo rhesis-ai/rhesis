@@ -26,6 +26,7 @@ import {
 import {
   EMPTY_MCP_FILTERS,
   hasActiveMCPFilters,
+  countActiveMCPFilters,
 } from './components/MCPFilterDrawer';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -213,6 +214,7 @@ export default function MCPSPage() {
         searchPlaceholder="Search MCP connections..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveMCPFilters(filters)}
+        activeFilterCount={countActiveMCPFilters(filters)}
         sx={directoryToolbarSx}
       />
 

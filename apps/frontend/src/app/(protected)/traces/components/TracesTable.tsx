@@ -24,7 +24,10 @@ import { formatDuration } from '@/utils/format-duration';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
-import { hasActiveTraceDrawerFilters } from './trace-filter-params';
+import {
+  hasActiveTraceDrawerFilters,
+  countActiveTraceDrawerFilters,
+} from './trace-filter-params';
 
 const PILL_TABS = [
   { label: 'All', value: 'all' },
@@ -39,6 +42,7 @@ interface TracesToolbarState {
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TracesToolbarContext = React.createContext<TracesToolbarState>({
@@ -48,6 +52,7 @@ const TracesToolbarContext = React.createContext<TracesToolbarState>({
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 function TracesUnifiedToolbar({
@@ -62,6 +67,7 @@ function TracesUnifiedToolbar({
     setTypeFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TracesToolbarContext);
 
   return (
@@ -71,6 +77,7 @@ function TracesUnifiedToolbar({
       searchPlaceholder="Search operations…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
         hideTypeFilter ? undefined : (
           <ToolbarPillTabs
@@ -135,6 +142,10 @@ export default function TracesTable({
   fixedTestRunId,
 }: TracesTableProps) {
   const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
+    testRunScope: Boolean(fixedTestRunId),
+    excludeTestRunId: Boolean(fixedTestRunId),
+  });
+  const activeFilterCount = countActiveTraceDrawerFilters(drawerFilters, {
     testRunScope: Boolean(fixedTestRunId),
     excludeTestRunId: Boolean(fixedTestRunId),
   });
@@ -378,6 +389,7 @@ export default function TracesTable({
       setTypeFilter: onTypeFilterChange,
       openFilterDrawer: onFilterDrawerOpen,
       hasActiveDrawerFilters,
+      activeFilterCount,
     }),
     [
       searchQuery,
@@ -386,6 +398,7 @@ export default function TracesTable({
       onTypeFilterChange,
       onFilterDrawerOpen,
       hasActiveDrawerFilters,
+      activeFilterCount,
     ]
   );
 

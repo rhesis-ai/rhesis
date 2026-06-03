@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -28,6 +29,7 @@ import BehaviorFilterDrawer, {
   type MetricFilter,
   EMPTY_BEHAVIOR_FILTERS,
   hasActiveBehaviorFilters,
+  countActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
 
 interface BehaviorsClientProps {
@@ -43,6 +45,7 @@ export default function BehaviorsClient({
   userId,
   sessionStatus,
 }: BehaviorsClientProps) {
+  const router = useRouter();
   const notifications = useNotifications();
 
   // Data state
@@ -547,6 +550,7 @@ export default function BehaviorsClient({
         searchPlaceholder="Search behaviors…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
+        activeFilterCount={countActiveBehaviorFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs
@@ -602,6 +606,7 @@ export default function BehaviorsClient({
               <BehaviorCard
                 key={behavior.id}
                 behavior={behavior}
+                onClick={() => router.push(`/behaviors/${behavior.id}`)}
                 onEdit={() =>
                   handleEditBehavior(
                     behavior.id,
