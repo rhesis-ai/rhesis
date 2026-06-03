@@ -206,7 +206,7 @@ export default function ProjectMembers({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Avatar
               src={member.user?.picture ?? undefined}
-              sx={{ width: 32, height: 32, flexShrink: 0 }}
+              sx={{ width: theme => theme.spacing(4), height: theme => theme.spacing(4), flexShrink: 0 }}
             >
               {!member.user?.picture && <PersonIcon fontSize="small" />}
             </Avatar>
