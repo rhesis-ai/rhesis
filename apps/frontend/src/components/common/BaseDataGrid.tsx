@@ -170,6 +170,12 @@ interface BaseDataGridProps {
   disablePaperWrapper?: boolean;
   /** Hide column resize handles (enabled by default). */
   disableColumnResize?: boolean;
+  /**
+   * Grow the grid to fit all rows (no internal vertical scroll). Default true.
+   * Set false to give the grid a fixed/flex height so its rows scroll
+   * internally and the header + pagination footer stay pinned.
+   */
+  autoHeight?: boolean;
   // Initial state props
   initialState?: GridInitialState;
   // State persistence props
@@ -461,6 +467,7 @@ export default function BaseDataGrid({
   toolbarSlot,
   disablePaperWrapper = false,
   disableColumnResize = false,
+  autoHeight = true,
   initialState,
   persistState = false,
   storageKey,
@@ -917,168 +924,180 @@ export default function BaseDataGrid({
     _sx,
   ].filter(Boolean) as SxProps<Theme>;
 
+  const hasHeaderContent = !!(
+    title ||
+    (filters && filters.length > 0) ||
+    (actionButtons && actionButtons.length > 0) ||
+    customToolbarContent
+  );
+
   return (
     <>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          mb: 2,
-          gap: 2,
-        }}
-      >
-        {title && (
-          <Typography variant="h6" component="h1">
-            {title}
-          </Typography>
-        )}
+      {hasHeaderContent && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            alignItems: 'center',
+            mb: 2,
+            gap: 2,
+          }}
+        >
+          {title && (
+            <Typography variant="h6" component="h1">
+              {title}
+            </Typography>
+          )}
 
-        {filters && filters.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {filters.map(filter => (
-              <FormControl
-                key={filter.name}
-                variant="outlined"
-                size="small"
-                sx={{ minWidth: 150 }}
-              >
-                <InputLabel id={`${filter.name}-label`}>
-                  {filter.label}
-                </InputLabel>
-                <Select
-                  labelId={`${filter.name}-label`}
-                  id={filter.name}
-                  value={filterValues[filter.name] || filter.defaultValue}
-                  onChange={handleFilterChange(filter.name)}
-                  label={filter.label}
+          {filters && filters.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {filters.map(filter => (
+                <FormControl
+                  key={filter.name}
+                  variant="outlined"
+                  size="small"
+                  sx={{ minWidth: 150 }}
                 >
-                  {filter.options.map(option => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            ))}
-          </Box>
-        )}
+                  <InputLabel id={`${filter.name}-label`}>
+                    {filter.label}
+                  </InputLabel>
+                  <Select
+                    labelId={`${filter.name}-label`}
+                    id={filter.name}
+                    value={filterValues[filter.name] || filter.defaultValue}
+                    onChange={handleFilterChange(filter.name)}
+                    label={filter.label}
+                  >
+                    {filter.options.map(option => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ))}
+            </Box>
+          )}
 
-        {actionButtons && actionButtons.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {actionButtons.map((button, index) => {
-              if (button.splitButton) {
-                const options = button.splitButton.options; // Extract options to satisfy TypeScript
-                return (
-                  <React.Fragment key={button.label}>
-                    <ButtonGroup
+          {actionButtons && actionButtons.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {actionButtons.map((button, index) => {
+                if (button.splitButton) {
+                  const options = button.splitButton.options; // Extract options to satisfy TypeScript
+                  return (
+                    <React.Fragment key={button.label}>
+                      <ButtonGroup
+                        variant={button.variant || 'contained'}
+                        color={button.color || 'primary'}
+                        ref={buttonRefs.current[index]}
+                        aria-label="split button"
+                        disabled={button.disabled}
+                      >
+                        <Button
+                          onClick={button.onClick}
+                          startIcon={button.icon}
+                          disabled={button.disabled}
+                        >
+                          {button.label}
+                        </Button>
+                        <Button
+                          size="small"
+                          aria-controls={
+                            openStates[index] ? 'split-button-menu' : undefined
+                          }
+                          aria-expanded={openStates[index] ? 'true' : undefined}
+                          aria-label="select option"
+                          aria-haspopup="menu"
+                          onClick={() => handleToggle(index)}
+                          disabled={button.disabled}
+                        >
+                          <ArrowDropDownIcon />
+                        </Button>
+                      </ButtonGroup>
+                      <Popper
+                        sx={{
+                          zIndex: 1,
+                        }}
+                        open={openStates[index]}
+                        anchorEl={buttonRefs.current[index].current}
+                        role={undefined}
+                        transition
+                        disablePortal
+                      >
+                        {({ TransitionProps, placement }) => (
+                          <Grow
+                            {...TransitionProps}
+                            style={{
+                              transformOrigin:
+                                placement === 'bottom'
+                                  ? 'center top'
+                                  : 'center bottom',
+                            }}
+                          >
+                            <Paper>
+                              <ClickAwayListener
+                                onClickAway={event => handleClose(event, index)}
+                              >
+                                <MenuList id="split-button-menu" autoFocusItem>
+                                  {options.map(option => (
+                                    <MenuItem
+                                      key={option.label}
+                                      disabled={option.disabled}
+                                      onClick={() =>
+                                        handleMenuItemClick(
+                                          option.onClick,
+                                          index
+                                        )
+                                      }
+                                    >
+                                      {option.label}
+                                    </MenuItem>
+                                  ))}
+                                </MenuList>
+                              </ClickAwayListener>
+                            </Paper>
+                          </Grow>
+                        )}
+                      </Popper>
+                    </React.Fragment>
+                  );
+                }
+
+                return button.href ? (
+                  <Link
+                    key={button.label}
+                    href={button.href}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Button
                       variant={button.variant || 'contained'}
                       color={button.color || 'primary'}
-                      ref={buttonRefs.current[index]}
-                      aria-label="split button"
+                      startIcon={button.icon}
+                      data-tour={button.dataTour}
                       disabled={button.disabled}
                     >
-                      <Button
-                        onClick={button.onClick}
-                        startIcon={button.icon}
-                        disabled={button.disabled}
-                      >
-                        {button.label}
-                      </Button>
-                      <Button
-                        size="small"
-                        aria-controls={
-                          openStates[index] ? 'split-button-menu' : undefined
-                        }
-                        aria-expanded={openStates[index] ? 'true' : undefined}
-                        aria-label="select option"
-                        aria-haspopup="menu"
-                        onClick={() => handleToggle(index)}
-                        disabled={button.disabled}
-                      >
-                        <ArrowDropDownIcon />
-                      </Button>
-                    </ButtonGroup>
-                    <Popper
-                      sx={{
-                        zIndex: 1,
-                      }}
-                      open={openStates[index]}
-                      anchorEl={buttonRefs.current[index].current}
-                      role={undefined}
-                      transition
-                      disablePortal
-                    >
-                      {({ TransitionProps, placement }) => (
-                        <Grow
-                          {...TransitionProps}
-                          style={{
-                            transformOrigin:
-                              placement === 'bottom'
-                                ? 'center top'
-                                : 'center bottom',
-                          }}
-                        >
-                          <Paper>
-                            <ClickAwayListener
-                              onClickAway={event => handleClose(event, index)}
-                            >
-                              <MenuList id="split-button-menu" autoFocusItem>
-                                {options.map(option => (
-                                  <MenuItem
-                                    key={option.label}
-                                    disabled={option.disabled}
-                                    onClick={() =>
-                                      handleMenuItemClick(option.onClick, index)
-                                    }
-                                  >
-                                    {option.label}
-                                  </MenuItem>
-                                ))}
-                              </MenuList>
-                            </ClickAwayListener>
-                          </Paper>
-                        </Grow>
-                      )}
-                    </Popper>
-                  </React.Fragment>
-                );
-              }
-
-              return button.href ? (
-                <Link
-                  key={button.label}
-                  href={button.href}
-                  style={{ textDecoration: 'none' }}
-                >
+                      {button.label}
+                    </Button>
+                  </Link>
+                ) : (
                   <Button
+                    key={button.label}
                     variant={button.variant || 'contained'}
                     color={button.color || 'primary'}
+                    onClick={button.onClick}
                     startIcon={button.icon}
                     data-tour={button.dataTour}
                     disabled={button.disabled}
                   >
                     {button.label}
                   </Button>
-                </Link>
-              ) : (
-                <Button
-                  key={button.label}
-                  variant={button.variant || 'contained'}
-                  color={button.color || 'primary'}
-                  onClick={button.onClick}
-                  startIcon={button.icon}
-                  data-tour={button.dataTour}
-                  disabled={button.disabled}
-                >
-                  {button.label}
-                </Button>
-              );
-            })}
-          </Box>
-        )}
-        {customToolbarContent}
-      </Box>
+                );
+              })}
+            </Box>
+          )}
+          {customToolbarContent}
+        </Box>
+      )}
 
       {disablePaperWrapper ? (
         <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
@@ -1088,7 +1107,7 @@ export default function BaseDataGrid({
               rows={serverSidePagination ? rows : filteredRows}
               columns={columns}
               getRowId={getRowId}
-              autoHeight
+              {...(autoHeight && { autoHeight: true })}
               pagination
               hideFooter={hideFooter}
               paginationMode={serverSidePagination ? 'server' : 'client'}
@@ -1158,7 +1177,7 @@ export default function BaseDataGrid({
                 rows={serverSidePagination ? rows : filteredRows}
                 columns={columns}
                 getRowId={getRowId}
-                autoHeight
+                {...(autoHeight && { autoHeight: true })}
                 pagination
                 hideFooter={hideFooter}
                 paginationMode={serverSidePagination ? 'server' : 'client'}

@@ -75,7 +75,9 @@ export function SearchPill({
           flexShrink: 0,
           cursor: 'pointer',
           '&:hover': { bgcolor: 'primary.dark' },
-          '& svg': { fontSize: 18 },
+          // The MuiDrawer theme override force-colors `.MuiSvgIcon-root` dark in
+          // light mode; keep this icon on its (white) contrast text.
+          '& .MuiSvgIcon-root': { fontSize: 18, color: 'primary.contrastText' },
         }}
       >
         <SearchIcon fontSize="small" />
