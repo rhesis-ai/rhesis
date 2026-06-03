@@ -149,9 +149,17 @@ Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Valu
   {{- fail "global.imageTag must not be 'latest' — use an immutable git SHA or digest tag" -}}
 {{- end -}}
 {{- if $registry -}}
-{{- printf "%s/%s:%s" $registry $repository ($tag | default "") -}}
+  {{- if $tag -}}
+{{- printf "%s/%s:%s" $registry $repository $tag -}}
+  {{- else -}}
+{{- printf "%s/%s" $registry $repository -}}
+  {{- end -}}
 {{- else -}}
-{{- printf "%s:%s" $repository ($tag | default "") -}}
+  {{- if $tag -}}
+{{- printf "%s:%s" $repository $tag -}}
+  {{- else -}}
+{{- printf "%s" $repository -}}
+  {{- end -}}
 {{- end -}}
 {{- end }}
 
