@@ -73,6 +73,40 @@ describe('ServicesClient', () => {
     });
   });
 
+  it('extracts a tool item with POST to /tools/{id}/extract', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ sources: [{ content: 'page body', title: 'Page' }] })
+    );
+    const result = await client.extractTool('tool-1', {
+      url: 'https://notion.so/page',
+      include_children: true,
+    });
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/tools/tool-1/extract');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toMatchObject({
+      url: 'https://notion.so/page',
+      include_children: true,
+    });
+    expect(result.sources).toHaveLength(1);
+  });
+
+  it('tests tool connection with POST to /tools/test-connection', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ is_authenticated: 'Yes', message: 'Connected' })
+    );
+    const request = {
+      provider_type_id: 'provider-1',
+      credentials: { NOTION_TOKEN: 'secret' },
+    };
+    const result = await client.testToolConnection(request);
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/tools/test-connection');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toMatchObject(request);
+    expect(result.is_authenticated).toBe('Yes');
+  });
+
   it('gets recent activities with limit query param', async () => {
     fetchMock.mockResolvedValue(makeFetch({ activities: [], total_count: 0 }));
     await client.getRecentActivities(25);
