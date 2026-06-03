@@ -12,17 +12,14 @@ from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
 from .github import GitHubSource
+from .jira import JiraRestClient
 from .notion import NotionSource
 
 
 async def _jira_health_check(jira_url: str, username: str, api_token: str) -> Dict[str, Any]:
-    url = jira_url.rstrip("/") + "/rest/api/3/myself"
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, auth=(username, api_token))
-    if resp.status_code == 200:
-        display = resp.json().get("displayName", "")
-        return {"is_authenticated": "Yes", "message": f"Connected as {display}"}
-    return {"is_authenticated": "No", "message": f"Authentication failed: {resp.status_code}"}
+    return await JiraRestClient(
+        base_url=jira_url, username=username, api_token=api_token
+    ).health_check()
 
 
 async def _confluence_health_check(

@@ -11,12 +11,13 @@ from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
 from .github import GitHubSource
+from .jira import JiraRestClient
 from .notion import NotionSource
 
 
 def get_rest_source(
     db: Session, tool_id: str, organization_id: str, user_id: str = None
-) -> Union[NotionSource, GitHubSource]:
+) -> Union[NotionSource, GitHubSource, JiraRestClient]:
     """Resolve a REST-capable tool to its source implementation.
 
     Raises:
@@ -46,5 +47,12 @@ def get_rest_source(
 
     if provider == "github":
         return GitHubSource(token=credentials.get("GITHUB_PERSONAL_ACCESS_TOKEN", ""))
+
+    if provider == "jira":
+        return JiraRestClient(
+            base_url=credentials.get("JIRA_URL", ""),
+            username=credentials.get("JIRA_USERNAME", ""),
+            api_token=credentials.get("JIRA_API_TOKEN", ""),
+        )
 
     raise MCPConfigurationError(f"No REST implementation found for provider '{provider}'")
