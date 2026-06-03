@@ -161,6 +161,9 @@ interface ModeConfig {
   title: string;
   saveButtonText: string;
   projectEditable: boolean;
+  /** Controls whether the project selector is rendered. Keeps projectEditable
+   *  true so endpoints still load and the ambient project filters them. */
+  showProjectField: boolean;
   endpointEditable: boolean;
   testSetMode: 'hidden' | 'single' | 'multi-search';
   experimentsEditable: boolean;
@@ -173,6 +176,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Set',
     saveButtonText: 'Execute Test Set',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -183,6 +187,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Test Run Configuration',
     saveButtonText: 'Execute Now',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'single',
     experimentsEditable: true,
@@ -193,6 +198,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Run Experiment',
     saveButtonText: 'Run Experiment',
     projectEditable: false,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'multi-search',
     experimentsEditable: false,
@@ -203,6 +209,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Re-run Test',
     saveButtonText: 'Re-run Test',
     projectEditable: false,
+    showProjectField: false,
     endpointEditable: false,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -213,6 +220,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Sets',
     saveButtonText: 'Run Test Sets',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -983,6 +991,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   const renderProjectField = () => {
+    if (!cfg.showProjectField) return null;
+
     if (!cfg.projectEditable) {
       if (mode === 'rerunTestRun') {
         return (
