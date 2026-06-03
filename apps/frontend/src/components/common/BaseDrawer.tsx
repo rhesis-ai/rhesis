@@ -123,6 +123,7 @@ export default function BaseDrawer({
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
