@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.schemas import Base
@@ -111,8 +111,16 @@ class PolyphemusAccess(BaseModel):
 class DefaultProjectSetting(BaseModel):
     """The user's default (auto-selected) project."""
 
-    id: UUID4 = Field(..., description="Project ID")
+    project_id: UUID4 = Field(..., description="Project ID")
     name: str = Field(..., description="Project name (denormalized for display)")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_id_key(cls, data: Any) -> Any:
+        """Accept stored dicts that use the legacy ``id`` key instead of ``project_id``."""
+        if isinstance(data, dict) and "id" in data and "project_id" not in data:
+            data = {**data, "project_id": data["id"]}
+        return data
 
 
 class UserSettings(BaseModel):

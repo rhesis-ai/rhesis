@@ -73,8 +73,8 @@ export function ActiveProjectProvider({
       let defaultId: string | null = null;
       try {
         const settings = await factory.getUsersClient().getUserSettings();
-        defaultId = settings?.default_project?.id
-          ? String(settings.default_project.id)
+        defaultId = settings?.default_project?.project_id
+          ? String(settings.default_project.project_id)
           : null;
       } catch {
         // ignore — fall through to single-project auto-select

@@ -60,7 +60,7 @@ def _set_default_project_if_empty(db: Session, user_id: uuid.UUID, project_id: u
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if project is None:
         return
-    user.settings.update({"default_project": {"id": str(project.id), "name": project.name}})
+    user.settings.update({"default_project": {"project_id": str(project.id), "name": project.name}})
     flag_modified(user, "user_settings")
 
 
@@ -78,7 +78,8 @@ def _reassign_default_project_if_removed(
     if user is None:
         return
     current = user.settings.default_project
-    if not current or str(current.get("id")) != str(removed_project_id):
+    current_pid = current.get("project_id") or current.get("id") if current else None
+    if not current_pid or str(current_pid) != str(removed_project_id):
         return
 
     remaining = (
@@ -93,7 +94,7 @@ def _reassign_default_project_if_removed(
         .first()
     )
     if remaining is not None:
-        user.settings.update({"default_project": {"id": str(remaining.id), "name": remaining.name}})
+        user.settings.update({"default_project": {"project_id": str(remaining.id), "name": remaining.name}})
     else:
         settings = user.settings.raw
         settings.pop("default_project", None)

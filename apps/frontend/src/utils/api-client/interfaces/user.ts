@@ -66,7 +66,7 @@ export interface PolyphemusAccess {
 }
 
 export interface DefaultProjectSetting {
-  id: UUID;
+  project_id: UUID;
   name: string;
 }
 
