@@ -8,7 +8,6 @@ import {
 import { getDesignTokens } from '../../styles/theme';
 import CssBaseline from '@mui/material/CssBaseline';
 
-// Create a context for theme mode
 export const ColorModeContext = React.createContext({
   toggleColorMode: () => {},
   mode: 'light' as 'light' | 'dark',
@@ -17,57 +16,75 @@ export const ColorModeContext = React.createContext({
 interface ThemeContextProviderProps {
   children: React.ReactNode;
   disableTransitionOnChange?: boolean;
+  initialMode?: 'light' | 'dark';
 }
 
 const THEME_MODE_KEY = 'theme-mode';
+const THEME_MODE_COOKIE = 'theme-mode';
+
+function persistThemeMode(mode: 'light' | 'dark') {
+  localStorage.setItem(THEME_MODE_KEY, mode);
+  document.documentElement.setAttribute('data-theme-mode', mode);
+  document.cookie = `${THEME_MODE_COOKIE}=${mode};path=/;max-age=31536000;SameSite=Lax`;
+}
 
 export default function ThemeContextProvider({
   children,
   disableTransitionOnChange = false,
+  initialMode = 'light',
 }: ThemeContextProviderProps) {
-  const [mode, setMode] = React.useState<'light' | 'dark'>('light');
-  const [mounted, setMounted] = React.useState(false);
+  const [mode, setMode] = React.useState<'light' | 'dark'>(initialMode);
 
   React.useLayoutEffect(() => {
     const attr = document.documentElement.getAttribute('data-theme-mode');
     if (attr === 'light' || attr === 'dark') {
       setMode(attr);
+      return;
     }
-    setMounted(true);
+
+    const storedMode = localStorage.getItem(THEME_MODE_KEY);
+    if (storedMode === 'light' || storedMode === 'dark') {
+      setMode(storedMode);
+      document.documentElement.setAttribute('data-theme-mode', storedMode);
+      return;
+    }
+
+    const systemMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+    setMode(systemMode);
+    document.documentElement.setAttribute('data-theme-mode', systemMode);
   }, []);
 
   React.useEffect(() => {
     const storedMode = localStorage.getItem(THEME_MODE_KEY);
-    if (!storedMode) {
-      const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = (e: MediaQueryListEvent) => {
-        const newMode = e.matches ? 'dark' : 'light';
-        setMode(newMode);
-        document.documentElement.setAttribute('data-theme-mode', newMode);
-      };
-      darkModeQuery.addEventListener('change', handler);
-      return () => darkModeQuery.removeEventListener('change', handler);
-    }
+    if (storedMode) return;
+
+    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      const newMode = e.matches ? 'dark' : 'light';
+      setMode(newMode);
+      document.documentElement.setAttribute('data-theme-mode', newMode);
+    };
+    darkModeQuery.addEventListener('change', handler);
+    return () => darkModeQuery.removeEventListener('change', handler);
   }, []);
 
   const colorMode = React.useMemo(
     () => ({
       toggleColorMode: () => {
         if (disableTransitionOnChange) {
-          // Disable all transitions temporarily
           document.documentElement.style.setProperty('transition', 'none');
           document.body.style.setProperty('transition', 'none');
         }
 
         setMode(prevMode => {
           const newMode = prevMode === 'light' ? 'dark' : 'light';
-          localStorage.setItem(THEME_MODE_KEY, newMode);
-          document.documentElement.setAttribute('data-theme-mode', newMode);
+          persistThemeMode(newMode);
           return newMode;
         });
 
         if (disableTransitionOnChange) {
-          // Re-enable transitions after the theme change
           requestAnimationFrame(() => {
             document.documentElement.style.removeProperty('transition');
             document.body.style.removeProperty('transition');
@@ -88,14 +105,7 @@ export default function ThemeContextProvider({
         disableTransitionOnChange={disableTransitionOnChange}
       >
         <CssBaseline />
-        <div
-          style={{
-            visibility: mounted ? 'visible' : 'hidden',
-          }}
-          suppressHydrationWarning
-        >
-          {children}
-        </div>
+        {children}
       </MuiThemeProvider>
     </ColorModeContext.Provider>
   );

@@ -26,7 +26,6 @@ import {
   ToggleButtonGroup,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Delete as DeleteIcon,
   Save as SaveIcon,
   Download as DownloadIcon,
@@ -36,7 +35,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -640,7 +639,7 @@ export default function ManualTestWriter() {
                 disabled={loading || testCases.length === 0}
               />
               <Fab
-                icon={<AddIcon />}
+                icon={<FabAddIcon />}
                 tooltip="Add test case"
                 onClick={addNewRow}
                 disabled={loading}

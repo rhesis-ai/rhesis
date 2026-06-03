@@ -1,11 +1,9 @@
-import { Box } from '@mui/material';
 import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { UUID } from 'crypto';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import TestRunMainView from './components/TestRunMainViewClient';
 
 interface _PageProps {
@@ -38,7 +36,6 @@ export default async function TestRunPage({
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Ensure params and searchParams are properly awaited
   const resolvedParams = await Promise.resolve(params);
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const identifier = resolvedParams.identifier;
@@ -46,167 +43,53 @@ export default async function TestRunPage({
 
   const session = await auth();
 
-  // If no session, throw error - will be caught by error boundary
   if (!session?.session_token) {
     throw new Error('Authentication required');
   }
 
   const apiFactory = await createServerApiFactory(session.session_token);
   const testRunsClient = apiFactory.getTestRunsClient();
-  const testResultsClient = apiFactory.getTestResultsClient();
-  const behaviorClient = apiFactory.getBehaviorClient();
 
-  // Fetch test run details — notFound() on any API error (404, 422, etc.)
-  // so Next.js returns a 404 response instead of a 500.
-  const testRun = await testRunsClient
-    .getTestRun(identifier)
-    .catch(() => notFound());
-
-  // Fetch all test results for this test run in batches (API limit is 100)
-  // The backend now includes nested prompt and behavior objects, eliminating the need for separate API calls
-  let testResults: TestResultDetail[] = [];
-  let skip = 0;
-  const batchSize = 100;
-  let hasMore = true;
-
-  while (hasMore) {
-    const testResultsResponse = await testResultsClient.getTestResults({
-      filter: `test_run_id eq '${identifier}'`,
-      limit: batchSize,
-      skip: skip,
-      sort_by: 'created_at',
-      sort_order: 'desc',
-    });
-
-    testResults = [...testResults, ...testResultsResponse.data];
-
-    // Check if there are more results
-    const totalCount = testResultsResponse.pagination?.totalCount || 0;
-    hasMore = testResults.length < totalCount;
-    skip += batchSize;
-
-    // Safety check to prevent infinite loops
-    if (skip > 10000) break;
-  }
-
-  // Build prompts map from nested data in test results (optimized - no separate API calls needed!)
-  const promptsMap = testResults.reduce(
-    (acc, testResult) => {
-      // Use nested prompt data if available
-      if (testResult.test?.prompt) {
-        acc[testResult.test.prompt.id] = {
-          id: testResult.test.prompt.id,
-          content: testResult.test.prompt.content,
-          expected_response: testResult.test.prompt.expected_response,
-          nano_id: testResult.test.prompt.nano_id,
-          counts: testResult.test.prompt.counts,
-        };
-      }
-      // Fallback: if prompt_id exists but nested data is not available (backward compatibility)
-      else if (testResult.prompt_id && !acc[testResult.prompt_id]) {
-      }
-      return acc;
-    },
-    {} as Record<
-      string,
-      {
-        id: string;
-        content: string;
-        expected_response?: string;
-        nano_id?: string;
-        counts?: unknown;
-      }
-    >
-  );
-
-  // Fetch behaviors (with their associated metrics for behavior-level filtering)
-  // and the distinct metric names actually evaluated in this test run, in parallel
-  let behaviors: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    metrics: Array<{ name: string; description?: string }>;
-  }> = [];
-  let availableMetrics: string[] = [];
+  let testRun;
   try {
-    const [behaviorsData, metricsData] = await Promise.all([
-      testRunsClient.getTestRunBehaviors(identifier),
-      testRunsClient.getTestRunMetrics(identifier),
-    ]);
-
-    availableMetrics = metricsData;
-
-    const behaviorsWithMetrics = await Promise.all(
-      behaviorsData.map(async behavior => {
-        try {
-          const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
-            behavior.id as UUID
-          );
-          return {
-            id: behavior.id as string,
-            name: behavior.name,
-            description: behavior.description ?? undefined,
-            metrics: behaviorMetrics.map(m => ({
-              name: m.name,
-              description: m.description ?? undefined,
-            })),
-          };
-        } catch (_error) {
-          return {
-            id: behavior.id as string,
-            name: behavior.name,
-            description: behavior.description ?? undefined,
-            metrics: [] as Array<{ name: string; description?: string }>,
-          };
-        }
-      })
-    );
-
-    behaviors = behaviorsWithMetrics;
-  } catch (_error) {
-    behaviors = [];
-    availableMetrics = [];
+    testRun = await testRunsClient.getTestRun(identifier);
+  } catch (error) {
+    if (isNotFoundApiError(error)) {
+      notFound();
+    }
+    throw error;
   }
 
-  // Define title and breadcrumbs for PageContainer
   const title = testRun.name || `Test Run ${identifier}`;
   const breadcrumbs = [
     { label: 'Test Runs', href: '/test-runs' },
     { label: title, href: `/test-runs/${identifier}` },
   ];
 
-  // All errors (404 not found, 410 deleted, etc.) are caught by the global error.tsx
   return (
     <PageLayout title="" breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1 }}>
-        {/* Main Split View */}
-        <TestRunMainView
-          testRunId={identifier}
-          testRunData={{
-            id: testRun.id,
-            name: testRun.name,
-            created_at:
-              (typeof testRun.attributes?.started_at === 'string'
-                ? testRun.attributes.started_at
-                : null) ||
-              testRun.created_at ||
-              '',
-            test_configuration_id: testRun.test_configuration_id,
-          }}
-          testRun={testRun}
-          sessionToken={session.session_token}
-          testResults={testResults}
-          prompts={promptsMap}
-          behaviors={behaviors}
-          availableMetrics={availableMetrics}
-          currentUserId={session.user?.id || ''}
-          currentUserName={session.user?.name || ''}
-          currentUserPicture={session.user?.picture || undefined}
-          initialSelectedTestId={
-            typeof selectedResult === 'string' ? selectedResult : undefined
-          }
-        />
-      </Box>
+      <TestRunMainView
+        testRunId={identifier}
+        testRunData={{
+          id: testRun.id,
+          name: testRun.name,
+          created_at:
+            (typeof testRun.attributes?.started_at === 'string'
+              ? testRun.attributes.started_at
+              : null) ||
+            testRun.created_at ||
+            '',
+          test_configuration_id: testRun.test_configuration_id,
+        }}
+        testRun={testRun}
+        sessionToken={session.session_token}
+        currentUserId={session.user?.id || ''}
+        currentUserName={session.user?.name || ''}
+        currentUserPicture={session.user?.picture || undefined}
+        initialSelectedTestId={
+          typeof selectedResult === 'string' ? selectedResult : undefined
+        }
+      />
     </PageLayout>
   );
 }

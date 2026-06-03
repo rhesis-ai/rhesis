@@ -4,9 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -27,6 +26,7 @@ import {
 import ModelFilterDrawer, {
   EMPTY_MODEL_FILTERS,
   hasActiveModelFilters,
+  countActiveModelFilters,
   type ModelFilters,
 } from './components/ModelFilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
@@ -385,7 +385,7 @@ export default function ModelsPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Add model"
             aria-label="Add model"
             onClick={handleFabClick}
@@ -417,6 +417,7 @@ export default function ModelsPage() {
         searchPlaceholder="Search models..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveModelFilters(drawerFilters)}
+        activeFilterCount={countActiveModelFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs

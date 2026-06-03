@@ -12,7 +12,8 @@ import {
 import { SendIcon } from '@/components/icons';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
-
+import { SectionCard } from '@/components/common/SectionCard';
+import { UserAvatar } from '@/components/common/UserAvatar';
 interface CommentsSectionProps {
   entityType: EntityType;
   entityId: string;
@@ -40,8 +41,8 @@ export function CommentsSection({
   onCreateTask,
   onCreateTaskFromEntity: _onCreateTaskFromEntity,
   currentUserId,
-  currentUserName: _currentUserName,
-  currentUserPicture: _currentUserPicture,
+  currentUserName,
+  currentUserPicture,
   isLoading = false,
 }: CommentsSectionProps) {
   const [highlightedCommentId, setHighlightedCommentId] = useState<
@@ -147,15 +148,7 @@ export function CommentsSection({
   );
 
   return (
-    <Box>
-      {/* Header */}
-      <Typography
-        variant="h6"
-        sx={{ fontWeight: 600, color: 'primary.main', mb: 2 }}
-      >
-        Comments ({comments.length})
-      </Typography>
-
+    <SectionCard title={`Comments (${comments.length})`}>
       {/* Comments List */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -163,7 +156,14 @@ export function CommentsSection({
         </Box>
       ) : (
         comments.length > 0 && (
-          <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '30px',
+              mb: 3,
+            }}
+          >
             {sortedComments.map(comment => (
               <CommentItem
                 key={comment.id}
@@ -182,17 +182,25 @@ export function CommentsSection({
       )}
 
       {/* Comment Form */}
-      <Box component="form" onSubmit={handleSubmit}>
-        <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{ display: 'flex', alignItems: 'flex-start', gap: '30px' }}
+      >
+        <UserAvatar
+          userName={currentUserName}
+          userPicture={currentUserPicture}
+          sx={{ width: 48, height: 48, flexShrink: 0 }}
+        />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <TextField
             value={newComment}
             onChange={e => setNewComment(e.target.value)}
             placeholder="Add comment"
             multiline
-            rows={3}
+            minRows={1}
             fullWidth
             variant="outlined"
-            size="small"
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -236,6 +244,6 @@ export function CommentsSection({
           )}
         </Box>
       </Box>
-    </Box>
+    </SectionCard>
   );
 }

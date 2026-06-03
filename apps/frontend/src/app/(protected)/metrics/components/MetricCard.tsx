@@ -45,6 +45,7 @@ interface MetricCardProps {
   usedIn?: string[];
   showUsage?: boolean;
   onDelete?: () => void;
+  onClick?: () => void;
 }
 
 const getBackendIcon = (backend: string) => {
@@ -128,6 +129,7 @@ export default function MetricCard({
   usedIn,
   showUsage = false,
   onDelete,
+  onClick,
 }: MetricCardProps) {
   // Safely handle capitalization with fallbacks for empty/undefined values
   const capitalizedScoreType = scoreType
@@ -148,7 +150,6 @@ export default function MetricCard({
         ...usedIn.slice(0, 3).map((behaviorName, index) => ({
           key: `behavior-${index}`,
           label: behaviorName,
-          maxWidth: '152px',
         })),
         ...(usedIn.length > 3
           ? [
@@ -205,6 +206,7 @@ export default function MetricCard({
       description={description}
       chipSections={chipSections}
       onDelete={onDelete}
+      onClick={onClick}
     />
   );
 }

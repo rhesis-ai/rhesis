@@ -18,6 +18,47 @@ jest.mock('../ReviewJudgementDrawer', () => ({
   default: () => null,
 }));
 
+jest.mock('@/components/common/BaseDataGrid', () => {
+  return function MockBaseDataGrid({
+    rows,
+    paginationModel,
+    onPaginationModelChange,
+  }: {
+    rows: unknown[];
+    paginationModel: { page: number; pageSize: number };
+    onPaginationModelChange: (model: {
+      page: number;
+      pageSize: number;
+    }) => void;
+  }) {
+    const { page, pageSize } = paginationModel;
+    const count = rows.length;
+    const from = count === 0 ? 0 : page * pageSize + 1;
+    const to = Math.min((page + 1) * pageSize, count);
+    const maxPage = Math.max(0, Math.ceil(count / pageSize) - 1);
+
+    return (
+      <div>
+        <div>
+          {from}–{to} of {count}
+        </div>
+        <button
+          type="button"
+          aria-label="Next page"
+          disabled={page >= maxPage}
+          onClick={() => onPaginationModelChange({ page: page + 1, pageSize })}
+        />
+        <button
+          type="button"
+          aria-label="Previous page"
+          disabled={page <= 0}
+          onClick={() => onPaginationModelChange({ page: page - 1, pageSize })}
+        />
+      </div>
+    );
+  };
+});
+
 // ---- API client: only used in event handlers, not needed for render-path tests ----
 
 jest.mock('@/utils/api-client/client-factory', () => ({

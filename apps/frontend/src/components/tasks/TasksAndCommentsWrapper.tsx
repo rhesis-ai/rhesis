@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { Paper } from '@mui/material';
+import { Box } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
@@ -16,7 +16,6 @@ interface TasksAndCommentsWrapperProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
-  elevation?: number;
   onCountsChange?: () => void;
   additionalMetadata?: Record<string, unknown>;
 }
@@ -28,7 +27,6 @@ export function TasksAndCommentsWrapper({
   currentUserId,
   currentUserName,
   currentUserPicture,
-  elevation = 1,
   onCountsChange,
   additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
@@ -103,25 +101,19 @@ export function TasksAndCommentsWrapper({
 
   return (
     <>
-      <Paper
-        elevation={elevation}
-        sx={{ p: 3, mb: 3 }}
-        suppressHydrationWarning
-      >
-        <TasksSection
-          entityType={entityType}
-          entityId={entityId}
-          sessionToken={sessionToken}
-          onCreateTask={handleCreateTask}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
-          onOpenCreateDrawer={handleOpenCreateDrawer}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-        />
-      </Paper>
+      <TasksSection
+        entityType={entityType}
+        entityId={entityId}
+        sessionToken={sessionToken}
+        onCreateTask={handleCreateTask}
+        onEditTask={handleEditTask}
+        onDeleteTask={handleDeleteTask}
+        onOpenCreateDrawer={handleOpenCreateDrawer}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+      />
 
-      <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
+      <Box sx={{ mt: '16px' }}>
         <CommentsWrapper
           entityType={entityType}
           entityId={entityId}
@@ -133,7 +125,7 @@ export function TasksAndCommentsWrapper({
           onCreateTaskFromEntity={() => handleOpenCreateDrawer()}
           onCountsChange={onCountsChange}
         />
-      </Paper>
+      </Box>
 
       <TaskCreationDrawer
         open={createDrawerOpen}

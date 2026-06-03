@@ -12,6 +12,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 export interface ToolbarPillTab {
   label: string;
   value: string;
+  icon?: React.ReactNode;
 }
 
 export interface GridToolbarProps {
@@ -19,8 +20,10 @@ export interface GridToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   searchWidth?: number;
-  onFilterClick?: () => void;
+  onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
+  /** Number of active filters to display on the filter button badge */
+  activeFilterCount?: number;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   sx?: SxProps<Theme>;
@@ -120,7 +123,7 @@ export function PrimarySegmentedPills({
 }: PrimarySegmentedPillsProps) {
   return (
     <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      {tabs.map(({ value, label }, idx, arr) => {
+      {tabs.map(({ value, label, icon }, idx, arr) => {
         const isSelected =
           mode === 'single'
             ? activeValue === value
@@ -153,6 +156,7 @@ export function PrimarySegmentedPills({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '4px',
               px: '16px',
               py: '8px',
               fontSize: '0.875rem',
@@ -177,8 +181,12 @@ export function PrimarySegmentedPills({
                   : theme => `${theme.palette.primary.main}0f`,
               },
               whiteSpace: 'nowrap',
+              '& svg': {
+                fontSize: 20,
+              },
             }}
           >
+            {icon}
             {label}
           </Box>
         );
@@ -197,6 +205,7 @@ export function GridToolbar({
   searchWidth = 240,
   onFilterClick,
   hasActiveFilters = false,
+  activeFilterCount,
   middleContent,
   rightContent,
   sx,
@@ -216,6 +225,7 @@ export function GridToolbar({
         <FilterButton
           onClick={onFilterClick}
           hasActiveFilters={hasActiveFilters}
+          activeFilterCount={activeFilterCount}
         />
       ) : null}
       <SearchPill

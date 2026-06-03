@@ -43,6 +43,12 @@ import Switch from '@mui/material/Switch';
 import Link from 'next/link';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseTag from '@/components/common/BaseTag';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import {
+  drawerDisabledFieldSx,
+  drawerOutlinedFieldSx,
+  drawerTagFieldSx,
+} from '@/components/common/drawerFormFieldSx';
 import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
@@ -67,6 +73,7 @@ import {
 } from '@/utils/test-run-batch';
 import { BiotechIcon } from '@/components/icons';
 import tagStyles from '@/styles/BaseTag.module.css';
+import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 
@@ -206,8 +213,8 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     showMetrics: true,
   },
   rerunTestRun: {
-    title: 'Re-run Test',
-    saveButtonText: 'Re-run Test',
+    title: 'Re-run Tests',
+    saveButtonText: 'Re-run Tests',
     projectEditable: false,
     showProjectField: false,
     endpointEditable: false,
@@ -228,6 +235,35 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     showMetrics: true,
   },
 };
+
+const RERUN_SECTION_SX = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '40px',
+} as const;
+
+const RERUN_FIELDS_SX = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '30px',
+} as const;
+
+const RERUN_OUTLINE_BUTTON_SX = {
+  borderWidth: 2,
+  borderColor: 'primary.main',
+  color: 'primary.main',
+  fontWeight: 700,
+  fontSize: 14,
+  lineHeight: '22px',
+  borderRadius: BORDER_RADIUS.sm,
+  px: '16px',
+  py: '8px',
+  textTransform: 'none',
+  '&:hover': { borderWidth: 2 },
+} as const;
+
+const EXPERIMENT_SECTION_DESCRIPTION =
+  "Each selected experiment triggers its own test run with that experiment's parameters pinned. Leave empty to run without an experiment.";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -1001,6 +1037,8 @@ export default function RunDrawer(props: RunDrawerProps) {
             value={rerunConfig?.projectName ?? ''}
             disabled
             fullWidth
+            InputLabelProps={{ shrink: true }}
+            sx={drawerDisabledFieldSx}
           />
         );
       }
@@ -1069,6 +1107,8 @@ export default function RunDrawer(props: RunDrawerProps) {
             value={rerunConfig?.endpointName ?? ''}
             disabled
             fullWidth
+            InputLabelProps={{ shrink: true }}
+            sx={drawerDisabledFieldSx}
           />
         );
       }
@@ -1143,6 +1183,8 @@ export default function RunDrawer(props: RunDrawerProps) {
             value={rerunConfig?.testSetName ?? ''}
             disabled
             fullWidth
+            InputLabelProps={{ shrink: true }}
+            sx={drawerDisabledFieldSx}
           />
         );
       }
@@ -1259,88 +1301,108 @@ export default function RunDrawer(props: RunDrawerProps) {
     );
   };
 
+  const renderSelectedExperimentGroups = () => {
+    if (selectedExperiments.length === 0) return null;
+
+    const grouped = new Map<
+      string,
+      { name: string; versions: SelectedExperiment[] }
+    >();
+    for (const exp of selectedExperiments) {
+      const key = String(exp.experiment_id);
+      const group = grouped.get(key) ?? {
+        name: exp.experiment_name,
+        versions: [],
+      };
+      group.versions.push(exp);
+      grouped.set(key, group);
+    }
+
+    return (
+      <Stack spacing={1}>
+        {Array.from(grouped.entries()).map(([expId, group]) => (
+          <Box
+            key={expId}
+            sx={{
+              p: 1.5,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: theme => theme.spacing(1),
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              <BiotechIcon fontSize="small" color="primary" />
+              <Typography variant="body2" noWrap>
+                {group.name}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              {group.versions.map(exp => (
+                <Chip
+                  key={exp.version}
+                  label={shortVersion(exp.version)}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontFamily: 'monospace' }}
+                  onDelete={() =>
+                    setSelectedExperiments(prev =>
+                      prev.filter(
+                        row =>
+                          row.experiment_id !== exp.experiment_id ||
+                          row.version !== exp.version
+                      )
+                    )
+                  }
+                />
+              ))}
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
+    );
+  };
+
   const renderExperimentsSection = () => {
     if (!cfg.experimentsEditable) return null;
     if (!effectiveProjectId) return null;
 
+    if (mode === 'rerunTestRun') {
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <FormSectionDivider
+            headline="Experiment"
+            descriptiveText={EXPERIMENT_SECTION_DESCRIPTION}
+          />
+          {renderSelectedExperimentGroups()}
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<AddIcon />}
+            onClick={() => setExperimentsDialogOpen(true)}
+            sx={RERUN_OUTLINE_BUTTON_SX}
+          >
+            Add experiment
+          </Button>
+        </Box>
+      );
+    }
+
+    const experimentGroups = renderSelectedExperimentGroups();
+
     return (
       <Box>
         <Alert severity="info" sx={{ mb: 2 }}>
-          Each selected experiment triggers its own test run with that
-          experiment&apos;s parameters pinned. Leave empty to run without an
-          experiment.
+          {EXPERIMENT_SECTION_DESCRIPTION}
         </Alert>
 
-        {selectedExperiments.length > 0 &&
-          (() => {
-            const grouped = new Map<
-              string,
-              { name: string; versions: SelectedExperiment[] }
-            >();
-            for (const exp of selectedExperiments) {
-              const key = String(exp.experiment_id);
-              const group = grouped.get(key) ?? {
-                name: exp.experiment_name,
-                versions: [],
-              };
-              group.versions.push(exp);
-              grouped.set(key, group);
-            }
-            return (
-              <Stack spacing={1} sx={{ mb: 2 }}>
-                {Array.from(grouped.entries()).map(([expId, group]) => (
-                  <Box
-                    key={expId}
-                    sx={{
-                      p: 1.5,
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: theme => theme.spacing(1),
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        mb: 1,
-                      }}
-                    >
-                      <BiotechIcon fontSize="small" color="primary" />
-                      <Typography variant="body2" noWrap>
-                        {group.name}
-                      </Typography>
-                    </Box>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
-                    >
-                      {group.versions.map(exp => (
-                        <Chip
-                          key={exp.version}
-                          label={shortVersion(exp.version)}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontFamily: 'monospace' }}
-                          onDelete={() =>
-                            setSelectedExperiments(prev =>
-                              prev.filter(
-                                row =>
-                                  row.experiment_id !== exp.experiment_id ||
-                                  row.version !== exp.version
-                              )
-                            )
-                          }
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-                ))}
-              </Stack>
-            );
-          })()}
+        {experimentGroups && <Box sx={{ mb: 2 }}>{experimentGroups}</Box>}
 
         <Button
           variant="outlined"
@@ -1468,7 +1530,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     return (
       <>
         <Divider />
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography
+          variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
+          color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
+          fontWeight={mode === 'rerunTestRun' ? 600 : 400}
+        >
           Test Run Metrics
         </Typography>
 
@@ -1585,6 +1651,202 @@ export default function RunDrawer(props: RunDrawerProps) {
   };
 
   // -----------------------------------------------------------------------
+  // RerunTestRunDrawer layout (Figma 1641:16598)
+  // -----------------------------------------------------------------------
+
+  const renderRerunTestRunContent = () => (
+    <>
+      <Box sx={RERUN_SECTION_SX}>
+        <FormSectionDivider headline="Execution Target" />
+        <Box sx={RERUN_FIELDS_SX}>
+          {renderTestSetField()}
+          {renderProjectField()}
+          {renderEndpointField()}
+        </Box>
+      </Box>
+
+      {renderExperimentsSection()}
+
+      <Box sx={RERUN_SECTION_SX}>
+        <FormSectionDivider headline="Configuration" />
+        <Box sx={RERUN_FIELDS_SX}>
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Execution Mode</InputLabel>
+            <Select
+              value={executionMode}
+              onChange={e => setExecutionMode(e.target.value)}
+              label="Execution Mode"
+            >
+              <MenuItem value="Parallel">Parallel</MenuItem>
+              <MenuItem value="Sequential">Sequential</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Scoring Target</InputLabel>
+            <Select
+              value={scoringTarget}
+              onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
+              label="Scoring Target"
+            >
+              <MenuItem value="fresh">Fresh Outputs</MenuItem>
+              <MenuItem value="reuse">Reuse Outputs</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Metric Source</InputLabel>
+            <Select
+              value={metricMode}
+              onChange={e => {
+                setMetricMode(e.target.value as MetricMode);
+                if (e.target.value !== 'define_custom') setSelectedMetrics([]);
+              }}
+              label="Metric Source"
+            >
+              {testSetMetrics.length > 0 && (
+                <MenuItem value="use_test_set">Test Set Metrics</MenuItem>
+              )}
+              <MenuItem value="use_behavior">Behavior Metrics</MenuItem>
+              <MenuItem value="define_custom">Custom Metrics</MenuItem>
+            </Select>
+          </FormControl>
+
+          {metricMode === 'define_custom' && (
+            <Box>
+              {selectedMetrics.length > 0 && (
+                <Stack spacing={1} sx={{ mb: 2 }}>
+                  {selectedMetrics.map(metric => (
+                    <Box
+                      key={metric.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.spacing(1),
+                      }}
+                    >
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <AutoGraphIcon fontSize="small" color="primary" />
+                        <Typography variant="body2">{metric.name}</Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveMetric(metric.id)}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<AddIcon />}
+                onClick={() => setMetricsDialogOpen(true)}
+                sx={RERUN_OUTLINE_BUTTON_SX}
+              >
+                Add metric
+              </Button>
+
+              <SelectMetricsDialog
+                open={metricsDialogOpen}
+                onClose={() => setMetricsDialogOpen(false)}
+                onSelect={handleAddMetric}
+                sessionToken={sessionToken}
+                excludeMetricIds={selectedMetrics.map(m => m.id)}
+                title="Add Metric to Execution"
+                subtitle="Select a metric to use for this test run"
+                scopeFilter={metricScopeFilter}
+              />
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      <Box sx={RERUN_SECTION_SX}>
+        <FormSectionDivider headline="Model Settings" />
+        <Box sx={RERUN_FIELDS_SX}>
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedEvaluationModelId}
+            onChange={setSelectedEvaluationModelId}
+            label="Evaluation Model"
+            purpose="evaluation"
+            hideHelperText
+            compact
+            fieldSx={drawerOutlinedFieldSx}
+          />
+
+          {effectiveTestSetType === 'Multi-Turn' && (
+            <ModelSelector
+              sessionToken={sessionToken}
+              value={selectedExecutionModelId}
+              onChange={setSelectedExecutionModelId}
+              label="Execution Model"
+              purpose="execution"
+              hideHelperText
+              compact
+              fieldSx={drawerOutlinedFieldSx}
+            />
+          )}
+
+          <Box
+            sx={{
+              borderTop: 1,
+              borderColor: theme => theme.palette.greyscale.border,
+              pt: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: 16,
+                lineHeight: '24px',
+                color: theme => theme.palette.greyscale.title,
+              }}
+            >
+              Run Preflight Checks
+            </Typography>
+            <Switch
+              checked={preflightEnabled}
+              onChange={e => setPreflightEnabled(e.target.checked)}
+              size="small"
+            />
+          </Box>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <FormSectionDivider headline="Tags" />
+        <BaseTag
+          value={tags}
+          onChange={setTags}
+          label="Tags"
+          placeholder="Add tags (press Enter or comma to add)"
+          chipColor="default"
+          addOnBlur
+          delimiters={[',', 'Enter']}
+          size="small"
+          margin="none"
+          fullWidth
+          chipClassName={tagStyles.modalTag}
+          sx={drawerTagFieldSx}
+        />
+      </Box>
+    </>
+  );
+
+  // -----------------------------------------------------------------------
   // Dynamic title for createFromGrid
   // -----------------------------------------------------------------------
 
@@ -1621,6 +1883,8 @@ export default function RunDrawer(props: RunDrawerProps) {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
         </Box>
+      ) : mode === 'rerunTestRun' ? (
+        renderRerunTestRunContent()
       ) : (
         <Stack spacing={3}>
           {/* Experiment versions (runExperiment only) */}
@@ -1643,20 +1907,6 @@ export default function RunDrawer(props: RunDrawerProps) {
           {renderProjectField()}
           {renderEndpointField()}
           {renderExperimentsSection()}
-
-          {/* Experiments dialog (editable modes only) */}
-          {cfg.experimentsEditable && (
-            <SelectExperimentsDialog
-              open={experimentsDialogOpen}
-              onClose={() => setExperimentsDialogOpen(false)}
-              onConfirm={setSelectedExperiments}
-              sessionToken={sessionToken}
-              projectId={effectiveProjectId}
-              initialSelection={selectedExperiments}
-              title={`Experiments for this ${mode === 'rerunTestRun' ? 're-run' : 'run'}`}
-              subtitle="Selecting multiple experiments queues one run per experiment."
-            />
-          )}
 
           {/* Run count summary (runExperiment) */}
           {mode === 'runExperiment' &&
@@ -1719,8 +1969,6 @@ export default function RunDrawer(props: RunDrawerProps) {
             />
           )}
 
-          <Divider />
-
           <FormControlLabel
             control={
               <Switch
@@ -1751,7 +1999,7 @@ export default function RunDrawer(props: RunDrawerProps) {
 
           {/* Tags */}
           <Typography variant="subtitle2" color="text.secondary">
-            Test Run Tags
+            Tags
           </Typography>
           <BaseTag
             value={tags}
@@ -1767,6 +2015,18 @@ export default function RunDrawer(props: RunDrawerProps) {
             chipClassName={tagStyles.modalTag}
           />
         </Stack>
+      )}
+      {cfg.experimentsEditable && effectiveProjectId && (
+        <SelectExperimentsDialog
+          open={experimentsDialogOpen}
+          onClose={() => setExperimentsDialogOpen(false)}
+          onConfirm={setSelectedExperiments}
+          sessionToken={sessionToken}
+          projectId={effectiveProjectId}
+          initialSelection={selectedExperiments}
+          title={`Experiments for this ${mode === 'rerunTestRun' ? 're-run' : 'run'}`}
+          subtitle="Selecting multiple experiments queues one run per experiment."
+        />
       )}
       {preflightDialogOpen && (
         <PreflightDialog

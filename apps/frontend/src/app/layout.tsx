@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 // Side-effect import: registers EE features into core's extension
@@ -252,6 +253,8 @@ const AUTHENTICATION: AuthenticationProps = {
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
+  const themeCookie = (await cookies()).get('theme-mode')?.value;
+  const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
 
   // Get navigation with dynamic organization name
   const { items: navigation, organizationName } =
@@ -264,33 +267,12 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   };
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var THEME_MODE_KEY = 'theme-mode';
-                  var storedMode = localStorage.getItem(THEME_MODE_KEY);
-                  var mode;
-
-                  if (storedMode) {
-                    mode = storedMode;
-                  } else {
-                    var darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                    mode = darkModeQuery.matches ? 'dark' : 'light';
-                  }
-
-                  document.documentElement.setAttribute('data-theme-mode', mode);
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
+    <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
       <body suppressHydrationWarning>
-        <ThemeContextProvider disableTransitionOnChange>
+        <ThemeContextProvider
+          disableTransitionOnChange
+          initialMode={initialThemeMode}
+        >
           <LayoutContent
             session={session}
             navigation={navigation}

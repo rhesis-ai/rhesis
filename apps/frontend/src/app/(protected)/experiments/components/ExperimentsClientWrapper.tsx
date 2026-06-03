@@ -16,7 +16,7 @@ import {
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -266,7 +266,7 @@ export default function ExperimentsClientWrapper({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="New Experiment"
             aria-label="New Experiment"
             onClick={() => setCreateOpen(true)}

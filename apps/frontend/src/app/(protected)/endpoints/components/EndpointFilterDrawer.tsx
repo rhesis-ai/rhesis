@@ -33,6 +33,10 @@ export function hasActiveEndpointFilters(f: EndpointFilters): boolean {
   return Object.values(f).some(v => v !== '');
 }
 
+export function countActiveEndpointFilters(f: EndpointFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
+}
+
 const CONNECTION_TYPE_OPTIONS = [
   { label: 'REST', value: 'REST' },
   { label: 'WebSocket', value: 'WEBSOCKET' },

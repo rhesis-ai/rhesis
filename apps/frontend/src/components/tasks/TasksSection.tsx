@@ -3,10 +3,11 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
 import { AddIcon } from '@/components/icons';
-import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
+import TasksIcon from '@/components/TasksIcon';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import { SectionCard } from '@/components/common/SectionCard';
 import {
   GridColDef,
   GridPaginationModel,
@@ -251,38 +252,25 @@ export function TasksSection({
     },
   ];
 
-  return (
-    <TaskErrorBoundary>
-      <Box>
-        {/* Header */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 2,
-          }}
-        >
-          <Typography variant="h6" component="h2">
-            Tasks ({tasks.length})
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateTask}
-            sx={{
-              color: 'white',
-              '& .MuiButton-startIcon': {
-                color: 'white',
-              },
-            }}
-          >
-            Create Task
-          </Button>
-        </Box>
+  const createButton = (
+    <Button
+      variant="outlined"
+      startIcon={
+        <AddIcon
+          sx={{ color: theme => `${theme.palette.primary.main} !important` }}
+        />
+      }
+      onClick={handleCreateTask}
+      size="small"
+    >
+      Create
+    </Button>
+  );
 
-        {/* Tasks Table */}
-        {error ? (
+  if (error) {
+    return (
+      <TaskErrorBoundary>
+        <SectionCard title={`Tasks (${totalCount})`} actions={createButton}>
           <Typography
             variant="body2"
             color="error"
@@ -290,7 +278,15 @@ export function TasksSection({
           >
             {error}
           </Typography>
-        ) : !loading && tasks.length === 0 ? (
+        </SectionCard>
+      </TaskErrorBoundary>
+    );
+  }
+
+  if (!loading && tasks.length === 0) {
+    return (
+      <TaskErrorBoundary>
+        <SectionCard>
           <Box
             sx={{
               display: 'flex',
@@ -301,7 +297,12 @@ export function TasksSection({
               textAlign: 'center',
             }}
           >
-            <RouteOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <TasksIcon
+              sx={{
+                fontSize: 32,
+                color: theme => `${theme.palette.primary.main} !important`,
+              }}
+            />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
@@ -314,40 +315,43 @@ export function TasksSection({
             </Typography>
             <Button
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<AddIcon sx={{ color: 'white !important' }} />}
               onClick={handleCreateTask}
-              sx={{
-                color: 'white',
-                '& .MuiButton-startIcon': { color: 'white' },
-              }}
+              sx={{ color: 'white' }}
             >
               Create task
             </Button>
           </Box>
-        ) : (
-          <BaseDataGrid
-            rows={tasks}
-            columns={columns}
-            loading={loading}
-            onRowClick={handleRowClick}
-            disableRowSelectionOnClick
-            pageSizeOptions={[5, 10, 25]}
-            paginationModel={paginationModel}
-            onPaginationModelChange={handlePaginationModelChange}
-            getRowId={row => row.id}
-            showToolbar={true}
-            disablePaperWrapper={true}
-            serverSidePagination={true}
-            totalRows={totalCount}
-            sx={{
-              '& .MuiDataGrid-row': {
-                cursor: 'pointer',
-              },
-              minHeight: Math.min(tasks.length * 52 + 120, 400), // Dynamic height
-            }}
-          />
-        )}
-      </Box>
+        </SectionCard>
+      </TaskErrorBoundary>
+    );
+  }
+
+  return (
+    <TaskErrorBoundary>
+      <SectionCard title={`Tasks (${totalCount})`} actions={createButton}>
+        <BaseDataGrid
+          rows={tasks}
+          columns={columns}
+          loading={loading}
+          onRowClick={handleRowClick}
+          disableRowSelectionOnClick
+          pageSizeOptions={[5, 10, 25]}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          getRowId={row => row.id}
+          showToolbar={true}
+          disablePaperWrapper={true}
+          serverSidePagination={true}
+          totalRows={totalCount}
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+            },
+            minHeight: Math.min(tasks.length * 52 + 120, 400),
+          }}
+        />
+      </SectionCard>
     </TaskErrorBoundary>
   );
 }

@@ -296,6 +296,10 @@ const getDesignTokens = (mode: PaletteMode) => {
             '& .MuiSvgIcon-root': {
               color: mode === 'light' ? gs.body : '#FFFFFF',
             },
+            '& .MuiButton-icon .MuiSvgIcon-root, & .MuiButton-startIcon .MuiSvgIcon-root, & .MuiButton-endIcon .MuiSvgIcon-root':
+              {
+                color: 'inherit',
+              },
             '& .MuiListItemButton-root.Mui-selected': {
               backgroundColor: '#0080AF',
               '& .MuiSvgIcon-root': { color: '#FFFFFF' },
@@ -458,6 +462,16 @@ const getDesignTokens = (mode: PaletteMode) => {
               borderColor: mode === 'light' ? '#C62828' : '#FCA5A5',
               backgroundColor: 'transparent',
             },
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontSize: '0.75rem', // 12px
+            lineHeight: 1.4,
+            padding: '6px 10px',
           },
         },
       },

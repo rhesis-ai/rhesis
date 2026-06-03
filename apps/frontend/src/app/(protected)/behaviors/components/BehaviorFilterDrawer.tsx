@@ -25,6 +25,10 @@ export function hasActiveBehaviorFilters(f: BehaviorFilters): boolean {
   return f.metricCount !== 'all' || f.tagNames.length > 0;
 }
 
+export function countActiveBehaviorFilters(f: BehaviorFilters): number {
+  return (f.metricCount !== 'all' ? 1 : 0) + f.tagNames.length;
+}
+
 const METRIC_OPTIONS: { value: MetricFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'has_metrics', label: 'Has Metrics' },

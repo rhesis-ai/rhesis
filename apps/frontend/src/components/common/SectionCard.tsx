@@ -8,7 +8,8 @@ import { ELEVATION, BORDER_RADIUS } from '@/styles/theme';
 export type SectionCardVariant = 'default' | 'danger';
 
 export interface SectionCardProps {
-  title: string;
+  /** When omitted (along with subtitle and actions), the header row is skipped entirely */
+  title?: string;
   /** Optional subtitle below the title (Body S, secondary) */
   subtitle?: string;
   /** Header actions (e.g. Edit button, FAB) */
@@ -54,37 +55,45 @@ export function SectionCard({
   children,
 }: SectionCardProps) {
   const titleColor = variant === 'danger' ? 'error.main' : 'primary.main';
+  const hasHeader = Boolean(title || subtitle || actions);
 
   return (
     <Paper elevation={0} sx={cardSx(variant)}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 2,
-          mb: subtitle || actions ? 3 : 3,
-        }}
-      >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: titleColor }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography
-              variant="body2"
-              sx={{ mt: 0.5, color: 'text.secondary' }}
-            >
-              {subtitle}
-            </Typography>
+      {hasHeader && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {title && (
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, color: titleColor }}
+              >
+                {title}
+              </Typography>
+            )}
+            {subtitle && (
+              <Typography
+                variant="body2"
+                sx={{ mt: 0.5, color: 'text.secondary' }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          {actions && (
+            <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center' }}>
+              {actions}
+            </Box>
           )}
         </Box>
-        {actions && (
-          <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center' }}>
-            {actions}
-          </Box>
-        )}
-      </Box>
+      )}
       {children}
     </Paper>
   );

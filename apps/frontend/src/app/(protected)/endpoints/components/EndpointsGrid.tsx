@@ -7,6 +7,7 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { Box, Typography, useTheme, Alert } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
@@ -41,7 +42,12 @@ import EndpointFilterDrawer, {
   type EndpointFilters,
   EMPTY_ENDPOINT_FILTERS,
   hasActiveEndpointFilters,
+  countActiveEndpointFilters,
 } from './EndpointFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import CloudIcon from '@mui/icons-material/Cloud';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -104,6 +110,7 @@ interface EndpointsToolbarState {
   setSearchQuery: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const DRAWER_FILTER_FIELDS = [
@@ -118,6 +125,7 @@ const EndpointsToolbarContext = React.createContext<EndpointsToolbarState>({
   setSearchQuery: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 function EndpointsUnifiedToolbar() {
@@ -126,6 +134,7 @@ function EndpointsUnifiedToolbar() {
     setSearchQuery,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(EndpointsToolbarContext);
 
   return (
@@ -135,6 +144,7 @@ function EndpointsUnifiedToolbar() {
       searchPlaceholder="Search endpoints…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       rightContent={
         <>
           <GridToolbarColumnsButton />
@@ -153,6 +163,7 @@ export default function EndpointsGrid({
   projectId,
 }: EndpointsGridProps) {
   const theme = useTheme();
+  const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
 
@@ -175,6 +186,7 @@ export default function EndpointsGrid({
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
@@ -336,7 +348,10 @@ export default function EndpointsGrid({
   }, [fetchEndpoints, onRefresh]);
 
   const handleDeleteEndpoints = async () => {
-    if (!sessionToken || selectedRows.length === 0) return;
+    const idsToDelete = pendingDeleteId
+      ? [pendingDeleteId]
+      : (selectedRows as string[]);
+    if (!sessionToken || idsToDelete.length === 0) return;
 
     try {
       setDeleting(true);
@@ -345,9 +360,10 @@ export default function EndpointsGrid({
       ).getEndpointsClient();
 
       await Promise.all(
-        selectedRows.map(id => endpointsClient.deleteEndpoint(id as string))
+        idsToDelete.map(id => endpointsClient.deleteEndpoint(id))
       );
 
+      setPendingDeleteId(null);
       setSelectedRows([]);
       setDeleteDialogOpen(false);
       handleRefresh();
@@ -357,6 +373,11 @@ export default function EndpointsGrid({
       setDeleting(false);
     }
   };
+
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteDialogOpen(true);
+  }, []);
 
   const handleDuplicateEndpoints = useCallback(async () => {
     if (selectedRows.length === 0) return;
@@ -444,8 +465,14 @@ export default function EndpointsGrid({
     ];
   }, [selectedRows.length, duplicating, deleting, handleDuplicateEndpoints]);
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const columns: GridColDef[] = useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => {
+        router.push(`/endpoints/${id}`);
+      },
+      onDelete: id => handleRowDeleteAction(id),
+    });
+    return [
       {
         field: 'name',
         headerName: 'Name',
@@ -505,11 +532,12 @@ export default function EndpointsGrid({
           return <GridBadge label={status?.name ?? 'Unknown'} />;
         },
       },
-    ],
-    [projects, theme.typography.h5.fontSize]
-  );
+      actionsCol,
+    ];
+  }, [projects, theme.typography.h5.fontSize, handleRowDeleteAction, router]);
 
   const hasActiveDrawerFilters = hasActiveEndpointFilters(drawerFilters);
+  const activeFilterCount = countActiveEndpointFilters(drawerFilters);
 
   const toolbarContextValue = useMemo(
     () => ({
@@ -517,8 +545,9 @@ export default function EndpointsGrid({
       setSearchQuery,
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters,
+      activeFilterCount,
     }),
-    [searchQuery, hasActiveDrawerFilters]
+    [searchQuery, hasActiveDrawerFilters, activeFilterCount]
   );
 
   if (error) {
@@ -572,15 +601,27 @@ export default function EndpointsGrid({
           showToolbar={true}
           disablePaperWrapper={true}
           persistState
+          sx={rowActionsHoverSx}
         />
 
         <DeleteModal
           open={deleteDialogOpen}
-          onClose={() => setDeleteDialogOpen(false)}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setPendingDeleteId(null);
+          }}
           onConfirm={handleDeleteEndpoints}
           isLoading={deleting}
-          title={`Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`}
-          message={`Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+          title={
+            pendingDeleteId
+              ? 'Delete Endpoint'
+              : `Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`
+          }
+          message={
+            pendingDeleteId
+              ? 'Are you sure you want to delete this endpoint? Related data will not be deleted.'
+              : `Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+          }
           itemType="endpoints"
         />
       </Box>

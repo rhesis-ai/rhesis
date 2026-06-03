@@ -26,6 +26,10 @@ export function hasActiveSourceFilters(f: SourceFilters): boolean {
   return Object.values(f).some(v => v !== '');
 }
 
+export function countActiveSourceFilters(f: SourceFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
+}
+
 const SOURCE_TYPE_OPTIONS = [
   { label: 'Document', value: 'Document' },
   { label: 'Tool', value: 'Tool' },

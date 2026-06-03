@@ -22,8 +22,21 @@ interface ExtendedUser {
 }
 
 /**
- * Inner shell rendered only when the user has an organisation.
- * Must be a child of ActiveProjectProvider so it can call useActiveProject().
+ * Routes that render as standalone full-screen views without the app
+ * navigation chrome (sidebar). The test-run comparison view opens in its own
+ * tab and, per design, should not show the sidebar/navbar.
+ */
+const CHROMELESS_ROUTE_PATTERNS = [/^\/test-runs\/[^/]+\/compare\/?$/];
+
+function isChromelessRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return CHROMELESS_ROUTE_PATTERNS.some(pattern => pattern.test(pathname));
+}
+
+/**
+ * Inner shell rendered only when the user has an organisation and the route
+ * is not chromeless. Must be a child of ActiveProjectProvider so it can call
+ * useActiveProject().
  */
 function AppContent({
   children,
@@ -73,14 +86,17 @@ export default function ProtectedLayout({
   const isOnboarding =
     pathname === '/onboarding' ||
     (pathname?.startsWith('/onboarding/') ?? false);
+  const chromeless = isChromelessRoute(pathname);
   const hasOrganization = !!user?.organization_id && !isOnboarding;
 
-  const content = hasOrganization ? (
-    <AppContent isOnboarding={isOnboarding}>{children}</AppContent>
-  ) : (
-    // During onboarding (or when org is missing) render without nav chrome
-    <>{children}</>
-  );
+  const content =
+    hasOrganization && !chromeless ? (
+      <AppContent isOnboarding={isOnboarding}>{children}</AppContent>
+    ) : (
+      // During onboarding, when org is missing, or for chromeless routes
+      // (e.g. the comparison tab) render without nav chrome
+      <>{children}</>
+    );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -88,7 +104,7 @@ export default function ProtectedLayout({
         <FeaturesProvider>
           <ActiveProjectProvider>
             <WebSocketProvider>
-              {!isOnboarding && <VerificationBanner />}
+              {!isOnboarding && !chromeless && <VerificationBanner />}
               {content}
             </WebSocketProvider>
           </ActiveProjectProvider>

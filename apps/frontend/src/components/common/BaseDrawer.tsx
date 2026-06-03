@@ -73,6 +73,8 @@ export default function BaseDrawer({
   showHeader = true,
   anchor = 'right',
 }: BaseDrawerProps) {
+  const hasFooter = !!(closeButtonText || onSave || error);
+
   return (
     <Drawer
       anchor={anchor}
@@ -131,62 +133,66 @@ export default function BaseDrawer({
         {children}
       </Box>
 
-      {/* Bottom toolbar — right-aligned Cancel + Save, no border */}
-      <Box sx={{ flexShrink: 0 }}>
-        {error && (
-          <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
-            {error}
-          </Typography>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          {closeButtonText && (
-            <Button
-              variant="outlined"
-              onClick={onClose}
-              disabled={loading}
-              sx={{
-                borderWidth: 2,
-                borderColor: 'primary.main',
-                color: 'primary.main',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                borderRadius: BORDER_RADIUS.sm,
-                px: '16px',
-                py: '8px',
-                '&:hover': { borderWidth: 2 },
-              }}
-            >
-              {closeButtonText}
-            </Button>
+      {/* Bottom toolbar — only rendered when there is something to show */}
+      {hasFooter && (
+        <Box sx={{ flexShrink: 0 }}>
+          {error && (
+            <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
+              {error}
+            </Typography>
           )}
-          {onSave && (
-            <Button
-              variant="contained"
-              onClick={onSave}
-              disabled={loading || saveDisabled}
-              {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
-              startIcon={
-                loading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : undefined
-              }
-              sx={{
-                borderRadius: BORDER_RADIUS.sm,
-                px: '16px',
-                py: '8px',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                '&.Mui-disabled': {
-                  bgcolor: theme => theme.palette.greyscale.border,
-                  color: theme => theme.palette.primary.contrastText,
-                },
-              }}
-            >
-              {loading ? 'Executing...' : saveButtonText}
-            </Button>
-          )}
+          <Box
+            sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
+          >
+            {closeButtonText && (
+              <Button
+                variant="outlined"
+                onClick={onClose}
+                disabled={loading}
+                sx={{
+                  borderWidth: 2,
+                  borderColor: 'primary.main',
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  fontSize: theme => theme.typography.body2.fontSize,
+                  borderRadius: BORDER_RADIUS.sm,
+                  px: '16px',
+                  py: '8px',
+                  '&:hover': { borderWidth: 2 },
+                }}
+              >
+                {closeButtonText}
+              </Button>
+            )}
+            {onSave && (
+              <Button
+                variant="contained"
+                onClick={onSave}
+                disabled={loading || saveDisabled}
+                {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : undefined
+                }
+                sx={{
+                  borderRadius: BORDER_RADIUS.sm,
+                  px: '16px',
+                  py: '8px',
+                  fontWeight: 700,
+                  fontSize: theme => theme.typography.body2.fontSize,
+                  '&.Mui-disabled': {
+                    bgcolor: theme => theme.palette.greyscale.border,
+                    color: theme => theme.palette.primary.contrastText,
+                  },
+                }}
+              >
+                {loading ? 'Executing...' : saveButtonText}
+              </Button>
+            )}
+          </Box>
         </Box>
-      </Box>
+      )}
     </Drawer>
   );
 }

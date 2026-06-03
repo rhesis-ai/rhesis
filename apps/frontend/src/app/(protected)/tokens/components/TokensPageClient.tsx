@@ -13,7 +13,6 @@ import {
   IconButton,
   Alert,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -27,12 +26,13 @@ import TokenFilterDrawer, {
   type TokenStatusFilter,
   EMPTY_TOKEN_FILTERS,
   hasActiveTokenFilters,
+  countActiveTokenFilters,
 } from './TokenFilterDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
 
@@ -224,7 +224,7 @@ export default function TokensPageClient({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create API token"
             aria-label="Create API token"
             onClick={handleOpenCreateModal}
@@ -241,6 +241,7 @@ export default function TokensPageClient({
         searchPlaceholder="Search tokens…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
+        activeFilterCount={countActiveTokenFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs

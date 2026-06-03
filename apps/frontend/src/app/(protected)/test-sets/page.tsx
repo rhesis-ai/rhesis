@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
@@ -131,7 +130,7 @@ export default function TestSetsPage() {
               onClick={() => setGarakImportDialogOpen(true)}
             />
             <Fab
-              icon={<AddIcon />}
+              icon={<FabAddIcon />}
               tooltip="New Test Set"
               onClick={() => setCreateDrawerOpen(true)}
             />

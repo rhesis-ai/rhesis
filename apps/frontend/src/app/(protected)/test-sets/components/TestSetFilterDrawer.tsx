@@ -35,6 +35,10 @@ export function hasActiveTestSetFilters(f: TestSetFilters): boolean {
   return Object.values(f).some(v => v !== '');
 }
 
+export function countActiveTestSetFilters(f: TestSetFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
+}
+
 const TEST_SET_TYPE_OPTIONS = [
   { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
   { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },

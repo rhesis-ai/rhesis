@@ -1,11 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import AddIcon from '@mui/icons-material/Add';
 import TablePagination from '@mui/material/TablePagination';
 import GridToolbar, {
   PrimarySegmentedPills,
@@ -17,7 +15,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
 import MetricFilterDrawer from './MetricFilterDrawer';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import MetricCard from './MetricCard';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -108,7 +106,6 @@ export default function MetricsDirectoryTab({
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
-  const theme = useTheme();
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -493,7 +490,7 @@ export default function MetricsDirectoryTab({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create metric"
             aria-label="Create metric"
             onClick={e => setFabAnchorEl(e.currentTarget)}
@@ -531,6 +528,7 @@ export default function MetricsDirectoryTab({
         searchPlaceholder="Search metrics..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={activeAdvancedFilterCount > 0}
+        activeFilterCount={activeAdvancedFilterCount}
         sx={directoryToolbarSx}
         middleContent={
           <PrimarySegmentedPills
@@ -607,57 +605,36 @@ export default function MetricsDirectoryTab({
             );
 
             return (
-              <Box
+              <MetricCard
                 key={metric.id}
-                sx={{
-                  position: 'relative',
-                  ...(assignMode && {
-                    cursor: 'pointer',
-                    transition: theme.transitions.create(
-                      ['transform', 'box-shadow'],
-                      {
-                        duration: theme.transitions.duration.short,
-                      }
-                    ),
-                    '&:hover': {
-                      transform: `translateY(-${theme.spacing(0.5)})`,
-                    },
-                    '&:active': {
-                      transform: `translateY(-${theme.spacing(0.25)})`,
-                    },
-                  }),
-                }}
+                type={
+                  isValidMetricType(metric.metric_type?.type_value)
+                    ? metric.metric_type.type_value
+                    : undefined
+                }
+                title={metric.name}
+                description={metric.description}
+                backend={metric.backend_type?.type_value}
+                metricType={metric.metric_type?.type_value}
+                scoreType={metric.score_type}
+                metricScope={metric.metric_scope}
+                usedIn={behaviorNames}
+                showUsage={true}
                 onClick={
                   assignMode
                     ? () => {
                         setSelectedMetric(metric);
                         setAssignDialogOpen(true);
                       }
+                    : () => router.push(`/metrics/${metric.id}`)
+                }
+                onDelete={
+                  assignedBehaviors.length === 0 &&
+                  metric.backend_type?.type_value?.toLowerCase() === 'custom'
+                    ? () => handleDeleteMetric(metric.id, metric.name)
                     : undefined
                 }
-              >
-                <MetricCard
-                  type={
-                    isValidMetricType(metric.metric_type?.type_value)
-                      ? metric.metric_type.type_value
-                      : undefined
-                  }
-                  title={metric.name}
-                  description={metric.description}
-                  backend={metric.backend_type?.type_value}
-                  metricType={metric.metric_type?.type_value}
-                  scoreType={metric.score_type}
-                  metricScope={metric.metric_scope}
-                  usedIn={behaviorNames}
-                  showUsage={true}
-                  onDelete={
-                    assignedBehaviors.length === 0 &&
-                    metric.backend_type?.type_value?.toLowerCase() === 'custom'
-                      ? () => handleDeleteMetric(metric.id, metric.name)
-                      : undefined
-                  }
-                />
-              </Box>
+              />
             );
           })}
       </Box>

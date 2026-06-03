@@ -51,7 +51,12 @@ import TestRunFilterDrawer, {
   type TestRunFilters,
   EMPTY_TEST_RUN_FILTERS,
   hasActiveTestRunFilters,
+  countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
 
@@ -59,12 +64,10 @@ type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Queued', value: 'Queued' },
   { label: 'In Progress', value: 'Progress' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Partial', value: 'Partial' },
   { label: 'Failed', value: 'Failed' },
-  { label: 'Cancelled', value: 'Cancelled' },
 ];
 
 // ── Toolbar context ──────────────────────────────────────────────────────────
@@ -76,6 +79,7 @@ interface TestRunsToolbarState {
   setStatusFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
@@ -85,6 +89,7 @@ const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
   setStatusFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 function TestRunsUnifiedToolbar() {
@@ -95,6 +100,7 @@ function TestRunsUnifiedToolbar() {
     setStatusFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TestRunsToolbarContext);
 
   return (
@@ -104,6 +110,7 @@ function TestRunsUnifiedToolbar() {
       searchPlaceholder="Search test runs…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
         <ToolbarPillTabs
           tabs={STATUS_TABS}
@@ -153,6 +160,7 @@ function TestRunsGrid({
   const [totalCount, setTotalCount] = useState<number>(0);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
@@ -317,10 +325,28 @@ function TestRunsGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
 
+  // ── Row action handlers ────────────────────────────────────────────────────
+
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleRowEditAction = useCallback(
+    (id: string) => {
+      router.push(`/test-runs/${id}`);
+    },
+    [router]
+  );
+
   // ── Column definitions ────────────────────────────────────────────────────
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const columns: GridColDef[] = useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => handleRowEditAction(id),
+      onDelete: id => handleRowDeleteAction(id),
+    });
+    return [
       {
         field: 'name',
         headerName: 'Name',
@@ -356,6 +382,46 @@ function TestRunsGrid({
         },
       },
       {
+        field: 'pass_rate',
+        headerName: 'Pass Rate',
+        width: 110,
+        minWidth: 90,
+        resizable: true,
+        align: 'right',
+        headerAlign: 'right',
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => {
+          const stats = row.stats;
+          if (!stats || !stats.total) return null;
+          return (stats.passed / stats.total) * 100;
+        },
+        renderCell: params => {
+          const value = params.value as number | null;
+          if (value === null || value === undefined) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          }
+          return <Typography variant="body2">{value.toFixed(1)}%</Typography>;
+        },
+      },
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 120,
+        minWidth: 90,
+        resizable: true,
+        renderCell: params => {
+          const status = params.row.status?.name;
+          if (!status) return null;
+
+          return <GridBadge label={status} />;
+        },
+      },
+      {
         field: 'test_set_type',
         headerName: 'Type',
         width: 120,
@@ -374,19 +440,6 @@ function TestRunsGrid({
           if (!testSetType) return null;
 
           return <GridBadge label={testSetType} />;
-        },
-      },
-      {
-        field: 'status',
-        headerName: 'Status',
-        width: 120,
-        minWidth: 90,
-        resizable: true,
-        renderCell: params => {
-          const status = params.row.status?.name;
-          if (!status) return null;
-
-          return <GridBadge label={status} />;
         },
       },
       {
@@ -563,9 +616,9 @@ function TestRunsGrid({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [handleRowEditAction, handleRowDeleteAction]);
 
   // ── Row handlers ──────────────────────────────────────────────────────────
 
@@ -609,8 +662,12 @@ function TestRunsGrid({
   }, [selectedRows]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    if (validSelectedRows.length === 0) return;
+    const idsToDelete = pendingDeleteId
+      ? [pendingDeleteId]
+      : Array.isArray(selectedRows)
+        ? selectedRows.map(String)
+        : [];
+    if (idsToDelete.length === 0) return;
 
     try {
       setIsDeleting(true);
@@ -618,14 +675,15 @@ function TestRunsGrid({
       const testRunsClient = clientFactory.getTestRunsClient();
 
       await Promise.all(
-        validSelectedRows.map(id => testRunsClient.deleteTestRun(id.toString()))
+        idsToDelete.map(id => testRunsClient.deleteTestRun(id))
       );
 
       notifications.show(
-        `Successfully deleted ${validSelectedRows.length} test run${validSelectedRows.length === 1 ? '' : 's'}`,
+        `Successfully deleted ${idsToDelete.length} test run${idsToDelete.length === 1 ? '' : 's'}`,
         { severity: 'success' }
       );
 
+      setPendingDeleteId(null);
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
       setSelectedRows([]);
@@ -636,6 +694,7 @@ function TestRunsGrid({
       setDeleteModalOpen(false);
     }
   }, [
+    pendingDeleteId,
     selectedRows,
     sessionToken,
     notifications,
@@ -645,6 +704,7 @@ function TestRunsGrid({
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   }, []);
 
   // ── Cancel handlers ───────────────────────────────────────────────────────
@@ -779,6 +839,7 @@ function TestRunsGrid({
         setStatusFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
+        activeFilterCount: countActiveTestRunFilters(drawerFilters),
       }}
     >
       {error && (
@@ -829,6 +890,7 @@ function TestRunsGrid({
         showToolbar={true}
         toolbarSlot={TestRunsUnifiedToolbar}
         persistState
+        sx={rowActionsHoverSx}
       />
 
       <DeleteModal
@@ -836,8 +898,12 @@ function TestRunsGrid({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
-        title="Delete Test Runs"
-        message={`Are you sure you want to delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? Don't worry, related data will not be deleted, only ${Array.isArray(selectedRows) && selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+        title={pendingDeleteId ? 'Delete Test Run' : 'Delete Test Runs'}
+        message={
+          pendingDeleteId
+            ? 'Are you sure you want to delete this test run? Related data will not be deleted.'
+            : `Are you sure you want to delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? Don't worry, related data will not be deleted, only ${Array.isArray(selectedRows) && selectedRows.length === 1 ? 'this record' : 'these records'}.`
+        }
         itemType="test runs"
       />
 

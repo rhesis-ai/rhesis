@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import TerminalIcon from '@mui/icons-material/Terminal';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import MCPToolSelectorPanel from './MCPToolSelectorPanel';
@@ -63,8 +61,8 @@ export default function MCPImportDrawer({
         open={open}
         onClose={handleClose}
         title="Select MCP Tool"
-        titleIcon={<TerminalIcon color="primary" />}
         closeButtonText="Cancel"
+        width={900}
       >
         <MCPToolSelectorPanel
           open={open}
@@ -81,7 +79,6 @@ export default function MCPImportDrawer({
       open={open}
       onClose={handleClose}
       title="Import from MCP"
-      titleIcon={<CloudDownloadIcon color="primary" />}
       width={900}
       closeButtonText="Cancel"
       showHeader={true}
