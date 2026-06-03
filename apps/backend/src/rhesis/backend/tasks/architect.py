@@ -63,6 +63,7 @@ def _load_session_trace_id(
     session_id: str,
     organization_id: Optional[str],
     user_id: Optional[str],
+    project_id: Optional[str] = None,
 ) -> Optional[str]:
     """Return the conversation root trace_id stamped by a prior turn.
 
@@ -77,7 +78,7 @@ def _load_session_trace_id(
         from rhesis.backend.app import crud
         from rhesis.backend.app.database import get_db_with_tenant_variables
 
-        with get_db_with_tenant_variables(organization_id, user_id or "") as db:
+        with get_db_with_tenant_variables(organization_id, user_id or "", project_id or "") as db:
             session_row = crud.get_architect_session(
                 db,
                 session_id=UUID(session_id),
@@ -117,7 +118,7 @@ def architect_chat_task(
     4. Persist response + updated state to DB
     5. Publish final ARCHITECT_RESPONSE event
     """
-    org_id, user_id, _ = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
     channel = f"architect:{session_id}"
     target = ChannelTarget(channel=channel)
 
@@ -137,7 +138,7 @@ def architect_chat_task(
         )
         from rhesis.sdk.context import EndpointContext
 
-        prior_trace_id = _load_session_trace_id(session_id, org_id, user_id)
+        prior_trace_id = _load_session_trace_id(session_id, org_id, user_id, project_id)
         ctx = EndpointContext(
             organization_id=org_id or "",
             user_id=user_id or "",
@@ -157,6 +158,7 @@ def architect_chat_task(
                     attachments=attachments,
                     auto_approve=auto_approve,
                     persist_user_message=False,
+                    project_id=project_id,
                 )
 
         result: ArchitectChatResult = asyncio.run(_run())

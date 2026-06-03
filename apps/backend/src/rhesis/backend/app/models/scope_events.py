@@ -198,8 +198,7 @@ def setup_scope_listeners():
             # project_membership is exempt (org-scoped access-control table).
             if (
                 "project_id" in col_names
-                and getattr(entity, "__tablename__", None)
-                not in PROJECT_FILTER_EXEMPT_TABLES
+                and getattr(entity, "__tablename__", None) not in PROJECT_FILTER_EXEMPT_TABLES
             ):
                 if scope.project_id:
                     query = _inject_filter(

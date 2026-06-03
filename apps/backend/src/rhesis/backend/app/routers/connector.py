@@ -9,10 +9,12 @@ import uuid
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.models.project import Project
+from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.connector import (
     ConnectionStatusResponse,
@@ -30,17 +32,47 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/connector", tags=["connector"])
 
+
+def _assert_project_membership(db: Session, project_id_str: str, user: User) -> None:
+    """Raise 400 or 403 if *user* is not a member of the project.
+
+    Mirrors the membership check in ``get_project_context`` (dependencies.py)
+    so that connector endpoints enforce the same project-isolation guarantee as
+    the rest of the API.
+    """
+    try:
+        project_uuid = uuid.UUID(project_id_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid project_id: must be a UUID")
+
+    membership = (
+        db.query(ProjectMembership)
+        .filter_by(
+            project_id=project_uuid,
+            user_id=user.id,
+            organization_id=user.organization_id,
+        )
+        .first()
+    )
+    project = db.query(Project).filter_by(id=project_uuid).first()
+    if not membership or project is None:
+        raise HTTPException(
+            status_code=403,
+            detail=f"User is not a member of project {project_id_str}",
+        )
+
 # --- Security limits (configurable via env) ---
 MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", str(1024 * 1024)))
 IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))
 RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "50"))
 
 
-async def require_websocket_user(websocket: WebSocket) -> User:
+async def require_websocket_user(websocket: WebSocket) -> tuple[User, str | None]:
     """FastAPI dependency that authenticates a WebSocket connection.
 
     Extracts the Bearer token, validates it, and returns the authenticated
-    User. Closes the WebSocket with code 1008 if authentication fails.
+    User together with the token's scoped project_id (if any).
+    Closes the WebSocket with code 1008 if authentication fails.
     """
     try:
         return await authenticate_websocket(websocket)
@@ -52,7 +84,7 @@ async def require_websocket_user(websocket: WebSocket) -> User:
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    user: User = Depends(require_websocket_user),
+    auth: tuple[User, str | None] = Depends(require_websocket_user),
 ):
     """WebSocket endpoint for SDK connections.
 
@@ -62,9 +94,11 @@ async def websocket_endpoint(
     operations (endpoint execution, traces) and project-less operations
     (standalone metric evaluation).
     """
+    user, token_project_id = auth
     context = WebSocketConnectionContext(
         user_id=str(user.id),
         organization_id=str(user.organization_id),
+        token_project_id=token_project_id,
     )
     logger.info(
         f"WebSocket authenticated: user={user.email}, connection_id={context.connection_id}"
@@ -161,7 +195,26 @@ async def _message_loop(
             )
             continue
 
-        with get_db_with_tenant_variables(context.organization_id, context.user_id) as db:
+        # Resolve the project_id for this message so the DB session scope
+        # matches the actual project.  Without this, auto_filter appends
+        # "WHERE project_id IS NULL" to every query on the session, which
+        # conflicts with the explicit "WHERE project_id = ?" filters in
+        # sync_sdk_endpoints/test_result handlers and returns zero rows.
+        #
+        # - register:    project_id is in the message payload itself.
+        # - all others:  the connection is already bound to a project after
+        #   the register handshake; resolve it from the routing table.
+        message_type = message.get("type")
+        if message_type == "register":
+            scope_project_id = message.get("project_id") or ""
+        else:
+            scope_project_id, _ = connection_manager._resolve_project_for_connection(
+                context.connection_id
+            )
+
+        with get_db_with_tenant_variables(
+            context.organization_id, context.user_id, scope_project_id
+        ) as db:
             response = await connection_manager.handle_message(
                 connection_id=context.connection_id,
                 message=message,
@@ -200,21 +253,9 @@ async def trigger_test(
     organization_id = str(current_user.organization_id)
     user_id = str(current_user.id)
 
-    # Validate the project belongs to the authenticated org before touching
-    # the connection layer — prevents cross-tenant triggering.
-    try:
-        project_uuid = uuid.UUID(request.project_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid project_id: must be a UUID")
-
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
-        project = crud.get_project(db, project_uuid, organization_id, user_id)
-
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Project {request.project_id} not found or not accessible",
-        )
+    # Validate project membership before touching the connection layer.
+    with get_db_with_tenant_variables(organization_id, user_id, "") as db:
+        _assert_project_membership(db, request.project_id, current_user)
 
     # Check for a LOCAL connection only — send_test_request() cannot route to
     # remote instances.  is_connected() is Redis-aware and would return True for
@@ -248,35 +289,59 @@ async def trigger_test(
 
 
 @router.get("/status/{project_id}", response_model=ConnectionStatusResponse)
-async def get_status(project_id: str, environment: str = "development"):
+async def get_status(
+    project_id: str,
+    environment: str = "development",
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Get connection status for a project.
+
+    The caller must be authenticated and a member of the requested project.
 
     Args:
         project_id: Project identifier
         environment: Environment name
+        current_user: Authenticated user (from Bearer token / API key)
 
     Returns:
         Connection status
     """
+    organization_id = str(current_user.organization_id)
+    user_id = str(current_user.id)
+
+    with get_db_with_tenant_variables(organization_id, user_id, "") as db:
+        _assert_project_membership(db, project_id, current_user)
+
     status = connection_manager.get_connection_status(project_id, environment)
     return status
 
 
 @router.post("/trace", response_model=TraceResponse)
-async def receive_trace(trace: ExecutionTrace):
+async def receive_trace(
+    trace: ExecutionTrace,
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Receive execution trace from SDK.
 
     This endpoint receives traces for all normal executions of
-    decorated functions (observability).
+    decorated functions (observability). The caller must be authenticated
+    and a member of the project the trace belongs to.
 
     Args:
         trace: Execution trace data
+        current_user: Authenticated user (from Bearer token / API key)
 
     Returns:
         Success response
     """
+    organization_id = str(current_user.organization_id)
+    user_id = str(current_user.id)
+
+    with get_db_with_tenant_variables(organization_id, user_id, "") as db:
+        _assert_project_membership(db, trace.project_id, current_user)
+
     logger.info("=" * 80)
     logger.info("📊 EXECUTION TRACE RECEIVED")
     logger.info(f"Project: {trace.project_id}:{trace.environment}")

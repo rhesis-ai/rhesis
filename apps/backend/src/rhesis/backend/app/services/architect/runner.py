@@ -47,6 +47,7 @@ async def prepare_and_load_session(
     attachments: Optional[Dict[str, Any]],
     persist_user_message: bool,
     session_id: Optional[str],
+    project_id: Optional[str] = None,
 ) -> tuple[str, Dict[str, Any]]:
     """Create or validate the session and load its full state in one DB context.
 
@@ -56,7 +57,7 @@ async def prepare_and_load_session(
     """
     from rhesis.backend.app import crud, schemas
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         if session_id:
             db_session = crud.get_architect_session_detail(
                 db,
@@ -122,6 +123,7 @@ async def build_agent(
     organization_id: str,
     user_id: str,
     auto_approve: Optional[bool],
+    project_id: Optional[str] = None,
 ) -> tuple[Any, WebSocketEventHandler]:
     """Build the ArchitectAgent with tools and restore saved session state."""
     from rhesis.backend.app import crud
@@ -133,7 +135,7 @@ async def build_agent(
     from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
     from rhesis.sdk.agents.tools import ExploreEndpointTool
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         user = crud.get_user_by_id(db, user_id)
         if not user:
             raise ValueError(f"User {user_id} not found")
@@ -156,7 +158,7 @@ async def build_agent(
 
     tool_provider = LocalToolProvider(fastapi_app, delegation_token)
     explore_tool = ExploreEndpointTool(
-        target_factory=_make_target_factory(organization_id, user_id),
+        target_factory=_make_target_factory(organization_id, user_id, project_id),
         model=model,
     )
     ws_handler = WebSocketEventHandler(session_id)
@@ -186,6 +188,7 @@ async def _handle_auto_resume(
     user_id: str,
     user_message: str,
     ws_handler: WebSocketEventHandler,
+    project_id: Optional[str] = None,
 ) -> None:
     """Persist auto-resume system messages and notify streaming start.
 
@@ -196,7 +199,7 @@ async def _handle_auto_resume(
 
     from rhesis.backend.app import crud, schemas
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         crud.create_architect_message(
             db=db,
             message=schemas.ArchitectMessageCreate(
@@ -233,6 +236,7 @@ async def persist_state(
     user_id: str,
     session_has_title: bool,
     user_message: str,
+    project_id: Optional[str] = None,
 ) -> None:
     """Save assistant message and updated architect session state.
 
@@ -245,7 +249,7 @@ async def persist_state(
     snapshot = agent.dump_state()
     root_trace_id = get_root_trace_id()
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         crud.create_architect_message(
             db=db,
             message=schemas.ArchitectMessageCreate(
@@ -288,7 +292,7 @@ async def persist_state(
         )
 
 
-def _make_target_factory(org_id: str, user_id: str):
+def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = None):
     """Build a target factory that invokes endpoints via EndpointService."""
     from rhesis.backend.app.services.endpoint.service import EndpointService
     from rhesis.sdk.agents.targets import LocalEndpointTarget
@@ -296,7 +300,7 @@ def _make_target_factory(org_id: str, user_id: str):
     svc = EndpointService()
 
     def _invoke(endpoint_id: str, input_data: dict) -> dict:
-        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             return asyncio.run(
                 svc.invoke_endpoint(
                     db,
@@ -313,7 +317,7 @@ def _make_target_factory(org_id: str, user_id: str):
         try:
             from rhesis.backend.app import crud
 
-            with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+            with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
                 ep = crud.get_endpoint(db, endpoint_id, organization_id=org_id, user_id=user_id)
                 if ep:
                     name = ep.name or endpoint_id
@@ -352,6 +356,7 @@ async def run_architect_turn(
     attachments: Optional[Dict[str, Any]] = None,
     auto_approve: Optional[bool] = None,
     persist_user_message: bool = True,
+    project_id: Optional[str] = None,
 ) -> ArchitectChatResult:
     """Process one architect chat turn.
 
@@ -371,13 +376,26 @@ async def run_architect_turn(
         raise ValueError("user_id is required for run_architect_turn")
 
     session_id, session_data = await prepare_and_load_session(
-        organization_id, user_id, message, attachments, persist_user_message, session_id
+        organization_id,
+        user_id,
+        message,
+        attachments,
+        persist_user_message,
+        session_id,
+        project_id=project_id,
     )
     processed_attachments = process_attachments(attachments)
     agent, ws_handler = await build_agent(
-        session_data, session_id, organization_id, user_id, auto_approve
+        session_data,
+        session_id,
+        organization_id,
+        user_id,
+        auto_approve,
+        project_id=project_id,
     )
-    await _handle_auto_resume(session_id, organization_id, user_id, message, ws_handler)
+    await _handle_auto_resume(
+        session_id, organization_id, user_id, message, ws_handler, project_id=project_id
+    )
     response = await run_chat(agent, message, processed_attachments)
     await persist_state(
         agent,
@@ -387,6 +405,7 @@ async def run_architect_turn(
         user_id,
         session_data["session_has_title"],
         message,
+        project_id=project_id,
     )
 
     return ArchitectChatResult(

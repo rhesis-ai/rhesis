@@ -402,7 +402,7 @@ async def require_current_user_or_token_without_context(
     return user
 
 
-async def authenticate_websocket(websocket: WebSocket) -> User:
+async def authenticate_websocket(websocket: WebSocket) -> tuple["User", str | None]:
     """
     Authenticate WebSocket connection using Bearer token.
 
@@ -414,7 +414,13 @@ async def authenticate_websocket(websocket: WebSocket) -> User:
         websocket: The WebSocket connection to authenticate
 
     Returns:
-        User: Authenticated user with organization_id
+        Tuple of (User, token_project_id):
+        - User: Authenticated user with organization_id
+        - token_project_id: The project_id scoped to the API token, or None.
+          When present this can be used as an alternate authorization path so
+          that a token explicitly scoped to a project can connect the connector
+          even if the token owner lacks a ProjectMembership row (e.g. tokens
+          created before the membership migration ran).
 
     Raises:
         HTTPException: If authentication fails or user lacks organization
@@ -452,4 +458,9 @@ async def authenticate_websocket(websocket: WebSocket) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
         )
 
-    return user
+    # Harvest the token-scoped project_id that get_authenticated_user_with_context
+    # stored on the mock request state (only set for rh- API tokens that carry a
+    # project_id; None for JWT tokens and unscoped API tokens).
+    token_project_id: str | None = getattr(mock_request.state, "api_token_project_id", None)
+
+    return user, token_project_id

@@ -43,6 +43,7 @@ class ExecutionContext:
     endpoint: Endpoint
     organization_id: str
     user_id: Optional[str]
+    project_id: Optional[str] = None
     execution_model: Any = None
     evaluation_model: Any = None
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
@@ -265,6 +266,7 @@ def prefetch_execution_context(
         endpoint=endpoint,
         organization_id=organization_id,
         user_id=user_id,
+        project_id=project_id,
         execution_model=execution_model,
         evaluation_model=evaluation_model,
         metric_configs=metric_configs,

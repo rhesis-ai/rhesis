@@ -35,7 +35,7 @@ def count_test_sets(self):
     for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id, _ = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     self.log_with_context("info", "Starting count_test_sets task")
 
@@ -45,7 +45,7 @@ def count_test_sets(self):
         self.log_with_context("info", "Starting database queries")
 
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             # Get all test sets with the proper tenant context
             test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
             total_count = len(test_sets)

@@ -14,6 +14,7 @@ from rhesis.backend.app.schemas.websocket import (
     EventType,
     WebSocketMessage,
 )
+from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.conversation import CONVERSATION_FIELD_NAMES
@@ -87,8 +88,27 @@ async def handle_chat_message(
     )
 
     try:
+        # Determine the endpoint's project_id so DB sessions are scoped correctly.
+        # We bypass the project filter here because the WebSocket connection has no
+        # project context; org ownership is verified via user authentication.
+        _endpoint_project_id = ""
+        with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as _probe_db:
+            from rhesis.backend.app import crud
+
+            with bypass_tenant_filter():
+                _ep = crud.get_endpoint(
+                    _probe_db,
+                    endpoint_id,
+                    organization_id=str(user.organization_id),
+                    user_id=str(user.id),
+                )
+            if _ep and _ep.project_id:
+                _endpoint_project_id = str(_ep.project_id)
+
         # Get database session with tenant variables for RLS policies
-        with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as db:
+        with get_db_with_tenant_variables(
+            str(user.organization_id), str(user.id), _endpoint_project_id
+        ) as db:
             # Create endpoint service and invoke
             endpoint_service = EndpointService()
 
