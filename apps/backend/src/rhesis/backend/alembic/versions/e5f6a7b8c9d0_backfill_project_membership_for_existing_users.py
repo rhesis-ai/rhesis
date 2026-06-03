@@ -26,15 +26,18 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # Temporarily disable the auto_apply_rls_policies event trigger so that the
-    # INSERT into project_membership (which already has its RLS policies) does
-    # not cause the trigger to fire and attempt to re-create existing policies.
-    conn.execute(sa.text("SET session_replication_role = replica"))
+    # Temporarily disable RLS on project_membership so the backfill INSERT can
+    # run without a tenant GUC being set.  This only requires table ownership
+    # (not superuser), unlike SET session_replication_role which is blocked on
+    # Cloud SQL.  The auto_apply_rls_policies event trigger fires only on DDL
+    # (CREATE/ALTER TABLE), so a plain INSERT never triggers it regardless.
+    conn.execute(sa.text("ALTER TABLE project_membership DISABLE ROW LEVEL SECURITY"))
 
     conn.execute(
         sa.text(
             """
-            INSERT INTO project_membership (id, project_id, user_id, organization_id, created_at, updated_at)
+            INSERT INTO project_membership
+                (id, project_id, user_id, organization_id, created_at, updated_at)
             SELECT
                 gen_random_uuid(),
                 p.id       AS project_id,
@@ -54,7 +57,7 @@ def upgrade() -> None:
         )
     )
 
-    conn.execute(sa.text("SET session_replication_role = DEFAULT"))
+    conn.execute(sa.text("ALTER TABLE project_membership ENABLE ROW LEVEL SECURITY"))
 
 
 def downgrade() -> None:
