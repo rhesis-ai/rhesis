@@ -386,21 +386,36 @@ Set `RHESIS_DISABLE_SCOPE_LISTENER=1` to disable both listeners without redeploy
   are unaffected because the listener no-ops when `organization_id is None`
 - `bound_scope` — opt-in fixture for tests that exercise the listeners directly
 
-### `set_session_variables` side-channel callers
+### Side-channel scope binding (`bind_scope_to_session`)
 
-Several Celery tasks and services call `set_session_variables()` directly (sets RLS vars but does
-**not** bind `RequestScope`). These are documented findings for a future cleanup pass:
+Celery tasks and services that own their own `SessionLocal()` (so they cannot wrap the work in
+`get_db_with_tenant_variables`) bind tenant context via `bind_scope_to_session()`. It stores a full
+`RequestScope` on `Session.info['_scope']` **and** applies the RLS GUCs, so the auto-filter /
+auto-stamp listeners are active and `project_id` is carried — same behavior as the normal request
+path. Current callers:
 
 - `tasks/execution/batch/context.py`
 - `celery/signals.py`
 - `tasks/telemetry/evaluate.py`
-- `routers/organization.py`
+- `tasks/telemetry/post_ingest.py`
 - `tasks/execution/executors/data.py`
 - `services/telemetry/conversation_linking.py`
-- `tasks/telemetry/post_ingest.py`
+- `services/websocket/handlers/architect.py`
 
-Until these are migrated to `get_db_with_tenant_variables`, the auto-filter/auto-stamp listeners
-are inactive for those code paths. RLS is the correctness backstop.
+Bare `set_session_variables()` (sets RLS GUCs but does **not** bind a `RequestScope`, leaving the
+ORM listeners dormant) is now only used intentionally in `routers/organization.py` (onboarding
+re-applies vars after a mid-request commit) and `crud.create_organization` via
+`reset_session_context()` (bootstrap path that must run with no tenant context).
+
+### GUC reset ordering invariant
+
+`set_config(..., is_local=true)` GUCs are transaction-scoped and the pool rolls back on check-in,
+so blanking them is "belt-and-suspenders". The hazard is **timing**: never blank the org/project
+GUCs while ORM changes are still unflushed. A deferred write flushed under a blank
+`app.current_organization` makes the strict `tenant_isolation` policy reject the `''::uuid` cast
+(`invalid input syntax for type uuid: ""`). `get_db_with_tenant_variables` therefore commits
+deferred writes *before* `reset_session_context()` runs. Any new side-channel caller that resets or
+blanks GUCs must commit/flush first.
 
 ---
 

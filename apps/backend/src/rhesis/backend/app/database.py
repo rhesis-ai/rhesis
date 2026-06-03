@@ -383,13 +383,24 @@ def get_db_with_tenant_variables(
         _apply_scope_variables(db, scope)
         try:
             yield db
+            # Commit deferred writes while the tenant GUCs are still valid. ORM
+            # changes assigned but not flushed by the caller (e.g. setting
+            # ``test_set.attributes`` last in bulk_create_test_set) are otherwise
+            # flushed by get_db()'s trailing commit, which runs AFTER the finally
+            # block below has blanked the GUCs via reset_session_context(). That
+            # ordering flushed the UPDATE under an empty app.current_organization,
+            # and the RLS tenant_isolation policy's ''::uuid cast rejected it.
+            # Committing here guarantees pending work lands under valid scope.
+            if db.in_transaction():
+                db.commit()
         finally:
             # Remove scope so it cannot be observed after the session is returned to
             # the pool / closed.
             db.info.pop(_SCOPE_KEY, None)
             # Belt-and-suspenders: reset RLS vars before connection returns to pool.
             # The GUCs are set with is_local=true (transaction-scoped) so this is
-            # only needed when the connection is reused across transactions.
+            # only needed when the connection is reused across transactions. Safe to
+            # run here because any deferred writes were already committed above.
             try:
                 reset_session_context(db)
             except Exception:
