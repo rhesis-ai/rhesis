@@ -1115,7 +1115,7 @@ export default function RunDrawer(props: RunDrawerProps) {
           }}
           isOptionEqualToValue={(a, b) => a.id === b.id}
         />
-        {options.length === 0 && !disabled && !loading && (
+        {options.length === 0 && !loading && (
           <FormHelperText>
             No endpoints available for this project
           </FormHelperText>
