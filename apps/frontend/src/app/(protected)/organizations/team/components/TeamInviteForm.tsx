@@ -469,10 +469,16 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
           </Box>
 
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 0.5, color: 'text.primary' }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ mb: 0.5, color: 'text.primary' }}
+            >
               Project access
             </Typography>
-            <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
+            <Typography
+              variant="body2"
+              sx={{ mb: 1.5, color: 'text.secondary' }}
+            >
               Invited users will only have access to the projects you select.
               Leave empty to invite without any project access — an admin can
               add them later.
@@ -492,13 +498,18 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   fullWidth
                   sx={{
                     mb: 1,
-                    '& .MuiOutlinedInput-root': { borderRadius: BORDER_RADIUS.sm },
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: BORDER_RADIUS.sm,
+                    },
                   }}
                   slotProps={{
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                          <SearchIcon
+                            fontSize="small"
+                            sx={{ color: 'text.secondary' }}
+                          />
                         </InputAdornment>
                       ),
                     },
@@ -527,7 +538,9 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                           onClick={() =>
                             setSelectedProjects(prev =>
                               isSelected
-                                ? prev.filter(p => String(p.id) !== String(project.id))
+                                ? prev.filter(
+                                    p => String(p.id) !== String(project.id)
+                                  )
                                 : [...prev, project]
                             )
                           }
@@ -560,8 +573,10 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                               height: theme => theme.spacing(4),
                               bgcolor: 'primary.main',
                               flexShrink: 0,
-                              fontSize: theme => theme.typography.body2.fontSize,
-                              fontWeight: theme => theme.typography.fontWeightBold,
+                              fontSize: theme =>
+                                theme.typography.body2.fontSize,
+                              fontWeight: theme =>
+                                theme.typography.fontWeightBold,
                               '& svg': { fontSize: theme => theme.spacing(2) },
                             }}
                           >
@@ -613,10 +628,14 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                                 variant="outlined"
                                 sx={{
                                   height: theme => theme.spacing(2.5),
-                                  fontSize: theme => theme.typography.caption.fontSize,
+                                  fontSize: theme =>
+                                    theme.typography.caption.fontSize,
                                 }}
                               />
-                              <CheckIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                              <CheckIcon
+                                fontSize="small"
+                                sx={{ color: 'primary.main' }}
+                              />
                             </Box>
                           )}
                         </ListItemButton>
@@ -640,7 +659,14 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
 
             {/* Role note — static "Member" until RBAC lands */}
             {availableProjects.length > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: theme => theme.spacing(0.5), mt: 1 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme => theme.spacing(0.5),
+                  mt: 1,
+                }}
+              >
                 <Tooltip title="Role-based access control is coming soon. All invited members receive the Member role for now.">
                   <InfoOutlinedIcon
                     fontSize="small"

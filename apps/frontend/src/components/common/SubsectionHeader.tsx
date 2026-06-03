@@ -14,10 +14,7 @@ export default function SubsectionHeader({
 }: SubsectionHeaderProps) {
   return (
     <Box sx={{ mb: 2.5 }}>
-      <Typography
-        variant="h6"
-        sx={{ color: 'text.primary' }}
-      >
+      <Typography variant="h6" sx={{ color: 'text.primary' }}>
         {headline}
       </Typography>
       {description ? (

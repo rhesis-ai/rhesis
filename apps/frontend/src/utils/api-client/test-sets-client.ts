@@ -90,11 +90,7 @@ function buildQueryParams(params: Record<string, unknown>): string {
 export class TestSetsClient extends BaseApiClient {
   private statusClient: StatusClient;
 
-  constructor(
-    sessionToken?: string,
-    retryConfig = {},
-    projectId?: string
-  ) {
+  constructor(sessionToken?: string, retryConfig = {}, projectId?: string) {
     super(sessionToken, retryConfig, projectId);
     this.statusClient = new StatusClient(sessionToken, retryConfig, projectId);
   }

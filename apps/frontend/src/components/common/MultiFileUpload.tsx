@@ -223,7 +223,10 @@ export default function MultiFileUpload({
         />
         <Typography
           variant="h6"
-          sx={{ color: theme => theme.palette.greyscale.label, textAlign: 'center' }}
+          sx={{
+            color: theme => theme.palette.greyscale.label,
+            textAlign: 'center',
+          }}
         >
           {isDragOver
             ? 'Drop files here'
@@ -231,7 +234,10 @@ export default function MultiFileUpload({
         </Typography>
         <Typography
           variant="body2"
-          sx={{ color: theme => theme.palette.greyscale.label, textAlign: 'center' }}
+          sx={{
+            color: theme => theme.palette.greyscale.label,
+            textAlign: 'center',
+          }}
         >
           Images, PDFs or audio. Max {formatFileSize(maxFileSize)} per file.
         </Typography>

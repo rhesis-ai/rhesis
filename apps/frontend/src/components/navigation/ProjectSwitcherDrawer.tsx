@@ -94,7 +94,10 @@ export default function ProjectSwitcherDrawer({
           {search ? 'No projects match your search.' : 'No projects found.'}
         </Typography>
       ) : (
-        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <List
+          disablePadding
+          sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
+        >
           {filtered.map(project => {
             const isActive = String(project.id) === String(activeProject?.id);
             const isPending = pendingId === String(project.id);

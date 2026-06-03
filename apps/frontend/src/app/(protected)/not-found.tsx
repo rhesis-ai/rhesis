@@ -39,10 +39,7 @@ export default function ProtectedNotFound() {
     return {
       entityName: name,
       listHref: href,
-      breadcrumbs: [
-        { label: name, href },
-        { label: 'Not Found' },
-      ],
+      breadcrumbs: [{ label: name, href }, { label: 'Not Found' }],
     };
   }, [pathname]);
 
@@ -82,7 +79,10 @@ export default function ProtectedNotFound() {
             justifyContent="center"
           >
             <FolderOffOutlinedIcon
-              sx={{ fontSize: { xs: '2.5rem', sm: '3.5rem' }, color: 'text.secondary' }}
+              sx={{
+                fontSize: { xs: '2.5rem', sm: '3.5rem' },
+                color: 'text.secondary',
+              }}
             />
           </Box>
         </Box>
@@ -96,9 +96,9 @@ export default function ProtectedNotFound() {
           color="text.secondary"
           sx={{ maxWidth: 440, mb: 4 }}
         >
-          The resource you&apos;re looking for doesn&apos;t exist, was
-          deleted, or belongs to a different project. Switch to the correct
-          project and try again.
+          The resource you&apos;re looking for doesn&apos;t exist, was deleted,
+          or belongs to a different project. Switch to the correct project and
+          try again.
         </Typography>
 
         <Box display="flex" gap={1.5} flexWrap="wrap" justifyContent="center">

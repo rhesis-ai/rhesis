@@ -69,7 +69,11 @@ export function TagsField({
           tagNames.map(tag => <Tag key={tag} label={tag} />)
         ) : (
           <Typography
-            sx={{ fontSize: '1rem', lineHeight: '24px', color: theme => theme.palette.greyscale.label }}
+            sx={{
+              fontSize: '1rem',
+              lineHeight: '24px',
+              color: theme => theme.palette.greyscale.label,
+            }}
           >
             {emptyLabel}
           </Typography>

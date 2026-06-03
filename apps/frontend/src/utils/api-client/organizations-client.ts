@@ -9,11 +9,7 @@ export type OrganizationCreate = Omit<Organization, 'id' | 'createdAt'> & {
 };
 
 export class OrganizationsClient extends BaseApiClient {
-  constructor(
-    sessionToken?: string,
-    retryConfig = {},
-    projectId?: string
-  ) {
+  constructor(sessionToken?: string, retryConfig = {}, projectId?: string) {
     super(sessionToken, retryConfig, projectId);
   }
 

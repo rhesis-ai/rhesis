@@ -165,15 +165,22 @@ export default function TrialDrawer({
           if (isInitialOpen) {
             const activeProjectId = readActiveProjectId();
             if (activeProjectId) {
-              const match = processedProjects.find(p => p.id === activeProjectId);
+              const match = processedProjects.find(
+                p => p.id === activeProjectId
+              );
               if (match) {
                 setSelectedProject(match.id);
                 // Fetch full project details for icon etc.
                 try {
-                  const projectData = await clientFactory.getProjectsClient().getProject(match.id);
+                  const projectData = await clientFactory
+                    .getProjectsClient()
+                    .getProject(match.id);
                   setSelectedProjectData(projectData);
                 } catch {
-                  setSelectedProjectData({ id: match.id, name: match.name } as Project);
+                  setSelectedProjectData({
+                    id: match.id,
+                    name: match.name,
+                  } as Project);
                 }
               }
             }

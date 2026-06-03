@@ -252,7 +252,11 @@ export default function EntityCard({
             {!userAvatar && firstName ? firstName[0].toUpperCase() : undefined}
           </Avatar>
           <Typography
-            sx={{ fontSize: '0.75rem', fontWeight: 400, color: 'text.secondary' }}
+            sx={{
+              fontSize: '0.75rem',
+              fontWeight: 400,
+              color: 'text.secondary',
+            }}
           >
             {firstName}
           </Typography>

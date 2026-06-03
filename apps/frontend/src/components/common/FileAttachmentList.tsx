@@ -99,7 +99,8 @@ function FileRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        borderTop: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+        borderTop: (theme: Theme) =>
+          `1px solid ${theme.palette.greyscale.border}`,
         overflow: 'hidden',
       }}
     >

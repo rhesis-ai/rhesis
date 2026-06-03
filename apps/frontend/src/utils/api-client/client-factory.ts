@@ -98,7 +98,11 @@ export class ApiClientFactory {
   }
 
   getOrganizationsClient(): OrganizationsClient {
-    return new OrganizationsClient(this.sessionToken, undefined, this.projectId);
+    return new OrganizationsClient(
+      this.sessionToken,
+      undefined,
+      this.projectId
+    );
   }
 
   getUsersClient(): UsersClient {
@@ -114,7 +118,11 @@ export class ApiClientFactory {
   }
 
   getTestConfigurationsClient(): TestConfigurationsClient {
-    return new TestConfigurationsClient(this.sessionToken, undefined, this.projectId);
+    return new TestConfigurationsClient(
+      this.sessionToken,
+      undefined,
+      this.projectId
+    );
   }
 
   getPromptsClient(): PromptsClient {
@@ -147,112 +155,176 @@ export class ApiClientFactory {
 
   getMetricsClient(): MetricsClient {
     if (!this.metricsClient) {
-      this.metricsClient = new MetricsClient(this.sessionToken, undefined, this.projectId);
+      this.metricsClient = new MetricsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.metricsClient;
   }
 
   getModelsClient(): ModelsClient {
     if (!this.modelsClient) {
-      this.modelsClient = new ModelsClient(this.sessionToken, undefined, this.projectId);
+      this.modelsClient = new ModelsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.modelsClient;
   }
 
   getTagsClient(): TagsClient {
     if (!this.tagsClient) {
-      this.tagsClient = new TagsClient(this.sessionToken, undefined, this.projectId);
+      this.tagsClient = new TagsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.tagsClient;
   }
 
   getCommentsClient(): CommentsClient {
     if (!this.commentsClient) {
-      this.commentsClient = new CommentsClient(this.sessionToken, undefined, this.projectId);
+      this.commentsClient = new CommentsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.commentsClient;
   }
 
   getTasksClient(): TasksClient {
     if (!this.tasksClient) {
-      this.tasksClient = new TasksClient(this.sessionToken, undefined, this.projectId);
+      this.tasksClient = new TasksClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.tasksClient;
   }
 
   getSourcesClient(): SourcesClient {
     if (!this.sourcesClient) {
-      this.sourcesClient = new SourcesClient(this.sessionToken, undefined, this.projectId);
+      this.sourcesClient = new SourcesClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.sourcesClient;
   }
 
   getRecycleClient(): RecycleClient {
     if (!this.recycleClient) {
-      this.recycleClient = new RecycleClient(this.sessionToken, undefined, this.projectId);
+      this.recycleClient = new RecycleClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.recycleClient;
   }
 
   getToolsClient(): ToolsClient {
     if (!this.toolsClient) {
-      this.toolsClient = new ToolsClient(this.sessionToken, undefined, this.projectId);
+      this.toolsClient = new ToolsClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.toolsClient;
   }
 
   getTelemetryClient(): TelemetryClient {
     if (!this.telemetryClient) {
-      this.telemetryClient = new TelemetryClient(this.sessionToken, undefined, this.projectId);
+      this.telemetryClient = new TelemetryClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.telemetryClient;
   }
 
   getGarakClient(): GarakClient {
     if (!this.garakClient) {
-      this.garakClient = new GarakClient(this.sessionToken, undefined, this.projectId);
+      this.garakClient = new GarakClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.garakClient;
   }
 
   getImportClient(): ImportClient {
     if (!this.importClient) {
-      this.importClient = new ImportClient(this.sessionToken, undefined, this.projectId);
+      this.importClient = new ImportClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.importClient;
   }
 
   getFilesClient(): FilesClient {
     if (!this.filesClient) {
-      this.filesClient = new FilesClient(this.sessionToken, undefined, this.projectId);
+      this.filesClient = new FilesClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.filesClient;
   }
 
   getFeaturesClient(): FeaturesClient {
     if (!this.featuresClient) {
-      this.featuresClient = new FeaturesClient(this.sessionToken, undefined, this.projectId);
+      this.featuresClient = new FeaturesClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.featuresClient;
   }
 
   getArchitectClient(): ArchitectClient {
     if (!this.architectClient) {
-      this.architectClient = new ArchitectClient(this.sessionToken, undefined, this.projectId);
+      this.architectClient = new ArchitectClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.architectClient;
   }
 
   getParametersClient(): ParametersClient {
     if (!this.parametersClient) {
-      this.parametersClient = new ParametersClient(this.sessionToken, undefined, this.projectId);
+      this.parametersClient = new ParametersClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.parametersClient;
   }
 
   getPreflightClient(): PreflightClient {
     if (!this.preflightClient) {
-      this.preflightClient = new PreflightClient(this.sessionToken, undefined, this.projectId);
+      this.preflightClient = new PreflightClient(
+        this.sessionToken,
+        undefined,
+        this.projectId
+      );
     }
     return this.preflightClient;
   }

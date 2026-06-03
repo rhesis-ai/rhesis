@@ -337,9 +337,7 @@ export default function SwaggerEndpointForm() {
                       labelId="project-select-label"
                       id="project-select"
                       value={formData.project_id}
-                      onChange={e =>
-                        handleChange('project_id', e.target.value)
-                      }
+                      onChange={e => handleChange('project_id', e.target.value)}
                       label="Project (optional — defaults to active project)"
                       disabled={loadingProjects}
                       renderValue={selected => {

@@ -12,10 +12,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import {
-  GridColDef,
-  GridPaginationModel,
-} from '@mui/x-data-grid';
+import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -37,7 +34,9 @@ interface ProjectMembersProps {
   ownerId?: string;
 }
 
-function getMemberDisplayName(user: ProjectMemberUser | null | undefined): string {
+function getMemberDisplayName(
+  user: ProjectMemberUser | null | undefined
+): string {
   if (!user) return 'Unknown';
   if (user.name) return user.name;
   const parts = [user.given_name, user.family_name].filter(Boolean);
@@ -73,7 +72,9 @@ export default function ProjectMembers({
   const [adding, setAdding] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(
+    null
+  );
   const [removing, setRemoving] = useState(false);
 
   const fetchMembers = useCallback(async () => {
@@ -81,7 +82,9 @@ export default function ProjectMembers({
     setMembersError(null);
     try {
       const factory = new ApiClientFactory(sessionToken);
-      const data = await factory.getProjectsClient().getProjectMembers(projectId);
+      const data = await factory
+        .getProjectsClient()
+        .getProjectMembers(projectId);
       setMembers(data);
     } catch {
       setMembersError('Failed to load project members.');
@@ -206,7 +209,11 @@ export default function ProjectMembers({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Avatar
               src={member.user?.picture ?? undefined}
-              sx={{ width: theme => theme.spacing(4), height: theme => theme.spacing(4), flexShrink: 0 }}
+              sx={{
+                width: theme => theme.spacing(4),
+                height: theme => theme.spacing(4),
+                flexShrink: 0,
+              }}
             >
               {!member.user?.picture && <PersonIcon fontSize="small" />}
             </Avatar>
@@ -237,7 +244,11 @@ export default function ProjectMembers({
       filterable: false,
       valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',
       renderCell: params => (
-        <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textTransform: 'capitalize' }}
+        >
           {(params.row as ProjectMember).role ?? 'member'}
         </Typography>
       ),
@@ -338,7 +349,9 @@ export default function ProjectMembers({
         rows={members}
         columns={columns}
         loading={membersLoading}
-        getRowId={row => `${(row as ProjectMember).project_id}-${(row as ProjectMember).user_id}`}
+        getRowId={row =>
+          `${(row as ProjectMember).project_id}-${(row as ProjectMember).user_id}`
+        }
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
         serverSidePagination={false}

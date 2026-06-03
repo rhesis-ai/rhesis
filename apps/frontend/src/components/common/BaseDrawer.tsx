@@ -105,9 +105,9 @@ export default function BaseDrawer({
             {titleIcon}
             <Typography
               sx={{
-              fontSize: theme => theme.typography.h5.fontSize,
-              fontWeight: 700,
-              lineHeight: '27.6px',
+                fontSize: theme => theme.typography.h5.fontSize,
+                fontWeight: 700,
+                lineHeight: '27.6px',
                 color: theme => theme.palette.greyscale.title,
               }}
             >

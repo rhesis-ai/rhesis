@@ -171,7 +171,9 @@ export function Sidebar() {
               </IconButton>
             </Tooltip>
             <Tooltip
-              title={activeProject ? `${orgName} · ${activeProject.name}` : orgName}
+              title={
+                activeProject ? `${orgName} · ${activeProject.name}` : orgName
+              }
               placement="right"
             >
               <ButtonBase

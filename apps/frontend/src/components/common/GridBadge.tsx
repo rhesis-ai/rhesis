@@ -11,8 +11,14 @@ const BADGE_SIZE_STYLES: Record<
   GridBadgeSize,
   { fontSize: (theme: Theme) => string; lineHeight: string }
 > = {
-  grid: { fontSize: theme => theme.typography.caption.fontSize as string, lineHeight: '18px' },
-  detail: { fontSize: theme => theme.typography.body2.fontSize as string, lineHeight: '22px' },
+  grid: {
+    fontSize: theme => theme.typography.caption.fontSize as string,
+    lineHeight: '18px',
+  },
+  detail: {
+    fontSize: theme => theme.typography.body2.fontSize as string,
+    lineHeight: '22px',
+  },
 };
 
 /**
@@ -103,8 +109,8 @@ export function BadgeRow({
         <Box
           component="span"
           sx={{
-        fontSize: theme => theme.typography.body2.fontSize,
-        color: theme => theme.palette.greyscale.subtitle,
+            fontSize: theme => theme.typography.body2.fontSize,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {emptyLabel}

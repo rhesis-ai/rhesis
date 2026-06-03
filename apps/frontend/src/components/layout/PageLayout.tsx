@@ -32,10 +32,10 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
       component="nav"
       aria-label="breadcrumb"
       sx={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: 1.25,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 1.25,
       }}
     >
       {items.map((crumb, idx) => {
@@ -74,11 +74,11 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               </Link>
             )}
             {showSeparator && (
-            <ChevronRightIcon
-              fontSize="small"
-              sx={{ color: theme => theme.palette.greyscale.subtitle }}
-              aria-hidden
-            />
+              <ChevronRightIcon
+                fontSize="small"
+                sx={{ color: theme => theme.palette.greyscale.subtitle }}
+                aria-hidden
+              />
             )}
           </Box>
         );
@@ -108,10 +108,10 @@ export function PageLayout({
       {hasHeader && (
         <Box
           sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2.5,
-          mb: 5,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2.5,
+            mb: 5,
           }}
         >
           {hasBreadcrumbs && <PageBreadcrumbs items={crumbItems} />}
@@ -128,10 +128,10 @@ export function PageLayout({
               {(title || actions) && (
                 <Box
                   sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 2,
                     width: '100%',
                     minHeight: 56,
                   }}

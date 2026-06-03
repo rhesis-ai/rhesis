@@ -45,7 +45,10 @@ export default function RootNotFound() {
           justifyContent="center"
         >
           <TravelExploreOutlinedIcon
-            sx={{ fontSize: { xs: '2.5rem', sm: '3.5rem' }, color: 'text.secondary' }}
+            sx={{
+              fontSize: { xs: '2.5rem', sm: '3.5rem' },
+              color: 'text.secondary',
+            }}
           />
         </Box>
       </Box>

@@ -59,9 +59,7 @@ export default function NoProjectAccess() {
             justifyContent: 'center',
           }}
         >
-          <LockOutlinedIcon
-            sx={{ fontSize: 36, color: 'text.secondary' }}
-          />
+          <LockOutlinedIcon sx={{ fontSize: 36, color: 'text.secondary' }} />
         </Box>
 
         {/* Heading */}

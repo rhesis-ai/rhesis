@@ -632,9 +632,7 @@ export default function EndpointForm() {
                       id="project-select"
                       name="project_id"
                       value={formData.project_id}
-                      onChange={e =>
-                        handleChange('project_id', e.target.value)
-                      }
+                      onChange={e => handleChange('project_id', e.target.value)}
                       label="Project (optional — defaults to active project)"
                       disabled={loadingProjects}
                       renderValue={selected => {

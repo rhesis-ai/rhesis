@@ -96,10 +96,7 @@ export class ProjectsClient extends BaseApiClient {
     );
   }
 
-  async removeProjectMember(
-    projectId: string,
-    userId: string
-  ): Promise<void> {
+  async removeProjectMember(projectId: string, userId: string): Promise<void> {
     return this.fetch<void>(
       `${API_ENDPOINTS.projects}/${projectId}/members/${userId}`,
       { method: 'DELETE' }

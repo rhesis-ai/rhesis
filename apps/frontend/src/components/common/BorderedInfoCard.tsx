@@ -24,7 +24,10 @@ export default function BorderedInfoCard({
     >
       <Typography
         variant="body2"
-        sx={{ fontWeight: theme => theme.typography.button.fontWeight, mb: 0.5 }}
+        sx={{
+          fontWeight: theme => theme.typography.button.fontWeight,
+          mb: 0.5,
+        }}
       >
         {title}
       </Typography>

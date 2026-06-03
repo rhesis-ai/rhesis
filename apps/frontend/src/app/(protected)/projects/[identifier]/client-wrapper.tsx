@@ -273,7 +273,11 @@ export default function ClientWrapper({
           <ProjectMembers
             projectId={projectId}
             sessionToken={sessionToken}
-            ownerId={currentProject.owner_id ? String(currentProject.owner_id) : undefined}
+            ownerId={
+              currentProject.owner_id
+                ? String(currentProject.owner_id)
+                : undefined
+            }
           />
         </TabPanel>
       </Paper>

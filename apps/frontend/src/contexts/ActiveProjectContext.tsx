@@ -80,7 +80,7 @@ export function ActiveProjectProvider({
         // ignore — fall through to single-project auto-select
       }
       const defaultProject = defaultId
-        ? data.find(p => String(p.id) === defaultId) ?? null
+        ? (data.find(p => String(p.id) === defaultId) ?? null)
         : null;
 
       if (defaultProject) {

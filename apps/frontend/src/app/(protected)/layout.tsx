@@ -7,7 +7,10 @@ import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
-import { ActiveProjectProvider, useActiveProject } from '@/contexts/ActiveProjectContext';
+import {
+  ActiveProjectProvider,
+  useActiveProject,
+} from '@/contexts/ActiveProjectContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
@@ -50,7 +53,8 @@ function AppContent({
 
   // Routes that bypass the no-project gate (project creation, onboarding)
   const pathname = usePathname();
-  const isProjectCreation = pathname?.startsWith('/projects/create-new') ?? false;
+  const isProjectCreation =
+    pathname?.startsWith('/projects/create-new') ?? false;
 
   if (hasNoProjects && !isOnboarding && !isProjectCreation) {
     return (

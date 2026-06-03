@@ -127,7 +127,10 @@ export default function TraceFilterDrawer({
         // Pre-select active project when no project filter is already set
         if (!draft.projectId) {
           const activeId = readActiveProjectId();
-          if (activeId && projectsData.some((p: { id: string }) => String(p.id) === activeId)) {
+          if (
+            activeId &&
+            projectsData.some((p: { id: string }) => String(p.id) === activeId)
+          ) {
             setDraft(prev => ({ ...prev, projectId: activeId }));
           }
         }
