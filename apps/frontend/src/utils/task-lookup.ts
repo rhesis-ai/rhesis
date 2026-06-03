@@ -54,7 +54,12 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
     const apiStatuses = await statusClient.getStatuses({ entity_type: 'Task' });
 
     // Convert API statuses to task statuses and filter for specific options
-    const allowedStatusNames = ['Open', 'In Progress', 'Completed'];
+    const allowedStatusNames = [
+      'Open',
+      'In Progress',
+      'Completed',
+      'Cancelled',
+    ];
     const statuses: Status[] = apiStatuses
       .filter((status: ApiStatus) => allowedStatusNames.includes(status.name))
       .map((status: ApiStatus) => ({
@@ -90,6 +95,12 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
         id: '550e8400-e29b-41d4-a716-446655440003',
         name: 'Completed',
         description: 'Task is completed',
+        entity_type_id: 'Task',
+      },
+      {
+        id: '550e8400-e29b-41d4-a716-446655440004',
+        name: 'Cancelled',
+        description: 'Task is cancelled',
         entity_type_id: 'Task',
       },
     ];

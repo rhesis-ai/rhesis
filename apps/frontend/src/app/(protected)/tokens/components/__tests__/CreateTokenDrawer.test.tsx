@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import lightTheme from '@/styles/theme';
 import CreateTokenDrawer from '../CreateTokenDrawer';
 
 const onClose = jest.fn();
@@ -9,11 +11,13 @@ const onCreateToken = jest.fn();
 
 function renderDrawer(open = true) {
   return render(
-    <CreateTokenDrawer
-      open={open}
-      onClose={onClose}
-      onCreateToken={onCreateToken}
-    />
+    <ThemeProvider theme={lightTheme}>
+      <CreateTokenDrawer
+        open={open}
+        onClose={onClose}
+        onCreateToken={onCreateToken}
+      />
+    </ThemeProvider>
   );
 }
 
@@ -66,19 +70,23 @@ describe('CreateTokenDrawer', () => {
 
   it('clears the name input when the drawer is opened again', async () => {
     const { rerender } = render(
-      <CreateTokenDrawer
-        open={false}
-        onClose={onClose}
-        onCreateToken={onCreateToken}
-      />
+      <ThemeProvider theme={lightTheme}>
+        <CreateTokenDrawer
+          open={false}
+          onClose={onClose}
+          onCreateToken={onCreateToken}
+        />
+      </ThemeProvider>
     );
 
     rerender(
-      <CreateTokenDrawer
-        open={true}
-        onClose={onClose}
-        onCreateToken={onCreateToken}
-      />
+      <ThemeProvider theme={lightTheme}>
+        <CreateTokenDrawer
+          open={true}
+          onClose={onClose}
+          onCreateToken={onCreateToken}
+        />
+      </ThemeProvider>
     );
 
     const nameInput = screen.getByLabelText(/token name/i) as HTMLInputElement;
