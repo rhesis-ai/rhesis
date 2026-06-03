@@ -8,7 +8,7 @@ from typing import Optional
 class FetchedSource:
     """A single source fetched from an external tool.
 
-    Returned by NotionSource.fetch_all() and GitHubSource.fetch_all().
+    Returned by NotionRestClient.fetch_all() and GitHubRestClient.fetch_all().
     """
 
     id: str

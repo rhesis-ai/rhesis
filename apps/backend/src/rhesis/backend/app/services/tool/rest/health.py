@@ -4,34 +4,13 @@ import json
 import uuid
 from typing import Any, Dict, Optional
 
-import httpx
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
-from .github import GitHubSource
-from .jira import JiraRestClient
-from .notion import NotionSource
-
-
-async def _jira_health_check(jira_url: str, username: str, api_token: str) -> Dict[str, Any]:
-    return await JiraRestClient(
-        base_url=jira_url, username=username, api_token=api_token
-    ).health_check()
-
-
-async def _confluence_health_check(
-    confluence_url: str, username: str, api_token: str
-) -> Dict[str, Any]:
-    url = confluence_url.rstrip("/") + "/wiki/rest/api/user/current"
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, auth=(username, api_token))
-    if resp.status_code == 200:
-        display = resp.json().get("displayName", "")
-        return {"is_authenticated": "Yes", "message": f"Connected as {display}"}
-    return {"is_authenticated": "No", "message": f"Authentication failed: {resp.status_code}"}
+from .config import build_client
 
 
 async def run_rest_health_check(
@@ -66,26 +45,4 @@ async def run_rest_health_check(
             raise MCPConfigurationError(f"Provider type '{provider_type_id}' not found.")
         provider = provider_type.type_value
 
-    if provider == "notion":
-        return await NotionSource(token=credentials.get("NOTION_TOKEN", "")).health_check()
-
-    if provider == "github":
-        return await GitHubSource(
-            token=credentials.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
-        ).health_check()
-
-    if provider == "jira":
-        return await _jira_health_check(
-            jira_url=credentials.get("JIRA_URL", ""),
-            username=credentials.get("JIRA_USERNAME", ""),
-            api_token=credentials.get("JIRA_API_TOKEN", ""),
-        )
-
-    if provider == "confluence":
-        return await _confluence_health_check(
-            confluence_url=credentials.get("CONFLUENCE_URL", ""),
-            username=credentials.get("CONFLUENCE_USERNAME", ""),
-            api_token=credentials.get("CONFLUENCE_API_TOKEN", ""),
-        )
-
-    raise MCPConfigurationError(f"No health check available for provider '{provider}'")
+    return await build_client(provider, credentials or {}).health_check()

@@ -32,9 +32,7 @@ class JiraRestClient:
         frontend space selector is populated.
         """
         async with httpx.AsyncClient(timeout=30.0) as client:
-            me_resp = await client.get(
-                f"{self._base_url}/rest/api/3/myself", auth=self._auth
-            )
+            me_resp = await client.get(f"{self._base_url}/rest/api/3/myself", auth=self._auth)
             if me_resp.status_code != 200:
                 return {
                     "is_authenticated": "No",
@@ -51,10 +49,7 @@ class JiraRestClient:
 
         spaces: List[Dict[str, str]] = []
         if projects_resp.status_code == 200:
-            spaces = [
-                {"key": p["key"], "name": p["name"]}
-                for p in projects_resp.json()
-            ]
+            spaces = [{"key": p["key"], "name": p["name"]} for p in projects_resp.json()]
 
         result: Dict[str, Any] = {
             "is_authenticated": "Yes",
@@ -108,18 +103,14 @@ class JiraRestClient:
             resp = await client.post(url, json=payload, auth=self._auth)
 
         if resp.status_code == 401:
-            raise ValueError(
-                "Jira authentication failed. Check your username and API token."
-            )
+            raise ValueError("Jira authentication failed. Check your username and API token.")
         if resp.status_code == 403:
             raise ValueError(
                 f"Permission denied creating issue in project '{project_key}'. "
                 "Ensure the user has the 'Create Issues' permission."
             )
         if resp.status_code == 404:
-            raise ValueError(
-                f"Jira project '{project_key}' not found or not accessible."
-            )
+            raise ValueError(f"Jira project '{project_key}' not found or not accessible.")
 
         if not resp.is_success:
             error_detail = resp.text[:300]

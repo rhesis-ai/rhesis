@@ -1,8 +1,8 @@
-"""Resolve a DB tool to its REST source implementation."""
+"""Resolve a DB tool to its REST client implementation via a provider registry."""
 
 import json
 import uuid
-from typing import Union
+from typing import Callable, Dict
 
 from sqlalchemy.orm import Session
 
@@ -10,18 +10,48 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
-from .github import GitHubSource
+from .base import RestClient
+from .confluence import ConfluenceRestClient
+from .github import GitHubRestClient
 from .jira import JiraRestClient
-from .notion import NotionSource
+from .notion import NotionRestClient
+
+# Maps provider type_value → factory(credentials) → RestClient
+_PROVIDER_REGISTRY: Dict[str, Callable[[Dict[str, str]], RestClient]] = {
+    "notion": lambda c: NotionRestClient(token=c.get("NOTION_TOKEN", "")),
+    "github": lambda c: GitHubRestClient(token=c.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")),
+    "jira": lambda c: JiraRestClient(
+        base_url=c.get("JIRA_URL", ""),
+        username=c.get("JIRA_USERNAME", ""),
+        api_token=c.get("JIRA_API_TOKEN", ""),
+    ),
+    "confluence": lambda c: ConfluenceRestClient(
+        base_url=c.get("CONFLUENCE_URL", ""),
+        username=c.get("CONFLUENCE_USERNAME", ""),
+        api_token=c.get("CONFLUENCE_API_TOKEN", ""),
+    ),
+}
+
+
+def build_client(provider: str, credentials: Dict[str, str]) -> RestClient:
+    """Instantiate the RestClient for *provider* using *credentials*.
+
+    Raises:
+        MCPConfigurationError: If no client is registered for *provider*.
+    """
+    factory = _PROVIDER_REGISTRY.get(provider)
+    if factory is None:
+        raise MCPConfigurationError(f"No REST client registered for provider '{provider}'")
+    return factory(credentials)
 
 
 def get_rest_source(
     db: Session, tool_id: str, organization_id: str, user_id: str = None
-) -> Union[NotionSource, GitHubSource, JiraRestClient]:
-    """Resolve a REST-capable tool to its source implementation.
+) -> RestClient:
+    """Resolve a DB tool to its REST client.
 
     Raises:
-        MCPConfigurationError: If tool not found, deleted, or no REST implementation exists.
+        MCPConfigurationError: If tool not found, deleted, or provider unsupported.
     """
     try:
         tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
@@ -40,19 +70,4 @@ def get_rest_source(
     except (json.JSONDecodeError, TypeError) as e:
         raise MCPConfigurationError(f"Invalid credentials for tool '{tool_id}': {e}")
 
-    provider = tool.tool_provider_type.type_value
-
-    if provider == "notion":
-        return NotionSource(token=credentials.get("NOTION_TOKEN", ""))
-
-    if provider == "github":
-        return GitHubSource(token=credentials.get("GITHUB_PERSONAL_ACCESS_TOKEN", ""))
-
-    if provider == "jira":
-        return JiraRestClient(
-            base_url=credentials.get("JIRA_URL", ""),
-            username=credentials.get("JIRA_USERNAME", ""),
-            api_token=credentials.get("JIRA_API_TOKEN", ""),
-        )
-
-    raise MCPConfigurationError(f"No REST implementation found for provider '{provider}'")
+    return build_client(tool.tool_provider_type.type_value, credentials)
