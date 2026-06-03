@@ -106,6 +106,12 @@ function MetricLinkedBehaviors({
     status: [],
   });
 
+  // Assign-drawer filter state (independent of the linked-grid filters)
+  const [assignFilterOpen, setAssignFilterOpen] = useState(false);
+  const [assignFilters, setAssignFilters] = useState<LinkedFilterValues>({
+    status: [],
+  });
+
   const fetchLinked = useCallback(async () => {
     if (!sessionToken) return;
     setLoading(true);
@@ -200,6 +206,7 @@ function MetricLinkedBehaviors({
   const handleAssignClick = useCallback(async () => {
     setLoadingAvailable(true);
     setAssignOpen(true);
+    setAssignFilters({ status: [] });
     try {
       const client = new BehaviorClient(sessionToken);
       const result = await client.getBehaviors({ skip: 0, limit: 200 });
@@ -253,6 +260,34 @@ function MetricLinkedBehaviors({
     [appliedFilters]
   );
 
+  // Assign-drawer filter sections derived from available (unlinked) behaviors
+  const assignFilterSections: LinkedFilterSectionConfig[] = useMemo(() => {
+    const statusNames = Array.from(
+      new Set(
+        availableFiltered
+          .map(b => (b.status as Status | null | undefined)?.name)
+          .filter((name): name is string => !!name)
+      )
+    ).sort();
+    return [
+      {
+        key: 'status',
+        title: 'Status',
+        options: statusNames.map(name => ({ value: name, label: name })),
+      },
+    ];
+  }, [availableFiltered]);
+
+  const assignRowFilter = useCallback(
+    (row: GridRowModel) => {
+      const statuses = assignFilters.status ?? [];
+      if (statuses.length === 0) return true;
+      const statusName = (row.status as Status | null | undefined)?.name ?? '';
+      return statuses.includes(statusName);
+    },
+    [assignFilters]
+  );
+
   return (
     <>
       <LinkedEntitiesGrid
@@ -303,6 +338,11 @@ function MetricLinkedBehaviors({
         loading={loadingAvailable}
         getRowId={row => String(row.id)}
         onAssign={handleAssign}
+        searchPlaceholder="Search behaviors…"
+        rowFilter={assignRowFilter}
+        onFilterClick={() => setAssignFilterOpen(true)}
+        hasActiveFilters={hasActiveLinkedFilters(assignFilters)}
+        activeFilterCount={countActiveLinkedFilters(assignFilters)}
       />
 
       <LinkedEntitiesFilterDrawer
@@ -312,6 +352,16 @@ function MetricLinkedBehaviors({
         filters={appliedFilters}
         onApply={next =>
           setAppliedFilters(next ?? emptyLinkedFilters(filterSections))
+        }
+      />
+
+      <LinkedEntitiesFilterDrawer
+        open={assignFilterOpen}
+        onClose={() => setAssignFilterOpen(false)}
+        sections={assignFilterSections}
+        filters={assignFilters}
+        onApply={next =>
+          setAssignFilters(next ?? emptyLinkedFilters(assignFilterSections))
         }
       />
     </>

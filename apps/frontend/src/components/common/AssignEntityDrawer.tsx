@@ -9,7 +9,11 @@ import {
 } from '@mui/x-data-grid';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { SearchPill } from '@/components/common/SearchPill';
+import {
+  GridToolbar,
+  PrimarySegmentedPills,
+  type ToolbarPillTab,
+} from '@/components/common/GridToolbar';
 
 export interface AssignEntityDrawerProps {
   open: boolean;
@@ -21,6 +25,17 @@ export interface AssignEntityDrawerProps {
   getRowId: (row: GridRowModel) => string;
   onAssign: (selectedIds: string[]) => Promise<void>;
   saveButtonText?: string;
+  searchPlaceholder?: string;
+  /** Parent-supplied predicate for pill/drawer filtering (search is handled internally). */
+  rowFilter?: (row: GridRowModel) => boolean;
+  // Filter (tune) button
+  onFilterClick?: () => void;
+  hasActiveFilters?: boolean;
+  activeFilterCount?: number;
+  // Centered segmented quick-filter pills
+  pillTabs?: ToolbarPillTab[];
+  activePill?: string;
+  onPillChange?: (value: string) => void;
 }
 
 export default function AssignEntityDrawer({
@@ -33,6 +48,14 @@ export default function AssignEntityDrawer({
   getRowId,
   onAssign,
   saveButtonText = 'Assign',
+  searchPlaceholder = 'Search…',
+  rowFilter,
+  onFilterClick,
+  hasActiveFilters,
+  activeFilterCount,
+  pillTabs,
+  activePill,
+  onPillChange,
 }: AssignEntityDrawerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
@@ -46,17 +69,21 @@ export default function AssignEntityDrawer({
   }, [open]);
 
   const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return rows;
-    const q = searchQuery.toLowerCase();
-    return rows.filter(row => {
-      const name = typeof row.name === 'string' ? row.name : '';
-      const description =
-        typeof row.description === 'string' ? row.description : '';
-      return (
-        name.toLowerCase().includes(q) || description.toLowerCase().includes(q)
-      );
-    });
-  }, [rows, searchQuery]);
+    let result = rowFilter ? rows.filter(rowFilter) : rows;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(row => {
+        const name = typeof row.name === 'string' ? row.name : '';
+        const description =
+          typeof row.description === 'string' ? row.description : '';
+        return (
+          name.toLowerCase().includes(q) ||
+          description.toLowerCase().includes(q)
+        );
+      });
+    }
+    return result;
+  }, [rows, rowFilter, searchQuery]);
 
   const handleAssign = async () => {
     setSaving(true);
@@ -78,14 +105,28 @@ export default function AssignEntityDrawer({
       onSave={handleAssign}
       saveDisabled={!hasSelection}
       saveButtonText={saveButtonText}
-      width={960}
+      width="min(1186px, 95vw)"
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <SearchPill
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search…"
-          width="100%"
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+        <GridToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder={searchPlaceholder}
+          searchWidth={288}
+          onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
+          hasActiveFilters={hasActiveFilters}
+          activeFilterCount={activeFilterCount}
+          sx={{ px: 0, py: 0, gap: '20px', minHeight: 'auto' }}
+          middleContent={
+            pillTabs && pillTabs.length > 0 ? (
+              <PrimarySegmentedPills
+                tabs={pillTabs}
+                mode="single"
+                activeValue={activePill ?? pillTabs[0]?.value ?? ''}
+                onSingleChange={value => onPillChange?.(value)}
+              />
+            ) : undefined
+          }
         />
         <BaseDataGrid
           rows={filteredRows}
@@ -94,6 +135,7 @@ export default function AssignEntityDrawer({
           getRowId={getRowId}
           checkboxSelection
           disableRowSelectionOnClick
+          disableColumnResize
           onRowSelectionModelChange={setSelected}
           rowSelectionModel={selected}
           disablePaperWrapper
