@@ -8,7 +8,7 @@ Streaming events flow back via Redis pub/sub → ChannelTarget.
 import logging
 from typing import TYPE_CHECKING
 
-from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.database import bind_scope_to_session, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.websocket import (
     ConnectionTarget,
@@ -90,6 +90,19 @@ async def handle_architect_message(
             # Carry the session's project_id so the Celery task scopes its DB
             # sessions correctly, even when the WebSocket payload had no project.
             active_project_id = str(db_session.project_id) if db_session.project_id else None
+
+            # Ensure the DB scope (GUC + auto-stamp) uses the session's own project,
+            # not the client-supplied project. If the two differ (e.g. user switched
+            # active project after creating the session), the auto-stamp would write
+            # project_id = session.project_id while app.current_project = client_project,
+            # causing a project_isolation RLS violation on the INSERT.
+            if active_project_id and active_project_id != client_project_id:
+                bind_scope_to_session(
+                    db,
+                    str(user.organization_id),
+                    str(user.id),
+                    active_project_id,
+                )
 
             crud.create_architect_message(
                 db=db,
