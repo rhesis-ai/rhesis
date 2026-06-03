@@ -84,7 +84,9 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
     </Box>
   );
 
-  return collapsed ? (
+  const hasChildren = item.children && item.children.length > 0;
+
+  const buttonNode = collapsed ? (
     <Tooltip title={item.title} placement="right">
       <Box component="span" sx={{ display: 'inline-flex' }}>
         {button}
@@ -92,6 +94,34 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
     </Tooltip>
   ) : (
     button
+  );
+
+  if (!hasChildren) return buttonNode;
+
+  return (
+    <Box>
+      {buttonNode}
+      {!collapsed && (
+        <Box
+          sx={{
+            pl: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            mt: '4px',
+          }}
+        >
+          {item.children!.map(child => (
+            <NavItem
+              key={child.segment}
+              item={child}
+              collapsed={collapsed}
+              parentPath={fullPath}
+            />
+          ))}
+        </Box>
+      )}
+    </Box>
   );
 }
 

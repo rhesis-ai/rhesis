@@ -203,7 +203,7 @@ describe('TestsTable', () => {
     expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
   });
 
-  it('does not show "Add Tests" in the grid (moved to page header FAB)', async () => {
+  it('renders no action buttons when no rows are selected', async () => {
     render(<TestsTable sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
@@ -334,5 +334,13 @@ describe('TestsTable', () => {
         expect.objectContaining({ severity: 'error' })
       )
     );
+  });
+
+  it('renders no action buttons when disableAddButton=true and nothing selected', async () => {
+    render(<TestsTable sessionToken="tok" disableAddButton />);
+    await waitFor(() =>
+      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('action-Add Tests')).not.toBeInTheDocument();
   });
 });

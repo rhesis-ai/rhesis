@@ -254,9 +254,10 @@ export default function TestSetsGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (JSON.stringify(items) === JSON.stringify(prev.items)) return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   // ── Sync typeFilter pill tab into filterModel ────────────────────────────────
@@ -277,9 +278,10 @@ export default function TestSetsGrid({
               },
             ]
           : otherItems;
+      if (JSON.stringify(items) === JSON.stringify(prev.items)) return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [typeFilter]);
 
   // ── Sync drawer filters into filterModel ─────────────────────────────────────
@@ -319,16 +321,11 @@ export default function TestSetsGrid({
           value: drawerFilters.tag,
         });
       }
-      return {
-        ...prev,
-        items: appendPresenceFilterItems([...otherItems, ...drawerItems], {
-          tags: drawerFilters.tags,
-          comments: drawerFilters.comments,
-          tasks: drawerFilters.tasks,
-        }),
-      };
+      const newItems = [...otherItems, ...drawerItems];
+      if (JSON.stringify(newItems) === JSON.stringify(prev.items)) return prev;
+      return { ...prev, items: newItems };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   // ── Pagination / filter handlers ─────────────────────────────────────────────

@@ -267,8 +267,8 @@ export default function SourcePreviewClientWrapper({
       }
 
       const extractResult = await servicesClient.extractTool(
-        extractOptions,
-        toolId
+        toolId,
+        extractOptions
       );
 
       // Connection is valid, reset invalid state
@@ -276,7 +276,7 @@ export default function SourcePreviewClientWrapper({
 
       // Update source with new content
       await sourcesClient.updateSource(localSource.id, {
-        content: extractResult.content,
+        content: extractResult.sources[0]?.content ?? '',
       });
 
       // Refetch updated source (refetch pattern - no useEffect sync needed)

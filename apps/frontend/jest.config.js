@@ -37,6 +37,9 @@ const customJestConfig = {
     // finds EE modules without needing a full npm install in tests.
     '^@rhesis/ee-frontend$': '<rootDir>/../../ee/frontend/src/index.ts',
     '^@rhesis/ee-frontend/(.*)$': '<rootDir>/../../ee/frontend/src/$1',
+    // Redirect @testing-library/react to a themed wrapper so all renders
+    // automatically include the custom MUI theme (theme.palette.greyscale.*).
+    '^@testing-library/react$': '<rootDir>/src/test-utils.tsx',
   },
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
