@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import type { Theme } from '@mui/material/styles';
 import {
   Box,
   FormControl,
@@ -64,7 +65,7 @@ const textFieldSx = {
     fontSize: 14,
   },
   '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
+    padding: (theme: Theme) => theme.spacing(2.5, 1.75),
   },
 };
 

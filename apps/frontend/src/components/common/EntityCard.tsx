@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { alpha } from '@mui/material';
 import { useTheme, type Theme } from '@mui/material/styles';
 import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
@@ -42,27 +43,33 @@ export interface EntityCardProps {
   footer?: React.ReactNode;
 }
 
-// Status chip colours — Figma Chip with semantic green/red tint
-const STATUS_CHIP_STYLES: Record<string, { bg: string; color: string }> = {
-  active: { bg: 'rgba(56, 173, 135, 0.14)', color: '#38ad87' },
-  inactive: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' },
-};
-
+// Status chip colours — Figma Chip with semantic green/red tint.
+// Uses theme.palette.success/error so the colours adapt to dark mode.
 function getStatusChipStyles(
   status: string,
   theme: Theme
 ): { bg: string; color: string } {
-  const preset = STATUS_CHIP_STYLES[status.toLowerCase()];
-  if (preset) {
-    return preset;
+  switch (status.toLowerCase()) {
+    case 'active':
+      return {
+        bg: alpha(theme.palette.success.main, 0.14),
+        color: theme.palette.success.main,
+      };
+    case 'inactive':
+      return {
+        bg: alpha(theme.palette.error.main, 0.12),
+        color: theme.palette.error.main,
+      };
+    default:
+      return {
+        bg: theme.palette.greyscale.surface2,
+        color: theme.palette.greyscale.body,
+      };
   }
-  return {
-    bg: theme.palette.greyscale.surface2,
-    color: theme.palette.greyscale.body,
-  };
 }
 
-const DESCRIPTION_FONT_SIZE = '0.875rem';
+const DESCRIPTION_FONT_SIZE = (theme: Theme): string =>
+  theme.typography.body2.fontSize as string;
 const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 3;
 const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
@@ -206,7 +213,7 @@ export default function EntityCard({
           )}
           <Typography
             sx={{
-              fontSize: '1.125rem',
+              fontSize: theme => theme.typography.h6.fontSize,
               fontWeight: 700,
               lineHeight: '25px',
               color: 'text.primary',
@@ -283,7 +290,7 @@ export default function EntityCard({
                 {section.label && (
                   <Typography
                     sx={{
-                      fontSize: '0.75rem',
+                      fontSize: theme => theme.typography.caption.fontSize,
                       color: theme => theme.palette.greyscale.subtitle,
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
@@ -321,7 +328,7 @@ export default function EntityCard({
                 ) : (
                   <Typography
                     sx={{
-                      fontSize: '0.75rem',
+                      fontSize: theme => theme.typography.caption.fontSize,
                       fontWeight: 400,
                       color: 'text.secondary',
                     }}

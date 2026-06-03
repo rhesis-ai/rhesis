@@ -277,7 +277,7 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
     alignItems: 'center',
     px: '12px',
     py: '6px',
-    borderRadius: '999px',
+    borderRadius: BORDER_RADIUS.pill,
     border: active ? '2px solid' : '1px solid',
     borderColor: active ? 'primary.main' : theme.palette.greyscale.border,
     bgcolor: active ? 'primary.main' : 'transparent',

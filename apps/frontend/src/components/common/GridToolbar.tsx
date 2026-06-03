@@ -159,7 +159,7 @@ export function PrimarySegmentedPills({
               gap: '4px',
               px: '16px',
               py: '8px',
-              fontSize: '0.875rem',
+              fontSize: theme => theme.typography.body2.fontSize,
               fontWeight: 700,
               lineHeight: '22px',
               cursor: 'pointer',

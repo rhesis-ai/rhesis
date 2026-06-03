@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { BORDER_RADIUS } from '@/styles/theme';
 import {
   Box,
   IconButton,
@@ -66,7 +67,7 @@ function ThumbnailImage({
         width: 48,
         height: 48,
         objectFit: 'cover',
-        borderRadius: '8px',
+        borderRadius: BORDER_RADIUS.sm,
         flexShrink: 0,
       }}
     />
@@ -112,7 +113,7 @@ function FileRow({
             alignItems: 'center',
             justifyContent: 'center',
             bgcolor: (theme: Theme) => theme.palette.greyscale.border,
-            borderRadius: '8px',
+            borderRadius: BORDER_RADIUS.sm,
             overflow: 'hidden',
           }}
         >

@@ -251,7 +251,7 @@ export function Sidebar() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   sx={{
-                    fontSize: '1.125rem',
+                    fontSize: theme => theme.typography.h6.fontSize,
                     fontWeight: 700,
                     lineHeight: '25px',
                     color: theme => theme.palette.greyscale.title,
@@ -265,7 +265,7 @@ export function Sidebar() {
                 {activeProject && (
                   <Typography
                     sx={{
-                      fontSize: '0.75rem',
+                      fontSize: theme => theme.typography.caption.fontSize,
                       fontWeight: 400,
                       lineHeight: '18px',
                       color: theme => theme.palette.greyscale.subtitle,
@@ -346,7 +346,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: '0.875rem',
+                fontSize: theme => theme.typography.body2.fontSize,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -377,7 +377,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: '0.875rem',
+                fontSize: theme => theme.typography.body2.fontSize,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -408,7 +408,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: '0.875rem',
+                fontSize: theme => theme.typography.body2.fontSize,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -525,7 +525,7 @@ export function Sidebar() {
               <Typography
                 sx={{
                   display: 'block',
-                  fontSize: '0.875rem',
+                  fontSize: theme => theme.typography.body2.fontSize,
                   fontWeight: 400,
                   lineHeight: '22px',
                   color: theme => theme.palette.greyscale.title,
@@ -540,7 +540,7 @@ export function Sidebar() {
               <Typography
                 sx={{
                   display: 'block',
-                  fontSize: '0.75rem',
+                  fontSize: theme => theme.typography.caption.fontSize,
                   fontWeight: 400,
                   lineHeight: '18px',
                   color: theme => theme.palette.greyscale.subtitle,
@@ -601,7 +601,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: '0.875rem',
+                fontSize: theme => theme.typography.body2.fontSize,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -631,7 +631,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: '0.875rem',
+                fontSize: theme => theme.typography.body2.fontSize,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
