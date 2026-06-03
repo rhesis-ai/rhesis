@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
+import sqlalchemy as sa
 from sqlalchemy import create_engine
 
 from rhesis.backend.app.config.settings import get_database_settings
@@ -95,6 +96,8 @@ def run_migrations_online():
         )
 
         with context.begin_transaction():
+            # Disable RLS for migrations — admin credentials already grant full access.
+            connection.execute(sa.text("SET LOCAL row_security = off"))
             context.run_migrations()
 
 
