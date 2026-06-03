@@ -22,11 +22,7 @@ export default function ProjectContent({ project }: { project: Project }) {
           <Box>
             <Typography
               variant="overline"
-              sx={{
-                color: 'text.secondary',
-                fontWeight: 600,
-                letterSpacing: 1,
-              }}
+              sx={{ color: 'text.secondary', letterSpacing: 1 }}
             >
               Description
             </Typography>
@@ -48,11 +44,7 @@ export default function ProjectContent({ project }: { project: Project }) {
             <Box>
               <Typography
                 variant="overline"
-                sx={{
-                  color: 'text.secondary',
-                  fontWeight: 600,
-                  letterSpacing: 1,
-                }}
+                sx={{ color: 'text.secondary', letterSpacing: 1 }}
               >
                 Status
               </Typography>
@@ -77,11 +69,7 @@ export default function ProjectContent({ project }: { project: Project }) {
               <Box>
                 <Typography
                   variant="overline"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 600,
-                    letterSpacing: 1,
-                  }}
+                  sx={{ color: 'text.secondary', letterSpacing: 1 }}
                 >
                   Owner
                 </Typography>
@@ -115,11 +103,7 @@ export default function ProjectContent({ project }: { project: Project }) {
               <Box>
                 <Typography
                   variant="overline"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 600,
-                    letterSpacing: 1,
-                  }}
+                  sx={{ color: 'text.secondary', letterSpacing: 1 }}
                 >
                   Created
                 </Typography>
@@ -141,11 +125,7 @@ export default function ProjectContent({ project }: { project: Project }) {
             <Box>
               <Typography
                 variant="overline"
-                sx={{
-                  color: 'text.secondary',
-                  fontWeight: 600,
-                  letterSpacing: 1,
-                }}
+                sx={{ color: 'text.secondary', letterSpacing: 1 }}
               >
                 Tags
               </Typography>

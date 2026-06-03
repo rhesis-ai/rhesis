@@ -21,26 +21,18 @@ export default function DetailMetadataStrip({
   items,
 }: DetailMetadataStripProps) {
   return (
-    <Box sx={{ display: 'flex', gap: '30px' }}>
+    <Box sx={{ display: 'flex', gap: 3.75 }}>
       {items.map(({ label, value }) => (
         <Box key={label} sx={{ display: 'flex', gap: 0.5 }}>
           <Typography
             variant="caption"
-            sx={{
-              fontSize: 12,
-              lineHeight: '18px',
-              color: theme => theme.palette.greyscale.body,
-            }}
+            sx={{ color: theme => theme.palette.greyscale.body }}
           >
             {label}
           </Typography>
           <Typography
             variant="caption"
-            sx={{
-              fontSize: 12,
-              lineHeight: '18px',
-              color: theme => theme.palette.greyscale.subtitle,
-            }}
+            sx={{ color: theme => theme.palette.greyscale.subtitle }}
           >
             {value}
           </Typography>

@@ -193,7 +193,7 @@ export default function MultiFileUpload({
       <Paper
         elevation={0}
         sx={(theme: Theme) => ({
-          border: `1px dashed ${isDragOver ? theme.palette.primary.main : '#c1c7d1'}`,
+          border: `1px dashed ${isDragOver ? theme.palette.primary.main : theme.palette.greyscale.border}`,
           borderRadius: '4px',
           minHeight: 212,
           width: '100%',
@@ -215,27 +215,23 @@ export default function MultiFileUpload({
         onClick={handleClick}
         component="div"
       >
-        <CloudUploadIcon sx={{ fontSize: 48, color: '#545a65' }} />
-        <Typography
+        <CloudUploadIcon
           sx={{
-            fontSize: 18,
-            fontWeight: 700,
-            lineHeight: '25px',
-            color: '#545a65',
-            textAlign: 'center',
+            fontSize: theme => theme.typography.h1.fontSize,
+            color: theme => theme.palette.greyscale.label,
           }}
+        />
+        <Typography
+          variant="h6"
+          sx={{ color: theme => theme.palette.greyscale.label, textAlign: 'center' }}
         >
           {isDragOver
             ? 'Drop files here'
             : 'Drag & Drop or click to attach files'}
         </Typography>
         <Typography
-          sx={{
-            fontSize: 14,
-            lineHeight: '22px',
-            color: '#545a65',
-            textAlign: 'center',
-          }}
+          variant="body2"
+          sx={{ color: theme => theme.palette.greyscale.label, textAlign: 'center' }}
         >
           Images, PDFs or audio. Max {formatFileSize(maxFileSize)} per file.
         </Typography>

@@ -13,24 +13,17 @@ export default function SubsectionHeader({
   description,
 }: SubsectionHeaderProps) {
   return (
-    <Box sx={{ mb: '20px' }}>
+    <Box sx={{ mb: 2.5 }}>
       <Typography
-        sx={{
-          fontSize: 18,
-          fontWeight: 700,
-          lineHeight: '25px',
-          color: 'text.primary',
-        }}
+        variant="h6"
+        sx={{ color: 'text.primary' }}
       >
         {headline}
       </Typography>
       {description ? (
         <Typography
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: theme => theme.palette.greyscale?.subtitle ?? '#7f8a9b',
-          }}
+          variant="caption"
+          sx={{ color: theme => theme.palette.greyscale.subtitle }}
         >
           {description}
         </Typography>

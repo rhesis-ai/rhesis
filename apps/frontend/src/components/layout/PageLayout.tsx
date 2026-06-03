@@ -32,10 +32,10 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
       component="nav"
       aria-label="breadcrumb"
       sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: '10px',
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 1.25,
       }}
     >
       {items.map((crumb, idx) => {
@@ -51,17 +51,14 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
             sx={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: 0.75,
             }}
           >
             {isLast || !link ? (
               <Typography
                 variant="bodyMReg"
                 component="span"
-                sx={{
-                  color: theme => theme.palette.greyscale.body,
-                  fontWeight: 400,
-                }}
+                sx={{ color: theme => theme.palette.greyscale.body }}
               >
                 {text}
               </Typography>
@@ -70,24 +67,18 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 component={NextLink}
                 href={link}
                 underline="hover"
-                sx={{
-                  color: theme => theme.palette.greyscale.subtitle,
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  fontWeight: 400,
-                }}
+                variant="bodyMReg"
+                sx={{ color: theme => theme.palette.greyscale.subtitle }}
               >
                 {text}
               </Link>
             )}
             {showSeparator && (
-              <ChevronRightIcon
-                sx={{
-                  fontSize: 20,
-                  color: theme => theme.palette.greyscale.subtitle,
-                }}
-                aria-hidden
-              />
+            <ChevronRightIcon
+              fontSize="small"
+              sx={{ color: theme => theme.palette.greyscale.subtitle }}
+              aria-hidden
+            />
             )}
           </Box>
         );
@@ -117,10 +108,10 @@ export function PageLayout({
       {hasHeader && (
         <Box
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            mb: 5,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2.5,
+          mb: 5,
           }}
         >
           {hasBreadcrumbs && <PageBreadcrumbs items={crumbItems} />}
@@ -137,10 +128,10 @@ export function PageLayout({
               {(title || actions) && (
                 <Box
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 2,
                     width: '100%',
                     minHeight: 56,
                   }}
