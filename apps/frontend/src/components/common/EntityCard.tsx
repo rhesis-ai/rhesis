@@ -1,9 +1,15 @@
 'use client';
 
 import React from 'react';
-import { alpha } from '@mui/material';
+import {
+  alpha,
+  Box,
+  ButtonBase,
+  Typography,
+  Avatar,
+  IconButton,
+} from '@mui/material';
 import { useTheme, type Theme } from '@mui/material/styles';
-import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';

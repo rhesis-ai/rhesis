@@ -83,7 +83,8 @@ describe('trace-filter-params', () => {
   it('maps preset time ranges to ISO timestamps', () => {
     const after = timeRangeToStartTimeAfter('24h');
     expect(after).toBeDefined();
-    const diff = Date.now() - new Date(after!).getTime();
+    if (!after) return;
+    const diff = Date.now() - new Date(after).getTime();
     expect(diff).toBeGreaterThan(23 * 60 * 60 * 1000);
     expect(diff).toBeLessThan(25 * 60 * 60 * 1000);
   });

@@ -111,6 +111,11 @@ export default function TraceFilterDrawer({
   >([]);
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
 
+  // Use a ref so the effect can read the current projectId without re-running
+  // every time the draft changes (which would cause an infinite loop).
+  const draftProjectIdRef = React.useRef(draft.projectId);
+  draftProjectIdRef.current = draft.projectId;
+
   React.useEffect(() => {
     const fetchData = async () => {
       if (!sessionToken) return;
@@ -125,7 +130,7 @@ export default function TraceFilterDrawer({
         setProjects(projectsData);
 
         // Pre-select active project when no project filter is already set
-        if (!draft.projectId) {
+        if (!draftProjectIdRef.current) {
           const activeId = readActiveProjectId();
           if (
             activeId &&
@@ -151,7 +156,7 @@ export default function TraceFilterDrawer({
     if (open && sessionToken && !isTestRunScope) {
       fetchData();
     }
-  }, [open, sessionToken, isTestRunScope]);
+  }, [open, sessionToken, isTestRunScope, setDraft]);
 
   const filteredEndpoints = draft.projectId
     ? endpoints.filter(e => e.project_id === draft.projectId)

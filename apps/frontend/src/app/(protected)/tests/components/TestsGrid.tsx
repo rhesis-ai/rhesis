@@ -129,8 +129,8 @@ function TestsUnifiedToolbar() {
 export default function TestsTable({
   sessionToken,
   onRefresh,
-  onNewTest,
-  disableAddButton = false,
+  onNewTest: _onNewTest,
+  disableAddButton: _disableAddButton = false,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
