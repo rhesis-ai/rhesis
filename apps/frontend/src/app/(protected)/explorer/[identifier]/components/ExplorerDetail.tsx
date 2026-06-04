@@ -3018,259 +3018,96 @@ export default function ExplorerDetail({
       }
     >
       <Box>
-        <Paper
+        {/* Compact config hint — full card replaced by a single info row */}
+        <Box
           sx={{
             mb: 2,
-            borderRadius: BORDER_RADIUS.md,
-            overflow: 'hidden',
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            boxShadow: ELEVATION.xs,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
           }}
         >
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 36,
-                  height: 36,
-                  borderRadius: 1,
-                  bgcolor: theme => alpha(theme.palette.primary.main, 0.1),
-                  color: 'primary.main',
-                }}
-              >
-                <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-              </Box>
-              <Box>
-                <Typography
-                  variant="subtitle2"
-                  fontWeight={600}
-                  component="div"
-                >
-                  Explorer configuration
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Endpoint and metrics for generation and evaluation
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          <Box sx={{ p: 2.5 }}>
-            {explorerConfigSummary === null ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <CircularProgress size={18} />
-                <Typography variant="body2" color="text.secondary">
-                  Loading settings…
-                </Typography>
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                  gap: 2,
-                }}
-              >
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: BORDER_RADIUS.sm,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                  }}
-                >
+          <TuneOutlinedIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+          {explorerConfigSummary === null ? (
+            <CircularProgress size={14} />
+          ) : (
+            <>
+              {/* Endpoint */}
+              <Typography variant="caption" color="text.secondary">
+                <Box component="span" sx={{ fontWeight: 600 }}>
+                  Endpoint:
+                </Box>{' '}
+                {explorerConfigSummary.endpointLabel ?? (
                   <Box
+                    component="span"
+                    sx={{ fontStyle: 'italic', color: 'text.disabled' }}
+                  >
+                    not set
+                  </Box>
+                )}
+                {explorerConfigSummary.endpointEnvironment && (
+                  <Box
+                    component="span"
                     sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mb: 1,
+                      ml: 0.75,
+                      color: getEnvironmentColor(
+                        explorerConfigSummary.endpointEnvironment
+                      ),
                     }}
                   >
-                    <ApiOutlinedIcon
-                      sx={{ fontSize: 20, color: 'text.secondary' }}
-                    />
-                    <Typography
-                      variant="overline"
-                      color="text.secondary"
-                      sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
-                    >
-                      Selected endpoint
-                    </Typography>
+                    (
+                    {formatEnvironment(
+                      explorerConfigSummary.endpointEnvironment
+                    )}
+                    )
                   </Box>
-                  {explorerConfigSummary.endpointLabel ? (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: 1,
-                      }}
-                    >
-                      <Chip
-                        label={explorerConfigSummary.endpointLabel}
-                        size="medium"
-                        variant="outlined"
-                        sx={{
-                          height: 'auto',
-                          py: 0.75,
-                          maxWidth: '100%',
-                          fontWeight: 500,
-                          borderColor: alpha(theme.palette.primary.main, 0.35),
-                          bgcolor: alpha(theme.palette.primary.main, 0.06),
-                          '& .MuiChip-label': {
-                            whiteSpace: 'normal',
-                            display: 'block',
-                            py: 0.25,
-                          },
-                        }}
-                      />
-                      {explorerConfigSummary.endpointEnvironment ? (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            px: 1,
-                            py: 0.25,
-                            borderRadius: theme =>
-                              theme.shape.borderRadius * 0.25,
-                            bgcolor: 'action.hover',
-                            color: getEnvironmentColor(
-                              explorerConfigSummary.endpointEnvironment
-                            ),
-                            fontWeight: 'medium',
-                          }}
-                        >
-                          {formatEnvironment(
-                            explorerConfigSummary.endpointEnvironment
-                          )}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  ) : (
-                    <Chip
-                      label="Not set — use Edit settings"
-                      size="small"
-                      variant="outlined"
-                      sx={{
-                        borderStyle: 'dashed',
-                        color: 'text.secondary',
-                        bgcolor: alpha(theme.palette.action.hover, 0.04),
-                      }}
-                    />
-                  )}
-                </Box>
-
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: BORDER_RADIUS.sm,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    <GradingIcon
-                      sx={{ fontSize: 20, color: 'text.secondary' }}
-                    />
-                    <Typography
-                      variant="overline"
-                      color="text.secondary"
-                      sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
-                    >
-                      Selected metric
-                    </Typography>
-                  </Box>
-                  {explorerConfigSummary.metrics.length > 0 ? (
-                    <Stack spacing={1.25}>
-                      {explorerConfigSummary.metrics.map(m => (
+                )}
+              </Typography>
+              <Box
+                component="span"
+                sx={{ color: 'text.disabled', fontSize: 12 }}
+              >
+                ·
+              </Box>
+              {/* Metric(s) */}
+              <Typography variant="caption" color="text.secondary">
+                <Box component="span" sx={{ fontWeight: 600 }}>
+                  Metric:
+                </Box>{' '}
+                {explorerConfigSummary.metrics.length > 0 ? (
+                  explorerConfigSummary.metrics.map((m, i) => (
+                    <React.Fragment key={m.id}>
+                      {i > 0 && ', '}
+                      {m.hasDetailPage ? (
                         <Box
-                          key={m.id}
+                          component="span"
+                          onClick={() => setMetricEditorMetricId(m.id)}
                           sx={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                            gap: 1,
+                            cursor: 'pointer',
+                            color: 'primary.main',
+                            '&:hover': { textDecoration: 'underline' },
                           }}
                         >
-                          <Chip
-                            label={m.name}
-                            size="medium"
-                            variant="outlined"
-                            sx={{
-                              height: 'auto',
-                              py: 0.75,
-                              maxWidth: {
-                                xs: '100%',
-                                sm: 'calc(100% - 140px)',
-                              },
-                              fontWeight: 500,
-                              borderColor: alpha(
-                                theme.palette.primary.main,
-                                0.35
-                              ),
-                              bgcolor: alpha(theme.palette.primary.main, 0.06),
-                              '& .MuiChip-label': {
-                                whiteSpace: 'normal',
-                                display: 'block',
-                                py: 0.25,
-                              },
-                            }}
-                          />
-                          {m.hasDetailPage ? (
-                            <Button
-                              size="small"
-                              variant="text"
-                              endIcon={
-                                <OpenInNewOutlinedIcon sx={{ fontSize: 18 }} />
-                              }
-                              sx={{ textTransform: 'none', flexShrink: 0 }}
-                              onClick={() => setMetricEditorMetricId(m.id)}
-                            >
-                              Go to metric
-                            </Button>
-                          ) : null}
+                          {m.name}
                         </Box>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Chip
-                      label="Not set — use Edit settings"
-                      size="small"
-                      variant="outlined"
-                      sx={{
-                        borderStyle: 'dashed',
-                        color: 'text.secondary',
-                        bgcolor: alpha(theme.palette.action.hover, 0.04),
-                      }}
-                    />
-                  )}
-                </Box>
-              </Box>
-            )}
-          </Box>
-        </Paper>
+                      ) : (
+                        m.name
+                      )}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Box
+                    component="span"
+                    sx={{ fontStyle: 'italic', color: 'text.disabled' }}
+                  >
+                    not set
+                  </Box>
+                )}
+              </Typography>
+            </>
+          )}
+        </Box>
 
         {/* View Tabs */}
         <Box
