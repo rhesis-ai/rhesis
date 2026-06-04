@@ -171,6 +171,7 @@ async def generate_test_set(
                 generate_and_save_test_set,
                 current_user=current_user,
                 db=db,
+                task_id=placeholder_task_id,
                 config=request.config.model_dump(),
                 num_tests=request.num_tests,
                 batch_size=request.batch_size,

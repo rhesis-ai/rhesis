@@ -75,7 +75,7 @@ export default function TestSetLinkedTestsSection({
         const testSetsClient = factory.getTestSetsClient();
         const response = await testSetsClient.getTestSets({
           limit: 1,
-          $filter: `id eq ${testSetId}`,
+          $filter: `id eq '${testSetId}'`,
         } as { limit: number; $filter: string });
 
         const testSet = response.data[0];
