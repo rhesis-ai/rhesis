@@ -43,8 +43,10 @@ jobs:
       - name: Install ArgoCD CLI
         run: |
           ARGOCD_VERSION="v2.14.4"
+          ARGOCD_SHA256="ed774771701f8e5a9330918e4f905f2f171e2181906aec792c9ff6907a4c480f"
           curl -sSL -o /usr/local/bin/argocd \
             "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_SHA256}  /usr/local/bin/argocd" | sha256sum -c -
           chmod +x /usr/local/bin/argocd
 
       - name: Set image tag parameter on ArgoCD Application
@@ -78,3 +80,15 @@ jobs:
             --auth-token "$ARGOCD_AUTH_TOKEN" \
             --grpc-web \
             --timeout 120
+
+      - name: Wait for rollout to be healthy
+        env:
+          ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
+        run: |
+          argocd app wait rhesis \
+            --server "$ARGOCD_SERVER" \
+            --auth-token "$ARGOCD_AUTH_TOKEN" \
+            --grpc-web \
+            --health \
+            --timeout 300
