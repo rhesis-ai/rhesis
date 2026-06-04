@@ -16,7 +16,7 @@ import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
 import FileImportDrawer from './components/FileImportDrawer';
-import GarakImportDialog from './components/GarakImportDialog';
+import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -31,7 +31,7 @@ export default function TestSetsPage() {
   const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
-  const [garakImportDialogOpen, setGarakImportDialogOpen] =
+  const [garakImportDrawerOpen, setGarakImportDrawerOpen] =
     React.useState(false);
 
   useDocumentTitle('Test Sets');
@@ -128,7 +128,7 @@ export default function TestSetsPage() {
             <Fab
               icon={<SecurityIcon />}
               tooltip="Import from Garak"
-              onClick={() => setGarakImportDialogOpen(true)}
+              onClick={() => setGarakImportDrawerOpen(true)}
             />
             <Fab
               icon={<AutoFixHighIcon />}
@@ -187,9 +187,9 @@ export default function TestSetsPage() {
         onSuccess={handleFileImportSuccess}
       />
 
-      <GarakImportDialog
-        open={garakImportDialogOpen}
-        onClose={() => setGarakImportDialogOpen(false)}
+      <GarakImportDrawer
+        open={garakImportDrawerOpen}
+        onClose={() => setGarakImportDrawerOpen(false)}
         sessionToken={sessionToken}
         onSuccess={handleGarakImportSuccess}
       />
