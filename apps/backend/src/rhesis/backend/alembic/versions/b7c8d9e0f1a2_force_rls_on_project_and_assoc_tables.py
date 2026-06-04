@@ -22,6 +22,7 @@ Create Date: 2026-06-04
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b7c8d9e0f1a2"
@@ -33,10 +34,28 @@ _TABLES = ["project", "prompt_use_case", "risk_use_case"]
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
     for table in _TABLES:
-        op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        already_forced = conn.execute(
+            sa.text(
+                "SELECT relforcerowsecurity FROM pg_class "
+                "WHERE relnamespace = 'public'::regnamespace AND relname = :tbl"
+            ),
+            {"tbl": table},
+        ).scalar()
+        if not already_forced:
+            op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
 
 
 def downgrade() -> None:
+    conn = op.get_bind()
     for table in reversed(_TABLES):
-        op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
+        is_forced = conn.execute(
+            sa.text(
+                "SELECT relforcerowsecurity FROM pg_class "
+                "WHERE relnamespace = 'public'::regnamespace AND relname = :tbl"
+            ),
+            {"tbl": table},
+        ).scalar()
+        if is_forced:
+            op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
