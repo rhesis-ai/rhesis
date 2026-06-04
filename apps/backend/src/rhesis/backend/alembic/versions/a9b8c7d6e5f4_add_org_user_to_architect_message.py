@@ -37,24 +37,55 @@ _TENANT_POLICY = """
         USING (organization_id = current_setting('app.current_organization')::uuid)
 """
 
+# FK constraint names (explicit so the NOT VALID variant and downgrade can
+# reference them).
+_ORG_FK = "architect_message_organization_id_fkey"
+_USER_FK = "architect_message_user_id_fkey"
+
+# Low-traffic tables whose RLS we toggle during the backfill. We deliberately do
+# NOT include the FK targets (organization, user): DISABLE ROW LEVEL SECURITY
+# takes an ACCESS EXCLUSIVE lock, and on those hot tables it serializes behind
+# every live read and hung the migrate job to its 600s timeout. The FKs are added
+# NOT VALID below so they never trigger the RLS-sensitive initial validation scan
+# against organization/user, removing the need to touch their RLS at all.
+_RLS_TABLES = ("architect_message", "architect_session")
+
 
 def upgrade() -> None:
-    # The migration role bypasses RLS (prod: rhesis-admin has BYPASSRLS; dev:
-    # nocodb-user was granted BYPASSRLS), so RLS policies are never evaluated for
-    # this connection — FK validation, the backfill, and the auto_rls_on_ddl
-    # trigger's policy creation all run cleanly without any RLS handling here.
+    # This migration must run correctly whether or not the Alembic role bypasses
+    # RLS. We don't rely on BYPASSRLS (prod's rhesis-admin has it, but dev/local
+    # bootstrap and the migrate.sh APP_DB_USER fallback may not), and FK initial
+    # validation runs under the *table owner* identity anyway — so current_user's
+    # BYPASSRLS is not a reliable signal. Instead we defend explicitly.
+    conn = op.get_bind()
 
-    # 1. Add organization_id and user_id (nullable; values come from the parent
-    #    session). Adding organization_id fires the auto_rls_on_ddl trigger
-    #    (d4e5f6a7b8c3), which enables RLS and creates tenant_isolation
-    #    automatically; we still (re)create it explicitly in step 3 so the
-    #    migration is deterministic regardless of trigger state.
+    # Fail fast instead of hanging behind a long-held lock.
+    conn.execute(sa.text("SET LOCAL lock_timeout = '120s'"))
+
+    # Neutralize the auto_rls_on_ddl event trigger (d4e5f6a7b8c3) for this
+    # transaction so our DDL can't re-enable RLS / recreate policies mid-migration.
+    # The trigger uses this same GUC as its own reentry guard.
+    conn.execute(sa.text("SET LOCAL auto_rls.active = 'true'"))
+
+    # Capture prior RLS state, then disable RLS on the low-traffic architect_*
+    # tables for the duration of the backfill (so the UPDATE isn't filtered by
+    # tenant policies under a non-bypass role). DISABLE only flips relrowsecurity;
+    # the FORCE flag (relforcerowsecurity) is preserved.
+    prior_rls: dict[str, bool] = {}
+    for tbl in _RLS_TABLES:
+        enabled = conn.execute(
+            sa.text("SELECT relrowsecurity FROM pg_class WHERE relname = :t"),
+            {"t": tbl},
+        ).scalar()
+        prior_rls[tbl] = bool(enabled)
+        conn.execute(sa.text(f"ALTER TABLE {tbl} DISABLE ROW LEVEL SECURITY"))
+
+    # 1. Add nullable columns (no inline FK, so no immediate validation scan).
     op.add_column(
         "architect_message",
         sa.Column(
             "organization_id",
             sa.dialects.postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("organization.id"),
             nullable=True,
         ),
     )
@@ -63,9 +94,30 @@ def upgrade() -> None:
         sa.Column(
             "user_id",
             sa.dialects.postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("user.id"),
             nullable=True,
         ),
+    )
+
+    # Add the FKs NOT VALID: PostgreSQL skips the initial validation scan, so FK
+    # creation never reads organization/user under RLS and never needs their RLS
+    # disabled. New/modified rows are still checked. Existing rows are safe to
+    # leave unvalidated because the columns are brand new (all NULL) and the
+    # backfill below populates them consistently from the parent session.
+    op.create_foreign_key(
+        _ORG_FK,
+        "architect_message",
+        "organization",
+        ["organization_id"],
+        ["id"],
+        postgresql_not_valid=True,
+    )
+    op.create_foreign_key(
+        _USER_FK,
+        "architect_message",
+        "user",
+        ["user_id"],
+        ["id"],
+        postgresql_not_valid=True,
     )
     op.create_index(
         "ix_architect_message_organization_id",
@@ -91,20 +143,27 @@ def upgrade() -> None:
         """
     )
 
-    # 3. Ensure the permissive tenant_isolation policy exists (the missing piece).
-    op.execute("ALTER TABLE architect_message FORCE ROW LEVEL SECURITY")
+    # 3. Ensure the permissive tenant_isolation policy exists (the missing piece),
+    #    then restore RLS on the architect_* tables we toggled.
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON architect_message")
     op.execute(_TENANT_POLICY)
 
+    op.execute("ALTER TABLE architect_message FORCE ROW LEVEL SECURITY")
+    for tbl in _RLS_TABLES:
+        if prior_rls[tbl]:
+            conn.execute(sa.text(f"ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY"))
+
 
 def downgrade() -> None:
+    conn = op.get_bind()
+    # Neutralize the trigger so DROP COLUMN can't re-fire policy creation.
+    conn.execute(sa.text("SET LOCAL auto_rls.active = 'true'"))
+
     op.drop_index("ix_architect_message_user_id", table_name="architect_message")
     op.drop_index("ix_architect_message_organization_id", table_name="architect_message")
 
-    # Drop the policy, then drop organization_id BEFORE user_id. Each DROP COLUMN
-    # re-fires auto_apply_rls_policies; removing organization_id first means the
-    # trigger never sees an org column without a policy and so cannot recreate
-    # tenant_isolation (which would block the subsequent DROP COLUMN).
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON architect_message")
+    op.drop_constraint(_USER_FK, "architect_message", type_="foreignkey")
+    op.drop_constraint(_ORG_FK, "architect_message", type_="foreignkey")
     op.drop_column("architect_message", "organization_id")
     op.drop_column("architect_message", "user_id")
