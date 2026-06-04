@@ -37,6 +37,7 @@ export default function TestRunTracesTab({
           boxShadow: ELEVATION.xs,
           border: theme => `1px solid ${theme.palette.greyscale.border}`,
           overflow: 'hidden',
+          display: showEmptyHint ? 'none' : 'block',
         }}
       >
         <TracesClient

@@ -3,6 +3,8 @@
 import React from 'react';
 import { Box, Chip, Grid, Paper, Switch, Typography } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
+import Link from 'next/link';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import ViewField from '@/components/common/ViewField';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
@@ -70,7 +72,45 @@ export default function TestRunConfigurationTab({
         <Box sx={fieldsSx}>
           <Grid container spacing="30px">
             <Grid size={{ xs: 12, sm: 6 }}>
-              <ViewField label="Test Set" value={config?.test_set?.name} />
+              {config?.test_set?.id ? (
+                <ViewField label="Test Set">
+                  <Link
+                    href={`/test-sets/${config.test_set.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        '&:hover .field-link-text': {
+                          color: 'primary.main',
+                          textDecoration: 'underline',
+                        },
+                      }}
+                    >
+                      <Typography
+                        className="field-link-text"
+                        sx={{
+                          fontSize: 16,
+                          lineHeight: '24px',
+                          color: theme => theme.palette.greyscale.body,
+                          transition: 'color 0.2s',
+                        }}
+                      >
+                        {config.test_set.name || '—'}
+                      </Typography>
+                      <OpenInNewIcon
+                        sx={{ fontSize: 14, color: 'text.disabled' }}
+                      />
+                    </Box>
+                  </Link>
+                </ViewField>
+              ) : (
+                <ViewField label="Test Set" value={config?.test_set?.name} />
+              )}
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <ViewField
@@ -79,7 +119,45 @@ export default function TestRunConfigurationTab({
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
-              <ViewField label="Endpoint" value={config?.endpoint?.name} />
+              {config?.endpoint?.id ? (
+                <ViewField label="Endpoint">
+                  <Link
+                    href={`/endpoints/${config.endpoint.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        '&:hover .field-link-text': {
+                          color: 'primary.main',
+                          textDecoration: 'underline',
+                        },
+                      }}
+                    >
+                      <Typography
+                        className="field-link-text"
+                        sx={{
+                          fontSize: 16,
+                          lineHeight: '24px',
+                          color: theme => theme.palette.greyscale.body,
+                          transition: 'color 0.2s',
+                        }}
+                      >
+                        {config.endpoint.name || '—'}
+                      </Typography>
+                      <OpenInNewIcon
+                        sx={{ fontSize: 14, color: 'text.disabled' }}
+                      />
+                    </Box>
+                  </Link>
+                </ViewField>
+              ) : (
+                <ViewField label="Endpoint" value={config?.endpoint?.name} />
+              )}
             </Grid>
           </Grid>
         </Box>

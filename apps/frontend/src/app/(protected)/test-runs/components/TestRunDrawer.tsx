@@ -15,7 +15,6 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { TestConfigurationCreate } from '@/utils/api-client/interfaces/test-configuration';
 import { UUID } from 'crypto';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -46,11 +45,9 @@ export default function TestRunDrawer({
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
   const [testSet, setTestSet] = React.useState<TestSet | null>(null);
-  const [project, setProject] = React.useState<Project | null>(null);
   const [endpoint, setEndpoint] = React.useState<Endpoint | null>(null);
 
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
-  const [projects, setProjects] = React.useState<Project[]>([]);
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
   const [filteredEndpoints, setFilteredEndpoints] = React.useState<Endpoint[]>(
     []
@@ -88,49 +85,23 @@ export default function TestRunDrawer({
 
         const clientFactory = new ApiClientFactory(sessionToken);
         const testSetsClient = clientFactory.getTestSetsClient();
-        const projectsClient = clientFactory.getProjectsClient();
         const endpointsClient = clientFactory.getEndpointsClient();
 
         try {
-          const [fetchedTestSets, fetchedProjects, fetchedEndpoints] =
-            await Promise.all([
-              testSetsClient.getTestSets({ limit: 100 }),
-              projectsClient.getProjects(),
-              endpointsClient.getEndpoints(),
-            ]);
+          const [fetchedTestSets, fetchedEndpoints] = await Promise.all([
+            testSetsClient.getTestSets({ limit: 100 }),
+            endpointsClient.getEndpoints(),
+          ]);
 
           // Ensure we always set arrays, never undefined
           setTestSets(
             Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []
           );
 
-          // Handle both response formats for projects: direct array or {data: array}
-          let projectsArray: Project[] = [];
-          if (Array.isArray(fetchedProjects)) {
-            // Direct array response (what we're getting)
-            projectsArray = fetchedProjects;
-          } else if (fetchedProjects && Array.isArray(fetchedProjects.data)) {
-            // Paginated response with data property
-            projectsArray = fetchedProjects.data;
-          } else {
-          }
-
-          setProjects(projectsArray);
           const allEndpoints = Array.isArray(fetchedEndpoints?.data)
             ? fetchedEndpoints.data
             : [];
           setEndpoints(allEndpoints);
-
-          // Pre-select the active project from the session cookie
-          const activeProjectId = readActiveProjectId();
-          if (activeProjectId && projectsArray.length > 0) {
-            const activeProject = projectsArray.find(
-              p => p.id === activeProjectId
-            );
-            if (activeProject) {
-              setProject(activeProject);
-            }
-          }
 
           // Set initial values if editing
           if (testRun) {
@@ -150,7 +121,6 @@ export default function TestRunDrawer({
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
           setTestSets([]);
-          setProjects([]);
           setEndpoints([]);
           setFilteredEndpoints([]);
         }
@@ -166,11 +136,12 @@ export default function TestRunDrawer({
     }
   }, [sessionToken, testRun, getCurrentUserId, open]);
 
-  // Filter endpoints by selected project; when no project is selected show all
+  // Filter endpoints by the active project; fall back to all when none is set
   React.useEffect(() => {
     if (Array.isArray(endpoints)) {
-      const filtered = project
-        ? endpoints.filter(e => e.project_id === project.id)
+      const activeProjectId = readActiveProjectId();
+      const filtered = activeProjectId
+        ? endpoints.filter(e => e.project_id === activeProjectId)
         : endpoints;
       setFilteredEndpoints(filtered);
       // Clear endpoint selection if it no longer appears in the filtered list
@@ -178,7 +149,7 @@ export default function TestRunDrawer({
         setEndpoint(null);
       }
     }
-  }, [project, endpoints, endpoint]);
+  }, [endpoints, endpoint]);
 
   const handleSave = async () => {
     if (!sessionToken || !testSet || !endpoint) {
@@ -312,29 +283,6 @@ export default function TestRunDrawer({
               fullWidth
               renderInput={params => (
                 <TextField {...params} label="Test Set" required />
-              )}
-            />
-
-            <Autocomplete
-              options={Array.isArray(projects) ? projects : []}
-              value={project}
-              onChange={(_, newValue) => setProject(newValue)}
-              getOptionLabel={option => option.name}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              renderOption={(props, option) => {
-                const { key: _key, ...otherProps } = props;
-                return (
-                  <Box component="li" key={option.id} {...otherProps}>
-                    {option.name}
-                  </Box>
-                );
-              }}
-              fullWidth
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Project (optional — filters endpoints)"
-                />
               )}
             />
 
