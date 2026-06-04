@@ -35,7 +35,7 @@ on:
         default: true
 
 concurrency:
-  group: k8s-build-${{ github.workflow }}-${{ inputs.environment || github.event.inputs.environment }}
+  group: k8s-build-${{ github.workflow_ref }}-${{ inputs.environment || github.event.inputs.environment }}
   cancel-in-progress: false
 
 jobs:

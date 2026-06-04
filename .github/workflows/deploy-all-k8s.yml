@@ -19,7 +19,9 @@ on:
         type: string
 
 concurrency:
-  group: k8s-build-${{ github.workflow }}-${{ github.event.inputs.environment }}
+  # Distinct from per-service k8s-build-* groups. Reusable child workflows inherit
+  # github.workflow from the caller; sharing k8s-build-<caller>-<env> deadlocks here.
+  group: k8s-deploy-all-${{ github.event.inputs.environment }}
   cancel-in-progress: false
 
 jobs:
