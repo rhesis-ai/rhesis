@@ -41,26 +41,28 @@ export default function ActionBar({
 }: ActionBarProps) {
   return (
     <Box
-      sx={[
-        {
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 10,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          px: 3,
-          py: 2,
-          display: 'flex',
-          justifyContent:
-            leftButton && rightButton
-              ? 'space-between'
-              : rightButton
-                ? 'flex-end'
-                : 'flex-start',
-        },
-        ...(sx ? [sx] : []),
-      ]}
+      sx={
+        [
+          {
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10,
+            borderTop: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            px: 3,
+            py: 2,
+            display: 'flex',
+            justifyContent:
+              leftButton && rightButton
+                ? 'space-between'
+                : rightButton
+                  ? 'flex-end'
+                  : 'flex-start',
+          },
+          ...(sx ? [sx] : []),
+        ] as SxProps<Theme>
+      }
     >
       {leftButton && (
         <Button
