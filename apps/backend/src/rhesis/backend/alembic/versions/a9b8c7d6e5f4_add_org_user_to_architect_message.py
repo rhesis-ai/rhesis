@@ -38,23 +38,54 @@ _TENANT_POLICY = """
 """
 
 
+# Tables whose RLS must be quiet while this migration runs:
+#   - architect_message: FK validation + the new policy read it
+#   - architect_session: the step-3 backfill reads it
+#   - organization, user:  FK validation reads them as the FK targets
+# Their tenant_isolation policies call current_setting('app.current_organization')
+# WITHOUT missing_ok=true, so any policy evaluation without that GUC set raises
+# "unrecognized configuration parameter".
+_RLS_TABLES = ["architect_message", "architect_session", "organization", '"user"']
+
+
+def _role_bypasses_rls(conn) -> bool:
+    """True when the connected migration role has the BYPASSRLS attribute.
+
+    In stg/prd the migration role (rhesis-admin) is BYPASSRLS, so PostgreSQL
+    never evaluates any RLS policy for it — even under FORCE ROW LEVEL SECURITY.
+    The schema changes and backfill below run cleanly with no RLS handling at
+    all. Only environments whose migration role is NOT BYPASSRLS (e.g. the dev
+    Cloud SQL instance running as a plain user, where Cloud SQL forbids granting
+    BYPASSRLS) need the explicit toggle.
+    """
+    return bool(
+        conn.execute(
+            sa.text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
+        ).scalar()
+    )
+
+
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # 1. Disable RLS BEFORE adding columns. The remote DB already has
-    #    FORCE ROW LEVEL SECURITY on architect_message (applied by c3d4e5f6a7b2),
-    #    so even the migration/admin role is subject to RLS. When op.add_column
-    #    adds organization_id with a FK, two things happen in sequence:
-    #      a) the auto_apply_rls_policies event trigger fires and creates a
-    #         tenant_isolation policy using current_setting('app.current_organization')
-    #      b) PostgreSQL validates the FK by querying the table, which now goes
-    #         through the new strict policy — but the migration session has never
-    #         set app.current_organization, so it raises
-    #         "unrecognized configuration parameter".
-    #    Disabling RLS first means FK validation runs without any RLS policies,
-    #    avoiding the error. The DISABLE/ENABLE round-trip does not affect the
-    #    FORCE flag.
-    conn.execute(sa.text("ALTER TABLE architect_message DISABLE ROW LEVEL SECURITY"))
+    # 1. The remote DB has FORCE ROW LEVEL SECURITY on the tables touched here, so
+    #    a non-BYPASSRLS migration role is subject to RLS. op.add_column then fails
+    #    because PostgreSQL validates the FK by querying the child + FK-target
+    #    tables, whose tenant_isolation policies call
+    #    current_setting('app.current_organization') without missing_ok=true and
+    #    the migration session never set that GUC.
+    #
+    #    When the role bypasses RLS we skip this entirely — policies never fire, so
+    #    there is nothing to disable. When it does not, we disable RLS only for the
+    #    duration of this migration. That toggle is safe: Alembic runs the whole
+    #    upgrade in ONE transaction with transactional DDL, and DISABLE/ENABLE takes
+    #    an ACCESS EXCLUSIVE lock, so no other session can read these tables while
+    #    RLS is off and the disable→enable is only ever observed atomically (already
+    #    re-enabled) at commit. The round-trip does not affect the FORCE flag.
+    toggle_rls = not _role_bypasses_rls(conn)
+    if toggle_rls:
+        for table in _RLS_TABLES:
+            conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
 
     # 2. Add organization_id and user_id columns (nullable; values come from the
     #    parent session). Adding organization_id fires the auto_apply_rls event
@@ -90,8 +121,8 @@ def upgrade() -> None:
         ["user_id"],
     )
 
-    # 3. Backfill organization_id / user_id from the parent session while RLS is
-    #    still disabled (mirrors the project_membership backfill in e5f6a7b8c9d0).
+    # 3. Backfill organization_id / user_id from the parent session (mirrors the
+    #    project_membership backfill in e5f6a7b8c9d0).
     conn.execute(
         sa.text(
             """
@@ -104,7 +135,9 @@ def upgrade() -> None:
             """
         )
     )
-    conn.execute(sa.text("ALTER TABLE architect_message ENABLE ROW LEVEL SECURITY"))
+    if toggle_rls:
+        for table in _RLS_TABLES:
+            conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
 
     # 4. Ensure the permissive tenant_isolation policy exists (the missing piece).
     op.execute("ALTER TABLE architect_message FORCE ROW LEVEL SECURITY")
