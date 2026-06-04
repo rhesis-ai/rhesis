@@ -717,13 +717,10 @@ export default function TestSetsGrid({
         getRowId={row => row.id}
         showToolbar={true}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/test-sets/${row.id}`}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}

@@ -77,6 +77,9 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));
 
+  const generationStatus = testSet.attributes?.metadata?.generation?.status;
+  const isGenerating = generationStatus === 'in_progress';
+
   const title = testSet.name || `Test Set ${identifier}`;
   const breadcrumbs = [
     { label: 'Test Sets', href: '/test-sets' },
@@ -129,6 +132,7 @@ export default async function TestSetPage({ params }: PageProps) {
           <TestSetDetailTabs
             testSet={serializedTestSet}
             testCount={testCount}
+            isGenerating={isGenerating}
             sessionToken={session.session_token}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}

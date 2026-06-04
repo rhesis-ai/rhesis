@@ -24,6 +24,10 @@ import { SourceData } from '@/utils/api-client/interfaces/test-set';
 interface SourceSelectorProps {
   selectedSourceIds: string[];
   onSourcesChange: (sources: SourceData[]) => void;
+  /** Pre-fetched sources list — skips the internal fetch when provided. */
+  preloadedSources?: Source[];
+  /** Whether the pre-fetched sources are still loading. */
+  isLoadingSources?: boolean;
 }
 
 /**
@@ -34,20 +38,32 @@ interface SourceSelectorProps {
 export default function SourceSelector({
   selectedSourceIds,
   onSourcesChange,
+  preloadedSources,
+  isLoadingSources: isLoadingSourcesProp,
 }: SourceSelectorProps) {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [fetchedSources, setFetchedSources] = useState<Source[]>([]);
+  const [isFetching, setIsFetching] = useState(preloadedSources === undefined);
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
+  // Use preloaded data when available; otherwise fall back to internal fetch
+  const sources = preloadedSources ?? fetchedSources;
+  const isLoading =
+    preloadedSources !== undefined
+      ? (isLoadingSourcesProp ?? false)
+      : isFetching;
+
   const loadSources = useCallback(async () => {
+    // Skip internal fetch when the parent supplies preloaded data.
+    if (preloadedSources !== undefined) return;
+
     if (!session?.session_token) {
-      setIsLoading(false);
+      setIsFetching(false);
       return;
     }
 
     try {
-      setIsLoading(true);
+      setIsFetching(true);
       setError(null);
 
       const apiFactory = new ApiClientFactory(session.session_token);
@@ -64,13 +80,13 @@ export default function SourceSelector({
         ? sourcesResponse
         : sourcesResponse?.data || [];
 
-      setSources(sourcesData);
+      setFetchedSources(sourcesData);
     } catch (_err) {
       setError('Failed to load sources. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsFetching(false);
     }
-  }, [session]);
+  }, [session, preloadedSources]);
 
   useEffect(() => {
     loadSources();

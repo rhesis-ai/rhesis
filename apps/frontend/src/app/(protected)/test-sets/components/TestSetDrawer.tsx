@@ -74,14 +74,18 @@ export default function TestSetDrawer({
           sort_order: 'asc',
         });
 
-        setTestSetTypes(types);
+        const selectableTypes = types.filter(
+          t => t.type_value?.toLowerCase() !== 'mixed'
+        );
 
-        if (!testSet && types.length > 0) {
-          const singleTurnType = types.find(
+        setTestSetTypes(selectableTypes);
+
+        if (!testSet && selectableTypes.length > 0) {
+          const singleTurnType = selectableTypes.find(
             t => t.type_value === TEST_TYPES.SINGLE_TURN
           );
           setSelectedTestSetTypeId(
-            singleTurnType ? singleTurnType.id : types[0].id
+            singleTurnType ? singleTurnType.id : selectableTypes[0].id
           );
         }
       } catch (_err) {

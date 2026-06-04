@@ -6,7 +6,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -46,7 +45,7 @@ export default function TestsPage() {
   React.useEffect(() => {
     const openGeneration = searchParams?.get('openGeneration');
     if (openGeneration === 'true') {
-      router.push('/tests/new-generated');
+      router.push('/test-sets/new-generated');
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('openGeneration');
       window.history.replaceState({}, '', newUrl.toString());
@@ -79,14 +78,9 @@ export default function TestsPage() {
     router.push('/tests/new-manual');
   }, [activeTour, router]);
 
-  const handleCreateAI = React.useCallback(() => {
-    if (activeTour === 'testCases') return;
-    router.push('/tests/new-generated');
-  }, [activeTour, router]);
-
   React.useEffect(() => {
     const handleTourOpenModal = () => {
-      router.push('/tests/new-generated');
+      router.push('/test-sets/new-generated');
     };
     window.addEventListener('tour-open-test-modal', handleTourOpenModal);
     return () => {
@@ -125,13 +119,6 @@ export default function TestsPage() {
             icon={<DownloadOutlinedIcon />}
             tooltip="Import tests"
             onClick={() => {}}
-          />
-          <Fab
-            icon={<AutoFixHighIcon />}
-            tooltip="AI-generated test"
-            aria-label="AI-generated test"
-            onClick={handleCreateAI}
-            disabled={shouldDisableAddButton}
           />
           <Fab
             icon={<EditNoteIcon />}

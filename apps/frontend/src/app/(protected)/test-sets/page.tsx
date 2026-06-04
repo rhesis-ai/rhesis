@@ -7,6 +7,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
@@ -14,8 +15,8 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
-import FileImportDialog from './components/FileImportDialog';
-import GarakImportDialog from './components/GarakImportDialog';
+import FileImportDrawer from './components/FileImportDrawer';
+import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -29,8 +30,8 @@ export default function TestSetsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
-  const [fileImportDialogOpen, setFileImportDialogOpen] = React.useState(false);
-  const [garakImportDialogOpen, setGarakImportDialogOpen] =
+  const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
+  const [garakImportDrawerOpen, setGarakImportDrawerOpen] =
     React.useState(false);
 
   useDocumentTitle('Test Sets');
@@ -122,12 +123,18 @@ export default function TestSetsPage() {
             <Fab
               icon={<FileUploadIcon />}
               tooltip="Import from File"
-              onClick={() => setFileImportDialogOpen(true)}
+              onClick={() => setFileImportDrawerOpen(true)}
             />
             <Fab
               icon={<SecurityIcon />}
               tooltip="Import from Garak"
-              onClick={() => setGarakImportDialogOpen(true)}
+              onClick={() => setGarakImportDrawerOpen(true)}
+            />
+            <Fab
+              icon={<AutoFixHighIcon />}
+              tooltip="AI generated Test Set"
+              aria-label="AI generated Test Set"
+              onClick={() => router.push('/test-sets/new-generated')}
             />
             <Fab
               icon={<FabAddIcon />}
@@ -173,16 +180,16 @@ export default function TestSetsPage() {
         onSuccess={handleCreateSuccess}
       />
 
-      <FileImportDialog
-        open={fileImportDialogOpen}
-        onClose={() => setFileImportDialogOpen(false)}
+      <FileImportDrawer
+        open={fileImportDrawerOpen}
+        onClose={() => setFileImportDrawerOpen(false)}
         sessionToken={sessionToken}
         onSuccess={handleFileImportSuccess}
       />
 
-      <GarakImportDialog
-        open={garakImportDialogOpen}
-        onClose={() => setGarakImportDialogOpen(false)}
+      <GarakImportDrawer
+        open={garakImportDrawerOpen}
+        onClose={() => setGarakImportDrawerOpen(false)}
         sessionToken={sessionToken}
         onSuccess={handleGarakImportSuccess}
       />

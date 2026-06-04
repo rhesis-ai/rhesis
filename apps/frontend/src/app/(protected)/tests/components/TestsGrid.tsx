@@ -836,6 +836,7 @@ export default function TestsTable({
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={selectedRows}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/tests/${row.id}`}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}

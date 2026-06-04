@@ -110,6 +110,12 @@ export interface TestSet {
       sample?: string;
       license_type?: string;
       sources?: Array<{ document: string; name: string; description: string }>;
+      generation?: {
+        status: 'in_progress' | 'completed' | 'failed';
+        task_id?: string;
+        requested_tests?: number;
+        error?: string;
+      };
     };
     topics?: string[];
     behaviors?: string[];
@@ -315,6 +321,7 @@ export interface GenerateTestsRequest {
   name?: string; // Only used for bulk generation
   test_type?: 'single_turn' | 'multi_turn'; // Type of tests to generate
   model_id?: string; // Override user's default generation model for this request
+  project_id?: string; // Required for bulk generation via POST /test_sets/generate
 }
 
 /**
@@ -329,6 +336,7 @@ export interface GenerateTestsResponse {
  */
 export interface GenerateTestSetResponse {
   task_id: string;
+  test_set_id: string;
   message: string;
   estimated_tests: number;
 }

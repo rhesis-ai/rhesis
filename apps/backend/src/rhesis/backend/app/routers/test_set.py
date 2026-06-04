@@ -34,6 +34,7 @@ from rhesis.backend.app.services.test import (
 )
 from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
+    create_pending_test_set,
     execute_test_set_on_endpoint,
     get_test_set_stats,
     get_test_set_test_stats,
@@ -72,6 +73,7 @@ class TestSetGenerationResponse(BaseModel):
     """Response for test set generation task."""
 
     task_id: str
+    test_set_id: str
     message: str
     estimated_tests: int
 
@@ -124,26 +126,87 @@ async def generate_test_set(
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
+        name = (request.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="A test set name is required")
+
+        if not request.project_id:
+            raise HTTPException(
+                status_code=400,
+                detail="A project_id is required to generate a test set",
+            )
+
         test_type = request.test_type
 
-        # Launch background task with explicit parameters
-        task_result = task_launcher(
-            generate_and_save_test_set,
-            current_user=current_user,
-            db=db,
-            config=request.config.model_dump(),
-            num_tests=request.num_tests,
-            batch_size=request.batch_size,
-            sources=[s.model_dump() for s in request.sources] if request.sources else None,
-            name=request.name,
-            test_type=test_type,
-            model_id=str(request.model_id) if request.model_id else None,
+        # Resolve TestSetType for the pending row
+        from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
+
+        resolved_type = (
+            TestSetTypeEnum.from_string(test_type) if test_type else TestSetTypeEnum.SINGLE_TURN
         )
+
+        # Pre-create a placeholder task_id so we can stamp the test set before launching
+        import uuid as _uuid
+
+        placeholder_task_id = str(_uuid.uuid4())
+
+        # Create the empty TestSet row up front so the frontend can redirect immediately
+        db_test_set = create_pending_test_set(
+            db=db,
+            name=name,
+            organization_id=str(current_user.organization_id),
+            user_id=str(current_user.id),
+            project_id=str(request.project_id),
+            task_id=placeholder_task_id,
+            requested_tests=request.num_tests,
+            test_type=resolved_type,
+        )
+        db.commit()
+
+        # Launch background task with the pre-created test_set_id.
+        # If launch fails (broker down, serialisation error, etc.) mark the row
+        # as failed immediately so it never stays stuck at 'in_progress'.
+        try:
+            task_result = task_launcher(
+                generate_and_save_test_set,
+                current_user=current_user,
+                db=db,
+                task_id=placeholder_task_id,
+                config=request.config.model_dump(),
+                num_tests=request.num_tests,
+                batch_size=request.batch_size,
+                sources=[s.model_dump() for s in request.sources] if request.sources else None,
+                name=name,
+                test_type=test_type,
+                model_id=str(request.model_id) if request.model_id else None,
+                test_set_id=str(db_test_set.id),
+            )
+        except Exception as launch_err:
+            logger.error(
+                "Failed to launch test set generation task; marking TestSet as failed",
+                extra={
+                    "test_set_id": str(db_test_set.id),
+                    "error": str(launch_err),
+                },
+            )
+            # Refresh the row so we can safely mutate it after the previous commit.
+            db.refresh(db_test_set)
+            attrs = dict(db_test_set.attributes or {})
+            metadata = dict(attrs.get("metadata", {}))
+            generation = dict(metadata.get("generation", {}))
+            generation["status"] = "failed"
+            generation["error"] = str(launch_err)
+            metadata["generation"] = generation
+            attrs["metadata"] = metadata
+            db_test_set.attributes = attrs
+            db.commit()
+            raise handle_execution_error(launch_err, operation="launch test set generation task")
 
         logger.info(
             "Test set generation task launched",
             extra={
                 "task_id": task_result.id,
+                "test_set_id": str(db_test_set.id),
                 "user_id": current_user.id,
                 "organization_id": current_user.organization_id,
                 "num_tests": request.num_tests,
@@ -152,6 +215,7 @@ async def generate_test_set(
 
         return TestSetGenerationResponse(
             task_id=task_result.id,
+            test_set_id=str(db_test_set.id),
             message=f"Test set generation started. "
             f"You will be notified when {request.num_tests} tests are ready.",
             estimated_tests=request.num_tests,

@@ -879,6 +879,7 @@ function TestRunsGrid({
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={Array.isArray(selectedRows) ? selectedRows : []}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/test-runs/${row.id}`}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}

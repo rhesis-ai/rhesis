@@ -59,6 +59,101 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
     return query.first()
 
 
+def create_pending_test_set(
+    db: Session,
+    name: str,
+    organization_id: str,
+    user_id: str,
+    project_id: str,
+    task_id: str,
+    requested_tests: int,
+    test_type: TestSetType = None,
+) -> models.TestSet:
+    """Create an empty TestSet row immediately, before background generation begins.
+
+    The row is stamped with generation.status='in_progress' in its attributes so
+    the frontend can show a loading state on the detail page while the worker
+    fills in the tests.
+
+    The project_id is set explicitly on the model (not via auto_stamp) so the
+    test set always lands in the correct project regardless of the session scope.
+
+    Args:
+        db: Database session (caller manages the transaction)
+        name: Test set name (required)
+        organization_id: Organization UUID string
+        user_id: User UUID string
+        project_id: Project UUID string (required; the test set must belong to a project)
+        task_id: Celery task ID for tracking
+        requested_tests: How many tests were requested
+        test_type: Optional TestSetType; defaults to SINGLE_TURN
+
+    Returns:
+        Created TestSet model instance (not yet committed)
+    """
+    defaults = load_defaults()
+
+    resolved_type = (
+        test_type if test_type else TestSetType.from_string(defaults["test_set"]["test_set_type"])
+    )
+    test_set_type_value = TestSetType.get_value(resolved_type)
+
+    test_set_status = get_or_create_status(
+        db=db,
+        name=defaults["test_set"]["status"],
+        entity_type=EntityType.GENERAL,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    license_type = get_or_create_type_lookup(
+        db=db,
+        type_name="LicenseType",
+        type_value=defaults["test_set"]["license_type"],
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    test_set_type_lookup = get_or_create_type_lookup(
+        db=db,
+        type_name="TestSetType",
+        type_value=test_set_type_value,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    test_set = models.TestSet(
+        name=name,
+        status_id=test_set_status.id,
+        license_type_id=license_type.id,
+        test_set_type_id=test_set_type_lookup.id,
+        user_id=user_id,
+        organization_id=organization_id,
+        project_id=project_id,
+        owner_id=ensure_owner_id(None, user_id),
+        priority=defaults["test_set"]["priority"],
+        visibility=defaults["test_set"]["visibility"],
+        attributes={
+            "metadata": {
+                "total_tests": 0,
+                "categories": [],
+                "behaviors": [],
+                "topics": [],
+                "license_type": defaults["test_set"]["license_type"],
+                "generation": {
+                    "status": "in_progress",
+                    "task_id": task_id,
+                    "requested_tests": requested_tests,
+                },
+            }
+        },
+    )
+
+    db.add(test_set)
+    db.flush()
+    return test_set
+
+
 def load_defaults():
     """Load default values from bulk_defaults.json"""
     defaults_path = Path(__file__).parent / "bulk_defaults.json"

@@ -120,23 +120,6 @@ export interface GenerationConfig {
 }
 
 /**
- * Test set size options
- */
-export type TestSetSize = 'small' | 'medium' | 'large' | 'custom';
-
-/**
- * Test set size configuration
- */
-export interface TestSetSizeConfig {
-  id: TestSetSize;
-  label: string;
-  description: string;
-  testCount: string;
-  estimatedCost: string;
-  recommended?: boolean;
-}
-
-/**
  * Current flow step
  */
 export type FlowStep = 'input' | 'interface' | 'confirmation';
@@ -183,9 +166,8 @@ export interface FlowState {
   chatMessages: ChatMessage[];
 
   // Final Configuration
-  testSetSize: TestSetSize;
+  numTests: number;
   testSetName: string;
-  createTestSet: boolean;
 
   // UI State
   isGenerating: boolean;
