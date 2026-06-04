@@ -104,6 +104,28 @@ async def handle_architect_message(
                     active_project_id,
                 )
 
+            # region agent log
+            import json as _json
+            import time as _time
+            _log_path = "/Users/harry/rhesis/worktrees/rhesis/feat/project-container/.cursor/debug-df310b.log"
+            try:
+                _diag = db.execute(__import__("sqlalchemy").text(
+                    "SELECT current_setting('app.current_organization', true) AS cur_org, "
+                    "       current_setting('app.current_project', true) AS cur_proj, "
+                    "       array_agg(policyname ORDER BY policyname) FILTER (WHERE tablename='architect_message') AS policies, "
+                    "       bool_or(column_name='organization_id') FILTER (WHERE table_name='architect_message') AS has_org_id "
+                    "FROM pg_policies "
+                    "CROSS JOIN information_schema.columns "
+                    "WHERE table_schema='public'"
+                )).mappings().first()
+                _diag_data = dict(_diag) if _diag else {}
+            except Exception as _e:
+                _diag_data = {"diag_error": str(_e)}
+            _log_entry = _json.dumps({"sessionId": "df310b", "id": f"log_{int(_time.time()*1000)}", "timestamp": int(_time.time()*1000), "location": "architect.py:107", "message": "pre-insert diagnostic", "data": {"client_project_id": client_project_id, "active_project_id": active_project_id, "scope_project": str(db.info.get("_scope").project_id) if db.info.get("_scope") else None, "scope_org": str(db.info.get("_scope").organization_id) if db.info.get("_scope") else None, **_diag_data}, "runId": "run1", "hypothesisId": "A-B-C"})
+            with open(_log_path, "a") as _f:
+                _f.write(_log_entry + "\n")
+            # endregion agent log
+
             crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(
