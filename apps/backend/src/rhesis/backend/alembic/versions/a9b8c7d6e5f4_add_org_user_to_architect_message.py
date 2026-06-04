@@ -39,11 +39,28 @@ _TENANT_POLICY = """
 
 
 def upgrade() -> None:
-    # 1. Add organization_id and user_id columns (nullable; values come from the
+    conn = op.get_bind()
+
+    # 1. Disable RLS BEFORE adding columns. The remote DB already has
+    #    FORCE ROW LEVEL SECURITY on architect_message (applied by c3d4e5f6a7b2),
+    #    so even the migration/admin role is subject to RLS. When op.add_column
+    #    adds organization_id with a FK, two things happen in sequence:
+    #      a) the auto_apply_rls_policies event trigger fires and creates a
+    #         tenant_isolation policy using current_setting('app.current_organization')
+    #      b) PostgreSQL validates the FK by querying the table, which now goes
+    #         through the new strict policy — but the migration session has never
+    #         set app.current_organization, so it raises
+    #         "unrecognized configuration parameter".
+    #    Disabling RLS first means FK validation runs without any RLS policies,
+    #    avoiding the error. The DISABLE/ENABLE round-trip does not affect the
+    #    FORCE flag.
+    conn.execute(sa.text("ALTER TABLE architect_message DISABLE ROW LEVEL SECURITY"))
+
+    # 2. Add organization_id and user_id columns (nullable; values come from the
     #    parent session). Adding organization_id fires the auto_apply_rls event
     #    trigger which creates tenant_isolation automatically, but we (re)create it
-    #    explicitly below so this migration is deterministic regardless of trigger
-    #    state.
+    #    explicitly in step 4 so this migration is deterministic regardless of
+    #    trigger state.
     op.add_column(
         "architect_message",
         sa.Column(
@@ -73,13 +90,8 @@ def upgrade() -> None:
         ["user_id"],
     )
 
-    # 2. Backfill organization_id / user_id from the parent session. Temporarily
-    #    disable RLS so the UPDATE runs without a tenant GUC being set (mirrors the
-    #    project_membership backfill in e5f6a7b8c9d0). This only requires table
-    #    ownership, not superuser. FORCE ROW LEVEL SECURITY is a separate flag and
-    #    survives the DISABLE/ENABLE round-trip.
-    conn = op.get_bind()
-    conn.execute(sa.text("ALTER TABLE architect_message DISABLE ROW LEVEL SECURITY"))
+    # 3. Backfill organization_id / user_id from the parent session while RLS is
+    #    still disabled (mirrors the project_membership backfill in e5f6a7b8c9d0).
     conn.execute(
         sa.text(
             """
@@ -94,7 +106,7 @@ def upgrade() -> None:
     )
     conn.execute(sa.text("ALTER TABLE architect_message ENABLE ROW LEVEL SECURITY"))
 
-    # 3. Ensure the permissive tenant_isolation policy exists (the missing piece).
+    # 4. Ensure the permissive tenant_isolation policy exists (the missing piece).
     op.execute("ALTER TABLE architect_message FORCE ROW LEVEL SECURITY")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON architect_message")
     op.execute(_TENANT_POLICY)
