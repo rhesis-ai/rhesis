@@ -12,7 +12,7 @@
 # base-build: shared Python builder + Rust + uv + monorepo libs
 # =============================================================================
 FROM mirror.gcr.io/library/python:3.12.8-slim AS base-build
-COPY --from=mirror.gcr.io/astral/uv:latest /uv /uvx /bin/
+COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -97,7 +97,7 @@ COPY apps/backend/src ./src
 # base-runtime: shared slim runtime + uv + rhesis-user + full backend payload
 # =============================================================================
 FROM mirror.gcr.io/library/python:3.12.8-slim AS base-runtime
-COPY --from=mirror.gcr.io/astral/uv:latest /uv /uvx /bin/
+COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app/apps/backend
 
@@ -137,7 +137,7 @@ EXPOSE 8080
 # migrate: core-only venv + Alembic (Cloud Run migration job)
 # =============================================================================
 FROM mirror.gcr.io/library/python:3.12.8-slim AS migrate
-COPY --from=mirror.gcr.io/astral/uv:latest /uv /uvx /bin/
+COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app/apps/backend
 

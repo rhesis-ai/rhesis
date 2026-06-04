@@ -4,10 +4,11 @@
 # Single stage build for simplicity
 # IMPORTANT: The python version must match the version in the .python-version file.
 FROM mirror.gcr.io/library/python:3.12-slim
+COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install OS-level dependencies and uv with retry logic
+# Install OS-level dependencies with retry logic
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     --allow-unauthenticated \
@@ -17,7 +18,6 @@ RUN apt-get update && \
     build-essential \
     curl \
     git \
-    && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only the dependency files for chatbot
