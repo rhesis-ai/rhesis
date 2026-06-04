@@ -52,6 +52,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { GridToolbar as AppGridToolbar } from '@/components/common/GridToolbar';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { EntityInfoBanner } from '@/components/common/EntityInfoBanner';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -3018,96 +3019,23 @@ export default function ExplorerDetail({
       }
     >
       <Box>
-        {/* Compact config hint — full card replaced by a single info row */}
-        <Box
-          sx={{
-            mb: 2,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            flexWrap: 'wrap',
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
-          {explorerConfigSummary === null ? (
-            <CircularProgress size={14} />
-          ) : (
-            <>
-              {/* Endpoint */}
-              <Typography variant="caption" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  Endpoint:
-                </Box>{' '}
-                {explorerConfigSummary.endpointLabel ?? (
-                  <Box
-                    component="span"
-                    sx={{ fontStyle: 'italic', color: 'text.disabled' }}
-                  >
-                    not set
-                  </Box>
-                )}
-                {explorerConfigSummary.endpointEnvironment && (
-                  <Box
-                    component="span"
-                    sx={{
-                      ml: 0.75,
-                      color: getEnvironmentColor(
-                        explorerConfigSummary.endpointEnvironment
-                      ),
-                    }}
-                  >
-                    (
-                    {formatEnvironment(
-                      explorerConfigSummary.endpointEnvironment
-                    )}
-                    )
-                  </Box>
-                )}
-              </Typography>
-              <Box
-                component="span"
-                sx={{ color: 'text.disabled', fontSize: 12 }}
-              >
-                ·
-              </Box>
-              {/* Metric(s) */}
-              <Typography variant="caption" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  Metric:
-                </Box>{' '}
-                {explorerConfigSummary.metrics.length > 0 ? (
-                  explorerConfigSummary.metrics.map((m, i) => (
-                    <React.Fragment key={m.id}>
-                      {i > 0 && ', '}
-                      {m.hasDetailPage ? (
-                        <Box
-                          component="span"
-                          onClick={() => setMetricEditorMetricId(m.id)}
-                          sx={{
-                            cursor: 'pointer',
-                            color: 'primary.main',
-                            '&:hover': { textDecoration: 'underline' },
-                          }}
-                        >
-                          {m.name}
-                        </Box>
-                      ) : (
-                        m.name
-                      )}
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <Box
-                    component="span"
-                    sx={{ fontStyle: 'italic', color: 'text.disabled' }}
-                  >
-                    not set
-                  </Box>
-                )}
-              </Typography>
-            </>
-          )}
-        </Box>
+        {/* Config hint banner */}
+        {explorerConfigSummary !== null && (
+          <Box sx={{ mb: 2 }}>
+            <EntityInfoBanner
+              name={
+                explorerConfigSummary.endpointLabel
+                  ? `${explorerConfigSummary.endpointLabel}${explorerConfigSummary.endpointEnvironment ? ` (${formatEnvironment(explorerConfigSummary.endpointEnvironment)})` : ''}`
+                  : 'No endpoint selected'
+              }
+              description={
+                explorerConfigSummary.metrics.length > 0
+                  ? `Metric: ${explorerConfigSummary.metrics.map(m => m.name).join(', ')}`
+                  : 'No metric selected'
+              }
+            />
+          </Box>
+        )}
 
         {/* View Tabs */}
         <Box
