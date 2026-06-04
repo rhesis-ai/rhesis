@@ -10,7 +10,7 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PlayArrowIcon } from '@/components/icons';
 import TestRunsGrid from './components/TestRunsGrid';
-import TestRunDrawer from './components/TestRunDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -117,7 +117,8 @@ export default function TestRunsPage() {
         </Box>
       </PageLayout>
 
-      <TestRunDrawer
+      <RunDrawer
+        mode="newTestRun"
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
         sessionToken={sessionToken}

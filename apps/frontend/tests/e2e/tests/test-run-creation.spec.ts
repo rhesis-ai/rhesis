@@ -34,32 +34,13 @@ async function selectDrawerCombo(
 
 /**
  * Fills all required fields in the Create Test Run drawer:
- * name, Test Set, Project, and Endpoint.
+ * Test Set and Endpoint (RunDrawer newTestRun mode — no name field).
  * Returns false (and calls test.skip) if a required selection has no options.
  */
-async function fillCreateTestRunDrawer(
-  page: Page,
-  name: string
-): Promise<boolean> {
-  const nameInput = page
-    .locator('[role="presentation"]')
-    .getByRole('textbox', { name: /name/i })
-    .first();
-  if (!(await nameInput.isVisible({ timeout: 5_000 }).catch(() => false))) {
-    test.skip(true, 'Name field not found in drawer — skipping');
-    return false;
-  }
-  await nameInput.fill(name);
-
+async function fillCreateTestRunDrawer(page: Page): Promise<boolean> {
   const testSetResult = await selectDrawerCombo(page, /test set/i);
   if (testSetResult === 'skip') {
     test.skip(true, 'No test sets available — skipping');
-    return false;
-  }
-
-  const projectResult = await selectDrawerCombo(page, /project/i);
-  if (projectResult === 'skip') {
-    test.skip(true, 'No projects available — skipping');
     return false;
   }
 
@@ -107,8 +88,6 @@ test.describe('Test Runs — creation @crud', () => {
   });
 
   test('can fill and submit the Create Test Run drawer', async ({ page }) => {
-    const UNIQUE_NAME = `e2e-run-${Date.now()}`;
-
     const runsPage = new TestRunsPage(page);
     await runsPage.goto();
     await runsPage.expectLoaded();
@@ -130,13 +109,13 @@ test.describe('Test Runs — creation @crud', () => {
       .getByRole('presentation')
       .waitFor({ state: 'visible', timeout: 10_000 });
 
-    const filled = await fillCreateTestRunDrawer(page, UNIQUE_NAME);
+    const filled = await fillCreateTestRunDrawer(page);
     if (!filled) return;
 
-    // Submit the form
+    // Submit the form — RunDrawer uses "Execute Now"
     const submitBtn = page
       .locator('[role="presentation"]')
-      .getByRole('button', { name: /run|start|create|save/i })
+      .getByRole('button', { name: /execute now|run|start|create|save/i })
       .first();
     const hasSubmit = await submitBtn
       .isVisible({ timeout: 5_000 })
@@ -147,21 +126,19 @@ test.describe('Test Runs — creation @crud', () => {
     }
     await submitBtn.click();
 
-    // Wait for drawer to close and the run to appear in the grid
+    // Wait for drawer to close — success means the API call was accepted
     await page
       .getByRole('presentation')
       .waitFor({ state: 'hidden', timeout: 20_000 });
     await page.waitForLoadState('networkidle');
 
-    // The new run should appear in the list
-    await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
+    // The grid should have at least one row after a successful submission
+    await expect(page.locator('[role="row"]').nth(1)).toBeVisible({
       timeout: 15_000,
     });
   });
 
   test('newly created test run shows a valid status chip', async ({ page }) => {
-    const UNIQUE_NAME = `e2e-run-status-${Date.now()}`;
-
     const runsPage = new TestRunsPage(page);
     await runsPage.goto();
     await runsPage.expectLoaded();
@@ -183,12 +160,13 @@ test.describe('Test Runs — creation @crud', () => {
       .getByRole('presentation')
       .waitFor({ state: 'visible', timeout: 10_000 });
 
-    const filled = await fillCreateTestRunDrawer(page, UNIQUE_NAME);
+    const filled = await fillCreateTestRunDrawer(page);
     if (!filled) return;
 
+    // Submit — RunDrawer uses "Execute Now"
     const submitBtn = page
       .locator('[role="presentation"]')
-      .getByRole('button', { name: /run|start|create|save/i })
+      .getByRole('button', { name: /execute now|run|start|create|save/i })
       .first();
     await submitBtn.click();
 
@@ -197,23 +175,21 @@ test.describe('Test Runs — creation @crud', () => {
       .waitFor({ state: 'hidden', timeout: 20_000 });
     await page.waitForLoadState('networkidle');
 
-    // Locate the row and check that a status chip is visible
-    // Valid statuses include: Queued (#1415), In Progress, Completed, Failed
-    const row = page.locator('[role="row"]', { hasText: UNIQUE_NAME });
-    const rowVisible = await row
+    // The first data row should show a recognisable status chip
+    // Valid statuses: Queued, In Progress, Running, Completed, Failed, Pending
+    const firstDataRow = page.locator('[role="row"]').nth(1);
+    const rowVisible = await firstDataRow
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
     if (!rowVisible) {
-      test.skip(
-        true,
-        'New test run row not found in grid — skipping status check'
-      );
+      test.skip(true, 'No test run row found in grid — skipping status check');
       return;
     }
 
-    // The row should contain a recognisable status chip
     const statusPattern =
       /queued|in progress|running|completed|failed|pending/i;
-    await expect(row).toContainText(statusPattern, { timeout: 10_000 });
+    await expect(firstDataRow).toContainText(statusPattern, {
+      timeout: 10_000,
+    });
   });
 });

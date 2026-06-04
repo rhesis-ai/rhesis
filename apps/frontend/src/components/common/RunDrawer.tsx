@@ -14,7 +14,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Divider,
   FormControl,
   FormHelperText,
   IconButton,
@@ -33,12 +32,11 @@ import {
   CallSplit as CallSplitIcon,
   Close as CloseIcon,
   Edit as EditIcon,
+  FlightTakeoff as FlightTakeoffIcon,
   Psychology as PsychologyIcon,
   Replay as ReplayIcon,
-  FlightTakeoff as FlightTakeoffIcon,
   Tune as TuneIcon,
 } from '@mui/icons-material';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Link from 'next/link';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -1398,9 +1396,9 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     return (
       <Box>
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {EXPERIMENT_SECTION_DESCRIPTION}
-        </Alert>
+        </Typography>
 
         {experimentGroups && <Box sx={{ mb: 2 }}>{experimentGroups}</Box>}
 
@@ -1417,12 +1415,13 @@ export default function RunDrawer(props: RunDrawerProps) {
   };
 
   const renderExecutionMode = () => (
-    <FormControl fullWidth>
-      <InputLabel>Execution Mode</InputLabel>
+    <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+      <InputLabel shrink>Execution Mode</InputLabel>
       <Select
         value={executionMode}
         onChange={e => setExecutionMode(e.target.value)}
         label="Execution Mode"
+        notched
       >
         <MenuItem value="Parallel">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1456,12 +1455,13 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     return (
       <>
-        <FormControl fullWidth>
-          <InputLabel>Scoring Target</InputLabel>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel shrink>Scoring Target</InputLabel>
           <Select
             value={scoringTarget}
             onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
             label="Scoring Target"
+            notched
           >
             <MenuItem value="fresh">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1529,17 +1529,8 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     return (
       <>
-        <Divider />
-        <Typography
-          variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
-          color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
-          fontWeight={mode === 'rerunTestRun' ? 600 : 400}
-        >
-          Test Run Metrics
-        </Typography>
-
-        <FormControl fullWidth>
-          <InputLabel>Metrics Source</InputLabel>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel shrink>Metrics Source</InputLabel>
           <Select
             value={metricMode}
             onChange={e => {
@@ -1547,6 +1538,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               if (e.target.value !== 'define_custom') setSelectedMetrics([]);
             }}
             label="Metrics Source"
+            notched
           >
             {testSetMetrics.length > 0 && (
               <MenuItem value="use_test_set">
@@ -1886,29 +1878,48 @@ export default function RunDrawer(props: RunDrawerProps) {
       ) : mode === 'rerunTestRun' ? (
         renderRerunTestRunContent()
       ) : (
-        <Stack spacing={3}>
-          {/* Experiment versions (runExperiment only) */}
-          {mode === 'runExperiment' && (
-            <>
-              <Typography variant="subtitle2" color="text.secondary">
-                Experiment
-              </Typography>
-              {renderExperimentVersionBoxes()}
-              <Divider />
-            </>
-          )}
-
+        <>
           {/* Execution Target */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Execution Target
-          </Typography>
+          <Box sx={RERUN_SECTION_SX}>
+            <FormSectionDivider
+              headline="Execution Target"
+              descriptiveText="The endpoint that will receive and respond to each test case."
+            />
+            <Box sx={RERUN_FIELDS_SX}>
+              {mode === 'runExperiment' && renderExperimentVersionBoxes()}
+              {renderTestSetField()}
+              {renderProjectField()}
+              {renderEndpointField()}
+            </Box>
+          </Box>
 
-          {renderTestSetField()}
-          {renderProjectField()}
-          {renderEndpointField()}
-          {renderExperimentsSection()}
+          {/* Experiment */}
+          {cfg.experimentsEditable &&
+            effectiveProjectId &&
+            (() => {
+              const experimentGroups = renderSelectedExperimentGroups();
+              return (
+                <Box
+                  sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+                >
+                  <FormSectionDivider
+                    headline="Experiment"
+                    descriptiveText={EXPERIMENT_SECTION_DESCRIPTION}
+                  />
+                  {experimentGroups}
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setExperimentsDialogOpen(true)}
+                    sx={RERUN_OUTLINE_BUTTON_SX}
+                  >
+                    Add experiment
+                  </Button>
+                </Box>
+              );
+            })()}
 
-          {/* Run count summary (runExperiment) */}
+          {/* Run count summary (runExperiment only) */}
           {mode === 'runExperiment' &&
             canExecute &&
             (() => {
@@ -1927,94 +1938,113 @@ export default function RunDrawer(props: RunDrawerProps) {
               );
             })()}
 
-          <Divider />
-
-          {/* Configuration Options */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Configuration Options
-          </Typography>
-
-          {renderExecutionMode()}
-          {renderScoringTarget()}
-          {renderMetrics()}
-
-          <Divider />
-
-          {/* Model Settings */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Model Settings
-          </Typography>
-
-          <ModelSelector
-            sessionToken={sessionToken}
-            value={selectedEvaluationModelId}
-            onChange={setSelectedEvaluationModelId}
-            label="Evaluation Model"
-            purpose="evaluation"
-          />
-
-          {(effectiveTestSetType === 'Multi-Turn' ||
-            mode === 'createFromGrid') && (
-            <ModelSelector
-              sessionToken={sessionToken}
-              value={selectedExecutionModelId}
-              onChange={setSelectedExecutionModelId}
-              label="Execution Model"
-              purpose="execution"
-              helperText={
-                mode === 'createFromGrid'
-                  ? 'Only applies to multi-turn test sets'
-                  : 'Used for multi-turn test execution with Penelope'
-              }
+          {/* Advanced Options */}
+          <Box sx={RERUN_SECTION_SX}>
+            <FormSectionDivider
+              headline="Advanced Options"
+              descriptiveText="Optional overrides — defaults work well for most runs."
             />
-          )}
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={preflightEnabled}
-                onChange={e => setPreflightEnabled(e.target.checked)}
-                size="small"
+            <Box sx={RERUN_FIELDS_SX}>
+              {renderExecutionMode()}
+              {renderScoringTarget()}
+              {cfg.showMetrics && renderMetrics()}
+              <ModelSelector
+                sessionToken={sessionToken}
+                value={selectedEvaluationModelId}
+                onChange={setSelectedEvaluationModelId}
+                label="Evaluation Model"
+                purpose="evaluation"
+                hideHelperText
+                compact
+                fieldSx={drawerOutlinedFieldSx}
               />
-            }
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <FlightTakeoffIcon
-                  fontSize="small"
-                  color={preflightEnabled ? 'primary' : 'disabled'}
-                  sx={{ mt: 0.25 }}
+              {(effectiveTestSetType === 'Multi-Turn' ||
+                mode === 'createFromGrid') && (
+                <ModelSelector
+                  sessionToken={sessionToken}
+                  value={selectedExecutionModelId}
+                  onChange={setSelectedExecutionModelId}
+                  label="Execution Model"
+                  purpose="execution"
+                  hideHelperText
+                  compact
+                  fieldSx={drawerOutlinedFieldSx}
                 />
-                <Box>
-                  <Typography variant="body2">Run Preflight Checks</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Validate endpoint and model configuration before executing
-                  </Typography>
-                </Box>
-              </Box>
-            }
-            sx={{ ml: 0, mt: 1 }}
-          />
+              )}
+              <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+                <InputLabel shrink>Run Preflight Checks</InputLabel>
+                <Select
+                  value={preflightEnabled ? 'yes' : 'no'}
+                  onChange={e => setPreflightEnabled(e.target.value === 'yes')}
+                  label="Run Preflight Checks"
+                  notched
+                  renderValue={val => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {val === 'yes' ? (
+                        <FlightTakeoffIcon fontSize="small" />
+                      ) : (
+                        <CloseIcon fontSize="small" />
+                      )}
+                      <Box>
+                        <Typography variant="body1">
+                          {val === 'yes' ? 'Yes' : 'No'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {val === 'yes'
+                            ? 'Validate endpoint and model configuration before executing'
+                            : 'Skip validation and start the run immediately'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                >
+                  <MenuItem value="no">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body1">No</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Skip validation and start the run immediately
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="yes">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <FlightTakeoffIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body1">Yes</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Validate endpoint and model configuration before
+                          executing
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
 
-          <Divider />
-
-          {/* Tags */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Tags
-          </Typography>
-          <BaseTag
-            value={tags}
-            onChange={setTags}
-            label="Tags"
-            placeholder="Add tags (press Enter or comma to add)"
-            helperText="These tags help categorize and find this test run"
-            chipColor="default"
-            addOnBlur
-            delimiters={[',', 'Enter']}
-            size="small"
-            fullWidth
-            chipClassName={tagStyles.modalTag}
-          />
-        </Stack>
+          {/* Test Run Tags */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <FormSectionDivider headline="Test Run Tags" />
+            <BaseTag
+              value={tags}
+              onChange={setTags}
+              label="Tags"
+              placeholder="Add tags (press Enter or comma to add)"
+              chipColor="default"
+              addOnBlur
+              delimiters={[',', 'Enter']}
+              size="small"
+              margin="none"
+              fullWidth
+              chipClassName={tagStyles.modalTag}
+              sx={drawerTagFieldSx}
+            />
+          </Box>
+        </>
       )}
       {cfg.experimentsEditable && effectiveProjectId && (
         <SelectExperimentsDialog
