@@ -104,9 +104,7 @@ def downgrade() -> None:
     # Drop indexes first (DROP INDEX does not fire the auto_apply_rls event
     # trigger, so order is free here).
     op.drop_index("ix_architect_message_user_id", table_name="architect_message")
-    op.drop_index(
-        "ix_architect_message_organization_id", table_name="architect_message"
-    )
+    op.drop_index("ix_architect_message_organization_id", table_name="architect_message")
 
     # Drop the policy, then drop organization_id BEFORE user_id. Each DROP COLUMN
     # is an ALTER TABLE that re-fires auto_apply_rls_policies; if organization_id
