@@ -27,7 +27,13 @@ export function EntityInfoBanner({ name, description }: EntityInfoBannerProps) {
       }}
     >
       <InfoOutlinedIcon
-        sx={{ fontSize: 22, color: 'primary.main', mt: '3px', flexShrink: 0 }}
+        sx={{
+          fontSize: 22,
+          mt: '3px',
+          flexShrink: 0,
+          color: 'primary.main',
+          '& path': { fill: theme => theme.palette.primary.main },
+        }}
       />
       <Box>
         <Typography

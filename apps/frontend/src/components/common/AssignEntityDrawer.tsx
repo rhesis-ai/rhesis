@@ -104,16 +104,12 @@ export default function AssignEntityDrawer({
 
   const hasSelection = Array.isArray(selected) && selected.length > 0;
 
-  // Fill the card's remaining height (rows scroll internally, footer pinned)
-  // and inset the first/last column content to 30px so it lines up with the
-  // toolbar and footer (which already use 30px horizontal padding).
+  // Fill the card's remaining height (rows scroll internally, footer pinned).
+  // BaseDataGrid bakes in the 30px first/last column inset so the toolbar,
+  // cells and footer all line up at 30px.
   const gridSx = {
     flex: 1,
     minHeight: 0,
-    '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
-      { paddingLeft: '30px' },
-    '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
-      { paddingRight: '30px' },
   } as SxProps<Theme>;
 
   return (

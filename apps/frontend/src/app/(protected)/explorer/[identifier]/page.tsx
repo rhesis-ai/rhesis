@@ -2,7 +2,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { PageLayout } from '@/components/layout/PageLayout';
 import ExplorerDetail from './components/ExplorerDetail';
 
 interface ExplorerDetailPageProps {
@@ -45,21 +44,13 @@ export default async function ExplorerDetailPage({
     }
 
     return (
-      <PageLayout
-        title={testSetName}
-        breadcrumbs={[
-          { label: 'Explorer', href: '/explorer' },
-          { label: testSetName },
-        ]}
-      >
-        <ExplorerDetail
-          tests={tests}
-          topics={topics}
-          testSetName={testSetName}
-          testSetId={identifier}
-          sessionToken={session.session_token}
-        />
-      </PageLayout>
+      <ExplorerDetail
+        tests={tests}
+        topics={topics}
+        testSetName={testSetName}
+        testSetId={identifier}
+        sessionToken={session.session_token}
+      />
     );
   } catch (error) {
     const errorMessage = (error as Error).message;

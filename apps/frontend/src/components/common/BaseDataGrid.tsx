@@ -255,6 +255,16 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     overflow: 'hidden',
     borderColor: theme.palette.greyscale.border,
   },
+  // Figma: inset the first/last column content to 30px so headers and cells
+  // line up with the toolbar and pagination footer (both 30px horizontally).
+  '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
+    {
+      paddingLeft: '30px',
+    },
+  '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
+    {
+      paddingRight: '30px',
+    },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
   },
@@ -271,7 +281,14 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
 
 function QuickFilterToolbar() {
   return (
-    <Box sx={{ p: 1, display: 'flex', justifyContent: 'flex-end' }}>
+    <Box
+      sx={{
+        px: '30px',
+        py: '16px',
+        display: 'flex',
+        justifyContent: 'flex-end',
+      }}
+    >
       <GridToolbarQuickFilter debounceMs={300} />
     </Box>
   );
@@ -842,7 +859,8 @@ export default function BaseDataGrid({
       return (
         <Box
           sx={{
-            p: 1,
+            px: '30px',
+            py: '16px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
