@@ -35,10 +35,14 @@ export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
   return (
     <Box
       sx={{
+        position: 'sticky',
+        bottom: 0,
+        zIndex: 10,
         borderTop: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
-        p: 2,
+        px: 3,
+        py: 2,
         display: 'flex',
         justifyContent:
           leftButton && rightButton
@@ -51,7 +55,6 @@ export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
       {leftButton && (
         <Button
           variant={leftButton.variant || 'outlined'}
-          size="large"
           onClick={leftButton.onClick}
           disabled={leftButton.disabled}
           startIcon={leftButton.startIcon}
@@ -73,7 +76,6 @@ export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
       {rightButton && (
         <Button
           variant={rightButton.variant || 'contained'}
-          size="large"
           onClick={rightButton.onClick}
           disabled={rightButton.disabled}
           startIcon={rightButton.startIcon}

@@ -5,12 +5,12 @@ import {
   Box,
   Typography,
   TextField,
-  Paper,
   Chip,
   Tooltip,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import { SectionCard } from '@/components/common/SectionCard';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -202,8 +202,8 @@ export default function TestInputScreen({
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        {/* Test Type Selection */}
+      {/* Test configuration */}
+      <SectionCard title="Test configuration">
         {onTestTypeChange && (
           <Box sx={{ mb: 3 }}>
             <Typography
@@ -228,7 +228,6 @@ export default function TestInputScreen({
           </Box>
         )}
 
-        {/* Source Selection */}
         <Box sx={{ mb: 3 }}>
           <Typography
             variant="subtitle2"
@@ -244,8 +243,7 @@ export default function TestInputScreen({
           />
         </Box>
 
-        {/* Model Selection */}
-        <Box sx={{ mb: 3 }}>
+        <Box>
           <ModelSelector
             sessionToken={sessionToken}
             label="Generation model"
@@ -254,17 +252,11 @@ export default function TestInputScreen({
             onChange={modelId => onModelChange(modelId || null)}
           />
         </Box>
+      </SectionCard>
 
-        {/* Description Input */}
+      {/* Describe what you want to test */}
+      <SectionCard title="Describe what you want to test">
         <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="subtitle2"
-            color="text.secondary"
-            gutterBottom
-            sx={{ mb: 1 }}
-          >
-            Describe what you want to test
-          </Typography>
           <TextField
             fullWidth
             multiline
@@ -280,49 +272,45 @@ export default function TestInputScreen({
           />
         </Box>
 
-        {/* Scaffold Chips */}
-        <Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {SCAFFOLD_CATEGORIES.map(category => (
-              <Box key={category.title}>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mb: 1, display: 'block' }}
-                >
-                  {category.title}
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {category.phrases.map(phrase => (
-                    <Tooltip
-                      key={phrase.id}
-                      title={`${phrase.label} ${phrase.hint}`}
-                      arrow
-                      enterDelay={400}
-                    >
-                      <Chip
-                        label={phrase.label}
-                        onClick={() => handleScaffoldClick(phrase.text)}
-                        variant="outlined"
-                        size="small"
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            bgcolor: 'background.light2',
-                            borderColor: 'primary.main',
-                          },
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {SCAFFOLD_CATEGORIES.map(category => (
+            <Box key={category.title}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mb: 1, display: 'block' }}
+              >
+                {category.title}
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {category.phrases.map(phrase => (
+                  <Tooltip
+                    key={phrase.id}
+                    title={`${phrase.label} ${phrase.hint}`}
+                    arrow
+                    enterDelay={400}
+                  >
+                    <Chip
+                      label={phrase.label}
+                      onClick={() => handleScaffoldClick(phrase.text)}
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'background.light2',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    />
+                  </Tooltip>
+                ))}
               </Box>
-            ))}
-          </Box>
+            </Box>
+          ))}
         </Box>
-      </Paper>
+      </SectionCard>
 
-      {/* Action Bar */}
       <ActionBar
         leftButton={
           onBack

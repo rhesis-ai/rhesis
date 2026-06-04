@@ -25,7 +25,9 @@ import {
   CircularProgress,
   TextField,
   InputAdornment,
+  Menu,
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import IconButton from '@mui/material/IconButton';
@@ -155,6 +157,13 @@ interface BaseDataGridProps {
   // Link related props
   linkPath?: string;
   linkField?: string;
+  /**
+   * Derive a detail-page URL from a row. When provided, grid rows support
+   * right-click → "Open in new tab", middle-click, and Cmd/Ctrl+click in
+   * addition to the standard left-click navigation. Falls back to
+   * `linkPath`/`linkField` if not set.
+   */
+  getRowUrl?: (row: GridRowModel) => string | undefined;
   // Server-side pagination props
   serverSidePagination?: boolean;
   totalRows?: number;
@@ -475,6 +484,7 @@ export default function BaseDataGrid({
   onSortModelChange,
   linkPath,
   linkField = 'id',
+  getRowUrl,
   serverSidePagination = false,
   totalRows,
   paginationModel,
@@ -706,19 +716,89 @@ export default function BaseDataGrid({
       }));
     };
 
-  const handleRowClickWithLink = (params: GridRowParams) => {
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    url: string;
+  } | null>(null);
+
+  const resolveRowUrl = useCallback(
+    (params: GridRowParams): string | undefined => {
+      if (getRowUrl) return getRowUrl(params.row);
+      if (linkPath) {
+        const fieldValue = params.row[linkField];
+        return fieldValue ? `${linkPath}/${fieldValue}` : undefined;
+      }
+      return undefined;
+    },
+    [getRowUrl, linkPath, linkField]
+  );
+
+  const handleRowClickWithLink = (
+    params: GridRowParams,
+    event: React.MouseEvent
+  ) => {
+    const url = resolveRowUrl(params);
+
+    if (url && (event.metaKey || event.ctrlKey)) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     if (onRowClick) {
       onRowClick(params);
       return;
     }
 
-    if (linkPath) {
-      const fieldValue = params.row[linkField];
-      if (fieldValue) {
-        router.push(`${linkPath}/${fieldValue}`);
-      }
+    if (url) {
+      router.push(url);
     }
   };
+
+  const handleContainerContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const rowEl = (event.target as HTMLElement).closest(
+        '[data-id]'
+      ) as HTMLElement | null;
+      if (!rowEl) return;
+
+      const rowId = rowEl.dataset.id;
+      if (!rowId) return;
+
+      const row = apiRef.current.getRow(rowId);
+      if (!row) return;
+
+      const url = resolveRowUrl({ id: rowId, row } as GridRowParams);
+      if (!url) return;
+
+      event.preventDefault();
+      setContextMenu({ mouseX: event.clientX, mouseY: event.clientY, url });
+    },
+    [resolveRowUrl, apiRef]
+  );
+
+  const handleContainerAuxClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.button !== 1) return;
+      const rowEl = (event.target as HTMLElement).closest(
+        '[data-id]'
+      ) as HTMLElement | null;
+      if (!rowEl) return;
+
+      const rowId = rowEl.dataset.id;
+      if (!rowId) return;
+
+      const row = apiRef.current.getRow(rowId);
+      if (!row) return;
+
+      const url = resolveRowUrl({ id: rowId, row } as GridRowParams);
+      if (!url) return;
+
+      event.preventDefault();
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
+    [resolveRowUrl, apiRef]
+  );
 
   const handleToggle = (index: number) => {
     setOpenStates(prev => {
@@ -949,6 +1029,8 @@ export default function BaseDataGrid({
     customToolbarContent
   );
 
+  const hasRowUrl = !!(getRowUrl || linkPath);
+
   return (
     <>
       {hasHeaderContent && (
@@ -1117,77 +1199,11 @@ export default function BaseDataGrid({
         </Box>
       )}
 
-      {disablePaperWrapper ? (
-        <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
-          <PaginationSizeContext.Provider value={pageSizeOptions}>
-            <StyledDataGrid
-              apiRef={apiRef}
-              rows={serverSidePagination ? rows : filteredRows}
-              columns={columns}
-              getRowId={getRowId}
-              {...(autoHeight && { autoHeight: true })}
-              pagination
-              hideFooter={hideFooter}
-              paginationMode={serverSidePagination ? 'server' : 'client'}
-              rowCount={serverSidePagination ? totalRows : undefined}
-              paginationModel={paginationModel}
-              onPaginationModelChange={onPaginationModelChange}
-              pageSizeOptions={pageSizeOptions}
-              checkboxSelection={checkboxSelection}
-              disableVirtualization={false}
-              loading={loading}
-              slots={resolvedSlots}
-              sx={dataGridSx}
-              onRowClick={
-                enableEditing
-                  ? undefined
-                  : linkPath || onRowClick
-                    ? handleRowClickWithLink
-                    : undefined
-              }
-              disableMultipleRowSelection={disableMultipleRowSelection}
-              {...(density && { density })}
-              {...(mergedInitialState && { initialState: mergedInitialState })}
-              {...(serverSideFiltering && {
-                filterMode: 'server',
-                filterModel,
-                onFilterModelChange,
-              })}
-              {...(sortingMode === 'server' && {
-                sortingMode: 'server',
-                sortModel,
-                onSortModelChange,
-              })}
-              {...(enableEditing && {
-                editMode,
-                processRowUpdate,
-                onProcessRowUpdateError,
-                isCellEditable,
-              })}
-              {...(onRowSelectionModelChange && {
-                onRowSelectionModelChange,
-              })}
-              {...(rowSelectionModel !== undefined && {
-                rowSelectionModel,
-              })}
-              {...(isRowSelectable && { isRowSelectable })}
-              {...(disableRowSelectionOnClick && {
-                disableRowSelectionOnClick,
-              })}
-            />
-          </PaginationSizeContext.Provider>
-        </HideRowsPerPageBelowContext.Provider>
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            width: '100%',
-            borderRadius: BORDER_RADIUS.md,
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            boxShadow: ELEVATION.xs,
-            overflow: 'hidden',
-          }}
-        >
+      <Box
+        onContextMenu={hasRowUrl ? handleContainerContextMenu : undefined}
+        onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
+      >
+        {disablePaperWrapper ? (
           <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
             <PaginationSizeContext.Provider value={pageSizeOptions}>
               <StyledDataGrid
@@ -1211,7 +1227,7 @@ export default function BaseDataGrid({
                 onRowClick={
                   enableEditing
                     ? undefined
-                    : linkPath || onRowClick
+                    : hasRowUrl || onRowClick
                       ? handleRowClickWithLink
                       : undefined
                 }
@@ -1242,14 +1258,111 @@ export default function BaseDataGrid({
                 {...(rowSelectionModel !== undefined && {
                   rowSelectionModel,
                 })}
+                {...(isRowSelectable && { isRowSelectable })}
                 {...(disableRowSelectionOnClick && {
                   disableRowSelectionOnClick,
                 })}
               />
             </PaginationSizeContext.Provider>
           </HideRowsPerPageBelowContext.Provider>
-        </Paper>
-      )}
+        ) : (
+          <Paper
+            elevation={0}
+            sx={{
+              width: '100%',
+              borderRadius: BORDER_RADIUS.md,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
+              boxShadow: ELEVATION.xs,
+              overflow: 'hidden',
+            }}
+          >
+            <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
+              <PaginationSizeContext.Provider value={pageSizeOptions}>
+                <StyledDataGrid
+                  apiRef={apiRef}
+                  rows={serverSidePagination ? rows : filteredRows}
+                  columns={columns}
+                  getRowId={getRowId}
+                  {...(autoHeight && { autoHeight: true })}
+                  pagination
+                  hideFooter={hideFooter}
+                  paginationMode={serverSidePagination ? 'server' : 'client'}
+                  rowCount={serverSidePagination ? totalRows : undefined}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={onPaginationModelChange}
+                  pageSizeOptions={pageSizeOptions}
+                  checkboxSelection={checkboxSelection}
+                  disableVirtualization={false}
+                  loading={loading}
+                  slots={resolvedSlots}
+                  sx={dataGridSx}
+                  onRowClick={
+                    enableEditing
+                      ? undefined
+                      : hasRowUrl || onRowClick
+                        ? handleRowClickWithLink
+                        : undefined
+                  }
+                  disableMultipleRowSelection={disableMultipleRowSelection}
+                  {...(density && { density })}
+                  {...(mergedInitialState && {
+                    initialState: mergedInitialState,
+                  })}
+                  {...(serverSideFiltering && {
+                    filterMode: 'server',
+                    filterModel,
+                    onFilterModelChange,
+                  })}
+                  {...(sortingMode === 'server' && {
+                    sortingMode: 'server',
+                    sortModel,
+                    onSortModelChange,
+                  })}
+                  {...(enableEditing && {
+                    editMode,
+                    processRowUpdate,
+                    onProcessRowUpdateError,
+                    isCellEditable,
+                  })}
+                  {...(onRowSelectionModelChange && {
+                    onRowSelectionModelChange,
+                  })}
+                  {...(rowSelectionModel !== undefined && {
+                    rowSelectionModel,
+                  })}
+                  {...(disableRowSelectionOnClick && {
+                    disableRowSelectionOnClick,
+                  })}
+                />
+              </PaginationSizeContext.Provider>
+            </HideRowsPerPageBelowContext.Provider>
+          </Paper>
+        )}
+      </Box>
+
+      <Menu
+        open={contextMenu !== null}
+        onClose={() => setContextMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem
+          onClick={() => {
+            if (contextMenu) {
+              window.open(contextMenu.url, '_blank', 'noopener,noreferrer');
+            }
+            setContextMenu(null);
+          }}
+          sx={{ gap: 1 }}
+        >
+          <OpenInNewIcon fontSize="small" />
+          Open in new tab
+        </MenuItem>
+      </Menu>
     </>
   );
 }

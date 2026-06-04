@@ -25,6 +25,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import {
   Delete as DeleteIcon,
   Save as SaveIcon,
@@ -71,7 +73,7 @@ interface MultiTurnTestCase {
   instructions: string;
   restrictions: string;
   scenario: string;
-  minTurns?: number;
+  minTurns: number;
   maxTurns: number;
   category: string;
   topic: string;
@@ -119,7 +121,7 @@ export default function ManualTestWriter() {
             instructions: '',
             restrictions: '',
             scenario: '',
-            minTurns: undefined,
+            minTurns: 1,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -148,7 +150,7 @@ export default function ManualTestWriter() {
             instructions: '',
             restrictions: '',
             scenario: '',
-            minTurns: undefined,
+            minTurns: 1,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -262,7 +264,7 @@ export default function ManualTestWriter() {
             instructions: '',
             restrictions: '',
             scenario: '',
-            minTurns: undefined,
+            minTurns: 1,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -514,7 +516,7 @@ export default function ManualTestWriter() {
       instructions: tc.instructions || undefined,
       restrictions: tc.restrictions || undefined,
       scenario: tc.scenario || undefined,
-      min_turns: tc.minTurns ?? undefined,
+      min_turns: tc.minTurns,
       max_turns: tc.maxTurns,
     };
     return {
@@ -543,7 +545,7 @@ export default function ManualTestWriter() {
       instructions: tc.instructions || undefined,
       restrictions: tc.restrictions || undefined,
       scenario: tc.scenario || undefined,
-      min_turns: tc.minTurns ?? undefined,
+      min_turns: tc.minTurns,
       max_turns: tc.maxTurns,
     };
     return {
@@ -619,39 +621,26 @@ export default function ManualTestWriter() {
           { label: 'Manual Test Writer' },
         ]}
         actions={
-          <>
-            <ToggleButtonGroup
-              value={testType}
-              exclusive
-              onChange={(_, val) => {
-                if (val) handleTestTypeChange(val as TestType);
-              }}
-              size="small"
-            >
-              <ToggleButton value="single_turn">Single-Turn</ToggleButton>
-              <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
-            </ToggleButtonGroup>
-            <FabGroup>
-              <Fab
-                icon={<DownloadIcon />}
-                tooltip="Export test cases"
-                onClick={handleExport}
-                disabled={loading || testCases.length === 0}
-              />
-              <Fab
-                icon={<FabAddIcon />}
-                tooltip="Add test case"
-                onClick={addNewRow}
-                disabled={loading}
-              />
-              <Fab
-                icon={<SaveIcon />}
-                tooltip="Save"
-                onClick={handleSave}
-                disabled={loading || testCases.length === 0}
-              />
-            </FabGroup>
-          </>
+          <FabGroup>
+            <Fab
+              icon={<DownloadIcon />}
+              tooltip="Export test cases"
+              onClick={handleExport}
+              disabled={loading || testCases.length === 0}
+            />
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Add test case"
+              onClick={addNewRow}
+              disabled={loading}
+            />
+            <Fab
+              icon={<SaveIcon />}
+              tooltip="Save"
+              onClick={handleSave}
+              disabled={loading || testCases.length === 0}
+            />
+          </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
@@ -664,11 +653,103 @@ export default function ManualTestWriter() {
               overflow: 'hidden',
             }}
           >
-            <TableContainer sx={{ overflowX: 'auto' }}>
+            {/* Card toolbar — test type toggle, matching BaseDataGrid toolbar layout */}
+            <Box
+              sx={{
+                px: '30px',
+                py: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                borderBottom: theme =>
+                  `1px solid ${theme.palette.greyscale.border}`,
+              }}
+            >
+              <ToggleButtonGroup
+                value={testType}
+                exclusive
+                onChange={(_, val) => {
+                  if (val) handleTestTypeChange(val as TestType);
+                }}
+                size="small"
+              >
+                <ToggleButton value="single_turn">Single-Turn</ToggleButton>
+                <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <TableContainer
+              sx={{
+                overflowX: 'auto',
+                // ── Header ───────────────────────────────────────────────
+                '& .MuiTableHead-root .MuiTableCell-root': {
+                  fontWeight: 700,
+                  bgcolor: 'background.paper',
+                  borderBottom: theme =>
+                    `1px solid ${theme.palette.greyscale.border}`,
+                  color: 'text.primary',
+                  fontSize: '0.875rem',
+                  py: '12px',
+                  // first/last column inset matching BaseDataGrid (30px)
+                  '&:first-of-type': { pl: '30px' },
+                  '&:last-of-type': { pr: '30px' },
+                },
+                // ── Body cells ───────────────────────────────────────────
+                '& .MuiTableBody-root .MuiTableCell-root': {
+                  borderBottom: theme =>
+                    `1px solid ${theme.palette.greyscale.border}`,
+                  // first-of-type gets 30px left inset matching BaseDataGrid
+                  '&:first-of-type': { pl: '30px' },
+                },
+                '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root':
+                  { borderBottom: 'none' },
+                // ── Row hover ────────────────────────────────────────────
+                '& .MuiTableBody-root .MuiTableRow-root': {
+                  transition: 'background-color 0.1s ease',
+                },
+                '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                  bgcolor: theme =>
+                    theme.palette.mode === 'light'
+                      ? '#f7f8f9'
+                      : 'rgba(255,255,255,0.04)',
+                },
+                // ── Input fields: invisible border until hover/focus ──────
+                // This makes the table look like a read-only grid; borders
+                // only appear when the user interacts with a cell.
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'transparent',
+                  transition: 'border-color 0.15s ease',
+                },
+                '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline':
+                  {
+                    borderColor: theme => theme.palette.greyscale.border,
+                  },
+                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline':
+                  {
+                    borderColor: 'primary.main',
+                    borderWidth: '2px',
+                  },
+                // Compact input size matching grid row height
+                '& .MuiInputBase-root': { fontSize: '0.875rem' },
+                '& .MuiOutlinedInput-input': {
+                  py: '7px',
+                  px: '8px',
+                  fontSize: '0.875rem',
+                },
+                '& .MuiInputBase-inputMultiline': { py: '6px', px: '8px' },
+                // ── Row actions hover ────────────────────────────────────
+                '& .row-actions': {
+                  opacity: 0,
+                  pointerEvents: 'none',
+                  transition: 'opacity 0.15s ease',
+                },
+                '& .MuiTableRow-root:hover .row-actions': {
+                  opacity: 1,
+                  pointerEvents: 'auto',
+                },
+              }}
+            >
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ width: 50 }}>#</TableCell>
                     {testType === 'single_turn' ? (
                       <>
                         <TableCell sx={{ minWidth: 300 }}>
@@ -683,36 +764,31 @@ export default function ManualTestWriter() {
                       </>
                     ) : (
                       <>
-                        <TableCell sx={{ minWidth: 250 }}>Goal *</TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>
+                        <TableCell sx={{ minWidth: 320 }}>Goal *</TableCell>
+                        <TableCell sx={{ minWidth: 280 }}>
                           Instructions
                         </TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>
+                        <TableCell sx={{ minWidth: 280 }}>
                           Restrictions
                         </TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>Scenario</TableCell>
-                        <TableCell sx={{ minWidth: 140 }}>
+                        <TableCell sx={{ minWidth: 280 }}>Scenario</TableCell>
+                        <TableCell sx={{ minWidth: 160 }}>
                           Turn Config
                         </TableCell>
-                        <TableCell sx={{ minWidth: 180 }}>Category *</TableCell>
-                        <TableCell sx={{ minWidth: 180 }}>Topic *</TableCell>
-                        <TableCell sx={{ minWidth: 180 }}>Behavior *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>Category *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>Topic *</TableCell>
+                        <TableCell sx={{ minWidth: 200 }}>Behavior *</TableCell>
                       </>
                     )}
                     <TableCell sx={theme => ({ width: theme.spacing(7.5) })}>
                       Files
                     </TableCell>
-                    <TableCell sx={{ width: 80 }}>Actions</TableCell>
+                    <TableCell sx={{ width: 60 }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {testCases.map((testCase, index) => (
+                  {testCases.map(testCase => (
                     <TableRow key={testCase.id}>
-                      <TableCell sx={{ textAlign: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {index + 1}
-                        </Typography>
-                      </TableCell>
                       {testCase.testType === 'single_turn' ? (
                         <>
                           <TableCell sx={{ p: 1 }}>
@@ -879,6 +955,7 @@ export default function ManualTestWriter() {
                               fullWidth
                               multiline
                               minRows={2}
+                              maxRows={2}
                               value={testCase.goal}
                               onChange={e =>
                                 updateTestCase(
@@ -897,6 +974,7 @@ export default function ManualTestWriter() {
                               fullWidth
                               multiline
                               minRows={2}
+                              maxRows={2}
                               value={testCase.instructions}
                               onChange={e =>
                                 updateTestCase(
@@ -915,6 +993,7 @@ export default function ManualTestWriter() {
                               fullWidth
                               multiline
                               minRows={2}
+                              maxRows={2}
                               value={testCase.restrictions}
                               onChange={e =>
                                 updateTestCase(
@@ -933,6 +1012,7 @@ export default function ManualTestWriter() {
                               fullWidth
                               multiline
                               minRows={2}
+                              maxRows={2}
                               value={testCase.scenario}
                               onChange={e =>
                                 updateTestCase(
@@ -950,29 +1030,18 @@ export default function ManualTestWriter() {
                             <Box
                               sx={{
                                 display: 'flex',
-                                flexDirection: 'column',
-                                gap: 0.5,
+                                alignItems: 'center',
+                                gap: 1,
                               }}
                             >
                               <TextField
-                                fullWidth
                                 type="number"
                                 label="Min"
-                                value={testCase.minTurns ?? ''}
-                                placeholder="Auto"
+                                value={testCase.minTurns}
                                 onChange={e => {
-                                  const raw = e.target.value;
-                                  if (raw === '') {
-                                    updateTestCase(
-                                      testCase.id,
-                                      'minTurns',
-                                      undefined
-                                    );
-                                    return;
-                                  }
                                   const val = Math.min(
                                     50,
-                                    Math.max(1, parseInt(raw) || 1)
+                                    Math.max(1, parseInt(e.target.value) || 1)
                                   );
                                   updateTestCase(
                                     testCase.id,
@@ -983,9 +1052,9 @@ export default function ManualTestWriter() {
                                 inputProps={{ min: 1, max: 50 }}
                                 size="small"
                                 disabled={loading}
+                                sx={{ width: 72 }}
                               />
                               <TextField
-                                fullWidth
                                 type="number"
                                 label="Max"
                                 value={testCase.maxTurns}
@@ -1003,6 +1072,7 @@ export default function ManualTestWriter() {
                                 inputProps={{ min: 1, max: 50 }}
                                 size="small"
                                 disabled={loading}
+                                sx={{ width: 72 }}
                               />
                             </Box>
                           </TableCell>
@@ -1147,15 +1217,30 @@ export default function ManualTestWriter() {
                           </IconButton>
                         </Tooltip>
                       </TableCell>
-                      <TableCell>
-                        <IconButton
-                          onClick={() => deleteRow(testCase.id)}
-                          disabled={testCases.length === 1 || loading}
-                          color="error"
-                          size="small"
+                      <TableCell sx={{ px: 1 }}>
+                        <Box
+                          className="row-actions"
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
                         >
-                          <DeleteIcon />
-                        </IconButton>
+                          <IconButton
+                            onClick={() => deleteRow(testCase.id)}
+                            disabled={testCases.length === 1 || loading}
+                            size="small"
+                            sx={{
+                              color: 'text.secondary',
+                              '&:hover': {
+                                color: 'error.main',
+                                bgcolor: 'action.hover',
+                              },
+                            }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1166,45 +1251,27 @@ export default function ManualTestWriter() {
         </Box>
       </PageLayout>
 
-      {/* Save Test Set Dialog */}
-      <Dialog
+      {/* Save Test Cases Drawer */}
+      <BaseDrawer
         open={showSaveDialog}
         onClose={handleCancelSave}
-        maxWidth="xs"
-        fullWidth
+        title="Save Test Cases"
+        onSave={handleConfirmSave}
+        saveButtonText={saving ? 'Saving...' : 'Save'}
+        saveDisabled={saving}
+        loading={saving}
       >
-        <DialogTitle>Save Test Cases</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <TextField
-              fullWidth
-              label="Test Set Name (Optional)"
-              placeholder="Leave empty to save tests without a set"
-              value={testSetName}
-              onChange={e => setTestSetName(e.target.value)}
-              helperText="If provided, tests will be grouped into a reusable test set"
-              disabled={saving}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={handleCancelSave}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleConfirmSave}
-            disabled={saving}
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <TextField
+          fullWidth
+          label="Test Set Name (Optional)"
+          placeholder="Leave empty to save tests without a set"
+          value={testSetName}
+          onChange={e => setTestSetName(e.target.value)}
+          helperText="If provided, tests will be grouped into a reusable test set"
+          disabled={saving}
+          sx={drawerOutlinedFieldSx}
+        />
+      </BaseDrawer>
 
       {/* Attach Files Dialog */}
       <Dialog

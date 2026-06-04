@@ -717,6 +717,7 @@ export default function TestSetsGrid({
         getRowId={row => row.id}
         showToolbar={true}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/test-sets/${row.id}`}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
