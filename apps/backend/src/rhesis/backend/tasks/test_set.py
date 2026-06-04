@@ -332,8 +332,11 @@ def _attach_tests_to_existing_test_set(
 
     defaults = load_defaults()
 
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
     with self.get_db_session() as db:
-        db_test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+        with bypass_tenant_filter():
+            db_test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
         if db_test_set is None:
             raise ValueError(f"TestSet with id {test_set_id!r} not found in database")
 
@@ -394,9 +397,12 @@ def _mark_test_set_generation_failed(
     error_message: str,
 ) -> None:
     """Update the pre-created TestSet to mark generation as failed."""
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
     try:
         with self.get_db_session() as db:
-            db_test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            with bypass_tenant_filter():
+                db_test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
             if db_test_set is None:
                 return
             attrs = dict(db_test_set.attributes or {})

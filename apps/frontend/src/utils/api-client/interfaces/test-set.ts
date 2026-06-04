@@ -321,6 +321,7 @@ export interface GenerateTestsRequest {
   name?: string; // Only used for bulk generation
   test_type?: 'single_turn' | 'multi_turn'; // Type of tests to generate
   model_id?: string; // Override user's default generation model for this request
+  project_id?: string; // Required for bulk generation via POST /test_sets/generate
 }
 
 /**

@@ -64,6 +64,7 @@ def create_pending_test_set(
     name: str,
     organization_id: str,
     user_id: str,
+    project_id: str,
     task_id: str,
     requested_tests: int,
     test_type: TestSetType = None,
@@ -74,11 +75,15 @@ def create_pending_test_set(
     the frontend can show a loading state on the detail page while the worker
     fills in the tests.
 
+    The project_id is set explicitly on the model (not via auto_stamp) so the
+    test set always lands in the correct project regardless of the session scope.
+
     Args:
         db: Database session (caller manages the transaction)
         name: Test set name (required)
         organization_id: Organization UUID string
         user_id: User UUID string
+        project_id: Project UUID string (required; the test set must belong to a project)
         task_id: Celery task ID for tracking
         requested_tests: How many tests were requested
         test_type: Optional TestSetType; defaults to SINGLE_TURN
@@ -124,6 +129,7 @@ def create_pending_test_set(
         test_set_type_id=test_set_type_lookup.id,
         user_id=user_id,
         organization_id=organization_id,
+        project_id=project_id,
         owner_id=ensure_owner_id(None, user_id),
         priority=defaults["test_set"]["priority"],
         visibility=defaults["test_set"]["visibility"],

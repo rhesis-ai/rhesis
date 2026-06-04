@@ -888,6 +888,12 @@ export default function TestGenerationFlow({
 
   // Final generation
   const handleGenerate = useCallback(async () => {
+    if (!selectedProjectId) {
+      show('A project must be selected before generating a test set.', {
+        severity: 'error',
+      });
+      return;
+    }
     setIsFinishing(true);
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
@@ -945,6 +951,7 @@ export default function TestGenerationFlow({
         sources: selectedSources,
         name: testSetName.trim(),
         test_type: testType,
+        project_id: selectedProjectId,
         ...(selectedModelId ? { model_id: selectedModelId } : {}),
       };
 
@@ -976,6 +983,7 @@ export default function TestGenerationFlow({
     testSetName,
     selectedSources,
     selectedModelId,
+    selectedProjectId,
     project,
     testType,
     router,

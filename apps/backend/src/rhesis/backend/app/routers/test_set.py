@@ -130,6 +130,12 @@ async def generate_test_set(
         if not name:
             raise HTTPException(status_code=400, detail="A test set name is required")
 
+        if not request.project_id:
+            raise HTTPException(
+                status_code=400,
+                detail="A project_id is required to generate a test set",
+            )
+
         test_type = request.test_type
 
         # Resolve TestSetType for the pending row
@@ -150,6 +156,7 @@ async def generate_test_set(
             name=name,
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
+            project_id=str(request.project_id),
             task_id=placeholder_task_id,
             requested_tests=request.num_tests,
             test_type=resolved_type,

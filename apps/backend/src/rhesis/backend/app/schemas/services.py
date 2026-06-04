@@ -99,6 +99,7 @@ class GenerateTestsRequest(BaseModel):
     name: Optional[str] = None  # Used only for bulk generation to name the test set
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value
     model_id: Optional[UUID4] = None  # Override user's default generation model for this request
+    project_id: Optional[UUID4] = None  # Required for bulk generation via /test_sets/generate
 
     @field_validator("test_type", mode="before")
     @classmethod
