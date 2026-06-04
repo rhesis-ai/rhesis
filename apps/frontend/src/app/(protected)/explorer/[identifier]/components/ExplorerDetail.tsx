@@ -1473,51 +1473,50 @@ function TestsListUnifiedToolbar() {
       rightContent={
         <>
           {selectedRowCount > 0 && (
-            <Button
-              size="small"
-              startIcon={<DeleteIcon />}
-              color="error"
-              variant="outlined"
-              onClick={onBulkDelete}
-              sx={{ textTransform: 'none' }}
-            >
-              Delete {selectedRowCount}
-            </Button>
+            <Tooltip title={`Delete ${selectedRowCount} selected`}>
+              <span>
+                <IconButton size="small" color="error" onClick={onBulkDelete}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
           )}
-          <Button
-            size="small"
-            startIcon={<PlayArrowIcon />}
-            onClick={onGetOutputs}
-            disabled={generateSubmitting || evaluateSubmitting}
-            sx={{ textTransform: 'none' }}
-          >
-            Get outputs
-          </Button>
-          <Button
-            size="small"
-            startIcon={<GradingIcon />}
-            onClick={onEvaluate}
-            disabled={generateSubmitting || evaluateSubmitting}
-            sx={{ textTransform: 'none' }}
-          >
-            Evaluate
-          </Button>
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={onAddTest}
-            sx={{ textTransform: 'none' }}
-          >
-            Add test
-          </Button>
-          <Button
-            size="small"
-            startIcon={<AutoAwesomeIcon />}
-            onClick={onSuggest}
-            sx={{ textTransform: 'none' }}
-          >
-            Suggest tests
-          </Button>
+          <Tooltip title="Get outputs">
+            <span>
+              <IconButton
+                size="small"
+                onClick={onGetOutputs}
+                disabled={generateSubmitting || evaluateSubmitting}
+              >
+                <PlayArrowIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Evaluate">
+            <span>
+              <IconButton
+                size="small"
+                onClick={onEvaluate}
+                disabled={generateSubmitting || evaluateSubmitting}
+              >
+                <GradingIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Add test">
+            <span>
+              <IconButton size="small" onClick={onAddTest}>
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Suggest tests">
+            <span>
+              <IconButton size="small" onClick={onSuggest}>
+                <AutoAwesomeIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
