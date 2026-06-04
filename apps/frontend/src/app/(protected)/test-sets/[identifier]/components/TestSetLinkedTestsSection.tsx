@@ -97,6 +97,8 @@ export default function TestSetLinkedTestsSection({
       }
     };
 
+    // Fire immediately so users don't wait a full interval for the first check.
+    checkStatus();
     pollRef.current = setInterval(checkStatus, POLL_INTERVAL_MS);
 
     return () => {

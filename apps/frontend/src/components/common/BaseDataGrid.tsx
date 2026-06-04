@@ -745,11 +745,11 @@ export default function BaseDataGrid({
 
   const handleRowClickWithLink = (
     params: GridRowParams,
-    event: React.MouseEvent
+    event?: React.MouseEvent
   ) => {
     const url = resolveRowUrl(params);
 
-    if (url && (event.metaKey || event.ctrlKey)) {
+    if (url && event && (event.metaKey || event.ctrlKey)) {
       window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }

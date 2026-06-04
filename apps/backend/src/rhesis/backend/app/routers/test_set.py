@@ -156,20 +156,43 @@ async def generate_test_set(
         )
         db.commit()
 
-        # Launch background task with the pre-created test_set_id
-        task_result = task_launcher(
-            generate_and_save_test_set,
-            current_user=current_user,
-            db=db,
-            config=request.config.model_dump(),
-            num_tests=request.num_tests,
-            batch_size=request.batch_size,
-            sources=[s.model_dump() for s in request.sources] if request.sources else None,
-            name=name,
-            test_type=test_type,
-            model_id=str(request.model_id) if request.model_id else None,
-            test_set_id=str(db_test_set.id),
-        )
+        # Launch background task with the pre-created test_set_id.
+        # If launch fails (broker down, serialisation error, etc.) mark the row
+        # as failed immediately so it never stays stuck at 'in_progress'.
+        try:
+            task_result = task_launcher(
+                generate_and_save_test_set,
+                current_user=current_user,
+                db=db,
+                config=request.config.model_dump(),
+                num_tests=request.num_tests,
+                batch_size=request.batch_size,
+                sources=[s.model_dump() for s in request.sources] if request.sources else None,
+                name=name,
+                test_type=test_type,
+                model_id=str(request.model_id) if request.model_id else None,
+                test_set_id=str(db_test_set.id),
+            )
+        except Exception as launch_err:
+            logger.error(
+                "Failed to launch test set generation task; marking TestSet as failed",
+                extra={
+                    "test_set_id": str(db_test_set.id),
+                    "error": str(launch_err),
+                },
+            )
+            # Refresh the row so we can safely mutate it after the previous commit.
+            db.refresh(db_test_set)
+            attrs = dict(db_test_set.attributes or {})
+            metadata = dict(attrs.get("metadata", {}))
+            generation = dict(metadata.get("generation", {}))
+            generation["status"] = "failed"
+            generation["error"] = str(launch_err)
+            metadata["generation"] = generation
+            attrs["metadata"] = metadata
+            db_test_set.attributes = attrs
+            db.commit()
+            raise handle_execution_error(launch_err, operation="launch test set generation task")
 
         logger.info(
             "Test set generation task launched",
