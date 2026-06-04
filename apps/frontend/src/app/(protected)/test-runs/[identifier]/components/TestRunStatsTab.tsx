@@ -19,20 +19,9 @@ import {
   TableSortLabel,
   Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TestResultDetail,
@@ -248,72 +237,13 @@ function BehaviorPerformanceSection({
   behaviors?: BehaviorWithMetrics[];
   onViewBehavior?: (behaviorId: string) => void;
 }) {
-  const theme = useTheme();
-
-  const chartData = useMemo(
-    () => [...stats].sort((a, b) => a.passRate - b.passRate),
-    [stats]
-  );
-
-  const chartHeight = Math.max(200, chartData.length * 52 + 40);
-
-  const getBandColor = (passRate: number) =>
-    theme.palette[getReviewBand(passRate).colorKey].main;
-
   return (
     <SectionCard title="Behavior Performance">
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart
-          layout="vertical"
-          data={chartData}
-          margin={{ top: 4, right: 48, bottom: 8, left: 4 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            horizontal={false}
-            stroke={theme.palette.divider}
-          />
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            tickFormatter={(v: number) => `${v}%`}
-            tick={{
-              fontSize: 12,
-              fill: theme.palette.text.secondary as string,
-            }}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={160}
-            tick={{
-              fontSize: 12,
-              fill: theme.palette.text.secondary as string,
-            }}
-            tickFormatter={(name: string) =>
-              name.length > 22 ? `${name.slice(0, 19)}\u2026` : name
-            }
-          />
-          <RechartsTooltip
-            cursor={{ fill: theme.palette.action.hover }}
-            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Pass Rate']}
-            labelStyle={{ fontWeight: 600 }}
-          />
-          <Bar dataKey="passRate" radius={[0, 4, 4, 0]} maxBarSize={30}>
-            {chartData.map(entry => (
-              <Cell key={entry.name} fill={getBandColor(entry.passRate)} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-
-      <Box sx={{ mt: 3 }}>
-        <BehaviorTable
-          stats={stats}
-          behaviors={behaviors}
-          onViewBehavior={onViewBehavior}
-        />
-      </Box>
+      <BehaviorTable
+        stats={stats}
+        behaviors={behaviors}
+        onViewBehavior={onViewBehavior}
+      />
     </SectionCard>
   );
 }
@@ -466,68 +396,9 @@ function MetricPerformanceSection({
   stats: MetricStat[];
   onViewMetric?: (metricName: string) => void;
 }) {
-  const theme = useTheme();
-
-  const chartData = useMemo(
-    () => [...stats].sort((a, b) => b.failRate - a.failRate),
-    [stats]
-  );
-
-  const chartHeight = Math.max(200, chartData.length * 52 + 40);
-
-  const getBandColor = (failRate: number) =>
-    theme.palette[getReviewBand(100 - failRate).colorKey].main;
-
   return (
     <SectionCard title="Metric Performance">
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart
-          layout="vertical"
-          data={chartData}
-          margin={{ top: 4, right: 48, bottom: 8, left: 4 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            horizontal={false}
-            stroke={theme.palette.divider}
-          />
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            tickFormatter={(v: number) => `${v}%`}
-            tick={{
-              fontSize: 12,
-              fill: theme.palette.text.secondary as string,
-            }}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={160}
-            tick={{
-              fontSize: 12,
-              fill: theme.palette.text.secondary as string,
-            }}
-            tickFormatter={(name: string) =>
-              name.length > 22 ? `${name.slice(0, 19)}\u2026` : name
-            }
-          />
-          <RechartsTooltip
-            cursor={{ fill: theme.palette.action.hover }}
-            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Fail Rate']}
-            labelStyle={{ fontWeight: 600 }}
-          />
-          <Bar dataKey="failRate" radius={[0, 4, 4, 0]} maxBarSize={30}>
-            {chartData.map(entry => (
-              <Cell key={entry.name} fill={getBandColor(entry.failRate)} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-
-      <Box sx={{ mt: 3 }}>
-        <MetricTable stats={stats} onViewMetric={onViewMetric} />
-      </Box>
+      <MetricTable stats={stats} onViewMetric={onViewMetric} />
     </SectionCard>
   );
 }

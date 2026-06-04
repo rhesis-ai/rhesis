@@ -8,15 +8,12 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import DeleteIcon from '@mui/icons-material/Delete';
-import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import ListIcon from '@mui/icons-material/List';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
 import {
   GridColDef,
-  GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
   GridToolbarColumnsButton,
@@ -153,7 +150,6 @@ function TestRunsGrid({
   const [statusFilter, setStatusFilter] = useState('all');
 
   // ── Core grid state ────────────────────────────────────────────────────────
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +159,7 @@ function TestRunsGrid({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -339,12 +336,27 @@ function TestRunsGrid({
     [router]
   );
 
+  const handleRowCancelAction = useCallback((id: string) => {
+    setPendingCancelId(id);
+    setCancelModalOpen(true);
+  }, []);
+
+  const isCancellableRun = useCallback((row: Record<string, unknown>) => {
+    const statusName = (
+      (row.status as { name?: string } | undefined)?.name ?? ''
+    ).toLowerCase();
+    return statusName === 'queued' || statusName === 'progress';
+  }, []);
+
   // ── Column definitions ────────────────────────────────────────────────────
 
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
+      onCancel: id => handleRowCancelAction(id),
+      canCancel: isCancellableRun,
       onDelete: id => handleRowDeleteAction(id),
+      width: 112,
     });
     return [
       {
@@ -618,7 +630,12 @@ function TestRunsGrid({
       },
       actionsCol,
     ];
-  }, [handleRowEditAction, handleRowDeleteAction]);
+  }, [
+    handleRowEditAction,
+    handleRowCancelAction,
+    isCancellableRun,
+    handleRowDeleteAction,
+  ]);
 
   // ── Row handlers ──────────────────────────────────────────────────────────
 
@@ -627,13 +644,6 @@ function TestRunsGrid({
       router.push(`/test-runs/${params.id}`);
     },
     [router]
-  );
-
-  const handleSelectionChange = useCallback(
-    (newSelection: GridRowSelectionModel) => {
-      setSelectedRows(newSelection);
-    },
-    []
   );
 
   const handlePaginationModelChange = useCallback(
@@ -655,47 +665,31 @@ function TestRunsGrid({
 
   // ── Delete handlers ───────────────────────────────────────────────────────
 
-  const handleDeleteSelected = useCallback(() => {
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    if (validSelectedRows.length === 0) return;
-    setDeleteModalOpen(true);
-  }, [selectedRows]);
-
   const handleDeleteConfirm = useCallback(async () => {
-    const idsToDelete = pendingDeleteId
-      ? [pendingDeleteId]
-      : Array.isArray(selectedRows)
-        ? selectedRows.map(String)
-        : [];
-    if (idsToDelete.length === 0) return;
+    if (!pendingDeleteId) return;
 
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testRunsClient = clientFactory.getTestRunsClient();
 
-      await Promise.all(
-        idsToDelete.map(id => testRunsClient.deleteTestRun(id))
-      );
+      await testRunsClient.deleteTestRun(pendingDeleteId);
 
-      notifications.show(
-        `Successfully deleted ${idsToDelete.length} test run${idsToDelete.length === 1 ? '' : 's'}`,
-        { severity: 'success' }
-      );
+      notifications.show('Successfully deleted test run', {
+        severity: 'success',
+      });
 
       setPendingDeleteId(null);
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
-      setSelectedRows([]);
     } catch (_error) {
-      notifications.show('Failed to delete test runs', { severity: 'error' });
+      notifications.show('Failed to delete test run', { severity: 'error' });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
   }, [
     pendingDeleteId,
-    selectedRows,
     sessionToken,
     notifications,
     paginationModel,
@@ -709,25 +703,8 @@ function TestRunsGrid({
 
   // ── Cancel handlers ───────────────────────────────────────────────────────
 
-  const cancellableSelectedRuns = useMemo(() => {
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    return testRuns.filter(run => {
-      const status = run.status?.name?.toLowerCase();
-      return (
-        validSelectedRows.includes(run.id) &&
-        (status === 'queued' || status === 'progress')
-      );
-    });
-  }, [selectedRows, testRuns]);
-
-  const handleCancelSelected = useCallback(() => {
-    setCancelModalOpen(true);
-  }, []);
-
   const handleCancelConfirm = useCallback(async () => {
-    const ids = cancellableSelectedRuns.map(run => run.id.toString());
-
-    if (ids.length === 0) {
+    if (!pendingCancelId) {
       setCancelModalOpen(false);
       return;
     }
@@ -736,23 +713,22 @@ function TestRunsGrid({
       setIsCancelling(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testRunsClient = clientFactory.getTestRunsClient();
-      await Promise.all(ids.map(id => testRunsClient.cancelTestRun(id)));
-      notifications.show(
-        `Successfully cancelled ${ids.length} test run${ids.length === 1 ? '' : 's'}`,
-        { severity: 'success' }
-      );
+      await testRunsClient.cancelTestRun(pendingCancelId);
+      notifications.show('Successfully cancelled test run', {
+        severity: 'success',
+      });
+      setPendingCancelId(null);
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
-      setSelectedRows([]);
       onRefresh?.();
     } catch (_error) {
-      notifications.show('Failed to cancel test runs', { severity: 'error' });
+      notifications.show('Failed to cancel test run', { severity: 'error' });
     } finally {
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
   }, [
-    cancellableSelectedRuns,
+    pendingCancelId,
     sessionToken,
     notifications,
     paginationModel,
@@ -762,44 +738,13 @@ function TestRunsGrid({
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);
+    setPendingCancelId(null);
   }, []);
 
   const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
     setRunKindFilter(value);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
-
-  const actionButtons = useMemo(() => {
-    const buttons = [];
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-
-    if (cancellableSelectedRuns.length > 0) {
-      buttons.push({
-        label: `Cancel Test Run${cancellableSelectedRuns.length === 1 ? '' : 's'}`,
-        icon: <StopCircleOutlinedIcon />,
-        variant: 'outlined' as const,
-        color: 'warning' as const,
-        onClick: handleCancelSelected,
-      });
-    }
-
-    if (validSelectedRows.length > 0) {
-      buttons.push({
-        label: 'Delete Test Runs',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: handleDeleteSelected,
-      });
-    }
-
-    return buttons;
-  }, [
-    selectedRows,
-    cancellableSelectedRuns,
-    handleCancelSelected,
-    handleDeleteSelected,
-  ]);
 
   const runKindToolbar = useMemo(
     () => (
@@ -848,24 +793,6 @@ function TestRunsGrid({
         </Alert>
       )}
 
-      {Array.isArray(selectedRows) && selectedRows.length > 0 && (
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            borderBottom: theme =>
-              `1px solid ${theme.palette.greyscale.border}`,
-          }}
-        >
-          <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} selected
-          </Typography>
-        </Box>
-      )}
-
       <BaseDataGrid
         rows={testRuns}
         columns={columns}
@@ -876,16 +803,11 @@ function TestRunsGrid({
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
         serverSideFiltering={true}
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={Array.isArray(selectedRows) ? selectedRows : []}
         onRowClick={handleRowClick}
         getRowUrl={row => `/test-runs/${row.id}`}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
-        checkboxSelection
-        disableRowSelectionOnClick
-        actionButtons={actionButtons}
         gridToolbarExtra={runKindToolbar}
         disablePaperWrapper={true}
         showToolbar={true}
@@ -899,12 +821,8 @@ function TestRunsGrid({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
-        title={pendingDeleteId ? 'Delete Test Run' : 'Delete Test Runs'}
-        message={
-          pendingDeleteId
-            ? 'Are you sure you want to delete this test run? Related data will not be deleted.'
-            : `Are you sure you want to delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? Don't worry, related data will not be deleted, only ${Array.isArray(selectedRows) && selectedRows.length === 1 ? 'this record' : 'these records'}.`
-        }
+        title="Delete Test Run"
+        message="Are you sure you want to delete this test run? Related data will not be deleted."
         itemType="test runs"
       />
 
@@ -913,8 +831,8 @@ function TestRunsGrid({
         onClose={handleCancelClose}
         onConfirm={handleCancelConfirm}
         isLoading={isCancelling}
-        title={`Cancel Test Run${cancellableSelectedRuns.length === 1 ? '' : 's'}`}
-        message={`Are you sure you want to cancel ${cancellableSelectedRuns.length} test run${cancellableSelectedRuns.length === 1 ? '' : 's'}? ${cancellableSelectedRuns.length === 1 ? 'It' : 'They'} will be stopped and marked as Cancelled.`}
+        title="Cancel Test Run"
+        message="Are you sure you want to cancel this test run? It will be stopped and marked as Cancelled."
         itemType="test run"
         confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
         cancelButtonText="Keep Running"

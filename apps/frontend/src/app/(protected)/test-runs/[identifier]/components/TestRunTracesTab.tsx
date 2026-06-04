@@ -29,25 +29,46 @@ export default function TestRunTracesTab({
   }, []);
 
   return (
-    <Box>
-      <Paper
-        sx={{
-          width: '100%',
-          borderRadius: BORDER_RADIUS.md,
-          boxShadow: ELEVATION.xs,
-          border: theme => `1px solid ${theme.palette.greyscale.border}`,
-          overflow: 'hidden',
-        }}
+    <Box sx={{ position: 'relative' }}>
+      {/*
+       * TracesClient must stay mounted to detect the empty state via onUnfilteredEmpty.
+       * When empty we collapse the wrapper to 0 height and make it invisible instead of
+       * using display:none — display:none removes the element from layout and causes the
+       * MUI DataGrid inside to measure a 0px width, triggering a console warning.
+       */}
+      <Box
+        sx={
+          showEmptyHint
+            ? {
+                position: 'absolute',
+                width: '100%',
+                height: 0,
+                overflow: 'hidden',
+                visibility: 'hidden',
+                pointerEvents: 'none',
+              }
+            : {}
+        }
       >
-        <TracesClient
-          sessionToken={sessionToken}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          currentUserPicture={currentUserPicture}
-          fixedTestRunId={testRunId}
-          onUnfilteredEmpty={handleUnfilteredEmpty}
-        />
-      </Paper>
+        <Paper
+          sx={{
+            width: '100%',
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: ELEVATION.xs,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TracesClient
+            sessionToken={sessionToken}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserPicture={currentUserPicture}
+            fixedTestRunId={testRunId}
+            onUnfilteredEmpty={handleUnfilteredEmpty}
+          />
+        </Paper>
+      </Box>
 
       {showEmptyHint && (
         <Box sx={{ mt: 3 }}>
