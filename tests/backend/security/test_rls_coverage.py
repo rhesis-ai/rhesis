@@ -43,19 +43,6 @@ TENANT_POLICY_EXEMPT_TABLES = frozenset()
 # join table used to resolve project context before a project is known).
 PROJECT_POLICY_EXEMPT_TABLES = frozenset({"project_membership"})
 
-# Tables that have RLS enabled and the right policies but are missing
-# FORCE ROW LEVEL SECURITY. FORCE only matters when the current role IS the
-# table owner; since APP_DB_USER is never the owner in production this is a
-# lower-severity gap. Listed explicitly so the test documents the gap without
-# silently hiding it. TODO: add FORCE ROW LEVEL SECURITY to these tables in a
-# future migration.
-FORCE_RLS_GAP_TABLES = frozenset(
-    {
-        "project",  # top-level tenant entity; pre-dates FORCE RLS convention
-        "prompt_use_case",  # association table; RLS enabled, FORCE missing
-        "risk_use_case",  # association table; RLS enabled, FORCE missing
-    }
-)
 
 
 # ---------------------------------------------------------------------------
@@ -128,32 +115,25 @@ class TestRLSCoverage:
     """Verify that every tenant-scoped table has correct RLS policies in the DB."""
 
     def test_tables_with_organization_id_have_rls_enabled(self, test_db):
-        """Every table with organization_id must have RLS enabled.
-
-        FORCE ROW LEVEL SECURITY (which applies RLS even to the table owner)
-        is checked separately; a small set of legacy tables are missing it but
-        are tracked in FORCE_RLS_GAP_TABLES as a known gap.
-        """
+        """Every table with organization_id must have RLS enabled and forced."""
         tables = _get_tables_with_column(test_db, "organization_id")
         rls_state = _get_rls_state(test_db)
 
         missing_rls = []
         missing_force = []
 
-        scoped = tables - RLS_EXEMPT_TABLES - TENANT_POLICY_EXEMPT_TABLES
-        for table in sorted(scoped):
+        for table in sorted(tables - RLS_EXEMPT_TABLES - TENANT_POLICY_EXEMPT_TABLES):
             state = rls_state.get(table, {})
             if not state.get("rls_enabled"):
                 missing_rls.append(table)
-            if not state.get("force_rls") and table not in FORCE_RLS_GAP_TABLES:
+            if not state.get("force_rls"):
                 missing_force.append(table)
 
         assert not missing_rls, (
             f"Tables with organization_id missing RLS ENABLED: {missing_rls}"
         )
         assert not missing_force, (
-            f"Tables with organization_id missing FORCE ROW LEVEL SECURITY: {missing_force}\n"
-            f"Known gap tables (exempt for now): {sorted(FORCE_RLS_GAP_TABLES)}"
+            f"Tables with organization_id missing FORCE ROW LEVEL SECURITY: {missing_force}"
         )
 
     def test_tables_with_organization_id_have_tenant_isolation_policy(self, test_db):
@@ -211,7 +191,7 @@ class TestRLSCoverage:
         )
 
     def test_tables_with_project_id_have_rls_enabled(self, test_db):
-        """Every table with project_id must have RLS enabled."""
+        """Every table with project_id must have RLS enabled and forced."""
         tables = _get_tables_with_column(test_db, "project_id")
         rls_state = _get_rls_state(test_db)
 
@@ -222,13 +202,12 @@ class TestRLSCoverage:
             state = rls_state.get(table, {})
             if not state.get("rls_enabled"):
                 missing_rls.append(table)
-            if not state.get("force_rls") and table not in FORCE_RLS_GAP_TABLES:
+            if not state.get("force_rls"):
                 missing_force.append(table)
 
         assert not missing_rls, (
             f"Tables with project_id missing RLS ENABLED: {missing_rls}"
         )
         assert not missing_force, (
-            f"Tables with project_id missing FORCE ROW LEVEL SECURITY: {missing_force}\n"
-            f"Known gap tables (exempt for now): {sorted(FORCE_RLS_GAP_TABLES)}"
+            f"Tables with project_id missing FORCE ROW LEVEL SECURITY: {missing_force}"
         )
