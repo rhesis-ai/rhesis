@@ -40,29 +40,6 @@ jobs:
       contents: none
 
     steps:
-      - name: Resolve ArgoCD credentials for environment
-        id: argocd-creds
-        run: |
-          ENV="${{ inputs.environment }}"
-          case "$ENV" in
-            dev)
-              echo "server=${{ secrets.ARGOCD_SERVER_DEV }}"         >> "$GITHUB_OUTPUT"
-              echo "token=${{ secrets.ARGOCD_AUTH_TOKEN_DEV }}"      >> "$GITHUB_OUTPUT"
-              ;;
-            stg)
-              echo "server=${{ secrets.ARGOCD_SERVER_STG }}"         >> "$GITHUB_OUTPUT"
-              echo "token=${{ secrets.ARGOCD_AUTH_TOKEN_STG }}"      >> "$GITHUB_OUTPUT"
-              ;;
-            prd)
-              echo "server=${{ secrets.ARGOCD_SERVER_PRD }}"         >> "$GITHUB_OUTPUT"
-              echo "token=${{ secrets.ARGOCD_AUTH_TOKEN_PRD }}"      >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "ERROR: Unknown environment: $ENV"
-              exit 1
-              ;;
-          esac
-
       - name: Install ArgoCD CLI
         run: |
           ARGOCD_VERSION="v2.14.4"
@@ -72,8 +49,8 @@ jobs:
 
       - name: Set image tag parameter on ArgoCD Application
         env:
-          ARGOCD_SERVER: ${{ steps.argocd-creds.outputs.server }}
-          ARGOCD_AUTH_TOKEN: ${{ steps.argocd-creds.outputs.token }}
+          ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
           TAG: ${{ inputs.tag }}
           SERVICE: ${{ inputs.service }}
         run: |
@@ -93,8 +70,8 @@ jobs:
 
       - name: Sync ArgoCD Application
         env:
-          ARGOCD_SERVER: ${{ steps.argocd-creds.outputs.server }}
-          ARGOCD_AUTH_TOKEN: ${{ steps.argocd-creds.outputs.token }}
+          ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
         run: |
           argocd app sync rhesis \
             --server "$ARGOCD_SERVER" \
