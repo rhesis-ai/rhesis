@@ -12,7 +12,7 @@ global:
   registry: "europe-west4-docker.pkg.dev/rhesis-stg-494712/rhesis"
   imagePullPolicy: Always
   # Managed by CI — patched to the git SHA tag after each successful build.
-  imageTag: ""
+  imageTag: "de9832ee"
   requirePinnedTag: true
 
 # DB: app URL uses rhesis-user; migrate.sh / Alembic use rhesis-admin.
@@ -112,7 +112,7 @@ workers:
     enabled: true
     image:
       repository: rhesis-worker
-      tag: ""
+      tag: "de9832ee"
     replicas: 1
     resources:
       requests:
