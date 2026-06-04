@@ -39,7 +39,7 @@ _TENANT_POLICY = """
 
 
 # Tables whose RLS must be quiet while this migration runs:
-#   - architect_message: FK validation + the new policy read it
+#   - architect_message: FK validation + the policy the add_column trigger creates
 #   - architect_session: the step-3 backfill reads it
 #   - organization, user:  FK validation reads them as the FK targets
 # Their tenant_isolation policies call current_setting('app.current_organization')
@@ -48,44 +48,34 @@ _TENANT_POLICY = """
 _RLS_TABLES = ["architect_message", "architect_session", "organization", '"user"']
 
 
-def _role_bypasses_rls(conn) -> bool:
-    """True when the connected migration role has the BYPASSRLS attribute.
-
-    In stg/prd the migration role (rhesis-admin) is BYPASSRLS, so PostgreSQL
-    never evaluates any RLS policy for it — even under FORCE ROW LEVEL SECURITY.
-    The schema changes and backfill below run cleanly with no RLS handling at
-    all. Only environments whose migration role is NOT BYPASSRLS (e.g. the dev
-    Cloud SQL instance running as a plain user, where Cloud SQL forbids granting
-    BYPASSRLS) need the explicit toggle.
-    """
-    return bool(
-        conn.execute(
-            sa.text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
-        ).scalar()
-    )
-
-
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # 1. The remote DB has FORCE ROW LEVEL SECURITY on the tables touched here, so
-    #    a non-BYPASSRLS migration role is subject to RLS. op.add_column then fails
-    #    because PostgreSQL validates the FK by querying the child + FK-target
-    #    tables, whose tenant_isolation policies call
-    #    current_setting('app.current_organization') without missing_ok=true and
-    #    the migration session never set that GUC.
+    # 1. Disable RLS on every table this migration touches, for the migration's
+    #    duration. The remote DB has FORCE ROW LEVEL SECURITY on these tables, and
+    #    op.add_column fails because PostgreSQL validates the new FK with a bulk
+    #    SELECT over the child + FK-target tables whose tenant_isolation policies
+    #    call current_setting('app.current_organization') without missing_ok=true,
+    #    which the migration session never set.
     #
-    #    When the role bypasses RLS we skip this entirely — policies never fire, so
-    #    there is nothing to disable. When it does not, we disable RLS only for the
-    #    duration of this migration. That toggle is safe: Alembic runs the whole
+    #    We disable unconditionally rather than gating on the migration role's
+    #    BYPASSRLS attribute: PostgreSQL's FK initial-validation query
+    #    (RI_Initial_Check) runs under the *table owner's* identity, not the
+    #    connected current_user, so current_user's BYPASSRLS is the wrong signal —
+    #    on Cloud SQL the login role reports BYPASSRLS while the table owner does
+    #    not, and the validation still hit the policy. DISABLE ROW LEVEL SECURITY
+    #    is table-level and role-independent, so it sidesteps the owner switch
+    #    entirely.
+    #
+    #    This is safe and leaves no observable RLS gap: Alembic runs the whole
     #    upgrade in ONE transaction with transactional DDL, and DISABLE/ENABLE takes
     #    an ACCESS EXCLUSIVE lock, so no other session can read these tables while
     #    RLS is off and the disable→enable is only ever observed atomically (already
-    #    re-enabled) at commit. The round-trip does not affect the FORCE flag.
-    toggle_rls = not _role_bypasses_rls(conn)
-    if toggle_rls:
-        for table in _RLS_TABLES:
-            conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
+    #    re-enabled) at commit. On stg/prd (rhesis-admin owns the tables and
+    #    bypasses RLS) the round-trip is a harmless no-op. The round-trip does not
+    #    affect the FORCE flag.
+    for table in _RLS_TABLES:
+        conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
 
     # 2. Add organization_id and user_id columns (nullable; values come from the
     #    parent session). Adding organization_id fires the auto_apply_rls event
@@ -135,9 +125,8 @@ def upgrade() -> None:
             """
         )
     )
-    if toggle_rls:
-        for table in _RLS_TABLES:
-            conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+    for table in _RLS_TABLES:
+        conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
 
     # 4. Ensure the permissive tenant_isolation policy exists (the missing piece).
     op.execute("ALTER TABLE architect_message FORCE ROW LEVEL SECURITY")
