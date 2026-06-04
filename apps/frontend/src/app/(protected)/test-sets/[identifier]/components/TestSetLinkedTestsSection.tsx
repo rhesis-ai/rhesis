@@ -19,6 +19,16 @@ const paperSx = {
   boxShadow: ELEVATION.xs,
 };
 
+// Grid card: no inner padding — BaseDataGrid provides the 30px insets so the
+// header, toolbar, cells and footer all line up at 30px (Figma design).
+const gridCardSx = {
+  width: '100%',
+  borderRadius: BORDER_RADIUS.md,
+  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+  boxShadow: ELEVATION.xs,
+  overflow: 'hidden',
+};
+
 interface TestSetLinkedTestsSectionProps {
   testSetId: string;
   sessionToken: string;
@@ -120,13 +130,15 @@ export default function TestSetLinkedTestsSection({
           </Box>
         </Paper>
       ) : (
-        <Paper elevation={0} sx={paperSx}>
+        <Paper elevation={0} sx={gridCardSx}>
           <Box
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              mb: 3,
+              px: '30px',
+              pt: '30px',
+              pb: '30px',
             }}
           >
             <Typography

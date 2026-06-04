@@ -210,12 +210,15 @@ export function GridToolbar({
   rightContent,
   sx,
 }: GridToolbarProps) {
+  // Figma grid-card default: 30px all around. Directory pages and drawers
+  // that render the toolbar outside a grid border override px/py via `sx`
+  // (e.g. `directoryToolbarSx`).
   const baseSx: SxProps<Theme> = {
     display: 'flex',
     alignItems: 'center',
     gap: 1.5,
-    px: 2,
-    py: 1,
+    px: '30px',
+    py: '30px',
     minHeight: 52,
   };
 

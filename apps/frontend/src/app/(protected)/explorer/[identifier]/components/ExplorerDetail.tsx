@@ -1,12 +1,13 @@
 'use client';
 
 import type { UUID } from 'crypto';
-import {
+import React, {
   useState,
   useMemo,
   useCallback,
   useEffect,
   useRef,
+  useContext,
   DragEvent,
 } from 'react';
 import {
@@ -37,14 +38,22 @@ import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { alpha, useTheme } from '@mui/material/styles';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
   GridColDef,
   GridPaginationModel,
   GridRenderCellParams,
   GridRowSelectionModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import { GridToolbar as AppGridToolbar } from '@/components/common/GridToolbar';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -1067,6 +1076,152 @@ function EditTestDialog({
 }
 
 // ============================================================================
+// Test Detail Drawer (view + edit)
+// ============================================================================
+
+interface TestDetailDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (testId: string, data: TestNodeUpdate) => Promise<void>;
+  test: TestNode | null;
+  topics: Topic[];
+}
+
+function TestDetailDrawer({
+  open,
+  onClose,
+  onSubmit,
+  test,
+  topics,
+}: TestDetailDrawerProps) {
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open && test) {
+      setInput(test.input || '');
+      setOutput(test.output || '');
+      setSelectedTopic(test.topic || '');
+      setError('');
+    }
+  }, [open, test]);
+
+  const handleSave = async () => {
+    if (!test) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
+      setError('Test input is required');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const updates: TestNodeUpdate = {};
+      if (trimmedInput !== (test.input || '')) updates.input = trimmedInput;
+      if (output.trim() !== (test.output || '')) updates.output = output.trim();
+      if (selectedTopic.trim() !== (test.topic || ''))
+        updates.topic = selectedTopic.trim();
+      await onSubmit(test.id, updates);
+      onClose();
+    } catch (err) {
+      setError((err as Error).message || 'Failed to update test');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const score = test?.model_score;
+  const label = test?.label;
+
+  return (
+    <BaseDrawer
+      open={open}
+      onClose={onClose}
+      title="Test details"
+      onSave={handleSave}
+      saveButtonText="Save changes"
+      saveDisabled={!input.trim()}
+      loading={submitting}
+      error={error || undefined}
+      anchor="right"
+    >
+      {/* Score badge */}
+      {(label === 'pass' || label === 'fail') && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: -3 }}>
+          <Chip
+            label={score != null ? score.toFixed(2) : 'N/A'}
+            size="small"
+            color={getLabelColor(label)}
+            variant={score != null ? 'filled' : 'outlined'}
+          />
+          {test?.metrics && (
+            <ScoreMetricsTooltip metrics={test.metrics}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ cursor: 'help', textDecoration: 'underline dotted' }}
+              >
+                Score details
+              </Typography>
+            </ScoreMetricsTooltip>
+          )}
+        </Box>
+      )}
+
+      {/* Topic */}
+      <TextField
+        select
+        label="Topic"
+        fullWidth
+        value={selectedTopic}
+        onChange={e => setSelectedTopic(e.target.value)}
+        disabled={submitting}
+        SelectProps={{ native: true }}
+        InputLabelProps={{ shrink: true }}
+      >
+        <option value="">Select a topic…</option>
+        {topics.map(t => (
+          <option key={t.path} value={t.path}>
+            {t.path}
+          </option>
+        ))}
+      </TextField>
+
+      {/* Input */}
+      <TextField
+        label="Input"
+        fullWidth
+        multiline
+        minRows={3}
+        maxRows={8}
+        value={input}
+        onChange={e => {
+          setInput(e.target.value);
+          setError('');
+        }}
+        disabled={submitting}
+      />
+
+      {/* Output */}
+      <TextField
+        label="Output"
+        placeholder='Optional. Run "Get outputs" to fill from the endpoint.'
+        fullWidth
+        multiline
+        minRows={3}
+        maxRows={8}
+        value={output}
+        onChange={e => setOutput(e.target.value)}
+        disabled={submitting}
+      />
+    </BaseDrawer>
+  );
+}
+
+// ============================================================================
 // Topic Tree Panel
 // ============================================================================
 
@@ -1267,14 +1422,117 @@ function TopicTreePanel({
 }
 
 // ============================================================================
-// Tests List (DataGrid)
+// Tests List (DataGrid) + Toolbar
 // ============================================================================
+
+interface TestsListToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  onGetOutputs: () => void;
+  onEvaluate: () => void;
+  onAddTest: () => void;
+  onSuggest: () => void;
+  selectedRowCount: number;
+  onBulkDelete: () => void;
+  generateSubmitting: boolean;
+  evaluateSubmitting: boolean;
+}
+
+const TestsListToolbarContext = React.createContext<TestsListToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  onGetOutputs: () => {},
+  onEvaluate: () => {},
+  onAddTest: () => {},
+  onSuggest: () => {},
+  selectedRowCount: 0,
+  onBulkDelete: () => {},
+  generateSubmitting: false,
+  evaluateSubmitting: false,
+});
+
+function TestsListUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    onGetOutputs,
+    onEvaluate,
+    onAddTest,
+    onSuggest,
+    selectedRowCount,
+    onBulkDelete,
+    generateSubmitting,
+    evaluateSubmitting,
+  } = useContext(TestsListToolbarContext);
+
+  return (
+    <AppGridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search tests…"
+      rightContent={
+        <>
+          {selectedRowCount > 0 && (
+            <Button
+              size="small"
+              startIcon={<DeleteIcon />}
+              color="error"
+              variant="outlined"
+              onClick={onBulkDelete}
+              sx={{ textTransform: 'none' }}
+            >
+              Delete {selectedRowCount}
+            </Button>
+          )}
+          <Button
+            size="small"
+            startIcon={<PlayArrowIcon />}
+            onClick={onGetOutputs}
+            disabled={generateSubmitting || evaluateSubmitting}
+            sx={{ textTransform: 'none' }}
+          >
+            Get outputs
+          </Button>
+          <Button
+            size="small"
+            startIcon={<GradingIcon />}
+            onClick={onEvaluate}
+            disabled={generateSubmitting || evaluateSubmitting}
+            sx={{ textTransform: 'none' }}
+          >
+            Evaluate
+          </Button>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={onAddTest}
+            sx={{ textTransform: 'none' }}
+          >
+            Add test
+          </Button>
+          <Button
+            size="small"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={onSuggest}
+            sx={{ textTransform: 'none' }}
+          >
+            Suggest tests
+          </Button>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
 
 interface TestsListProps {
   tests: TestNode[];
   loading: boolean;
   onEditTest?: (test: TestNode) => void;
   onDeleteTest?: (test: TestNode) => void;
+  onRowClick?: (test: TestNode) => void;
   checkboxSelection?: boolean;
   rowSelectionModel?: GridRowSelectionModel;
   onRowSelectionModelChange?: (model: GridRowSelectionModel) => void;
@@ -1283,6 +1541,13 @@ interface TestsListProps {
   onNewTestSubmit?: (input: string) => void;
   newTestProcessing?: boolean;
   pendingTestIds?: Set<string>;
+  onGetOutputs?: () => void;
+  onEvaluate?: () => void;
+  onAddTest?: () => void;
+  onSuggest?: () => void;
+  onBulkDelete?: () => void;
+  generateSubmitting?: boolean;
+  evaluateSubmitting?: boolean;
 }
 
 function TestsList({
@@ -1290,6 +1555,7 @@ function TestsList({
   loading,
   onEditTest,
   onDeleteTest,
+  onRowClick,
   checkboxSelection,
   rowSelectionModel,
   onRowSelectionModelChange,
@@ -1298,12 +1564,33 @@ function TestsList({
   onNewTestSubmit,
   newTestProcessing = false,
   pendingTestIds = new Set<string>(),
+  onGetOutputs,
+  onEvaluate,
+  onAddTest,
+  onSuggest,
+  onBulkDelete,
+  generateSubmitting = false,
+  evaluateSubmitting = false,
 }: TestsListProps) {
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
   });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredTests = useMemo(() => {
+    if (!searchQuery.trim()) return tests;
+    const q = searchQuery.toLowerCase();
+    return tests.filter(
+      t =>
+        t.input?.toLowerCase().includes(q) ||
+        t.output?.toLowerCase().includes(q) ||
+        t.topic?.toLowerCase().includes(q)
+    );
+  }, [tests, searchQuery]);
+
+  const hasToolbar = !!(onGetOutputs || onEvaluate || onAddTest || onSuggest);
 
   // Keep DataGrid rows draggable via MutationObserver
   useEffect(() => {
@@ -1463,87 +1750,110 @@ function TestsList({
       : []),
   ];
 
+  const selectedRowCount = rowSelectionModel?.length ?? 0;
+
   return (
-    <Box>
-      {onNewTestSubmit && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="Type test input and press Enter"
-            value={newTestInput ?? ''}
-            onChange={e => onNewTestInputChange?.(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                const value = (newTestInput ?? '').trim();
-                if (value) {
-                  onNewTestSubmit(value);
-                }
-              }
-            }}
-            disabled={newTestProcessing}
-          />
-          <Tooltip title="Add test">
-            <span>
-              <IconButton
-                color="primary"
-                onClick={() => {
+    <TestsListToolbarContext.Provider
+      value={{
+        searchQuery,
+        setSearchQuery,
+        onGetOutputs: onGetOutputs ?? (() => {}),
+        onEvaluate: onEvaluate ?? (() => {}),
+        onAddTest: onAddTest ?? (() => {}),
+        onSuggest: onSuggest ?? (() => {}),
+        selectedRowCount,
+        onBulkDelete: onBulkDelete ?? (() => {}),
+        generateSubmitting,
+        evaluateSubmitting,
+      }}
+    >
+      <Box>
+        {onNewTestSubmit && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Type test input and press Enter"
+              value={newTestInput ?? ''}
+              onChange={e => onNewTestInputChange?.(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
                   const value = (newTestInput ?? '').trim();
                   if (value) {
                     onNewTestSubmit(value);
                   }
-                }}
-                disabled={newTestProcessing || !(newTestInput ?? '').trim()}
-              >
-                {newTestProcessing ? (
-                  <CircularProgress size={18} />
-                ) : (
-                  <CheckIcon fontSize="small" />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Box>
-      )}
-      <Box
-        ref={gridWrapperRef}
-        onDragStart={(e: DragEvent<HTMLDivElement>) => {
-          const row = (e.target as HTMLElement).closest('[data-id]');
-          if (row) {
-            const testId = row.getAttribute('data-id') || '';
-            e.dataTransfer.setData('application/test-id', testId);
-            e.dataTransfer.effectAllowed = 'move';
-          }
-        }}
-      >
-        <BaseDataGrid
-          columns={columns}
-          rows={tests}
-          loading={loading}
-          getRowId={row => row.id}
-          showToolbar={false}
-          paginationModel={paginationModel}
-          onPaginationModelChange={handlePaginationModelChange}
-          serverSidePagination={false}
-          totalRows={tests.length}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disablePaperWrapper={true}
-          persistState
-          checkboxSelection={checkboxSelection}
-          disableRowSelectionOnClick={checkboxSelection ? true : undefined}
-          rowSelectionModel={rowSelectionModel}
-          onRowSelectionModelChange={onRowSelectionModelChange}
-          sx={{
-            '& .MuiDataGrid-row': {
-              cursor: 'grab',
-            },
-            '& .MuiDataGrid-row:active': {
-              cursor: 'grabbing',
-            },
+                }
+              }}
+              disabled={newTestProcessing}
+            />
+            <Tooltip title="Add test">
+              <span>
+                <IconButton
+                  color="primary"
+                  onClick={() => {
+                    const value = (newTestInput ?? '').trim();
+                    if (value) {
+                      onNewTestSubmit(value);
+                    }
+                  }}
+                  disabled={newTestProcessing || !(newTestInput ?? '').trim()}
+                >
+                  {newTestProcessing ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <CheckIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
+        )}
+        <Box
+          ref={gridWrapperRef}
+          onDragStart={(e: DragEvent<HTMLDivElement>) => {
+            const row = (e.target as HTMLElement).closest('[data-id]');
+            if (row) {
+              const testId = row.getAttribute('data-id') || '';
+              e.dataTransfer.setData('application/test-id', testId);
+              e.dataTransfer.effectAllowed = 'move';
+            }
           }}
-        />
+        >
+          <BaseDataGrid
+            columns={columns}
+            rows={filteredTests}
+            loading={loading}
+            getRowId={row => row.id}
+            showToolbar={hasToolbar}
+            toolbarSlot={hasToolbar ? TestsListUnifiedToolbar : undefined}
+            paginationModel={paginationModel}
+            onPaginationModelChange={handlePaginationModelChange}
+            serverSidePagination={false}
+            totalRows={filteredTests.length}
+            pageSizeOptions={[10, 25, 50, 100]}
+            disablePaperWrapper={true}
+            persistState
+            checkboxSelection={checkboxSelection}
+            disableRowSelectionOnClick={checkboxSelection ? true : undefined}
+            rowSelectionModel={rowSelectionModel}
+            onRowSelectionModelChange={onRowSelectionModelChange}
+            onRowClick={
+              onRowClick
+                ? params => onRowClick(params.row as TestNode)
+                : undefined
+            }
+            sx={{
+              '& .MuiDataGrid-row': {
+                cursor: onRowClick ? 'pointer' : 'grab',
+              },
+              '& .MuiDataGrid-row:active': {
+                cursor: onRowClick ? 'pointer' : 'grabbing',
+              },
+            }}
+          />
+        </Box>
       </Box>
-    </Box>
+    </TestsListToolbarContext.Provider>
   );
 }
 
@@ -1554,7 +1864,7 @@ function TestsList({
 export default function ExplorerDetail({
   tests: initialTests,
   topics: initialTopics,
-  testSetName: _testSetName,
+  testSetName,
   testSetId,
   sessionToken,
 }: ExplorerDetailProps) {
@@ -1595,6 +1905,9 @@ export default function ExplorerDetail({
   const [addTestDialogOpen, setAddTestDialogOpen] = useState(false);
   const [editTestDialogOpen, setEditTestDialogOpen] = useState(false);
   const [editingTest, setEditingTest] = useState<TestNode | null>(null);
+  const [testDetailDrawerOpen, setTestDetailDrawerOpen] = useState(false);
+  const [testDetailDrawerTest, setTestDetailDrawerTest] =
+    useState<TestNode | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingTest, setDeletingTest] = useState<TestNode | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
@@ -2244,6 +2557,11 @@ export default function ExplorerDetail({
     setEditTestDialogOpen(true);
   };
 
+  const handleTestRowClick = (test: TestNode) => {
+    setTestDetailDrawerTest(test);
+    setTestDetailDrawerOpen(true);
+  };
+
   const handleEditTestSubmit = async (testId: string, data: TestNodeUpdate) => {
     // Save previous test state for rollback
     const previousTest = tests.find(t => t.id === testId);
@@ -2633,532 +2951,531 @@ export default function ExplorerDetail({
     }
   }, [sessionToken, testSetId, notifications, router]);
 
-  return (
-    <Box>
-      <Paper
-        variant="outlined"
-        sx={{
-          mb: 2,
-          borderRadius: theme.shape.borderRadius * 2,
-          overflow: 'hidden',
-          background:
-            theme.palette.mode === 'dark'
-              ? alpha(theme.palette.primary.main, 0.07)
-              : alpha(theme.palette.primary.main, 0.025),
-          borderColor: alpha(theme.palette.primary.main, 0.15),
-        }}
-      >
+  const statsMetadata = (
+    <Box
+      sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+    >
+      {[
+        { label: 'Total', value: totalTests, color: undefined },
+        { label: 'Topics', value: totalTopics, color: undefined },
+        { label: 'Pass', value: passCount, color: 'success.main' as const },
+        { label: 'Fail', value: failCount, color: 'error.main' as const },
+      ].map(item => (
         <Box
+          key={item.label}
           sx={{
-            px: 2.5,
-            py: 2,
             display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-            borderBottom: 1,
+            alignItems: 'baseline',
+            gap: 0.5,
+            px: 1,
+            py: 0.25,
+            borderRadius: 1,
+            border: '1px solid',
             borderColor: 'divider',
-            bgcolor: alpha(theme.palette.background.paper, 0.55),
+            bgcolor: 'background.paper',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 40,
-                height: 40,
-                borderRadius: theme.shape.borderRadius * 2,
-                bgcolor: alpha(theme.palette.primary.main, 0.12),
-                color: 'primary.main',
-              }}
-            >
-              <TuneOutlinedIcon sx={{ fontSize: 22 }} />
-            </Box>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={600} component="div">
-                Explorer configuration
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Endpoint and metrics for generation and evaluation
-              </Typography>
-            </Box>
-          </Box>
-          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<IosShareOutlinedIcon />}
-              onClick={() => void handleExportToTestSet()}
-              disabled={exportSubmitting}
-              sx={{ textTransform: 'none' }}
-            >
-              {exportSubmitting ? 'Saving…' : 'Save to Test Set'}
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<SettingsIcon />}
-              onClick={() => {
-                setSettingsReEvaluateWarning(true);
-                setSettingsDialogOpen(true);
-              }}
-              sx={{ textTransform: 'none' }}
-            >
-              Edit settings
-            </Button>
-          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            {item.label}
+          </Typography>
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            color={item.color ?? 'text.primary'}
+          >
+            {item.value}
+          </Typography>
         </Box>
+      ))}
+    </Box>
+  );
 
-        <Box sx={{ p: 2.5 }}>
-          {explorerConfigSummary === null ? (
+  return (
+    <PageLayout
+      title={testSetName}
+      description="Interactive explorer session — discover behaviors, generate tests, and export to test sets."
+      breadcrumbs={[
+        { label: 'Explorer', href: '/explorer' },
+        { label: testSetName },
+      ]}
+      metadata={statsMetadata}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<IosShareOutlinedIcon />}
+            tooltip="Save to Test Set"
+            onClick={() => void handleExportToTestSet()}
+            loading={exportSubmitting}
+          />
+          <Fab
+            icon={<SettingsIcon />}
+            tooltip="Edit settings"
+            onClick={() => {
+              setSettingsReEvaluateWarning(true);
+              setSettingsDialogOpen(true);
+            }}
+          />
+        </FabGroup>
+      }
+    >
+      <Box>
+        <Paper
+          sx={{
+            mb: 2,
+            borderRadius: BORDER_RADIUS.md,
+            overflow: 'hidden',
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            boxShadow: ELEVATION.xs,
+          }}
+        >
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <CircularProgress size={18} />
-              <Typography variant="body2" color="text.secondary">
-                Loading settings…
-              </Typography>
-            </Box>
-          ) : (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                gap: 2,
-              }}
-            >
               <Box
                 sx={{
-                  p: 2,
-                  borderRadius: theme.shape.borderRadius * 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 1,
+                  bgcolor: theme => alpha(theme.palette.primary.main, 0.1),
+                  color: 'primary.main',
+                }}
+              >
+                <TuneOutlinedIcon sx={{ fontSize: 20 }} />
+              </Box>
+              <Box>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={600}
+                  component="div"
+                >
+                  Explorer configuration
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Endpoint and metrics for generation and evaluation
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+
+          <Box sx={{ p: 2.5 }}>
+            {explorerConfigSummary === null ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading settings…
+                </Typography>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                  gap: 2,
                 }}
               >
                 <Box
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 1.25,
+                    p: 1.5,
+                    borderRadius: BORDER_RADIUS.sm,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
                   }}
                 >
-                  <ApiOutlinedIcon
-                    sx={{ fontSize: 20, color: 'text.secondary' }}
-                  />
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
-                  >
-                    Selected endpoint
-                  </Typography>
-                </Box>
-                {explorerConfigSummary.endpointLabel ? (
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      flexWrap: 'wrap',
                       gap: 1,
+                      mb: 1,
                     }}
                   >
+                    <ApiOutlinedIcon
+                      sx={{ fontSize: 20, color: 'text.secondary' }}
+                    />
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
+                    >
+                      Selected endpoint
+                    </Typography>
+                  </Box>
+                  {explorerConfigSummary.endpointLabel ? (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
+                    >
+                      <Chip
+                        label={explorerConfigSummary.endpointLabel}
+                        size="medium"
+                        variant="outlined"
+                        sx={{
+                          height: 'auto',
+                          py: 0.75,
+                          maxWidth: '100%',
+                          fontWeight: 500,
+                          borderColor: alpha(theme.palette.primary.main, 0.35),
+                          bgcolor: alpha(theme.palette.primary.main, 0.06),
+                          '& .MuiChip-label': {
+                            whiteSpace: 'normal',
+                            display: 'block',
+                            py: 0.25,
+                          },
+                        }}
+                      />
+                      {explorerConfigSummary.endpointEnvironment ? (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: theme =>
+                              theme.shape.borderRadius * 0.25,
+                            bgcolor: 'action.hover',
+                            color: getEnvironmentColor(
+                              explorerConfigSummary.endpointEnvironment
+                            ),
+                            fontWeight: 'medium',
+                          }}
+                        >
+                          {formatEnvironment(
+                            explorerConfigSummary.endpointEnvironment
+                          )}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  ) : (
                     <Chip
-                      label={explorerConfigSummary.endpointLabel}
-                      size="medium"
+                      label="Not set — use Edit settings"
+                      size="small"
                       variant="outlined"
                       sx={{
-                        height: 'auto',
-                        py: 0.75,
-                        maxWidth: '100%',
-                        fontWeight: 500,
-                        borderColor: alpha(theme.palette.primary.main, 0.35),
-                        bgcolor: alpha(theme.palette.primary.main, 0.06),
-                        '& .MuiChip-label': {
-                          whiteSpace: 'normal',
-                          display: 'block',
-                          py: 0.25,
-                        },
+                        borderStyle: 'dashed',
+                        color: 'text.secondary',
+                        bgcolor: alpha(theme.palette.action.hover, 0.04),
                       }}
                     />
-                    {explorerConfigSummary.endpointEnvironment ? (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          px: 1,
-                          py: 0.25,
-                          borderRadius: theme =>
-                            theme.shape.borderRadius * 0.25,
-                          bgcolor: 'action.hover',
-                          color: getEnvironmentColor(
-                            explorerConfigSummary.endpointEnvironment
-                          ),
-                          fontWeight: 'medium',
-                        }}
-                      >
-                        {formatEnvironment(
-                          explorerConfigSummary.endpointEnvironment
-                        )}
-                      </Typography>
-                    ) : null}
-                  </Box>
-                ) : (
-                  <Chip
-                    label="Not set — use Edit settings"
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      borderStyle: 'dashed',
-                      color: 'text.secondary',
-                      bgcolor: alpha(theme.palette.action.hover, 0.04),
-                    }}
-                  />
-                )}
-              </Box>
+                  )}
+                </Box>
 
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: theme.shape.borderRadius * 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                }}
-              >
                 <Box
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 1.25,
+                    p: 1.5,
+                    borderRadius: BORDER_RADIUS.sm,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
                   }}
                 >
-                  <GradingIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
-                  >
-                    Selected metric
-                  </Typography>
-                </Box>
-                {explorerConfigSummary.metrics.length > 0 ? (
-                  <Stack spacing={1.25}>
-                    {explorerConfigSummary.metrics.map(m => (
-                      <Box
-                        key={m.id}
-                        sx={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          alignItems: 'center',
-                          gap: 1,
-                        }}
-                      >
-                        <Chip
-                          label={m.name}
-                          size="medium"
-                          variant="outlined"
-                          sx={{
-                            height: 'auto',
-                            py: 0.75,
-                            maxWidth: { xs: '100%', sm: 'calc(100% - 140px)' },
-                            fontWeight: 500,
-                            borderColor: alpha(
-                              theme.palette.primary.main,
-                              0.35
-                            ),
-                            bgcolor: alpha(theme.palette.primary.main, 0.06),
-                            '& .MuiChip-label': {
-                              whiteSpace: 'normal',
-                              display: 'block',
-                              py: 0.25,
-                            },
-                          }}
-                        />
-                        {m.hasDetailPage ? (
-                          <Button
-                            size="small"
-                            variant="text"
-                            endIcon={
-                              <OpenInNewOutlinedIcon sx={{ fontSize: 18 }} />
-                            }
-                            sx={{ textTransform: 'none', flexShrink: 0 }}
-                            onClick={() => setMetricEditorMetricId(m.id)}
-                          >
-                            Go to metric
-                          </Button>
-                        ) : null}
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Chip
-                    label="Not set — use Edit settings"
-                    size="small"
-                    variant="outlined"
+                  <Box
                     sx={{
-                      borderStyle: 'dashed',
-                      color: 'text.secondary',
-                      bgcolor: alpha(theme.palette.action.hover, 0.04),
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 1,
                     }}
-                  />
-                )}
+                  >
+                    <GradingIcon
+                      sx={{ fontSize: 20, color: 'text.secondary' }}
+                    />
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
+                    >
+                      Selected metric
+                    </Typography>
+                  </Box>
+                  {explorerConfigSummary.metrics.length > 0 ? (
+                    <Stack spacing={1.25}>
+                      {explorerConfigSummary.metrics.map(m => (
+                        <Box
+                          key={m.id}
+                          sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            gap: 1,
+                          }}
+                        >
+                          <Chip
+                            label={m.name}
+                            size="medium"
+                            variant="outlined"
+                            sx={{
+                              height: 'auto',
+                              py: 0.75,
+                              maxWidth: {
+                                xs: '100%',
+                                sm: 'calc(100% - 140px)',
+                              },
+                              fontWeight: 500,
+                              borderColor: alpha(
+                                theme.palette.primary.main,
+                                0.35
+                              ),
+                              bgcolor: alpha(theme.palette.primary.main, 0.06),
+                              '& .MuiChip-label': {
+                                whiteSpace: 'normal',
+                                display: 'block',
+                                py: 0.25,
+                              },
+                            }}
+                          />
+                          {m.hasDetailPage ? (
+                            <Button
+                              size="small"
+                              variant="text"
+                              endIcon={
+                                <OpenInNewOutlinedIcon sx={{ fontSize: 18 }} />
+                              }
+                              sx={{ textTransform: 'none', flexShrink: 0 }}
+                              onClick={() => setMetricEditorMetricId(m.id)}
+                            >
+                              Go to metric
+                            </Button>
+                          ) : null}
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Chip
+                      label="Not set — use Edit settings"
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        borderStyle: 'dashed',
+                        color: 'text.secondary',
+                        bgcolor: alpha(theme.palette.action.hover, 0.04),
+                      }}
+                    />
+                  )}
+                </Box>
               </Box>
-            </Box>
-          )}
-        </Box>
-      </Paper>
+            )}
+          </Box>
+        </Paper>
 
-      {/* View Tabs */}
-      <Box
-        sx={{
-          borderBottom: 1,
-          borderColor: 'divider',
-          mb: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.5,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Tabs
-          value={activeTab}
-          onChange={(_, newValue) => {
-            setActiveTab(newValue);
-            setSelectedRows([]);
-          }}
-          sx={{ minHeight: 44 }}
-        >
-          <Tab
-            icon={<AccountTreeIcon />}
-            iconPosition="start"
-            label="Tree View"
-            sx={{ minHeight: 44 }}
-          />
-          <Tab
-            icon={<ListIcon />}
-            iconPosition="start"
-            label="List View"
-            sx={{ minHeight: 44 }}
-          />
-        </Tabs>
-
-        {/* Compact Summary Stats (kept near view toggles) */}
+        {/* View Tabs */}
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            flexWrap: 'wrap',
-            pb: 0.75,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            mb: 2,
           }}
         >
-          {[
-            { label: 'Total', value: totalTests },
-            { label: 'Topics', value: totalTopics },
-          ].map(item => (
-            <Box
-              key={item.label}
-              sx={{
-                px: 1,
-                py: 0.5,
-                borderRadius: theme.shape.borderRadius * 2,
-                border: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 0.75,
-              }}
-            >
-              <Typography variant="caption" color="text.secondary">
-                {item.label}
-              </Typography>
-              <Typography variant="subtitle2" fontWeight={700}>
-                {item.value}
-              </Typography>
-            </Box>
-          ))}
-
-          <Box
-            sx={{
-              px: 1,
-              py: 0.5,
-              borderRadius: theme.shape.borderRadius * 2,
-              border: 1,
-              borderColor: alpha(theme.palette.success.main, 0.35),
-              bgcolor: alpha(theme.palette.success.main, 0.06),
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: 0.75,
+          <Tabs
+            value={activeTab}
+            onChange={(_, newValue) => {
+              setActiveTab(newValue);
+              setSelectedRows([]);
             }}
+            sx={{ minHeight: 44 }}
           >
-            <Typography variant="caption" color="text.secondary">
-              Pass
-            </Typography>
-            <Typography
-              variant="subtitle2"
-              fontWeight={700}
-              color="success.main"
-            >
-              {passCount}
-            </Typography>
-          </Box>
-
-          <Box
-            sx={{
-              px: 1,
-              py: 0.5,
-              borderRadius: theme.shape.borderRadius * 2,
-              border: 1,
-              borderColor: alpha(theme.palette.error.main, 0.35),
-              bgcolor: alpha(theme.palette.error.main, 0.06),
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: 0.75,
-            }}
-          >
-            <Typography variant="caption" color="text.secondary">
-              Fail
-            </Typography>
-            <Typography variant="subtitle2" fontWeight={700} color="error.main">
-              {failCount}
-            </Typography>
-          </Box>
+            <Tab
+              icon={<AccountTreeIcon />}
+              iconPosition="start"
+              label="Tree View"
+              sx={{ minHeight: 44 }}
+            />
+            <Tab
+              icon={<ListIcon />}
+              iconPosition="start"
+              label="List View"
+              sx={{ minHeight: 44 }}
+            />
+          </Tabs>
         </Box>
-      </Box>
 
-      {/* Tree View */}
-      {activeTab === 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 2,
-            minHeight: 400,
-          }}
-        >
-          {/* Left Panel - Topic Tree */}
-          <Paper
-            variant="outlined"
+        {/* Tree View */}
+        {activeTab === 0 && (
+          <Box
             sx={{
-              width: 320,
-              minWidth: 260,
-              maxWidth: 380,
-              overflow: 'auto',
-              flexShrink: 0,
+              display: 'flex',
+              gap: 2,
+              minHeight: 400,
             }}
           >
-            <Box
+            {/* Left Panel - Topic Tree */}
+            <Paper
+              variant="outlined"
               sx={{
-                p: 1.5,
-                borderBottom: 1,
-                borderColor: 'divider',
+                width: 320,
+                minWidth: 260,
+                maxWidth: 380,
+                overflow: 'auto',
+                flexShrink: 0,
+                borderRadius: BORDER_RADIUS.md,
               }}
             >
-              <Typography variant="subtitle2" fontWeight={600}>
-                Topics
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Click to filter tests by topic
-              </Typography>
-            </Box>
-            <Box sx={{ p: 1 }}>
-              <TopicTreePanel
-                topicTree={topicTree}
-                tests={tests}
-                selectedTopic={selectedTopic}
-                onTopicSelect={handleTopicSelect}
-                onAddTopic={handleAddTopicOpen}
-                onDropTest={handleDropTestOnTopic}
-                onEditTopic={handleEditTopicOpen}
-                onDeleteTopic={handleDeleteTopicOpen}
-              />
-            </Box>
-          </Paper>
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Topics
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Click to filter tests by topic
+                </Typography>
+              </Box>
+              <Box sx={{ p: 1 }}>
+                <TopicTreePanel
+                  topicTree={topicTree}
+                  tests={tests}
+                  selectedTopic={selectedTopic}
+                  onTopicSelect={handleTopicSelect}
+                  onAddTopic={handleAddTopicOpen}
+                  onDropTest={handleDropTestOnTopic}
+                  onEditTopic={handleEditTopicOpen}
+                  onDeleteTopic={handleDeleteTopicOpen}
+                />
+              </Box>
+            </Paper>
 
-          {/* Right Panel - Tests Grid */}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              variant="overline"
-              color="text.secondary"
-              sx={{ display: 'block', letterSpacing: 0.8, mb: 0.5 }}
-            >
-              Explorer
-            </Typography>
-            <Box
-              sx={{
-                mb: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <Typography variant="subtitle2" color="text.primary">
-                {selectedTopic
-                  ? selectedTopic === NO_TOPIC_FILTER
-                    ? 'Tests without topic'
-                    : decodeURIComponent(selectedTopic)
-                  : 'All Tests'}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ flex: 1 }}
+            {/* Right Panel - Tests Grid */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box
+                sx={{ mb: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}
               >
-                ({filteredTests.length}{' '}
-                {filteredTests.length === 1 ? 'test' : 'tests'})
-              </Typography>
-              <Button
-                size="small"
-                startIcon={<PlayArrowIcon />}
-                onClick={() => handleGenerateOutputsInline(true)}
-                disabled={generateSubmitting || evaluateSubmitting}
-                sx={{ textTransform: 'none' }}
-              >
-                Get outputs
-              </Button>
-              <Button
-                size="small"
-                startIcon={<GradingIcon />}
-                onClick={() => handleEvaluateInline(true)}
-                disabled={generateSubmitting || evaluateSubmitting}
-                sx={{ textTransform: 'none' }}
-              >
-                Evaluate
-              </Button>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setAddTestDialogOpen(true)}
-                sx={{ textTransform: 'none' }}
-              >
-                Add test
-              </Button>
-              <Button
-                size="small"
-                startIcon={<AutoAwesomeIcon />}
-                onClick={openSuggestionGuidance}
-                sx={{ textTransform: 'none' }}
-              >
-                Suggest tests
-              </Button>
-              {selectedRows.length > 0 && (
-                <Button
-                  size="small"
-                  startIcon={<DeleteIcon />}
-                  color="error"
-                  variant="outlined"
-                  onClick={() => setBulkDeleteConfirmOpen(true)}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Delete {selectedRows.length}{' '}
-                  {selectedRows.length === 1 ? 'test' : 'tests'}
-                </Button>
+                <Typography variant="subtitle2" color="text.primary">
+                  {selectedTopic
+                    ? selectedTopic === NO_TOPIC_FILTER
+                      ? 'Tests without topic'
+                      : decodeURIComponent(selectedTopic)
+                    : 'All Tests'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ({filteredTests.length}{' '}
+                  {filteredTests.length === 1 ? 'test' : 'tests'})
+                </Typography>
+              </Box>
+              {(generateSubmitting ||
+                evaluateSubmitting ||
+                generateError ||
+                evaluateError) && (
+                <Stack sx={{ mb: 1 }} spacing={1}>
+                  {generateSubmitting && (
+                    <Alert
+                      severity="info"
+                      onClose={() => setGenerateError(null)}
+                    >
+                      Getting outputs…
+                    </Alert>
+                  )}
+                  {evaluateSubmitting && (
+                    <Alert
+                      severity="info"
+                      onClose={() => setEvaluateError(null)}
+                    >
+                      Evaluating…
+                    </Alert>
+                  )}
+                  {generateError && (
+                    <Alert
+                      severity="error"
+                      onClose={() => setGenerateError(null)}
+                    >
+                      {generateError}
+                    </Alert>
+                  )}
+                  {evaluateError && (
+                    <Alert
+                      severity="error"
+                      onClose={() => setEvaluateError(null)}
+                    >
+                      {evaluateError}
+                    </Alert>
+                  )}
+                </Stack>
               )}
+              {/* Inline add-test row lives above the card so the card only has the grid */}
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="Type test input and press Enter"
+                  value={newTestInput}
+                  onChange={e => setNewTestInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const value = newTestInput.trim();
+                      if (value) void handleInlineAddTest(value);
+                    }
+                  }}
+                  disabled={newTestProcessing}
+                />
+                <Tooltip title="Add test">
+                  <span>
+                    <IconButton
+                      color="primary"
+                      onClick={() => {
+                        const value = newTestInput.trim();
+                        if (value) void handleInlineAddTest(value);
+                      }}
+                      disabled={newTestProcessing || !newTestInput.trim()}
+                    >
+                      {newTestProcessing ? (
+                        <CircularProgress size={18} />
+                      ) : (
+                        <CheckIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+              <Paper
+                variant="outlined"
+                sx={{ borderRadius: BORDER_RADIUS.md, overflow: 'hidden' }}
+              >
+                <TestsList
+                  tests={filteredTests}
+                  loading={false}
+                  onEditTest={handleEditTestOpen}
+                  onDeleteTest={handleDeleteTestOpen}
+                  onRowClick={handleTestRowClick}
+                  checkboxSelection
+                  rowSelectionModel={selectedRows}
+                  onRowSelectionModelChange={setSelectedRows}
+                  pendingTestIds={pendingTestIds}
+                  onGetOutputs={() => handleGenerateOutputsInline(true)}
+                  onEvaluate={() => handleEvaluateInline(true)}
+                  onAddTest={() => setAddTestDialogOpen(true)}
+                  onSuggest={openSuggestionGuidance}
+                  onBulkDelete={() => setBulkDeleteConfirmOpen(true)}
+                  generateSubmitting={generateSubmitting}
+                  evaluateSubmitting={evaluateSubmitting}
+                />
+              </Paper>
             </Box>
+          </Box>
+        )}
+
+        {/* List View - All tests in a flat table */}
+        {activeTab === 1 && (
+          <Box>
             {(generateSubmitting ||
               evaluateSubmitting ||
               generateError ||
@@ -3192,729 +3509,656 @@ export default function ExplorerDetail({
                 )}
               </Stack>
             )}
-            <Paper variant="outlined" sx={{ p: 1 }}>
+            {/* Inline add-test row lives above the card */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Type test input and press Enter"
+                value={newTestInput}
+                onChange={e => setNewTestInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const value = newTestInput.trim();
+                    if (value) void handleInlineAddTest(value);
+                  }
+                }}
+                disabled={newTestProcessing}
+              />
+              <Tooltip title="Add test">
+                <span>
+                  <IconButton
+                    color="primary"
+                    onClick={() => {
+                      const value = newTestInput.trim();
+                      if (value) void handleInlineAddTest(value);
+                    }}
+                    disabled={newTestProcessing || !newTestInput.trim()}
+                  >
+                    {newTestProcessing ? (
+                      <CircularProgress size={18} />
+                    ) : (
+                      <CheckIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Box>
+            <Paper
+              variant="outlined"
+              sx={{ borderRadius: BORDER_RADIUS.md, overflow: 'hidden' }}
+            >
               <TestsList
-                tests={filteredTests}
+                tests={tests}
                 loading={false}
                 onEditTest={handleEditTestOpen}
                 onDeleteTest={handleDeleteTestOpen}
+                onRowClick={handleTestRowClick}
                 checkboxSelection
                 rowSelectionModel={selectedRows}
                 onRowSelectionModelChange={setSelectedRows}
-                newTestInput={newTestInput}
-                onNewTestInputChange={setNewTestInput}
-                onNewTestSubmit={handleInlineAddTest}
-                newTestProcessing={newTestProcessing}
                 pendingTestIds={pendingTestIds}
+                onGetOutputs={() => handleGenerateOutputsInline(false)}
+                onEvaluate={() => handleEvaluateInline(false)}
+                onAddTest={() => setAddTestDialogOpen(true)}
+                onSuggest={openSuggestionGuidance}
+                onBulkDelete={() => setBulkDeleteConfirmOpen(true)}
+                generateSubmitting={generateSubmitting}
+                evaluateSubmitting={evaluateSubmitting}
               />
             </Paper>
           </Box>
-        </Box>
-      )}
+        )}
 
-      {/* List View - All tests in a flat table */}
-      {activeTab === 1 && (
-        <Box>
-          <Typography
-            variant="overline"
-            color="text.secondary"
-            sx={{ display: 'block', letterSpacing: 0.8, mb: 0.5 }}
-          >
-            Explorer
-          </Typography>
-          <Box
-            sx={{
-              mb: 1,
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: 1,
-            }}
-          >
-            <Button
-              size="small"
-              startIcon={<PlayArrowIcon />}
-              onClick={() => handleGenerateOutputsInline(true)}
-              disabled={generateSubmitting || evaluateSubmitting}
-              sx={{ textTransform: 'none' }}
-            >
-              Get outputs
-            </Button>
-            <Button
-              size="small"
-              startIcon={<GradingIcon />}
-              onClick={() => handleEvaluateInline(true)}
-              disabled={generateSubmitting || evaluateSubmitting}
-              sx={{ textTransform: 'none' }}
-            >
-              Evaluate
-            </Button>
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setAddTestDialogOpen(true)}
-              sx={{ textTransform: 'none' }}
-            >
-              Add test
-            </Button>
-            <Button
-              size="small"
-              startIcon={<AutoAwesomeIcon />}
-              onClick={openSuggestionGuidance}
-              sx={{ textTransform: 'none' }}
-            >
-              Suggest tests
-            </Button>
-            {selectedRows.length > 0 && (
-              <Button
-                size="small"
-                startIcon={<DeleteIcon />}
-                color="error"
-                variant="outlined"
-                onClick={() => setBulkDeleteConfirmOpen(true)}
-                sx={{ textTransform: 'none' }}
+        {/* Add Topic Dialog */}
+        <AddTopicDialog
+          open={addTopicDialogOpen}
+          onClose={() => setAddTopicDialogOpen(false)}
+          onSubmit={handleAddTopicSubmit}
+          parentTopic={addTopicParent}
+        />
+
+        {/* Add Test Dialog */}
+        <AddTestDialog
+          open={addTestDialogOpen}
+          onClose={() => setAddTestDialogOpen(false)}
+          onSubmit={handleAddTestSubmit}
+          topic={selectedTopicForApi}
+          topics={topics}
+        />
+
+        {/* Edit Test Dialog */}
+        <EditTestDialog
+          open={editTestDialogOpen}
+          onClose={() => {
+            setEditTestDialogOpen(false);
+            setEditingTest(null);
+          }}
+          onSubmit={handleEditTestSubmit}
+          test={editingTest}
+          topics={topics}
+        />
+
+        {/* Test Detail Drawer (row click) */}
+        <TestDetailDrawer
+          open={testDetailDrawerOpen}
+          onClose={() => {
+            setTestDetailDrawerOpen(false);
+            setTestDetailDrawerTest(null);
+          }}
+          onSubmit={handleEditTestSubmit}
+          test={testDetailDrawerTest}
+          topics={topics}
+        />
+
+        {/* Rename Topic Dialog */}
+        <RenameTopicDialog
+          open={renameTopicDialogOpen}
+          onClose={() => {
+            setRenameTopicDialogOpen(false);
+            setRenamingTopicPath(null);
+          }}
+          onSubmit={handleRenameTopicSubmit}
+          topicPath={renamingTopicPath}
+        />
+
+        {/* Delete Test Confirmation Dialog */}
+        <Dialog
+          open={deleteConfirmOpen}
+          onClose={() => {
+            setDeleteConfirmOpen(false);
+            setDeletingTest(null);
+          }}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Delete Test</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to delete this test?</Typography>
+            {deletingTest && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  mt: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
               >
-                Delete {selectedRows.length}{' '}
-                {selectedRows.length === 1 ? 'test' : 'tests'}
-              </Button>
+                {deletingTest.input}
+              </Typography>
             )}
-          </Box>
-          {(generateSubmitting ||
-            evaluateSubmitting ||
-            generateError ||
-            evaluateError) && (
-            <Stack sx={{ mb: 1 }} spacing={1}>
-              {generateSubmitting && (
-                <Alert severity="info" onClose={() => setGenerateError(null)}>
-                  Getting outputs…
-                </Alert>
-              )}
-              {evaluateSubmitting && (
-                <Alert severity="info" onClose={() => setEvaluateError(null)}>
-                  Evaluating…
-                </Alert>
-              )}
-              {generateError && (
-                <Alert severity="error" onClose={() => setGenerateError(null)}>
-                  {generateError}
-                </Alert>
-              )}
-              {evaluateError && (
-                <Alert severity="error" onClose={() => setEvaluateError(null)}>
-                  {evaluateError}
-                </Alert>
-              )}
-            </Stack>
-          )}
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <TestsList
-              tests={tests}
-              loading={false}
-              onEditTest={handleEditTestOpen}
-              onDeleteTest={handleDeleteTestOpen}
-              checkboxSelection
-              rowSelectionModel={selectedRows}
-              onRowSelectionModelChange={setSelectedRows}
-              newTestInput={newTestInput}
-              onNewTestInputChange={setNewTestInput}
-              onNewTestSubmit={handleInlineAddTest}
-              newTestProcessing={newTestProcessing}
-              pendingTestIds={pendingTestIds}
-            />
-          </Paper>
-        </Box>
-      )}
-
-      {/* Add Topic Dialog */}
-      <AddTopicDialog
-        open={addTopicDialogOpen}
-        onClose={() => setAddTopicDialogOpen(false)}
-        onSubmit={handleAddTopicSubmit}
-        parentTopic={addTopicParent}
-      />
-
-      {/* Add Test Dialog */}
-      <AddTestDialog
-        open={addTestDialogOpen}
-        onClose={() => setAddTestDialogOpen(false)}
-        onSubmit={handleAddTestSubmit}
-        topic={selectedTopicForApi}
-        topics={topics}
-      />
-
-      {/* Edit Test Dialog */}
-      <EditTestDialog
-        open={editTestDialogOpen}
-        onClose={() => {
-          setEditTestDialogOpen(false);
-          setEditingTest(null);
-        }}
-        onSubmit={handleEditTestSubmit}
-        test={editingTest}
-        topics={topics}
-      />
-
-      {/* Rename Topic Dialog */}
-      <RenameTopicDialog
-        open={renameTopicDialogOpen}
-        onClose={() => {
-          setRenameTopicDialogOpen(false);
-          setRenamingTopicPath(null);
-        }}
-        onSubmit={handleRenameTopicSubmit}
-        topicPath={renamingTopicPath}
-      />
-
-      {/* Delete Test Confirmation Dialog */}
-      <Dialog
-        open={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false);
-          setDeletingTest(null);
-        }}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete Test</DialogTitle>
-        <DialogContent>
-          <Typography>Are you sure you want to delete this test?</Typography>
-          {deletingTest && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                mt: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setDeletingTest(null);
               }}
             >
-              {deletingTest.input}
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteTestConfirm}
+              color="error"
+              variant="contained"
+            >
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Topic Confirmation Dialog */}
+        <Dialog
+          open={deleteTopicConfirmOpen}
+          onClose={() => {
+            setDeleteTopicConfirmOpen(false);
+            setDeletingTopicPath(null);
+          }}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Remove Topic</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Remove this topic? Subtopics will be removed and all tests under
+              this topic will be moved to the parent topic.
             </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setDeleteConfirmOpen(false);
-              setDeletingTest(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteTestConfirm}
-            color="error"
-            variant="contained"
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+            {deletingTopicPath && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {decodeURIComponent(deletingTopicPath)}
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setDeleteTopicConfirmOpen(false);
+                setDeletingTopicPath(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteTopicConfirm}
+              color="error"
+              variant="contained"
+            >
+              Remove
+            </Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* Delete Topic Confirmation Dialog */}
-      <Dialog
-        open={deleteTopicConfirmOpen}
-        onClose={() => {
-          setDeleteTopicConfirmOpen(false);
-          setDeletingTopicPath(null);
-        }}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Remove Topic</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Remove this topic? Subtopics will be removed and all tests under
-            this topic will be moved to the parent topic.
-          </Typography>
-          {deletingTopicPath && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {decodeURIComponent(deletingTopicPath)}
+        {/* Bulk Delete Confirmation Dialog */}
+        <Dialog
+          open={bulkDeleteConfirmOpen}
+          onClose={() => {
+            if (!isBulkDeleting) setBulkDeleteConfirmOpen(false);
+          }}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Delete Tests</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete {selectedRows.length}{' '}
+              {selectedRows.length === 1 ? 'test' : 'tests'}?
             </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setDeleteTopicConfirmOpen(false);
-              setDeletingTopicPath(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteTopicConfirm}
-            color="error"
-            variant="contained"
-          >
-            Remove
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Bulk Delete Confirmation Dialog */}
-      <Dialog
-        open={bulkDeleteConfirmOpen}
-        onClose={() => {
-          if (!isBulkDeleting) setBulkDeleteConfirmOpen(false);
-        }}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete Tests</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete {selectedRows.length}{' '}
-            {selectedRows.length === 1 ? 'test' : 'tests'}?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setBulkDeleteConfirmOpen(false)}
-            disabled={isBulkDeleting}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleBulkDeleteConfirm}
-            color="error"
-            variant="contained"
-            disabled={isBulkDeleting}
-            startIcon={
-              isBulkDeleting ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : undefined
-            }
-          >
-            {isBulkDeleting ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Get outputs dialog */}
-      <Dialog
-        open={generateOutputsDialogOpen}
-        onClose={handleGenerateOutputsClose}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Get outputs</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Invoke the selected endpoint for each test input and store the
-            response as the test output.
-          </Typography>
-          {generateError && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2 }}
-              onClose={() => setGenerateError(null)}
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => setBulkDeleteConfirmOpen(false)}
+              disabled={isBulkDeleting}
             >
-              {generateError}
-            </Alert>
-          )}
-          <Autocomplete
-            options={[allTestsTopicOption, ...topics]}
-            getOptionLabel={option =>
-              option.path ? (option.display_path ?? option.path) : 'All tests'
-            }
-            value={
-              generateOutputsTopic === null || generateOutputsTopic === ''
-                ? allTestsTopicOption
-                : (topics.find(t => t.path === generateOutputsTopic) ?? {
-                    path: generateOutputsTopic,
-                    name:
-                      generateOutputsTopic.split('/').pop() ??
-                      generateOutputsTopic,
-                    parent_path: null,
-                    depth: 0,
-                    display_name: generateOutputsTopic,
-                    display_path: generateOutputsTopic,
-                    has_direct_tests: false,
-                    has_subtopics: false,
-                  })
-            }
-            onChange={(_, value) =>
-              setGenerateOutputsTopic(
-                value?.path && value.path !== '' ? value.path : null
-              )
-            }
-            isOptionEqualToValue={(a, b) => a.path === b.path}
-            renderInput={params => (
-              <TextField {...params} label="Topic" placeholder="All tests" />
-            )}
-            sx={{ mb: 1 }}
-          />
-          {generateOutputsTopic != null && generateOutputsTopic !== '' && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={generateOutputsIncludeSubtopics}
-                  onChange={e =>
-                    setGenerateOutputsIncludeSubtopics(e.target.checked)
-                  }
-                />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkDeleteConfirm}
+              color="error"
+              variant="contained"
+              disabled={isBulkDeleting}
+              startIcon={
+                isBulkDeleting ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : undefined
               }
-              label="Include subtopics"
-              sx={{ display: 'block' }}
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={handleGenerateOutputsClose}
-            disabled={generateSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              void handleGenerateOutputsSubmit();
-            }}
-            disabled={generateSubmitting}
-            startIcon={
-              generateSubmitting ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <PlayArrowIcon />
-              )
-            }
-          >
-            {generateSubmitting ? 'Getting…' : 'Get outputs'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Evaluate dialog */}
-      <Dialog
-        open={evaluateDialogOpen}
-        onClose={handleEvaluateClose}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Evaluate</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Run the metric configured in explorer settings against each
-            test&apos;s stored input and output, and persist the evaluation
-            results in test metadata.
-          </Typography>
-          {evaluateError && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2 }}
-              onClose={() => setEvaluateError(null)}
             >
-              {evaluateError}
-            </Alert>
-          )}
-          <Autocomplete
-            options={[allTestsTopicOption, ...topics]}
-            getOptionLabel={option =>
-              option.path ? (option.display_path ?? option.path) : 'All tests'
-            }
-            value={
-              evaluateTopic === null || evaluateTopic === ''
-                ? allTestsTopicOption
-                : (topics.find(t => t.path === evaluateTopic) ?? {
-                    path: evaluateTopic,
-                    name: evaluateTopic.split('/').pop() ?? evaluateTopic,
-                    parent_path: null,
-                    depth: 0,
-                    display_name: evaluateTopic,
-                    display_path: evaluateTopic,
-                    has_direct_tests: false,
-                    has_subtopics: false,
-                  })
-            }
-            onChange={(_, value) =>
-              setEvaluateTopic(
-                value?.path && value.path !== '' ? value.path : null
-              )
-            }
-            isOptionEqualToValue={(a, b) => a.path === b.path}
-            renderInput={params => (
-              <TextField {...params} label="Topic" placeholder="All tests" />
+              {isBulkDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Get outputs dialog */}
+        <Dialog
+          open={generateOutputsDialogOpen}
+          onClose={handleGenerateOutputsClose}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Get outputs</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Invoke the selected endpoint for each test input and store the
+              response as the test output.
+            </Typography>
+            {generateError && (
+              <Alert
+                severity="error"
+                sx={{ mb: 2 }}
+                onClose={() => setGenerateError(null)}
+              >
+                {generateError}
+              </Alert>
             )}
-            sx={{ mb: 1 }}
-          />
-          {evaluateTopic != null && evaluateTopic !== '' && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={evaluateIncludeSubtopics}
-                  onChange={e => setEvaluateIncludeSubtopics(e.target.checked)}
-                />
+            <Autocomplete
+              options={[allTestsTopicOption, ...topics]}
+              getOptionLabel={option =>
+                option.path ? (option.display_path ?? option.path) : 'All tests'
               }
-              label="Include subtopics"
-              sx={{ display: 'block' }}
+              value={
+                generateOutputsTopic === null || generateOutputsTopic === ''
+                  ? allTestsTopicOption
+                  : (topics.find(t => t.path === generateOutputsTopic) ?? {
+                      path: generateOutputsTopic,
+                      name:
+                        generateOutputsTopic.split('/').pop() ??
+                        generateOutputsTopic,
+                      parent_path: null,
+                      depth: 0,
+                      display_name: generateOutputsTopic,
+                      display_path: generateOutputsTopic,
+                      has_direct_tests: false,
+                      has_subtopics: false,
+                    })
+              }
+              onChange={(_, value) =>
+                setGenerateOutputsTopic(
+                  value?.path && value.path !== '' ? value.path : null
+                )
+              }
+              isOptionEqualToValue={(a, b) => a.path === b.path}
+              renderInput={params => (
+                <TextField {...params} label="Topic" placeholder="All tests" />
+              )}
+              sx={{ mb: 1 }}
             />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEvaluateClose} disabled={evaluateSubmitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              void handleEvaluateSubmit();
-            }}
-            disabled={evaluateSubmitting}
-            startIcon={
-              evaluateSubmitting ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <GradingIcon />
-              )
-            }
-          >
-            {evaluateSubmitting ? 'Evaluating…' : 'Evaluate'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={settingsDialogOpen}
-        onClose={() => {
-          if (!settingsSaving) {
-            setSettingsDialogOpen(false);
-            setSettingsError(null);
-            setSettingsReEvaluateWarning(false);
-          }
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Explorer settings</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select the endpoint and metric used for explorer generation and
-            evaluation.
-          </Typography>
-          {settingsReEvaluateWarning && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              To keep results consistent with a new endpoint or metric, use Get
-              outputs and Evaluate for all tests in this set.
-            </Alert>
-          )}
-          {settingsError && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2 }}
-              onClose={() => setSettingsError(null)}
-            >
-              {settingsError}
-            </Alert>
-          )}
-          <Autocomplete
-            options={endpointOptions}
-            getOptionLabel={option =>
-              `${option.projectName} › ${option.endpointName}`
-            }
-            value={settingsEndpoint}
-            onChange={(_, value) => setSettingsEndpoint(value ?? null)}
-            loading={endpointsLoading}
-            renderOption={(props, option) => {
-              const { key: _key, ...otherProps } = props;
-              return (
-                <li key={option.endpointId} {...otherProps}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                      {option.projectName} › {option.endpointName}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        ml: 2,
-                        px: 1,
-                        py: 0.25,
-                        borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        bgcolor: 'action.hover',
-                        color: getEnvironmentColor(option.environment),
-                        fontWeight: 'medium',
-                      }}
-                    >
-                      {formatEnvironment(option.environment)}
-                    </Typography>
-                  </Box>
-                </li>
-              );
-            }}
-            renderInput={params => (
-              <TextField
-                {...params}
-                label="Endpoint"
-                placeholder="Select endpoint"
+            {generateOutputsTopic != null && generateOutputsTopic !== '' && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={generateOutputsIncludeSubtopics}
+                    onChange={e =>
+                      setGenerateOutputsIncludeSubtopics(e.target.checked)
+                    }
+                  />
+                }
+                label="Include subtopics"
+                sx={{ display: 'block' }}
               />
             )}
-            sx={{ mb: 2 }}
-          />
-          <Autocomplete
-            options={metrics}
-            getOptionLabel={option => option.name ?? ''}
-            value={settingsMetric}
-            onChange={(_, value) => setSettingsMetric(value ?? null)}
-            loading={metricsLoading}
-            renderInput={params => (
-              <TextField
-                {...params}
-                label="Metric (single-turn)"
-                placeholder="Select metric"
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={handleGenerateOutputsClose}
+              disabled={generateSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                void handleGenerateOutputsSubmit();
+              }}
+              disabled={generateSubmitting}
+              startIcon={
+                generateSubmitting ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <PlayArrowIcon />
+                )
+              }
+            >
+              {generateSubmitting ? 'Getting…' : 'Get outputs'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Evaluate dialog */}
+        <Dialog
+          open={evaluateDialogOpen}
+          onClose={handleEvaluateClose}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Evaluate</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Run the metric configured in explorer settings against each
+              test&apos;s stored input and output, and persist the evaluation
+              results in test metadata.
+            </Typography>
+            {evaluateError && (
+              <Alert
+                severity="error"
+                sx={{ mb: 2 }}
+                onClose={() => setEvaluateError(null)}
+              >
+                {evaluateError}
+              </Alert>
+            )}
+            <Autocomplete
+              options={[allTestsTopicOption, ...topics]}
+              getOptionLabel={option =>
+                option.path ? (option.display_path ?? option.path) : 'All tests'
+              }
+              value={
+                evaluateTopic === null || evaluateTopic === ''
+                  ? allTestsTopicOption
+                  : (topics.find(t => t.path === evaluateTopic) ?? {
+                      path: evaluateTopic,
+                      name: evaluateTopic.split('/').pop() ?? evaluateTopic,
+                      parent_path: null,
+                      depth: 0,
+                      display_name: evaluateTopic,
+                      display_path: evaluateTopic,
+                      has_direct_tests: false,
+                      has_subtopics: false,
+                    })
+              }
+              onChange={(_, value) =>
+                setEvaluateTopic(
+                  value?.path && value.path !== '' ? value.path : null
+                )
+              }
+              isOptionEqualToValue={(a, b) => a.path === b.path}
+              renderInput={params => (
+                <TextField {...params} label="Topic" placeholder="All tests" />
+              )}
+              sx={{ mb: 1 }}
+            />
+            {evaluateTopic != null && evaluateTopic !== '' && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={evaluateIncludeSubtopics}
+                    onChange={e =>
+                      setEvaluateIncludeSubtopics(e.target.checked)
+                    }
+                  />
+                }
+                label="Include subtopics"
+                sx={{ display: 'block' }}
               />
             )}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleEvaluateClose} disabled={evaluateSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                void handleEvaluateSubmit();
+              }}
+              disabled={evaluateSubmitting}
+              startIcon={
+                evaluateSubmitting ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <GradingIcon />
+                )
+              }
+            >
+              {evaluateSubmitting ? 'Evaluating…' : 'Evaluate'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <BaseDrawer
+          open={settingsDialogOpen}
+          onClose={() => {
+            if (!settingsSaving) {
               setSettingsDialogOpen(false);
               setSettingsError(null);
               setSettingsReEvaluateWarning(false);
-            }}
-            disabled={settingsSaving}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveSettings}
-            disabled={settingsSaving}
-          >
-            {settingsSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            }
+          }}
+          title="Explorer settings"
+          titleIcon={<SettingsIcon sx={{ fontSize: 24 }} />}
+          onSave={() => void handleSaveSettings()}
+          saveButtonText="Save"
+          loading={settingsSaving}
+          error={settingsError ?? undefined}
+          anchor="right"
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Select the endpoint and metric used for explorer generation and
+              evaluation.
+            </Typography>
+            {settingsReEvaluateWarning && (
+              <Alert severity="warning">
+                To keep results consistent with a new endpoint or metric, use
+                Get outputs and Evaluate for all tests in this set.
+              </Alert>
+            )}
+            <Autocomplete
+              options={endpointOptions}
+              getOptionLabel={option =>
+                `${option.projectName} › ${option.endpointName}`
+              }
+              value={settingsEndpoint}
+              onChange={(_, value) => setSettingsEndpoint(value ?? null)}
+              loading={endpointsLoading}
+              renderOption={(props, option) => {
+                const { key: _key, ...otherProps } = props;
+                return (
+                  <li key={option.endpointId} {...otherProps}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        width: '100%',
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                        {option.projectName} › {option.endpointName}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          ml: 2,
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 0.5,
+                          bgcolor: 'action.hover',
+                          color: getEnvironmentColor(option.environment),
+                          fontWeight: 'medium',
+                        }}
+                      >
+                        {formatEnvironment(option.environment)}
+                      </Typography>
+                    </Box>
+                  </li>
+                );
+              }}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Endpoint"
+                  placeholder="Select endpoint"
+                />
+              )}
+            />
+            <Autocomplete
+              options={metrics}
+              getOptionLabel={option => option.name ?? ''}
+              value={settingsMetric}
+              onChange={(_, value) => setSettingsMetric(value ?? null)}
+              loading={metricsLoading}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Metric (single-turn)"
+                  placeholder="Select metric"
+                />
+              )}
+            />
+          </Box>
+        </BaseDrawer>
 
-      <Dialog
-        open={metricEditorMetricId != null}
-        onClose={() => setMetricEditorMetricId(null)}
-        maxWidth={false}
-        fullWidth
-        PaperProps={{
-          sx: {
-            m: { xs: 0, sm: 2 },
-            width: { xs: '100%', sm: 'min(1100px, 98vw)' },
-            maxHeight: { xs: '100%', sm: '94vh' },
-            height: { xs: '100%', sm: 'min(900px, 94vh)' },
-            borderRadius: { xs: 0, sm: 2 },
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          },
-        }}
-      >
-        {metricEditorMetricId ? (
-          <Box
-            sx={{
-              flex: 1,
-              minHeight: 0,
+        <Dialog
+          open={metricEditorMetricId != null}
+          onClose={() => setMetricEditorMetricId(null)}
+          maxWidth={false}
+          fullWidth
+          PaperProps={{
+            sx: {
+              m: { xs: 0, sm: 2 },
+              width: { xs: '100%', sm: 'min(1100px, 98vw)' },
+              maxHeight: { xs: '100%', sm: '94vh' },
+              height: { xs: '100%', sm: 'min(900px, 94vh)' },
+              borderRadius: { xs: 0, sm: 2 },
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-            }}
-          >
-            <MetricDetailView
-              key={metricEditorMetricId}
-              metricId={metricEditorMetricId}
-              mode="embedded"
-              onClose={() => setMetricEditorMetricId(null)}
-              onSaved={() => {
-                void loadExplorerSettings();
+            },
+          }}
+        >
+          {metricEditorMetricId ? (
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
               }}
-            />
-          </Box>
-        ) : null}
-      </Dialog>
-
-      {/* Optional user guidance before generating suggestions */}
-      <Dialog
-        open={suggestionGuidanceDialogOpen}
-        onClose={closeSuggestionGuidanceDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Suggest tests</DialogTitle>
-        <DialogContent>
-          {suggestionGuidanceStep === 'choose' ? (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                New suggestions are generated from examples in this test set.
-                Choose whether to run generation now, or add guidance first for
-                how the model should shape suggestions.
-              </Typography>
-            </>
-          ) : (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Describe how suggestions should be generated. This is sent to
-                the model together with your existing tests.
-              </Typography>
-              <TextField
-                autoFocus
-                multiline
-                minRows={3}
-                fullWidth
-                label="Generation guide"
-                placeholder="e.g., Focus on edge cases for date parsing..."
-                value={suggestionGuidanceDraft}
-                onChange={e => setSuggestionGuidanceDraft(e.target.value)}
-                inputProps={{ maxLength: 1000 }}
-                helperText="Up to 1000 characters."
+            >
+              <MetricDetailView
+                key={metricEditorMetricId}
+                metricId={metricEditorMetricId}
+                mode="embedded"
+                onClose={() => setMetricEditorMetricId(null)}
+                onSaved={() => {
+                  void loadExplorerSettings();
+                }}
               />
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          {suggestionGuidanceStep === 'choose' ? (
-            <>
-              <Button onClick={closeSuggestionGuidanceDialog}>Cancel</Button>
-              <Button
-                variant="outlined"
-                onClick={handleSuggestionGuidanceSpecifyGuide}
-              >
-                Specify guide
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleSuggestionGuidanceGenerateNow}
-              >
-                Generate
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={handleSuggestionGuidanceBackToChoose}>
-                Back
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleSuggestionGuidanceGenerateWithGuide}
-              >
-                Generate
-              </Button>
-            </>
-          )}
-        </DialogActions>
-      </Dialog>
+            </Box>
+          ) : null}
+        </Dialog>
 
-      {/* Suggestions dialog */}
-      <SuggestionsDialog
-        open={suggestionsDialogOpen}
-        onClose={handleSuggestionsDialogClose}
-        testSetId={testSetId}
-        sessionToken={sessionToken}
-        topic={selectedTopicForApi}
-        userFeedback={suggestionsUserFeedback}
-        onTestAccepted={handleSuggestionAccepted}
-      />
-    </Box>
+        {/* Optional user guidance before generating suggestions */}
+        <Dialog
+          open={suggestionGuidanceDialogOpen}
+          onClose={closeSuggestionGuidanceDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Suggest tests</DialogTitle>
+          <DialogContent>
+            {suggestionGuidanceStep === 'choose' ? (
+              <>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  New suggestions are generated from examples in this test set.
+                  Choose whether to run generation now, or add guidance first
+                  for how the model should shape suggestions.
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Describe how suggestions should be generated. This is sent to
+                  the model together with your existing tests.
+                </Typography>
+                <TextField
+                  autoFocus
+                  multiline
+                  minRows={3}
+                  fullWidth
+                  label="Generation guide"
+                  placeholder="e.g., Focus on edge cases for date parsing..."
+                  value={suggestionGuidanceDraft}
+                  onChange={e => setSuggestionGuidanceDraft(e.target.value)}
+                  inputProps={{ maxLength: 1000 }}
+                  helperText="Up to 1000 characters."
+                />
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            {suggestionGuidanceStep === 'choose' ? (
+              <>
+                <Button onClick={closeSuggestionGuidanceDialog}>Cancel</Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleSuggestionGuidanceSpecifyGuide}
+                >
+                  Specify guide
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSuggestionGuidanceGenerateNow}
+                >
+                  Generate
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={handleSuggestionGuidanceBackToChoose}>
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSuggestionGuidanceGenerateWithGuide}
+                >
+                  Generate
+                </Button>
+              </>
+            )}
+          </DialogActions>
+        </Dialog>
+
+        {/* Suggestions dialog */}
+        <SuggestionsDialog
+          open={suggestionsDialogOpen}
+          onClose={handleSuggestionsDialogClose}
+          testSetId={testSetId}
+          sessionToken={sessionToken}
+          topic={selectedTopicForApi}
+          userFeedback={suggestionsUserFeedback}
+          onTestAccepted={handleSuggestionAccepted}
+        />
+      </Box>
+    </PageLayout>
   );
 }

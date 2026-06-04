@@ -152,15 +152,9 @@ export default function LinkedEntitiesGrid({
   // Empty state is based on the total linked rows, not the filtered subset.
   const showEmptyState = !loading && rows.length === 0 && !!emptyState;
 
-  // Inset the first/last column content to 30px so it lines up with the
-  // header, toolbar and footer (which already use 30px horizontal padding).
-  const gridSx = {
-    ...(rowActionsHoverSx as Record<string, unknown>),
-    '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
-      { paddingLeft: '30px' },
-    '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
-      { paddingRight: '30px' },
-  } as SxProps<Theme>;
+  // BaseDataGrid bakes in the 30px first/last column inset so the header,
+  // toolbar, cells and footer all line up at 30px.
+  const gridSx = rowActionsHoverSx;
 
   const contextValue: LinkedEntitiesContextValue = {
     searchQuery,
