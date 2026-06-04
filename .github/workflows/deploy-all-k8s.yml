@@ -19,7 +19,7 @@ on:
         type: string
 
 concurrency:
-  group: k8s-build-push-${{ github.event.inputs.environment }}
+  group: k8s-build-${{ github.workflow }}-${{ github.event.inputs.environment }}
   cancel-in-progress: false
 
 jobs:

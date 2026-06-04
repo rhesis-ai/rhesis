@@ -34,6 +34,10 @@ on:
         type: boolean
         default: true
 
+concurrency:
+  group: k8s-build-${{ github.workflow }}-${{ inputs.environment || github.event.inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   validate-inputs:
     runs-on: ubuntu-latest
