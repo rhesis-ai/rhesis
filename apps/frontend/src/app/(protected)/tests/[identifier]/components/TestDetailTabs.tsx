@@ -37,10 +37,10 @@ export default function TestDetailTabs({
     key,
     label:
       key === 'basic'
-        ? 'Basic Information'
+        ? 'Overview'
         : key === 'linked'
-          ? 'Linked entities'
-          : 'Tasks',
+          ? 'Linked Test Sets'
+          : 'Tasks & Comments',
     id: `test-detail-tab-${index}`,
     'aria-controls': `test-detail-tabpanel-${index}`,
   }));
