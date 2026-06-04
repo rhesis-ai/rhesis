@@ -1946,9 +1946,6 @@ export default function ExplorerDetail({
     string | null
   >(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  /** True when dialog opened from Edit settings (not initial ?openSettings=1). */
-  const [settingsReEvaluateWarning, setSettingsReEvaluateWarning] =
-    useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsEndpoint, setSettingsEndpoint] =
@@ -2117,7 +2114,6 @@ export default function ExplorerDetail({
 
   useEffect(() => {
     if (searchParams.get('openSettings') !== '1') return;
-    setSettingsReEvaluateWarning(false);
     setSettingsDialogOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete('openSettings');
@@ -2906,7 +2902,6 @@ export default function ExplorerDetail({
         severity: 'success',
       });
       setSettingsDialogOpen(false);
-      setSettingsReEvaluateWarning(false);
     } catch (err) {
       setSettingsError(
         err instanceof Error ? err.message : 'Failed to save settings.'
@@ -2965,7 +2960,6 @@ export default function ExplorerDetail({
             icon={<SettingsIcon />}
             tooltip="Edit settings"
             onClick={() => {
-              setSettingsReEvaluateWarning(true);
               setSettingsDialogOpen(true);
             }}
           />
@@ -2973,6 +2967,67 @@ export default function ExplorerDetail({
       }
     >
       <Box>
+        {/* Compact config hint */}
+        {explorerConfigSummary !== null && (
+          <Box
+            sx={{
+              mb: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <TuneOutlinedIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+            <Typography variant="caption" color="text.secondary">
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                Endpoint:
+              </Box>{' '}
+              {explorerConfigSummary.endpointLabel ?? (
+                <Box
+                  component="span"
+                  sx={{ fontStyle: 'italic', color: 'text.disabled' }}
+                >
+                  not set
+                </Box>
+              )}
+              {explorerConfigSummary.endpointEnvironment && (
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 0.75,
+                    color: getEnvironmentColor(
+                      explorerConfigSummary.endpointEnvironment
+                    ),
+                  }}
+                >
+                  (
+                  {formatEnvironment(explorerConfigSummary.endpointEnvironment)}
+                  )
+                </Box>
+              )}
+            </Typography>
+            <Box component="span" sx={{ color: 'text.disabled', fontSize: 12 }}>
+              ·
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                Metric:
+              </Box>{' '}
+              {explorerConfigSummary.metrics.length > 0 ? (
+                explorerConfigSummary.metrics.map(m => m.name).join(', ')
+              ) : (
+                <Box
+                  component="span"
+                  sx={{ fontStyle: 'italic', color: 'text.disabled' }}
+                >
+                  not set
+                </Box>
+              )}
+            </Typography>
+          </Box>
+        )}
+
         {/* View Tabs + Stats */}
         <Box
           sx={{
@@ -3696,7 +3751,6 @@ export default function ExplorerDetail({
             if (!settingsSaving) {
               setSettingsDialogOpen(false);
               setSettingsError(null);
-              setSettingsReEvaluateWarning(false);
             }
           }}
           title="Explorer settings"
@@ -3712,26 +3766,19 @@ export default function ExplorerDetail({
               Select the endpoint and metric used for explorer generation and
               evaluation.
             </Typography>
-            {explorerConfigSummary !== null && (
-              <EntityInfoBanner
-                name={
-                  explorerConfigSummary.endpointLabel
-                    ? `${explorerConfigSummary.endpointLabel}${explorerConfigSummary.endpointEnvironment ? ` (${formatEnvironment(explorerConfigSummary.endpointEnvironment)})` : ''}`
-                    : 'No endpoint selected'
-                }
-                description={
-                  explorerConfigSummary.metrics.length > 0
-                    ? `Metric: ${explorerConfigSummary.metrics.map(m => m.name).join(', ')}`
-                    : 'No metric selected'
-                }
-              />
-            )}
-            {settingsReEvaluateWarning && (
-              <Alert severity="warning">
-                To keep results consistent with a new endpoint or metric, use
-                Get outputs and Evaluate for all tests in this set.
-              </Alert>
-            )}
+            <EntityInfoBanner
+              name={
+                explorerConfigSummary?.endpointLabel
+                  ? `${explorerConfigSummary.endpointLabel}${explorerConfigSummary.endpointEnvironment ? ` (${formatEnvironment(explorerConfigSummary.endpointEnvironment)})` : ''}`
+                  : 'No endpoint selected'
+              }
+              description={
+                explorerConfigSummary &&
+                explorerConfigSummary.metrics.length > 0
+                  ? `Metric: ${explorerConfigSummary.metrics.map(m => m.name).join(', ')}`
+                  : 'No metric selected'
+              }
+            />
             <Autocomplete
               options={endpointOptions}
               getOptionLabel={option =>
