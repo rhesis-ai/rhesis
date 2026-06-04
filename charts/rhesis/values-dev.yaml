@@ -8,7 +8,9 @@
 global:
   registry: "europe-west4-docker.pkg.dev/rhesis-dev-494712/rhesis"
   imagePullPolicy: Always
-  imageTag: "latest"
+  # Managed by CI — patched to the git SHA tag after each successful build.
+  imageTag: ""
+  requirePinnedTag: true
 
 # ---------------------------------------------------------------------------
 # Non-sensitive config overrides for dev

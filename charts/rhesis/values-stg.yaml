@@ -11,7 +11,9 @@
 global:
   registry: "europe-west4-docker.pkg.dev/rhesis-stg-494712/rhesis"
   imagePullPolicy: Always
-  imageTag: "latest"
+  # Managed by CI — patched to the git SHA tag after each successful build.
+  imageTag: ""
+  requirePinnedTag: true
 
 # DB: app URL uses rhesis-user; migrate.sh / Alembic use rhesis-admin.
 # Cluster manifest: kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml
@@ -91,8 +93,6 @@ backend:
     failureThreshold: 6
 
 frontend:
-  image:
-    tag: "latest"
   resources:
     requests:
       memory: "256Mi"

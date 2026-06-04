@@ -139,9 +139,14 @@ Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Valu
 {{- define "rhesis.image" -}}
 {{- $registry := .global.registry -}}
 {{- $repository := .imageValues.image.repository -}}
-{{- $tag := coalesce .imageValues.image.tag .global.imageTag "latest" -}}
-{{- if and .global.requirePinnedTag (eq $tag "latest") -}}
-  {{- fail "global.imageTag must be set for production — refusing to deploy with floating latest" -}}
+{{- $tag := coalesce .imageValues.image.tag .global.imageTag -}}
+{{- if not $tag -}}
+  {{- if .global.requirePinnedTag -}}
+    {{- fail "image tag must be set — CI pins each service via <service>.image.tag; run the build workflow before deploying" -}}
+  {{- end -}}
+{{- end -}}
+{{- if eq $tag "latest" -}}
+  {{- fail "image tag must not be 'latest' — use an immutable git SHA tag" -}}
 {{- end -}}
 {{- if $registry -}}
 {{- printf "%s/%s:%s" $registry $repository $tag -}}

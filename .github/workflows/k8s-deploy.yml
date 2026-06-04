@@ -1,0 +1,99 @@
+name: "[Deploy] K8s via ArgoCD (reusable)"
+
+# Uses the ArgoCD CLI to set the image tag parameter on the ArgoCD Application
+# and trigger an immediate sync — no git commit required.
+#
+# All-services deploy:  leave `service` empty → sets global.imageTag
+# Per-service deploy:   set `service` to the values key (e.g. backend, workers)
+#                       → sets <service>.image.tag only
+#
+# Required secrets (add in GitHub → Settings → Secrets, one set per environment):
+#   ARGOCD_SERVER_DEV / ARGOCD_SERVER_STG / ARGOCD_SERVER_PRD
+#     The ArgoCD server hostname, without scheme (e.g. argocd.dev.rhesis.ai)
+#   ARGOCD_AUTH_TOKEN_DEV / ARGOCD_AUTH_TOKEN_STG / ARGOCD_AUTH_TOKEN_PRD
+#     A long-lived ArgoCD API token (see README or docs for how to generate)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment (dev, stg, prd)'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag to deploy'
+        required: true
+        type: string
+      app_name:
+        description: 'ArgoCD application name'
+        required: false
+        type: string
+        default: 'rhesis'
+      service:
+        description: |
+          Values key for a per-service deploy (e.g. backend, workers, frontend,
+          chatbot, polyphemus, otelCollector, telemetryProcessor, docs).
+          Leave empty to set global.imageTag and roll all services together.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: none
+
+    steps:
+      - name: Install ArgoCD CLI
+        run: |
+          ARGOCD_VERSION="v2.14.4"
+          ARGOCD_SHA256="ed774771701f8e5a9330918e4f905f2f171e2181906aec792c9ff6907a4c480f"
+          curl -sSL -o /usr/local/bin/argocd \
+            "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+          echo "${ARGOCD_SHA256}  /usr/local/bin/argocd" | sha256sum -c -
+          chmod +x /usr/local/bin/argocd
+
+      - name: Set image tag parameter on ArgoCD Application
+        env:
+          ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
+          TAG: ${{ inputs.tag }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          if [ -z "$SERVICE" ]; then
+            PARAM="global.imageTag=$TAG"
+            echo "Setting global.imageTag=$TAG on app ${{ inputs.app_name }} [${{ inputs.environment }}]"
+          else
+            PARAM="${SERVICE}.image.tag=$TAG"
+            echo "Setting ${SERVICE}.image.tag=$TAG on app ${{ inputs.app_name }} [${{ inputs.environment }}]"
+          fi
+
+          argocd app set "${{ inputs.app_name }}" \
+            --helm-set "$PARAM" \
+            --server "$ARGOCD_SERVER" \
+            --auth-token "$ARGOCD_AUTH_TOKEN" \
+            --grpc-web
+
+      - name: Sync ArgoCD Application
+        env:
+          ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
+        run: |
+          argocd app sync "${{ inputs.app_name }}" \
+            --server "$ARGOCD_SERVER" \
+            --auth-token "$ARGOCD_AUTH_TOKEN" \
+            --grpc-web \
+            --timeout 120
+
+      - name: Wait for rollout to be healthy
+        env:
+          ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
+          ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
+        run: |
+          argocd app wait "${{ inputs.app_name }}" \
+            --server "$ARGOCD_SERVER" \
+            --auth-token "$ARGOCD_AUTH_TOKEN" \
+            --grpc-web \
+            --health \
+            --timeout 300
