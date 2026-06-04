@@ -45,9 +45,6 @@ import {
   GridPaginationModel,
   GridRenderCellParams,
   GridRowSelectionModel,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { GridToolbar as AppGridToolbar } from '@/components/common/GridToolbar';
@@ -1518,9 +1515,6 @@ function TestsListUnifiedToolbar() {
               </IconButton>
             </span>
           </Tooltip>
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
         </>
       }
     />
