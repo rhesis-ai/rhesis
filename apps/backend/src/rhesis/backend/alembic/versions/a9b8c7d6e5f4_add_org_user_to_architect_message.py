@@ -88,7 +88,7 @@ def upgrade() -> None:
                 user_id = s.user_id
             FROM architect_session s
             WHERE m.session_id = s.id
-              AND m.organization_id IS NULL
+              AND (m.organization_id IS NULL OR m.user_id IS NULL)
             """
         )
     )
