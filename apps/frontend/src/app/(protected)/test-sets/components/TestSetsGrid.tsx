@@ -721,10 +721,6 @@ export default function TestSetsGrid({
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}

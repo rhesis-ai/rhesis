@@ -110,6 +110,12 @@ export interface TestSet {
       sample?: string;
       license_type?: string;
       sources?: Array<{ document: string; name: string; description: string }>;
+      generation?: {
+        status: 'in_progress' | 'completed' | 'failed';
+        task_id?: string;
+        requested_tests?: number;
+        error?: string;
+      };
     };
     topics?: string[];
     behaviors?: string[];
@@ -329,6 +335,7 @@ export interface GenerateTestsResponse {
  */
 export interface GenerateTestSetResponse {
   task_id: string;
+  test_set_id: string;
   message: string;
   estimated_tests: number;
 }

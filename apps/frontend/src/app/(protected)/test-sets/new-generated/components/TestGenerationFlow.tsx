@@ -14,7 +14,6 @@ import {
   MultiTurnTestSample,
   AnyTestSample,
   ChatMessage,
-  TestSetSize,
   ChipConfig,
   TestType,
 } from './shared/types';
@@ -26,6 +25,8 @@ import {
   SourceData,
   TestPipelineEvent,
 } from '@/utils/api-client/interfaces/test-set';
+import { Model } from '@/utils/api-client/interfaces/model';
+import { Source } from '@/utils/api-client/interfaces/source';
 import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
 import TestConfigurationConfirmation from './TestConfigurationConfirmation';
@@ -292,9 +293,8 @@ export default function TestGenerationFlow({
   const [testSamples, setTestSamples] = useState<AnyTestSample[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [project, setProject] = useState<Project | null>(null);
-  const [testSetSize, setTestSetSize] = useState<TestSetSize>('small');
   const [testSetName, setTestSetName] = useState('');
-  const [customTestCount, setCustomTestCount] = useState<number>(50);
+  const [numTests, setNumTests] = useState<number>(50);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
 
   // UI State
@@ -306,6 +306,32 @@ export default function TestGenerationFlow({
   const [regeneratingSampleId, setRegeneratingSampleId] = useState<
     string | null
   >(null);
+
+  // Prefetched dropdown data — fetched eagerly on mount so selectors open instantly
+  const [prefetchedModels, setPrefetchedModels] = useState<Model[]>([]);
+  const [prefetchedSources, setPrefetchedSources] = useState<Source[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [isLoadingSources, setIsLoadingSources] = useState(true);
+
+  useEffect(() => {
+    const factory = new ApiClientFactory(sessionToken);
+
+    factory
+      .getModelsClient()
+      .getModels({ sort_by: 'name', sort_order: 'asc', skip: 0, limit: 100 })
+      .then(res => setPrefetchedModels(res.data || []))
+      .catch(() => setPrefetchedModels([]))
+      .finally(() => setIsLoadingModels(false));
+
+    factory
+      .getSourcesClient()
+      .getSources({ limit: 100, skip: 0 })
+      .then(res =>
+        setPrefetchedSources(Array.isArray(res) ? res : res?.data || [])
+      )
+      .catch(() => setPrefetchedSources([]))
+      .finally(() => setIsLoadingSources(false));
+  }, [sessionToken]);
 
   const handleTestTypeChange = useCallback((newType: TestType) => {
     setTestType(newType);
@@ -877,15 +903,13 @@ export default function TestGenerationFlow({
         .filter(c => c.active)
         .map(c => c.label);
 
-      // Map test set size to actual number of tests, capped at 200
-      const MAX_TESTS = 200;
-      let numTests: number;
-      if (testSetSize === 'custom') {
-        numTests = Math.min(Math.max(customTestCount, 1), MAX_TESTS);
-      } else {
-        numTests =
-          testSetSize === 'small' ? 50 : testSetSize === 'large' ? 200 : 100;
-      }
+      const clampedNumTests = Math.min(Math.max(numTests, 1), 200);
+      const testCoverage =
+        clampedNumTests <= 60
+          ? 'focused'
+          : clampedNumTests >= 150
+            ? 'comprehensive'
+            : 'standard';
 
       // Build additional context with samples and metadata
       const additionalContext = {
@@ -894,13 +918,7 @@ export default function TestGenerationFlow({
         purposes: activeTopics,
         test_type: testType,
         response_generation: 'prompt_only',
-        test_coverage:
-          testSetSize === 'small'
-            ? 'focused'
-            : testSetSize === 'large' ||
-                (testSetSize === 'custom' && customTestCount >= 150)
-              ? 'comprehensive'
-              : 'standard',
+        test_coverage: testCoverage,
         samples: testSamples.map(sample => ({
           text: sample.prompt,
           behavior: sample.behavior,
@@ -919,20 +937,18 @@ export default function TestGenerationFlow({
         additional_context: JSON.stringify(additionalContext),
       };
 
-      // Build unified request (no synthesizer_type, no separate samples)
+      // Build unified request
       const request: GenerateTestsRequest = {
         config,
-        num_tests: numTests,
+        num_tests: clampedNumTests,
         batch_size: 20,
         sources: selectedSources,
-        name: testSetName.trim() || undefined,
+        name: testSetName.trim(),
         test_type: testType,
         ...(selectedModelId ? { model_id: selectedModelId } : {}),
       };
 
       const response = await testSetsClient.generateTestSet(request);
-
-      show(response.message, { severity: 'success' });
 
       // Clean up sessionStorage
       if (typeof window !== 'undefined') {
@@ -940,7 +956,8 @@ export default function TestGenerationFlow({
         sessionStorage.removeItem('selectedTemplateId');
       }
 
-      setTimeout(() => router.push('/tests'), 2000);
+      // Redirect to the newly created test set's detail page
+      router.push(`/test-sets/${response.test_set_id}`);
     } catch (_error) {
       show('Failed to start test generation. Please try again.', {
         severity: 'error',
@@ -955,9 +972,8 @@ export default function TestGenerationFlow({
     configChips.category,
     description,
     testSamples,
-    testSetSize,
+    numTests,
     testSetName,
-    customTestCount,
     selectedSources,
     selectedModelId,
     project,
@@ -973,13 +989,13 @@ export default function TestGenerationFlow({
       sessionStorage.removeItem('testType');
       sessionStorage.removeItem('selectedTemplateId');
     }
-    router.push('/tests');
+    router.push('/test-sets');
   }, [router]);
 
   const handleBackToInput = useCallback(() => {
     // If user came from template selection, go back to landing screen
     if (mode === 'template') {
-      router.push('/tests');
+      router.push('/test-sets');
     } else {
       setCurrentScreen('input');
     }
@@ -1037,6 +1053,10 @@ export default function TestGenerationFlow({
             onModelChange={setSelectedModelId}
             isLoading={isGenerating}
             onBack={handleBackToTests}
+            prefetchedModels={prefetchedModels}
+            isLoadingModels={isLoadingModels}
+            prefetchedSources={prefetchedSources}
+            isLoadingSources={isLoadingSources}
           />
         );
 
@@ -1074,15 +1094,13 @@ export default function TestGenerationFlow({
           <TestConfigurationConfirmation
             testType={testType}
             configChips={configChips}
-            testSetSize={testSetSize}
             testSetName={testSetName}
-            customTestCount={customTestCount}
+            numTests={numTests}
             sources={selectedSources}
             onBack={handleBackToInterface}
             onGenerate={handleGenerate}
-            onTestSetSizeChange={setTestSetSize}
             onTestSetNameChange={setTestSetName}
-            onCustomTestCountChange={setCustomTestCount}
+            onNumTestsChange={setNumTests}
             isGenerating={isFinishing}
           />
         );

@@ -134,7 +134,7 @@ export default function TestSetsPage() {
               icon={<AutoFixHighIcon />}
               tooltip="AI generated Test Set"
               aria-label="AI generated Test Set"
-              onClick={() => router.push('/tests/new-generated')}
+              onClick={() => router.push('/test-sets/new-generated')}
             />
             <Fab
               icon={<FabAddIcon />}

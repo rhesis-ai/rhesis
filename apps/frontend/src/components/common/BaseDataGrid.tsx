@@ -264,16 +264,25 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     overflow: 'hidden',
     borderColor: theme.palette.greyscale.border,
   },
-  // Figma: inset the first/last column content to 30px so headers and cells
-  // line up with the toolbar and pagination footer (both 30px horizontally).
-  '& .MuiDataGrid-columnHeader:first-of-type, & .MuiDataGrid-cell:first-of-type':
-    {
-      paddingLeft: '30px',
-    },
-  '& .MuiDataGrid-columnHeader:last-of-type, & .MuiDataGrid-cell:last-of-type':
-    {
-      paddingRight: '30px',
-    },
+  // Figma: 30px horizontal inset for first/last column, aligned with the
+  // toolbar and pagination footer (both use px: '30px').
+  // Use MUI's own --first/--last classes for headers (reliable, avoids the
+  // scrollbar-filler div that breaks :first/:last-of-type selectors).
+  // Use :first-child for cells (no element precedes the first cell in a row).
+  // The trailing empty filler cell gets paddingRight via :last-of-type which
+  // creates the visual 30px right gap at the grid edge.
+  '&& .MuiDataGrid-columnHeader--first': {
+    paddingLeft: '30px',
+  },
+  '&& .MuiDataGrid-columnHeader--last': {
+    paddingRight: '30px',
+  },
+  '&& .MuiDataGrid-cell:first-child': {
+    paddingLeft: '30px',
+  },
+  '&& .MuiDataGrid-cell:last-of-type': {
+    paddingRight: '30px',
+  },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
   },

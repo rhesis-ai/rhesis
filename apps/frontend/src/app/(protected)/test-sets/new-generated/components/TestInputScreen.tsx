@@ -19,6 +19,8 @@ import ModelSelector from '@/components/common/ModelSelector';
 import ActionBar from '@/components/common/ActionBar';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import { TestType } from './shared/types';
+import type { Model } from '@/utils/api-client/interfaces/model';
+import type { Source } from '@/utils/api-client/interfaces/source';
 
 interface TestInputScreenProps {
   sessionToken: string;
@@ -32,6 +34,12 @@ interface TestInputScreenProps {
   onModelChange: (modelId: string | null) => void;
   isLoading?: boolean;
   onBack?: () => void;
+  /** Pre-fetched models from the parent — avoids a duplicate fetch in ModelSelector. */
+  prefetchedModels?: Model[];
+  isLoadingModels?: boolean;
+  /** Pre-fetched sources from the parent — avoids a duplicate fetch in SourceSelector. */
+  prefetchedSources?: Source[];
+  isLoadingSources?: boolean;
 }
 
 // Scaffold phrases organized by category
@@ -130,6 +138,10 @@ export default function TestInputScreen({
   onModelChange,
   isLoading = false,
   onBack,
+  prefetchedModels,
+  isLoadingModels,
+  prefetchedSources,
+  isLoadingSources,
 }: TestInputScreenProps) {
   const [description, setDescription] = useState(initialDescription);
   const [sourcesData, setSourcesData] = useState<SourceData[]>([]);
@@ -202,8 +214,8 @@ export default function TestInputScreen({
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      {/* Test configuration */}
-      <SectionCard title="Test configuration">
+      {/* Test Set Configuration */}
+      <SectionCard title="Test Set configuration">
         {onTestTypeChange && (
           <Box sx={{ mb: 3 }}>
             <Typography
@@ -240,6 +252,8 @@ export default function TestInputScreen({
           <SourceSelector
             selectedSourceIds={selectedSourceIds}
             onSourcesChange={handleSourcesChange}
+            preloadedSources={prefetchedSources}
+            isLoadingSources={isLoadingSources}
           />
         </Box>
 
@@ -250,6 +264,9 @@ export default function TestInputScreen({
             purpose="generation"
             value={selectedModelId || ''}
             onChange={modelId => onModelChange(modelId || null)}
+            hideItemDescriptions
+            preloadedModels={prefetchedModels}
+            isLoadingModels={isLoadingModels}
           />
         </Box>
       </SectionCard>

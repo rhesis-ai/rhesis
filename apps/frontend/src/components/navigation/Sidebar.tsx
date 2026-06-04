@@ -283,25 +283,25 @@ export function Sidebar() {
               </Box>
             </ButtonBase>
             {/* Collapse toggle — inline, right of brand row */}
-            <Tooltip title="Collapse sidebar" placement="right">
-              <IconButton
-                onClick={toggle}
-                size="small"
-                aria-label="Collapse sidebar"
-                sx={{
-                  flexShrink: 0,
-                  alignSelf: 'flex-start',
-                  p: '6px',
-                  borderRadius: BORDER_RADIUS.md,
-                  color: theme => theme.palette.greyscale.label,
-                  '&:hover': {
-                    bgcolor: theme => theme.palette.greyscale.surface2,
-                  },
-                }}
-              >
-                <LeftPanelCloseIcon />
-              </IconButton>
-            </Tooltip>
+            <Box sx={{ alignSelf: 'flex-start', flexShrink: 0 }}>
+              <Tooltip title="Collapse sidebar" placement="right">
+                <IconButton
+                  onClick={toggle}
+                  size="small"
+                  aria-label="Collapse sidebar"
+                  sx={{
+                    p: '6px',
+                    borderRadius: BORDER_RADIUS.md,
+                    color: theme => theme.palette.greyscale.label,
+                    '&:hover': {
+                      bgcolor: theme => theme.palette.greyscale.surface2,
+                    },
+                  }}
+                >
+                  <LeftPanelCloseIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
         )}
 

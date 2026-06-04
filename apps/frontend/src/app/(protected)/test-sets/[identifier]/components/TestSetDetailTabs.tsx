@@ -18,6 +18,7 @@ const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
 interface TestSetDetailTabsProps {
   testSet: TestSet;
   testCount: number;
+  isGenerating?: boolean;
   sessionToken: string;
   currentUserId: string;
   currentUserName: string;
@@ -27,6 +28,7 @@ interface TestSetDetailTabsProps {
 export default function TestSetDetailTabs({
   testSet,
   testCount,
+  isGenerating = false,
   sessionToken,
   currentUserId,
   currentUserName,
@@ -79,6 +81,7 @@ export default function TestSetDetailTabs({
           sessionToken={sessionToken}
           testSetType={testSet.test_set_type?.type_value}
           testCount={testCount}
+          isGenerating={isGenerating}
         />
         <Box sx={{ mt: 3 }}>
           <EmbeddingTestsPanel

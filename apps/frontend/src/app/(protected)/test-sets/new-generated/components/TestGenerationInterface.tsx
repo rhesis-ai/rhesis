@@ -32,6 +32,8 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FolderIcon from '@mui/icons-material/Folder';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import type { Theme } from '@mui/material/styles';
 import {
   ConfigChips,
   AnyTestSample,
@@ -622,22 +624,34 @@ export default function TestGenerationInterface({
   );
 
   return (
-    <Box sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
-      {/* Main Content */}
-      <Box
-        sx={{
-          pt: 3,
-          pb: 3,
-        }}
-      >
-        {/* 2 Panel Layout */}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        // Fill the viewport height minus the total page chrome:
+        //   AppShell p:4 top (32) + breadcrumbs+gap (50) + title (56)
+        //   + PageLayout mb:5 (40) + AppShell p:4 bottom (32) = ~210px
+        height: 'calc(100vh - 220px)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 2 Panel Layout – grows to fill all available space above the ActionBar */}
+      <Box sx={{ flex: 1, minHeight: 0, mb: 2 }}>
         <Paper
-          elevation={2}
+          elevation={0}
           sx={{
             display: 'flex',
-            height: 'calc(100vh - 200px)',
+            height: '100%',
             overflow: 'hidden',
-            mb: 4,
+            borderRadius: BORDER_RADIUS.md,
+            border: (theme: Theme) =>
+              `1px solid ${theme.palette.greyscale.border}`,
+            boxShadow: (theme: Theme) =>
+              theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
+            bgcolor: (theme: Theme) =>
+              theme.palette.mode === 'light'
+                ? '#ffffff'
+                : theme.palette.greyscale.surface1,
           }}
         >
           {/* LEFT PANEL - Configuration */}
@@ -671,7 +685,7 @@ export default function TestGenerationInterface({
                 title={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography variant="h6" fontWeight="bold">
-                      Tests Configuration
+                      Test Set Configuration
                     </Typography>
                     <Tooltip
                       title="Configure test parameters to guide AI generation."
@@ -936,7 +950,6 @@ export default function TestGenerationInterface({
           <Box
             sx={{
               width: '67%',
-              bgcolor: 'background.default',
               display: 'flex',
               flexDirection: 'column',
             }}
@@ -1044,7 +1057,6 @@ export default function TestGenerationInterface({
                 sx={{
                   flex: 1,
                   p: 0,
-                  bgcolor: 'background.default',
                   overflow: 'auto',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1209,8 +1221,10 @@ export default function TestGenerationInterface({
         </Paper>
       </Box>
 
-      {/* Action Bar */}
+      {/* Action Bar — position:relative overrides the default sticky so the
+          flex column places it at the bottom of the fixed-height container */}
       <ActionBar
+        sx={{ position: 'relative', flexShrink: 0 }}
         leftButton={{
           label: 'Back',
           onClick: onBack,

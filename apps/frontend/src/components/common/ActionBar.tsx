@@ -25,32 +25,42 @@ interface ActionButton {
 interface ActionBarProps {
   leftButton?: ActionButton;
   rightButton?: ActionButton;
+  /** Override styles on the container — use e.g. `sx={{ position: 'relative' }}`
+   *  in fixed-height flex layouts where sticky should not escape the container. */
+  sx?: SxProps<Theme>;
 }
 
 /**
  * ActionBar Component
  * Reusable bottom action bar with optional left and right buttons
  */
-export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
+export default function ActionBar({
+  leftButton,
+  rightButton,
+  sx,
+}: ActionBarProps) {
   return (
     <Box
-      sx={{
-        position: 'sticky',
-        bottom: 0,
-        zIndex: 10,
-        borderTop: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        px: 3,
-        py: 2,
-        display: 'flex',
-        justifyContent:
-          leftButton && rightButton
-            ? 'space-between'
-            : rightButton
-              ? 'flex-end'
-              : 'flex-start',
-      }}
+      sx={[
+        {
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          px: 3,
+          py: 2,
+          display: 'flex',
+          justifyContent:
+            leftButton && rightButton
+              ? 'space-between'
+              : rightButton
+                ? 'flex-end'
+                : 'flex-start',
+        },
+        ...(sx ? [sx] : []),
+      ]}
     >
       {leftButton && (
         <Button
