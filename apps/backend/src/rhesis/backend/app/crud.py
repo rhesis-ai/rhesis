@@ -1506,6 +1506,9 @@ def delete_user(
     organizational context. On next login, the user will go through
     the onboarding flow again.
 
+    Also removes all project memberships within the org and clears
+    default_project so no orphaned rows or stale settings remain.
+
     Args:
         db: Database session
         target_user_id: ID of user to remove from organization
@@ -1518,6 +1521,11 @@ def delete_user(
     Raises:
         ValueError: If user tries to delete themselves
     """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
     # Security check: Prevent users from deleting themselves
     if str(target_user_id) == str(user_id):
         raise ValueError("Users cannot remove themselves from the organization")
@@ -1527,7 +1535,25 @@ def delete_user(
     if db_user is None:
         return None
 
-    # Remove them from their organization - user account remains active
+    # Drop all project memberships within this org before nulling organization_id,
+    # while we can still identify them via the org FK.
+    with bypass_tenant_filter():
+        memberships = (
+            db.query(ProjectMembership)
+            .filter_by(user_id=target_user_id, organization_id=organization_id)
+            .all()
+        )
+        for m in memberships:
+            db.delete(m)
+
+    # Clear default_project — it's org-scoped so it would be stale after removal.
+    if db_user.settings.default_project is not None:
+        settings = db_user.settings.raw.copy()
+        settings.pop("default_project", None)
+        db_user.user_settings = settings
+        flag_modified(db_user, "user_settings")
+
+    # Null the org FK last so the membership query above can still use it.
     db_user.organization_id = None
 
     db.commit()
@@ -2010,17 +2036,67 @@ def get_projects(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Project]:
-    return get_items_detail(
-        db,
-        models.Project,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    # Project listing must respect membership — only return projects the requesting
+    # user is a member of. An EXISTS subquery is used so that the QueryBuilder's
+    # existing pagination/sorting/filtering chain is preserved.
+    with bypass_tenant_filter():
+        builder = (
+            QueryBuilder(db, models.Project)
+            .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter()
+            .with_odata_filter(filter)
+        )
+
+        if user_id:
+            exists_subquery = (
+                db.query(ProjectMembership)
+                .filter(
+                    ProjectMembership.project_id == models.Project.id,
+                    ProjectMembership.user_id == user_id,
+                    ProjectMembership.organization_id == organization_id,
+                )
+                .exists()
+            )
+            builder.query = builder.query.filter(exists_subquery)
+
+        return builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
+
+
+def count_projects(
+    db: Session,
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> int:
+    """Count projects the given user is a member of (mirrors get_projects membership filter)."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    with bypass_tenant_filter():
+        builder = (
+            QueryBuilder(db, models.Project)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter()
+            .with_odata_filter(filter)
+        )
+        if user_id:
+            exists_subquery = (
+                db.query(ProjectMembership)
+                .filter(
+                    ProjectMembership.project_id == models.Project.id,
+                    ProjectMembership.user_id == user_id,
+                    ProjectMembership.organization_id == organization_id,
+                )
+                .exists()
+            )
+            builder.query = builder.query.filter(exists_subquery)
+        return builder.count()
 
 
 def create_project(
@@ -2528,9 +2604,112 @@ def delete_test_result(
 def delete_project(
     db: Session, project_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Project]:
+    # Project soft-delete does not cascade to project_membership, so drop the
+    # memberships and repair affected users' default_project first. Staged in the
+    # same transaction; delete_item's commit persists both.
+    from rhesis.backend.app.services.organization import unenroll_all_project_members
+
+    unenroll_all_project_members(db, project_id, organization_id)
     return delete_item(
         db, models.Project, project_id, organization_id=organization_id, user_id=user_id
     )
+
+
+# ProjectMembership CRUD
+
+
+def get_project_members(
+    db: Session, project_id: uuid.UUID, organization_id: str
+) -> List[models.ProjectMembership]:
+    """List all members of a project, with user info eagerly loaded."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.models.user import User
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    # Explicitly scoped by (project_id, organization_id); bypass the ambient project
+    # filter so listing works regardless of which project is currently active.
+    with bypass_tenant_filter():
+        return (
+            db.query(ProjectMembership)
+            .join(User, ProjectMembership.user_id == User.id)
+            .filter(
+                ProjectMembership.project_id == project_id,
+                ProjectMembership.organization_id == organization_id,
+            )
+            .options(joinedload(ProjectMembership.user))
+            .all()
+        )
+
+
+def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
+    """Return all projects the given user is a member of."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    return (
+        db.query(models.Project)
+        .join(ProjectMembership, ProjectMembership.project_id == models.Project.id)
+        .filter(
+            ProjectMembership.user_id == user_id,
+            ProjectMembership.organization_id == organization_id,
+        )
+        .all()
+    )
+
+
+def add_project_member(
+    db: Session,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    organization_id: str,
+) -> models.ProjectMembership:
+    """Add a user as a project member. No-op (returns existing) if already a member.
+
+    Routes through the centralized enroll_user_in_project routine so that membership
+    creation and default-project assignment stay consistent with onboarding.
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.services.organization import enroll_user_in_project
+
+    with bypass_tenant_filter():
+        existing = (
+            db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+        )
+    if existing:
+        return existing
+
+    enroll_user_in_project(db, user_id, project_id, organization_id)
+    db.commit()
+
+    with bypass_tenant_filter():
+        return db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+
+
+def remove_project_member(
+    db: Session,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    organization_id: str,
+    *,
+    requester_user_id: uuid.UUID = None,
+) -> bool:
+    """Remove a user from a project. Returns True if removed, False if not found.
+
+    Routes through the centralized unenroll_user_from_project routine so that the
+    user's default_project is repaired if it pointed at the removed project.
+
+    Raises:
+        ProjectSelfRemovalError: if requester_user_id == user_id.
+        ProjectOwnerRemovalError: if user_id is the project owner.
+    """
+    from rhesis.backend.app.services.organization import unenroll_user_from_project
+
+    removed = unenroll_user_from_project(
+        db, user_id, project_id, organization_id, requester_user_id=requester_user_id
+    )
+    if removed:
+        db.commit()
+    return removed
 
 
 # TypeLookup CRUD

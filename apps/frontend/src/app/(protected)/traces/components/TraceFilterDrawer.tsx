@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import type { Theme } from '@mui/material/styles';
 import {
   Box,
   FormControl,
@@ -18,6 +19,7 @@ import {
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { readActiveProjectId } from '@/utils/active-project';
 import { TRACE_METRICS_STATUS } from '@/utils/api-client/interfaces/telemetry';
 import {
   EMPTY_TRACE_DRAWER_FILTERS,
@@ -63,7 +65,7 @@ const textFieldSx = {
     fontSize: 14,
   },
   '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
+    padding: (theme: Theme) => theme.spacing(2.5, 1.75),
   },
 };
 
@@ -109,6 +111,11 @@ export default function TraceFilterDrawer({
   >([]);
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
 
+  // Use a ref so the effect can read the current projectId without re-running
+  // every time the draft changes (which would cause an infinite loop).
+  const draftProjectIdRef = React.useRef(draft.projectId);
+  draftProjectIdRef.current = draft.projectId;
+
   React.useEffect(() => {
     const fetchData = async () => {
       if (!sessionToken) return;
@@ -121,6 +128,17 @@ export default function TraceFilterDrawer({
           ? projectsResponse
           : projectsResponse?.data || [];
         setProjects(projectsData);
+
+        // Pre-select active project when no project filter is already set
+        if (!draftProjectIdRef.current) {
+          const activeId = readActiveProjectId();
+          if (
+            activeId &&
+            projectsData.some((p: { id: string }) => String(p.id) === activeId)
+          ) {
+            setDraft(prev => ({ ...prev, projectId: activeId }));
+          }
+        }
 
         const endpointsResponse = await clientFactory
           .getEndpointsClient()
@@ -138,7 +156,7 @@ export default function TraceFilterDrawer({
     if (open && sessionToken && !isTestRunScope) {
       fetchData();
     }
-  }, [open, sessionToken, isTestRunScope]);
+  }, [open, sessionToken, isTestRunScope, setDraft]);
 
   const filteredEndpoints = draft.projectId
     ? endpoints.filter(e => e.project_id === draft.projectId)

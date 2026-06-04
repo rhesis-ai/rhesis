@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import TestRunMainView from './components/TestRunMainViewClient';
 
@@ -47,9 +47,8 @@ export default async function TestRunPage({
     throw new Error('Authentication required');
   }
 
-  const testRunsClient = new ApiClientFactory(
-    session.session_token
-  ).getTestRunsClient();
+  const apiFactory = await createServerApiFactory(session.session_token);
+  const testRunsClient = apiFactory.getTestRunsClient();
 
   let testRun;
   try {

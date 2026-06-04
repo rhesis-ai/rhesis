@@ -8,10 +8,6 @@ import {
   Paper,
   Chip,
   Tooltip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
@@ -19,29 +15,21 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
 import SourceSelector from './shared/SourceSelector';
-import ProjectSelector from './shared/ProjectSelector';
+import ModelSelector from '@/components/common/ModelSelector';
 import ActionBar from '@/components/common/ActionBar';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
-import { Model } from '@/utils/api-client/interfaces/model';
 import { TestType } from './shared/types';
 
 interface TestInputScreenProps {
+  sessionToken: string;
   testType?: TestType;
   onTestTypeChange?: (type: TestType) => void;
-  onContinue: (
-    description: string,
-    sources: SourceData[],
-    projectId: string | null
-  ) => void;
+  onContinue: (description: string, sources: SourceData[]) => void;
   initialDescription?: string;
   selectedSourceIds: string[];
   onSourcesChange: (sources: SourceData[]) => void;
-  selectedProjectId: string | null;
-  onProjectChange: (projectId: string | null) => void;
   selectedModelId: string | null;
   onModelChange: (modelId: string | null) => void;
-  models: Model[];
-  isLoadingModels?: boolean;
   isLoading?: boolean;
   onBack?: () => void;
 }
@@ -131,18 +119,15 @@ const SCAFFOLD_CATEGORIES = [
  * Collects user description and optional sources for test generation
  */
 export default function TestInputScreen({
+  sessionToken,
   testType = 'single_turn',
   onTestTypeChange,
   onContinue,
   initialDescription = '',
   selectedSourceIds,
   onSourcesChange,
-  selectedProjectId,
-  onProjectChange,
   selectedModelId,
   onModelChange,
-  models,
-  isLoadingModels = false,
   isLoading = false,
   onBack,
 }: TestInputScreenProps) {
@@ -209,9 +194,9 @@ export default function TestInputScreen({
 
   const handleContinue = useCallback(() => {
     if (description.trim()) {
-      onContinue(description, sourcesData, selectedProjectId);
+      onContinue(description, sourcesData);
     }
-  }, [description, sourcesData, selectedProjectId, onContinue]);
+  }, [description, sourcesData, onContinue]);
 
   const canContinue = description.trim().length > 0;
 
@@ -243,22 +228,6 @@ export default function TestInputScreen({
           </Box>
         )}
 
-        {/* Project Selection */}
-        <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="subtitle2"
-            color="text.secondary"
-            gutterBottom
-            sx={{ mb: 1 }}
-          >
-            Select project (optional)
-          </Typography>
-          <ProjectSelector
-            selectedProjectId={selectedProjectId}
-            onProjectChange={onProjectChange}
-          />
-        </Box>
-
         {/* Source Selection */}
         <Box sx={{ mb: 3 }}>
           <Typography
@@ -277,56 +246,13 @@ export default function TestInputScreen({
 
         {/* Model Selection */}
         <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="subtitle2"
-            color="text.secondary"
-            gutterBottom
-            sx={{ mb: 1 }}
-          >
-            Select generation model (optional)
-          </Typography>
-          <FormControl fullWidth size="small">
-            <InputLabel>Generation Model</InputLabel>
-            <Select
-              value={selectedModelId || ''}
-              label="Generation Model"
-              onChange={e => {
-                const value = e.target.value as string;
-                onModelChange(value || null);
-              }}
-            >
-              <MenuItem value="">
-                <Typography variant="body2" color="text.secondary">
-                  Use default model
-                </Typography>
-              </MenuItem>
-              {isLoadingModels ? (
-                <MenuItem disabled>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CircularProgress size={16} />
-                    <Typography variant="body2">Loading models...</Typography>
-                  </Box>
-                </MenuItem>
-              ) : (
-                models.map(model => (
-                  <MenuItem key={model.id} value={model.id}>
-                    <Box>
-                      <Typography variant="body2">{model.name}</Typography>
-                      {model.description && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          display="block"
-                        >
-                          {model.description}
-                        </Typography>
-                      )}
-                    </Box>
-                  </MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
+          <ModelSelector
+            sessionToken={sessionToken}
+            label="Generation model"
+            purpose="generation"
+            value={selectedModelId || ''}
+            onChange={modelId => onModelChange(modelId || null)}
+          />
         </Box>
 
         {/* Description Input */}

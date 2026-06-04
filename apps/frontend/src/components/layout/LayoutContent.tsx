@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, useTheme } from '@mui/material';
+import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { SessionProvider } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -10,6 +11,7 @@ import { NotificationProvider } from '../common/NotificationContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
+import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
 // Side-effect import: pulls ee_bootstrap into the *client* bundle so
 // EE feature registrations land in the client-side registry as well as
 // the server-side one. Layout.tsx imports the same module for the
@@ -34,6 +36,7 @@ export function LayoutContent({
   navigation,
   branding,
   authentication,
+  initialActiveProject = null,
 }: Omit<LayoutProps, 'theme'>) {
   const theme = useTheme();
   const pathname = usePathname();
@@ -101,25 +104,28 @@ export function LayoutContent({
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
-        <NotificationProvider>
-          <OnboardingProvider>
-            <Box sx={boxSx}>
-              <Box sx={{ flex: 1 }}>
-                <NavigationProvider
-                  navigation={navigation}
-                  branding={branding}
-                  session={session}
-                  authentication={authentication}
-                  theme={theme}
-                >
-                  {children}
-                </NavigationProvider>
+        <CssBaseline />
+        <ActiveProjectProvider initialActiveProject={initialActiveProject}>
+          <NotificationProvider>
+            <OnboardingProvider>
+              <Box sx={boxSx}>
+                <Box sx={{ flex: 1 }}>
+                  <NavigationProvider
+                    navigation={navigation}
+                    branding={branding}
+                    session={session}
+                    authentication={authentication}
+                    theme={theme}
+                  >
+                    {children}
+                  </NavigationProvider>
+                </Box>
               </Box>
-            </Box>
-            {/* Show onboarding checklist for authenticated users */}
-            {session && isProtectedRoute && <OnboardingChecklist />}
-          </OnboardingProvider>
-        </NotificationProvider>
+              {/* Show onboarding checklist for authenticated users */}
+              {session && isProtectedRoute && <OnboardingChecklist />}
+            </OnboardingProvider>
+          </NotificationProvider>
+        </ActiveProjectProvider>
       </AppRouterCacheProvider>
     </SessionProvider>
   );

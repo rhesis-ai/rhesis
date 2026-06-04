@@ -8,8 +8,8 @@ import {
 } from './interfaces/task';
 
 export class TasksClient extends BaseApiClient {
-  constructor(sessionToken: string) {
-    super(sessionToken);
+  constructor(sessionToken?: string, retryConfig = {}, projectId?: string) {
+    super(sessionToken, retryConfig, projectId);
   }
 
   async getTasks(

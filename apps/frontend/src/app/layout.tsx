@@ -35,12 +35,14 @@ import {
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
-import { ApiClientFactory } from '../utils/api-client/client-factory';
+import { createServerApiFactory } from '../utils/api-client/server-factory';
+import { getServerActiveProjectId } from '../utils/server-active-project';
 import {
   type NavigationItem,
   type BrandingProps,
   type AuthenticationProps,
 } from '../types/navigation';
+import { type Project } from '../utils/api-client/interfaces/project';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 
@@ -59,7 +61,7 @@ async function getNavigationItems(
   // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
     try {
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = await createServerApiFactory(session.session_token);
       const organizationsClient = clientFactory.getOrganizationsClient();
       const organization = await organizationsClient.getOrganization(
         session.user.organization_id
@@ -266,6 +268,21 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     homeUrl: '/architect',
   };
 
+  // Fetch the active project server-side so the sidebar can render the
+  // project name on first paint without a flash.
+  let initialActiveProject: Project | null = null;
+  const projectId = await getServerActiveProjectId();
+  if (projectId && session?.session_token) {
+    try {
+      const factory = await createServerApiFactory(session.session_token);
+      initialActiveProject = await factory
+        .getProjectsClient()
+        .getProject(projectId);
+    } catch {
+      // Ignore — client will fetch on mount
+    }
+  }
+
   return (
     <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
       <body suppressHydrationWarning>
@@ -278,6 +295,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             navigation={navigation}
             branding={branding}
             authentication={AUTHENTICATION}
+            initialActiveProject={initialActiveProject}
           >
             {props.children}
           </LayoutContent>

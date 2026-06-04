@@ -27,8 +27,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
-from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES, TOKEN_ENABLED_ROUTES
-from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
+from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
@@ -46,58 +46,50 @@ logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
-# PUBLIC_ROUTES and TOKEN_ENABLED_ROUTES live in
-# rhesis.backend.app.auth.public_routes so EE can extend them from its
-# bootstrap (e.g. to register its own public callback paths) before
-# `app.include_router` runs for the EE routers.
+# PUBLIC_ROUTES lives in rhesis.backend.app.auth.public_routes so EE can
+# extend it from its bootstrap (e.g. to register its own public callback
+# paths) before `app.include_router` runs for the EE routers.
 
 
-def is_websocket_route(route: APIRoute) -> bool:
+def apply_auth_backstop(app: FastAPI) -> None:
+    """Append a baseline auth dependency to every non-public HTTP route.
+
+    Defense-in-depth backstop: every HTTP route whose exact path is **not**
+    in :data:`PUBLIC_ROUTES` gets ``require_current_user_or_token`` injected,
+    guaranteeing that no route is ever accidentally exposed without
+    authentication.
+
+    This does not replace per-handler authorization. Handlers still declare
+    their own dependencies (session-only ``require_current_user``, superuser
+    checks, project-membership checks, etc.) and those remain authoritative.
+    Because FastAPI caches dependency results per request, the duplicated
+    ``require_current_user_or_token`` resolves only once even when a handler
+    declares it too.
+
+    Why post-hoc injection rather than a custom ``route_class``? The routers
+    are built at import time with the default ``APIRoute`` class, and
+    ``FastAPI(route_class=...)`` does not propagate to routes copied in via
+    ``include_router`` (it uses each route's own class). Rewriting the
+    ``dependant`` after registration is the reliable way to cover every route,
+    including those added by EE.
+
+    WebSocket routes (``APIWebSocketRoute``) and mounts are skipped; they
+    authenticate manually in their handlers.
+
+    Must be called **after** all routers (core + EE) and app-level routes are
+    registered.
     """
-    Check if a route is a WebSocket endpoint.
+    from fastapi.dependencies.utils import get_parameterless_sub_dependant
 
-    WebSocket routes need special handling because they cannot use
-    FastAPI's dependency injection system in the same way as HTTP routes.
-    They must accept the connection first, then handle authentication manually.
-
-    Args:
-        route: The APIRoute to check
-
-    Returns:
-        True if this is a WebSocket route, False otherwise
-    """
-    import inspect
-
-    # Check if the route has a dependant with a callable
-    if not hasattr(route, "dependant") or not route.dependant:
-        return False
-
-    if not hasattr(route.dependant, "call") or not route.dependant.call:
-        return False
-
-    # Get the function signature
-    try:
-        sig = inspect.signature(route.dependant.call)
-        # WebSocket routes have a 'websocket' parameter of type WebSocket
-        return "websocket" in sig.parameters
-    except (ValueError, TypeError):
-        return False
-
-
-class AuthenticatedAPIRoute(APIRoute):
-    def get_dependencies(self):
-        # WebSocket routes handle authentication manually in the endpoint
-        if is_websocket_route(self):
-            return []
-
-        if self.path in PUBLIC_ROUTES:
-            # No auth required
-            return []
-        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
-            # Both session and token auth accepted
-            return [Depends(require_current_user_or_token)]
-        # Default to session-only auth
-        return [Depends(require_current_user)]
+    backstop = Depends(require_current_user_or_token)
+    for route in app.router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if route.path in PUBLIC_ROUTES:
+            continue
+        sub_dependant = get_parameterless_sub_dependant(depends=backstop, path=route.path_format)
+        route.dependant.dependencies.insert(0, sub_dependant)
+        route.dependencies.insert(0, backstop)
 
 
 def get_api_description():
@@ -299,7 +291,6 @@ app = FastAPI(
     title="Rhesis Backend",
     description=get_api_description(),
     version=__version__,
-    route_class=AuthenticatedAPIRoute,
     lifespan=lifespan,
 )
 
@@ -492,9 +483,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 # app.add_middleware(LoggingMiddleware)
 
 
-# Include routers with custom route class
+# Include routers. The baseline auth dependency is applied post-hoc by
+# apply_auth_backstop(app) at the end of this module, once every router
+# (core + EE) and app-level route has been registered.
 for router in routers:
-    router.route_class = AuthenticatedAPIRoute
     app.include_router(router)
 
 # Mount MCP server for agent tool access
@@ -590,3 +582,9 @@ async def health_check():
         "status": "ok",
         "redis_replay_store": redis_status,
     }
+
+
+# Defense-in-depth: append the baseline auth dependency to every non-public
+# route. Runs last so it covers core routers, EE routers, and the app-level
+# routes (/, /health) defined above.
+apply_auth_backstop(app)

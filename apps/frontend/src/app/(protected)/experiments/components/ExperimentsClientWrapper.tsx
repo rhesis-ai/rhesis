@@ -24,8 +24,8 @@ import {
   ExperimentRead,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { AddIcon, DeleteIcon, BiotechIcon } from '@/components/icons';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
@@ -42,8 +42,7 @@ export default function ExperimentsClientWrapper({
   const isMounted = useRef(false);
   const router = useRouter();
   const notifications = useNotifications();
-
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { activeProject } = useActiveProject();
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -106,16 +105,6 @@ export default function ExperimentsClientWrapper({
     },
     [sessionToken, apiFactory, filterModel, notifications]
   );
-
-  // Load projects for the create drawer
-  useEffect(() => {
-    if (!sessionToken) return;
-    const projectsClient = apiFactory.getProjectsClient();
-    projectsClient
-      .getAllProjects({ sort_by: 'name', sort_order: 'asc' })
-      .then(p => setProjects(p))
-      .catch(() => {});
-  }, [sessionToken, apiFactory]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -270,7 +259,7 @@ export default function ExperimentsClientWrapper({
             tooltip="New Experiment"
             aria-label="New Experiment"
             onClick={() => setCreateOpen(true)}
-            disabled={projects.length === 0}
+            disabled={!activeProject}
           />
         </FabGroup>
       }
@@ -312,7 +301,7 @@ export default function ExperimentsClientWrapper({
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setCreateOpen(true)}
-            disabled={projects.length === 0}
+            disabled={!activeProject}
           >
             New Experiment
           </Button>
@@ -364,8 +353,6 @@ export default function ExperimentsClientWrapper({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         sessionToken={sessionToken}
-        projects={projects}
-        defaultProjectId={undefined}
         onCreated={async experiment => {
           setCreateOpen(false);
           router.push(`/experiments/${experiment.id}`);

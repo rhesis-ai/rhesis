@@ -18,12 +18,9 @@ from fastapi.testclient import TestClient
 # A valid, stable project UUID used across trigger tests.
 _TEST_PROJECT_ID = str(uuid.uuid4())
 
-
-def _mock_project():
-    """Return a minimal mock project object."""
-    m = Mock()
-    m.id = uuid.UUID(_TEST_PROJECT_ID)
-    return m
+# Path to the membership guard so tests can bypass it when they are
+# exercising connection-manager behaviour rather than authorization.
+_MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_membership"
 
 
 @pytest.mark.integration
@@ -51,7 +48,8 @@ class TestConnectorWebSocket:
             mock_user.id = uuid.uuid4()
             mock_user.organization_id = uuid.uuid4()
             mock_user.email = "test@example.com"
-            mock_auth.return_value = mock_user
+            # authenticate_websocket now returns (user, token_project_id)
+            mock_auth.return_value = (mock_user, None)
             yield mock_auth
 
     @pytest.fixture
@@ -87,11 +85,10 @@ class TestConnectorHTTPEndpoints:
         """Test successful test trigger"""
         with (
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
-            patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
+            patch(_MEMBERSHIP_GUARD),
         ):
             mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=True)
-            mock_crud.get_project = Mock(return_value=_mock_project())
 
             response = authenticated_client.post(
                 "/connector/trigger",
@@ -114,10 +111,9 @@ class TestConnectorHTTPEndpoints:
         """Test test trigger when project not connected"""
         with (
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
-            patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
+            patch(_MEMBERSHIP_GUARD),
         ):
             mock_mgr.has_local_route = Mock(return_value=False)
-            mock_crud.get_project = Mock(return_value=_mock_project())
 
             response = authenticated_client.post(
                 "/connector/trigger",
@@ -137,11 +133,10 @@ class TestConnectorHTTPEndpoints:
         """Test test trigger when sending fails"""
         with (
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
-            patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
+            patch(_MEMBERSHIP_GUARD),
         ):
             mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=False)
-            mock_crud.get_project = Mock(return_value=_mock_project())
 
             response = authenticated_client.post(
                 "/connector/trigger",
@@ -157,23 +152,25 @@ class TestConnectorHTTPEndpoints:
             data = response.json()
             assert "failed" in data["detail"].lower()
 
-    def test_trigger_test_project_not_found(self, authenticated_client: TestClient):
-        """Test trigger when the project does not belong to the authenticated org"""
-        with patch("rhesis.backend.app.routers.connector.crud") as mock_crud:
-            mock_crud.get_project = Mock(return_value=None)
+    def test_trigger_test_project_not_a_member(self, authenticated_client: TestClient):
+        """Test trigger when the user is not a member of the requested project.
 
-            response = authenticated_client.post(
-                "/connector/trigger",
-                json={
-                    "project_id": _TEST_PROJECT_ID,
-                    "environment": "development",
-                    "function_name": "test_func",
-                    "inputs": {},
-                },
-            )
+        The authenticated test user has no membership for this random project,
+        so the membership guard denies access with 403 (matching the project
+        isolation model used elsewhere).
+        """
+        response = authenticated_client.post(
+            "/connector/trigger",
+            json={
+                "project_id": _TEST_PROJECT_ID,
+                "environment": "development",
+                "function_name": "test_func",
+                "inputs": {},
+            },
+        )
 
-            assert response.status_code == status.HTTP_404_NOT_FOUND
-            assert "not found" in response.json()["detail"].lower()
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "not a member" in response.json()["detail"].lower()
 
     def test_trigger_test_invalid_project_id(self, authenticated_client: TestClient):
         """Test trigger with a non-UUID project_id returns 400"""
@@ -207,7 +204,10 @@ class TestConnectorHTTPEndpoints:
             ],
         )
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get(
@@ -233,7 +233,10 @@ class TestConnectorHTTPEndpoints:
             functions=[],
         )
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get("/connector/status/test-project")
@@ -256,7 +259,8 @@ class TestConnectorHTTPEndpoints:
             "timestamp": 1704067200.0,  # Unix timestamp
         }
 
-        response = authenticated_client.post("/connector/trace", json=trace_data)
+        with patch(_MEMBERSHIP_GUARD):
+            response = authenticated_client.post("/connector/trace", json=trace_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -276,7 +280,8 @@ class TestConnectorHTTPEndpoints:
             "timestamp": 1704067200.0,  # Unix timestamp
         }
 
-        response = authenticated_client.post("/connector/trace", json=trace_data)
+        with patch(_MEMBERSHIP_GUARD):
+            response = authenticated_client.post("/connector/trace", json=trace_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -296,7 +301,8 @@ class TestConnectorHTTPEndpoints:
             "timestamp": 1704067200.0,  # Unix timestamp
         }
 
-        response = authenticated_client.post("/connector/trace", json=trace_data)
+        with patch(_MEMBERSHIP_GUARD):
+            response = authenticated_client.post("/connector/trace", json=trace_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -316,10 +322,8 @@ class TestConnectorIntegration:
 
         with (
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
-            patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
+            patch(_MEMBERSHIP_GUARD),
         ):
-            mock_crud.get_project = Mock(return_value=_mock_project())
-
             # Initially not connected
             mock_mgr.has_local_route = Mock(return_value=False)
             mock_mgr.get_connection_status = Mock(
@@ -422,7 +426,10 @@ class TestConnectorEdgeCases:
             functions=[],
         )
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get("/connector/status/nonexistent")

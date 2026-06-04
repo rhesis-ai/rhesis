@@ -75,6 +75,7 @@ import { BiotechIcon } from '@/components/icons';
 import tagStyles from '@/styles/BaseTag.module.css';
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
+import { readActiveProjectId } from '@/utils/active-project';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -167,6 +168,9 @@ interface ModeConfig {
   title: string;
   saveButtonText: string;
   projectEditable: boolean;
+  /** Controls whether the project selector is rendered. Keeps projectEditable
+   *  true so endpoints still load and the ambient project filters them. */
+  showProjectField: boolean;
   endpointEditable: boolean;
   testSetMode: 'hidden' | 'single' | 'multi-search';
   experimentsEditable: boolean;
@@ -179,6 +183,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Set',
     saveButtonText: 'Execute Test Set',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -189,6 +194,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Test Run Configuration',
     saveButtonText: 'Execute Now',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'single',
     experimentsEditable: true,
@@ -199,6 +205,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Run Experiment',
     saveButtonText: 'Run Experiment',
     projectEditable: false,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'multi-search',
     experimentsEditable: false,
@@ -209,6 +216,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Re-run Tests',
     saveButtonText: 'Re-run Tests',
     projectEditable: false,
+    showProjectField: false,
     endpointEditable: false,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -219,6 +227,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Sets',
     saveButtonText: 'Run Test Sets',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -387,7 +396,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     setPreflightChecks([]);
 
     if (cfg.projectEditable) {
-      setSelectedProject(null);
+      // Pre-select the session's active project so users don't have to choose
+      const activeId = readActiveProjectId();
+      setSelectedProject(activeId ? (activeId as UUID) : null);
       setSelectedEndpoint(null);
     } else if (experimentData) {
       setSelectedProject(experimentData.experiment.project_id as UUID);
@@ -608,15 +619,15 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   useEffect(() => {
     if (mode === 'runExperiment' || mode === 'rerunTestRun') return;
-    if (!selectedProject) {
-      setFilteredEndpoints([]);
-      setSelectedEndpoint(null);
-      return;
-    }
-    setFilteredEndpoints(
-      endpoints.filter(e => e.project_id === selectedProject)
+    // When a project is selected filter to its endpoints; otherwise show all
+    const filtered = selectedProject
+      ? endpoints.filter(e => e.project_id === selectedProject)
+      : endpoints;
+    setFilteredEndpoints(filtered);
+    // Clear endpoint selection if it no longer appears in the filtered list
+    setSelectedEndpoint(prev =>
+      prev && filtered.some(e => e.id === prev) ? prev : null
     );
-    setSelectedEndpoint(null);
   }, [selectedProject, endpoints, mode]);
 
   // Clear experiments on project switch (project-scoped)
@@ -1016,6 +1027,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   const renderProjectField = () => {
+    if (!cfg.showProjectField) return null;
+
     if (!cfg.projectEditable) {
       if (mode === 'rerunTestRun') {
         return (
@@ -1072,9 +1085,8 @@ export default function RunDrawer(props: RunDrawerProps) {
           renderInput={params => (
             <TextField
               {...params}
-              label="Project"
-              required
-              placeholder="Select a project"
+              label="Project (optional — filters endpoints)"
+              placeholder="Active project"
             />
           )}
           isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -1103,9 +1115,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       return null;
     }
 
-    const options =
-      mode === 'runExperiment' ? filteredEndpoints : filteredEndpoints;
-    const disabled = mode !== 'runExperiment' && !selectedProject;
+    const options = filteredEndpoints;
 
     return (
       <FormControl fullWidth>
@@ -1114,15 +1124,12 @@ export default function RunDrawer(props: RunDrawerProps) {
           value={options.find(e => e.id === selectedEndpoint) || null}
           onChange={(_, v) => setSelectedEndpoint(v?.id ?? null)}
           getOptionLabel={opt => opt.name}
-          disabled={disabled}
           renderInput={params => (
             <TextField
               {...params}
               label="Endpoint"
               required
-              placeholder={
-                disabled ? 'Select a project first' : 'Select endpoint'
-              }
+              placeholder="Select endpoint"
             />
           )}
           renderOption={(props, option) => {
@@ -1158,7 +1165,7 @@ export default function RunDrawer(props: RunDrawerProps) {
           }}
           isOptionEqualToValue={(a, b) => a.id === b.id}
         />
-        {options.length === 0 && !disabled && !loading && (
+        {options.length === 0 && !loading && (
           <FormHelperText>
             No endpoints available for this project
           </FormHelperText>

@@ -16,6 +16,7 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -39,6 +40,8 @@ import {
 import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';
 import { NavSection } from './NavSection';
+import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -86,6 +89,10 @@ export function Sidebar() {
   // User menu popover
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const menuOpen = Boolean(menuAnchor);
+
+  // Project switcher drawer
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const { activeProject } = useActiveProject();
 
   const orgName = branding?.title ?? 'Rhesis AI';
   const isSuperuser = user?.is_superuser === true;
@@ -163,7 +170,12 @@ export function Sidebar() {
                 <LeftPanelOpenIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title={orgName} placement="right">
+            <Tooltip
+              title={
+                activeProject ? `${orgName} · ${activeProject.name}` : orgName
+              }
+              placement="right"
+            >
               <ButtonBase
                 onClick={e => setOrgMenuAnchor(e.currentTarget)}
                 aria-label={`Open organisation menu for ${orgName}`}
@@ -238,21 +250,36 @@ export function Sidebar() {
                   priority
                 />
               </Box>
-              <Typography
-                sx={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  lineHeight: '25px',
-                  color: theme => theme.palette.greyscale.title,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                {orgName}
-              </Typography>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  sx={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    lineHeight: '25px',
+                    color: theme => theme.palette.greyscale.title,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {orgName}
+                </Typography>
+                {activeProject && (
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 400,
+                      lineHeight: '18px',
+                      color: theme => theme.palette.greyscale.subtitle,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {activeProject.name}
+                  </Typography>
+                )}
+              </Box>
             </ButtonBase>
             {/* Collapse toggle — inline, right of brand row */}
             <Tooltip title="Collapse sidebar" placement="right">
@@ -359,7 +386,43 @@ export function Sidebar() {
               Team
             </Typography>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setOrgMenuAnchor(null);
+              setSwitcherOpen(true);
+            }}
+            sx={{
+              gap: '10px',
+              px: '14px',
+              py: '8px',
+              '&:hover': {
+                bgcolor: theme => theme.palette.greyscale.border,
+              },
+            }}
+          >
+            <SwapHorizOutlinedIcon
+              sx={{
+                fontSize: 24,
+                color: theme => theme.palette.greyscale.body,
+              }}
+            />
+            <Typography
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                color: theme => theme.palette.greyscale.body,
+              }}
+            >
+              Switch project
+            </Typography>
+          </MenuItem>
         </Popover>
+
+        <ProjectSwitcherDrawer
+          open={switcherOpen}
+          onClose={() => setSwitcherOpen(false)}
+        />
 
         {/* Main nav groups */}
         {mainGroups.map(group => {

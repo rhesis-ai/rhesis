@@ -81,6 +81,7 @@ def upgrade() -> None:
     for table in _ALL_SCOPED_TABLES:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+        op.execute(f"DROP POLICY IF EXISTS project_isolation ON {table}")
         op.execute(f"""
             CREATE POLICY project_isolation ON {table}
                 AS RESTRICTIVE

@@ -4,11 +4,7 @@ import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
-  FormControl,
   FormHelperText,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   TextField,
   ToggleButton,
@@ -23,15 +19,13 @@ import {
   ExperimentRead,
   ExperimentVisibility,
 } from '@/utils/api-client/interfaces/parameters';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 
 interface CreateExperimentDrawerProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
-  projects: Project[];
-  defaultProjectId?: string;
   onCreated: (experiment: ExperimentRead) => void;
 }
 
@@ -39,13 +33,11 @@ export default function CreateExperimentDialog({
   open,
   onClose,
   sessionToken,
-  projects,
-  defaultProjectId,
   onCreated,
 }: CreateExperimentDrawerProps) {
   const notifications = useNotifications();
+  const { activeProject } = useActiveProject();
 
-  const [projectId, setProjectId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [visibility, setVisibility] = useState<ExperimentVisibility>('private');
@@ -56,14 +48,14 @@ export default function CreateExperimentDialog({
     setName('');
     setDescription('');
     setVisibility('private');
-    setProjectId(defaultProjectId ?? (projects[0]?.id as string) ?? '');
-  }, [open, defaultProjectId, projects]);
+  }, [open]);
 
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
     [sessionToken]
   );
 
+  const projectId = activeProject ? String(activeProject.id) : '';
   const canSubmit = !!projectId && name.trim().length > 0 && !submitting;
 
   const handleSubmit = async () => {
@@ -99,24 +91,6 @@ export default function CreateExperimentDialog({
       saveButtonText={submitting ? 'Creating...' : 'Create'}
     >
       <Stack spacing={2.5}>
-        <FormControl fullWidth size="small">
-          <InputLabel>Project</InputLabel>
-          <Select
-            label="Project"
-            value={projectId}
-            onChange={e => setProjectId(e.target.value)}
-          >
-            {projects.map(p => (
-              <MenuItem key={String(p.id)} value={String(p.id)}>
-                {p.name}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>
-            Each experiment lives inside one project and uses that
-            project&apos;s parameter schema.
-          </FormHelperText>
-        </FormControl>
         <TextField
           label="Name"
           value={name}

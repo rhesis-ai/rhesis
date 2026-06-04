@@ -73,6 +73,16 @@ logger = logging.getLogger(__name__)
 # column to an auth/infra table, reconcile both lists deliberately.
 EXEMPT_TABLES = frozenset({"user", "organization", "token"})
 
+# Tables exempt from the PROJECT predicate only (org filtering still applies).
+#
+# project_membership is the access-control join table: it must be queryable by
+# org scope ALONE, before any project is resolved (e.g. get_project_context
+# decides which project a user may use by reading this table, and the project
+# switcher lists a user's memberships across ALL projects). Applying a project
+# filter here would make membership invisible whenever the active project does
+# not match, breaking project resolution. It carries org isolation only.
+PROJECT_FILTER_EXEMPT_TABLES = frozenset({"project_membership"})
+
 # Guard against duplicate listener registration (e.g. test reloads, hot-reload)
 _listeners_registered: bool = False
 
@@ -180,14 +190,26 @@ def setup_scope_listeners():
             col_names = frozenset(col.name for col in table.columns)
             if "organization_id" in col_names:
                 query = _inject_filter(query, entity.organization_id == scope.organization_id)
-            if "project_id" in col_names and scope.project_id:
-                query = _inject_filter(
-                    query,
-                    or_(
-                        entity.project_id == scope.project_id,
-                        entity.project_id.is_(None),
-                    ),
-                )
+            # Project filtering is fail-closed: we only reach this branch when an org
+            # scope is active (the listener returns early when organization_id is None,
+            # so org-less system/bootstrap sessions are never project-filtered).
+            #   - project set   -> rows in that project plus org-level (NULL) rows
+            #   - project unset -> org-level (NULL) rows only
+            # project_membership is exempt (org-scoped access-control table).
+            if (
+                "project_id" in col_names
+                and getattr(entity, "__tablename__", None) not in PROJECT_FILTER_EXEMPT_TABLES
+            ):
+                if scope.project_id:
+                    query = _inject_filter(
+                        query,
+                        or_(
+                            entity.project_id == scope.project_id,
+                            entity.project_id.is_(None),
+                        ),
+                    )
+                else:
+                    query = _inject_filter(query, entity.project_id.is_(None))
 
         query._scope_filter_applied = True
         logger.debug(

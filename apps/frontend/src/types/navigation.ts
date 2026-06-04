@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { type Theme } from '@mui/material/styles';
 import { type Session } from 'next-auth';
+import { type Project } from '@/utils/api-client/interfaces/project';
 
 export interface NavigationPageItem {
   kind: 'page';
@@ -74,4 +75,5 @@ export interface LayoutProps {
   branding: BrandingProps;
   authentication: AuthenticationProps;
   theme: Theme;
+  initialActiveProject?: Project | null;
 }

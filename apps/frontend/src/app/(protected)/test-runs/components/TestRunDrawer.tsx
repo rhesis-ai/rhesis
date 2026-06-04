@@ -25,6 +25,7 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
+import { readActiveProjectId } from '@/utils/active-project';
 
 interface TestRunDrawerProps {
   open: boolean;
@@ -115,9 +116,21 @@ export default function TestRunDrawer({
           }
 
           setProjects(projectsArray);
-          setEndpoints(
-            Array.isArray(fetchedEndpoints?.data) ? fetchedEndpoints.data : []
-          );
+          const allEndpoints = Array.isArray(fetchedEndpoints?.data)
+            ? fetchedEndpoints.data
+            : [];
+          setEndpoints(allEndpoints);
+
+          // Pre-select the active project from the session cookie
+          const activeProjectId = readActiveProjectId();
+          if (activeProjectId && projectsArray.length > 0) {
+            const activeProject = projectsArray.find(
+              p => p.id === activeProjectId
+            );
+            if (activeProject) {
+              setProject(activeProject);
+            }
+          }
 
           // Set initial values if editing
           if (testRun) {
@@ -153,20 +166,17 @@ export default function TestRunDrawer({
     }
   }, [sessionToken, testRun, getCurrentUserId, open]);
 
-  // Filter endpoints when project changes
+  // Filter endpoints by selected project; when no project is selected show all
   React.useEffect(() => {
-    if (project && Array.isArray(endpoints)) {
-      const filtered = endpoints.filter(
-        endpoint => endpoint.project_id === project.id
-      );
+    if (Array.isArray(endpoints)) {
+      const filtered = project
+        ? endpoints.filter(e => e.project_id === project.id)
+        : endpoints;
       setFilteredEndpoints(filtered);
-      // Clear endpoint selection if current selection is not in filtered list
+      // Clear endpoint selection if it no longer appears in the filtered list
       if (endpoint && !filtered.find(e => e.id === endpoint.id)) {
         setEndpoint(null);
       }
-    } else {
-      setFilteredEndpoints([]);
-      setEndpoint(null);
     }
   }, [project, endpoints, endpoint]);
 
@@ -321,7 +331,10 @@ export default function TestRunDrawer({
               }}
               fullWidth
               renderInput={params => (
-                <TextField {...params} label="Project" required />
+                <TextField
+                  {...params}
+                  label="Project (optional — filters endpoints)"
+                />
               )}
             />
 
@@ -334,15 +347,9 @@ export default function TestRunDrawer({
               getOptionLabel={option =>
                 `${option.name} (${option.environment})`
               }
-              disabled={!project}
               fullWidth
               renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Endpoint"
-                  required
-                  helperText={!project ? 'Select a project first' : undefined}
-                />
+                <TextField {...params} label="Endpoint" required />
               )}
             />
           </Stack>

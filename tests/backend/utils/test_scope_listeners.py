@@ -40,7 +40,10 @@ from rhesis.backend.app.scope import (
     reset_scope,
 )
 from rhesis.backend.app.utils import crud_utils
-from tests.backend.routes.fixtures.data_factories import BehaviorDataFactory
+from tests.backend.routes.fixtures.data_factories import (
+    BehaviorDataFactory,
+    ProjectDataFactory,
+)
 
 
 @pytest.fixture
@@ -295,6 +298,110 @@ class TestAutoStamp:
             pass  # FK/NOT NULL constraint fires - that's expected; the point is stamp didn't run
         finally:
             test_db.rollback()
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestProjectFailClosed:
+    """Project auto-filter is fail-closed: no active project => org-level rows only."""
+
+    def _make_project(self, test_db: Session, org_id: str) -> str:
+        project = crud_utils.create_item(
+            test_db,
+            models.Project,
+            ProjectDataFactory.minimal_data(),
+            organization_id=org_id,
+        )
+        return str(project.id)
+
+    def test_no_project_returns_only_org_level_rows(
+        self, test_db: Session, test_org_id, bound_scope
+    ):
+        """org set + project unset => project-scoped rows are hidden, NULL rows visible."""
+        project_id = self._make_project(test_db, test_org_id)
+
+        org_level = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        scoped_data = BehaviorDataFactory.sample_data()
+        scoped_data["project_id"] = project_id
+        project_scoped = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            scoped_data,
+            organization_id=test_org_id,
+        )
+
+        # org bound, NO project -> fail-closed to NULL-project rows only.
+        with bound_scope(organization_id=test_org_id):
+            results = test_db.query(models.Behavior).all()
+
+        ids = {b.id for b in results}
+        assert org_level.id in ids
+        assert project_scoped.id not in ids
+
+    def test_active_project_returns_project_plus_org_level_rows(
+        self, test_db: Session, test_org_id, bound_scope
+    ):
+        """org + project set => that project's rows plus NULL rows; other projects hidden."""
+        project_a = self._make_project(test_db, test_org_id)
+        project_b = self._make_project(test_db, test_org_id)
+
+        org_level = crud_utils.create_item(
+            test_db,
+            models.Behavior,
+            BehaviorDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        data_a = BehaviorDataFactory.sample_data()
+        data_a["project_id"] = project_a
+        in_a = crud_utils.create_item(
+            test_db, models.Behavior, data_a, organization_id=test_org_id
+        )
+        data_b = BehaviorDataFactory.sample_data()
+        data_b["project_id"] = project_b
+        in_b = crud_utils.create_item(
+            test_db, models.Behavior, data_b, organization_id=test_org_id
+        )
+
+        with bound_scope(organization_id=test_org_id, project_id=project_a):
+            results = test_db.query(models.Behavior).all()
+
+        ids = {b.id for b in results}
+        assert org_level.id in ids
+        assert in_a.id in ids
+        assert in_b.id not in ids
+
+    def test_project_membership_is_not_project_filtered(
+        self, test_db: Session, test_org_id, bound_scope
+    ):
+        """project_membership is exempt: an active project does not filter it out."""
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+
+        # Two projects; membership row tied to project_a only.
+        project_a = self._make_project(test_db, test_org_id)
+        project_b = self._make_project(test_db, test_org_id)
+
+        user = test_db.query(models.User).first()
+        assert user is not None
+        membership = ProjectMembership(
+            project_id=project_a,
+            user_id=user.id,
+            organization_id=test_org_id,
+        )
+        test_db.add(membership)
+        test_db.flush()
+
+        # Bind a DIFFERENT active project; membership for project_a must still be
+        # visible because project_membership is exempt from project filtering.
+        with bound_scope(organization_id=test_org_id, project_id=project_b):
+            rows = test_db.query(ProjectMembership).all()
+
+        assert any(m.id == membership.id for m in rows)
+        test_db.rollback()
 
 
 @pytest.mark.unit
