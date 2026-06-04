@@ -2,10 +2,7 @@
 
 import React from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Drawer,
   Button,
   Typography,
   Stack,
@@ -48,8 +45,9 @@ import type {
   ConfirmResponse,
 } from '@/utils/api-client/interfaces/import';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
+import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
 
-interface FileImportDialogProps {
+interface FileImportDrawerProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
@@ -58,21 +56,14 @@ interface FileImportDialogProps {
 
 const STEPS = ['Upload & Map', 'Inspect Data', 'Import'];
 
-const SUPPORTED_FORMATS = [
-  { ext: '.json', label: 'JSON', desc: 'Nested or flat test data' },
-  { ext: '.jsonl', label: 'JSONL', desc: 'One test per line' },
-  { ext: '.csv', label: 'CSV', desc: 'Single-turn tests' },
-  { ext: '.xlsx', label: 'Excel', desc: 'Single-turn tests' },
-];
-
 const ACCEPTED_EXTENSIONS = '.json,.jsonl,.csv,.xlsx,.xls';
 
-export default function FileImportDialog({
+export default function FileImportDrawer({
   open,
   onClose,
   sessionToken,
   onSuccess,
-}: FileImportDialogProps) {
+}: FileImportDrawerProps) {
   const theme = useTheme();
 
   // Step tracking
@@ -139,7 +130,6 @@ export default function FileImportDialog({
   // ── Clean up on close ──────────────────────────────────────────
 
   const handleClose = async () => {
-    // Abort any in-flight requests first
     abortRef.current?.abort();
     abortRef.current = null;
 
@@ -195,13 +185,7 @@ export default function FileImportDialog({
 
       if (result.confidence >= 1) {
         // Auto-advance: parse first, then populate step-0 state so it's
-        // available if the user navigates back.  This avoids a flash of
-        // the mapping UI before the stepper advances.
-        //
-        // If auto-advance parse fails (e.g. server restarted and the
-        // session was lost from memory before disk restore could kick
-        // in), we still populate the mapping UI so the user can retry
-        // by clicking "Next" manually.
+        // available if the user navigates back.
         const parseOk = await handleParseQuiet(
           result.suggested_mapping,
           result.import_id
@@ -209,9 +193,6 @@ export default function FileImportDialog({
         setAnalyzeResult(result);
         setMapping(result.suggested_mapping);
         if (!parseOk) {
-          // Parse failed silently — user can retry via "Next" button.
-          // Don't show the raw error during auto-advance; the mapping
-          // UI is visible and functional.
           setError(undefined);
         }
       } else {
@@ -300,10 +281,8 @@ export default function FileImportDialog({
   };
 
   /**
-   * Like handleParse but returns a boolean and never sets the global
-   * error.  Used during auto-advance (confidence >= 1) so that a
-   * transient backend failure (e.g. session lost after restart) does
-   * not flash an error banner — the user can retry via "Next".
+   * Like handleParse but returns a boolean and never sets the global error.
+   * Used during auto-advance (confidence >= 1).
    */
   const handleParseQuiet = async (
     overrideMapping?: Record<string, string>,
@@ -439,14 +418,12 @@ export default function FileImportDialog({
       },
     ];
 
-    // Add columns for the mapped data keys
     const allKeys = new Set<string>();
     previewPage?.rows.forEach(row => {
       Object.keys(row.data).forEach(k => allKeys.add(k));
     });
 
     for (const key of Array.from(allKeys).sort()) {
-      // Capitalize header: convert snake_case to Title Case
       const headerName = key
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -462,7 +439,6 @@ export default function FileImportDialog({
           const cellValue = row.data?.[key];
           if (cellValue === null || cellValue === undefined) return '';
 
-          // Special handling for prompt: show just the content
           if (
             key === 'prompt' &&
             typeof cellValue === 'object' &&
@@ -471,7 +447,6 @@ export default function FileImportDialog({
             return String(cellValue.content);
           }
 
-          // For other objects, stringify
           if (typeof cellValue === 'object') return JSON.stringify(cellValue);
           return String(cellValue);
         },
@@ -486,7 +461,7 @@ export default function FileImportDialog({
     return previewPage.rows.map(row => ({
       ...row,
       id: row.index,
-      index: row.index + 1, // Display row numbers starting from 1
+      index: row.index + 1,
     }));
   }, [previewPage]);
 
@@ -494,21 +469,6 @@ export default function FileImportDialog({
 
   const renderStep0 = () => (
     <Stack spacing={3}>
-      {/* Format info */}
-      <Box>
-        <Typography variant="subtitle2" gutterBottom>
-          Supported Formats
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {SUPPORTED_FORMATS.map(f => (
-            <Tooltip key={f.ext} title={f.desc}>
-              <Chip label={f.label} size="small" variant="outlined" />
-            </Tooltip>
-          ))}
-        </Stack>
-      </Box>
-
-      {/* Test type selection */}
       <Box>
         <Typography variant="subtitle2" gutterBottom>
           Test Type
@@ -539,8 +499,10 @@ export default function FileImportDialog({
         </Stack>
       </Box>
 
-      {/* Expected data structure (adapts to selected test type) */}
       <Alert severity="info" variant="outlined">
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          <strong>Supported formats:</strong> JSON, JSONL, CSV, Excel
+        </Typography>
         {testType === TEST_TYPES.SINGLE_TURN ? (
           <Typography variant="body2">
             <strong>Single-turn tests:</strong> Each row should have a prompt,
@@ -576,7 +538,6 @@ export default function FileImportDialog({
         )}
       </Alert>
 
-      {/* File upload */}
       <DragAndDropUpload
         onFileSelect={handleFileSelect}
         onFileRemove={handleFileRemove}
@@ -595,7 +556,6 @@ export default function FileImportDialog({
         </Box>
       )}
 
-      {/* Mapping section */}
       {analyzeResult && (
         <Box>
           <Stack
@@ -674,7 +634,6 @@ export default function FileImportDialog({
             </Stack>
           </Paper>
 
-          {/* Sample data preview */}
           {analyzeResult.sample_rows.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
@@ -714,7 +673,6 @@ export default function FileImportDialog({
     const summary = parseResult?.validation_summary;
     return (
       <Stack spacing={2}>
-        {/* Test-type mismatch warning */}
         {testTypeWarning && (
           <Alert
             severity="warning"
@@ -728,7 +686,6 @@ export default function FileImportDialog({
           </Alert>
         )}
 
-        {/* Validation summary */}
         {summary && (
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
             <Chip
@@ -764,7 +721,6 @@ export default function FileImportDialog({
           </Stack>
         )}
 
-        {/* Data preview grid */}
         {previewPage && (
           <Box sx={{ height: theme.spacing(50), width: '100%' }}>
             {loadingPage && <LinearProgress />}
@@ -897,7 +853,6 @@ export default function FileImportDialog({
 
   const handleBack = () => {
     if (activeStep === 1) {
-      // Going back to upload: clear parse results to avoid stale data
       setParseResult(null);
       setPreviewPage(null);
       setCurrentPage(1);
@@ -909,43 +864,78 @@ export default function FileImportDialog({
   };
 
   return (
-    <Dialog
+    <Drawer
+      anchor="right"
       open={open}
       onClose={handleClose}
-      maxWidth="md"
-      fullWidth
+      variant="temporary"
+      ModalProps={{ keepMounted: true }}
       PaperProps={{
-        sx: { minHeight: theme.spacing(62.5) },
+        sx: {
+          width: { xs: '100%', sm: 720 },
+          display: 'flex',
+          flexDirection: 'column',
+          p: '30px',
+          gap: 0,
+          boxSizing: 'border-box',
+        },
+      }}
+      sx={{
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.create,
+        },
       }}
     >
-      <DialogTitle>
+      {/* Header */}
+      <Box sx={{ flexShrink: 0, mb: '24px' }}>
         <Stack
           direction="row"
           justifyContent="space-between"
           alignItems="center"
         >
-          <Typography variant="h6">Import Test Set from File</Typography>
+          <Typography
+            sx={{
+              fontSize: 23,
+              fontWeight: 700,
+              lineHeight: '27.6px',
+              color: theme => theme.palette.greyscale.title,
+            }}
+          >
+            Import Test Set from File
+          </Typography>
           <IconButton
             onClick={handleClose}
             size="small"
-            aria-label="Close import dialog"
+            aria-label="Close import drawer"
           >
             <CloseIcon />
           </IconButton>
         </Stack>
-      </DialogTitle>
+      </Box>
 
-      <DialogContent dividers>
-        <Box sx={{ mb: 3 }}>
-          <Stepper activeStep={activeStep} alternativeLabel>
-            {STEPS.map(label => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-        </Box>
+      {/* Stepper */}
+      <Box sx={{ flexShrink: 0, mb: '24px' }}>
+        <Stepper activeStep={activeStep} alternativeLabel>
+          {STEPS.map(label => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </Box>
 
+      {/* Scrollable body */}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          pt: '10px',
+          pb: '16px',
+        }}
+      >
         {error && (
           <Alert
             severity="error"
@@ -959,44 +949,94 @@ export default function FileImportDialog({
         {activeStep === 0 && renderStep0()}
         {activeStep === 1 && renderStep1()}
         {activeStep === 2 && renderStep2()}
-      </DialogContent>
+      </Box>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        {importResult ? (
-          <Button onClick={handleClose} variant="contained">
-            Done
-          </Button>
-        ) : (
-          <>
-            <Button onClick={handleClose} disabled={importing}>
-              Cancel
-            </Button>
-            {activeStep > 0 && (
-              <Button
-                variant="outlined"
-                onClick={handleBack}
-                disabled={importing || parsing}
-              >
-                Back
-              </Button>
-            )}
+      {/* Footer */}
+      <Box sx={{ flexShrink: 0, pt: '16px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          {importResult ? (
             <Button
               variant="contained"
-              onClick={handleNext}
-              disabled={!canProceed()}
-              startIcon={
-                activeStep === 2 && importing ? (
-                  <CircularProgress size="small" />
-                ) : undefined
-              }
+              onClick={handleClose}
+              sx={{
+                borderRadius: BORDER_RADIUS.sm,
+                px: '16px',
+                py: '8px',
+                fontWeight: 700,
+                fontSize: 14,
+              }}
             >
-              {activeStep === 0 && (parsing ? 'Parsing...' : 'Next')}
-              {activeStep === 1 && 'Next'}
-              {activeStep === 2 && (importing ? 'Importing...' : 'Import')}
+              Done
             </Button>
-          </>
-        )}
-      </DialogActions>
-    </Dialog>
+          ) : (
+            <>
+              <Button
+                variant="outlined"
+                onClick={handleClose}
+                disabled={importing}
+                sx={{
+                  borderWidth: 2,
+                  borderColor: 'primary.main',
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  borderRadius: BORDER_RADIUS.sm,
+                  px: '16px',
+                  py: '8px',
+                  '&:hover': { borderWidth: 2 },
+                }}
+              >
+                Cancel
+              </Button>
+              {activeStep > 0 && (
+                <Button
+                  variant="outlined"
+                  onClick={handleBack}
+                  disabled={importing || parsing}
+                  sx={{
+                    borderWidth: 2,
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    borderRadius: BORDER_RADIUS.sm,
+                    px: '16px',
+                    py: '8px',
+                    '&:hover': { borderWidth: 2 },
+                  }}
+                >
+                  Back
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                disabled={!canProceed()}
+                startIcon={
+                  activeStep === 2 && importing ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : undefined
+                }
+                sx={{
+                  borderRadius: BORDER_RADIUS.sm,
+                  px: '16px',
+                  py: '8px',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  '&.Mui-disabled': {
+                    bgcolor: theme => theme.palette.greyscale.border,
+                    color: '#fff',
+                  },
+                }}
+              >
+                {activeStep === 0 && (parsing ? 'Parsing...' : 'Next')}
+                {activeStep === 1 && 'Next'}
+                {activeStep === 2 && (importing ? 'Importing...' : 'Import')}
+              </Button>
+            </>
+          )}
+        </Box>
+      </Box>
+    </Drawer>
   );
 }
