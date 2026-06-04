@@ -192,13 +192,41 @@ export default function ModelSelector({
           label={label}
           onChange={e => onChange(e.target.value as string)}
           displayEmpty
+          notched
           renderValue={selectedValue => {
             if (compact) {
               if (selectedValue === '') {
-                return defaultModelName ?? 'Default model';
+                const desc = defaultModelName
+                  ? `Currently: ${defaultModelName}`
+                  : 'Uses your configured default from model settings';
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <SettingsSuggestIcon fontSize="small" />
+                    <Box>
+                      <Typography variant="body1">Default model</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {desc}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
               }
               const model = models.find(m => m.id === selectedValue);
-              return model?.name ?? String(selectedValue);
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ProviderIcon icon={model?.icon} />
+                  <Box>
+                    <Typography variant="body1">
+                      {model?.name ?? String(selectedValue)}
+                    </Typography>
+                    {model?.description && (
+                      <Typography variant="caption" color="text.secondary">
+                        {model.description}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
             }
 
             if (selectedValue === '') {
