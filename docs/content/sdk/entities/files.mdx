@@ -112,6 +112,61 @@ for f in files:
     print(f"Saved: {path}")`}
 </CodeBlock>
 
+## FileReference in connector endpoints
+
+During platform-managed test execution, Rhesis passes attached files through the connector as `FileReference` metadata instead of embedding raw bytes in the WebSocket payload. This keeps large uploads in object storage until your endpoint actually needs the content.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `str` | File row identifier |
+| `filename` | `str` | Original file name |
+| `content_type` | `str` | MIME type from upload |
+| `size_bytes` | `int` | Stored file size |
+| `content_hash` | `str` | SHA-256 digest of the file bytes |
+| `signed_url` | `str \| None` | Presigned URL populated when raw bytes can be fetched |
+| `extracted_text` | `str \| None` | Text or image description extracted by the backend |
+
+If your endpoint only needs text, prefer `extracted_text`. Fetch bytes only when you need the original binary.
+
+<CodeBlock filename="connector_files.py" language="python">
+{`from rhesis.sdk import endpoint
+from rhesis.sdk.connector.types import FileReference
+
+@endpoint(request_mapping={"input": "{{ input }}", "files": "{{ files }}"})
+def inspect_upload(input: str, files: list[FileReference]):
+    summaries = []
+    for file_ref in files:
+        if file_ref.extracted_text:
+            summaries.append(f"{file_ref.filename}: {file_ref.extracted_text[:200]}")
+        else:
+            raw_bytes = file_ref.read_bytes()
+            summaries.append(f"{file_ref.filename}: {len(raw_bytes)} bytes")
+
+    return {"output": "\\n".join([input, *summaries])}`}
+</CodeBlock>
+
+For async endpoints, use `aread_bytes()` so the event loop is not blocked. You can pass an existing `aiohttp.ClientSession` to reuse connections across multiple files.
+
+<CodeBlock filename="connector_files_async.py" language="python">
+{`import aiohttp
+from rhesis.sdk import endpoint
+from rhesis.sdk.connector.types import FileReference
+
+@endpoint(request_mapping={"input": "{{ input }}", "files": "{{ files }}"})
+async def inspect_upload(input: str, files: list[FileReference]):
+    async with aiohttp.ClientSession() as session:
+        sizes = [
+            len(await file_ref.aread_bytes(session=session))
+            for file_ref in files
+            if file_ref.signed_url
+        ]
+    return {"output": f"{input}\\nFetched {sum(sizes)} bytes"}`}
+</CodeBlock>
+
+<Callout type="info">
+  `read_bytes()` and `aread_bytes()` require `signed_url` to be populated. When an endpoint does not expose the `\{\{ files \}\}` mapping, the backend injects extracted text into `input` instead and does not materialize file bytes.
+</Callout>
+
 ## Managing Files
 
 ### Listing Files

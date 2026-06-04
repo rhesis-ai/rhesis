@@ -85,6 +85,10 @@ For a full production file (many more keys), teams often load secrets from Googl
   ]}
 />
 
+The production frontend image is built once and configured at container start. `apps/frontend/scripts/replace-runtime-env.sh` replaces `__NEXT_PUBLIC_API_BASE_URL__` and `__NEXT_PUBLIC_QUICK_START__` placeholders in the built bundle, then exports the resolved values. Prefer setting `NEXT_PUBLIC_API_BASE_URL` explicitly; if it is absent, startup falls back to `API_BASE_URL`, then `BACKEND_URL`, then `http://localhost:8080`.
+
+`BACKEND_URL` is also read by the server-side `/api/*` Route Handler proxy on each request, so internal service routing can change without rebuilding the frontend image.
+
 ### Optional frontend variables
 
 Enable Google or GitHub sign-in, extra env labels, or SMTP when your deployment needs them (see `apps/frontend/README.md`). Some code paths expect `AUTH_SECRET` to mirror `NEXTAUTH_SECRET` when you run strict environment validation.

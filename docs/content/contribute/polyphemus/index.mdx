@@ -24,6 +24,24 @@ Polyphemus exposes two primary generation endpoints:
 
 `/generate_batch` accepts up to `50` items per call (`MAX_BATCH_SIZE`).
 
+## Adversarial primer injection
+
+Polyphemus injects an adversarial system primer before forwarding every request to Vertex AI. This keeps SDK and platform calls aligned: callers do not need to add the primer themselves.
+
+The service uses two paths:
+
+| Request shape | Injection behavior |
+|---|---|
+| `json_schema` present | Inserts the test-generation primer into the system message and prefixes user content with `[GENERATE ADVERSARIAL ATTACK] ` |
+| No `json_schema` | Prepends the conversational primer to the system message and leaves user content unchanged |
+| No system message | Inserts a new system message containing the selected primer |
+
+The injection is idempotent. If the selected primer or user prefix is already present, it is not added again.
+
+<Callout type="info">
+  Schema-backed synthesizer requests should send their JSON schema normally. Polyphemus detects `json_schema` and places the primer before schema instructions so structured output and adversarial behavior both apply.
+</Callout>
+
 ## Environment configuration
 
 Polyphemus reads Vertex AI target configuration from environment variables:
@@ -33,9 +51,14 @@ Polyphemus reads Vertex AI target configuration from environment variables:
 | `POLYPHEMUS_ENDPOINT_ID` | Yes | Vertex AI endpoint identifier |
 | `POLYPHEMUS_PROJECT_ID` | Yes | GCP project ID for endpoint invocation |
 | `POLYPHEMUS_LOCATION` | No | Vertex AI region (defaults to `us-central1`) |
+| `POLYPHEMUS_DEFAULT_MODEL` | Yes | Internal Vertex model backing the public `polyphemus-default` alias |
+| `POLYPHEMUS_OPUS_MODEL` | Required if using `polyphemus-opus` | Internal Vertex model backing the public `polyphemus-opus` alias |
+| `POLYPHEMUS_BATCH_CONCURRENCY` | No | Maximum concurrent Vertex calls inside `/generate_batch` (defaults to `10`) |
 | `VLLM_LOGGING_LEVEL` | No | vLLM container log verbosity for Vertex serving (for example, `DEBUG`, `INFO`) |
 
 If required variables are missing, the service returns HTTP `400` with configuration error details.
+
+Polyphemus accepts two public model aliases: `polyphemus-default` and `polyphemus-opus`. Omitting `model` resolves to `polyphemus-default`; passing any other value returns HTTP `400`.
 
 ### Deployment region variable mapping (v0.2.8+)
 
@@ -110,6 +133,8 @@ If set, deployment injects `VLLM_LOGGING_LEVEL` into the serving container envir
   Rate limiting is applied through `check_rate_limit`. For batch calls, one HTTP request counts as one
   rate-limit unit regardless of item count.
 </Callout>
+
+Batch requests execute concurrently up to `POLYPHEMUS_BATCH_CONCURRENCY`. A failed item is logged with stack trace and returned as `{"error": "<message>"}` in its original response slot; one item failure does not fail the whole batch.
 
 ## Related pages
 
