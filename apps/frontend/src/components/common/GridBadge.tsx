@@ -9,16 +9,10 @@ export type GridBadgeSize = 'grid' | 'detail';
 
 const BADGE_SIZE_STYLES: Record<
   GridBadgeSize,
-  { fontSize: (theme: Theme) => string; lineHeight: string }
+  { fontSize: string; lineHeight: string }
 > = {
-  grid: {
-    fontSize: theme => theme.typography.caption.fontSize as string,
-    lineHeight: '18px',
-  },
-  detail: {
-    fontSize: theme => theme.typography.body2.fontSize as string,
-    lineHeight: '22px',
-  },
+  grid: { fontSize: '12px', lineHeight: '18px' },
+  detail: { fontSize: '14px', lineHeight: '22px' },
 };
 
 /**
@@ -50,7 +44,10 @@ export function GridBadge({
           px: '10px',
           py: '2px',
           borderRadius: BORDER_RADIUS.pill,
-          bgcolor: (theme: Theme) => theme.palette.greyscale.surface2,
+          bgcolor: (theme: Theme) =>
+            theme.palette.mode === 'light'
+              ? '#f3f4f6'
+              : theme.palette.greyscale.surface1,
           color: (theme: Theme) => theme.palette.greyscale.body,
           fontSize: sizeStyles.fontSize,
           lineHeight: sizeStyles.lineHeight,
@@ -109,7 +106,7 @@ export function BadgeRow({
         <Box
           component="span"
           sx={{
-            fontSize: theme => theme.typography.body2.fontSize,
+            fontSize: 14,
             color: theme => theme.palette.greyscale.subtitle,
           }}
         >

@@ -35,7 +35,7 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
-        gap: 1.25,
+        gap: '10px',
       }}
     >
       {items.map((crumb, idx) => {
@@ -51,14 +51,17 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
             sx={{
               display: 'flex',
               alignItems: 'center',
-              gap: 0.75,
+              gap: '6px',
             }}
           >
             {isLast || !link ? (
               <Typography
                 variant="bodyMReg"
                 component="span"
-                sx={{ color: theme => theme.palette.greyscale.body }}
+                sx={{
+                  color: theme => theme.palette.greyscale.body,
+                  fontWeight: 400,
+                }}
               >
                 {text}
               </Typography>
@@ -67,16 +70,22 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 component={NextLink}
                 href={link}
                 underline="hover"
-                variant="bodyMReg"
-                sx={{ color: theme => theme.palette.greyscale.subtitle }}
+                sx={{
+                  color: theme => theme.palette.greyscale.subtitle,
+                  fontSize: 14,
+                  lineHeight: '22px',
+                  fontWeight: 400,
+                }}
               >
                 {text}
               </Link>
             )}
             {showSeparator && (
               <ChevronRightIcon
-                fontSize="small"
-                sx={{ color: theme => theme.palette.greyscale.subtitle }}
+                sx={{
+                  fontSize: 20,
+                  color: theme => theme.palette.greyscale.subtitle,
+                }}
                 aria-hidden
               />
             )}
@@ -110,7 +119,7 @@ export function PageLayout({
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 2.5,
+            gap: '20px',
             mb: 5,
           }}
         >
@@ -131,7 +140,7 @@ export function PageLayout({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: 2,
+                    gap: '16px',
                     width: '100%',
                     minHeight: 56,
                   }}

@@ -1,15 +1,8 @@
 'use client';
 
 import React from 'react';
-import {
-  alpha,
-  Box,
-  ButtonBase,
-  Typography,
-  Avatar,
-  IconButton,
-} from '@mui/material';
-import { useTheme, type Theme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
+import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
@@ -49,33 +42,30 @@ export interface EntityCardProps {
   footer?: React.ReactNode;
 }
 
-// Status chip colours — Figma Chip with semantic green/red tint.
-// Uses theme.palette.success/error so the colours adapt to dark mode.
+// Status chip colours — Figma Chip with semantic green/red tint
+const STATUS_CHIP_STYLES: Record<string, { bg: string; color: string }> = {
+  active: { bg: 'rgba(56, 173, 135, 0.14)', color: '#38ad87' },
+  inactive: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' },
+};
+
+/** Figma greyscale/surface/default — matches linked-entity chips */
+const CHIP_SURFACE_DEFAULT = '#f3f4f6';
+
 function getStatusChipStyles(
   status: string,
-  theme: Theme
+  isDark: boolean
 ): { bg: string; color: string } {
-  switch (status.toLowerCase()) {
-    case 'active':
-      return {
-        bg: alpha(theme.palette.success.main, 0.14),
-        color: theme.palette.success.main,
-      };
-    case 'inactive':
-      return {
-        bg: alpha(theme.palette.error.main, 0.12),
-        color: theme.palette.error.main,
-      };
-    default:
-      return {
-        bg: theme.palette.greyscale.surface2,
-        color: theme.palette.greyscale.body,
-      };
+  const preset = STATUS_CHIP_STYLES[status.toLowerCase()];
+  if (preset) {
+    return preset;
   }
+  return {
+    bg: isDark ? '#0d1117' : CHIP_SURFACE_DEFAULT,
+    color: isDark ? '#c9d1d9' : '#2a2e36',
+  };
 }
 
-const DESCRIPTION_FONT_SIZE = (theme: Theme): string =>
-  theme.typography.body2.fontSize as string;
+const DESCRIPTION_FONT_SIZE = 14;
 const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 3;
 const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
@@ -83,7 +73,8 @@ const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
 /** Status badge on entity cards — pill shape; semantic tint for active/inactive. */
 export function EntityCardStatusBadge({ status }: { status: string }) {
   const theme = useTheme();
-  const { bg, color } = getStatusChipStyles(status, theme);
+  const isDark = theme.palette.mode === 'dark';
+  const { bg, color } = getStatusChipStyles(status, isDark);
   const statusLabel =
     status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
@@ -219,7 +210,7 @@ export default function EntityCard({
           )}
           <Typography
             sx={{
-              fontSize: theme => theme.typography.h6.fontSize,
+              fontSize: 18,
               fontWeight: 700,
               lineHeight: '25px',
               color: 'text.primary',
@@ -258,11 +249,7 @@ export default function EntityCard({
             {!userAvatar && firstName ? firstName[0].toUpperCase() : undefined}
           </Avatar>
           <Typography
-            sx={{
-              fontSize: theme => theme.typography.caption.fontSize,
-              fontWeight: 400,
-              color: 'text.secondary',
-            }}
+            sx={{ fontSize: 12, fontWeight: 400, color: 'text.secondary' }}
           >
             {firstName}
           </Typography>
@@ -300,7 +287,7 @@ export default function EntityCard({
                 {section.label && (
                   <Typography
                     sx={{
-                      fontSize: theme => theme.typography.caption.fontSize,
+                      fontSize: 12,
                       color: theme => theme.palette.greyscale.subtitle,
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
@@ -338,7 +325,7 @@ export default function EntityCard({
                 ) : (
                   <Typography
                     sx={{
-                      fontSize: theme => theme.typography.caption.fontSize,
+                      fontSize: 12,
                       fontWeight: 400,
                       color: 'text.secondary',
                     }}

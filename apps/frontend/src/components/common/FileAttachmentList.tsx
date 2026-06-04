@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { BORDER_RADIUS } from '@/styles/theme';
 import {
   Box,
   IconButton,
@@ -67,7 +66,7 @@ function ThumbnailImage({
         width: 48,
         height: 48,
         objectFit: 'cover',
-        borderRadius: BORDER_RADIUS.sm,
+        borderRadius: '8px',
         flexShrink: 0,
       }}
     />
@@ -99,8 +98,7 @@ function FileRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        borderTop: (theme: Theme) =>
-          `1px solid ${theme.palette.greyscale.border}`,
+        borderTop: '1px solid #cdd2da',
         overflow: 'hidden',
       }}
     >
@@ -113,8 +111,8 @@ function FileRow({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: (theme: Theme) => theme.palette.greyscale.border,
-            borderRadius: BORDER_RADIUS.sm,
+            bgcolor: '#cdd2da',
+            borderRadius: '8px',
             overflow: 'hidden',
           }}
         >
@@ -136,7 +134,7 @@ function FileRow({
           sx={{
             fontSize: 14,
             lineHeight: '22px',
-            color: (theme: Theme) => theme.palette.greyscale.body,
+            color: '#2a2e36',
             wordBreak: 'break-word',
           }}
         >
@@ -159,7 +157,7 @@ function FileRow({
             fontSize: 14,
             fontWeight: 700,
             lineHeight: '22px',
-            color: (theme: Theme) => theme.palette.greyscale.body,
+            color: '#2a2e36',
             whiteSpace: 'nowrap',
           }}
         >

@@ -253,7 +253,7 @@ export function Sidebar() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   sx={{
-                    fontSize: theme => theme.typography.h6.fontSize,
+                    fontSize: 18,
                     fontWeight: 700,
                     lineHeight: '25px',
                     color: theme => theme.palette.greyscale.title,
@@ -267,7 +267,7 @@ export function Sidebar() {
                 {activeProject && (
                   <Typography
                     sx={{
-                      fontSize: theme => theme.typography.caption.fontSize,
+                      fontSize: 12,
                       fontWeight: 400,
                       lineHeight: '18px',
                       color: theme => theme.palette.greyscale.subtitle,
@@ -314,9 +314,7 @@ export function Sidebar() {
             paper: {
               sx: {
                 bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? theme.palette.greyscale.surface2
-                    : theme.palette.greyscale.surface1,
+                  theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
                 borderRadius: BORDER_RADIUS.lg,
                 boxShadow: ELEVATION.xs,
                 minWidth: 188,
@@ -348,7 +346,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: theme => theme.typography.body2.fontSize,
+                fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -379,7 +377,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: theme => theme.typography.body2.fontSize,
+                fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -410,7 +408,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: theme => theme.typography.body2.fontSize,
+                fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -475,9 +473,7 @@ export function Sidebar() {
           <Box
             sx={{
               bgcolor: theme =>
-                theme.palette.mode === 'light'
-                  ? theme.palette.background.paper
-                  : theme.palette.background.light3,
+                theme.palette.mode === 'light' ? '#ffffff' : '#1F242B',
               borderRadius: BORDER_RADIUS.lg,
               overflow: 'hidden',
               display: 'flex',
@@ -527,7 +523,7 @@ export function Sidebar() {
               <Typography
                 sx={{
                   display: 'block',
-                  fontSize: theme => theme.typography.body2.fontSize,
+                  fontSize: 14,
                   fontWeight: 400,
                   lineHeight: '22px',
                   color: theme => theme.palette.greyscale.title,
@@ -542,7 +538,7 @@ export function Sidebar() {
               <Typography
                 sx={{
                   display: 'block',
-                  fontSize: theme => theme.typography.caption.fontSize,
+                  fontSize: 12,
                   fontWeight: 400,
                   lineHeight: '18px',
                   color: theme => theme.palette.greyscale.subtitle,
@@ -568,9 +564,7 @@ export function Sidebar() {
             paper: {
               sx: {
                 bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? theme.palette.greyscale.surface2
-                    : theme.palette.greyscale.surface1,
+                  theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
                 borderRadius: BORDER_RADIUS.lg,
                 boxShadow: ELEVATION.xs,
                 minWidth: 188,
@@ -603,7 +597,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: theme => theme.typography.body2.fontSize,
+                fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,
@@ -633,7 +627,7 @@ export function Sidebar() {
             />
             <Typography
               sx={{
-                fontSize: theme => theme.typography.body2.fontSize,
+                fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
                 color: theme => theme.palette.greyscale.body,

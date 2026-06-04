@@ -38,7 +38,10 @@ function cardSx(variant: SectionCardVariant) {
 
   return {
     ...shared,
-    bgcolor: 'background.paper',
+    bgcolor: (theme: Theme) =>
+      theme.palette.mode === 'light'
+        ? '#ffffff'
+        : theme.palette.greyscale.surface1,
     border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   };
 }

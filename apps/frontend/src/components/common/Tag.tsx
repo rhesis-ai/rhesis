@@ -15,9 +15,12 @@ export const tagSurfaceSx: SxProps<Theme> = {
   py: '2px',
   height: 26,
   maxWidth: 200,
-  bgcolor: theme => theme.palette.greyscale.surface2,
+  bgcolor: theme =>
+    theme.palette.mode === 'light'
+      ? '#f3f4f6'
+      : theme.palette.greyscale.surface1,
   color: theme => theme.palette.greyscale.body,
-  fontSize: (theme: Theme) => theme.typography.body2.fontSize,
+  fontSize: 14,
   lineHeight: '22px',
   fontWeight: 600,
   whiteSpace: 'nowrap',
@@ -83,7 +86,7 @@ export function TagRow({
         <Box
           component="span"
           sx={{
-            fontSize: (theme: Theme) => theme.typography.body2.fontSize,
+            fontSize: 14,
             color: theme => theme.palette.greyscale.subtitle,
           }}
         >

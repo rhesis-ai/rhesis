@@ -30,7 +30,9 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        ...(collapsed ? collapsedNavItemSx : { gap: 1.25, px: 1.75, py: 1 }),
+        ...(collapsed
+          ? collapsedNavItemSx
+          : { gap: '10px', px: '14px', py: '8px' }),
         borderRadius: BORDER_RADIUS.sm,
         textDecoration: 'none',
         cursor: 'pointer',

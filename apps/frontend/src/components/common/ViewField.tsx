@@ -3,7 +3,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme';
 
 interface ViewFieldProps {
   label: string;
@@ -41,11 +40,12 @@ export default function ViewField({
     <Box sx={{ width: '100%' }}>
       {/* Label — greyscale.subtitle */}
       <Typography
-        variant="bodyMReg"
         sx={{
+          fontSize: 14,
+          lineHeight: '22px',
           color: theme => theme.palette.greyscale.subtitle,
-          px: 1.75,
-          mb: 0.75,
+          px: '14px',
+          mb: '6px',
           whiteSpace: 'nowrap',
         }}
       >
@@ -56,18 +56,19 @@ export default function ViewField({
       <Box
         sx={{
           bgcolor: bgcolor ?? (theme => theme.palette.greyscale.fieldSurface),
-          borderRadius: BORDER_RADIUS.xs,
-          pl: 2,
-          pr: 1.5,
-          py: 2,
+          borderRadius: '4px',
+          pl: '16px',
+          pr: '12px',
+          py: '16px',
           alignItems: multiline ? 'flex-start' : 'center',
         }}
       >
         {children ?? (
           <Typography
-            variant="body1"
             sx={[
               {
+                fontSize: 16,
+                lineHeight: '24px',
                 color: theme => theme.palette.greyscale.body,
                 whiteSpace: multiline ? 'pre-wrap' : 'normal',
                 wordBreak: 'break-word',
@@ -83,11 +84,12 @@ export default function ViewField({
       {/* Helper text — greyscale.subtitle */}
       {helperText && (
         <Typography
-          variant="caption"
           sx={{
+            fontSize: 12,
+            lineHeight: '18px',
             color: theme => theme.palette.greyscale.subtitle,
-            px: 1.75,
-            pt: 0.5,
+            px: '14px',
+            pt: '3px',
           }}
         >
           {helperText}

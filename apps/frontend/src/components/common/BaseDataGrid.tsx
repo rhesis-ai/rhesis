@@ -53,7 +53,7 @@ import {
   type GridColumnMenuProps,
   type GridToolbarProps,
 } from '@mui/x-data-grid';
-import { alpha, type SxProps, type Theme } from '@mui/material/styles';
+import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -261,13 +261,11 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-row:hover': {
     cursor: 'pointer',
     backgroundColor:
-      theme.palette.mode === 'light'
-        ? theme.palette.greyscale.surface1
-        : 'rgba(255,255,255,0.04)',
+      theme.palette.mode === 'light' ? '#f7f8f9' : 'rgba(255,255,255,0.04)',
   },
   // Faint row separator above the footer
   '& .MuiDataGrid-footerContainer': {
-    borderTop: `1px solid ${theme.palette.greyscale.border}`,
+    borderTop: `1px solid ${theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider}`,
   },
 }));
 
@@ -334,7 +332,7 @@ function FigmaPaginationFooter() {
       opacity: 1,
     },
     '&:hover': {
-      bgcolor: active ? alpha(theme.palette.primary.main, 0.06) : 'transparent',
+      bgcolor: active ? 'rgba(0, 128, 175, 0.06)' : 'transparent',
     },
     '& .MuiSvgIcon-root': { fontSize: 16 },
   });

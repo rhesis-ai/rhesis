@@ -105,7 +105,7 @@ export default function BaseDrawer({
             {titleIcon}
             <Typography
               sx={{
-                fontSize: theme => theme.typography.h5.fontSize,
+                fontSize: 23,
                 fontWeight: 700,
                 lineHeight: '27.6px',
                 color: theme => theme.palette.greyscale.title,
@@ -155,7 +155,7 @@ export default function BaseDrawer({
                   borderColor: 'primary.main',
                   color: 'primary.main',
                   fontWeight: 700,
-                  fontSize: theme => theme.typography.body2.fontSize,
+                  fontSize: 14,
                   borderRadius: BORDER_RADIUS.sm,
                   px: '16px',
                   py: '8px',
@@ -181,10 +181,10 @@ export default function BaseDrawer({
                   px: '16px',
                   py: '8px',
                   fontWeight: 700,
-                  fontSize: theme => theme.typography.body2.fontSize,
+                  fontSize: 14,
                   '&.Mui-disabled': {
                     bgcolor: theme => theme.palette.greyscale.border,
-                    color: theme => theme.palette.primary.contrastText,
+                    color: '#fff',
                   },
                 }}
               >
