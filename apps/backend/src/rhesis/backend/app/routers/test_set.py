@@ -34,6 +34,7 @@ from rhesis.backend.app.services.test import (
 )
 from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
+    create_pending_test_set,
     execute_test_set_on_endpoint,
     get_test_set_stats,
     get_test_set_test_stats,
@@ -72,6 +73,7 @@ class TestSetGenerationResponse(BaseModel):
     """Response for test set generation task."""
 
     task_id: str
+    test_set_id: str
     message: str
     estimated_tests: int
 
@@ -124,9 +126,37 @@ async def generate_test_set(
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
+        name = (request.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="A test set name is required")
+
         test_type = request.test_type
 
-        # Launch background task with explicit parameters
+        # Resolve TestSetType for the pending row
+        from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
+
+        resolved_type = (
+            TestSetTypeEnum.from_string(test_type) if test_type else TestSetTypeEnum.SINGLE_TURN
+        )
+
+        # Pre-create a placeholder task_id so we can stamp the test set before launching
+        import uuid as _uuid
+
+        placeholder_task_id = str(_uuid.uuid4())
+
+        # Create the empty TestSet row up front so the frontend can redirect immediately
+        db_test_set = create_pending_test_set(
+            db=db,
+            name=name,
+            organization_id=str(current_user.organization_id),
+            user_id=str(current_user.id),
+            task_id=placeholder_task_id,
+            requested_tests=request.num_tests,
+            test_type=resolved_type,
+        )
+        db.commit()
+
+        # Launch background task with the pre-created test_set_id
         task_result = task_launcher(
             generate_and_save_test_set,
             current_user=current_user,
@@ -135,15 +165,17 @@ async def generate_test_set(
             num_tests=request.num_tests,
             batch_size=request.batch_size,
             sources=[s.model_dump() for s in request.sources] if request.sources else None,
-            name=request.name,
+            name=name,
             test_type=test_type,
             model_id=str(request.model_id) if request.model_id else None,
+            test_set_id=str(db_test_set.id),
         )
 
         logger.info(
             "Test set generation task launched",
             extra={
                 "task_id": task_result.id,
+                "test_set_id": str(db_test_set.id),
                 "user_id": current_user.id,
                 "organization_id": current_user.organization_id,
                 "num_tests": request.num_tests,
@@ -152,6 +184,7 @@ async def generate_test_set(
 
         return TestSetGenerationResponse(
             task_id=task_result.id,
+            test_set_id=str(db_test_set.id),
             message=f"Test set generation started. "
             f"You will be notified when {request.num_tests} tests are ready.",
             estimated_tests=request.num_tests,
