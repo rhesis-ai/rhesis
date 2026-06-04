@@ -38,7 +38,12 @@ def _mock_rhesis_settings(base_url: str):
 
 
 def _mock_application_settings(backend_env: str = "development"):
-    return lambda: Mock(backend_env=backend_env)
+    env = backend_env.lower()
+    settings = Mock(backend_env=env)
+    settings.is_local = env == "local"
+    settings.is_development = env != "production"
+    settings.is_production = env == "production"
+    return lambda: settings
 
 
 # =============================================================================

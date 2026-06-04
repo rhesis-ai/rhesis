@@ -209,7 +209,7 @@ def is_running_locally() -> bool:
 
     # Signal 3: BACKEND_ENV explicitly set to local
     settings = get_application_settings()
-    if settings.backend_env == "local":
+    if settings.is_local:
         return True
 
     return False
