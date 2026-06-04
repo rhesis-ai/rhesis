@@ -12,7 +12,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
-import { formatDate } from '@/utils/date';
 import { UUID } from 'crypto';
 
 interface TestDetailOption {
@@ -189,7 +188,7 @@ export default function TestMetadataCard({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 6 }}>
             {isEditing ? (
               <BaseFreesoloAutocomplete
                 options={topics}
@@ -224,7 +223,7 @@ export default function TestMetadataCard({
             )}
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 6 }}>
             {isEditing ? (
               <BaseFreesoloAutocomplete
                 options={categories}
@@ -261,15 +260,6 @@ export default function TestMetadataCard({
                 helperText="Infotext"
               />
             )}
-          </Grid>
-
-          {/* Row 2: Created (read-only), Priority */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ViewField
-              label="Created"
-              value={formatDate(test.created_at)}
-              helperText="Infotext"
-            />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6 }}>
