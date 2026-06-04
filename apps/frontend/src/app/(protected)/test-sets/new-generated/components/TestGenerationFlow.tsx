@@ -282,9 +282,8 @@ export default function TestGenerationFlow({
   const [description, setDescription] = useState('');
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]); // Keep for display
   const [selectedSources, setSelectedSources] = useState<SourceData[]>([]); // Full source data
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    () => readActiveProjectId()
-  );
+  // Project comes from the active-project context; not user-selectable in this flow.
+  const selectedProjectId = readActiveProjectId();
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
   );
