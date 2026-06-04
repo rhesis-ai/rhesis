@@ -352,24 +352,22 @@ export function middleware(request: NextRequest) {
 
 ### API Client
 
-Centralized API client with automatic error handling:
+Centralized API clients resolve the backend URL at runtime through `getBaseUrl()`:
 
 <CodeBlock language="typescript" filename="API Client Configuration">
-{`// API client configuration
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  timeout: 10000,
-});
+{`import { getBaseUrl } from "@/utils/url-resolver";
 
-// Request interceptor for authentication
-apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = \`Bearer \${token}\`;
+export class BaseApiClient {
+  protected baseUrl = getBaseUrl();
+
+  protected async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const response = await fetch(new URL(path, this.baseUrl), options);
+    return response.json() as Promise<T>;
   }
-  return config;
-});`}
+}`}
 </CodeBlock>
+
+Server-side `/api/*` requests are handled by Next.js Route Handlers and proxied to `BACKEND_URL` at request time. Avoid `next.config.mjs` rewrites for backend proxying because rewrite destinations are build-time artifacts.
 
 ### API Hooks
 
@@ -510,16 +508,19 @@ npm run build`}
 Key environment variables:
 
 <CodeBlock language="bash" filename=".env.local">
-{`# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:8080
+{`# Browser-visible API URL
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+
+# Server-side proxy target
+BACKEND_URL=http://localhost:8080
+
+# Quick Start is replaced at container start from QUICK_START
+NEXT_PUBLIC_QUICK_START=false
 
 # Authentication
-NEXT_PUBLIC_AUTH_DOMAIN=your-auth-domain
-NEXT_PUBLIC_AUTH_CLIENT_ID=your-client-id
-
-# Feature Flags
-NEXT_PUBLIC_ENABLE_ANALYTICS=true
-NEXT_PUBLIC_ENABLE_BETA_FEATURES=false`}
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-nextauth-secret
+AUTH_SECRET=your-nextauth-secret`}
 </CodeBlock>
 
 ## Testing

@@ -96,7 +96,7 @@ for field in schema.fields:
 params = Parameters.get("My Project", environment="production")
 
 # By project UUID (no lookup needed)
-params = Parameters.get(project_id="550e8400-...", version="v_abc123")
+params = Parameters.get(project_id="550e8400-...", version="v3")
 
 # From a Project entity
 from rhesis.sdk.entities import Projects
@@ -144,7 +144,7 @@ Every `ResolvedParameters` carries metadata about where the values came from:
 
 <CodeBlock filename="provenance.py" language="python">
 {`params.experiment_id   # UUID of the source experiment
-params.version         # content hash, e.g. "v_a3f9b8..."
+params.version         # sequential label, e.g. "v3"
 params.source          # "environment", "experiment_id", or "version"
 params.source_environment    # "default", "production", etc. (if resolved via environment)`}
 </CodeBlock>
@@ -173,7 +173,7 @@ for name, pointer in envs.environments.items():
 Parameters.put_environment(
     "My Project", "staging",
     experiment_id="exp-uuid",
-    version="v_abc123",
+    version="v3",
 )`}
 </CodeBlock>
 
@@ -258,7 +258,7 @@ result = test_set.execute(endpoint, experiment_id="exp-uuid")`}
 </CodeBlock>
 
 <Callout type="default">
-  When you pass only `experiment_id` without a `version`, the backend automatically resolves to the experiment's latest version. You don't need to look up the version hash yourself.
+  When you pass only `experiment_id` without a `version`, the backend automatically resolves to the experiment's latest version. You don't need to look up a version label yourself.
 </Callout>
 
 The resolved values are snapshotted at queue time. Moving an environment after the run is queued does not affect it.

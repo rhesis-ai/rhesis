@@ -8,29 +8,71 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
-## [0.8.0] - Unreleased
+## [0.8.0] - 2026-05-21
 
-### Storage migration: file bytes move out of Postgres
+### Platform Release
 
-This release migrates all file content from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). The change eliminates Cloud Run memory crashes caused by multi-MB file buffers and brings consistent streaming upload/download semantics across all execution paths.
+This release includes the following component versions:
 
-**Breaking changes:**
+- **Backend 0.8.0**
+- **Frontend 0.8.0**
+- **SDK 0.8.0**
+- **Polyphemus 0.3.0**
 
-- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
-- `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
-- `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
+### Featured Capabilities
 
-**New features:**
+**Parameters and Experiments**
 
-- `GET /files/{id}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px).
-- `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported).
-- `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes.
-- `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`).
-- ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching.
+Rhesis now supports project-scoped parameter schemas, versioned experiments, and environment-based parameter routing:
 
-**Deployment:** Apply Alembic revision `9b25f353e9c8` (adds storage columns), deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
+- Define typed parameter slots once per project and fill them through experiments.
+- Commit immutable experiment versions with sequential labels such as `v1`, `v2`, and `v3`.
+- Promote shared experiment versions to environments such as `default`, `development`, `staging`, and `production`.
+- Resolve parameters through the SDK with `Parameters.get()` or inject them into endpoint request mappings with `\{\{ params.* \}\}`.
+- Execute test sets against an experiment object, raw `experiment_id`, version pin, or environment.
 
-**IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
+**Test Explorer and Architect UX**
+
+The Explorer workflow is now the primary surface for adaptive testing:
+
+- Added Explorer services, schemas, clients, and UI for creating, importing, evaluating, and managing Explorer test sets.
+- Added improved Test Clusters hover behavior and a tabbed tests/clusters panel.
+- Enhanced Architect with live task-progress events, per-category plan summaries, typo-tolerant entity resolution, and guarded ready/blocked plan gates.
+
+**Enterprise auth and feature gating**
+
+Enterprise deployments gain org-scoped authentication controls:
+
+- Added per-organization OIDC SSO with Keycloak support.
+- Added API Clients and RFC 8693 token exchange for machine-to-machine integrations.
+- Introduced a central backend `FeatureRegistry` and frontend `FeaturesProvider` / `FeatureGate` mirror for gated capabilities.
+
+**File storage and multi-modal execution**
+
+File bytes now live in object storage instead of Postgres `bytea`, with streaming upload/download semantics:
+
+- `POST /files` streams directly to object storage and enforces 10 MB per file, 20 MB per entity, and 10 files per request.
+- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects, including the SDK and browsers, are unaffected.
+- `FileCreate` no longer accepts a `content` field; metadata is stored in Postgres and bytes are stored behind `STORAGE_SERVICE_URI`.
+- `File.extracted_text` is pre-computed at upload time, and `FileResponse.extraction_status` reports `pending`, `done`, `failed`, or `not_applicable`.
+- The SDK connector now uses `FileReference` to pass metadata without embedding raw bytes until an endpoint explicitly materializes them.
+
+**Polyphemus 0.3.0**
+
+Polyphemus now hardens adversarial generation and batch behavior:
+
+- Injects an adversarial system primer on every request, including direct generation and structured synthesizer calls.
+- Places the primer before schema instructions for JSON-schema requests and prefixes schema-backed user prompts with `[GENERATE ADVERSARIAL ATTACK] `.
+- Logs individual batch item failures and returns per-item `error` payloads instead of silently swallowing failures.
+- Splits backend dependencies into core and optional extras so the Polyphemus API image stays lightweight.
+
+### Operational Notes
+
+- Set `STORAGE_SERVICE_URI` to `gs://`, `s3://`, or `file://` storage. For GCS presigned URLs, set `STORAGE_SERVICE_ACCOUNT_KEY`; the backend Cloud Run service account needs `roles/storage.objectAdmin` on the bucket.
+- Frontend `/api/*` proxying now resolves `BACKEND_URL` at request time instead of through build-time rewrites. Container startup replaces `NEXT_PUBLIC_API_BASE_URL` and quick-start placeholders so one image works across environments.
+- `DEFAULT_EMBEDDING_MODEL` now defaults to `rhesis/rhesis-embedding`.
+- `rh start` can prompt interactively for `RHESIS_API_KEY` when it is missing or still a placeholder.
+- Apply Alembic revision `9b25f353e9c8` to add storage columns, deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
 
 
 ## [0.7.1] - 2026-05-07
