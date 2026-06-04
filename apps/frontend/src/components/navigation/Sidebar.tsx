@@ -251,26 +251,13 @@ export function Sidebar() {
                 />
               </Box>
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography
-                  sx={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    lineHeight: '25px',
-                    color: theme => theme.palette.greyscale.title,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {orgName}
-                </Typography>
                 {activeProject && (
                   <Typography
                     sx={{
-                      fontSize: 12,
-                      fontWeight: 400,
-                      lineHeight: '18px',
-                      color: theme => theme.palette.greyscale.subtitle,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      lineHeight: '25px',
+                      color: theme => theme.palette.greyscale.title,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -279,6 +266,20 @@ export function Sidebar() {
                     {activeProject.name}
                   </Typography>
                 )}
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 400,
+                    lineHeight: '18px',
+                    color: theme => theme.palette.greyscale.subtitle,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    textAlign: 'left',
+                  }}
+                >
+                  {orgName}
+                </Typography>
               </Box>
             </ButtonBase>
             {/* Collapse toggle — inline, right of brand row */}
@@ -289,6 +290,7 @@ export function Sidebar() {
                 aria-label="Collapse sidebar"
                 sx={{
                   flexShrink: 0,
+                  alignSelf: 'flex-start',
                   p: '6px',
                   borderRadius: BORDER_RADIUS.md,
                   color: theme => theme.palette.greyscale.label,
