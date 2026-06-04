@@ -24,6 +24,11 @@ on:
         description: 'Image tag to deploy'
         required: true
         type: string
+      app_name:
+        description: 'ArgoCD application name'
+        required: false
+        type: string
+        default: 'rhesis'
       service:
         description: |
           Values key for a per-service deploy (e.g. backend, workers, frontend,
@@ -58,13 +63,13 @@ jobs:
         run: |
           if [ -z "$SERVICE" ]; then
             PARAM="global.imageTag=$TAG"
-            echo "Setting global.imageTag=$TAG on app rhesis [${{ inputs.environment }}]"
+            echo "Setting global.imageTag=$TAG on app ${{ inputs.app_name }} [${{ inputs.environment }}]"
           else
             PARAM="${SERVICE}.image.tag=$TAG"
-            echo "Setting ${SERVICE}.image.tag=$TAG on app rhesis [${{ inputs.environment }}]"
+            echo "Setting ${SERVICE}.image.tag=$TAG on app ${{ inputs.app_name }} [${{ inputs.environment }}]"
           fi
 
-          argocd app set rhesis \
+          argocd app set "${{ inputs.app_name }}" \
             --helm-set "$PARAM" \
             --server "$ARGOCD_SERVER" \
             --auth-token "$ARGOCD_AUTH_TOKEN" \
@@ -75,7 +80,7 @@ jobs:
           ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
           ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
         run: |
-          argocd app sync rhesis \
+          argocd app sync "${{ inputs.app_name }}" \
             --server "$ARGOCD_SERVER" \
             --auth-token "$ARGOCD_AUTH_TOKEN" \
             --grpc-web \
@@ -86,7 +91,7 @@ jobs:
           ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
           ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
         run: |
-          argocd app wait rhesis \
+          argocd app wait "${{ inputs.app_name }}" \
             --server "$ARGOCD_SERVER" \
             --auth-token "$ARGOCD_AUTH_TOKEN" \
             --grpc-web \
