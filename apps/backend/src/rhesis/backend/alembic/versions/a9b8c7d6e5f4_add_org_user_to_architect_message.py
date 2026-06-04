@@ -48,40 +48,67 @@ _TENANT_POLICY = """
 _RLS_TABLES = ["architect_message", "architect_session", "organization", '"user"']
 
 
+def _bare(table: str) -> str:
+    """Strip the SQL quoting from a table identifier for catalog lookups."""
+    return table.strip('"')
+
+
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # 1. Disable RLS on every table this migration touches, for the migration's
-    #    duration. The remote DB has FORCE ROW LEVEL SECURITY on these tables, and
-    #    op.add_column fails because PostgreSQL validates the new FK with a bulk
-    #    SELECT over the child + FK-target tables whose tenant_isolation policies
-    #    call current_setting('app.current_organization') without missing_ok=true,
-    #    which the migration session never set.
+    # PostgreSQL validates the new FKs with a bulk SELECT over the child
+    # (architect_message) and the FK targets (organization, user); the backfill
+    # also reads architect_session. Those tables have FORCE ROW LEVEL SECURITY
+    # with tenant_isolation policies that call
+    # current_setting('app.current_organization') without missing_ok=true, so any
+    # policy evaluation without that GUC set raises "unrecognized configuration
+    # parameter". Two things must happen for the migration to run cleanly:
     #
-    #    We disable unconditionally rather than gating on the migration role's
-    #    BYPASSRLS attribute: PostgreSQL's FK initial-validation query
-    #    (RI_Initial_Check) runs under the *table owner's* identity, not the
-    #    connected current_user, so current_user's BYPASSRLS is the wrong signal —
-    #    on Cloud SQL the login role reports BYPASSRLS while the table owner does
-    #    not, and the validation still hit the policy. DISABLE ROW LEVEL SECURITY
-    #    is table-level and role-independent, so it sidesteps the owner switch
-    #    entirely.
+    #   a) RLS must be OFF on those tables during add_column + backfill.
+    #   b) The auto_rls_on_ddl event trigger (added in d4e5f6a7b8c3) must NOT
+    #      re-enable RLS. It fires on every ALTER TABLE and, seeing the new
+    #      organization_id column, would ENABLE RLS + recreate tenant_isolation on
+    #      architect_message *between* our DISABLE and the FK validation — which is
+    #      exactly what made add_column fail. We neutralise it with its own
+    #      transaction-local reentry guard GUC rather than ALTER EVENT TRIGGER
+    #      DISABLE (which needs trigger ownership/superuser): setting
+    #      auto_rls.active='true' makes the function return immediately. SET LOCAL
+    #      keeps it scoped to this migration's transaction.
     #
-    #    This is safe and leaves no observable RLS gap: Alembic runs the whole
-    #    upgrade in ONE transaction with transactional DDL, and DISABLE/ENABLE takes
-    #    an ACCESS EXCLUSIVE lock, so no other session can read these tables while
-    #    RLS is off and the disable→enable is only ever observed atomically (already
-    #    re-enabled) at commit. On stg/prd (rhesis-admin owns the tables and
-    #    bypasses RLS) the round-trip is a harmless no-op. The round-trip does not
-    #    affect the FORCE flag.
+    # Why disable RLS at all rather than gate on the migration role's BYPASSRLS:
+    # PostgreSQL's FK initial-validation query (RI_Initial_Check) runs under the
+    # *table owner's* identity, not the connected current_user, so current_user's
+    # BYPASSRLS is the wrong signal (on Cloud SQL the login role reports BYPASSRLS
+    # while the table owner does not). DISABLE ROW LEVEL SECURITY is table-level
+    # and role-independent, so it sidesteps the owner switch entirely.
+    #
+    # No observable RLS gap: the whole upgrade runs in ONE transaction with
+    # transactional DDL and ACCESS EXCLUSIVE locks, so the disable→enable is only
+    # ever seen atomically (already re-enabled) at commit. We capture each table's
+    # prior RLS state and only re-enable those that had it on, so the policy-free
+    # `user` table is never newly switched into RLS.
+    conn.execute(sa.text("SET LOCAL auto_rls.active = 'true'"))
+
+    rls_enabled = {
+        row[0]: row[1]
+        for row in conn.execute(
+            sa.text(
+                "SELECT relname, relrowsecurity FROM pg_class "
+                "WHERE relnamespace = 'public'::regnamespace "
+                "AND relname = ANY(:names)"
+            ),
+            {"names": [_bare(t) for t in _RLS_TABLES]},
+        )
+    }
+
     for table in _RLS_TABLES:
-        conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
+        if rls_enabled.get(_bare(table)):
+            conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
 
     # 2. Add organization_id and user_id columns (nullable; values come from the
-    #    parent session). Adding organization_id fires the auto_apply_rls event
-    #    trigger which creates tenant_isolation automatically, but we (re)create it
-    #    explicitly in step 4 so this migration is deterministic regardless of
-    #    trigger state.
+    #    parent session). The auto_rls_on_ddl trigger fires here but no-ops thanks
+    #    to the reentry guard, so we (re)create tenant_isolation explicitly in
+    #    step 4 to keep this migration deterministic.
     op.add_column(
         "architect_message",
         sa.Column(
@@ -126,12 +153,16 @@ def upgrade() -> None:
         )
     )
     for table in _RLS_TABLES:
-        conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+        if rls_enabled.get(_bare(table)):
+            conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
 
     # 4. Ensure the permissive tenant_isolation policy exists (the missing piece).
     op.execute("ALTER TABLE architect_message FORCE ROW LEVEL SECURITY")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON architect_message")
     op.execute(_TENANT_POLICY)
+
+    # 5. Restore normal auto-RLS behaviour for any later DDL in this transaction.
+    conn.execute(sa.text("SET LOCAL auto_rls.active = 'false'"))
 
 
 def downgrade() -> None:
