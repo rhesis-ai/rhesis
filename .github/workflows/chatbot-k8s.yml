@@ -34,10 +34,6 @@ on:
         type: boolean
         default: true
 
-concurrency:
-  group: k8s-build-${{ github.workflow_ref }}-${{ inputs.environment || github.event.inputs.environment }}
-  cancel-in-progress: false
-
 jobs:
   validate-inputs:
     runs-on: ubuntu-latest
@@ -75,7 +71,7 @@ jobs:
 
   deploy:
     needs: build
-    if: inputs.deploy
+    if: github.event_name == 'workflow_dispatch' || inputs.deploy
     uses: ./.github/workflows/k8s-deploy.yml
     with:
       environment: ${{ inputs.environment || github.event.inputs.environment }}
