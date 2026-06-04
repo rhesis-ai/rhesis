@@ -3754,7 +3754,6 @@ export default function ExplorerDetail({
             }
           }}
           title="Explorer settings"
-          titleIcon={<SettingsIcon sx={{ fontSize: 24 }} />}
           onSave={() => void handleSaveSettings()}
           saveButtonText="Save"
           loading={settingsSaving}
@@ -3762,10 +3761,6 @@ export default function ExplorerDetail({
           anchor="right"
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              Select the endpoint and metric used for explorer generation and
-              evaluation.
-            </Typography>
             <EntityInfoBanner name="To keep results consistent with a new endpoint or metric, use Get outputs and Evaluate for all tests in this set." />
             <Autocomplete
               options={endpointOptions}
