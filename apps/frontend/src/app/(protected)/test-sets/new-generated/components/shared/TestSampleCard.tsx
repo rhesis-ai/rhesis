@@ -27,6 +27,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { AnyTestSample } from './types';
 import ContextPreview from './ContextPreview';
 import ConversationHistoryModal from './ConversationHistoryModal';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 interface TestSampleCardProps {
   sample: AnyTestSample;
@@ -99,7 +100,7 @@ export default function TestSampleCard({
       elevation={0}
       sx={{
         mb: 2,
-        borderRadius: theme => theme.shape.borderRadius,
+        borderRadius: BORDER_RADIUS.sm,
         border: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
@@ -122,7 +123,7 @@ export default function TestSampleCard({
             bgcolor: 'background.paper',
             opacity: 0.95,
             zIndex: 1,
-            borderRadius: theme => theme.shape.borderRadius,
+            borderRadius: BORDER_RADIUS.sm,
           }}
         >
           <CircularProgress sx={{ mb: 1 }} />
@@ -180,7 +181,7 @@ export default function TestSampleCard({
                 sx={{
                   maxWidth: '80%',
                   bgcolor: 'background.light2',
-                  borderRadius: theme => theme.shape.borderRadius,
+                  borderRadius: BORDER_RADIUS.sm,
                   px: 1.5,
                   py: 1,
                 }}
@@ -344,7 +345,7 @@ export default function TestSampleCard({
                       borderColor: sample.responseError
                         ? 'error.main'
                         : 'divider',
-                      borderRadius: theme => theme.shape.borderRadius,
+                      borderRadius: BORDER_RADIUS.sm,
                       px: 1.5,
                       py: 1,
                       bgcolor: sample.responseError

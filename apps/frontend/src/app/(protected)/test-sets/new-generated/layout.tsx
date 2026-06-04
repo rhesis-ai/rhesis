@@ -18,6 +18,7 @@ export default function GenerateTestSetLayout({
         { label: 'Test Sets', href: '/test-sets' },
         { label: 'Generate Test Set', href: '/test-sets/new-generated' },
       ]}
+      fullHeight
     >
       {children}
     </PageLayout>

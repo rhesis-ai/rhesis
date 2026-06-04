@@ -145,7 +145,6 @@ export default function TestInputScreen({
 }: TestInputScreenProps) {
   const [description, setDescription] = useState(initialDescription);
   const [sourcesData, setSourcesData] = useState<SourceData[]>([]);
-  const [cursorPosition, setCursorPosition] = useState<number>(0);
   const textFieldRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSourcesChange = useCallback(
@@ -156,53 +155,27 @@ export default function TestInputScreen({
     [onSourcesChange]
   );
 
-  // Track cursor position when user interacts with textarea
-  const handleSelect = useCallback(
-    (e: React.SyntheticEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLTextAreaElement;
-      if (target.selectionStart !== undefined) {
-        setCursorPosition(target.selectionStart);
-      }
-    },
-    []
-  );
+  const handleScaffoldClick = useCallback((scaffoldText: string) => {
+    setDescription(prev => {
+      const separator =
+        prev.length > 0 && !prev.endsWith('\n') && !prev.endsWith(' ')
+          ? '\n'
+          : '';
+      const newText = prev + separator + scaffoldText;
 
-  const handleScaffoldClick = useCallback(
-    (scaffoldText: string) => {
-      setDescription(prev => {
-        const position = cursorPosition;
-        const before = prev.slice(0, position);
-        const after = prev.slice(position);
-
-        // Add newline before if inserting in middle and previous char isn't newline
-        let textToInsert = scaffoldText;
-        if (
-          before.length > 0 &&
-          !before.endsWith('\n') &&
-          !before.endsWith(' ')
-        ) {
-          textToInsert = '\n' + scaffoldText;
+      setTimeout(() => {
+        if (textFieldRef.current) {
+          textFieldRef.current.focus();
+          textFieldRef.current.setSelectionRange(
+            newText.length,
+            newText.length
+          );
         }
+      }, 0);
 
-        const newText = before + textToInsert + after;
-
-        // Update cursor position to end of inserted text
-        const newPosition = before.length + textToInsert.length;
-        setCursorPosition(newPosition);
-
-        // Focus the textarea and set cursor position after state update
-        setTimeout(() => {
-          if (textFieldRef.current) {
-            textFieldRef.current.focus();
-            textFieldRef.current.setSelectionRange(newPosition, newPosition);
-          }
-        }, 0);
-
-        return newText;
-      });
-    },
-    [cursorPosition]
-  );
+      return newText;
+    });
+  }, []);
 
   const handleContinue = useCallback(() => {
     if (description.trim()) {
@@ -213,10 +186,42 @@ export default function TestInputScreen({
   const canContinue = description.trim().length > 0;
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      {/* Test Set Configuration */}
-      <SectionCard title="Test Set configuration">
-        {onTestTypeChange && (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
+      {/* Scrollable content area */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {/* Test Set Configuration */}
+        <SectionCard title="Test Set configuration">
+          {onTestTypeChange && (
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mb: 1 }}
+              >
+                Test type
+              </Typography>
+              <ToggleButtonGroup
+                value={testType}
+                exclusive
+                onChange={(_, val) => {
+                  if (val) onTestTypeChange(val as TestType);
+                }}
+                size="small"
+              >
+                <ToggleButton value="single_turn">Single-Turn</ToggleButton>
+                <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          )}
+
           <Box sx={{ mb: 3 }}>
             <Typography
               variant="subtitle2"
@@ -224,111 +229,86 @@ export default function TestInputScreen({
               gutterBottom
               sx={{ mb: 1 }}
             >
-              Test type
+              Select sources to provide context (optional)
             </Typography>
-            <ToggleButtonGroup
-              value={testType}
-              exclusive
-              onChange={(_, val) => {
-                if (val) onTestTypeChange(val as TestType);
-              }}
-              size="small"
-            >
-              <ToggleButton value="single_turn">Single-Turn</ToggleButton>
-              <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
-            </ToggleButtonGroup>
+            <SourceSelector
+              selectedSourceIds={selectedSourceIds}
+              onSourcesChange={handleSourcesChange}
+              preloadedSources={prefetchedSources}
+              isLoadingSources={isLoadingSources}
+            />
           </Box>
-        )}
 
-        <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="subtitle2"
-            color="text.secondary"
-            gutterBottom
-            sx={{ mb: 1 }}
-          >
-            Select sources to provide context (optional)
-          </Typography>
-          <SourceSelector
-            selectedSourceIds={selectedSourceIds}
-            onSourcesChange={handleSourcesChange}
-            preloadedSources={prefetchedSources}
-            isLoadingSources={isLoadingSources}
-          />
-        </Box>
+          <Box>
+            <ModelSelector
+              sessionToken={sessionToken}
+              label="Generation model"
+              purpose="generation"
+              value={selectedModelId || ''}
+              onChange={modelId => onModelChange(modelId || null)}
+              hideItemDescriptions
+              preloadedModels={prefetchedModels}
+              isLoadingModels={isLoadingModels}
+            />
+          </Box>
+        </SectionCard>
 
-        <Box>
-          <ModelSelector
-            sessionToken={sessionToken}
-            label="Generation model"
-            purpose="generation"
-            value={selectedModelId || ''}
-            onChange={modelId => onModelChange(modelId || null)}
-            hideItemDescriptions
-            preloadedModels={prefetchedModels}
-            isLoadingModels={isLoadingModels}
-          />
-        </Box>
-      </SectionCard>
+        {/* Describe what you want to test */}
+        <SectionCard title="Describe what you want to test">
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={5}
+              placeholder="For example: 'I want to test our customer support chatbot for accuracy, helpfulness, and handling of edge cases like refunds and complaints.'"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              inputRef={textFieldRef}
+              variant="outlined"
+            />
+          </Box>
 
-      {/* Describe what you want to test */}
-      <SectionCard title="Describe what you want to test">
-        <Box sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            multiline
-            rows={5}
-            placeholder="For example: 'I want to test our customer support chatbot for accuracy, helpfulness, and handling of edge cases like refunds and complaints.'"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            onSelect={handleSelect}
-            onClick={handleSelect}
-            onKeyUp={handleSelect}
-            inputRef={textFieldRef}
-            variant="outlined"
-          />
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {SCAFFOLD_CATEGORIES.map(category => (
-            <Box key={category.title}>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mb: 1, display: 'block' }}
-              >
-                {category.title}
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {category.phrases.map(phrase => (
-                  <Tooltip
-                    key={phrase.id}
-                    title={`${phrase.label} ${phrase.hint}`}
-                    arrow
-                    enterDelay={400}
-                  >
-                    <Chip
-                      label={phrase.label}
-                      onClick={() => handleScaffoldClick(phrase.text)}
-                      variant="outlined"
-                      size="small"
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'background.light2',
-                          borderColor: 'primary.main',
-                        },
-                      }}
-                    />
-                  </Tooltip>
-                ))}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {SCAFFOLD_CATEGORIES.map(category => (
+              <Box key={category.title}>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  sx={{ mb: 1, display: 'block' }}
+                >
+                  {category.title}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {category.phrases.map(phrase => (
+                    <Tooltip
+                      key={phrase.id}
+                      title={`${phrase.label} ${phrase.hint}`}
+                      arrow
+                      enterDelay={400}
+                    >
+                      <Chip
+                        label={phrase.label}
+                        onClick={() => handleScaffoldClick(phrase.text)}
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: 'background.light2',
+                            borderColor: 'primary.main',
+                          },
+                        }}
+                      />
+                    </Tooltip>
+                  ))}
+                </Box>
               </Box>
-            </Box>
-          ))}
-        </Box>
-      </SectionCard>
-
+            ))}
+          </Box>
+        </SectionCard>
+      </Box>
       <ActionBar
+        sx={{ position: 'relative', flexShrink: 0 }}
         leftButton={
           onBack
             ? {

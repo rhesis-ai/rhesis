@@ -14,10 +14,6 @@ import {
   Paper,
   CircularProgress,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Skeleton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -26,11 +22,10 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import ApiIcon from '@mui/icons-material/Api';
+import EndpointsIcon from '@/components/EndpointsIcon';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FolderIcon from '@mui/icons-material/Folder';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
@@ -46,6 +41,7 @@ import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
 import ActionBar from '@/components/common/ActionBar';
+import BaseDrawer from '@/components/common/BaseDrawer';
 import EndpointSelector from './shared/EndpointSelector';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -628,10 +624,8 @@ export default function TestGenerationInterface({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        // Fill the viewport height minus the total page chrome:
-        //   AppShell p:4 top (32) + breadcrumbs+gap (50) + title (56)
-        //   + PageLayout mb:5 (40) + AppShell p:4 bottom (32) = ~210px
-        height: 'calc(100vh - 220px)',
+        flex: 1,
+        minHeight: 0,
         overflow: 'hidden',
       }}
     >
@@ -977,7 +971,7 @@ export default function TestGenerationInterface({
                 title={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="h6" fontWeight="bold">
-                      Review Test Cases
+                      Review Samples
                     </Typography>
                     <Chip
                       label={
@@ -1021,7 +1015,9 @@ export default function TestGenerationInterface({
                     <Button
                       variant="outlined"
                       size="small"
-                      startIcon={endpointInfo ? <SwapHorizIcon /> : <ApiIcon />}
+                      startIcon={
+                        endpointInfo ? <SwapHorizIcon /> : <EndpointsIcon />
+                      }
                       endIcon={
                         endpointInfo ? (
                           <CloseIcon
@@ -1045,8 +1041,8 @@ export default function TestGenerationInterface({
                       {endpointInfo
                         ? endpointInfo.name
                         : testType === 'multi_turn'
-                          ? 'Activate Live Responses'
-                          : 'Get Endpoint Responses'}
+                          ? 'Show Live Responses'
+                          : 'Show Live Responses'}
                     </Button>
                   </Box>
                 }
@@ -1137,7 +1133,7 @@ export default function TestGenerationInterface({
                             elevation={0}
                             sx={{
                               mb: 2,
-                              borderRadius: theme => theme.shape.borderRadius,
+                              borderRadius: BORDER_RADIUS.sm,
                               border: 1,
                               borderColor: 'divider',
                               bgcolor: 'background.paper',
@@ -1151,28 +1147,19 @@ export default function TestGenerationInterface({
                                   variant="rounded"
                                   width="20%"
                                   height={24}
-                                  sx={{
-                                    borderRadius: theme =>
-                                      theme.shape.borderRadius,
-                                  }}
+                                  sx={{ borderRadius: BORDER_RADIUS.xs }}
                                 />
                                 <Skeleton
                                   variant="rounded"
                                   width="15%"
                                   height={24}
-                                  sx={{
-                                    borderRadius: theme =>
-                                      theme.shape.borderRadius,
-                                  }}
+                                  sx={{ borderRadius: BORDER_RADIUS.xs }}
                                 />
                                 <Skeleton
                                   variant="rounded"
                                   width="18%"
                                   height={24}
-                                  sx={{
-                                    borderRadius: theme =>
-                                      theme.shape.borderRadius,
-                                  }}
+                                  sx={{ borderRadius: BORDER_RADIUS.xs }}
                                 />
                               </Box>
                               <Skeleton
@@ -1180,8 +1167,7 @@ export default function TestGenerationInterface({
                                 width="85%"
                                 height={56}
                                 sx={{
-                                  borderRadius: theme =>
-                                    theme.shape.borderRadius,
+                                  borderRadius: BORDER_RADIUS.sm,
                                   mb: 1,
                                 }}
                               />
@@ -1238,45 +1224,35 @@ export default function TestGenerationInterface({
         }}
       />
 
-      {/* Endpoint Selection Modal */}
-      <Dialog
+      {/* Endpoint Selection Drawer */}
+      <BaseDrawer
         open={showEndpointModal}
         onClose={() => setShowEndpointModal(false)}
-        maxWidth="sm"
-        fullWidth
+        title="Show Live Responses"
+        onSave={() => {
+          setFetchTrigger(prev => prev + 1);
+          setShowEndpointModal(false);
+        }}
+        saveButtonText={isFetchingResponses ? 'Getting...' : 'Get Responses'}
+        saveDisabled={
+          !selectedEndpointId ||
+          localTestSamples.length === 0 ||
+          isFetchingResponses ||
+          isLoadingSamples
+        }
+        closeButtonText="Cancel"
+        width={480}
       >
-        <DialogTitle>Select Endpoint for Test Preview</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Test samples will show live responses from this endpoint.
-            </Typography>
-            <EndpointSelector
-              selectedEndpointId={selectedEndpointId}
-              onEndpointChange={onEndpointChange}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowEndpointModal(false)}>Close</Button>
-          <Button
-            variant="contained"
-            startIcon={<PlayArrowIcon />}
-            onClick={() => {
-              setFetchTrigger(prev => prev + 1);
-              setShowEndpointModal(false);
-            }}
-            disabled={
-              !selectedEndpointId ||
-              localTestSamples.length === 0 ||
-              isFetchingResponses ||
-              isLoadingSamples
-            }
-          >
-            {isFetchingResponses ? 'Getting...' : 'Get Responses'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select an endpoint to fetch live responses for the test samples.
+          </Typography>
+          <EndpointSelector
+            selectedEndpointId={selectedEndpointId}
+            onEndpointChange={onEndpointChange}
+          />
+        </Box>
+      </BaseDrawer>
     </Box>
   );
 }
