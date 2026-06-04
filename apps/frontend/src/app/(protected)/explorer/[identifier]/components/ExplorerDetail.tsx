@@ -3766,19 +3766,7 @@ export default function ExplorerDetail({
               Select the endpoint and metric used for explorer generation and
               evaluation.
             </Typography>
-            <EntityInfoBanner
-              name={
-                explorerConfigSummary?.endpointLabel
-                  ? `${explorerConfigSummary.endpointLabel}${explorerConfigSummary.endpointEnvironment ? ` (${formatEnvironment(explorerConfigSummary.endpointEnvironment)})` : ''}`
-                  : 'No endpoint selected'
-              }
-              description={
-                explorerConfigSummary &&
-                explorerConfigSummary.metrics.length > 0
-                  ? `Metric: ${explorerConfigSummary.metrics.map(m => m.name).join(', ')}`
-                  : 'No metric selected'
-              }
-            />
+            <EntityInfoBanner name="To keep results consistent with a new endpoint or metric, use Get outputs and Evaluate for all tests in this set." />
             <Autocomplete
               options={endpointOptions}
               getOptionLabel={option =>
