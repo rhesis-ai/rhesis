@@ -2945,45 +2945,6 @@ export default function ExplorerDetail({
     }
   }, [sessionToken, testSetId, notifications, router]);
 
-  const statsMetadata = (
-    <Box
-      sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
-    >
-      {[
-        { label: 'Total', value: totalTests, color: undefined },
-        { label: 'Topics', value: totalTopics, color: undefined },
-        { label: 'Pass', value: passCount, color: 'success.main' as const },
-        { label: 'Fail', value: failCount, color: 'error.main' as const },
-      ].map(item => (
-        <Box
-          key={item.label}
-          sx={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 0.5,
-            px: 1,
-            py: 0.25,
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Typography variant="caption" color="text.secondary">
-            {item.label}
-          </Typography>
-          <Typography
-            variant="caption"
-            fontWeight={700}
-            color={item.color ?? 'text.primary'}
-          >
-            {item.value}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
-  );
-
   return (
     <PageLayout
       title={testSetName}
@@ -2992,7 +2953,6 @@ export default function ExplorerDetail({
         { label: 'Explorer', href: '/explorer' },
         { label: testSetName },
       ]}
-      metadata={statsMetadata}
       actions={
         <FabGroup>
           <Fab
@@ -3013,30 +2973,15 @@ export default function ExplorerDetail({
       }
     >
       <Box>
-        {/* Config hint banner */}
-        {explorerConfigSummary !== null && (
-          <Box sx={{ mb: 2 }}>
-            <EntityInfoBanner
-              name={
-                explorerConfigSummary.endpointLabel
-                  ? `${explorerConfigSummary.endpointLabel}${explorerConfigSummary.endpointEnvironment ? ` (${formatEnvironment(explorerConfigSummary.endpointEnvironment)})` : ''}`
-                  : 'No endpoint selected'
-              }
-              description={
-                explorerConfigSummary.metrics.length > 0
-                  ? `Metric: ${explorerConfigSummary.metrics.map(m => m.name).join(', ')}`
-                  : 'No metric selected'
-              }
-            />
-          </Box>
-        )}
-
-        {/* View Tabs */}
+        {/* View Tabs + Stats */}
         <Box
           sx={{
             borderBottom: '1px solid',
             borderColor: 'divider',
             mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
           <Tabs
@@ -3060,6 +3005,58 @@ export default function ExplorerDetail({
               sx={{ minHeight: 44 }}
             />
           </Tabs>
+          {/* Stats chips — right-aligned, anchored to the tab bar */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+              pr: 1,
+              pb: 0.5,
+            }}
+          >
+            {[
+              { label: 'Total', value: totalTests, color: undefined },
+              { label: 'Topics', value: totalTopics, color: undefined },
+              {
+                label: 'Pass',
+                value: passCount,
+                color: 'success.main' as const,
+              },
+              {
+                label: 'Fail',
+                value: failCount,
+                color: 'error.main' as const,
+              },
+            ].map(item => (
+              <Box
+                key={item.label}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {item.label}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  fontWeight={700}
+                  color={item.color ?? 'text.primary'}
+                >
+                  {item.value}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
         </Box>
 
         {/* Tree View */}
@@ -3715,6 +3712,20 @@ export default function ExplorerDetail({
               Select the endpoint and metric used for explorer generation and
               evaluation.
             </Typography>
+            {explorerConfigSummary !== null && (
+              <EntityInfoBanner
+                name={
+                  explorerConfigSummary.endpointLabel
+                    ? `${explorerConfigSummary.endpointLabel}${explorerConfigSummary.endpointEnvironment ? ` (${formatEnvironment(explorerConfigSummary.endpointEnvironment)})` : ''}`
+                    : 'No endpoint selected'
+                }
+                description={
+                  explorerConfigSummary.metrics.length > 0
+                    ? `Metric: ${explorerConfigSummary.metrics.map(m => m.name).join(', ')}`
+                    : 'No metric selected'
+                }
+              />
+            )}
             {settingsReEvaluateWarning && (
               <Alert severity="warning">
                 To keep results consistent with a new endpoint or metric, use
