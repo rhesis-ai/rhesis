@@ -87,21 +87,21 @@ module "wireguard_server" {
   deletion_protection = var.wireguard_deletion_protection
   wireguard_peers     = var.wireguard_peers
 
-  # dev uses Shared VPC cross-project NIC (private endpoint, already running — immutable).
-  # stg/prd use public endpoint locked to WireGuard VPN CIDR — no extra NIC needed.
-  # 2 NICs max (wireguard eth0 + dev eth1) → e2-medium (2 vCPU) is sufficient.
+  # prd uses Shared VPC cross-project NIC (private endpoint) — same pattern dev previously used.
+  # dev/stg use public endpoints locked to WireGuard external IP — no extra NIC needed.
+  # 2 NICs max (wireguard eth0 + prd eth1) → e2-medium (2 vCPU) is sufficient.
   machine_type = "e2-medium"
 
   env_nics = concat(
-    local.dev_enabled ? [{
-      subnet_self_link = data.terraform_remote_state.dev[0].outputs.nodes_subnet_self_link
-      network_ip       = local.cidrs.dev.wireguard_nic_ip
-      master_cidr      = local.cidrs.dev.master
-      environment      = "dev"
-      pod_cidr         = local.cidrs.dev.pods
-      service_cidr     = local.cidrs.dev.services
-      node_cidr        = local.cidrs.dev.nodes
-      vpc_name         = data.terraform_remote_state.dev[0].outputs.vpc_name
+    local.prd_enabled ? [{
+      subnet_self_link = data.terraform_remote_state.prd[0].outputs.nodes_subnet_self_link
+      network_ip       = local.cidrs.prd.wireguard_nic_ip
+      master_cidr      = local.cidrs.prd.master
+      environment      = "prd"
+      pod_cidr         = local.cidrs.prd.pods
+      service_cidr     = local.cidrs.prd.services
+      node_cidr        = local.cidrs.prd.nodes
+      vpc_name         = data.terraform_remote_state.prd[0].outputs.vpc_name
     }] : []
   )
 
@@ -111,8 +111,9 @@ module "wireguard_server" {
   }
 
   gke_public_endpoints = merge(
-    local.stg_enabled ? { stg = data.terraform_remote_state.stg[0].outputs.cluster_endpoint } : {},
-    local.prd_enabled ? { prd = data.terraform_remote_state.prd[0].outputs.cluster_endpoint } : {}
+    local.dev_enabled ? { dev = data.terraform_remote_state.dev[0].outputs.cluster_endpoint } : {},
+    local.stg_enabled ? { stg = data.terraform_remote_state.stg[0].outputs.cluster_endpoint } : {}
+    # prd omitted — private endpoint, accessed via Shared VPC NIC (eth1)
   )
   master_cidrs = {
     for env, cidr in local.cidrs : env => cidr.master
