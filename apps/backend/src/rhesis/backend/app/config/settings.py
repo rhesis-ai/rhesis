@@ -122,6 +122,27 @@ class ApplicationSettings(BaseSettings):
     def is_google_cloud(self) -> bool:
         return bool(self.cloud_run_service or self.cloud_run_revision)
 
+    @property
+    def quick_start_allowed_by_env(self) -> bool:
+        """Whether process-level configuration permits Quick Start mode.
+
+        This is the deployment-static portion of the Quick Start gate: it is
+        fail-secure and returns False if QUICK_START is not explicitly enabled,
+        if BACKEND_ENV is production, or if any Google Cloud signal is present.
+        Request-scoped signals
+        (hostname, headers) are evaluated separately in
+        ``rhesis.backend.app.utils.quick_start.is_quick_start_enabled``.
+        """
+        if not self.quick_start:
+            return False
+        if self.is_production:
+            return False
+        if self.is_google_cloud:
+            return False
+        if self.gcp_project or self.google_cloud_project:
+            return False
+        return True
+
 
 class TelemetrySettings(BaseSettings):
     """OpenTelemetry export and deployment metadata configuration."""
