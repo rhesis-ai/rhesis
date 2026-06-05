@@ -20,6 +20,8 @@ import {
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -705,23 +707,50 @@ export const ConnectionForm = forwardRef<
 
             {/* Test result */}
             {testResult && (
-              <Alert
-                severity={testResult.success ? 'success' : 'error'}
-                sx={{ whiteSpace: 'pre-line' }}
-                action={
-                  !testResult.success && testResult.fullError ? (
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowFullError(!showFullError)}
-                      sx={{ alignSelf: 'flex-start' }}
-                    >
-                      <InfoOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  ) : null
-                }
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  px: '30px',
+                  py: '12px',
+                  borderRadius: '4px',
+                  backgroundColor: testResult.success ? '#d0f5ec' : '#fadbde',
+                  color: testResult.success ? '#0080af' : '#de3355',
+                }}
               >
-                <Box>
-                  {testResult.message}
+                {testResult.success ? (
+                  <CheckCircleOutlineIcon
+                    sx={{ fontSize: 22, mt: '7px', flexShrink: 0 }}
+                  />
+                ) : (
+                  <ErrorOutlineIcon
+                    sx={{ fontSize: 22, mt: '7px', flexShrink: 0 }}
+                  />
+                )}
+                <Box sx={{ flex: 1, py: '8px' }}>
+                  <Typography
+                    sx={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      lineHeight: '25px',
+                      color: 'inherit',
+                    }}
+                  >
+                    {testResult.success
+                      ? 'Connection successful'
+                      : 'Connection failed'}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: 16,
+                      lineHeight: '24px',
+                      color: 'inherit',
+                      whiteSpace: 'pre-line',
+                    }}
+                  >
+                    {testResult.message}
+                  </Typography>
                   {!testResult.success &&
                     testResult.fullError &&
                     showFullError && (
@@ -730,21 +759,28 @@ export const ConnectionForm = forwardRef<
                           mt: 2,
                           pt: 2,
                           borderTop: '1px solid',
-                          borderColor: 'divider',
+                          borderColor: 'currentColor',
+                          opacity: 0.6,
                         }}
                       >
                         <Typography
-                          variant="caption"
-                          sx={{ fontWeight: 600, display: 'block', mb: 1 }}
+                          sx={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '18px',
+                            display: 'block',
+                            mb: 1,
+                            color: 'inherit',
+                          }}
                         >
                           Technical Details:
                         </Typography>
                         <Typography
-                          variant="caption"
                           component="pre"
                           sx={{
-                            fontSize: theme =>
-                              theme.typography.caption.fontSize,
+                            fontSize: 12,
+                            lineHeight: '18px',
+                            color: 'inherit',
                             overflowX: 'auto',
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word',
@@ -755,7 +791,17 @@ export const ConnectionForm = forwardRef<
                       </Box>
                     )}
                 </Box>
-              </Alert>
+                {!testResult.success && testResult.fullError && (
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowFullError(!showFullError)}
+                    sx={{ color: 'inherit', mt: '4px', flexShrink: 0 }}
+                    aria-label="Show technical details"
+                  >
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
             )}
 
             {/* Connection test required notices */}
