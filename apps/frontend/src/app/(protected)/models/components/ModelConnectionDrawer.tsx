@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Button } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -137,34 +135,24 @@ export function ModelConnectionDrawer({
     );
   }
 
+  // In create flow the footer "close" button goes back to provider selection.
+  // In edit mode it fully closes the drawer.
+  const configureOnClose = isEditMode ? handleClose : handleBack;
+  const configureCloseLabel = isEditMode ? 'Cancel' : 'Back';
+
   return (
     <BaseDrawer
       open={open}
-      onClose={handleClose}
+      onClose={configureOnClose}
       title={configureTitle}
       titleIcon={providerIcon}
       onSave={() => formRef.current?.submit()}
       saveButtonText={saveButtonText}
       saveDisabled={!formCanSave}
       loading={formLoading}
-      closeButtonText="Cancel"
+      closeButtonText={configureCloseLabel}
       width={640}
     >
-      {/* Back button — only shown in create flow */}
-      {!isEditMode && (
-        <Box sx={{ mt: -2, mb: -2 }}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={handleBack}
-            size="small"
-            color="inherit"
-            sx={{ fontWeight: 500 }}
-          >
-            Back
-          </Button>
-        </Box>
-      )}
-
       <ConnectionForm
         ref={formRef}
         open={open && step === 'configure'}
