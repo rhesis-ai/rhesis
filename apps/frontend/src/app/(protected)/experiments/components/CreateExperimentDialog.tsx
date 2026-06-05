@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { PublicIcon, PublicOffIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -95,18 +96,17 @@ export default function CreateExperimentDialog({
           label="Name"
           value={name}
           onChange={e => setName(e.target.value)}
-          size="small"
           fullWidth
           autoFocus
+          sx={drawerOutlinedFieldSx}
         />
         <TextField
           label="Description (optional)"
           value={description}
           onChange={e => setDescription(e.target.value)}
-          size="small"
           fullWidth
           multiline
-          minRows={2}
+          rows={4}
         />
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

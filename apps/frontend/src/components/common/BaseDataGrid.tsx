@@ -465,7 +465,7 @@ export default function BaseDataGrid({
   title,
   loading = false,
   getRowId,
-  showToolbar: _showToolbar = true,
+  showToolbar: _showToolbar = false,
   onRowClick,
   density,
   sx: _sx,

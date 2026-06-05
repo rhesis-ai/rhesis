@@ -16,7 +16,7 @@ export interface BreadcrumbItem {
 }
 
 export interface PageLayoutProps {
-  title?: string;
+  title?: string | React.ReactNode;
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
   /** Actions rendered top-right (e.g. FAB cluster) */

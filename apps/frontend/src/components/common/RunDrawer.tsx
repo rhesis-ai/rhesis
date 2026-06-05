@@ -144,8 +144,8 @@ type RunDrawerModeProps =
       mode: 'runExperiment';
       data: {
         experiment: ExperimentDetail;
-        selectedVersionHashes: Set<string>;
-        onVersionRemove: (hash: string) => void;
+        /** Optional pre-seed: hashes selected in the Versions grid. When omitted the latest version is preselected inside the drawer. */
+        initialVersionHashes?: Set<string>;
       };
     }
   | { mode: 'rerunTestRun'; data: RerunConfig }
@@ -205,7 +205,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     projectEditable: false,
     showProjectField: false,
     endpointEditable: true,
-    testSetMode: 'multi-search',
+    testSetMode: 'single',
     experimentsEditable: false,
     showScoringTarget: true,
     showMetrics: true,
@@ -328,6 +328,11 @@ export default function RunDrawer(props: RunDrawerProps) {
   >([]);
   const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
 
+  // ---- runExperiment internal version selection ----
+  const [internalVersionHashes, setInternalVersionHashes] = useState<
+    Set<string>
+  >(new Set());
+
   // ---- Tags ----
   const [tags, setTags] = useState<string[]>([]);
 
@@ -401,6 +406,18 @@ export default function RunDrawer(props: RunDrawerProps) {
     } else if (experimentData) {
       setSelectedProject(experimentData.experiment.project_id as UUID);
       setSelectedEndpoint(null);
+      // Initialise internal version selection: use pre-seed from grid checkboxes,
+      // falling back to the latest version if none are provided.
+      const preseed = experimentData.initialVersionHashes;
+      if (preseed && preseed.size > 0) {
+        setInternalVersionHashes(new Set(preseed));
+      } else {
+        const versions = experimentData.experiment.versions;
+        const latest = versions[versions.length - 1];
+        setInternalVersionHashes(
+          latest ? new Set([latest.version]) : new Set()
+        );
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -761,7 +778,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       case 'newTestRun':
         return selectedTestSet ? [selectedTestSet.id as string] : [];
       case 'runExperiment':
-        return selectedSearchTestSets.map(ts => ts.id as string);
+        return selectedTestSet ? [selectedTestSet.id as string] : [];
       case 'rerunTestRun':
         return [props.data.testSetId];
       case 'createFromGrid':
@@ -776,8 +793,7 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const resolveExperiments = (): SelectedExperiment[] => {
     if (mode === 'runExperiment') {
-      const versionHashes = Array.from(props.data.selectedVersionHashes);
-      return versionHashes.map(hash => ({
+      return Array.from(internalVersionHashes).map(hash => ({
         experiment_id: props.data.experiment.id,
         experiment_name: props.data.experiment.name,
         version: hash,
@@ -995,17 +1011,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     const endpointId = resolveEndpointId();
     const testSetIds = resolveTestSetIds();
     if (!endpointId || testSetIds.length === 0) return false;
-    if (mode === 'runExperiment' && props.data.selectedVersionHashes.size === 0)
+    if (mode === 'runExperiment' && internalVersionHashes.size === 0)
       return false;
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    mode,
-    selectedEndpoint,
-    selectedTestSet,
-    selectedSearchTestSets,
-    experimentData?.selectedVersionHashes,
-  ]);
+  }, [mode, selectedEndpoint, selectedTestSet, internalVersionHashes]);
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {
@@ -1260,14 +1270,14 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const renderExperimentVersionBoxes = () => {
     if (mode !== 'runExperiment') return null;
-    const versionHashes = Array.from(props.data.selectedVersionHashes);
-    if (versionHashes.length === 0) {
-      return (
-        <Alert severity="warning">
-          No versions selected. Close the drawer and select versions first.
-        </Alert>
-      );
-    }
+    const allVersions = props.data.experiment.versions;
+    // Deduplicate versions (same logic as VersionHistory)
+    const seen = new Set<string>();
+    const uniqueVersions = allVersions.filter(v => {
+      if (seen.has(v.version)) return false;
+      seen.add(v.version);
+      return true;
+    });
     return (
       <Box
         sx={{
@@ -1277,24 +1287,47 @@ export default function RunDrawer(props: RunDrawerProps) {
           borderRadius: theme => theme.spacing(1),
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <BiotechIcon fontSize="small" color="primary" />
-          <Typography variant="body2" noWrap>
+          <Typography variant="body2" fontWeight={500} noWrap>
             {props.data.experiment.name}
           </Typography>
+          <Typography variant="caption" color="text.secondary">
+            — select versions to run
+          </Typography>
         </Box>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-          {versionHashes.map(hash => (
-            <Chip
-              key={hash}
-              label={shortVersion(hash)}
-              size="small"
-              variant="outlined"
-              sx={{ fontFamily: 'monospace' }}
-              onDelete={() => props.data.onVersionRemove(hash)}
-            />
-          ))}
-        </Stack>
+        {uniqueVersions.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No versions saved yet.
+          </Typography>
+        ) : (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {[...uniqueVersions].reverse().map(v => {
+              const selected = internalVersionHashes.has(v.version);
+              return (
+                <Chip
+                  key={v.version}
+                  label={shortVersion(v.version)}
+                  size="small"
+                  variant={selected ? 'filled' : 'outlined'}
+                  color={selected ? 'primary' : 'default'}
+                  sx={{ fontFamily: 'monospace', cursor: 'pointer' }}
+                  onClick={() => {
+                    setInternalVersionHashes(prev => {
+                      const next = new Set(prev);
+                      if (next.has(v.version)) {
+                        next.delete(v.version);
+                      } else {
+                        next.add(v.version);
+                      }
+                      return next;
+                    });
+                  }}
+                />
+              );
+            })}
+          </Stack>
+        )}
       </Box>
     );
   };
@@ -1923,17 +1956,13 @@ export default function RunDrawer(props: RunDrawerProps) {
           {mode === 'runExperiment' &&
             canExecute &&
             (() => {
-              const totalRuns =
-                selectedSearchTestSets.length *
-                props.data.selectedVersionHashes.size;
+              const totalRuns = internalVersionHashes.size;
               return (
                 <Alert severity="info">
                   This will create {totalRuns} test run
-                  {totalRuns !== 1 ? 's' : ''} ({selectedSearchTestSets.length}{' '}
-                  test set
-                  {selectedSearchTestSets.length !== 1 ? 's' : ''} &times;{' '}
-                  {props.data.selectedVersionHashes.size} version
-                  {props.data.selectedVersionHashes.size !== 1 ? 's' : ''})
+                  {totalRuns !== 1 ? 's' : ''} (1 test set &times;{' '}
+                  {internalVersionHashes.size} version
+                  {internalVersionHashes.size !== 1 ? 's' : ''})
                 </Alert>
               );
             })()}

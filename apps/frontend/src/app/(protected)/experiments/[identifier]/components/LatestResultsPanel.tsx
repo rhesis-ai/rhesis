@@ -171,14 +171,6 @@ export default function LatestResultsPanel({
     onSelectionChange: setSelectedVersionHashes,
   };
 
-  const handleVersionRemove = (hash: string) => {
-    setSelectedVersionHashes(prev => {
-      const next = new Set(prev);
-      next.delete(hash);
-      return next;
-    });
-  };
-
   return (
     <Paper variant="outlined" sx={{ mt: 3 }}>
       <Box
@@ -235,8 +227,7 @@ export default function LatestResultsPanel({
         sessionToken={sessionToken}
         data={{
           experiment,
-          selectedVersionHashes,
-          onVersionRemove: handleVersionRemove,
+          initialVersionHashes: selectedVersionHashes,
         }}
         onSuccess={() => {
           setSelectedVersionHashes(new Set());
