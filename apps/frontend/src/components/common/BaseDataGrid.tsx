@@ -465,7 +465,7 @@ export default function BaseDataGrid({
   title,
   loading = false,
   getRowId,
-  showToolbar: _showToolbar = true,
+  showToolbar: _showToolbar = false,
   onRowClick,
   density,
   sx: _sx,
@@ -1339,6 +1339,7 @@ export default function BaseDataGrid({
                   {...(rowSelectionModel !== undefined && {
                     rowSelectionModel,
                   })}
+                  {...(isRowSelectable && { isRowSelectable })}
                   {...(disableRowSelectionOnClick && {
                     disableRowSelectionOnClick,
                   })}

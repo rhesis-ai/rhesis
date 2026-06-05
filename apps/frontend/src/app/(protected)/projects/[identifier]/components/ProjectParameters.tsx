@@ -10,7 +10,6 @@ import {
   IconButton,
   List,
   ListItemButton,
-  Paper,
   Stack,
   Tooltip,
   Typography,
@@ -22,8 +21,10 @@ import {
   KeyboardArrowUpIcon,
   TuneIcon,
 } from '@/components/icons';
+import BaseDrawer from '@/components/common/BaseDrawer';
 import {
   FieldEditor,
+  FieldRowState,
   ParametersEmptyState,
   ParametersSaveBar,
   TYPE_META,
@@ -38,16 +39,10 @@ interface ProjectParametersProps {
 }
 
 /**
- * Two-pane editor for a project's parameter schema.
+ * Schema editor for a project's parameter schema.
  *
- * Left rail lists every field as a compact tile (type icon + name +
- * short type label + reorder controls). Right pane shows the full
- * editor for the selected field. Pattern borrowed from Strapi /
- * DatoCMS / Notion-database. Scales to large schemas without forcing
- * the user to scroll past long form bodies.
- *
- * Saving submits the full schema in a single `PUT`; add / remove /
- * reorder are local-only until the user clicks Save Changes.
+ * The field list is the primary surface; clicking a field (or "Add field")
+ * opens a BaseDrawer with the FieldEditor. Save Changes PUTs the full schema.
  */
 export default function ProjectParameters({
   projectId,
@@ -70,22 +65,24 @@ export default function ProjectParameters({
     handleRevert,
   } = useParameterSchema(projectId, sessionToken);
 
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [drawerKey, setDrawerKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedKey === null && draft.length > 0) {
-      setSelectedKey(draft[0]._key);
-      return;
+    if (drawerKey !== null && !draft.some(f => f._key === drawerKey)) {
+      setDrawerKey(null);
     }
-    if (selectedKey !== null && !draft.some(f => f._key === selectedKey)) {
-      setSelectedKey(draft[0]?._key ?? null);
-    }
-  }, [draft, selectedKey]);
+  }, [draft, drawerKey]);
 
   const handleAdd = () => {
     const newKey = addField();
-    setSelectedKey(newKey);
+    setDrawerKey(newKey);
   };
+
+  const handleOpenDrawer = (key: string) => setDrawerKey(key);
+  const handleCloseDrawer = () => setDrawerKey(null);
+
+  const drawerField: FieldRowState | null =
+    drawerKey !== null ? (draft.find(f => f._key === drawerKey) ?? null) : null;
 
   if (loading) {
     return (
@@ -102,67 +99,58 @@ export default function ProjectParameters({
     return <Alert severity="error">{error}</Alert>;
   }
 
-  const selectedField = draft.find(f => f._key === selectedKey) ?? null;
-
   return (
-    <Paper elevation={2} sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        {title && (
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 'medium', flex: 1 }}
-          >
-            {title}
-          </Typography>
-        )}
-        {headerAction}
-        <ParametersSaveBar
-          isDirty={isDirty}
-          saving={saving}
-          onSave={handleSave}
-          onRevert={handleRevert}
-        />
-      </Box>
+    <>
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          {title && (
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 'medium', flex: 1 }}
+            >
+              {title}
+            </Typography>
+          )}
+          {headerAction}
+          <ParametersSaveBar
+            isDirty={isDirty}
+            saving={saving}
+            onSave={handleSave}
+            onRevert={handleRevert}
+          />
+        </Box>
 
-      {draft.length === 0 ? (
-        <ParametersEmptyState onAdd={handleAdd} />
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '280px 1fr' },
-            gap: 2,
-            minHeight: 360,
-          }}
-        >
+        {draft.length === 0 ? (
+          <ParametersEmptyState onAdd={handleAdd} />
+        ) : (
           <Box
             sx={{
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: theme => `${theme.shape.borderRadius}px`,
               overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
             }}
           >
-            <List dense disablePadding sx={{ flex: 1, overflowY: 'auto' }}>
+            <List dense disablePadding>
               {draft.map((field, index) => {
                 const meta = TYPE_META[field.type];
                 const Icon = meta.icon;
-                const selected = field._key === selectedKey;
                 const isFirst = index === 0;
                 const isLast = index === draft.length - 1;
                 return (
                   <ListItemButton
                     key={field._key}
-                    selected={selected}
-                    onClick={() => setSelectedKey(field._key)}
+                    onClick={() => handleOpenDrawer(field._key)}
                     sx={{
                       borderLeft: '3px solid',
-                      borderLeftColor: selected
-                        ? `${meta.color}.main`
-                        : 'transparent',
+                      borderLeftColor:
+                        drawerKey === field._key
+                          ? `${meta.color}.main`
+                          : 'transparent',
                       gap: 1,
+                      borderBottom:
+                        index < draft.length - 1 ? '1px solid' : 'none',
+                      borderBottomColor: 'divider',
                     }}
                   >
                     <Icon
@@ -247,79 +235,86 @@ export default function ProjectParameters({
               </Button>
             </Box>
           </Box>
+        )}
+      </Box>
 
-          <Box
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: theme => `${theme.shape.borderRadius}px`,
-              p: 2,
-              minHeight: 360,
-            }}
-          >
-            {selectedField ? (
-              <Box>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ mb: 2 }}
-                >
-                  {(() => {
-                    const meta = TYPE_META[selectedField.type];
-                    const Icon = meta.icon;
-                    return (
-                      <Icon
-                        fontSize="small"
-                        color={
-                          meta.color === 'default' ? 'inherit' : meta.color
-                        }
-                      />
-                    );
-                  })()}
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ fontWeight: 'medium', flex: 1 }}
-                  >
-                    Parameter details
-                  </Typography>
-                  <Tooltip title="Remove field">
-                    <IconButton
-                      onClick={() => removeField(selectedField._key)}
-                      aria-label="Remove field"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-                <FieldEditor
-                  field={selectedField}
-                  onChange={patch => updateField(selectedField._key, patch)}
-                  onTypeChange={type => changeType(selectedField._key, type)}
-                />
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'text.disabled',
-                  textAlign: 'center',
-                  py: 6,
-                }}
+      <BaseDrawer
+        open={!!drawerField}
+        onClose={handleCloseDrawer}
+        title={
+          drawerField?.name
+            ? `Edit "${drawerField.name}"`
+            : 'New parameter field'
+        }
+        showHeader
+        width={520}
+        saveButtonText="Done"
+        onSave={handleCloseDrawer}
+        closeButtonText="Close"
+      >
+        {drawerField && (
+          <Stack spacing={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              {(() => {
+                const meta = TYPE_META[drawerField.type];
+                const Icon = meta.icon;
+                return (
+                  <Icon
+                    fontSize="small"
+                    color={meta.color === 'default' ? 'inherit' : meta.color}
+                  />
+                );
+              })()}
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 'medium', flex: 1 }}
               >
-                <TuneIcon sx={{ fontSize: 48, opacity: 0.4, mb: 1 }} />
-                <Typography variant="body2" color="text.secondary">
-                  Select a field on the left to edit it.
-                </Typography>
-              </Box>
-            )}
-          </Box>
+                Parameter details
+              </Typography>
+              <Tooltip title="Remove field">
+                <IconButton
+                  onClick={() => {
+                    removeField(drawerField._key);
+                    handleCloseDrawer();
+                  }}
+                  aria-label="Remove field"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <FieldEditor
+              field={drawerField}
+              onChange={patch => updateField(drawerField._key, patch)}
+              onTypeChange={type => changeType(drawerField._key, type)}
+            />
+            <Box sx={{ pt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Changes are held locally until you click &ldquo;Save
+                Changes&rdquo; on the schema editor.
+              </Typography>
+            </Box>
+          </Stack>
+        )}
+      </BaseDrawer>
+
+      {!drawerField && draft.length === 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 6,
+            color: 'text.disabled',
+          }}
+        >
+          <TuneIcon sx={{ fontSize: 48, opacity: 0.4, mb: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            Click a field to edit it, or add a new one.
+          </Typography>
         </Box>
       )}
-    </Paper>
+    </>
   );
 }

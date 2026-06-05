@@ -16,7 +16,7 @@ export interface BreadcrumbItem {
 }
 
 export interface PageLayoutProps {
-  title?: string;
+  title?: string | React.ReactNode;
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
   /** Actions rendered top-right (e.g. FAB cluster) */
@@ -159,19 +159,22 @@ export function PageLayout({
                     minHeight: 56,
                   }}
                 >
-                  {title && (
-                    <Typography
-                      variant="h4"
-                      component="h1"
-                      sx={{
-                        flex: '1 1 0',
-                        minWidth: 0,
-                        color: theme => theme.palette.greyscale.title,
-                      }}
-                    >
-                      {title}
-                    </Typography>
-                  )}
+                  {title &&
+                    (typeof title === 'string' ? (
+                      <Typography
+                        variant="h4"
+                        component="h1"
+                        sx={{
+                          flex: '1 1 0',
+                          minWidth: 0,
+                          color: theme => theme.palette.greyscale.title,
+                        }}
+                      >
+                        {title}
+                      </Typography>
+                    ) : (
+                      <Box sx={{ flex: '1 1 0', minWidth: 0 }}>{title}</Box>
+                    ))}
                   {actions && (
                     <Box
                       sx={{
