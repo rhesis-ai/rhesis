@@ -48,7 +48,6 @@ export default function TypedValueEditor({
             label={label}
             value={current}
             onChange={e => onChange({ type: 'text', value: e.target.value })}
-            size="small"
             fullWidth
             multiline
             minRows={3}
@@ -64,7 +63,6 @@ export default function TypedValueEditor({
           label={label}
           value={current}
           onChange={e => onChange({ type: 'string', value: e.target.value })}
-          size="small"
           fullWidth
           helperText={helper}
         />
@@ -83,7 +81,6 @@ export default function TypedValueEditor({
               v === '' ? null : { type: 'integer', value: parseInt(v, 10) }
             );
           }}
-          size="small"
           inputProps={{ step: 1, lang: 'en-US' }}
           helperText={helper}
         />
@@ -102,7 +99,6 @@ export default function TypedValueEditor({
               v === '' ? null : { type: 'number', value: parseFloat(v) }
             );
           }}
-          size="small"
           inputProps={{ step: 'any', lang: 'en-US' }}
           helperText={helper}
         />
@@ -150,7 +146,7 @@ export default function TypedValueEditor({
           ? value.value
           : '';
       return (
-        <FormControl size="small" sx={{ minWidth: 220 }}>
+        <FormControl sx={{ minWidth: 220 }}>
           <InputLabel>{label}</InputLabel>
           <Select
             label={label}
@@ -183,7 +179,6 @@ export default function TypedValueEditor({
             const v = e.target.value.trim();
             onChange(v ? { type: 'model_ref', value: v } : null);
           }}
-          size="small"
           fullWidth
           helperText={helper ?? 'UUID of a Model row'}
         />
@@ -200,7 +195,6 @@ export default function TypedValueEditor({
             const v = e.target.value.trim();
             onChange(v ? { type: 'secret_ref', value: v } : null);
           }}
-          size="small"
           fullWidth
           helperText={helper ?? 'UUID of a secret record'}
         />

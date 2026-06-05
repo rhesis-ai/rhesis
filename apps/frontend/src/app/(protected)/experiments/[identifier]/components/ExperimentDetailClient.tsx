@@ -24,7 +24,6 @@ import DetailTabNav from '@/components/common/DetailTabNav';
 import { DetailTabPanel } from '@/components/common/DetailTabPanel';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { DeleteModal } from '@/components/common/DeleteModal';
 import RunDrawer from '@/components/common/RunDrawer';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -35,7 +34,7 @@ import {
   ExperimentVersion,
   ProjectEnvironments,
 } from '@/utils/api-client/interfaces/parameters';
-import { DeleteIcon, EditIcon, PlayArrowIcon } from '@/components/icons';
+import { EditIcon, PlayArrowIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TypedValueEditor from './TypedValueEditor';
 import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
@@ -118,8 +117,6 @@ export default function ExperimentDetailClient({
     version?: string;
     environment?: string;
   }>({});
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
@@ -215,25 +212,6 @@ export default function ExperimentDetailClient({
       );
     }
   }, [apiFactory, experiment, notifications, renameValue]);
-
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!experiment) return;
-    setIsDeleting(true);
-    try {
-      const client = apiFactory.getParametersClient();
-      await client.deleteExperiment(experiment.id);
-      notifications.show('Experiment deleted', { severity: 'success' });
-      setDeleteOpen(false);
-      router.push('/experiments');
-    } catch (e) {
-      notifications.show(
-        e instanceof Error ? e.message : 'Failed to delete experiment',
-        { severity: 'error' }
-      );
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [apiFactory, experiment, notifications, router]);
 
   const handlePromote = useCallback(
     (version?: string, environment?: string) => {
@@ -354,12 +332,6 @@ export default function ExperimentDetailClient({
             icon={<PlayArrowIcon />}
             tooltip="Run Experiment"
             onClick={() => setRunDrawerOpen(true)}
-          />
-          <Fab
-            icon={<DeleteIcon />}
-            tooltip="Delete Experiment"
-            onClick={() => setDeleteOpen(true)}
-            sx={{ bgcolor: 'error.main', '&:hover': { bgcolor: 'error.dark' } }}
           />
         </FabGroup>
       }
@@ -488,14 +460,12 @@ export default function ExperimentDetailClient({
               onChange={value => updateDraft(field.name, value)}
             />
           ))}
-          <Divider />
           <Box>
             <TextField
               label="Message (optional)"
               placeholder="Describe what changed, e.g. 'bumped temperature to 1.4'"
               value={message}
               onChange={e => setMessage(e.target.value)}
-              size="small"
               fullWidth
               disabled={saving}
             />
@@ -531,38 +501,6 @@ export default function ExperimentDetailClient({
           }}
         />
       </BaseDrawer>
-
-      <DeleteModal
-        open={deleteOpen}
-        onClose={() => {
-          if (!isDeleting) setDeleteOpen(false);
-        }}
-        onConfirm={handleDeleteConfirm}
-        isLoading={isDeleting}
-        title="Delete Experiment"
-        itemType="experiment"
-        itemName={experiment.name}
-        message={
-          <>
-            Are you sure you want to delete the experiment &quot;
-            {experiment.name}&quot;? All {experiment.versions_count} version
-            {experiment.versions_count === 1 ? '' : 's'} will be removed.
-            Existing test runs that used this experiment are kept; their
-            parameter snapshots remain intact.
-          </>
-        }
-        warningMessage={
-          environmentsForExperiment.length > 0
-            ? `This experiment is currently promoted to ${
-                environmentsForExperiment.length === 1
-                  ? 'environment'
-                  : 'environments'
-              } ${environmentsForExperiment.join(', ')}. ${
-                environmentsForExperiment.length === 1 ? 'It' : 'They'
-              } will be unbound as part of the delete.`
-            : undefined
-        }
-      />
     </PageLayout>
   );
 }
