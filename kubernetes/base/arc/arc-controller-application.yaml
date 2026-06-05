@@ -1,0 +1,27 @@
+# Installs the Actions Runner Controller (ARC) scale-set controller via OCI Helm chart.
+# This controller manages RunnerScaleSets across the cluster.
+#
+# Sync wave -1: must be applied before the ExternalSecret (wave 2) and RunnerScaleSet
+# Application (wave 3) so CRDs are available when those resources are reconciled.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: oci://ghcr.io/actions/actions-runner-controller-charts
+    chart: gha-runner-scale-set-controller
+    targetRevision: 0.9.3
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-systems
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
