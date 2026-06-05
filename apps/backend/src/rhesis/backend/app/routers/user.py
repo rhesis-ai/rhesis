@@ -2,6 +2,8 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import capability
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -45,10 +47,11 @@ def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
     return isinstance(models, dict) and "embedding" in models
 
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
+    resource="member",
 )
 
 
@@ -403,7 +406,7 @@ def update_user(
     return updated_user
 
 
-@router.post("/request-polyphemus-access", response_model=PolyphemusAccessResponse)
+@router.post("/request-polyphemus-access", response_model=PolyphemusAccessResponse, **capability("member:update"))
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,
     db: Session = Depends(get_db_session),

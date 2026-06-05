@@ -2,6 +2,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -17,11 +18,12 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 # Create the detailed schema for Tool
 ToolDetailSchema = create_detailed_schema(schemas.Tool, models.Tool)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/tools",
     tags=["tools"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="tool",
 )
 
 

@@ -2,6 +2,8 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import capability
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -28,8 +30,9 @@ from rhesis.backend.notifications import email_service
 logger = logging.getLogger(__name__)
 
 
-router = APIRouter(
-    prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}
+router = RhesisRouter(
+    prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}},
+    resource="organization",
 )
 
 
@@ -126,7 +129,7 @@ def update_organization(
     return db_organization
 
 
-@router.post("/{organization_id}/load-initial-data", response_model=dict)
+@router.post("/{organization_id}/load-initial-data", response_model=dict, **capability("organization:update"))
 async def initialize_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -249,7 +252,7 @@ async def initialize_organization_data(
     return response
 
 
-@router.post("/{organization_id}/rollback-initial-data", response_model=dict)
+@router.post("/{organization_id}/rollback-initial-data", response_model=dict, **capability("organization:update"))
 async def rollback_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

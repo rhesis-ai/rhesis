@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, HTTPException
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
@@ -14,11 +15,12 @@ from rhesis.backend.celery.core import app as celery_app
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.example_task import email_notification_test
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/jobs",
     tags=["tasks"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="job",
 )
 
 

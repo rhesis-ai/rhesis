@@ -8,6 +8,7 @@ files (JSON, JSONL, CSV, Excel).
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from rhesis.backend.app.routers.base import RhesisRouter
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -33,10 +34,11 @@ logger = logging.getLogger(__name__)
 # Generic message for unexpected server errors (never expose internals)
 IMPORT_ERROR_GENERIC = "Import failed. Please try again or contact support."
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/import",
     tags=["import"],
     responses={404: {"description": "Not found"}},
+    resource="file_import",
 )
 
 # Maximum upload size: 10 MB

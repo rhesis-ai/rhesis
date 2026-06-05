@@ -588,3 +588,9 @@ async def health_check():
 # route. Runs last so it covers core routers, EE routers, and the app-level
 # routes (/, /health) defined above.
 apply_auth_backstop(app)
+
+# Derive and cache the capability catalog from the now-complete route table.
+# Must run after apply_auth_backstop so EE routes are already registered.
+from rhesis.backend.app.auth.capabilities import register_capabilities
+
+register_capabilities(app)

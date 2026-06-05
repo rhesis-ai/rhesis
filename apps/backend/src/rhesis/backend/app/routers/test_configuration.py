@@ -2,6 +2,7 @@ import uuid as uuid_lib
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -31,11 +32,12 @@ TestConfigurationDetailSchema = create_detailed_schema(
     schemas.TestConfiguration, models.TestConfiguration
 )
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/test_configurations",
     tags=["test_configurations"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="test_configuration",
 )
 
 

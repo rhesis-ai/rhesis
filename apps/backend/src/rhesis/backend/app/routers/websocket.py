@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
 
@@ -22,7 +23,7 @@ from rhesis.backend.app.services.websocket import get_ws_token_service, ws_manag
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["websocket"])
+router = RhesisRouter(tags=["websocket"], resource="websocket")
 
 # Security: Maximum message size (10MB) to accommodate base64-encoded file attachments
 MAX_MESSAGE_SIZE = 10 * 1024 * 1024

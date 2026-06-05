@@ -3,6 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
-router = APIRouter(prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}})
+router = RhesisRouter(prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test")
 
 
 @router.post("/", response_model=schemas.Test)

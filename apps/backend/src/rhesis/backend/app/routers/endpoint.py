@@ -3,6 +3,7 @@ import uuid
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -36,11 +37,12 @@ logger = logging.getLogger(__name__)
 EndpointDetailSchema = create_detailed_schema(schemas.Endpoint, models.Endpoint)
 
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/endpoints",
     tags=["endpoints"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="endpoint",
 )
 
 

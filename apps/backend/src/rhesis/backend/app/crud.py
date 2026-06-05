@@ -2022,8 +2022,36 @@ def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[mod
 def get_project(
     db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Project]:
-    """Get project with relationships eagerly loaded."""
-    return get_item_detail(db, models.Project, project_id, organization_id, user_id)
+    """Get project with relationships eagerly loaded.
+
+    When *user_id* is supplied the caller must be an explicit member of the project
+    (a row in ``project_membership``).  Non-members receive ``None`` — the same
+    result as "not found" — so the router's 404 reveals no information about
+    whether the project exists.  This closes the by-ID IDOR gap where
+    ``get_item_detail`` filters only by ``organization_id``.
+
+    Pass *user_id=None* only for internal service-layer calls that already
+    carry their own access-control context (e.g. background tasks).
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    project = get_item_detail(db, models.Project, project_id, organization_id, user_id)
+    if project is None or user_id is None:
+        return project
+
+    # Enforce membership: the caller must have a project_membership row.
+    # bypass_tenant_filter is required because project_membership carries only
+    # tenant_isolation (org RLS), not project_isolation — this is by design so
+    # the join table remains reachable before a project context is established.
+    with bypass_tenant_filter():
+        membership = (
+            db.query(ProjectMembership)
+            .filter_by(project_id=project.id, user_id=user_id)
+            .first()
+        )
+
+    return project if membership is not None else None
 
 
 def get_projects(

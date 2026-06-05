@@ -3,6 +3,7 @@ import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -63,11 +64,12 @@ from rhesis.sdk.context import EndpointContext
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/services",
     tags=["services"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="service",
 )
 
 

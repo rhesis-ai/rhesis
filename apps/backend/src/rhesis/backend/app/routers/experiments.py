@@ -17,6 +17,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -46,11 +47,12 @@ from rhesis.backend.app.services.experiment import (
     unbind_environment,
 )
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/experiments",
     tags=["experiments"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="experiment",
 )
 
 

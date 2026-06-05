@@ -2,6 +2,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -27,11 +28,12 @@ logger = logging.getLogger(__name__)
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
 
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/tasks",
     tags=["tasks"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="task",
 )
 
 

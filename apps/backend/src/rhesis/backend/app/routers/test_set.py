@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import capability
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -59,8 +61,9 @@ logger = logging.getLogger(__name__)
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
-router = APIRouter(
-    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found the page"}}
+router = RhesisRouter(
+    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found the page"}},
+    resource="test_set",
 )
 
 
@@ -99,7 +102,7 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     return db_test_set
 
 
-@router.post("/generate", response_model=TestSetGenerationResponse)
+@router.post("/generate", response_model=TestSetGenerationResponse, **capability("test_set:generate"))
 async def generate_test_set(
     request: services_schemas.GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -554,7 +557,7 @@ async def get_test_set_tests(
     return items  # FastAPI handles serialization based on response_model
 
 
-@router.post("/{test_set_identifier}/execute/{endpoint_id}")
+@router.post("/{test_set_identifier}/execute/{endpoint_id}", **capability("test_set:execute"))
 async def execute_test_set(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
@@ -736,7 +739,7 @@ def download_test_set_prompts_csv(
         )
 
 
-@router.post("/{test_set_id}/associate", response_model=schemas.TestSetBulkAssociateResponse)
+@router.post("/{test_set_id}/associate", response_model=schemas.TestSetBulkAssociateResponse, **capability("test_set:update"))
 async def associate_tests_with_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkAssociateRequest,
@@ -761,7 +764,7 @@ async def associate_tests_with_test_set(
     return result
 
 
-@router.post("/{test_set_id}/disassociate", response_model=schemas.TestSetBulkDisassociateResponse)
+@router.post("/{test_set_id}/disassociate", response_model=schemas.TestSetBulkDisassociateResponse, **capability("test_set:update"))
 async def disassociate_tests_from_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkDisassociateRequest,
@@ -831,7 +834,7 @@ def get_test_set_metrics(
     return db_test_set.metrics or []
 
 
-@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric], **capability("test_set:update"))
 def add_metric_to_test_set(
     test_set_identifier: str,
     metric_id: uuid.UUID,
@@ -876,7 +879,7 @@ def add_metric_to_test_set(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric], **capability("test_set:update"))
 def remove_metric_from_test_set(
     test_set_identifier: str,
     metric_id: uuid.UUID,
