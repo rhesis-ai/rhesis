@@ -79,6 +79,7 @@ def bootstrap(app: "FastAPI") -> None:
         mint_for_client_bound_refresh,
     )
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
+    from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
     from rhesis.backend.ee.sso.router import router as sso_router
     from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
@@ -98,6 +99,11 @@ def bootstrap(app: "FastAPI") -> None:
                 "AUDIT_HASH_KEY must be set in non-dev environments; "
                 "the API Clients audit log relies on it for hashed_email"
             )
+
+    # ---- License provider -----------------------------------------------
+    # Install before feature registration so any is_available() call that
+    # races during bootstrap already sees the correct provider.
+    FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
 
     # ---- Feature registry -----------------------------------------------
     FeatureRegistry.register(
@@ -170,5 +176,6 @@ def bootstrap(app: "FastAPI") -> None:
         app.include_router(r)
 
     logger.info(
-        "EE bootstrap complete - registered features: [sso, api_clients]"
+        "EE bootstrap complete - license provider installed; "
+        "registered features: [sso, api_clients]"
     )
