@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
-import { PROVIDER_ICONS } from '@/config/model-providers';
 import { ProviderSelectionPanel } from './ProviderSelectionPanel';
 import { ConnectionForm, type ConnectionFormHandle } from './ConnectionForm';
 
@@ -98,15 +96,6 @@ export function ModelConnectionDrawer({
         'Provider'
       : activeProvider?.description || activeProvider?.type_value || 'Provider';
 
-  const providerIconKey =
-    isEditMode && model
-      ? model.icon || model.provider_type?.type_value || 'custom'
-      : activeProvider?.type_value || 'custom';
-
-  const providerIcon = PROVIDER_ICONS[providerIconKey] || (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
-  );
-
   const selectTitle =
     modelType === 'embedding'
       ? 'Select Embedder Provider'
@@ -145,7 +134,6 @@ export function ModelConnectionDrawer({
       open={open}
       onClose={configureOnClose}
       title={configureTitle}
-      titleIcon={providerIcon}
       onSave={() => formRef.current?.submit()}
       saveButtonText={saveButtonText}
       saveDisabled={!formCanSave}
