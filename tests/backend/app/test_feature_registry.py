@@ -154,7 +154,25 @@ class TestReset:
         FeatureRegistry.reset()
 
         assert FeatureRegistry.is_registered(FeatureName.SSO) is False
-        assert FeatureRegistry.license_info() == {"edition": "dev", "licensed": False}
+        assert FeatureRegistry.license_info() == {"edition": "community", "licensed": False}
+
+    def test_license_info_forwards_org(self, clean_registry):
+        """license_info(org=...) passes org through to the provider."""
+
+        class _OrgCapture:
+            received_org = None
+
+            def allows_feature(self, feature, org):
+                return True
+
+            def info(self, org=None):
+                _OrgCapture.received_org = org
+                return {"edition": "test", "licensed": True}
+
+        FeatureRegistry.set_license_provider(_OrgCapture())
+        sentinel_org = object()
+        FeatureRegistry.license_info(org=sentinel_org)
+        assert _OrgCapture.received_org is sentinel_org
 
 
 class TestDefaultLicenseProvider:
@@ -171,10 +189,16 @@ class TestDefaultLicenseProvider:
         feature = Feature(name=FeatureName.RBAC, display_name="RBAC")
         assert provider.allows_feature(feature, org=object()) is True
 
-    def test_info_marks_dev_edition(self):
-        """Edition is 'dev' rather than 'community' when EE pkg is loaded but unlicensed."""
+    def test_info_marks_community_edition(self):
+        """Community build has no EE license — edition is 'community'."""
         provider = DefaultLicenseProvider()
-        assert provider.info() == {"edition": "dev", "licensed": False}
+        assert provider.info() == {"edition": "community", "licensed": False}
+
+    def test_info_accepts_org_kwarg(self):
+        """info() accepts org= without error (org-aware interface)."""
+        provider = DefaultLicenseProvider()
+        org = object()
+        assert provider.info(org=org) == {"edition": "community", "licensed": False}
 
 
 class TestFeatureDataclass:

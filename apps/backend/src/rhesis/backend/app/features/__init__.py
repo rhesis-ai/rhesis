@@ -92,16 +92,17 @@ class LicenseProvider(Protocol):
     """
 
     def allows_feature(self, feature: Feature, org: Organization) -> bool: ...
-    def info(self) -> dict: ...
+    def info(self, org: Optional[Organization] = None) -> dict: ...
 
 
 class DefaultLicenseProvider:
     """Permissive provider — allows all EE features for every org.
 
-    Active when ``RHESIS_LICENSE`` is not set. Intended for local development
-    with the ``ee`` package installed but no license key configured. In
-    production, :class:`JwtLicenseProvider` replaces this and restricts
-    access to features listed in the signed JWT.
+    Active when ``RHESIS_LICENSE`` is not set (and in community builds where
+    the EE package is not installed). Intended for local development with the
+    ``ee`` package installed but no license key configured. In production,
+    :class:`~rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider`
+    replaces this and enforces the signed JWT license.
 
     RBAC was previously excluded until the ``e1f2a3b4c5d6`` backfill migration
     seeded ``organization_member`` rows for every existing user. Now that the
@@ -112,10 +113,8 @@ class DefaultLicenseProvider:
     def allows_feature(self, feature: Feature, org: Organization) -> bool:
         return True
 
-    def info(self) -> dict:
-        # ``edition: dev`` (rather than ``community``) communicates that the EE
-        # package is loaded but unlicensed, which matters for diagnostic UI.
-        return {"edition": "dev", "licensed": False}
+    def info(self, org: Optional[Organization] = None) -> dict:
+        return {"edition": "community", "licensed": False}
 
 
 class FeatureRegistry:
@@ -199,9 +198,9 @@ class FeatureRegistry:
         return [f for f in cls._features.values() if cls.is_available(f.name, org)]
 
     @classmethod
-    def license_info(cls) -> dict:
+    def license_info(cls, org: Optional[Organization] = None) -> dict:
         """Opaque license metadata for diagnostics and UI badges."""
-        return cls._license.info()
+        return cls._license.info(org=org)
 
     @classmethod
     def reset(cls) -> None:

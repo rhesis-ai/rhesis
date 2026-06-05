@@ -85,7 +85,7 @@ class TestFeaturesEndpoint:
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         assert "license" in body
-        assert body["license"] == {"edition": "dev", "licensed": False}
+        assert body["license"] == {"edition": "community", "licensed": False}
 
     def test_returns_enabled_list(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
@@ -114,7 +114,7 @@ class TestFeaturesEndpoint:
             def allows_feature(self, feature, org):
                 return False
 
-            def info(self):
+            def info(self, org=None):
                 return {"edition": "community", "licensed": False}
 
         FeatureRegistry.reset()
@@ -134,3 +134,88 @@ class TestFeaturesEndpoint:
         assert set(body["license"].keys()) == {"edition", "licensed"}
         assert isinstance(body["enabled"], list)
         assert all(isinstance(name, str) for name in body["enabled"])
+
+    def test_license_info_reflects_org(self, client: TestClient, registered_sso, mock_current_user):
+        """license_info() must receive the org object, not None."""
+        received_orgs: list = []
+
+        class _CapturingProvider:
+            def allows_feature(self, feature, org):
+                return True
+
+            def info(self, org=None):
+                received_orgs.append(org)
+                return {"edition": "enterprise", "licensed": True}
+
+        FeatureRegistry.set_license_provider(_CapturingProvider())
+        try:
+            response = client.get("/features")
+            assert response.status_code == status.HTTP_200_OK
+            # Provider must have been called with the org, not None
+            assert len(received_orgs) == 1
+            assert received_orgs[0] is not None
+            assert response.json()["license"] == {"edition": "enterprise", "licensed": True}
+        finally:
+            FeatureRegistry.reset()
+
+
+ee_pkg = pytest.importorskip(
+    "rhesis.backend.ee",
+    reason="EE package not installed; skipping EE licensing endpoint tests.",
+)
+
+
+class TestFeaturesEndpointWithSignedProvider:
+    """Endpoint tests using the real SignedTokenLicenseProvider.
+
+    Creates a standalone TestClient (no ``client`` fixture / test_db) so that
+    mock_current_user overrides are not clobbered by the real-DB client fixture.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, mock_current_user):
+        from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
+
+        FeatureRegistry.reset()
+        FeatureRegistry.register(
+            Feature(name=FeatureName.SSO, display_name="SSO")
+        )
+        FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
+        # Build a TestClient here, after mock_current_user has applied its overrides.
+        self._tc = TestClient(app)
+        yield
+        FeatureRegistry.reset()
+
+    def test_unlicensed_returns_community_and_no_features(self):
+        """Production with no license token → community, no features."""
+        import os
+        from unittest.mock import patch
+
+        # Patch is_development directly since get_application_settings() is
+        # cached and BACKEND_ENV changes after initial load have no effect.
+        with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
+            with patch(
+                "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
+                return_value=False,
+            ):
+                response = self._tc.get("/features")
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["license"]["edition"] == "community"
+        assert body["license"]["licensed"] is False
+        assert body["enabled"] == []
+
+    def test_dev_fallback_returns_feature_without_token(self):
+        """Dev fallback permissive — features available without a license token."""
+        import os
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
+            with patch(
+                "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
+                return_value=True,
+            ):
+                response = self._tc.get("/features")
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["enabled"] == ["sso"]
