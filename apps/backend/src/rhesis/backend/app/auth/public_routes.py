@@ -65,4 +65,36 @@ PUBLIC_ROUTES: list[str] = [
     "/openapi.json",
 ]
 
-__all__ = ["PUBLIC_ROUTES"]
+
+#: Routes that require authentication but are exempt from the permission-level
+#: authorization check enforced by ``apply_authz_backstop``.
+#:
+#: Format: ``frozenset`` of ``(HTTP_METHOD, path)`` tuples so a single path
+#: can be exempt for only specific verbs (e.g. ``POST /organizations/`` during
+#: onboarding, but not ``GET /organizations/`` once the user has an org).
+#:
+#: Lifecycle is the same as ``PUBLIC_ROUTES``: the set is evaluated before
+#: ``apply_authz_backstop`` runs, so EE can extend it at bootstrap time.
+AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        # Onboarding: the creating user has no organization yet; any authz check
+        # that depends on organization context would fail with 403 before the org
+        # is created.  Authentication (require_current_user_or_token) still runs.
+        ("POST", "/organizations/"),
+        # Bootstrap / reflexive: these tell the caller what they may do.
+        # Requiring a prior permission to call them creates a chicken-and-egg loop.
+        ("GET", "/me/permissions"),
+        ("GET", "/capabilities"),
+        # Feature catalog: the frontend needs this before any RBAC context is set.
+        # Authentication is still enforced; the response is org-filtered in the handler.
+        ("GET", "/features"),
+        # Demo / test endpoint — carries no meaningful permission boundary.
+        ("GET", "/home/protected"),
+        # Profile update during onboarding: the user may not have an org yet when
+        # they first complete their profile (name, picture, etc.) after OAuth sign-in.
+        # Cross-user update authorization is enforced by the in-handler authorize() call.
+        ("PUT", "/users/{user_id}"),
+    }
+)
+
+__all__ = ["AUTHZ_EXEMPT_ROUTES", "PUBLIC_ROUTES"]
