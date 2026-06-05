@@ -56,14 +56,13 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# NEXT_PUBLIC_API_BASE_URL and NEXT_PUBLIC_QUICK_START are fixed placeholders;
-# replace-runtime-env.sh substitutes the real values at container start.
+# NEXT_PUBLIC_API_BASE_URL is a fixed placeholder;
+# replace-runtime-env.sh substitutes the real value at container start.
 
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > apps/frontend/.env && \
     echo "NEXT_PUBLIC_API_BASE_URL=__NEXT_PUBLIC_API_BASE_URL__" >> apps/frontend/.env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> apps/frontend/.env && \
-    echo "NEXT_PUBLIC_QUICK_START=__NEXT_PUBLIC_QUICK_START__" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> apps/frontend/.env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> apps/frontend/.env

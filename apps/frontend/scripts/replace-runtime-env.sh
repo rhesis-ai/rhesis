@@ -4,7 +4,6 @@
 #
 # Placeholders baked into the bundle at build time:
 #   __NEXT_PUBLIC_API_BASE_URL__  -> API_BASE_URL | BACKEND_URL | localhost:8080
-#   __NEXT_PUBLIC_QUICK_START__   -> QUICK_START | false
 #
 # This allows a single Docker image to be used for all deployment modes.
 
@@ -46,11 +45,5 @@ fi
 replace_placeholder '__NEXT_PUBLIC_API_BASE_URL__' "$API_URL_VALUE"
 printf '[entrypoint] using NEXT_PUBLIC_API_BASE_URL=%s (set at runtime)\n' "$API_URL_VALUE"
 export NEXT_PUBLIC_API_BASE_URL="$API_URL_VALUE"
-
-# Quick Start mode - read from QUICK_START (single source of truth)
-QUICK_START_VALUE="${QUICK_START:-false}"
-replace_placeholder '__NEXT_PUBLIC_QUICK_START__' "$QUICK_START_VALUE"
-printf '[entrypoint] using NEXT_PUBLIC_QUICK_START=%s (set at runtime)\n' "$QUICK_START_VALUE"
-export NEXT_PUBLIC_QUICK_START="$QUICK_START_VALUE"
 
 exec "$@"

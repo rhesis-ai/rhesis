@@ -121,6 +121,7 @@ class ProvidersResponse(BaseModel):
 
     providers: List[ProviderInfo]
     password_policy: PasswordPolicyResponse
+    quick_start: bool = False
 
 
 class VerifyEmailRequest(BaseModel):
@@ -297,6 +298,7 @@ def _resolve_org_by_id_or_slug(db: Session, org: str):
 
 @router.get("/providers", response_model=ProvidersResponse)
 async def get_providers(
+    request: Request,
     org: Optional[str] = None,
     db: Session = Depends(get_db_session),
 ):
@@ -336,6 +338,10 @@ async def get_providers(
             min_length=policy.min_length,
             max_length=policy.max_length,
             min_strength_score=policy.min_strength_score,
+        ),
+        quick_start=is_quick_start_enabled(
+            hostname=request.url.hostname,
+            headers=dict(request.headers),
         ),
     )
 

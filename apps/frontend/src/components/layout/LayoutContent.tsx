@@ -12,6 +12,7 @@ import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
+import { fetchQuickStartEnabled } from '@/utils/quick_start';
 // Side-effect import: pulls ee_bootstrap into the *client* bundle so
 // EE feature registrations land in the client-side registry as well as
 // the server-side one. Layout.tsx imports the same module for the
@@ -60,10 +61,17 @@ export function LayoutContent({
 
   // Check Quick Start mode after mount (client-side only)
   React.useEffect(() => {
-    // Dynamic import for client-side only code
-    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
-      setIsQuickStartMode(isQuickStartEnabled());
+    let cancelled = false;
+
+    fetchQuickStartEnabled().then(enabled => {
+      if (!cancelled) {
+        setIsQuickStartMode(enabled);
+      }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Build sx prop conditionally
