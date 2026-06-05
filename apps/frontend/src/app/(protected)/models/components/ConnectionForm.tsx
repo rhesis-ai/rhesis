@@ -14,12 +14,11 @@ import {
   IconButton,
   CircularProgress,
   Alert,
-  Stack,
   Switch,
-  FormControlLabel,
-  Divider,
   Autocomplete,
 } from '@mui/material';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -499,43 +498,35 @@ export const ConnectionForm = forwardRef<
   useImperativeHandle(ref, () => ({ submit: handleSubmit }));
 
   return (
-    <Stack spacing={2}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 1 }}>
-          {error}
-        </Alert>
-      )}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+      {error && <Alert severity="error">{error}</Alert>}
 
       {/* Basic Configuration */}
       {!model?.is_protected && (
-        <>
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}
-          >
-            Basic Configuration
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+          <FormSectionDivider headline="Basic Configuration" />
 
-          {isCustomProvider && (
-            <TextField
-              label="Provider Name"
-              fullWidth
-              required
-              value={providerName}
-              onChange={e => setProviderName(e.target.value)}
-              helperText="A descriptive name for your custom LLM provider or deployment"
-            />
-          )}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+            {isCustomProvider && (
+              <TextField
+                label="Provider Name"
+                fullWidth
+                required
+                value={providerName}
+                onChange={e => setProviderName(e.target.value)}
+                helperText="A descriptive name for your custom LLM provider or deployment"
+                sx={drawerOutlinedFieldSx}
+              />
+            )}
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label="Connection Name"
               fullWidth
-              variant="outlined"
               required
               value={name}
               onChange={e => setName(e.target.value)}
               helperText="A unique name to identify this connection"
+              sx={drawerOutlinedFieldSx}
             />
 
             <Autocomplete
@@ -565,6 +556,7 @@ export const ConnectionForm = forwardRef<
                       ? 'The model identifier for your deployment'
                       : 'The specific model to use from this provider'
                   }
+                  sx={drawerOutlinedFieldSx}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
@@ -577,289 +569,292 @@ export const ConnectionForm = forwardRef<
                 />
               )}
             />
-          </Stack>
-        </>
+          </Box>
+        </Box>
       )}
 
       {/* Connection Details */}
       {!model?.is_protected && (
-        <>
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
-          >
-            Connection Details
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+          <FormSectionDivider headline="Connection Details" />
 
-          {requiresEndpoint && (
-            <TextField
-              label="API Endpoint"
-              fullWidth
-              required
-              value={endpoint}
-              onChange={e => setEndpoint(e.target.value)}
-              placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
-              helperText={
-                provider?.type_value === 'ollama'
-                  ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach Ollama on your machine'
-                  : provider?.type_value === 'litellm_proxy'
-                    ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach LiteLLM on your machine'
-                    : provider?.type_value === 'azure_ai'
-                      ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
-                      : provider?.type_value === 'azure'
-                        ? 'Your Azure OpenAI endpoint URL (e.g. https://your-resource.openai.azure.com/)'
-                        : 'The base URL for your self-hosted model endpoint'
-              }
-            />
-          )}
-
-          {!isLocalProvider && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+            {requiresEndpoint && (
               <TextField
-                label={hasOptionalApiKey ? 'API Key (optional)' : 'API Key'}
+                label="API Endpoint"
                 fullWidth
-                required={!isEditMode && !hasOptionalApiKey}
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                onFocus={() => {
-                  if (isEditMode && apiKey === '************') {
-                    setApiKey('');
-                  }
-                }}
-                onBlur={e => {
-                  if (isEditMode && !e.target.value) {
-                    setApiKey('************');
-                  }
-                }}
+                required
+                value={endpoint}
+                onChange={e => setEndpoint(e.target.value)}
+                placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
                 helperText={
-                  isEditMode
-                    ? apiKey !== '************' && apiKey !== ''
-                      ? 'New API key will replace the current one'
-                      : 'Click to update the API key'
-                    : hasOptionalApiKey
-                      ? 'Optional authentication key for the proxy server'
-                      : isCustomProvider
-                        ? 'Authentication key for your deployment (if required)'
-                        : "Your API key from the model provider's dashboard"
+                  provider?.type_value === 'ollama'
+                    ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach Ollama on your machine'
+                    : provider?.type_value === 'litellm_proxy'
+                      ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach LiteLLM on your machine'
+                      : provider?.type_value === 'azure_ai'
+                        ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
+                        : provider?.type_value === 'azure'
+                          ? 'Your Azure OpenAI endpoint URL (e.g. https://your-resource.openai.azure.com/)'
+                          : 'The base URL for your self-hosted model endpoint'
                 }
-                InputProps={{
-                  endAdornment:
-                    apiKey && apiKey !== '************' ? (
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        edge="end"
-                        aria-label={
-                          showApiKey ? 'Hide API key' : 'Show API key'
-                        }
-                      >
-                        {showApiKey ? (
-                          <VisibilityOffIcon fontSize="small" />
-                        ) : (
-                          <VisibilityIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    ) : null,
-                }}
+                sx={drawerOutlinedFieldSx}
               />
-              <Button
-                onClick={handleTestConnection}
-                variant="outlined"
-                disabled={
-                  !modelName ||
-                  (!hasOptionalApiKey &&
-                    (!apiKey || apiKey === '************') &&
-                    !(isEditMode && model?.id)) ||
-                  (requiresEndpoint && !endpoint) ||
-                  testingConnection ||
-                  loading
-                }
-                startIcon={
-                  testingConnection ? (
-                    <CircularProgress size={16} />
-                  ) : (
-                    <CheckCircleIcon />
-                  )
-                }
-                sx={{ minWidth: '120px', height: '56px', mt: 0 }}
-              >
-                {testingConnection ? 'Testing...' : 'Test'}
-              </Button>
-            </Box>
-          )}
+            )}
 
-          {isLocalProvider && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                onClick={handleTestConnection}
-                variant="outlined"
-                disabled={
-                  !modelName ||
-                  (requiresEndpoint && !endpoint) ||
-                  testingConnection ||
-                  loading
-                }
-                startIcon={
-                  testingConnection ? (
-                    <CircularProgress size={16} />
-                  ) : (
-                    <CheckCircleIcon />
-                  )
-                }
-                sx={{ minWidth: '120px', height: '56px' }}
-              >
-                {testingConnection ? 'Testing...' : 'Test Connection'}
-              </Button>
-            </Box>
-          )}
-        </>
-      )}
-
-      {/* Test result */}
-      {testResult && (
-        <Alert
-          severity={testResult.success ? 'success' : 'error'}
-          sx={{ whiteSpace: 'pre-line' }}
-          action={
-            !testResult.success && testResult.fullError ? (
-              <IconButton
-                size="small"
-                onClick={() => setShowFullError(!showFullError)}
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            ) : null
-          }
-        >
-          <Box>
-            {testResult.message}
-            {!testResult.success && testResult.fullError && showFullError && (
+            {!isLocalProvider && (
               <Box
-                sx={{
-                  mt: 2,
-                  pt: 2,
-                  borderTop: '1px solid',
-                  borderColor: 'divider',
-                }}
+                sx={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}
               >
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, display: 'block', mb: 1 }}
-                >
-                  Technical Details:
-                </Typography>
-                <Typography
-                  variant="caption"
-                  component="pre"
-                  sx={{
-                    fontSize: theme => theme.typography.caption.fontSize,
-                    overflowX: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
+                <TextField
+                  label={hasOptionalApiKey ? 'API Key (optional)' : 'API Key'}
+                  fullWidth
+                  required={!isEditMode && !hasOptionalApiKey}
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  onFocus={() => {
+                    if (isEditMode && apiKey === '************') setApiKey('');
                   }}
+                  onBlur={e => {
+                    if (isEditMode && !e.target.value)
+                      setApiKey('************');
+                  }}
+                  helperText={
+                    isEditMode
+                      ? apiKey !== '************' && apiKey !== ''
+                        ? 'New API key will replace the current one'
+                        : 'Click to update the API key'
+                      : hasOptionalApiKey
+                        ? 'Optional authentication key for the proxy server'
+                        : isCustomProvider
+                          ? 'Authentication key for your deployment (if required)'
+                          : "Your API key from the model provider's dashboard"
+                  }
+                  sx={drawerOutlinedFieldSx}
+                  InputProps={{
+                    endAdornment:
+                      apiKey && apiKey !== '************' ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          edge="end"
+                          aria-label={
+                            showApiKey ? 'Hide API key' : 'Show API key'
+                          }
+                        >
+                          {showApiKey ? (
+                            <VisibilityOffIcon fontSize="small" />
+                          ) : (
+                            <VisibilityIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      ) : null,
+                  }}
+                />
+                <Button
+                  onClick={handleTestConnection}
+                  variant="outlined"
+                  disabled={
+                    !modelName ||
+                    (!hasOptionalApiKey &&
+                      (!apiKey || apiKey === '************') &&
+                      !(isEditMode && model?.id)) ||
+                    (requiresEndpoint && !endpoint) ||
+                    testingConnection ||
+                    loading
+                  }
+                  startIcon={
+                    testingConnection ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <CheckCircleIcon />
+                    )
+                  }
+                  sx={{ minWidth: 120, height: 56, flexShrink: 0 }}
                 >
-                  {testResult.fullError}
-                </Typography>
+                  {testingConnection ? 'Testing...' : 'Test'}
+                </Button>
               </Box>
             )}
-          </Box>
-        </Alert>
-      )}
 
-      {/* Connection test required notices */}
-      {!isEditMode && !connectionTested && !testResult && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          Please test the connection before saving the model configuration.
-        </Alert>
+            {isLocalProvider && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  onClick={handleTestConnection}
+                  variant="outlined"
+                  disabled={
+                    !modelName ||
+                    (requiresEndpoint && !endpoint) ||
+                    testingConnection ||
+                    loading
+                  }
+                  startIcon={
+                    testingConnection ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <CheckCircleIcon />
+                    )
+                  }
+                  sx={{ minWidth: 160, height: 56 }}
+                >
+                  {testingConnection ? 'Testing...' : 'Test Connection'}
+                </Button>
+              </Box>
+            )}
+
+            {/* Test result */}
+            {testResult && (
+              <Alert
+                severity={testResult.success ? 'success' : 'error'}
+                sx={{ whiteSpace: 'pre-line' }}
+                action={
+                  !testResult.success && testResult.fullError ? (
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowFullError(!showFullError)}
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  ) : null
+                }
+              >
+                <Box>
+                  {testResult.message}
+                  {!testResult.success &&
+                    testResult.fullError &&
+                    showFullError && (
+                      <Box
+                        sx={{
+                          mt: 2,
+                          pt: 2,
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 600, display: 'block', mb: 1 }}
+                        >
+                          Technical Details:
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          component="pre"
+                          sx={{
+                            fontSize: theme =>
+                              theme.typography.caption.fontSize,
+                            overflowX: 'auto',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {testResult.fullError}
+                        </Typography>
+                      </Box>
+                    )}
+                </Box>
+              </Alert>
+            )}
+
+            {/* Connection test required notices */}
+            {!isEditMode && !connectionTested && !testResult && (
+              <Alert severity="info">
+                Please test the connection before saving the model
+                configuration.
+              </Alert>
+            )}
+            {isEditMode &&
+              apiKey !== '************' &&
+              !connectionTested &&
+              !testResult && (
+                <Alert severity="info">
+                  Please test the connection with the new API key before
+                  updating.
+                </Alert>
+              )}
+          </Box>
+        </Box>
       )}
-      {isEditMode &&
-        apiKey !== '************' &&
-        !connectionTested &&
-        !testResult && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Please test the connection with the new API key before updating.
-          </Alert>
-        )}
 
       {/* Default Model Settings */}
-      <Box sx={{ mt: 3 }}>
-        <Divider sx={{ mb: 2 }} />
-        <Typography
-          variant="subtitle1"
-          sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}
-        >
-          Default Model Settings
-        </Typography>
-        <Stack spacing={1}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+        <FormSectionDivider headline="Default Model Settings" />
+
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           {modelType === 'language' && (
             <>
-              <FormControlLabel
-                control={
+              {[
+                {
+                  label: 'Default for Test Generation',
+                  checked: defaultForGeneration,
+                  onChange: setDefaultForGeneration,
+                },
+                {
+                  label: 'Default for Evaluation (LLM as Judge)',
+                  checked: defaultForEvaluation,
+                  onChange: setDefaultForEvaluation,
+                },
+                {
+                  label: 'Default for Execution (Multi-Turn)',
+                  checked: defaultForExecution,
+                  onChange: setDefaultForExecution,
+                },
+              ].map(({ label, checked, onChange }) => (
+                <Box
+                  key={label}
+                  sx={{
+                    borderTop: 1,
+                    borderColor: theme => theme.palette.greyscale.border,
+                    pt: '20px',
+                    pb: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 16,
+                      lineHeight: '24px',
+                      color: theme => theme.palette.greyscale.title,
+                    }}
+                  >
+                    {label}
+                  </Typography>
                   <Switch
-                    checked={defaultForGeneration}
-                    onChange={e => setDefaultForGeneration(e.target.checked)}
+                    checked={checked}
+                    onChange={e => onChange(e.target.checked)}
+                    size="small"
                   />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Default for Test Generation
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Use this model when generating new test cases
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={defaultForEvaluation}
-                    onChange={e => setDefaultForEvaluation(e.target.checked)}
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Default for Evaluation (LLM as Judge)
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Use this model when running metrics and evaluations
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={defaultForExecution}
-                    onChange={e => setDefaultForExecution(e.target.checked)}
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Default for Execution (Multi-Turn)
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Use this model for multi-turn test execution with Penelope
-                    </Typography>
-                  </Box>
-                }
-              />
+                </Box>
+              ))}
             </>
           )}
           {modelType === 'embedding' && (
-            <Typography variant="caption" color="text.secondary">
-              The default embedding model is managed by the platform and cannot
-              be changed here. Connect embedding models so the platform can use
-              them where needed.
-            </Typography>
+            <Box
+              sx={{
+                borderTop: 1,
+                borderColor: theme => theme.palette.greyscale.border,
+                pt: '20px',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  lineHeight: '22px',
+                  color: theme => theme.palette.greyscale.subtitle,
+                }}
+              >
+                The default embedding model is managed by the platform and
+                cannot be changed here. Connect embedding models so the platform
+                can use them where needed.
+              </Typography>
+            </Box>
           )}
-        </Stack>
+        </Box>
       </Box>
-    </Stack>
+    </Box>
   );
 });
