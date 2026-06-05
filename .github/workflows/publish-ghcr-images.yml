@@ -1,0 +1,201 @@
+name: "[Build] Docker GitHub Container Registry"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: rhesis-ai
+
+jobs:
+  backend:
+    name: Build backend + worker (${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - arch: amd64
+            os: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            os: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Backend builds first; the shared base-build/build-backend/base-runtime
+      # stages it produces stay warm in the local BuildKit cache so the worker
+      # build below reuses them instead of rebuilding from scratch.
+      - name: Build backend by digest
+        id: build-backend
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          target: backend
+          platforms: ${{ matrix.platform.os }}
+          provenance: false
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/backend,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Build worker by digest
+        id: build-worker
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          target: worker
+          platforms: ${{ matrix.platform.os }}
+          provenance: false
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/worker,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digests
+        run: |
+          mkdir -p "${{ runner.temp }}/digests/backend" "${{ runner.temp }}/digests/worker"
+          backend_digest="${{ steps.build-backend.outputs.digest }}"
+          worker_digest="${{ steps.build-worker.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/backend/${backend_digest#sha256:}"
+          touch "${{ runner.temp }}/digests/worker/${worker_digest#sha256:}"
+
+      - name: Upload backend digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-backend-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/backend/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload worker digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-worker-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/worker/*
+          if-no-files-found: error
+          retention-days: 1
+
+  frontend:
+    name: Build frontend (${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - arch: amd64
+            os: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            os: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    env:
+      FRONTEND_ENV: local
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build frontend by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/frontend/Dockerfile
+          platforms: ${{ matrix.platform.os }}
+          provenance: false
+          build-args: |
+            FRONTEND_ENV=${{ env.FRONTEND_ENV }}
+            NEXT_PUBLIC_API_BASE_URL=${{ env.NEXT_PUBLIC_API_BASE_URL }}
+            GIT_BRANCH=${{ github.ref_name }}
+            GIT_COMMIT=${{ github.sha }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-frontend-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge ${{ matrix.image }} manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - backend
+      - frontend
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - backend
+          - worker
+          - frontend
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
