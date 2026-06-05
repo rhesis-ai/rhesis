@@ -19,7 +19,7 @@ on:
         type: string
 
 concurrency:
-  group: k8s-build-${{ github.workflow }}-${{ github.event.inputs.environment }}
+  group: k8s-deploy-all-${{ github.event.inputs.environment }}
   cancel-in-progress: false
 
 jobs:
@@ -48,7 +48,7 @@ jobs:
     uses: ./.github/workflows/backend-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -57,7 +57,7 @@ jobs:
     uses: ./.github/workflows/worker-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -66,7 +66,7 @@ jobs:
     uses: ./.github/workflows/frontend-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -75,7 +75,7 @@ jobs:
     uses: ./.github/workflows/docs-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -84,7 +84,7 @@ jobs:
     uses: ./.github/workflows/chatbot-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -93,7 +93,7 @@ jobs:
     uses: ./.github/workflows/polyphemus-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -102,7 +102,7 @@ jobs:
     uses: ./.github/workflows/otel-collector-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
@@ -111,7 +111,7 @@ jobs:
     uses: ./.github/workflows/telemetry-processor-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      tag: ${{ github.event.inputs.tag }}
+      tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
