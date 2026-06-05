@@ -244,7 +244,7 @@ export default function ExperimentsClientWrapper({
       const items = [];
       if (searchQuery.trim()) {
         items.push({
-          field: '__search__',
+          field: '__quickFilter__',
           operator: 'contains',
           value: searchQuery.trim(),
         });
@@ -394,7 +394,10 @@ export default function ExperimentsClientWrapper({
         </FabGroup>
       }
     >
-      {!loading && experiments.length === 0 && !filterModel.items.length ? (
+      {!loading &&
+      experiments.length === 0 &&
+      !searchQuery.trim() &&
+      !visibilityFilter ? (
         <Paper
           elevation={0}
           sx={{

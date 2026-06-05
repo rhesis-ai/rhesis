@@ -1339,6 +1339,7 @@ export default function BaseDataGrid({
                   {...(rowSelectionModel !== undefined && {
                     rowSelectionModel,
                   })}
+                  {...(isRowSelectable && { isRowSelectable })}
                   {...(disableRowSelectionOnClick && {
                     disableRowSelectionOnClick,
                   })}

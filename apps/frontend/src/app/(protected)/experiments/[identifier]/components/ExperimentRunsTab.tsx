@@ -12,7 +12,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import {
   GridColDef,
   GridRenderCellParams,
@@ -24,7 +23,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import GridToolbar from '@/components/common/GridToolbar';
 import SectionCard from '@/components/common/SectionCard';
 import ViewField from '@/components/common/ViewField';
-import { ArrowOutwardIcon } from '@/components/icons';
+import { ArrowOutwardIcon, PlayArrowIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentResultsRunItem,
@@ -315,18 +314,28 @@ export default function ExperimentRunsTab({
               searchPlaceholder="Search runs…"
               sx={{ px: 0, pt: 0, pb: '24px' }}
             />
-            <BaseDataGrid
-              rows={filteredRuns}
-              columns={columns}
-              getRowId={row => row.id}
-              disableRowSelectionOnClick
-              onRowClick={(params: GridRowParams<ExperimentResultsRunItem>) =>
-                setDrawerRun(params.row)
-              }
-              hideFooter={filteredRuns.length <= 25}
-              disablePaperWrapper
-              sx={{ cursor: 'pointer' }}
-            />
+            {filteredRuns.length === 0 ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ py: 4, textAlign: 'center' }}
+              >
+                No runs match your search.
+              </Typography>
+            ) : (
+              <BaseDataGrid
+                rows={filteredRuns}
+                columns={columns}
+                getRowId={row => row.id}
+                disableRowSelectionOnClick
+                onRowClick={(params: GridRowParams<ExperimentResultsRunItem>) =>
+                  setDrawerRun(params.row)
+                }
+                hideFooter={filteredRuns.length <= 25}
+                disablePaperWrapper
+                sx={{ cursor: 'pointer' }}
+              />
+            )}
           </>
         )}
       </SectionCard>

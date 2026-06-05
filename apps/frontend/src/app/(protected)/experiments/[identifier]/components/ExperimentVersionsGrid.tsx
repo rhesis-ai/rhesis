@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Divider,
   Stack,
   Table,
@@ -19,7 +18,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
 import {
   GridColDef,
   GridRenderCellParams,
@@ -30,7 +28,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import GridToolbar from '@/components/common/GridToolbar';
 import SectionCard from '@/components/common/SectionCard';
 import ViewField from '@/components/common/ViewField';
-import { PromoteIcon } from '@/components/icons';
+import { PlayArrowIcon, PromoteIcon, SaveIcon } from '@/components/icons';
 import {
   ExperimentDetail,
   ExperimentVersion,
@@ -73,8 +71,8 @@ interface ExperimentVersionsGridProps {
   projectEnvironments: ProjectEnvironments | null;
   canPromote: boolean;
   onPromoteVersion: (version: string) => void;
-  /** Called when user clicks "Run this version" in the detail drawer — pre-seeds RunDrawer */
-  onSelectionChange: (hashes: Set<string>) => void;
+  /** Called when user clicks "Run this version" — pre-seeds the RunDrawer with this version hash */
+  onRunVersion: (versionHash: string) => void;
   /** Opens the "Add configuration" drawer in the parent */
   onAddConfiguration?: () => void;
 }
@@ -85,7 +83,7 @@ export default function ExperimentVersionsGrid({
   projectEnvironments,
   canPromote,
   onPromoteVersion,
-  onSelectionChange,
+  onRunVersion,
   onAddConfiguration,
 }: ExperimentVersionsGridProps) {
   const [drawerVersion, setDrawerVersion] = useState<ExperimentVersion | null>(
@@ -252,6 +250,14 @@ export default function ExperimentVersionsGrid({
             No versions yet. Use &quot;Add configuration&quot; to define values
             and save the first immutable version.
           </Alert>
+        ) : filteredVersions.length === 0 ? (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ py: 4, textAlign: 'center' }}
+          >
+            No versions match your search.
+          </Typography>
         ) : (
           <BaseDataGrid
             rows={filteredVersions}
@@ -289,6 +295,10 @@ export default function ExperimentVersionsGrid({
               onPromoteVersion(drawerVersion.version);
               setDrawerVersion(null);
             }}
+            onRunVersion={() => {
+              onRunVersion(drawerVersion.version);
+              setDrawerVersion(null);
+            }}
           />
         )}
       </BaseDrawer>
@@ -303,6 +313,7 @@ function DrawerContent({
   envNames,
   canPromote,
   onPromote,
+  onRunVersion,
 }: {
   version: ExperimentVersion;
   previousVersion: ExperimentVersion | undefined;
@@ -310,6 +321,7 @@ function DrawerContent({
   envNames: string[];
   canPromote: boolean;
   onPromote: () => void;
+  onRunVersion: () => void;
 }) {
   return (
     <Stack spacing={3}>
@@ -430,6 +442,15 @@ function DrawerContent({
 
       <Divider />
 
+      <Button
+        variant="contained"
+        startIcon={<PlayArrowIcon />}
+        onClick={onRunVersion}
+        fullWidth
+      >
+        Run this version
+      </Button>
+
       <Tooltip
         title={
           canPromote
@@ -450,15 +471,5 @@ function DrawerContent({
         </span>
       </Tooltip>
     </Stack>
-  );
-}
-
-// Re-export for use in the loading state
-export function VersionsGridSkeleton() {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 4 }}>
-      <CircularProgress size={20} />
-      <Typography color="text.secondary">Loading versions...</Typography>
-    </Box>
   );
 }

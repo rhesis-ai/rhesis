@@ -78,7 +78,7 @@ export default function ExperimentOverviewTab({
       if (Object.keys(patch).length === 0) return;
       const client = apiFactory.getParametersClient();
       const updated = await client.patchExperiment(experiment.id, patch);
-      onUpdated(updated as unknown as ExperimentDetail);
+      onUpdated({ ...experiment, ...(updated as Partial<ExperimentDetail>) });
       notifications.show('Experiment updated', { severity: 'success' });
     },
     [apiFactory, experiment, notifications, onUpdated]

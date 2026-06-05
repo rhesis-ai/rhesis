@@ -77,8 +77,11 @@ export default function TypedValueEditor({
           value={current}
           onChange={e => {
             const v = e.target.value;
+            const parsed = parseInt(v, 10);
             onChange(
-              v === '' ? null : { type: 'integer', value: parseInt(v, 10) }
+              v === '' || Number.isNaN(parsed)
+                ? null
+                : { type: 'integer', value: parsed }
             );
           }}
           inputProps={{ step: 1, lang: 'en-US' }}
@@ -95,8 +98,11 @@ export default function TypedValueEditor({
           value={current}
           onChange={e => {
             const v = e.target.value;
+            const parsed = parseFloat(v);
             onChange(
-              v === '' ? null : { type: 'number', value: parseFloat(v) }
+              v === '' || Number.isNaN(parsed)
+                ? null
+                : { type: 'number', value: parsed }
             );
           }}
           inputProps={{ step: 'any', lang: 'en-US' }}
@@ -146,7 +152,7 @@ export default function TypedValueEditor({
           ? value.value
           : '';
       return (
-        <FormControl sx={{ minWidth: 220 }}>
+        <FormControl fullWidth>
           <InputLabel>{label}</InputLabel>
           <Select
             label={label}
@@ -165,6 +171,15 @@ export default function TypedValueEditor({
               </MenuItem>
             ))}
           </Select>
+          {helper && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.5, px: '14px' }}
+            >
+              {helper}
+            </Typography>
+          )}
         </FormControl>
       );
     }

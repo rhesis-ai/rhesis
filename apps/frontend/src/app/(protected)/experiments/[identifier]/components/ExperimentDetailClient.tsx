@@ -6,7 +6,6 @@ import {
   Alert,
   Box,
   CircularProgress,
-  Divider,
   FormHelperText,
   IconButton,
   Stack,
@@ -14,7 +13,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useRouter } from 'next/navigation';
 import {
   PageLayout,
   type BreadcrumbItem,
@@ -83,7 +81,6 @@ export default function ExperimentDetailClient({
   experimentId,
   sessionToken,
 }: ExperimentDetailClientProps) {
-  const router = useRouter();
   const notifications = useNotifications();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
@@ -158,8 +155,8 @@ export default function ExperimentDetailClient({
     []
   );
 
-  const handleSaveVersion = useCallback(async () => {
-    if (!experiment || !schema) return;
+  const handleSaveVersion = useCallback(async (): Promise<boolean> => {
+    if (!experiment || !schema) return false;
     setSaving(true);
     try {
       const payloadValues: Record<string, unknown> = {};
@@ -174,11 +171,13 @@ export default function ExperimentDetailClient({
       notifications.show('Version saved', { severity: 'success' });
       setMessage('');
       await refresh({ silent: true });
+      return true;
     } catch (e) {
       notifications.show(
         e instanceof Error ? e.message : 'Failed to save version',
         { severity: 'error' }
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -202,7 +201,9 @@ export default function ExperimentDetailClient({
       const updated = await client.patchExperiment(experiment.id, {
         name: trimmed,
       });
-      setExperiment(updated as unknown as ExperimentDetail);
+      setExperiment(prev =>
+        prev ? { ...prev, ...(updated as Partial<ExperimentDetail>) } : null
+      );
       notifications.show('Experiment renamed', { severity: 'success' });
       setRenameOpen(false);
     } catch (e) {
@@ -251,13 +252,6 @@ export default function ExperimentDetailClient({
       { label: experiment.name || 'Experiment' },
     ];
   }, [experiment]);
-
-  const environmentsForExperiment = useMemo(() => {
-    if (!environments || !experiment) return [] as string[];
-    return Object.entries(environments.environments)
-      .filter(([, ptr]) => ptr !== null && ptr.experiment_id === experiment.id)
-      .map(([name]) => name);
-  }, [environments, experiment]);
 
   if (loading) {
     return (
@@ -374,11 +368,9 @@ export default function ExperimentDetailClient({
             projectEnvironments={environments}
             canPromote={isShared}
             onPromoteVersion={version => handlePromote(version)}
-            onSelectionChange={hashes => {
-              setSelectedVersionHashes(hashes);
-              if (hashes.size > 0) {
-                setRunDrawerOpen(true);
-              }
+            onRunVersion={versionHash => {
+              setSelectedVersionHashes(new Set([versionHash]));
+              setRunDrawerOpen(true);
             }}
             onAddConfiguration={() => setConfigDrawerOpen(true)}
           />
@@ -444,8 +436,8 @@ export default function ExperimentDetailClient({
         onClose={() => setConfigDrawerOpen(false)}
         title="Add configuration"
         onSave={async () => {
-          await handleSaveVersion();
-          setConfigDrawerOpen(false);
+          const ok = await handleSaveVersion();
+          if (ok) setConfigDrawerOpen(false);
         }}
         saveButtonText={saving ? 'Saving...' : 'Save as new version'}
         saveDisabled={saving || schema.fields.length === 0}
