@@ -3,12 +3,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import capability
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.principal import resolve_principal
+from rhesis.backend.app.auth.rbac import authorize
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
@@ -188,8 +190,8 @@ async def read_users(
 
 @router.get("/settings", response_model=UserSettings)
 def get_user_settings(
-    db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Get current user's settings and verification status.
@@ -213,8 +215,8 @@ def get_user_settings(
 @handle_database_exceptions(entity_name="user settings")
 def update_user_settings(
     settings_update: UserSettingsUpdate,
-    db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Update user settings with partial data (deep merge).
@@ -319,8 +321,8 @@ def delete_user(
 
 @router.patch("/leave-organization", response_model=schemas.User)
 def leave_organization(
-    db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Allow a user to leave their current organization.
@@ -386,9 +388,12 @@ def update_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found or not accessible")
 
-    # Only allow users to update their own profile or superusers to update any profile
-    if str(db_user.id) != str(current_user.id) and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Not authorized to update this user")
+    # Only allow users to update their own profile, or an org owner (member:manage) to update
+    # any profile within their org.  is_superuser is no longer an authorization primitive.
+    if str(db_user.id) != str(current_user.id):
+        principal = resolve_principal(current_user)
+        if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
+            raise HTTPException(status_code=403, detail="Not authorized to update this user")
 
     # Update the user
     updated_user = crud.update_user(db, user_id=user_id, user=user)
@@ -406,11 +411,11 @@ def update_user(
     return updated_user
 
 
-@router.post("/request-polyphemus-access", response_model=PolyphemusAccessResponse, **capability("member:update"))
+@router.post("/request-polyphemus-access", response_model=PolyphemusAccessResponse, **capability(Permission.Member.UPDATE))
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,
-    db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Request access to the Polyphemus adversarial model.
