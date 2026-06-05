@@ -15,6 +15,7 @@ jobs:
   backend:
     name: Build backend + worker (${{ matrix.platform.arch }})
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -93,6 +94,7 @@ jobs:
   frontend:
     name: Build frontend (${{ matrix.platform.arch }})
     runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -155,6 +157,7 @@ jobs:
   merge:
     name: Merge ${{ matrix.image }} manifest
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs:
       - backend
       - frontend
