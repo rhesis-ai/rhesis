@@ -374,7 +374,119 @@ class TestProjectMembersAPI:
 
 
 # ---------------------------------------------------------------------------
-# 4. Enrollment service invariants
+# 4. By-ID project access — membership enforcement (IDOR fix, SP0)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.routes
+class TestProjectByIdMembershipEnforcement:
+    """GET / PUT / DELETE /projects/{id} must require project membership.
+
+    Before SP0 the by-ID handlers called crud.get_project() which filtered
+    by organisation only, not by membership.  Any org member who knew a project
+    UUID could read, update, or delete it (IDOR).  This class verifies that
+    the gap is closed — non-members receive 404 on all three verbs, while
+    actual members continue to work normally.
+    """
+
+    # --- GET ---
+
+    def test_non_member_get_by_id_returns_404(
+        self, authenticated_client, test_db, test_org_id
+    ):
+        """A user who is NOT enrolled cannot read a project by ID (404)."""
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.get(f"/projects/{project.id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_member_get_by_id_returns_200(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An enrolled user can still read a project by ID (200)."""
+        project = _make_project(test_db, test_org_id)
+        _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.get(f"/projects/{project.id}")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] == str(project.id)
+
+    # --- PUT ---
+
+    def test_non_member_put_by_id_returns_404(
+        self, authenticated_client, test_db, test_org_id
+    ):
+        """A user who is NOT enrolled cannot update a project by ID (404)."""
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.put(
+            f"/projects/{project.id}",
+            json={"name": "hijacked name"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_member_put_by_id_returns_200(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An enrolled user can still update a project by ID (200)."""
+        project = _make_project(test_db, test_org_id)
+        _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.put(
+            f"/projects/{project.id}",
+            json={"name": project.name, "description": "updated by member"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    # --- DELETE ---
+
+    def test_non_member_delete_by_id_returns_404(
+        self, authenticated_client, test_db, test_org_id
+    ):
+        """A user who is NOT enrolled cannot delete a project by ID (404)."""
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.delete(f"/projects/{project.id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_member_delete_by_id_returns_200(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An enrolled user can still delete a project by ID (200)."""
+        project = _make_project(test_db, test_org_id)
+        _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.delete(f"/projects/{project.id}")
+        assert response.status_code == status.HTTP_200_OK
+
+    # --- Unknown project ---
+
+    def test_unknown_project_id_returns_404(self, authenticated_client):
+        """A completely unknown project UUID returns 404 (no info leak)."""
+        response = authenticated_client.get(f"/projects/{uuid.uuid4()}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    # --- Parameters sub-router (_load_project) ---
+
+    def test_non_member_parameters_schema_returns_404(
+        self, authenticated_client, test_db, test_org_id
+    ):
+        """GET /projects/{id}/parameters/schema is also membership-gated (_load_project)."""
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.get(f"/projects/{project.id}/parameters/schema")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ---------------------------------------------------------------------------
+# 5. Enrollment service invariants
 # ---------------------------------------------------------------------------
 
 
