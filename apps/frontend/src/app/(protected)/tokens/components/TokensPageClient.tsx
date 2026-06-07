@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Button,
+  Paper,
   Typography,
   Dialog,
   DialogTitle,
@@ -13,17 +14,16 @@ import {
   IconButton,
   Alert,
 } from '@mui/material';
-import GridToolbar, {
-  ToolbarPillTabs,
-  directoryToolbarSx,
-} from '@/components/common/GridToolbar';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import TokensGrid from './TokensGrid';
+import TokensGrid, {
+  TokensToolbarContext,
+  type TokenStatusFilter,
+  type TokensToolbarState,
+} from './TokensGrid';
 import CreateTokenDrawer from './CreateTokenDrawer';
 import TokenDisplay from './TokenDisplay';
 import TokenFilterDrawer, {
   type TokenFilters,
-  type TokenStatusFilter,
   EMPTY_TOKEN_FILTERS,
   hasActiveTokenFilters,
   countActiveTokenFilters,
@@ -35,12 +35,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
-
-const STATUS_OPTIONS: { value: TokenStatusFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'expired', label: 'Expired' },
-];
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface TokensPageClientProps {
   sessionToken: string;
@@ -214,6 +209,27 @@ export default function TokensPageClient({
     }
   }, [filteredTokens.length, paginationModel.page, paginationModel.pageSize]);
 
+  // ── Toolbar context value ────────────────────────────────────────────────────
+
+  const toolbarContextValue: TokensToolbarState = useMemo(
+    () => ({
+      searchQuery: search,
+      setSearchQuery: (v: string) => {
+        setSearch(v);
+        setPaginationModel(prev => ({ ...prev, page: 0 }));
+      },
+      statusFilter,
+      setStatusFilter: (v: TokenStatusFilter) => {
+        setStatusFilter(v);
+        setPaginationModel(prev => ({ ...prev, page: 0 }));
+      },
+      openFilterDrawer: () => setFilterDrawerOpen(true),
+      hasActiveDrawerFilters: hasActiveTokenFilters(drawerFilters),
+      activeFilterCount: countActiveTokenFilters(drawerFilters),
+    }),
+    [search, statusFilter, drawerFilters]
+  );
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -232,29 +248,6 @@ export default function TokensPageClient({
         </FabGroup>
       }
     >
-      <GridToolbar
-        searchQuery={search}
-        onSearchChange={v => {
-          setSearch(v);
-          setPaginationModel(prev => ({ ...prev, page: 0 }));
-        }}
-        searchPlaceholder="Search tokens…"
-        onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
-        activeFilterCount={countActiveTokenFilters(drawerFilters)}
-        sx={directoryToolbarSx}
-        middleContent={
-          <ToolbarPillTabs
-            tabs={STATUS_OPTIONS}
-            activeValue={statusFilter}
-            onChange={v => {
-              setStatusFilter(v as TokenStatusFilter);
-              setPaginationModel(prev => ({ ...prev, page: 0 }));
-            }}
-          />
-        }
-      />
-
       {/* Error state */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -265,6 +258,7 @@ export default function TokensPageClient({
       {/* Empty state vs grid */}
       {!loading && tokens.length === 0 ? (
         <EntityEmptyState
+          card
           icon={VpnKeyIcon}
           title="No API tokens yet"
           description="Create your first API token to start interacting with the Rhesis API. Tokens allow you to authenticate your applications and build powerful integrations."
@@ -273,6 +267,8 @@ export default function TokensPageClient({
         />
       ) : !loading && filteredTokens.length === 0 && hasActiveFilters ? (
         <EntityEmptyState
+          card
+          showAddIcon={false}
           icon={VpnKeyIcon}
           title="No tokens match your filters"
           description="Try adjusting your search or filters to find the tokens you're looking for."
@@ -284,15 +280,28 @@ export default function TokensPageClient({
           }}
         />
       ) : (
-        <TokensGrid
-          tokens={filteredTokens}
-          onRefreshToken={handleRefreshToken}
-          onDeleteToken={handleDeleteToken}
-          loading={loading}
-          totalCount={filteredTokens.length}
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-        />
+        <Paper
+          elevation={0}
+          sx={{
+            width: '100%',
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: ELEVATION.xs,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TokensToolbarContext.Provider value={toolbarContextValue}>
+            <TokensGrid
+              tokens={filteredTokens}
+              onRefreshToken={handleRefreshToken}
+              onDeleteToken={handleDeleteToken}
+              loading={loading}
+              totalCount={filteredTokens.length}
+              paginationModel={paginationModel}
+              onPaginationModelChange={setPaginationModel}
+            />
+          </TokensToolbarContext.Provider>
+        </Paper>
       )}
 
       {/* Modals & dialogs */}
