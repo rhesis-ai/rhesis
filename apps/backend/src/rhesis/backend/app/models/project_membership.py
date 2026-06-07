@@ -16,6 +16,11 @@ class ProjectMembership(Base):
     Created automatically when:
     - A user creates a project (auto-enrolled as owner)
     - A user is invited to an organization that has a Default Project
+
+    ``role_id`` is a nullable FK placeholder for the EE role table added in SP8.
+    While NULL the community DefaultAuthorizationProvider treats the row as a
+    plain binary membership (member vs. not).  The EE PermissionAuthorizationProvider
+    reads this column to resolve the caller's effective project role.
     """
 
     __tablename__ = "project_membership"
@@ -36,6 +41,11 @@ class ProjectMembership(Base):
         GUID(),
         ForeignKey("organization.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    role_id = Column(
+        GUID(),
+        nullable=True,
         index=True,
     )
 

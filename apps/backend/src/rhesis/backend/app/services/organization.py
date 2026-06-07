@@ -104,11 +104,37 @@ def _reassign_default_project_if_removed(
     flag_modified(user, "user_settings")
 
 
+_logger = logging.getLogger(__name__)
+
+
+def _bust_permission_cache(user_id: uuid.UUID, organization_id: uuid.UUID) -> None:
+    """Bust the permission cache for *user_id* within *organization_id*.
+
+    Called after any project-membership write so the next ``authorize()`` call
+    re-evaluates against the database rather than returning a stale cached result.
+    Failures are logged but never re-raised — a cache-bust error degrades to
+    relying on the TTL, not to a service error.
+    """
+    try:
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        get_permission_cache().bust_user(user_id, organization_id)
+    except Exception as exc:  # pragma: no cover
+        _logger.warning(
+            "permission cache bust failed for user %s org %s (non-fatal): %s",
+            user_id,
+            organization_id,
+            exc,
+        )
+
+
 def enroll_user_in_project(
     db: Session,
     user_id: uuid.UUID,
     project_id: uuid.UUID,
     organization_id: uuid.UUID,
+    *,
+    role_id: Optional[uuid.UUID] = None,
 ) -> None:
     """Enroll a user in a project and set their default_project if unset.
 
@@ -117,17 +143,26 @@ def enroll_user_in_project(
     ``uq_project_membership_project_user`` silently absorbs the duplicate rather
     than raising an IntegrityError.
 
+    ``role_id`` is an optional FK placeholder for the EE role table (SP8).  In
+    community mode it is always ``None`` (binary membership).  Phase 2 will pass
+    a real role UUID here when inviting users with an explicit role.
+
     Executes the INSERT immediately within the current transaction; the caller is
     still responsible for committing (or rolling back).
+
+    Busts the permission cache for *user_id* so the next ``authorize()`` call
+    re-evaluates against the database (plan §1.6 / §8b revocation requirement).
     """
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+    # role_id is nullable; passing None inserts a binary (no-role) membership.
     stmt = (
         pg_insert(models.ProjectMembership)
         .values(
             project_id=project_id,
             user_id=user_id,
             organization_id=organization_id,
+            role_id=role_id,
         )
         .on_conflict_do_nothing(constraint="uq_project_membership_project_user")
     )
@@ -137,6 +172,8 @@ def enroll_user_in_project(
     # project/org filter so the user and project are always found.
     with bypass_tenant_filter():
         _set_default_project_if_empty(db, user_id, project_id)
+
+    _bust_permission_cache(user_id, organization_id)
 
 
 def unenroll_user_from_project(
@@ -155,6 +192,9 @@ def unenroll_user_from_project(
 
     Returns True if a membership was removed, False if none existed. Does NOT
     commit; the caller is responsible for committing.
+
+    Busts the permission cache for *user_id* so the revocation takes effect on
+    the next ``authorize()`` call rather than waiting out the TTL (plan §8b).
     """
     with bypass_tenant_filter():
         # Self-removal guard — checked here so non-HTTP callers also get the protection.
@@ -182,6 +222,8 @@ def unenroll_user_from_project(
         # unique constraint would otherwise block re-enrolling the same user.
         db.delete(membership)
         _reassign_default_project_if_removed(db, user_id, project_id, organization_id)
+
+    _bust_permission_cache(user_id, organization_id)
     return True
 
 
@@ -197,6 +239,8 @@ def unenroll_all_project_members(
     membership table, so without this the rows are orphaned and users keep a
     default_project pointing at a dead project. Returns the number of memberships
     removed. Does NOT commit; the caller is responsible for committing.
+
+    Busts the permission cache for every removed member (plan §8b).
     """
     with bypass_tenant_filter():
         memberships = (
@@ -212,6 +256,10 @@ def unenroll_all_project_members(
         db.flush()
         for user_id in user_ids:
             _reassign_default_project_if_removed(db, user_id, project_id, organization_id)
+
+    for user_id in user_ids:
+        _bust_permission_cache(user_id, organization_id)
+
     return len(user_ids)
 
 

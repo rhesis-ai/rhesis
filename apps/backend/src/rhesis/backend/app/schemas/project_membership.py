@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from pydantic import UUID4, BaseModel, ConfigDict
 
@@ -6,6 +7,7 @@ from pydantic import UUID4, BaseModel, ConfigDict
 class ProjectMemberCreate(BaseModel):
     user_id: UUID4
     role: Optional[str] = "member"
+    role_id: Optional[UUID] = None
 
 
 class ProjectMemberUser(BaseModel):
@@ -26,4 +28,5 @@ class ProjectMember(BaseModel):
     user_id: UUID4
     organization_id: UUID4
     role: Optional[str] = "member"
+    role_id: Optional[UUID] = None
     user: Optional[ProjectMemberUser] = None

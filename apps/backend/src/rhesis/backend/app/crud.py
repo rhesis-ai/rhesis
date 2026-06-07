@@ -1976,9 +1976,18 @@ def get_organizations(
 
 
 def create_organization(
-    db: Session, organization: schemas.OrganizationCreate
+    db: Session,
+    organization: schemas.OrganizationCreate,
+    owner_user_id: Optional[UUID] = None,
 ) -> models.Organization:
-    """Create a new organization without RLS checks, because we're creating a new organization"""
+    """Create a new organization without RLS checks, because we're creating a new organization.
+
+    When *owner_user_id* is supplied (always the case on the HTTP path) it overrides any
+    client-supplied ``owner_id``/``user_id`` values in the schema, making the backend
+    authoritative for org ownership (SP3 decision — server-set, cannot be forged).
+    Internal callers such as ``local_init.py`` that already supply the correct IDs in the
+    schema may pass ``owner_user_id=None`` to preserve the existing behaviour.
+    """
     # Print session variables before reset
     before_vars = get_session_variables(db)
     logger.info(f"Session variables BEFORE reset: {before_vars}")
@@ -1995,6 +2004,12 @@ def create_organization(
 
     # Convert Pydantic model to dict; project_id is not a column on Organization
     org_data = organization.model_dump(exclude={"project_id"})
+
+    # Backend is authoritative for ownership when owner_user_id is provided.
+    if owner_user_id is not None:
+        org_data["owner_id"] = str(owner_user_id)
+        org_data["user_id"] = str(owner_user_id)
+
     db_org = models.Organization(**org_data)
 
     # Add to session - transaction management is handled by context manager
@@ -2689,11 +2704,16 @@ def add_project_member(
     project_id: uuid.UUID,
     user_id: uuid.UUID,
     organization_id: str,
+    *,
+    role_id: Optional[uuid.UUID] = None,
 ) -> models.ProjectMembership:
     """Add a user as a project member. No-op (returns existing) if already a member.
 
     Routes through the centralized enroll_user_in_project routine so that membership
     creation and default-project assignment stay consistent with onboarding.
+
+    ``role_id`` is an optional FK placeholder for the EE role table (SP8).  Passes
+    through to ``enroll_user_in_project``; community callers leave it ``None``.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
@@ -2706,7 +2726,7 @@ def add_project_member(
     if existing:
         return existing
 
-    enroll_user_in_project(db, user_id, project_id, organization_id)
+    enroll_user_in_project(db, user_id, project_id, organization_id, role_id=role_id)
     db.commit()
 
     with bypass_tenant_filter():
@@ -2719,7 +2739,7 @@ def remove_project_member(
     user_id: uuid.UUID,
     organization_id: str,
     *,
-    requester_user_id: uuid.UUID = None,
+    requester_user_id: Optional[uuid.UUID] = None,
 ) -> bool:
     """Remove a user from a project. Returns True if removed, False if not found.
 
