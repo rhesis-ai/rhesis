@@ -296,6 +296,9 @@ const getDesignTokens = (mode: PaletteMode) => {
             '& .MuiSvgIcon-root': {
               color: mode === 'light' ? gs.body : '#FFFFFF',
             },
+            '& .MuiAvatar-root .MuiSvgIcon-root': {
+              color: 'inherit',
+            },
             '& .MuiButton-icon .MuiSvgIcon-root, & .MuiButton-startIcon .MuiSvgIcon-root, & .MuiButton-endIcon .MuiSvgIcon-root':
               {
                 color: 'inherit',

@@ -1,6 +1,38 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme';
 
+/** 40px gap between top-level drawer sections (Figma "Drawer Create" Section spacing). */
+export const drawerSectionSx: SxProps<Theme> = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '40px',
+};
+
+/** 30px gap between fields within a section. */
+export const drawerFieldsSx: SxProps<Theme> = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '30px',
+};
+
+/**
+ * Full-width outlined "Add …" button — border-2 primary, radius sm, 14px/700.
+ * Matches the Figma "Button / Outlined / Medium" used inside drawer sections.
+ */
+export const drawerOutlineButtonSx: SxProps<Theme> = {
+  borderWidth: 2,
+  borderColor: 'primary.main',
+  color: 'primary.main',
+  fontWeight: 700,
+  fontSize: 14,
+  lineHeight: '22px',
+  borderRadius: BORDER_RADIUS.sm,
+  px: '16px',
+  py: '8px',
+  textTransform: 'none',
+  '&:hover': { borderWidth: 2 },
+};
+
 /**
  * Figma outlined drawer field (node 1642:16790).
  * 56px control height: 16px vertical padding + 24px line-height content.

@@ -10,21 +10,22 @@ import {
   Button,
   IconButton,
   CircularProgress,
-  FormControl,
-  InputLabel,
   List,
   ListItemButton,
-  MenuItem,
-  Select,
-  Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
-import { BORDER_RADIUS } from '@/styles/theme';
+import {
+  drawerFieldsSx,
+  drawerOutlinedFieldSx,
+  drawerOutlineButtonSx,
+  drawerSectionSx,
+} from '@/components/common/drawerFormFieldSx';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
@@ -418,15 +419,25 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     };
 
     return (
-      <Box component="form" ref={ref} onSubmit={handleSubmit}>
-        <Stack spacing={2} sx={{ mb: embedded ? 0 : 3 }}>
-          {formData.invites.map((invite, index) => {
-            return (
+      <Box
+        component="form"
+        ref={ref}
+        onSubmit={handleSubmit}
+        sx={drawerSectionSx}
+      >
+        {/* Section A: Team members */}
+        <Box sx={drawerSectionSx}>
+          <FormSectionDivider
+            headline="Team members"
+            descriptiveText={`Invite up to ${MAX_TEAM_MEMBERS} colleagues to join your organization. Members without a project assigned see a no-access screen until an admin adds them.`}
+          />
+          <Box sx={drawerFieldsSx}>
+            {formData.invites.map((invite, index) => (
               <Box
                 key={invite.id}
                 display="flex"
                 alignItems="flex-start"
-                gap={2}
+                gap={1.5}
               >
                 <TextField
                   fullWidth
@@ -438,52 +449,43 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   helperText={errors[invite.id]?.message || ''}
                   placeholder="colleague@company.com"
                   variant="outlined"
-                  size="small"
+                  sx={drawerOutlinedFieldSx}
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
                 {formData.invites.length > 1 && (
                   <IconButton
                     onClick={() => removeEmailField(invite)}
                     color="error"
-                    size="small"
+                    sx={{ mt: '8px' }}
                   >
                     <DeleteIcon />
                   </IconButton>
                 )}
               </Box>
-            );
-          })}
+            ))}
 
-          <Box display="flex" justifyContent="flex-start">
             <Button
               startIcon={<AddIcon />}
               onClick={addEmailField}
               variant="outlined"
-              size="small"
+              fullWidth
               disabled={formData.invites.length >= MAX_TEAM_MEMBERS}
+              sx={drawerOutlineButtonSx}
             >
               {formData.invites.length >= MAX_TEAM_MEMBERS
                 ? `Maximum ${MAX_TEAM_MEMBERS} invites reached`
                 : 'Add Another Email'}
             </Button>
           </Box>
+        </Box>
 
+        {/* Section B: Project access */}
+        <Box sx={drawerSectionSx}>
+          <FormSectionDivider
+            headline="Project access"
+            descriptiveText="Invited users will only have access to the projects you select. Leave empty to invite without any project access — an admin can add them later."
+          />
           <Box>
-            <Typography
-              variant="subtitle2"
-              sx={{ mb: 0.5, color: 'text.primary' }}
-            >
-              Project access
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ mb: 1.5, color: 'text.secondary' }}
-            >
-              Invited users will only have access to the projects you select.
-              Leave empty to invite without any project access — an admin can
-              add them later.
-            </Typography>
-
             {availableProjects.length === 0 ? (
               <Typography variant="body2" color="text.disabled">
                 No projects available
@@ -494,14 +496,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   value={projectSearch}
                   onChange={e => setProjectSearch(e.target.value)}
                   placeholder="Search projects…"
-                  size="small"
                   fullWidth
-                  sx={{
-                    mb: 1,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: BORDER_RADIUS.sm,
-                    },
-                  }}
+                  sx={{ ...drawerOutlinedFieldSx, mb: 1 }}
                   slotProps={{
                     input: {
                       startAdornment: (
@@ -545,7 +541,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                             )
                           }
                           sx={{
-                            borderRadius: BORDER_RADIUS.md,
+                            borderRadius: '12px',
                             px: 1.5,
                             py: 1.25,
                             gap: theme => theme.spacing(1.5),
@@ -679,7 +675,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
               </Box>
             )}
           </Box>
-        </Stack>
+        </Box>
 
         {!embedded && (
           <Box display="flex" justifyContent="flex-end">
