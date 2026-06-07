@@ -15,7 +15,6 @@ import {
   MenuItem,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -33,11 +32,8 @@ import {
   ToolUpdate,
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
-import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
-import Link from '@mui/material/Link';
-
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -148,6 +144,13 @@ export function MCPConnectionDrawer({
   // A re-test is only required when this is true.
   const [credentialsModified, setCredentialsModified] = useState(false);
 
+  // Snapshot of non-credential fields when the drawer opens in edit mode,
+  // used to detect whether anything has actually changed.
+  const [initialName, setInitialName] = useState('');
+  const [initialDescription, setInitialDescription] = useState('');
+  const [initialRepositoryUrl, setInitialRepositoryUrl] = useState('');
+  const [initialSpaceKey, setInitialSpaceKey] = useState('');
+
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
 
@@ -212,6 +215,8 @@ export function MCPConnectionDrawer({
         // Edit mode: populate with existing tool data
         setName(tool.name || '');
         setDescription(tool.description || '');
+        setInitialName(tool.name || '');
+        setInitialDescription(tool.description || '');
         setAuthToken('************');
         setToolMetadata(
           tool.tool_metadata ? JSON.stringify(tool.tool_metadata, null, 2) : ''
@@ -224,10 +229,13 @@ export function MCPConnectionDrawer({
         ) {
           const repo = tool.tool_metadata.repository;
           if (repo.owner && repo.repo) {
-            setRepositoryUrl(`https://github.com/${repo.owner}/${repo.repo}`);
+            const repoUrl = `https://github.com/${repo.owner}/${repo.repo}`;
+            setRepositoryUrl(repoUrl);
+            setInitialRepositoryUrl(repoUrl);
           }
         } else {
           setRepositoryUrl('');
+          setInitialRepositoryUrl('');
         }
 
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
@@ -239,8 +247,10 @@ export function MCPConnectionDrawer({
         // Extract space_key from tool_metadata if it exists (for Jira)
         if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
           setSelectedSpaceKey(tool.tool_metadata.space_key);
+          setInitialSpaceKey(tool.tool_metadata.space_key);
         } else {
           setSelectedSpaceKey('');
+          setInitialSpaceKey('');
         }
         setAvailableSpaces([]);
         setShowSpaceSelector(false);
@@ -893,18 +903,19 @@ export function MCPConnectionDrawer({
     }
   };
 
-  // Determine icon and display name
-  const providerIconKey = provider?.type_value || 'custom';
-  const providerIcon = MCP_PROVIDER_ICONS[providerIconKey] || (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
-  );
-
   const displayName = provider?.type_value
     ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
     : 'MCP Provider';
 
+  const basicFieldsChanged =
+    isEditMode &&
+    (name !== initialName ||
+      description !== initialDescription ||
+      repositoryUrl !== initialRepositoryUrl ||
+      selectedSpaceKey !== initialSpaceKey);
+
   const saveDisabled =
-    !provider ||
+    (!provider && !tool?.tool_provider_type) ||
     !name ||
     (!isEditMode && !authToken) ||
     (!isEditMode &&
@@ -919,15 +930,22 @@ export function MCPConnectionDrawer({
     (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
     (!isEditMode && !connectionTested) ||
     (isEditMode && credentialsModified && !connectionTested) ||
+    (isEditMode && !credentialsModified && !basicFieldsChanged) ||
     loading ||
     !!jsonError;
+
+  const sectionHeadingSx = {
+    fontWeight: 700,
+    fontSize: '18px',
+    lineHeight: '25px',
+    color: 'text.primary',
+  } as const;
 
   return (
     <BaseDrawer
       open={open}
       onClose={onClose}
       title={isEditMode ? `Update ${displayName}` : `Connect ${displayName}`}
-      titleIcon={providerIcon}
       onSave={() => void handleSubmit()}
       saveDisabled={saveDisabled}
       saveButtonText={isEditMode ? 'Update' : 'Connect'}
@@ -935,21 +953,7 @@ export function MCPConnectionDrawer({
       error={error ?? undefined}
       width={640}
     >
-      <Stack spacing={2}>
-        <Typography variant="body2" color="text.secondary">
-          {isEditMode
-            ? 'Update your MCP connection settings'
-            : 'Configure your MCP connection settings below'}{' '}
-          <Link
-            href="https://docs.rhesis.ai/platform/mcp#provider-setup-instructions"
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ textDecoration: 'none' }}
-          >
-            (setup guide)
-          </Link>
-        </Typography>
-
+      <Stack spacing={5}>
         {!isEditMode && providers.length > 0 && (
           <FormControl fullWidth>
             <InputLabel id="mcp-provider-label">Provider</InputLabel>
@@ -974,14 +978,9 @@ export function MCPConnectionDrawer({
           </FormControl>
         )}
 
-        <Stack spacing={2}>
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}
-          >
-            Basic Configuration
-          </Typography>
-
+        {/* Basic Configuration */}
+        <Stack spacing={3}>
+          <Typography sx={sectionHeadingSx}>Basic Configuration</Typography>
           <TextField
             label="Connection Name"
             fullWidth
@@ -990,7 +989,6 @@ export function MCPConnectionDrawer({
             value={name}
             onChange={e => setName(e.target.value)}
           />
-
           <TextField
             label="Description"
             fullWidth
@@ -999,351 +997,329 @@ export function MCPConnectionDrawer({
             value={description}
             onChange={e => setDescription(e.target.value)}
           />
+        </Stack>
 
-          {requiresToken && (
-            <>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
-              >
-                Authentication
-              </Typography>
+        {/* Authentication */}
+        {requiresToken && (
+          <Stack spacing={3}>
+            <Typography sx={sectionHeadingSx}>Authentication</Typography>
 
-              {/* Jira/Confluence specific fields */}
-              {(providerType === 'jira' || providerType === 'confluence') && (
-                <>
-                  <TextField
-                    label="Atlassian Organization URL"
-                    fullWidth
-                    required={!isEditMode}
-                    value={instanceUrl}
-                    onChange={e => setInstanceUrl(e.target.value)}
-                    onFocus={_e => {
-                      // Clear placeholder when user clicks on field in edit mode
-                      if (isEditMode && instanceUrl === '************') {
-                        setInstanceUrl('');
-                      }
-                    }}
-                    onBlur={e => {
-                      // Restore placeholder if field is empty in edit mode
-                      if (isEditMode && !e.target.value) {
-                        setInstanceUrl('************');
-                      }
-                    }}
-                    placeholder={
-                      providerType === 'jira'
-                        ? 'https://your-domain.atlassian.net'
-                        : 'https://your-domain.atlassian.net/wiki'
+            {(providerType === 'jira' || providerType === 'confluence') && (
+              <>
+                <TextField
+                  label="Atlassian Organization URL"
+                  fullWidth
+                  required={!isEditMode}
+                  value={instanceUrl}
+                  onChange={e => setInstanceUrl(e.target.value)}
+                  onFocus={_e => {
+                    if (isEditMode && instanceUrl === '************') {
+                      setInstanceUrl('');
                     }
-                  />
-
-                  <TextField
-                    label="Email"
-                    fullWidth
-                    required={!isEditMode}
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
-                    onFocus={_e => {
-                      // Clear placeholder when user clicks on field in edit mode
-                      if (isEditMode && username === '************') {
-                        setUsername('');
-                      }
-                    }}
-                    onBlur={e => {
-                      // Restore placeholder if field is empty in edit mode
-                      if (isEditMode && !e.target.value) {
-                        setUsername('************');
-                      }
-                    }}
-                    placeholder="your-email@example.com"
-                  />
-                </>
-              )}
-
-              <TextField
-                label={
-                  providerType === 'jira' || providerType === 'confluence'
-                    ? 'API Token'
-                    : 'Authentication token'
-                }
-                fullWidth
-                required={!isEditMode}
-                type={showAuthToken ? 'text' : 'password'}
-                value={authToken}
-                onChange={e => setAuthToken(e.target.value)}
-                onFocus={_e => {
-                  // Clear placeholder when user clicks on field in edit mode
-                  if (isEditMode && authToken === '************') {
-                    setAuthToken('');
-                  }
-                }}
-                onBlur={e => {
-                  // Restore placeholder if field is empty in edit mode
-                  if (isEditMode && !e.target.value) {
-                    setAuthToken('************');
-                  }
-                }}
-                helperText={
-                  isEditMode
-                    ? authToken !== '************' && authToken !== ''
-                      ? 'New API token will replace the current one'
-                      : 'Click to update the API token'
-                    : undefined
-                }
-                InputProps={{
-                  endAdornment:
-                    authToken && authToken !== '************' ? (
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowAuthToken(!showAuthToken)}
-                        edge="end"
-                        aria-label={
-                          showAuthToken ? 'Hide auth token' : 'Show auth token'
-                        }
-                      >
-                        {showAuthToken ? (
-                          <VisibilityOffIcon fontSize="small" />
-                        ) : (
-                          <VisibilityIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    ) : null,
-                }}
-              />
-              {/* GitHub Repository Configuration — placed before Test Connection */}
-              {providerType === 'github' && (
-                <>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{
-                      fontWeight: 600,
-                      mb: 1,
-                      color: 'primary.main',
-                      mt: 1,
-                    }}
-                  >
-                    Repository Scope
-                  </Typography>
-
-                  <TextField
-                    label="Repository URL"
-                    fullWidth
-                    required
-                    value={repositoryUrl}
-                    onChange={e => setRepositoryUrl(e.target.value)}
-                    placeholder="https://github.com/owner/repo"
-                    helperText="Specify the GitHub repository for this connection"
-                  />
-                </>
-              )}
-
-              <Box sx={{ mt: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="medium"
-                  onClick={handleTestConnection}
-                  disabled={
-                    testingConnection ||
-                    loading ||
-                    !authToken ||
-                    // GitHub: require repository URL before testing
-                    (providerType === 'github' && !repositoryUrl.trim()) ||
-                    // For Jira/Confluence: in create mode, always require URL and username
-                    // In edit mode, only require them if any credential field was touched
-                    (!isEditMode &&
-                      (providerType === 'jira' ||
-                        providerType === 'confluence') &&
-                      (!instanceUrl || !username)) ||
-                    (isEditMode &&
-                      (providerType === 'jira' ||
-                        providerType === 'confluence') &&
-                      (instanceUrl ||
-                        username ||
-                        (authToken && authToken !== '************')) &&
-                      (!instanceUrl || !username)) ||
-                    (isCustomProvider && !toolMetadata.trim())
-                  }
-                  sx={{ minWidth: 150 }}
-                >
-                  {testingConnection ? 'Testing...' : 'Test Connection'}
-                </Button>
-                {testResult && (
-                  <Alert
-                    severity={
-                      testResult.is_authenticated === 'Yes'
-                        ? 'success'
-                        : 'error'
+                  }}
+                  onBlur={e => {
+                    if (isEditMode && !e.target.value) {
+                      setInstanceUrl('************');
                     }
-                    icon={
-                      testResult.is_authenticated === 'Yes' ? (
-                        <CheckCircleIcon />
+                  }}
+                  placeholder={
+                    providerType === 'jira'
+                      ? 'https://your-domain.atlassian.net'
+                      : 'https://your-domain.atlassian.net/wiki'
+                  }
+                />
+                <TextField
+                  label="Email"
+                  fullWidth
+                  required={!isEditMode}
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  onFocus={_e => {
+                    if (isEditMode && username === '************') {
+                      setUsername('');
+                    }
+                  }}
+                  onBlur={e => {
+                    if (isEditMode && !e.target.value) {
+                      setUsername('************');
+                    }
+                  }}
+                  placeholder="your-email@example.com"
+                />
+              </>
+            )}
+
+            <TextField
+              label={
+                providerType === 'jira' || providerType === 'confluence'
+                  ? 'API Token'
+                  : 'Authentication token'
+              }
+              fullWidth
+              required={!isEditMode}
+              type={showAuthToken ? 'text' : 'password'}
+              value={authToken}
+              onChange={e => setAuthToken(e.target.value)}
+              onFocus={_e => {
+                if (isEditMode && authToken === '************') {
+                  setAuthToken('');
+                }
+              }}
+              onBlur={e => {
+                if (isEditMode && !e.target.value) {
+                  setAuthToken('************');
+                }
+              }}
+              helperText={
+                isEditMode
+                  ? authToken !== '************' && authToken !== ''
+                    ? 'New API token will replace the current one'
+                    : 'Click to update the API token'
+                  : undefined
+              }
+              InputProps={{
+                endAdornment:
+                  authToken && authToken !== '************' ? (
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowAuthToken(!showAuthToken)}
+                      edge="end"
+                      aria-label={
+                        showAuthToken ? 'Hide auth token' : 'Show auth token'
+                      }
+                    >
+                      {showAuthToken ? (
+                        <VisibilityOffIcon fontSize="small" />
                       ) : (
-                        <ErrorIcon />
-                      )
-                    }
-                    sx={{ mt: 2 }}
+                        <VisibilityIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  ) : null,
+              }}
+            />
+
+            {providerType === 'github' && (
+              <TextField
+                label="Repository URL"
+                fullWidth
+                required
+                value={repositoryUrl}
+                onChange={e => setRepositoryUrl(e.target.value)}
+                placeholder="https://github.com/owner/repo"
+                helperText="Specify the GitHub repository for this connection"
+              />
+            )}
+
+            <Box>
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={handleTestConnection}
+                disabled={
+                  testingConnection ||
+                  loading ||
+                  !authToken ||
+                  (providerType === 'github' && !repositoryUrl.trim()) ||
+                  (!isEditMode &&
+                    (providerType === 'jira' ||
+                      providerType === 'confluence') &&
+                    (!instanceUrl || !username)) ||
+                  (isEditMode &&
+                    (providerType === 'jira' ||
+                      providerType === 'confluence') &&
+                    (instanceUrl ||
+                      username ||
+                      (authToken && authToken !== '************')) &&
+                    (!instanceUrl || !username)) ||
+                  (isCustomProvider && !toolMetadata.trim())
+                }
+                sx={{ minWidth: 150 }}
+              >
+                {testingConnection ? 'Testing...' : 'Test Connection'}
+              </Button>
+              {testResult && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    borderRadius: '4px',
+                    px: '30px',
+                    py: '12px',
+                    mt: 2,
+                    ...(testResult.is_authenticated === 'Yes'
+                      ? { backgroundColor: '#c8f5eb', color: '#0080af' }
+                      : { backgroundColor: '#fadbde', color: '#de3355' }),
+                  }}
+                >
+                  <Box
+                    sx={{
+                      flexShrink: 0,
+                      pr: '12px',
+                      pt: '7px',
+                      pb: '7px',
+                      display: 'flex',
+                    }}
                   >
-                    <Typography variant="body2" fontWeight={600}>
+                    {testResult.is_authenticated === 'Yes' ? (
+                      <CheckCircleIcon
+                        sx={{ fontSize: 22, color: 'inherit' }}
+                      />
+                    ) : (
+                      <ErrorIcon sx={{ fontSize: 22, color: 'inherit' }} />
+                    )}
+                  </Box>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      py: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '18px',
+                        lineHeight: '25px',
+                        color: 'inherit',
+                      }}
+                    >
                       {testResult.is_authenticated === 'Yes'
                         ? 'Connection Successful'
                         : 'Connection Failed'}
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      {testResult.message}
-                    </Typography>
-                  </Alert>
-                )}
-              </Box>
-
-              {/* Jira Space Selection */}
-              {showSpaceSelector &&
-                availableSpaces.length > 0 &&
-                providerType === 'jira' && (
-                  <Box sx={{ mt: 2 }}>
                     <Typography
-                      variant="subtitle1"
                       sx={{
-                        fontWeight: 600,
-                        mb: 1,
-                        color: 'primary.main',
+                        fontSize: '16px',
+                        lineHeight: '24px',
+                        color: 'inherit',
                       }}
                     >
-                      Space Selection
-                    </Typography>
-                    <FormControl fullWidth required>
-                      <InputLabel>Jira Space</InputLabel>
-                      <Select
-                        value={selectedSpaceKey}
-                        onChange={e => setSelectedSpaceKey(e.target.value)}
-                        label="Jira Space"
-                        required
-                      >
-                        {availableSpaces.map(space => (
-                          <MenuItem key={space.key} value={space.key}>
-                            {space.name} ({space.key})
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 0.5, display: 'block' }}
-                    >
-                      Select the Jira space for issue creation
+                      {testResult.message}
                     </Typography>
                   </Box>
-                )}
-            </>
+                </Box>
+              )}
+            </Box>
+          </Stack>
+        )}
+
+        {/* Jira Space Selection */}
+        {showSpaceSelector &&
+          availableSpaces.length > 0 &&
+          providerType === 'jira' && (
+            <Stack spacing={3}>
+              <Box>
+                <Typography sx={sectionHeadingSx}>Space Selection</Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: 'block' }}
+                >
+                  Select the Jira space for issue creation
+                </Typography>
+              </Box>
+              <FormControl fullWidth required>
+                <InputLabel>Jira Space</InputLabel>
+                <Select
+                  value={selectedSpaceKey}
+                  onChange={e => setSelectedSpaceKey(e.target.value)}
+                  label="Jira Space"
+                  required
+                >
+                  {availableSpaces.map(space => (
+                    <MenuItem key={space.key} value={space.key}>
+                      {space.name} ({space.key})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
           )}
 
-          {isCustomProvider && (
-            <>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  mt: 2,
-                  mb: 1,
-                  cursor: 'pointer',
-                }}
-                onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
-              >
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight: 600, color: 'primary.main' }}
-                >
-                  MCP Server Configuration
-                </Typography>
-                <IconButton size="small">
-                  {showAdvancedConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
-              </Box>
+        {/* MCP Server Configuration */}
+        {isCustomProvider && (
+          <Stack spacing={3}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+              }}
+              onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+            >
+              <Typography sx={sectionHeadingSx}>
+                MCP Server Configuration
+              </Typography>
+              <IconButton size="small">
+                {showAdvancedConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            </Box>
 
-              <Collapse in={showAdvancedConfig}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Provide your API token above, then paste your MCP server
-                    config below using <code>{'{{ TOKEN }}'}</code> as a
-                    placeholder wherever the token is required.
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Example:
-                  </Typography>
-                  <Box
-                    component="pre"
-                    sx={{
-                      p: 2,
-                      bgcolor: 'background.default',
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: theme => theme.shape.borderRadius,
-                      fontSize: theme => theme.typography.body2.fontSize,
-                      overflow: 'auto',
-                      mb: 2,
-                    }}
-                  >
-                    {`{
+            <Collapse in={showAdvancedConfig}>
+              <Stack spacing={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Provide your API token above, then paste your MCP server
+                  config below using <code>{'{{ TOKEN }}'}</code> as a
+                  placeholder wherever the token is required.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Example:
+                </Typography>
+                <Box
+                  component="pre"
+                  sx={{
+                    p: 2,
+                    bgcolor: 'background.default',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: theme => theme.shape.borderRadius,
+                    fontSize: theme => theme.typography.body2.fontSize,
+                    overflow: 'auto',
+                  }}
+                >
+                  {`{
   "command": "npx",
   "args": ["@example/mcp-server"],
   "env": {
     "API_TOKEN": "{{ TOKEN }}"
   }
 }`}
-                  </Box>
-                  {jsonError && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                      {jsonError}
-                    </Alert>
-                  )}
-                  <Box sx={getEditorWrapperStyle()}>
-                    <Editor
-                      key={`tool-metadata-${editorTheme}`}
-                      height="300px"
-                      defaultLanguage="json"
-                      theme={editorTheme}
-                      value={toolMetadata}
-                      onChange={handleToolMetadataChange}
-                      options={{
-                        minimap: { enabled: false },
-                        lineNumbers: 'on',
-                        folding: true,
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        formatOnPaste: true,
-                        formatOnType: true,
-                        padding: { top: 8, bottom: 8 },
-                        scrollbar: {
-                          vertical: 'visible',
-                          horizontal: 'visible',
-                        },
-                        fontSize: 14,
-                      }}
-                    />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 1, display: 'block' }}
-                  >
-                    Required for custom providers. Define the MCP server
-                    command, arguments, and environment variables with
-                    credential placeholders.
-                  </Typography>
                 </Box>
-              </Collapse>
-            </>
-          )}
-        </Stack>
+                {jsonError && <Alert severity="error">{jsonError}</Alert>}
+                <Box sx={getEditorWrapperStyle()}>
+                  <Editor
+                    key={`tool-metadata-${editorTheme}`}
+                    height="300px"
+                    defaultLanguage="json"
+                    theme={editorTheme}
+                    value={toolMetadata}
+                    onChange={handleToolMetadataChange}
+                    options={{
+                      minimap: { enabled: false },
+                      lineNumbers: 'on',
+                      folding: true,
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      formatOnPaste: true,
+                      formatOnType: true,
+                      padding: { top: 8, bottom: 8 },
+                      scrollbar: { vertical: 'visible', horizontal: 'visible' },
+                      fontSize: 14,
+                    }}
+                  />
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  Required for custom providers. Define the MCP server command,
+                  arguments, and environment variables with credential
+                  placeholders.
+                </Typography>
+              </Stack>
+            </Collapse>
+          </Stack>
+        )}
 
         {!isEditMode && !connectionTested && !testResult && (
           <Alert severity="info">

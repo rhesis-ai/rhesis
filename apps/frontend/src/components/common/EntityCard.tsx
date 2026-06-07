@@ -203,6 +203,7 @@ export default function EntityCard({
                 color: 'text.primary',
                 flexShrink: 0,
                 '& .MuiSvgIcon-root': { fontSize: 20 },
+                '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
               }}
             >
               {icon}
