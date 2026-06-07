@@ -265,6 +265,7 @@ export function Sidebar() {
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
+                      textAlign: 'left',
                     }}
                   >
                     {activeProject.name}
