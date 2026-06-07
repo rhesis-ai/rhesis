@@ -407,7 +407,7 @@ def update_user(
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,
     db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Request access to the Polyphemus adversarial model.
