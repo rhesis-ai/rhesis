@@ -80,6 +80,7 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
   const button = isAction ? (
     <Box
       component="button"
+      type="button"
       onClick={() => onAction?.((item as NavigationActionItem).action)}
       sx={{
         ...sharedSx,

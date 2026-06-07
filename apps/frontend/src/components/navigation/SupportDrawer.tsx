@@ -75,6 +75,7 @@ function CommunityLink({ icon, label, href }: CommunityLinkProps) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={`${label} (opens in a new tab)`}
       sx={{
         display: 'flex',
         alignItems: 'center',
