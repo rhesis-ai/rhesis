@@ -181,11 +181,24 @@ class TestDefaultAuthorizationProvider:
             p, "organization:update", project_id=None, db=db
         )
 
-    def test_non_member_org_scoped_denied(self):
-        """Non-owner non-member cannot perform org-scoped actions."""
+    def test_non_member_owner_only_capability_denied(self):
+        """Non-owner cannot invoke owner-only capabilities (e.g. organization:update)."""
         p = _principal()
         db = _mock_db(is_owner=False, is_member=False)
-        assert not self.provider.is_authorized(p, "project:create", project_id=None, db=db)
+        assert not self.provider.is_authorized(p, "organization:update", project_id=None, db=db)
+
+    def test_non_owner_standard_capability_allowed(self):
+        """Any org member may invoke standard (non-owner-only) capabilities without project scope.
+
+        The ORM scope already limits rows to the caller's organization, so no extra
+        gate is needed for capabilities like test_set:read, project:create, etc.
+        """
+        p = _principal()
+        db = _mock_db(is_owner=False, is_member=False)
+        for cap in ("test_set:read", "project:create", "organization:read"):
+            assert self.provider.is_authorized(p, cap, project_id=None, db=db), (
+                f"Expected org member to be allowed for '{cap}' without project scope"
+            )
 
     def test_project_member_wrong_project_denied(self):
         """Being a member of project A doesn't grant access to project B.
@@ -612,7 +625,6 @@ class TestRealAppCapabilities:
             "test_set:execute",
             "comment:react",
             "recycle:restore",
-            "project_member:read",
             "project_member:manage",
         }
         missing = explicit_caps - cap_set

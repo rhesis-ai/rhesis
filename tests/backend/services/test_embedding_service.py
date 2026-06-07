@@ -28,8 +28,8 @@ def embedding_model(test_db: Session, test_org_id: str, authenticated_user_id: s
 
     if not provider_type:
         provider_type = TypeLookup(
+            type_name="ProviderType",
             type_value="openai",
-            type_category="provider",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )

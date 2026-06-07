@@ -243,13 +243,28 @@ class TestGetMyPermissions:
             f"Extra: {my_perms - all_caps}."
         )
 
-    def test_non_member_without_project_id_gets_empty_list(
+    def test_non_member_without_project_id_gets_standard_capabilities(
         self, authed_client: TestClient, mock_non_member
     ):
-        """No org ownership + no project membership → deny everything."""
+        """Org member without ownership or project membership gets standard (non-owner) capabilities.
+
+        Community tier rule: any authenticated org member may exercise non-owner-only
+        capabilities when no project scope is given.  The ORM scope already limits
+        visible rows to the caller's organization, so no extra gate is needed.
+        Owner-only capabilities (organization:update, member:manage, etc.) are excluded.
+        """
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.app.auth.rbac import _OWNER_ONLY_CAPABILITIES
+
+        all_caps = set(get_all_capabilities())
+        expected = all_caps - _OWNER_ONLY_CAPABILITIES
         resp = authed_client.get("/me/permissions")
         assert resp.status_code == status.HTTP_200_OK
-        assert resp.json() == []
+        my_perms = set(resp.json())
+        assert my_perms == expected, (
+            f"Org member should hold standard capabilities without project scope. "
+            f"Missing: {expected - my_perms}. Extra: {my_perms - expected}."
+        )
 
     def test_project_member_with_project_id_gets_all_capabilities(
         self, authed_client: TestClient, mock_project_member
@@ -268,13 +283,26 @@ class TestGetMyPermissions:
             f"Missing: {all_caps - my_perms}."
         )
 
-    def test_project_member_without_project_id_gets_empty_list(
+    def test_project_member_without_project_id_gets_standard_capabilities(
         self, authed_client: TestClient, mock_project_member
     ):
-        """Project membership is project-scoped; omitting project_id → no permissions."""
+        """Project member omitting project_id gets standard (non-owner) capabilities.
+
+        Project membership is project-scoped; without the project_id query param the
+        provider falls through to the org-member rule, granting non-owner-only capabilities.
+        """
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.app.auth.rbac import _OWNER_ONLY_CAPABILITIES
+
+        all_caps = set(get_all_capabilities())
+        expected = all_caps - _OWNER_ONLY_CAPABILITIES
         resp = authed_client.get("/me/permissions")
         assert resp.status_code == status.HTTP_200_OK
-        assert resp.json() == []
+        my_perms = set(resp.json())
+        assert my_perms == expected, (
+            f"Org member (project member without project scope) should hold standard capabilities. "
+            f"Missing: {expected - my_perms}. Extra: {my_perms - expected}."
+        )
 
     def test_response_is_sorted(self, authed_client: TestClient, mock_org_owner):
         perms = authed_client.get("/me/permissions").json()
