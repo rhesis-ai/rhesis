@@ -53,6 +53,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.feature_gates import require_feature
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName
@@ -107,9 +108,6 @@ async def _require_org_admin_for(request: Request, org_id: str):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-
-    if getattr(user, "is_superuser", False):
-        return user
 
     if str(user.organization_id) != org_id:
         # 404, not 403, to keep cross-org enumeration impossible.
@@ -191,6 +189,7 @@ def _request_ip(request: Request) -> Optional[str]:
     "/organizations/{org_id}/auth-clients",
     response_model=AuthClientCreatedResponse,
     status_code=status.HTTP_201_CREATED,
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def create_auth_client(
@@ -267,6 +266,7 @@ async def create_auth_client(
 @router.get(
     "/organizations/{org_id}/auth-clients",
     response_model=List[AuthClientResponse],
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def list_auth_clients(
@@ -294,6 +294,7 @@ async def list_auth_clients(
 @router.get(
     "/organizations/{org_id}/auth-clients/{client_pk}",
     response_model=AuthClientResponse,
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def get_auth_client(
@@ -312,6 +313,7 @@ async def get_auth_client(
 @router.post(
     "/organizations/{org_id}/auth-clients/{client_pk}/rotate",
     response_model=AuthClientCreatedResponse,
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def rotate_auth_client_secret(
@@ -375,6 +377,7 @@ async def rotate_auth_client_secret(
 @router.post(
     "/organizations/{org_id}/auth-clients/{client_pk}/disable",
     response_model=AuthClientResponse,
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def disable_auth_client(
@@ -408,6 +411,7 @@ async def disable_auth_client(
 @router.post(
     "/organizations/{org_id}/auth-clients/{client_pk}/enable",
     response_model=AuthClientResponse,
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def enable_auth_client(
@@ -441,6 +445,7 @@ async def enable_auth_client(
 @router.delete(
     "/organizations/{org_id}/auth-clients/{client_pk}",
     status_code=status.HTTP_204_NO_CONTENT,
+    **capability(Permission.ApiClients.MANAGE),
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def delete_auth_client(

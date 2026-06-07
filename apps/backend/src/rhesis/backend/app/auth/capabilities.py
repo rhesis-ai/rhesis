@@ -28,9 +28,201 @@ not in the catalog.
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Permission catalog — canonical ``resource:action`` constants
+# ---------------------------------------------------------------------------
+
+
+class _PermissionEnum(str, Enum):
+    """Base for all Permission sub-enums.
+
+    Inheriting from ``str`` makes every member a real string — no ``.value``
+    access needed when passing to :func:`authorize`, :func:`require_permission`,
+    or :func:`capability`.
+
+    ``__str__`` is overridden to return the *value* (``"member:manage"``) rather
+    than Python's default Enum representation (``"Member.MANAGE"``), so members
+    behave like plain strings in f-strings, ``str()``, and ``re.match``.
+    """
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class Permission:
+    """Namespace of ``resource:action`` capability constants, grouped by resource.
+
+    Each nested class is a ``str`` enum so members can be used anywhere a plain
+    string is accepted::
+
+        authorize(principal, Permission.Member.MANAGE, project_id=None, db=db)
+        @router.post("/restore", **capability(Permission.Recycle.RESTORE))
+        require_permission(Permission.TestSet.DELETE)
+
+    **Catalogue structure** (mirrors master design doc §4 permission catalog):
+
+    - Test authoring (project-scoped): :class:`TestSet`, :class:`Test`
+    - Test execution & results (project-scoped): :class:`TestRun`,
+      :class:`TestResult`, :class:`TestConfiguration`, :class:`Experiment`
+    - Endpoints & connectors (project-scoped): :class:`Endpoint`
+    - Metrics & models (project-scoped): :class:`Metric`, :class:`Model`
+    - Collaboration (project-scoped): :class:`Comment`, :class:`Task`
+    - Files (project/org): :class:`File`
+    - Project administration (project-scoped): :class:`Project`,
+      :class:`ProjectMember`
+    - Organization administration (org-scoped): :class:`Organization`,
+      :class:`Member`, :class:`Role`, :class:`Token`
+    - Recycle bin (org-scoped): :class:`Recycle`
+    - EE gates (org-scoped, guarded by ``FeatureName.RBAC``): :class:`SSO`,
+      :class:`ApiClients`
+    """
+
+    # --- Test authoring (project-scoped) ------------------------------------
+
+    class TestSet(_PermissionEnum):
+        READ = "test_set:read"
+        CREATE = "test_set:create"
+        UPDATE = "test_set:update"
+        DELETE = "test_set:delete"
+        GENERATE = "test_set:generate"
+        EXECUTE = "test_set:execute"
+
+    class Test(_PermissionEnum):
+        READ = "test:read"
+        CREATE = "test:create"
+        UPDATE = "test:update"
+        DELETE = "test:delete"
+
+    # --- Test execution & results (project-scoped) --------------------------
+
+    class TestConfiguration(_PermissionEnum):
+        READ = "test_configuration:read"
+        CREATE = "test_configuration:create"
+        UPDATE = "test_configuration:update"
+        DELETE = "test_configuration:delete"
+
+    class TestRun(_PermissionEnum):
+        READ = "test_run:read"
+        CREATE = "test_run:create"
+        UPDATE = "test_run:update"
+        DELETE = "test_run:delete"
+        EXECUTE = "test_run:execute"
+
+    class TestResult(_PermissionEnum):
+        READ = "test_result:read"
+        UPDATE = "test_result:update"
+
+    class Experiment(_PermissionEnum):
+        READ = "experiment:read"
+        CREATE = "experiment:create"
+        UPDATE = "experiment:update"
+        DELETE = "experiment:delete"
+
+    # --- Endpoints & connectors (project-scoped) ----------------------------
+
+    class Endpoint(_PermissionEnum):
+        READ = "endpoint:read"
+        CREATE = "endpoint:create"
+        UPDATE = "endpoint:update"
+        DELETE = "endpoint:delete"
+
+    # --- Metrics & models (project-scoped) ----------------------------------
+
+    class Metric(_PermissionEnum):
+        READ = "metric:read"
+        CREATE = "metric:create"
+        UPDATE = "metric:update"
+        DELETE = "metric:delete"
+
+    class Model(_PermissionEnum):
+        READ = "model:read"
+        CREATE = "model:create"
+        UPDATE = "model:update"
+        DELETE = "model:delete"
+
+    # --- Collaboration (project-scoped) -------------------------------------
+
+    class Comment(_PermissionEnum):
+        READ = "comment:read"
+        CREATE = "comment:create"
+        UPDATE = "comment:update"
+        DELETE = "comment:delete"
+        REACT = "comment:react"
+
+    class Task(_PermissionEnum):
+        READ = "task:read"
+        CREATE = "task:create"
+        UPDATE = "task:update"
+        DELETE = "task:delete"
+
+    # --- Files (project/org) ------------------------------------------------
+
+    class File(_PermissionEnum):
+        READ = "file:read"
+        CREATE = "file:create"
+        UPDATE = "file:update"
+        DELETE = "file:delete"
+        IMPORT = "file:import"
+
+    # --- Project administration (project-scoped) ----------------------------
+
+    class Project(_PermissionEnum):
+        READ = "project:read"
+        #: Create a new project inside the org (org-scoped action).
+        CREATE = "project:create"
+        UPDATE = "project:update"
+
+    class ProjectMember(_PermissionEnum):
+        #: List/add/remove project members. Owner-only in the community tier
+        #: (plan §1.5); EE Phase 2 (SP8) grants it via project-admin roles.
+        MANAGE = "project_member:manage"
+
+    # --- Organization administration (org-scoped) ---------------------------
+
+    class Organization(_PermissionEnum):
+        READ = "organization:read"
+        UPDATE = "organization:update"
+
+    class Member(_PermissionEnum):
+        READ = "member:read"
+        #: Invite or remove members from the org.
+        MANAGE = "member:manage"
+        #: Update a user's own profile (self-service sub-action of MANAGE).
+        UPDATE = "member:update"
+
+    class Role(_PermissionEnum):
+        """Custom-role CRUD — EE only, guarded by ``FeatureName.RBAC``."""
+
+        READ = "role:read"
+        MANAGE = "role:manage"
+
+    class Token(_PermissionEnum):
+        MANAGE = "token:manage"
+
+    # --- Recycle bin (org-scoped) -------------------------------------------
+
+    class Recycle(_PermissionEnum):
+        VIEW = "recycle:view"
+        RESTORE = "recycle:restore"
+        PURGE = "recycle:purge"
+
+    # --- EE gates (org-scoped) ----------------------------------------------
+
+    class SSO(_PermissionEnum):
+        """SSO configuration — EE only."""
+
+        MANAGE = "sso:manage"
+
+    class ApiClients(_PermissionEnum):
+        """M2M API client management — EE only."""
+
+        MANAGE = "api_clients:manage"
 
 # ---------------------------------------------------------------------------
 # openapi_extra keys
@@ -68,20 +260,21 @@ _DERIVER_SKIP_PATHS: frozenset[str] = frozenset(
 # ---------------------------------------------------------------------------
 
 
-def capability(name: str) -> dict:
+def capability(name: "str | Permission") -> dict:
     """Return ``openapi_extra`` kwargs marking a route with an explicit capability.
 
     Unpack into the FastAPI route decorator for non-CRUD routes whose action
-    cannot be inferred from the HTTP verb alone::
+    cannot be inferred from the HTTP verb alone.  Prefer :class:`Permission`
+    constants over bare strings::
 
-        @router.post("/generate", **capability("test_set:generate"))
+        @router.post("/generate", **capability(Permission.TestSet.GENERATE))
         async def generate_test_set(...):
             ...
 
     The deriver checks for this key first; it overrides the resource+verb
     convention when both are present.
     """
-    return {"openapi_extra": {_CAPABILITY_KEY: name}}
+    return {"openapi_extra": {_CAPABILITY_KEY: str(name)}}
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +421,7 @@ def reset_capabilities() -> None:
 
 
 __all__ = [
+    "Permission",
     "build_capability_map",
     "capability",
     "get_all_capabilities",

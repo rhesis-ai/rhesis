@@ -5,15 +5,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import capability
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.decorators import check_resource_permission
-from rhesis.backend.app.auth.permissions import ResourceAction
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -102,7 +100,7 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     return db_test_set
 
 
-@router.post("/generate", response_model=TestSetGenerationResponse, **capability("test_set:generate"))
+@router.post("/generate", response_model=TestSetGenerationResponse, **capability(Permission.TestSet.GENERATE))
 async def generate_test_set(
     request: services_schemas.GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -412,7 +410,6 @@ def generate_test_set_stats(
 
 
 @router.get("/{test_set_identifier}", response_model=TestSetDetailSchema)
-@check_resource_permission(TestSet, ResourceAction.READ)
 async def read_test_set(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
@@ -424,7 +421,6 @@ async def read_test_set(
 
 
 @router.delete("/{test_set_id}", response_model=schemas.TestSet)
-@check_resource_permission(TestSet, ResourceAction.DELETE)
 async def delete_test_set(
     test_set_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -441,7 +437,6 @@ async def delete_test_set(
 
 
 @router.put("/{test_set_id}", response_model=schemas.TestSet)
-@check_resource_permission(TestSet, ResourceAction.UPDATE)
 @handle_database_exceptions(
     entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
@@ -557,7 +552,7 @@ async def get_test_set_tests(
     return items  # FastAPI handles serialization based on response_model
 
 
-@router.post("/{test_set_identifier}/execute/{endpoint_id}", **capability("test_set:execute"))
+@router.post("/{test_set_identifier}/execute/{endpoint_id}", **capability(Permission.TestSet.EXECUTE))
 async def execute_test_set(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
@@ -739,7 +734,7 @@ def download_test_set_prompts_csv(
         )
 
 
-@router.post("/{test_set_id}/associate", response_model=schemas.TestSetBulkAssociateResponse, **capability("test_set:update"))
+@router.post("/{test_set_id}/associate", response_model=schemas.TestSetBulkAssociateResponse, **capability(Permission.TestSet.UPDATE))
 async def associate_tests_with_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkAssociateRequest,
@@ -764,7 +759,7 @@ async def associate_tests_with_test_set(
     return result
 
 
-@router.post("/{test_set_id}/disassociate", response_model=schemas.TestSetBulkDisassociateResponse, **capability("test_set:update"))
+@router.post("/{test_set_id}/disassociate", response_model=schemas.TestSetBulkDisassociateResponse, **capability(Permission.TestSet.UPDATE))
 async def disassociate_tests_from_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkDisassociateRequest,
@@ -834,7 +829,7 @@ def get_test_set_metrics(
     return db_test_set.metrics or []
 
 
-@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric], **capability("test_set:update"))
+@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric], **capability(Permission.TestSet.UPDATE))
 def add_metric_to_test_set(
     test_set_identifier: str,
     metric_id: uuid.UUID,
@@ -879,7 +874,7 @@ def add_metric_to_test_set(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric], **capability("test_set:update"))
+@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric], **capability(Permission.TestSet.UPDATE))
 def remove_metric_from_test_set(
     test_set_identifier: str,
     metric_id: uuid.UUID,

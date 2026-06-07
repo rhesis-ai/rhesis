@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import capability
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -444,7 +444,7 @@ def delete_test_run(
     )
 
 
-@router.post("/{test_run_id}/cancel", response_model=schemas.TestRun, **capability("test_run:update"))
+@router.post("/{test_run_id}/cancel", response_model=schemas.TestRun, **capability(Permission.TestRun.UPDATE))
 def cancel_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -493,7 +493,7 @@ def cancel_test_run(
     )
 
 
-@router.post("/{test_run_id}/rescore", **capability("test_run:update"))
+@router.post("/{test_run_id}/rescore", **capability(Permission.TestRun.UPDATE))
 async def rescore_test_run_endpoint(
     test_run_id: UUID,
     request: schemas.TestRunRescoreRequest = None,

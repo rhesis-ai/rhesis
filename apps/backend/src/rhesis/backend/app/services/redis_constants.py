@@ -20,3 +20,4 @@ class RedisDatabase:
     CONVERSATION_LINKING = 3
     TRACE_METRICS_DEBOUNCE = 3  # shares DB with conversation linking (different key prefixes)
     CHATBOT_SESSIONS = 4
+    PERMISSION_CACHE = 5  # authorization PDP decision cache (SP5)

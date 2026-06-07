@@ -27,12 +27,12 @@ Usage in route handlers (before the PEP backstop wires it automatically, SP4)::
     @router.delete("/{id}")
     def delete_item(
         id: UUID,
-        _authz=Depends(require_permission("test_set:delete")),
+        _authz=Depends(require_permission(Permission.TestSet.DELETE)),
         ...
     ): ...
 
     # Or call authorize() directly from service code:
-    if not authorize(principal, "organization:update", project_id=None, db=db):
+    if not authorize(principal, Permission.Organization.UPDATE, project_id=None, db=db):
         raise HTTPException(403, "Permission denied: organization:update")
 """
 
@@ -45,9 +45,11 @@ from uuid import UUID
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import Principal, resolve_principal
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.services.permission_cache import get_permission_cache
 
 if TYPE_CHECKING:
     pass
@@ -70,7 +72,7 @@ class AuthorizationProvider:
     def is_authorized(
         self,
         principal: Principal,
-        permission: str,
+        permission: "str | Permission",
         *,
         project_id: Optional[UUID],
         db: Session,
@@ -79,12 +81,40 @@ class AuthorizationProvider:
 
         Args:
             principal: Resolved caller identity.
-            permission: Capability string, e.g. ``"test_set:read"``.
+            permission: Capability string or :class:`Permission` member,
+                e.g. ``Permission.TestSet.READ``.
             project_id: Project scope for project-scoped permissions; ``None``
                 for org-scoped permissions (``organization:update``, etc.).
             db: Active tenant-scoped SQLAlchemy session.
         """
         return False
+
+
+# Capabilities that require org ownership even when no project scope is present.
+# Any other capability is accessible to any authenticated org member when
+# ``project_id`` is ``None`` (the ORM scope already limits rows to the caller's
+# org via ``organization_id`` filtering, so no extra gate is needed).
+# EE overrides the whole provider; this set only drives community-tier decisions.
+#
+# ProjectMember.MANAGE is included here so that managing project membership
+# (add/remove/list members) requires org ownership in the community tier.  When
+# a project IS in the ambient scope the DefaultAuthorizationProvider would
+# normally allow any project member — but membership management is sensitive
+# enough that we restrict it to org owners (and, in EE Phase 2, project admins
+# via role_id).  This matches the plan §1.5 "org Owner/project admin" ceiling.
+_OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
+    {
+        str(Permission.Organization.UPDATE),
+        str(Permission.Member.MANAGE),
+        str(Permission.ProjectMember.MANAGE),
+        str(Permission.Role.MANAGE),
+        str(Permission.Role.READ),
+        str(Permission.SSO.MANAGE),
+        str(Permission.ApiClients.MANAGE),
+        str(Permission.Recycle.RESTORE),
+        str(Permission.Recycle.PURGE),
+    }
+)
 
 
 class DefaultAuthorizationProvider(AuthorizationProvider):
@@ -94,15 +124,17 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
     1. ``principal.organization_id is None`` → deny (no org context).
     2. Caller is the org owner → allow (any permission, any scope).
     3. ``project_id`` given + caller has a ``ProjectMembership`` row → allow.
-    4. ``project_id`` is ``None`` (org-scoped permission) → deny
-       (org owner already handled above; no non-owner org actions in community).
-    5. Caller has no membership in the project → deny.
+    4. ``project_id`` given + no membership row → deny.
+    5. ``project_id`` is ``None`` + permission in ``_OWNER_ONLY_CAPABILITIES`` → deny
+       (admin actions reserved for the org owner).
+    6. ``project_id`` is ``None`` + permission NOT in ``_OWNER_ONLY_CAPABILITIES`` → allow
+       (any org member may perform standard CRUD; the ORM scope limits rows to their org).
     """
 
     def is_authorized(
         self,
         principal: Principal,
-        permission: str,  # noqa: ARG002 — EE uses this; community checks membership only
+        permission: str,
         *,
         project_id: Optional[UUID],
         db: Session,
@@ -148,18 +180,27 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
                     project_id,
                 )
                 return True
+            logger.debug("authorize: deny — not a member of project %s", project_id)
+            return False
+
+        # 3. Org-scoped request (no project context).
+        #    Owner-only capabilities (org admin, SSO, API clients, etc.) → deny.
+        #    All other capabilities → allow (ORM scope filters to the caller's org).
+        if str(permission) in _OWNER_ONLY_CAPABILITIES:
             logger.debug(
-                "authorize: deny — not a member of project %s", project_id
+                "authorize: deny — owner-only capability '%s', principal %s is not owner of org %s",
+                permission,
+                principal.user_id,
+                principal.organization_id,
             )
             return False
 
-        # 3. Org-scoped permission, caller is not the owner → deny.
         logger.debug(
-            "authorize: deny — org-scoped permission, principal %s is not owner of org %s",
+            "authorize: allow — org member %s for non-owner capability '%s'",
             principal.user_id,
-            principal.organization_id,
+            permission,
         )
-        return False
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +254,7 @@ def get_authorization_provider() -> AuthorizationProvider:
 
 def authorize(
     principal: Principal,
-    permission: str,
+    permission: "str | Permission",
     *,
     project_id: Optional[UUID],
     db: Session,
@@ -224,10 +265,16 @@ def authorize(
     platform.  Do not add scattered ownership or role checks elsewhere; direct
     all authorization logic here (or into the active provider).
 
+    Results are cached in Redis DB 5 (plan §1.6) with a 45 s TTL.  The cache
+    is keyed by ``(user_id, org_id, project_id, permission)`` — guaranteeing
+    no cross-org pollution.  On Redis unavailability the in-process fallback
+    handles caching transparently.  Cache entries are busted by
+    ``PermissionCache.bust_user`` after membership/role writes.
+
     Args:
         principal: Resolved caller identity (use :func:`resolve_principal`).
-        permission: Capability string in ``resource:action`` form, e.g.
-            ``"test_set:read"`` or ``"organization:update"``.
+        permission: :class:`Permission` member or raw ``resource:action``
+            string, e.g. ``Permission.TestSet.READ`` / ``"test_set:read"``.
         project_id: Target project for project-scoped permissions; ``None`` for
             org-scoped permissions such as ``project:create``.
         db: Active SQLAlchemy session (tenant-scoped from the HTTP request).
@@ -236,8 +283,32 @@ def authorize(
         ``True`` if the action is permitted, ``False`` otherwise.  Fail-closed:
         any exception in the provider returns ``False`` and logs the error.
     """
+    perm_str = str(permission)
+
+    # Cache is keyed on org context; skip entirely when the org is absent
+    # (those are always denies — no value in caching them).
+    _cache = get_permission_cache() if principal.organization_id is not None else None
+
+    # --- Cache lookup ---
+    if _cache is not None:
+        cached = _cache.get(
+            user_id=principal.user_id,
+            org_id=principal.organization_id,
+            project_id=project_id,
+            permission=perm_str,
+        )
+        if cached is not None:
+            logger.debug(
+                "authorize: cache hit for principal %s permission '%s' → %s",
+                principal.user_id,
+                perm_str,
+                cached,
+            )
+            return cached
+
+    # --- Call the active provider ---
     try:
-        return _AuthorizationRegistry.get_authorization_provider().is_authorized(
+        result = _AuthorizationRegistry.get_authorization_provider().is_authorized(
             principal, permission, project_id=project_id, db=db
         )
     except Exception:
@@ -248,13 +319,28 @@ def authorize(
         )
         return False
 
+    # --- Store result in cache (exceptions are non-fatal) ---
+    if _cache is not None:
+        try:
+            _cache.set(
+                user_id=principal.user_id,
+                org_id=principal.organization_id,
+                project_id=project_id,
+                permission=perm_str,
+                result=result,
+            )
+        except Exception as exc:
+            logger.warning("authorize: cache set failed (non-fatal): %s", exc)
+
+    return result
+
 
 # ---------------------------------------------------------------------------
 # FastAPI dependency factory — for explicit per-route use (before SP4 PEP)
 # ---------------------------------------------------------------------------
 
 
-def require_permission(capability: str):
+def require_permission(capability: "str | Permission"):
     """FastAPI dependency factory that enforces a single capability check.
 
     Returns a parameterless dependency that:
@@ -305,6 +391,7 @@ def require_permission(capability: str):
 __all__ = [
     "AuthorizationProvider",
     "DefaultAuthorizationProvider",
+    "Permission",
     "authorize",
     "get_authorization_provider",
     "require_permission",

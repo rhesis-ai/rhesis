@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import capability
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -45,10 +45,9 @@ async def create_organization(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
-    if not organization.owner_id or not organization.user_id:
-        raise HTTPException(status_code=400, detail="owner_id and user_id are required")
-
-    return crud.create_organization(db=db, organization=organization)
+    # owner_id and user_id are always set server-side from the authenticated caller —
+    # the client-supplied values are ignored so the onboarding flow cannot forge ownership.
+    return crud.create_organization(db=db, organization=organization, owner_user_id=current_user.id)
 
 
 @router.get("/", response_model=list[schemas.Organization])
@@ -129,7 +128,7 @@ def update_organization(
     return db_organization
 
 
-@router.post("/{organization_id}/load-initial-data", response_model=dict, **capability("organization:update"))
+@router.post("/{organization_id}/load-initial-data", response_model=dict, **capability(Permission.Organization.UPDATE))
 async def initialize_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -252,7 +251,7 @@ async def initialize_organization_data(
     return response
 
 
-@router.post("/{organization_id}/rollback-initial-data", response_model=dict, **capability("organization:update"))
+@router.post("/{organization_id}/rollback-initial-data", response_model=dict, **capability(Permission.Organization.UPDATE))
 async def rollback_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

@@ -125,7 +125,6 @@ def create_session_token(
             "email": user.email,
             "name": user.name,
             "picture": user.picture,
-            "is_superuser": user.is_superuser,
             "is_email_verified": getattr(user, "is_email_verified", True),
             "organization_id": organization_id,
         },
