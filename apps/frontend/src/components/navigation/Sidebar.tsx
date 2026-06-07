@@ -41,6 +41,7 @@ import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';
 import { NavSection } from './NavSection';
 import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
+import SupportDrawer from './SupportDrawer';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
@@ -93,6 +94,9 @@ export function Sidebar() {
   // Project switcher drawer
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const { activeProject } = useActiveProject();
+
+  // Support drawer
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const orgName = branding?.title ?? 'Rhesis AI';
   const isSuperuser = user?.is_superuser === true;
@@ -487,6 +491,9 @@ export function Sidebar() {
                 key={`footer-${item.title}`}
                 item={item}
                 collapsed={collapsed}
+                onAction={action =>
+                  action === 'support' && setSupportOpen(true)
+                }
               />
             ))}
           </Box>
@@ -554,6 +561,12 @@ export function Sidebar() {
             </Box>
           )}
         </ButtonBase>
+
+        {/* ── Support drawer ── */}
+        <SupportDrawer
+          open={supportOpen}
+          onClose={() => setSupportOpen(false)}
+        />
 
         {/* ── User menu popover (Figma 860:40824) ── */}
         <Popover

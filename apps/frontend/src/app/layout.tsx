@@ -226,11 +226,10 @@ async function getNavigationItems(
       external: true,
     },
     {
-      kind: 'link',
+      kind: 'action',
       title: 'Support',
-      href: 'https://github.com/rhesis-ai/rhesis/discussions',
+      action: 'support',
       icon: <ForumIcon key="support-icon" />,
-      external: true,
     },
   ];
 
