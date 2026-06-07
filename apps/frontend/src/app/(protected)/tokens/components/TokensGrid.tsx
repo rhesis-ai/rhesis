@@ -133,7 +133,7 @@ export default function TokensGrid({
       headerName: 'Name',
       flex: 1,
       renderCell: (params: GridRenderCellParams) => (
-        <span style={{ fontWeight: 'medium' }}>{params.row.name}</span>
+        <span style={{ fontWeight: 500 }}>{params.row.name}</span>
       ),
     },
     {

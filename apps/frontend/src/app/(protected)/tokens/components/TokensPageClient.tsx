@@ -1,20 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  Box,
-  Button,
-  Paper,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  IconButton,
-  Alert,
-} from '@mui/material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { Paper, Alert } from '@mui/material';
 import TokensGrid, {
   TokensToolbarContext,
   type TokenStatusFilter,
@@ -317,52 +304,12 @@ export default function TokensPageClient({
         token={newToken}
       />
 
-      <Dialog
+      <TokenDisplay
+        title="Your Refreshed API Token"
         open={refreshedToken !== null}
         onClose={() => setRefreshedToken(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Your Refreshed API Token</DialogTitle>
-        <DialogContent>
-          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>
-            Token Name: {refreshedToken?.name}
-          </Typography>
-          <Typography variant="subtitle2" sx={{ mb: 2 }}>
-            Expires:{' '}
-            {refreshedToken?.expires_at
-              ? new Date(refreshedToken.expires_at).toLocaleDateString()
-              : 'Never'}
-          </Typography>
-          <Typography color="warning.main" sx={{ mb: 2 }}>
-            Store this token securely - it won&apos;t be shown again. If you
-            lose it, you&apos;ll need to generate a new one.
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TextField
-              fullWidth
-              value={refreshedToken?.access_token || ''}
-              variant="outlined"
-              InputProps={{ readOnly: true }}
-            />
-            <IconButton
-              onClick={async () => {
-                if (refreshedToken) {
-                  await navigator.clipboard.writeText(
-                    refreshedToken.access_token
-                  );
-                }
-              }}
-              color="primary"
-            >
-              <ContentCopyIcon />
-            </IconButton>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRefreshedToken(null)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+        token={refreshedToken}
+      />
 
       <DeleteModal
         open={deleteTokenId !== null}

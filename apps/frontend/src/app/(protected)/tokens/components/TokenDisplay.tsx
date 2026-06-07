@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, TextField, Typography, IconButton } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CelebrationIcon from '@mui/icons-material/Celebration';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -13,12 +14,14 @@ interface TokenDisplayProps {
   open: boolean;
   onClose: () => void;
   token: TokenResponse | null;
+  title?: string;
 }
 
 export default function TokenDisplay({
   open,
   onClose,
   token,
+  title = 'Your New API Token',
 }: TokenDisplayProps) {
   const notifications = useNotifications();
 
@@ -41,7 +44,7 @@ export default function TokenDisplay({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      title="Your New API Token"
+      title={title}
       titleIcon={<CelebrationIcon color="primary" />}
       closeButtonText="Close"
     >
@@ -72,7 +75,7 @@ export default function TokenDisplay({
             sx={{
               display: 'flex',
               alignItems: 'flex-start',
-              bgcolor: '#e5f2ff',
+              bgcolor: theme => alpha(theme.palette.primary.main, 0.1),
               borderRadius: BORDER_RADIUS.xs,
               px: '30px',
               py: '12px',
