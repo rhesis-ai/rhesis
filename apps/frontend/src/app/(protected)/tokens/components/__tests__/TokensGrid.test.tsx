@@ -52,6 +52,11 @@ jest.mock('@/components/common/BaseDataGrid', () => ({
   ),
 }));
 
+jest.mock('@/components/common/GridBadge', () => ({
+  __esModule: true,
+  default: ({ label }: { label: string }) => <span>{label}</span>,
+}));
+
 jest.mock('../RefreshTokenModal', () => ({
   __esModule: true,
   default: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
@@ -84,7 +89,7 @@ describe('TokensGrid', () => {
     jest.clearAllMocks();
   });
 
-  it('shows a loading spinner when loading=true and no tokens', () => {
+  it('renders the grid (via BaseDataGrid) even when loading=true and no tokens', () => {
     render(
       <TokensGrid
         tokens={[]}
@@ -94,9 +99,9 @@ describe('TokensGrid', () => {
         totalCount={0}
       />
     );
-    expect(
-      document.querySelector('.MuiCircularProgress-root')
-    ).toBeInTheDocument();
+    // BaseDataGrid is mocked to render a <table>; loading state is handled
+    // internally by BaseDataGrid (not by a standalone spinner in TokensGrid).
+    expect(document.querySelector('table')).toBeInTheDocument();
   });
 
   it('renders token names in the data grid', () => {
