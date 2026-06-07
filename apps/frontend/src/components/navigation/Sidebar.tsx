@@ -545,20 +545,6 @@ export function Sidebar() {
               >
                 {user?.name ?? 'User'}
               </Typography>
-              <Typography
-                sx={{
-                  display: 'block',
-                  fontSize: 12,
-                  fontWeight: 400,
-                  lineHeight: '18px',
-                  color: theme => theme.palette.greyscale.subtitle,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {user?.email ?? ''}
-              </Typography>
             </Box>
           )}
         </ButtonBase>
