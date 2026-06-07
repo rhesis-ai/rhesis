@@ -144,6 +144,13 @@ export function MCPConnectionDrawer({
   // A re-test is only required when this is true.
   const [credentialsModified, setCredentialsModified] = useState(false);
 
+  // Snapshot of non-credential fields when the drawer opens in edit mode,
+  // used to detect whether anything has actually changed.
+  const [initialName, setInitialName] = useState('');
+  const [initialDescription, setInitialDescription] = useState('');
+  const [initialRepositoryUrl, setInitialRepositoryUrl] = useState('');
+  const [initialSpaceKey, setInitialSpaceKey] = useState('');
+
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
 
@@ -208,6 +215,8 @@ export function MCPConnectionDrawer({
         // Edit mode: populate with existing tool data
         setName(tool.name || '');
         setDescription(tool.description || '');
+        setInitialName(tool.name || '');
+        setInitialDescription(tool.description || '');
         setAuthToken('************');
         setToolMetadata(
           tool.tool_metadata ? JSON.stringify(tool.tool_metadata, null, 2) : ''
@@ -220,10 +229,13 @@ export function MCPConnectionDrawer({
         ) {
           const repo = tool.tool_metadata.repository;
           if (repo.owner && repo.repo) {
-            setRepositoryUrl(`https://github.com/${repo.owner}/${repo.repo}`);
+            const repoUrl = `https://github.com/${repo.owner}/${repo.repo}`;
+            setRepositoryUrl(repoUrl);
+            setInitialRepositoryUrl(repoUrl);
           }
         } else {
           setRepositoryUrl('');
+          setInitialRepositoryUrl('');
         }
 
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
@@ -235,8 +247,10 @@ export function MCPConnectionDrawer({
         // Extract space_key from tool_metadata if it exists (for Jira)
         if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
           setSelectedSpaceKey(tool.tool_metadata.space_key);
+          setInitialSpaceKey(tool.tool_metadata.space_key);
         } else {
           setSelectedSpaceKey('');
+          setInitialSpaceKey('');
         }
         setAvailableSpaces([]);
         setShowSpaceSelector(false);
@@ -893,8 +907,15 @@ export function MCPConnectionDrawer({
     ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
     : 'MCP Provider';
 
+  const basicFieldsChanged =
+    isEditMode &&
+    (name !== initialName ||
+      description !== initialDescription ||
+      repositoryUrl !== initialRepositoryUrl ||
+      selectedSpaceKey !== initialSpaceKey);
+
   const saveDisabled =
-    !provider ||
+    (!provider && !tool?.tool_provider_type) ||
     !name ||
     (!isEditMode && !authToken) ||
     (!isEditMode &&
@@ -909,6 +930,7 @@ export function MCPConnectionDrawer({
     (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
     (!isEditMode && !connectionTested) ||
     (isEditMode && credentialsModified && !connectionTested) ||
+    (isEditMode && !credentialsModified && !basicFieldsChanged) ||
     loading ||
     !!jsonError;
 
