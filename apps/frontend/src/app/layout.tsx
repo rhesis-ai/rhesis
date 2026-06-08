@@ -266,6 +266,9 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     logo: <ThemeAwareLogo />,
     homeUrl: '/architect',
   };
+  const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
+    apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
+  }).replace(/</g, '\\u003c')};`;
 
   // Fetch the active project server-side so the sidebar can render the
   // project name on first paint without a flash.
@@ -284,6 +287,13 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: runtimeEnvScript,
+          }}
+        />
+      </head>
       <body suppressHydrationWarning>
         <ThemeContextProvider
           disableTransitionOnChange

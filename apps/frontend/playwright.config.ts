@@ -105,8 +105,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      NEXT_PUBLIC_API_BASE_URL:
-        process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+      API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:8080',
       BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
       NEXTAUTH_SECRET:
         process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',

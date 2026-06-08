@@ -33,7 +33,7 @@ data:
   # -------------------------------------------------------------------------
   # Frontend / Auth0
   # -------------------------------------------------------------------------
-  NEXT_PUBLIC_API_BASE_URL: {{ .Values.config.nextPublicApiBaseUrl | quote }}
+  API_BASE_URL: {{ .Values.config.apiBaseUrl | quote }}
   NEXT_PUBLIC_APP_URL: {{ .Values.config.nextPublicAppUrl | quote }}
   NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
   NEXTAUTH_URL: {{ .Values.config.nextauthUrl | quote }}

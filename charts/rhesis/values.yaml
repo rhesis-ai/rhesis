@@ -61,7 +61,7 @@ config:
   redisPort: "6379"
 
   # Frontend
-  nextPublicApiBaseUrl: ""
+  apiBaseUrl: ""
   nextPublicAppUrl: ""
   nextauthUrl: ""
   nextTelemetryDisabled: "1"
