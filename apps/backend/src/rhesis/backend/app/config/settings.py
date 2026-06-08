@@ -92,7 +92,7 @@ class ApplicationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
-    backend_env: Literal["production", "development", "staging", "local"] = Field(
+    backend_env: Literal["production", "development", "staging", "local", "test"] = Field(
         default="development", alias="BACKEND_ENV"
     )
     # Google Cloud-specific environment variables set by Google Cloud runtimes.

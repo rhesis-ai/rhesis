@@ -24,6 +24,7 @@ x-sdk-redis-config: &sdk-redis-config
 
 x-sdk-backend-config: &sdk-backend-config
   ENVIRONMENT: test
+  BACKEND_ENV: test
   FRONTEND_URL: "http://localhost:3000"
   JWT_SECRET_KEY: your-jwt-secret-key
   SESSION_SECRET_KEY: test-session-secret-key
