@@ -10,7 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.config.settings import get_application_settings
-from rhesis.backend.app.database import bind_scope_to_session
+from rhesis.backend.app.database import bind_scope_to_session, reset_session_context
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
@@ -769,7 +769,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     commit=False,
                 )
             finally:
-                bind_scope_to_session(db, organization_id, user_id, "")
+                reset_session_context(db)
 
         # Inject garak metrics from the SDK registry (single source of truth)
         _inject_garak_metrics(initial_data)
@@ -1028,7 +1028,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                             endpoints.append(ep)
                     skip += page_size
         finally:
-            bind_scope_to_session(db, organization_id, user_id, "")
+            reset_session_context(db)
         result["endpoint_count"] = len(endpoints)
         print(f"  ✓ Found {len(endpoints)} endpoint(s)")
         for ep in endpoints:
@@ -1105,7 +1105,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
 
                     print(f"  ✗ Failed to submit: {str(e)}")
                 finally:
-                    bind_scope_to_session(db, organization_id, user_id, "")
+                    reset_session_context(db)
 
                 print()  # Blank line between executions
 
