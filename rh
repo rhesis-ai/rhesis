@@ -215,7 +215,7 @@ create_frontend_env() {
     cat > "$env_file" << EOF
 $DEV_ENV_MARKER on $timestamp
 
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+API_BASE_URL=http://localhost:8080
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
 NEXTAUTH_URL=http://localhost:3000

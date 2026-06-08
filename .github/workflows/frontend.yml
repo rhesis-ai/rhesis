@@ -275,7 +275,7 @@ jobs:
             if [ -n "$ENCODED" ]; then
               BACKEND_API_URL=$(echo "$ENCODED" | base64 -d)
             else
-              BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+              BACKEND_API_URL="${{ secrets.API_BASE_URL }}"
             fi
 
             gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -333,7 +333,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }},
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }},
+          API_BASE_URL=${{ secrets.API_BASE_URL }},
           BACKEND_URL=${{ secrets.BACKEND_URL }},
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
@@ -499,7 +499,7 @@ jobs:
           # Prepare environment variables for update
           echo "🔍 Debug backend URL inputs:"
           echo "  - inputs.backend_preview_url_encoded: '${{ inputs.backend_preview_url_encoded }}'"
-          echo "  - secrets.NEXT_PUBLIC_API_BASE_URL: '${{ secrets.NEXT_PUBLIC_API_BASE_URL }}'"
+          echo "  - secrets.API_BASE_URL: '${{ secrets.API_BASE_URL }}'"
           echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
 
           # Check if we have a backend preview URL (encoded)
@@ -509,7 +509,7 @@ jobs:
             BACKEND_URL_VAR="$BACKEND_API_URL"
             echo "  - ✅ Decoded backend preview URL: '$BACKEND_API_URL'"
           else
-            BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+            BACKEND_API_URL="${{ secrets.API_BASE_URL }}"
             BACKEND_URL_VAR="${{ secrets.BACKEND_URL }}"
             echo "  - ⚠️ WARNING: No backend preview URL provided, using defaults"
             echo "  - This means frontend will NOT communicate with backend preview!"

@@ -76,7 +76,7 @@ For a full production file (many more keys), teams often load secrets from Googl
 <Table
   headers={['Variable', 'Description']}
   rows={[
-    ['`NEXT_PUBLIC_API_BASE_URL`', 'Backend API URL exposed to the browser, e.g. `http://localhost:8080`.'],
+    ['`API_BASE_URL`', 'Backend API URL exposed to browser code through `window.__ENV__`, e.g. `http://localhost:8080`.'],
     ['`BACKEND_URL`', 'Backend URL for server-side requests, e.g. `http://localhost:8080`.'],
     ['`NEXTAUTH_URL`', 'Must match how users open the app (same origin as the frontend).'],
     ['`NEXTAUTH_SECRET`', 'NextAuth secret; change for non-local deployments.'],

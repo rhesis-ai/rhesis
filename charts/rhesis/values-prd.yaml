@@ -38,7 +38,7 @@ config:
   dbUser: "rhesis-admin"
 
   # Frontend
-  nextPublicApiBaseUrl: "https://api.rhesis.ai"
+  apiBaseUrl: "https://api.rhesis.ai"
   nextPublicAppUrl: "https://app.rhesis.ai"
   nextauthUrl: "https://app.rhesis.ai"
   nextPublicAuth0ClientId: ""

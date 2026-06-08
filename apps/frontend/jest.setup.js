@@ -5,7 +5,12 @@ import { toHaveNoViolations } from 'jest-axe';
 expect.extend(toHaveNoViolations);
 
 // Set environment variables for tests
-process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';
+process.env.API_BASE_URL = 'http://localhost:8080/api/v1';
+process.env.QUICK_START = 'false';
+window.__ENV__ = {
+  apiBaseUrl: 'http://localhost:8080/api/v1',
+  quickStart: 'false',
+};
 
 // Mock TextEncoder and TextDecoder for basic compatibility
 global.TextEncoder = global.TextEncoder || require('util').TextEncoder;

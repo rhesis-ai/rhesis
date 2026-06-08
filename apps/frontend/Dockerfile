@@ -56,12 +56,8 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# NEXT_PUBLIC_API_BASE_URL is a fixed placeholder;
-# replace-runtime-env.sh substitutes the real value at container start.
-
-# Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
+# Create a temporary .env file for build-time server configuration.
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > apps/frontend/.env && \
-    echo "NEXT_PUBLIC_API_BASE_URL=__NEXT_PUBLIC_API_BASE_URL__" >> apps/frontend/.env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> apps/frontend/.env && \
@@ -115,19 +111,12 @@ RUN chown -R node:node /app
 # outputFileTracingRoot is set to the repo root in next.config.mjs.
 # standalone/ contains apps/frontend/server.js (and ee/frontend/ if traced).
 #
-# --chown=node:node is required: the entrypoint script (replace-runtime-env.sh)
-# runs as the nextjs user and uses `sed -i` to inject runtime values into
-# .next/server/chunks/*.js. sed -i creates a temp file in the same directory
-# as the target, which fails with "Permission denied" if the standalone tree
-# is root-owned. Same applies to public/, which sed never touches today but
-# Next.js needs to read regardless.
+# --chown=node:node keeps the standalone output readable by the runtime user.
 COPY --from=builder --chown=node:node /app/apps/frontend/.next/standalone ./
 
 # Static assets and public must sit alongside server.js so Next.js serves them.
 COPY --from=builder --chown=node:node /app/apps/frontend/.next/static ./apps/frontend/.next/static
 COPY --from=builder --chown=node:node /app/apps/frontend/public ./apps/frontend/public
-COPY --from=builder --chown=node:node /app/apps/frontend/scripts/replace-runtime-env.sh ./apps/frontend/scripts/replace-runtime-env.sh
-RUN chmod +x /app/apps/frontend/scripts/replace-runtime-env.sh
 
 # Do NOT copy src, tsconfig.json, eslint.config.mjs or any .env files to production image
 # Install dependencies and handle environment-specific setup
@@ -147,8 +136,6 @@ EXPOSE 3000
 # Add a health check that uses the PORT env var with fallback
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
-
-ENTRYPOINT ["/app/apps/frontend/scripts/replace-runtime-env.sh"]
 
 # server.js does process.chdir(__dirname) so PORT env var drives the port.
 # Run from /app; server.js is at apps/frontend/server.js inside the standalone output.

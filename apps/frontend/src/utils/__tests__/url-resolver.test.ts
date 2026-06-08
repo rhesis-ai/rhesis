@@ -31,28 +31,35 @@ describe('resolveLocalhostUrl', () => {
 
 describe('getClientApiBaseUrl', () => {
   const originalEnv = process.env;
+  const originalRuntimeEnv = window.__ENV__;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    window.__ENV__ = undefined;
   });
 
   afterAll(() => {
     process.env = originalEnv;
+    window.__ENV__ = originalRuntimeEnv;
   });
 
-  it('uses NEXT_PUBLIC_API_BASE_URL when set', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:9090/api';
+  it('uses window runtime config when set', () => {
+    window.__ENV__ = {
+      apiBaseUrl: 'http://localhost:9090/api',
+      quickStart: 'false',
+    };
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:9090/api');
   });
 
-  it('falls back to default when env var is not set', () => {
-    delete (process.env as Record<string, string | undefined>)
-      .NEXT_PUBLIC_API_BASE_URL;
+  it('falls back to default when runtime config is not set', () => {
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:8080');
   });
 
   it('resolves localhost in the URL', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:3000';
+    window.__ENV__ = {
+      apiBaseUrl: 'http://localhost:3000',
+      quickStart: 'false',
+    };
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:3000');
   });
 });
@@ -81,18 +88,24 @@ describe('getServerBackendUrl', () => {
 
 describe('getBaseUrl', () => {
   const originalEnv = process.env;
+  const originalRuntimeEnv = window.__ENV__;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    window.__ENV__ = undefined;
   });
 
   afterAll(() => {
     process.env = originalEnv;
+    window.__ENV__ = originalRuntimeEnv;
   });
 
   it('returns client URL when window is defined (browser)', () => {
     // window is defined in jsdom
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:5000';
+    window.__ENV__ = {
+      apiBaseUrl: 'http://localhost:5000',
+      quickStart: 'false',
+    };
     expect(getBaseUrl()).toBe('http://127.0.0.1:5000');
   });
 });
