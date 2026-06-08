@@ -107,11 +107,18 @@ export function EditDrawerWrapper({
     return () => window.removeEventListener('openEditDrawer', handleOpenDrawer);
   }, []);
 
-  const handleSave = async (updatedProject: Partial<Project>) => {
-    const projectsClient = apiFactory.getProjectsClient();
-    await projectsClient.updateProject(project.id, updatedProject);
-    // Refresh the page to show updated data
-    window.location.reload();
+  const handleSave = async (
+    updatedProject: Partial<Project>
+  ): Promise<boolean> => {
+    try {
+      const projectsClient = apiFactory.getProjectsClient();
+      await projectsClient.updateProject(project.id, updatedProject);
+      // Refresh the page to show updated data
+      window.location.reload();
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   return (

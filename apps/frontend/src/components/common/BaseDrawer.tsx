@@ -9,7 +9,13 @@ import {
   Stack,
   CircularProgress,
 } from '@mui/material';
-import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
+import { BACKDROP_COLORS } from '@/styles/theme';
+import {
+  drawerFooterCancelButtonSx,
+  drawerFooterDeleteButtonSx,
+  drawerFooterSaveButtonSx,
+  DRAWER_WIDTH,
+} from '@/components/common/drawerFormFieldSx';
 
 export interface BaseDrawerProps {
   open: boolean;
@@ -26,6 +32,9 @@ export interface BaseDrawerProps {
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
   closeButtonText?: string;
+  onDelete?: () => void;
+  deleteButtonText?: string;
+  deleteDisabled?: boolean;
   width?: number | string;
   showHeader?: boolean;
   anchor?: 'left' | 'right';
@@ -69,11 +78,14 @@ export default function BaseDrawer({
   saveButtonText = 'Save Changes',
   saveDataTour,
   closeButtonText = 'Cancel',
-  width = 578,
+  onDelete,
+  deleteButtonText = 'Delete',
+  deleteDisabled = false,
+  width = DRAWER_WIDTH,
   showHeader = true,
   anchor = 'right',
 }: BaseDrawerProps) {
-  const hasFooter = !!(closeButtonText || onSave || error);
+  const hasFooter = !!(closeButtonText || onSave || onDelete || error);
 
   return (
     <Drawer
@@ -150,19 +162,20 @@ export default function BaseDrawer({
                 variant="outlined"
                 onClick={onClose}
                 disabled={loading}
-                sx={{
-                  borderWidth: 2,
-                  borderColor: 'primary.main',
-                  color: 'primary.main',
-                  fontWeight: 700,
-                  fontSize: 14,
-                  borderRadius: BORDER_RADIUS.sm,
-                  px: '16px',
-                  py: '8px',
-                  '&:hover': { borderWidth: 2 },
-                }}
+                sx={drawerFooterCancelButtonSx}
               >
                 {closeButtonText}
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={onDelete}
+                disabled={loading || deleteDisabled}
+                sx={drawerFooterDeleteButtonSx}
+              >
+                {deleteButtonText}
               </Button>
             )}
             {onSave && (
@@ -176,17 +189,7 @@ export default function BaseDrawer({
                     <CircularProgress size={16} color="inherit" />
                   ) : undefined
                 }
-                sx={{
-                  borderRadius: BORDER_RADIUS.sm,
-                  px: '16px',
-                  py: '8px',
-                  fontWeight: 700,
-                  fontSize: 14,
-                  '&.Mui-disabled': {
-                    bgcolor: theme => theme.palette.greyscale.border,
-                    color: '#fff',
-                  },
-                }}
+                sx={drawerFooterSaveButtonSx}
               >
                 {loading ? 'Executing...' : saveButtonText}
               </Button>

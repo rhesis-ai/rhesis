@@ -72,8 +72,50 @@ def to_gemini(
     return parts
 
 
+def gemini_parts(
+    files: Optional[List[Dict[str, Any]]],
+    input_text: str = "",
+) -> List[Dict[str, Any]]:
+    """Build a Gemini parts array merging a text part with file inline_data parts.
+
+    Usage: {{ files | gemini_parts(input) | tojson }}
+    """
+    parts: List[Dict[str, Any]] = [{"text": input_text}]
+    parts.extend(to_gemini(files))
+    return parts
+
+
+def openai_content(
+    files: Optional[List[Dict[str, Any]]],
+    input_text: str = "",
+) -> List[Dict[str, Any]]:
+    """Build an OpenAI content array merging a text block with image_url blocks.
+
+    Usage: {{ files | openai_content(input) | tojson }}
+    """
+    content: List[Dict[str, Any]] = [{"type": "text", "text": input_text}]
+    content.extend(to_openai(files))
+    return content
+
+
+def anthropic_content(
+    files: Optional[List[Dict[str, Any]]],
+    input_text: str = "",
+) -> List[Dict[str, Any]]:
+    """Build an Anthropic content array merging a text block with image/document blocks.
+
+    Usage: {{ files | anthropic_content(input) | tojson }}
+    """
+    content: List[Dict[str, Any]] = [{"type": "text", "text": input_text}]
+    content.extend(to_anthropic(files))
+    return content
+
+
 FILE_FILTERS = {
     "to_anthropic": to_anthropic,
     "to_openai": to_openai,
     "to_gemini": to_gemini,
+    "gemini_parts": gemini_parts,
+    "openai_content": openai_content,
+    "anthropic_content": anthropic_content,
 }

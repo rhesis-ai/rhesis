@@ -6,7 +6,7 @@ import AddIcon from '@mui/icons-material/Add';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
-interface EntityEmptyStateProps {
+export interface EntityEmptyStateProps {
   /** MUI SvgIcon component class (not an element). */
   icon: SvgIconComponent;
   title: string;
@@ -16,8 +16,11 @@ interface EntityEmptyStateProps {
   actionDisabled?: boolean;
   /**
    * When true renders a Figma-aligned Paper card around the empty state
-   * (white bg, border, shadow). Used for linked-entity tabs on detail pages.
+   * (white bg, border, shadow). Used for linked-entity tabs and section
+   * cards on detail pages.
    * Defaults to false for backward compatibility.
+   *
+   * Figma: Frontend node 1435:49277 (linked data / section empty state).
    */
   card?: boolean;
   /**
@@ -36,8 +39,8 @@ interface EntityEmptyStateProps {
  * Figma-aligned empty state used when an entity list is empty.
  *
  * - **Default** (`card=false`): large icon, centered text, optional CTA button.
- * - **Card** (`card=true`): wraps content in a bordered Paper card matching the
- *   Figma "linked entities" empty state (Figma node 1201:29454).
+ * - **Card** (`card=true`): bordered Paper card for section / linked-entity tabs
+ *   (Figma node 1435:49277).
  */
 export default function EntityEmptyState({
   icon: Icon,
@@ -63,34 +66,45 @@ export default function EntityEmptyState({
         textAlign: 'center',
         py: card ? 0 : 10,
         px: card ? { xs: 2, md: '200px' } : 4,
-        gap: 2,
+        gap: card ? '20px' : 2,
       }}
     >
-      <Icon
+      <Box
         sx={{
-          fontSize: resolvedIconSize,
-          color: 'primary.main',
-          opacity: card ? 1 : 0.6,
-        }}
-      />
-
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: card ? 600 : 700,
-          fontSize: card ? 20 : undefined,
-          color: card ? 'primary.main' : 'text.primary',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: card ? '10px' : 0,
         }}
       >
-        {title}
-      </Typography>
+        <Icon
+          sx={{
+            fontSize: resolvedIconSize,
+            color: 'primary.main',
+            opacity: card ? 1 : 0.6,
+          }}
+        />
+
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: card ? 600 : 700,
+            fontSize: card ? 20 : undefined,
+            lineHeight: card ? '24px' : undefined,
+            color: card ? 'primary.main' : 'text.primary',
+          }}
+        >
+          {title}
+        </Typography>
+      </Box>
 
       {description && (
         <Typography
           variant="body2"
           sx={{
-            color: card ? 'text.primary' : 'text.secondary',
+            color: 'text.secondary',
             maxWidth: 480,
+            lineHeight: card ? '22px' : undefined,
           }}
         >
           {description}
@@ -106,9 +120,9 @@ export default function EntityEmptyState({
           sx={
             card
               ? {
-                  mt: 1,
                   fontWeight: 700,
                   fontSize: 18,
+                  lineHeight: '25px',
                   borderRadius: BORDER_RADIUS.md,
                   textTransform: 'none',
                   px: '20px',
@@ -130,7 +144,7 @@ export default function EntityEmptyState({
       elevation={0}
       sx={{
         border: theme => `1px solid ${theme.palette.greyscale.border}`,
-        borderRadius: BORDER_RADIUS.lg,
+        borderRadius: BORDER_RADIUS.md,
         boxShadow: ELEVATION.xs,
         px: '30px',
         py: '40px',

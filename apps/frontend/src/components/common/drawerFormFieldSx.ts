@@ -1,6 +1,9 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme';
 
+/** Default drawer shell width — 518px content + 30px padding each side (Figma 1641:16598). */
+export const DRAWER_WIDTH = 578;
+
 /** 40px gap between top-level drawer sections (Figma "Drawer Create" Section spacing). */
 export const drawerSectionSx: SxProps<Theme> = {
   display: 'flex',
@@ -51,14 +54,16 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
     color: theme => theme.palette.greyscale.subtitle,
   },
   '& .MuiOutlinedInput-input': {
-    padding: '16px 12px 16px 16px !important',
+    padding: theme =>
+      `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px',
     fontSize: 16,
     lineHeight: '24px',
     boxSizing: 'border-box',
   },
   '& .MuiSelect-select': {
-    padding: '16px 32px 16px 16px !important',
+    padding: theme =>
+      `${theme.spacing(2)} ${theme.spacing(4)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px !important',
     fontSize: 16,
     lineHeight: '24px',
@@ -74,7 +79,8 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
     minHeight: 56,
   },
   '& .MuiOutlinedInput-input.Mui-disabled': {
-    padding: '16px 12px 16px 16px !important',
+    padding: theme =>
+      `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px',
     WebkitTextFillColor: theme => theme.palette.greyscale.border,
     color: theme => theme.palette.greyscale.border,
@@ -100,5 +106,47 @@ export const drawerTagFieldSx: SxProps<Theme> = {
   },
   '& .MuiChip-root': {
     fontWeight: 400,
+  },
+};
+
+/** Footer cancel button — Figma Drawer Create toolbar (1641:16615). */
+export const drawerFooterCancelButtonSx: SxProps<Theme> = {
+  borderWidth: 2,
+  borderColor: 'primary.main',
+  color: 'primary.main',
+  fontWeight: 700,
+  fontSize: 14,
+  lineHeight: '22px',
+  borderRadius: BORDER_RADIUS.sm,
+  px: '16px',
+  py: '8px',
+  textTransform: 'none',
+  '&:hover': { borderWidth: 2 },
+};
+
+/** Footer delete button — outlined error, matches drawer toolbar sizing. */
+export const drawerFooterDeleteButtonSx: SxProps<Theme> = {
+  ...drawerFooterCancelButtonSx,
+  borderColor: 'error.main',
+  color: 'error.main',
+  '&:hover': {
+    borderWidth: 2,
+    borderColor: 'error.dark',
+    bgcolor: theme => theme.palette.action.hover,
+  },
+};
+
+/** Footer primary action button — Figma Drawer Create toolbar (1641:16616). */
+export const drawerFooterSaveButtonSx: SxProps<Theme> = {
+  borderRadius: BORDER_RADIUS.sm,
+  px: '16px',
+  py: '8px',
+  fontWeight: 700,
+  fontSize: 14,
+  lineHeight: '22px',
+  textTransform: 'none',
+  '&.Mui-disabled': {
+    bgcolor: theme => theme.palette.greyscale.border,
+    color: '#fff',
   },
 };

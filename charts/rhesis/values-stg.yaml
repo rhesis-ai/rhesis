@@ -35,7 +35,7 @@ config:
   dbUser: "rhesis-admin"
 
   # Frontend
-  nextPublicApiBaseUrl: "https://stg-api.rhesis.ai"
+  apiBaseUrl: "https://stg-api.rhesis.ai"
   nextPublicAppUrl: "https://stg-app.rhesis.ai"
   nextauthUrl: "https://stg-app.rhesis.ai"
   # Replace with the staging Auth0 application client id when ready.

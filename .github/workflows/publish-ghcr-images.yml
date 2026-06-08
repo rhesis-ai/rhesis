@@ -109,7 +109,6 @@ jobs:
 
     env:
       FRONTEND_ENV: local
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
 
     steps:
       - name: Check out repository
@@ -135,7 +134,6 @@ jobs:
           provenance: false
           build-args: |
             FRONTEND_ENV=${{ env.FRONTEND_ENV }}
-            NEXT_PUBLIC_API_BASE_URL=${{ env.NEXT_PUBLIC_API_BASE_URL }}
             GIT_BRANCH=${{ github.ref_name }}
             GIT_COMMIT=${{ github.sha }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend,push-by-digest=true,name-canonical=true,push=true
