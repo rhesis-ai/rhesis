@@ -10,7 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.config.settings import get_application_settings
-from rhesis.backend.app.database import bind_scope_to_session, reset_session_context
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
@@ -758,7 +758,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             # runs with no active project, so bind the session to this endpoint's
             # project for the insert, then restore the org-level (no-project)
             # scope so entities created afterwards stay org-level (project_id NULL).
-            bind_scope_to_session(db, organization_id, user_id, str(project.id))
+            set_session_variables(db, organization_id, user_id, str(project.id))
             try:
                 get_or_create_entity(
                     db=db,
@@ -769,7 +769,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     commit=False,
                 )
             finally:
-                reset_session_context(db)
+                set_session_variables(db, organization_id, user_id, "")
 
         # Inject garak metrics from the SDK registry (single source of truth)
         _inject_garak_metrics(initial_data)
@@ -1009,7 +1009,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
         seen_endpoint_ids = set()
         try:
             for proj in projects:
-                bind_scope_to_session(db, organization_id, user_id, str(proj.id))
+                set_session_variables(db, organization_id, user_id, str(proj.id))
                 skip = 0
                 page_size = 100
                 while True:
@@ -1028,7 +1028,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                             endpoints.append(ep)
                     skip += page_size
         finally:
-            reset_session_context(db)
+            set_session_variables(db, organization_id, user_id, "")
         result["endpoint_count"] = len(endpoints)
         print(f"  ✓ Found {len(endpoints)} endpoint(s)")
         for ep in endpoints:
@@ -1063,7 +1063,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                 # test_configuration / test_run rows created by
                 # execute_test_set_on_endpoint satisfy the project_isolation RLS
                 # policy and are stamped to the right project.
-                bind_scope_to_session(db, organization_id, user_id, str(endpoint.project_id))
+                set_session_variables(db, organization_id, user_id, str(endpoint.project_id))
                 try:
                     # Submit test execution (fire-and-forget)
                     execution_result = execute_test_set_on_endpoint(
@@ -1105,7 +1105,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
 
                     print(f"  ✗ Failed to submit: {str(e)}")
                 finally:
-                    reset_session_context(db)
+                    set_session_variables(db, organization_id, user_id, "")
 
                 print()  # Blank line between executions
 
