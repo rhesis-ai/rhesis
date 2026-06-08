@@ -11,7 +11,7 @@ interface TagsDraft {
 
 interface ProjectTagsCardProps {
   project: Project;
-  onSave: (updatedProject: Partial<Project>) => Promise<void>;
+  onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export default function ProjectTagsCard({

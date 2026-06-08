@@ -42,7 +42,7 @@ import type { UUID } from 'crypto';
 interface ProjectTraceMetricsProps {
   project: Project;
   sessionToken: string;
-  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
+  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export interface ProjectTraceMetricsHandle {

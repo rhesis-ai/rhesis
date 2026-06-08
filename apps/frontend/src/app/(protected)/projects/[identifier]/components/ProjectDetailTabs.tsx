@@ -6,7 +6,6 @@ import { Alert, Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
-import { BuiltInEnvironment } from '@/utils/api-client/interfaces/parameters';
 import { Project } from '@/utils/api-client/interfaces/project';
 import ProjectOverviewTab from './ProjectOverviewTab';
 import ProjectEndpoints from './ProjectEndpoints';
@@ -49,7 +48,7 @@ interface ProjectDetailTabsProps {
   project: Project;
   projectId: string;
   sessionToken: string;
-  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
+  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export default function ProjectDetailTabs({

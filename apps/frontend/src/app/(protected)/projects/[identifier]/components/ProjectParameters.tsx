@@ -70,6 +70,7 @@ export default function ProjectParameters({
     removeField,
     move,
     handleSave,
+    handleRevert,
   } = useParameterSchema(projectId, sessionToken);
 
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
@@ -110,7 +111,8 @@ export default function ProjectParameters({
   };
 
   const handleDrawerSave = async () => {
-    await handleSave();
+    const ok = await handleSave();
+    if (!ok) return;
     if (drawerKey) {
       setNewFieldKeys(prev => {
         const next = new Set(prev);
@@ -132,7 +134,11 @@ export default function ProjectParameters({
       next.delete(drawerKey);
       return next;
     });
-    await handleSave(updatedDraft);
+    const ok = await handleSave(updatedDraft);
+    if (!ok) {
+      handleRevert();
+      return;
+    }
     handleCloseDrawer();
   };
 
@@ -338,7 +344,7 @@ export default function ProjectParameters({
         }
         saveButtonText="Save"
         onSave={handleDrawerSave}
-        saveDisabled={!isDirty}
+        saveDisabled={saving || (!isDirty && !isNewParameter)}
         loading={saving}
         closeButtonText={drawerCloseButtonText}
         onDelete={isNewParameter ? undefined : handleDrawerDelete}

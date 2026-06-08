@@ -279,12 +279,14 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
           saved.fields.map(field => ({ ...field, _key: stableKey('f') }))
         );
         notifications.show('Parameter schema saved', { severity: 'success' });
+        return true;
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
             : 'Failed to save parameter schema';
         notifications.show(message, { severity: 'error' });
+        return false;
       } finally {
         setSaving(false);
       }

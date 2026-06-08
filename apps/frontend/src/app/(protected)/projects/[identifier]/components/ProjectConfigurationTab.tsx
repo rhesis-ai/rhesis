@@ -23,7 +23,7 @@ interface ProjectConfigurationTabProps {
   project: Project;
   projectId: string;
   sessionToken: string;
-  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
+  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 export default function ProjectConfigurationTab({

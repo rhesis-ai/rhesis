@@ -34,7 +34,7 @@ interface MetadataDraft {
 interface ProjectMetadataCardProps {
   project: Project;
   sessionToken: string;
-  onSave: (updatedProject: Partial<Project>) => Promise<void>;
+  onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
 }
 
 function getUserDisplayName(user: User): string {

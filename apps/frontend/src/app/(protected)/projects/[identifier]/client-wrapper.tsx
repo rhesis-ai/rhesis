@@ -67,7 +67,7 @@ export default function ClientWrapper({
   );
 
   const handleUpdateProject = useCallback(
-    async (updatedProject: Partial<Project>) => {
+    async (updatedProject: Partial<Project>): Promise<boolean> => {
       setIsUpdating(true);
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
@@ -87,12 +87,13 @@ export default function ClientWrapper({
         notifications.show('Project updated successfully', {
           severity: 'success',
         });
+        return true;
       } catch (error) {
         notifications.show(
           error instanceof Error ? error.message : 'Failed to update project',
           { severity: 'error' }
         );
-        throw error;
+        return false;
       } finally {
         setIsUpdating(false);
       }
