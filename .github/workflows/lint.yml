@@ -35,7 +35,7 @@ jobs:
 
     - name: Install uv
       if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       with:
         version: latest
         enable-cache: true
