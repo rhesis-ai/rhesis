@@ -27,11 +27,9 @@ function SupportSection({ title, description, children }: SectionProps) {
   return (
     <Box
       sx={{
-        borderTop: theme => `1px solid ${theme.palette.divider}`,
-        pt: '20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '20px',
       }}
     >
       <Box>
@@ -131,79 +129,81 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
       title="Support"
       anchor="right"
     >
-      <SupportSection
-        title="Docs"
-        description="Explore guides, API references, and examples to get the most out of Rhesis."
-      >
-        <Button
-          component="a"
-          href="https://docs.rhesis.ai"
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="outlined"
-          startIcon={<MenuBookIcon />}
-          fullWidth
-          sx={{
-            borderWidth: 2,
-            borderColor: 'primary.main',
-            color: 'primary.main',
-            fontWeight: 700,
-            fontSize: 14,
-            borderRadius: BORDER_RADIUS.sm,
-            px: '16px',
-            py: '8px',
-            justifyContent: 'flex-start',
-            '&:hover': { borderWidth: 2 },
-          }}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+        <SupportSection
+          title="Docs"
+          description="Explore guides, API references, and examples to get the most out of Rhesis."
         >
-          View documentation
-        </Button>
-      </SupportSection>
+          <Button
+            component="a"
+            href="https://docs.rhesis.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outlined"
+            startIcon={<MenuBookIcon />}
+            fullWidth
+            sx={{
+              borderWidth: 2,
+              borderColor: 'primary.main',
+              color: 'primary.main',
+              fontWeight: 700,
+              fontSize: 14,
+              borderRadius: BORDER_RADIUS.sm,
+              px: '16px',
+              py: '8px',
+              justifyContent: 'flex-start',
+              '&:hover': { borderWidth: 2 },
+            }}
+          >
+            View documentation
+          </Button>
+        </SupportSection>
 
-      <SupportSection
-        title="Email a Support Engineer"
-        description="Still stuck? Our support team is happy to help you get unblocked."
-      >
-        <Button
-          component="a"
-          href="mailto:hello@rhesis.ai"
-          variant="outlined"
-          startIcon={<EmailOutlinedIcon />}
-          fullWidth
-          sx={{
-            borderWidth: 2,
-            borderColor: 'primary.main',
-            color: 'primary.main',
-            fontWeight: 700,
-            fontSize: 14,
-            borderRadius: BORDER_RADIUS.sm,
-            px: '16px',
-            py: '8px',
-            justifyContent: 'flex-start',
-            '&:hover': { borderWidth: 2 },
-          }}
+        <SupportSection
+          title="Email a Support Engineer"
+          description="Still stuck? Our support team is happy to help you get unblocked."
         >
-          Email a Support Engineer
-        </Button>
-      </SupportSection>
+          <Button
+            component="a"
+            href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'hello@rhesis.ai'}`}
+            variant="outlined"
+            startIcon={<EmailOutlinedIcon />}
+            fullWidth
+            sx={{
+              borderWidth: 2,
+              borderColor: 'primary.main',
+              color: 'primary.main',
+              fontWeight: 700,
+              fontSize: 14,
+              borderRadius: BORDER_RADIUS.sm,
+              px: '16px',
+              py: '8px',
+              justifyContent: 'flex-start',
+              '&:hover': { borderWidth: 2 },
+            }}
+          >
+            Email a Support Engineer
+          </Button>
+        </SupportSection>
 
-      <SupportSection
-        title="Community & Resources"
-        description="Join the conversation and connect with the Rhesis community."
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <CommunityLink
-            icon={<GitHubIcon />}
-            label="GitHub"
-            href="https://github.com/rhesis-ai/rhesis"
-          />
-          <CommunityLink
-            icon={<DiscordIcon />}
-            label="Discord"
-            href="https://discord.rhesis.ai"
-          />
-        </Box>
-      </SupportSection>
+        <SupportSection
+          title="Community & Resources"
+          description="Join the conversation and connect with the Rhesis community."
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            <CommunityLink
+              icon={<GitHubIcon />}
+              label="GitHub"
+              href="https://github.com/rhesis-ai/rhesis"
+            />
+            <CommunityLink
+              icon={<DiscordIcon />}
+              label="Discord"
+              href="https://discord.rhesis.ai"
+            />
+          </Box>
+        </SupportSection>
+      </Box>
     </FilterDrawerShell>
   );
 }
