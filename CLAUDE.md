@@ -402,8 +402,10 @@ the ORM auto-filter for the session's remaining lifetime. Calling it inside a Fa
 temporary project window leaks the project filter into every subsequent query on that session —
 queries silently return empty results or wrong counts with no error raised.
 
-`temporary_project_scope` sets GUCs only for its block (no `_scope` write), then restores to
-org-level. Safe to use repeatedly within a single request session.
+`temporary_project_scope` saves and restores both `db.info['_scope']` and the RLS GUCs for its
+block. Any `db.commit()` inside the block (which triggers the `after_begin` re-apply listener) uses
+the temporary project scope, not the caller's original scope. Safe to use repeatedly within a single
+request session.
 
 `bind_scope_to_session` callers (sessions they own outright):
 

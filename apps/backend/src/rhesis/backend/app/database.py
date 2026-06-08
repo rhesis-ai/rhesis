@@ -110,7 +110,8 @@ def _apply_scope_variables(db: Session, scope) -> None:
 #
 #               with temporary_project_scope(db, org, user, project):
 #                   ...
-#               # GUCs restored to org-level on exit; no _scope leak.
+#               # Saves and restores _scope + GUCs on exit — safe across
+#               # internal db.commit() calls (after_begin re-applies correctly).
 #
 #             Need to re-apply GUCs after a mid-request db.commit()
 #             without a context manager?
@@ -303,18 +304,22 @@ def temporary_project_scope(
 ) -> Generator[None, None, None]:
     """Temporarily shift the session to a specific project scope, then restore it.
 
-    Use this when a single operation inside an ongoing request needs project-level RLS
-    GUCs (e.g. inserting an endpoint whose ``project_id`` must match
+    Use this when a single operation inside an ongoing request needs project-level
+    scope (e.g. inserting an endpoint whose ``project_id`` must match
     ``app.current_project``) but the surrounding request runs at org-level with no
     active project.
 
-    Sets only the RLS GUCs via ``set_session_variables`` — does NOT write to
-    ``db.info['_scope']``, so the ORM auto-filter/auto-stamp listeners stay dormant
-    and there is no scope leakage into subsequent queries after the block exits.
+    Saves and restores **both** layers of scope state:
+
+    - ``db.info['_scope']`` (ORM auto-filter/auto-stamp + ``after_begin`` re-apply)
+    - RLS GUCs (``app.current_organization`` / ``app.current_project``)
+
+    This means any ``db.commit()`` inside the block (which triggers ``after_begin``)
+    will re-apply the temporary project GUCs, not the caller's original no-project
+    scope. On exit, the original ``_scope`` and GUCs are fully restored.
 
     Use ``bind_scope_to_session`` instead when you own a long-lived session (Celery
-    task, WebSocket handler) and want both RLS and ORM listeners active for the
-    session's full lifetime.
+    task, WebSocket handler) and want scope active for the session's full lifetime.
 
     Example::
 
@@ -322,11 +327,27 @@ def temporary_project_scope(
             db.add(Endpoint(...))
             db.flush()
     """
-    set_session_variables(db, organization_id, user_id, project_id)
+    from rhesis.backend.app.scope import RequestScope
+
+    prev_scope = db.info.get(_SCOPE_KEY)
+
+    temp_scope = RequestScope(
+        organization_id=organization_id or None,
+        user_id=user_id or None,
+        project_id=project_id or None,
+    )
+    db.info[_SCOPE_KEY] = temp_scope
+    _apply_scope_variables(db, temp_scope)
+
     try:
         yield
     finally:
-        set_session_variables(db, organization_id, user_id, "")
+        if prev_scope is None:
+            db.info.pop(_SCOPE_KEY, None)
+            _set_session_variables(db, organization_id, user_id, "")
+        else:
+            db.info[_SCOPE_KEY] = prev_scope
+            _apply_scope_variables(db, prev_scope)
 
 
 @contextmanager
