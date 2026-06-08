@@ -54,7 +54,11 @@ export function ActiveProjectProvider({
   const [loading, setLoading] = useState(true);
 
   const fetchProjects = useCallback(async () => {
-    if (!session?.session_token || pathname.includes('/onboarding')) return;
+    if (!session?.session_token) return;
+    if (pathname.startsWith('/onboarding')) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const factory = new ApiClientFactory(session.session_token);
@@ -105,11 +109,11 @@ export function ActiveProjectProvider({
     } finally {
       setLoading(false);
     }
-  }, [session?.session_token]);
+  }, [session?.session_token, pathname]);
 
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects, pathname]);
+  }, [fetchProjects]);
 
   const setActiveProject = useCallback((project: Project | null) => {
     const previousId = readActiveProjectId();
