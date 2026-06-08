@@ -4,7 +4,6 @@ declare global {
   interface Window {
     __ENV__?: {
       apiBaseUrl: string;
-      quickStart: string;
     };
   }
 }

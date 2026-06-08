@@ -46,7 +46,6 @@ describe('getClientApiBaseUrl', () => {
   it('uses window runtime config when set', () => {
     window.__ENV__ = {
       apiBaseUrl: 'http://localhost:9090/api',
-      quickStart: 'false',
     };
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:9090/api');
   });
@@ -58,7 +57,6 @@ describe('getClientApiBaseUrl', () => {
   it('resolves localhost in the URL', () => {
     window.__ENV__ = {
       apiBaseUrl: 'http://localhost:3000',
-      quickStart: 'false',
     };
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:3000');
   });
@@ -104,7 +102,6 @@ describe('getBaseUrl', () => {
     // window is defined in jsdom
     window.__ENV__ = {
       apiBaseUrl: 'http://localhost:5000',
-      quickStart: 'false',
     };
     expect(getBaseUrl()).toBe('http://127.0.0.1:5000');
   });

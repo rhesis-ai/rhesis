@@ -268,7 +268,6 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   };
   const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
     apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
-    quickStart: process.env.QUICK_START ?? 'false',
   }).replace(/</g, '\\u003c')};`;
 
   // Fetch the active project server-side so the sidebar can render the
