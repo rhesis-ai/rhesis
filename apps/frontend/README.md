@@ -25,10 +25,10 @@ From the repository root, `./rh dev init` creates `apps/frontend/.env.local` (se
 
 ## Run
 
-- **Repository root:** `./rh dev frontend` — runs `apps/frontend/start.sh`, which starts the dev server (`npm run dev:turbo` in development).
-- **This directory:** `npm run dev` (or `./start.sh`).
+- **Repository root:** `./rh dev frontend` — runs `apps/frontend/start.sh`, which starts `npm run dev:turbo`.
+- **This directory:** `npm run dev:turbo` (or `./start.sh`, which runs the same command).
 
-The dev server binds to port **3000** (see `package.json` `dev` script: `next dev … -p 3000`).
+The dev server binds to port **3000** (see `package.json` `dev:turbo` script: `next dev --turbo … -p 3000`). Use `npm run dev` for the webpack-based dev server instead.
 
 ## Contributing
 

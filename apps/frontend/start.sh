@@ -56,11 +56,8 @@ ensure_dependencies() {
 
 # Function to start the development server
 start_server() {
-    local port="${PORT:-3000}"
-
     log "${BLUE}📋 Server Configuration:${NC}"
     log "  Host: 0.0.0.0 (from npm run dev:turbo)"
-    log "  Port: $port"
     log "  Environment: development"
     echo ""
 
