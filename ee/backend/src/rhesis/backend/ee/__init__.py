@@ -80,6 +80,8 @@ def bootstrap(app: "FastAPI") -> None:
         mint_for_client_bound_refresh,
     )
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
+    from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+    from rhesis.backend.ee.rbac.router import router as rbac_router
     from rhesis.backend.ee.rbac.sync import sync_rbac_catalog
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
     from rhesis.backend.ee.sso.router import router as sso_router
@@ -128,6 +130,13 @@ def bootstrap(app: "FastAPI") -> None:
     # session is available.  The hook is idempotent: safe to register
     # multiple times (e.g. during test-suite app rebuilds).
     register_startup_hook(sync_rbac_catalog)
+
+    # Install the EE authorization provider.  The community
+    # DefaultAuthorizationProvider is replaced for the lifetime of the process;
+    # per-org RBAC availability is checked inside the provider itself.
+    from rhesis.backend.app.auth.rbac import set_authorization_provider
+
+    set_authorization_provider(PermissionAuthorizationProvider())
 
     # API Clients depends on SSO at runtime: the token-exchange flow
     # validates the subject token against the org's SSOConfig issuer.
@@ -185,7 +194,7 @@ def bootstrap(app: "FastAPI") -> None:
     # so the public/token route lists apply uniformly. Without this, the SSO
     # admin endpoints would silently fall back to vanilla APIRoute and any
     # future EE route relying on path-based auth would break.
-    for r in (sso_router, api_clients_router, token_exchange_router):
+    for r in (sso_router, api_clients_router, token_exchange_router, rbac_router):
         r.route_class = app.router.route_class
         app.include_router(r)
 
