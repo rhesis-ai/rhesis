@@ -25,7 +25,7 @@ From the repository root, `./rh dev init` creates `apps/frontend/.env.local` (se
 
 ## Run
 
-- **Repository root:** `./rh dev frontend` — runs `apps/frontend/start.sh`, which starts the dev server (`npm run dev` in development).
+- **Repository root:** `./rh dev frontend` — runs `apps/frontend/start.sh`, which starts the dev server (`npm run dev:turbo` in development).
 - **This directory:** `npm run dev` (or `./start.sh`).
 
 The dev server binds to port **3000** (see `package.json` `dev` script: `next dev … -p 3000`).

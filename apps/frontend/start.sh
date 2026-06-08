@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Local development entrypoint only.
+# Production and staging use apps/frontend/Dockerfile (node apps/frontend/server.js).
+# Invoked via: ./rh dev frontend  or  cd apps/frontend && ./start.sh
+
 # Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -21,16 +25,6 @@ handle_error() {
     exit 1
 }
 
-# Function to check if we're in production mode
-is_production() {
-    [ "${ENVIRONMENT}" = "production" ] || [ "${FRONTEND_ENV}" = "production" ]
-}
-
-# Function to check if we're in staging mode
-is_staging() {
-    [ "${ENVIRONMENT}" = "staging" ] || [ "${FRONTEND_ENV}" = "staging" ]
-}
-
 # Function to display banner
 show_banner() {
     echo -e "${CYAN}"
@@ -40,9 +34,9 @@ show_banner() {
     echo " |  _ <|  _  | |___ ___) | | ___) |"
     echo " |_| \_\_| |_|_____|____/___|____/ "
     echo -e "${NC}"
-    
+
     echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}🌐 Starting Rhesis Frontend Server${NC}"
+    echo -e "${WHITE}🌐 Starting Rhesis Frontend (development)${NC}"
     echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
     echo ""
 }
@@ -60,48 +54,27 @@ ensure_dependencies() {
     fi
 }
 
-# Function to start the server
+# Function to start the development server
 start_server() {
     local port="${PORT:-3000}"
-    local host="${HOST:-0.0.0.0}"
-    
+
     log "${BLUE}📋 Server Configuration:${NC}"
-    log "  Host: $host"
+    log "  Host: 0.0.0.0 (from npm run dev:turbo)"
     log "  Port: $port"
-    log "  Environment: $(is_production && echo "production" || (is_staging && echo "staging" || echo "development"))"
+    log "  Environment: development"
     echo ""
-    
-    if is_production || is_staging; then
-        log "${BLUE}🏭 Starting production server...${NC}"
-        log "${BLUE}🔨 Building Next.js application...${NC}"
-        
-        # Build the application first
-        if NODE_ENV=production npm run build; then
-            log "${GREEN}✅ Build completed successfully${NC}"
-        else
-            handle_error "Build failed"
-        fi
-        
-        echo ""
-        log "${BLUE}▶️  Launching production server...${NC}"
-        echo ""
-        
-        # Start the production server
-        NODE_ENV=production exec npm run start -- --hostname 0.0.0.0
-    else
-        log "${BLUE}🛠️  Starting development server...${NC}"
-        log "${YELLOW}📦 Framework:${NC} ${GREEN}Next.js${NC}"
-        log "${YELLOW}🔧 Command:${NC} ${GREEN}npm run dev --host${NC}"
-        log "${YELLOW}🔄 Hot Reload:${NC} ${GREEN}enabled${NC}"
-        log "${YELLOW}🎨 Turbo Mode:${NC} ${GREEN}active${NC}"
-        echo ""
-        
-        log "${BLUE}▶️  Launching development server...${NC}"
-        echo ""
-        
-        # Start the development server
-        NODE_ENV=development exec npm run dev --host
-    fi
+
+    log "${BLUE}🛠️  Starting development server...${NC}"
+    log "${YELLOW}📦 Framework:${NC} ${GREEN}Next.js${NC}"
+    log "${YELLOW}🔧 Command:${NC} ${GREEN}npm run dev:turbo${NC}"
+    log "${YELLOW}🔄 Hot Reload:${NC} ${GREEN}enabled${NC}"
+    log "${YELLOW}🎨 Turbo Mode:${NC} ${GREEN}active${NC}"
+    echo ""
+
+    log "${BLUE}▶️  Launching development server...${NC}"
+    echo ""
+
+    NODE_ENV=development exec npm run dev:turbo
 }
 
 # Function to handle shutdown gracefully
@@ -117,20 +90,20 @@ cleanup() {
 main() {
     # Set up signal handlers
     trap cleanup SIGTERM SIGINT
-    
+
     # Show banner
     show_banner
-    
+
     # Log startup information
     log "${BLUE}🚀 Starting Rhesis Frontend startup sequence...${NC}"
     log "${BLUE}📅 Startup time: $(date)${NC}"
     log "${BLUE}👤 Running as user: $(whoami)${NC}"
     log "${BLUE}📁 Working directory: $(pwd)${NC}"
     echo ""
-    
+
     # Ensure dependencies are installed
     ensure_dependencies
-    
+
     # Start the server
     start_server
 }
