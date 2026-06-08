@@ -1014,7 +1014,7 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                     db=db,
                     organization_id=organization_id,
                     user_id=user_id,
-                    # Use default limit (10) - sufficient for initial data
+                    limit=1000,  # Fetch all endpoints (>10 is possible in real orgs)
                 ):
                     if ep.id not in seen_endpoint_ids:
                         seen_endpoint_ids.add(ep.id)
