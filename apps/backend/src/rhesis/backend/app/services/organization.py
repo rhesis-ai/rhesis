@@ -10,6 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.database import bind_scope_to_session
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
@@ -751,14 +752,24 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             if status:
                 endpoint_data["status_id"] = status.id
 
-            get_or_create_entity(
-                db=db,
-                model=models.Endpoint,
-                entity_data=endpoint_data,
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
+            # Endpoints carry a non-null project_id and are guarded by the
+            # fail-closed `project_isolation` RLS policy, which rejects an INSERT
+            # whose project_id does not match `app.current_project`. Onboarding
+            # runs with no active project, so bind the session to this endpoint's
+            # project for the insert, then restore the org-level (no-project)
+            # scope so entities created afterwards stay org-level (project_id NULL).
+            bind_scope_to_session(db, organization_id, user_id, str(project.id))
+            try:
+                get_or_create_entity(
+                    db=db,
+                    model=models.Endpoint,
+                    entity_data=endpoint_data,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    commit=False,
+                )
+            finally:
+                bind_scope_to_session(db, organization_id, user_id, "")
 
         # Inject garak metrics from the SDK registry (single source of truth)
         _inject_garak_metrics(initial_data)
@@ -980,14 +991,36 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
         for ts in test_sets:
             print(f"    - {ts.name} (ID: {ts.id})")
 
-        # Get all endpoints for the organization
+        # Get all endpoints for the organization.
+        #
+        # Endpoints are project-scoped and the fail-closed project_isolation RLS
+        # policy only admits rows whose project_id matches app.current_project
+        # (or org-level NULL rows). This runs with no active project, so a plain
+        # query would return nothing. We enumerate the org's projects (the
+        # project table itself is org-scoped only, no project RLS) and fetch each
+        # project's endpoints under that project's scope.
         print(f"\nFetching endpoints for organization: {organization_id}")
-        endpoints = crud.get_endpoints(
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
-            # Use default limit (10) - sufficient for initial data
+        projects = (
+            db.query(models.Project)
+            .filter(models.Project.organization_id == uuid.UUID(organization_id))
+            .all()
         )
+        endpoints = []
+        seen_endpoint_ids = set()
+        try:
+            for proj in projects:
+                bind_scope_to_session(db, organization_id, user_id, str(proj.id))
+                for ep in crud.get_endpoints(
+                    db=db,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    # Use default limit (10) - sufficient for initial data
+                ):
+                    if ep.id not in seen_endpoint_ids:
+                        seen_endpoint_ids.add(ep.id)
+                        endpoints.append(ep)
+        finally:
+            bind_scope_to_session(db, organization_id, user_id, "")
         result["endpoint_count"] = len(endpoints)
         print(f"  ✓ Found {len(endpoints)} endpoint(s)")
         for ep in endpoints:
@@ -1018,6 +1051,11 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                 execution_label = f"{test_set.name} → {endpoint.name}"
                 print(f"Executing: {execution_label}")
 
+                # Bind the session to the endpoint's project so the project-scoped
+                # test_configuration / test_run rows created by
+                # execute_test_set_on_endpoint satisfy the project_isolation RLS
+                # policy and are stamped to the right project.
+                bind_scope_to_session(db, organization_id, user_id, str(endpoint.project_id))
                 try:
                     # Submit test execution (fire-and-forget)
                     execution_result = execute_test_set_on_endpoint(
@@ -1058,6 +1096,8 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
                     result["details"].append(detail)
 
                     print(f"  ✗ Failed to submit: {str(e)}")
+                finally:
+                    bind_scope_to_session(db, organization_id, user_id, "")
 
                 print()  # Blank line between executions
 
