@@ -386,26 +386,43 @@ Set `RHESIS_DISABLE_SCOPE_LISTENER=1` to disable both listeners without redeploy
   are unaffected because the listener no-ops when `organization_id is None`
 - `bound_scope` — opt-in fixture for tests that exercise the listeners directly
 
-### Side-channel scope binding (`bind_scope_to_session`)
+### Side-channel and in-request scope binding
 
-Celery tasks and services that own their own `SessionLocal()` (so they cannot wrap the work in
-`get_db_with_tenant_variables`) bind tenant context via `bind_scope_to_session()`. It stores a full
-`RequestScope` on `Session.info['_scope']` **and** applies the RLS GUCs, so the auto-filter /
-auto-stamp listeners are active and `project_id` is carried — same behavior as the normal request
-path. Current callers:
+Three functions set tenant GUCs and/or the ORM auto-filter scope. Use the table below —
+do not default to `bind_scope_to_session`.
+
+| Situation | Function |
+|---|---|
+| You own a long-lived session (Celery task, WebSocket handler, script) | `bind_scope_to_session(db, org, user, project)` |
+| Short project-scope window inside a FastAPI request | `with temporary_project_scope(db, org, user, project):` |
+| Re-apply GUCs after a mid-request `db.commit()` (no context manager) | `set_session_variables(db, org, user, project)` |
+
+**Why the distinction matters.** `bind_scope_to_session` writes `db.info['_scope']`, which activates
+the ORM auto-filter for the session's remaining lifetime. Calling it inside a FastAPI request for a
+temporary project window leaks the project filter into every subsequent query on that session —
+queries silently return empty results or wrong counts with no error raised.
+
+`temporary_project_scope` sets GUCs only for its block (no `_scope` write), then restores to
+org-level. Safe to use repeatedly within a single request session.
+
+`bind_scope_to_session` callers (sessions they own outright):
 
 - `tasks/execution/batch/context.py`
 - `celery/signals.py`
 - `tasks/telemetry/evaluate.py`
 - `tasks/telemetry/post_ingest.py`
 - `tasks/execution/executors/data.py`
+- `routers/parameters.py`
 - `services/telemetry/conversation_linking.py`
 - `services/websocket/handlers/architect.py`
 
-Bare `set_session_variables()` (sets RLS GUCs but does **not** bind a `RequestScope`, leaving the
-ORM listeners dormant) is now only used intentionally in `routers/organization.py` (onboarding
-re-applies vars after a mid-request commit) and `crud.create_organization` via
-`reset_session_context()` (bootstrap path that must run with no tenant context).
+`temporary_project_scope` callers (in-request, short project windows):
+
+- `services/organization.py` (three sites — onboarding endpoint/project seeding)
+
+`set_session_variables` callers (explicit GUC-only re-apply):
+
+- `routers/organization.py` (re-applies GUCs after mid-request `db.commit()` during onboarding)
 
 ### GUC reset ordering invariant
 

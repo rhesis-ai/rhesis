@@ -94,6 +94,32 @@ def _apply_scope_variables(db: Session, scope) -> None:
     _execute_set_config(db, _scope_to_guc_params(scope))
 
 
+# ---------------------------------------------------------------------------
+# Scope-management quick reference
+# ---------------------------------------------------------------------------
+# Three public functions set RLS GUCs and/or the ORM auto-filter scope.
+# Pick by answering one question:
+#
+#   Do you OWN the session for its entire lifetime?
+#   (Celery task, WebSocket handler, script)
+#       YES → bind_scope_to_session(db, org, user, project)
+#              Sets GUCs + db.info['_scope'].  ORM auto-filter/stamp active
+#              for the session's full lifetime.
+#
+#       NO  → Need project scope for ONE short block inside a request?
+#
+#               with temporary_project_scope(db, org, user, project):
+#                   ...
+#               # GUCs restored to org-level on exit; no _scope leak.
+#
+#             Need to re-apply GUCs after a mid-request db.commit()
+#             without a context manager?
+#               set_session_variables(db, org, user, project)
+#
+# NEVER use bind_scope_to_session inside a FastAPI request for a temporary
+# project window.  Writing _scope leaks the project filter into every
+# subsequent query on that session (silent empty-result bugs).
+# ---------------------------------------------------------------------------
 def bind_scope_to_session(
     db: Session,
     organization_id: str = "",
