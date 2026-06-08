@@ -102,17 +102,21 @@ def bind_scope_to_session(
 ) -> None:
     """Bind a full RequestScope (org, user, project) onto an existing session.
 
-    Use this on a session you already own (e.g. a SessionLocal() created inside a
-    Celery task or a side-channel caller) when you cannot wrap the work in
-    ``get_db_with_tenant_variables``. It stores the RequestScope on
-    ``Session.info['_scope']`` -- the single source of truth the auto-filter /
-    auto-stamp listeners and the after_begin RLS re-apply read -- and applies the
-    RLS GUCs immediately.
+    Use this for **long-lived tenant sessions** — Celery tasks, WebSocket handlers,
+    or any side-channel caller that owns a session for its entire lifetime and cannot
+    wrap the work in ``get_db_with_tenant_variables``. It stores the RequestScope on
+    ``Session.info['_scope']``, activating BOTH enforcement layers:
 
-    Unlike ``set_session_variables`` (which only sets the RLS GUCs and leaves the
-    ORM listeners dormant), this activates BOTH layers and, crucially, carries the
-    ``project_id`` so project filtering / stamping behave the same as on the normal
-    request path.
+    - RLS GUCs (``app.current_organization`` / ``app.current_project``) — database-level
+    - ORM auto-filter / auto-stamp listeners — SQLAlchemy-level
+
+    Because ``_scope`` persists on the session, both layers remain active for the
+    session's full lifetime and survive mid-request ``db.commit()`` calls.
+
+    Do NOT use this for temporary project-scope windows inside a request (e.g. during
+    onboarding where you shift to a project scope for one insert then return to
+    org-level). The persisted ``_scope`` will leak into all subsequent queries on the
+    same session. Use ``temporary_project_scope`` instead.
     """
     from rhesis.backend.app.scope import RequestScope
 
@@ -246,22 +250,14 @@ def reset_session_context(db: Session):
 
 
 def set_session_variables(db: Session, organization_id: str, user_id: str, project_id: str = ""):
-    """
-    Explicitly set PostgreSQL session variables for RLS policies.
+    """Set PostgreSQL RLS GUCs without activating the ORM auto-filter/auto-stamp listeners.
 
-    Prefer get_db_with_tenant_variables() which also stores the RequestScope on
-    Session.info for automatic auto-filter / auto-stamp. Use this function only when
-    you already have a session and need to set RLS variables without creating a new one.
+    This is the low-level primitive used by ``temporary_project_scope``. Prefer that
+    context manager for temporary scope windows. Use this function directly only when
+    you need explicit control over the before/after GUC values without a context manager.
 
-    NOTE: This function sets RLS variables but does NOT store a RequestScope on
-    Session.info. If you need the auto-filter/auto-stamp listeners to activate, set
-    db.info["_scope"] = RequestScope(...) yourself (or use get_db_with_tenant_variables).
-
-    Args:
-        db: Database session
-        organization_id: Organization UUID as string
-        user_id: User UUID as string
-        project_id: Project UUID as string (optional)
+    Does NOT write to ``db.info['_scope']``, so the ORM listeners stay dormant and
+    there is no scope leakage into subsequent queries after you are done.
     """
     try:
         _set_session_variables(db, organization_id, user_id, project_id)
@@ -273,6 +269,38 @@ def set_session_variables(db: Session, organization_id: str, user_id: str, proje
     except Exception as e:
         logger.warning(f"Failed to manually set session variables: {e}")
         raise
+
+
+@contextmanager
+def temporary_project_scope(
+    db: Session, organization_id: str, user_id: str, project_id: str
+) -> Generator[None, None, None]:
+    """Temporarily shift the session to a specific project scope, then restore it.
+
+    Use this when a single operation inside an ongoing request needs project-level RLS
+    GUCs (e.g. inserting an endpoint whose ``project_id`` must match
+    ``app.current_project``) but the surrounding request runs at org-level with no
+    active project.
+
+    Sets only the RLS GUCs via ``set_session_variables`` — does NOT write to
+    ``db.info['_scope']``, so the ORM auto-filter/auto-stamp listeners stay dormant
+    and there is no scope leakage into subsequent queries after the block exits.
+
+    Use ``bind_scope_to_session`` instead when you own a long-lived session (Celery
+    task, WebSocket handler) and want both RLS and ORM listeners active for the
+    session's full lifetime.
+
+    Example::
+
+        with temporary_project_scope(db, organization_id, user_id, str(project.id)):
+            db.add(Endpoint(...))
+            db.flush()
+    """
+    set_session_variables(db, organization_id, user_id, project_id)
+    try:
+        yield
+    finally:
+        set_session_variables(db, organization_id, user_id, "")
 
 
 @contextmanager
