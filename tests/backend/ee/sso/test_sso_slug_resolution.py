@@ -109,6 +109,28 @@ class TestGetOrgOr404:
 # ---------------------------------------------------------------------------
 
 
+def _make_mock_request(host: str = "localhost", port: int = 8080):
+    """Minimal Request stand-in for direct get_providers() unit calls."""
+    from starlette.datastructures import Headers
+
+    request = MagicMock()
+    request.scope = {"server": (host, port)}
+    request.url = MagicMock()
+    request.url.hostname = host
+    request.headers = Headers({"host": f"{host}:{port}"})
+    return request
+
+
+def _call_get_providers(get_providers, *, org, db):
+    """Invoke get_providers with org/db; pass request when the handler requires it."""
+    import inspect
+
+    kwargs = {"org": org, "db": db}
+    if "request" in inspect.signature(get_providers).parameters:
+        kwargs["request"] = _make_mock_request()
+    return get_providers(**kwargs)
+
+
 class TestAuthProvidersOrgParam:
     """End-to-end test of the org resolution + enricher pipeline."""
 
@@ -124,7 +146,9 @@ class TestAuthProvidersOrgParam:
 
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(get_providers(org=str(org_id), db=db))
+        result = asyncio.get_event_loop().run_until_complete(
+            _call_get_providers(get_providers, org=str(org_id), db=db)
+        )
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -141,7 +165,9 @@ class TestAuthProvidersOrgParam:
 
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(get_providers(org="acme-corp", db=db))
+        result = asyncio.get_event_loop().run_until_complete(
+            _call_get_providers(get_providers, org="acme-corp", db=db)
+        )
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -159,7 +185,9 @@ class TestAuthProvidersOrgParam:
 
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(get_providers(org=str(org_id), db=db))
+        result = asyncio.get_event_loop().run_until_complete(
+            _call_get_providers(get_providers, org=str(org_id), db=db)
+        )
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -173,7 +201,9 @@ class TestAuthProvidersOrgParam:
 
         from rhesis.backend.app.routers.auth import get_providers
 
-        result = asyncio.get_event_loop().run_until_complete(get_providers(org=None, db=db))
+        result = asyncio.get_event_loop().run_until_complete(
+            _call_get_providers(get_providers, org=None, db=db)
+        )
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 0
