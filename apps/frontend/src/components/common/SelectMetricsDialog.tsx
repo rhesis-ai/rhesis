@@ -30,6 +30,13 @@ import { MetricsClient } from '@/utils/api-client/metrics-client';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { getMetricScopeIcon } from '@/constants/metric-scopes';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import {
+  drawerFieldsSx,
+  drawerOutlinedFieldSx,
+  drawerSectionSx,
+} from '@/components/common/drawerFormFieldSx';
 
 const RhesisAIIcon = () => (
   <SvgIcon fontSize="small" viewBox="0 0 390 371">
@@ -85,6 +92,8 @@ interface SelectMetricsDialogProps {
   scopeFilter?: string;
   /** If true, strictly requires the scope to match (ignores metrics with no scope defined) */
   strictScope?: boolean;
+  /** Presentation shell — drawer is used on project detail configuration sections. */
+  variant?: 'dialog' | 'drawer';
 }
 
 export default function SelectMetricsDialog({
@@ -97,6 +106,7 @@ export default function SelectMetricsDialog({
   subtitle = 'Select a metric to add',
   scopeFilter,
   strictScope = false,
+  variant = 'dialog',
 }: SelectMetricsDialogProps) {
   const searchRef = React.useRef<HTMLInputElement>(null);
 
@@ -178,6 +188,182 @@ export default function SelectMetricsDialog({
     onClose();
   };
 
+  React.useEffect(() => {
+    if (open && variant === 'drawer') {
+      const timer = window.setTimeout(() => searchRef.current?.focus(), 100);
+      return () => window.clearTimeout(timer);
+    }
+  }, [open, variant]);
+
+  const pickerContent = (
+    <>
+      <Box sx={{ mb: variant === 'drawer' ? 0 : 2 }}>
+        <TextField
+          fullWidth
+          label={variant === 'drawer' ? 'Search' : undefined}
+          placeholder="Search metrics..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          inputRef={searchRef}
+          sx={variant === 'drawer' ? drawerOutlinedFieldSx : undefined}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
+      {isLoading ? (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 4,
+          }}
+        >
+          <CircularProgress size={24} sx={{ mr: 1 }} />
+          <Typography>Loading metrics...</Typography>
+        </Box>
+      ) : error ? (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography color="error">{error}</Typography>
+        </Box>
+      ) : filteredMetrics.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography color="text.secondary">
+            {metrics.length === 0
+              ? 'No metrics available'
+              : 'No metrics match your search'}
+          </Typography>
+        </Box>
+      ) : (
+        <Stack
+          spacing={1.5}
+          sx={
+            variant === 'dialog'
+              ? { maxHeight: theme => theme.spacing(50), overflowY: 'auto' }
+              : undefined
+          }
+        >
+          {filteredMetrics.map(metric => (
+            <Paper
+              key={metric.id}
+              elevation={0}
+              sx={{
+                p: 2,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: 'divider',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  backgroundColor: 'action.hover',
+                  transform: 'translateY(-1px)',
+                  boxShadow: 1,
+                },
+              }}
+              onClick={() => handleSelect(metric.id as UUID)}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 1.5,
+                }}
+              >
+                <AutoGraphIcon
+                  sx={{ color: 'primary.main', mt: 0.5 }}
+                  fontSize="medium"
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 600,
+                      mb: 0.5,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {metric.name}
+                  </Typography>
+                  {metric.description && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 1,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {metric.description}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {metric.backend_type?.type_value && (
+                      <Chip
+                        icon={getBackendIcon(metric.backend_type.type_value)}
+                        label={capitalize(metric.backend_type.type_value)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                    {metric.score_type && (
+                      <Chip
+                        icon={getScoreTypeIcon(metric.score_type)}
+                        label={capitalize(metric.score_type)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                    {metric.metric_scope?.map(scope => (
+                      <Chip
+                        key={scope}
+                        icon={getMetricScopeIcon(scope)}
+                        label={scope}
+                        size="small"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+    </>
+  );
+
+  if (variant === 'drawer') {
+    return (
+      <BaseDrawer
+        open={open}
+        onClose={onClose}
+        title={title}
+        closeButtonText="Cancel"
+      >
+        <Box sx={drawerSectionSx}>
+          {subtitle ? (
+            <FormSectionDivider
+              headline="Available metrics"
+              descriptiveText={subtitle}
+            />
+          ) : null}
+          <Box sx={drawerFieldsSx}>{pickerContent}</Box>
+        </Box>
+      </BaseDrawer>
+    );
+  }
+
   return (
     <Dialog
       open={open}
@@ -200,145 +386,7 @@ export default function SelectMetricsDialog({
         </Typography>
       </DialogTitle>
 
-      <DialogContent>
-        <Box sx={{ mb: 2 }}>
-          <TextField
-            fullWidth
-            placeholder="Search metrics..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            inputRef={searchRef}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-
-        {isLoading ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              py: 4,
-            }}
-          >
-            <CircularProgress size={24} sx={{ mr: 1 }} />
-            <Typography>Loading metrics...</Typography>
-          </Box>
-        ) : error ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color="error">{error}</Typography>
-          </Box>
-        ) : filteredMetrics.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color="text.secondary">
-              {metrics.length === 0
-                ? 'No metrics available'
-                : 'No metrics match your search'}
-            </Typography>
-          </Box>
-        ) : (
-          <Stack
-            spacing={1.5}
-            sx={{ maxHeight: theme => theme.spacing(50), overflowY: 'auto' }}
-          >
-            {filteredMetrics.map(metric => (
-              <Paper
-                key={metric.id}
-                elevation={0}
-                sx={{
-                  p: 2,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    backgroundColor: 'action.hover',
-                    transform: 'translateY(-1px)',
-                    boxShadow: 1,
-                  },
-                }}
-                onClick={() => handleSelect(metric.id as UUID)}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 1.5,
-                  }}
-                >
-                  <AutoGraphIcon
-                    sx={{ color: 'primary.main', mt: 0.5 }}
-                    fontSize="medium"
-                  />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 600,
-                        mb: 0.5,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {metric.name}
-                    </Typography>
-                    {metric.description && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mb: 1,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {metric.description}
-                      </Typography>
-                    )}
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {metric.backend_type?.type_value && (
-                        <Chip
-                          icon={getBackendIcon(metric.backend_type.type_value)}
-                          label={capitalize(metric.backend_type.type_value)}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {metric.score_type && (
-                        <Chip
-                          icon={getScoreTypeIcon(metric.score_type)}
-                          label={capitalize(metric.score_type)}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {metric.metric_scope?.map(scope => (
-                        <Chip
-                          key={scope}
-                          icon={getMetricScopeIcon(scope)}
-                          label={scope}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-                </Box>
-              </Paper>
-            ))}
-          </Stack>
-        )}
-      </DialogContent>
+      <DialogContent>{pickerContent}</DialogContent>
 
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

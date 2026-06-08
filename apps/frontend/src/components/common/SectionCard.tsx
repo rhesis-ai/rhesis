@@ -67,7 +67,7 @@ export function SectionCard({
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             gap: 2,
             mb: 3,
           }}
@@ -91,7 +91,14 @@ export function SectionCard({
             )}
           </Box>
           {actions && (
-            <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexShrink: 0,
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
               {actions}
             </Box>
           )}

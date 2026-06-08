@@ -1028,7 +1028,7 @@ export default function BaseDataGrid({
         display: 'none',
       },
     },
-    _sx,
+    ...(Array.isArray(_sx) ? _sx : _sx ? [_sx] : []),
   ].filter(Boolean) as SxProps<Theme>;
 
   const hasHeaderContent = !!(

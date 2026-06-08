@@ -16,17 +16,22 @@ import {
 } from '@mui/material';
 import {
   AddIcon,
-  DeleteIcon,
   KeyboardArrowDownIcon,
   KeyboardArrowUpIcon,
   TuneIcon,
 } from '@/components/icons';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import {
+  drawerFieldsSx,
+  drawerSectionSx,
+} from '@/components/common/drawerFormFieldSx';
+import { SectionCard } from '@/components/common/SectionCard';
+import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
 import {
   FieldEditor,
   FieldRowState,
   ParametersEmptyState,
-  ParametersSaveBar,
   TYPE_META,
   useParameterSchema,
 } from './parameter-schema-shared';
@@ -36,12 +41,14 @@ interface ProjectParametersProps {
   sessionToken: string;
   title?: string;
   headerAction?: React.ReactNode;
+  /** Wrap content in a SectionCard with actions aligned in the header. */
+  embedInSectionCard?: boolean;
 }
 
 /**
  * Schema editor for a project's parameter schema.
  *
- * The field list is the primary surface; clicking a field (or "Add field")
+ * The field list is the primary surface; clicking a field (or "Add Parameter")
  * opens a BaseDrawer with the FieldEditor. Save Changes PUTs the full schema.
  */
 export default function ProjectParameters({
@@ -49,6 +56,7 @@ export default function ProjectParameters({
   sessionToken,
   title,
   headerAction,
+  embedInSectionCard = false,
 }: ProjectParametersProps) {
   const {
     loading,
@@ -62,10 +70,12 @@ export default function ProjectParameters({
     removeField,
     move,
     handleSave,
-    handleRevert,
   } = useParameterSchema(projectId, sessionToken);
 
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
+  const [newFieldKeys, setNewFieldKeys] = useState<Set<string>>(
+    () => new Set()
+  );
 
   useEffect(() => {
     if (drawerKey !== null && !draft.some(f => f._key === drawerKey)) {
@@ -75,6 +85,7 @@ export default function ProjectParameters({
 
   const handleAdd = () => {
     const newKey = addField();
+    setNewFieldKeys(prev => new Set(prev).add(newKey));
     setDrawerKey(newKey);
   };
 
@@ -84,8 +95,53 @@ export default function ProjectParameters({
   const drawerField: FieldRowState | null =
     drawerKey !== null ? (draft.find(f => f._key === drawerKey) ?? null) : null;
 
+  const isNewParameter = drawerKey !== null && newFieldKeys.has(drawerKey);
+
+  const handleDrawerClose = () => {
+    if (drawerKey && newFieldKeys.has(drawerKey)) {
+      removeField(drawerKey);
+      setNewFieldKeys(prev => {
+        const next = new Set(prev);
+        next.delete(drawerKey);
+        return next;
+      });
+    }
+    handleCloseDrawer();
+  };
+
+  const handleDrawerSave = async () => {
+    await handleSave();
+    if (drawerKey) {
+      setNewFieldKeys(prev => {
+        const next = new Set(prev);
+        next.delete(drawerKey);
+        return next;
+      });
+    }
+    handleCloseDrawer();
+  };
+
+  const handleDrawerDelete = async () => {
+    if (!drawerKey) return;
+    const updatedDraft = draft
+      .filter(f => f._key !== drawerKey)
+      .map((row, i) => ({ ...row, display_order: i }));
+    removeField(drawerKey);
+    setNewFieldKeys(prev => {
+      const next = new Set(prev);
+      next.delete(drawerKey);
+      return next;
+    });
+    await handleSave(updatedDraft);
+    handleCloseDrawer();
+  };
+
+  const drawerCloseButtonText = isNewParameter || isDirty ? 'Cancel' : 'Close';
+
+  const useHeaderActions = embedInSectionCard;
+
   if (loading) {
-    return (
+    const loadingContent = (
       <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
         <CircularProgress size={24} />
         <Typography color="text.secondary">
@@ -93,15 +149,40 @@ export default function ProjectParameters({
         </Typography>
       </Box>
     );
+    return embedInSectionCard ? (
+      <SectionCard title="Parameters">{loadingContent}</SectionCard>
+    ) : (
+      loadingContent
+    );
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    const errorContent = <Alert severity="error">{error}</Alert>;
+    return embedInSectionCard ? (
+      <SectionCard title="Parameters">{errorContent}</SectionCard>
+    ) : (
+      errorContent
+    );
   }
 
-  return (
-    <>
-      <Box>
+  const sectionActions = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {headerAction}
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+        onClick={handleAdd}
+        sx={sectionEditButtonSx}
+      >
+        Add Parameter
+      </Button>
+    </Box>
+  );
+
+  const content = (
+    <Box>
+      {!useHeaderActions && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           {title && (
             <Typography
@@ -112,118 +193,117 @@ export default function ProjectParameters({
             </Typography>
           )}
           {headerAction}
-          <ParametersSaveBar
-            isDirty={isDirty}
-            saving={saving}
-            onSave={handleSave}
-            onRevert={handleRevert}
-          />
         </Box>
+      )}
 
-        {draft.length === 0 ? (
-          <ParametersEmptyState onAdd={handleAdd} />
-        ) : (
-          <Box
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: theme => `${theme.shape.borderRadius}px`,
-              overflow: 'hidden',
-            }}
-          >
-            <List dense disablePadding>
-              {draft.map((field, index) => {
-                const meta = TYPE_META[field.type];
-                const Icon = meta.icon;
-                const isFirst = index === 0;
-                const isLast = index === draft.length - 1;
-                return (
-                  <ListItemButton
-                    key={field._key}
-                    onClick={() => handleOpenDrawer(field._key)}
-                    sx={{
-                      borderLeft: '3px solid',
-                      borderLeftColor:
-                        drawerKey === field._key
-                          ? `${meta.color}.main`
-                          : 'transparent',
-                      gap: 1,
-                      borderBottom:
-                        index < draft.length - 1 ? '1px solid' : 'none',
-                      borderBottomColor: 'divider',
-                    }}
-                  >
-                    <Icon
-                      fontSize="small"
-                      color={meta.color === 'default' ? 'inherit' : meta.color}
-                    />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 500,
-                          fontFamily: 'monospace',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {field.name || (
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            color="text.disabled"
-                            sx={{ fontStyle: 'italic' }}
-                          >
-                            unnamed field
-                          </Typography>
-                        )}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ display: 'block' }}
-                      >
-                        {meta.shortLabel}
-                        {field.required ? ' · required' : ''}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={0}>
-                      <Tooltip title="Move up">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={isFirst}
-                            onClick={e => {
-                              e.stopPropagation();
-                              move(field._key, -1);
-                            }}
-                            aria-label="Move up"
-                          >
-                            <KeyboardArrowUpIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Move down">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={isLast}
-                            onClick={e => {
-                              e.stopPropagation();
-                              move(field._key, 1);
-                            }}
-                            aria-label="Move down"
-                          >
-                            <KeyboardArrowDownIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  </ListItemButton>
-                );
-              })}
-            </List>
+      {draft.length === 0 ? (
+        <ParametersEmptyState
+          onAdd={handleAdd}
+          showAddButton={!useHeaderActions}
+        />
+      ) : (
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: theme => `${theme.shape.borderRadius}px`,
+            overflow: 'hidden',
+          }}
+        >
+          <List dense disablePadding>
+            {draft.map((field, index) => {
+              const meta = TYPE_META[field.type];
+              const Icon = meta.icon;
+              const isFirst = index === 0;
+              const isLast = index === draft.length - 1;
+              return (
+                <ListItemButton
+                  key={field._key}
+                  onClick={() => handleOpenDrawer(field._key)}
+                  sx={{
+                    borderLeft: '3px solid',
+                    borderLeftColor:
+                      drawerKey === field._key
+                        ? `${meta.color}.main`
+                        : 'transparent',
+                    gap: 1,
+                    borderBottom:
+                      index < draft.length - 1 ? '1px solid' : 'none',
+                    borderBottomColor: 'divider',
+                  }}
+                >
+                  <Icon
+                    fontSize="small"
+                    color={meta.color === 'default' ? 'inherit' : meta.color}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 500,
+                        fontFamily: 'monospace',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {field.name || (
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          color="text.disabled"
+                          sx={{ fontStyle: 'italic' }}
+                        >
+                          unnamed field
+                        </Typography>
+                      )}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block' }}
+                    >
+                      {meta.shortLabel}
+                      {field.required ? ' · required' : ''}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={0}>
+                    <Tooltip title="Move up">
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={isFirst}
+                          onClick={e => {
+                            e.stopPropagation();
+                            move(field._key, -1);
+                          }}
+                          aria-label="Move up"
+                        >
+                          <KeyboardArrowUpIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Move down">
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={isLast}
+                          onClick={e => {
+                            e.stopPropagation();
+                            move(field._key, 1);
+                          }}
+                          aria-label="Move down"
+                        >
+                          <KeyboardArrowDownIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                </ListItemButton>
+              );
+            })}
+          </List>
+          {!useHeaderActions && (
             <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
               <Button
                 fullWidth
@@ -231,90 +311,64 @@ export default function ProjectParameters({
                 startIcon={<AddIcon />}
                 onClick={handleAdd}
               >
-                Add field
+                Add Parameter
               </Button>
             </Box>
-          </Box>
-        )}
-      </Box>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+
+  return (
+    <>
+      {embedInSectionCard ? (
+        <SectionCard title="Parameters" actions={sectionActions}>
+          {content}
+        </SectionCard>
+      ) : (
+        content
+      )}
 
       <BaseDrawer
         open={!!drawerField}
-        onClose={handleCloseDrawer}
+        onClose={handleDrawerClose}
         title={
-          drawerField?.name
-            ? `Edit "${drawerField.name}"`
-            : 'New parameter field'
+          drawerField?.name ? `Edit "${drawerField.name}"` : 'New parameter'
         }
-        showHeader
-        width={520}
-        saveButtonText="Done"
-        onSave={handleCloseDrawer}
-        closeButtonText="Close"
+        saveButtonText="Save"
+        onSave={handleDrawerSave}
+        saveDisabled={!isDirty}
+        loading={saving}
+        closeButtonText={drawerCloseButtonText}
+        onDelete={isNewParameter ? undefined : handleDrawerDelete}
+        deleteButtonText="Delete"
       >
         {drawerField && (
-          <Stack spacing={3}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              {(() => {
-                const meta = TYPE_META[drawerField.type];
-                const Icon = meta.icon;
-                return (
-                  <Icon
-                    fontSize="small"
-                    color={meta.color === 'default' ? 'inherit' : meta.color}
-                  />
-                );
-              })()}
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 'medium', flex: 1 }}
-              >
-                Parameter details
-              </Typography>
-              <Tooltip title="Remove field">
-                <IconButton
-                  onClick={() => {
-                    removeField(drawerField._key);
-                    handleCloseDrawer();
-                  }}
-                  aria-label="Remove field"
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-            <FieldEditor
-              field={drawerField}
-              onChange={patch => updateField(drawerField._key, patch)}
-              onTypeChange={type => changeType(drawerField._key, type)}
+          <Box sx={drawerSectionSx}>
+            <FormSectionDivider
+              headline="Parameter details"
+              descriptiveText="Define the field name, type, and default value."
             />
-            <Box sx={{ pt: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                Changes are held locally until you click &ldquo;Save
-                Changes&rdquo; on the schema editor.
+            <Box sx={drawerFieldsSx}>
+              <FieldEditor
+                field={drawerField}
+                onChange={patch => updateField(drawerField._key, patch)}
+                onTypeChange={type => changeType(drawerField._key, type)}
+              />
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  lineHeight: '18px',
+                  color: theme => theme.palette.greyscale.subtitle,
+                }}
+              >
+                Click Save to persist this parameter schema.
               </Typography>
             </Box>
-          </Stack>
+          </Box>
         )}
       </BaseDrawer>
-
-      {!drawerField && draft.length === 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 6,
-            color: 'text.disabled',
-          }}
-        >
-          <TuneIcon sx={{ fontSize: 48, opacity: 0.4, mb: 1 }} />
-          <Typography variant="body2" color="text.secondary">
-            Click a field to edit it, or add a new one.
-          </Typography>
-        </Box>
-      )}
     </>
   );
 }
