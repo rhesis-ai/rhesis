@@ -106,6 +106,10 @@ LIMIT_SEATS = "seats"
 # --- Environment variable names --------------------------------------------
 ENV_LICENSE = "RHESIS_LICENSE"
 ENV_LICENSE_PUBLIC_KEY = "RHESIS_LICENSE_PUBLIC_KEY"
+# Private key for the minting/issuance side only — never set on the running
+# backend. In production this is mounted into the Cloud Run issuance job from
+# Secret Manager via --set-secrets; locally it can be exported for dev minting.
+ENV_LICENSE_PRIVATE_KEY = "RHESIS_LICENSE_PRIVATE_KEY"
 ENV_ALLOW_UNLICENSED = "RHESIS_LICENSE_ALLOW_UNLICENSED"
 
 # Grace period applied when checking expiry live (seconds).  Prevents
@@ -197,6 +201,7 @@ __all__ = [
     "EXPIRY_LEEWAY_SECONDS",
     "ENV_ALLOW_UNLICENSED",
     "ENV_LICENSE",
+    "ENV_LICENSE_PRIVATE_KEY",
     "ENV_LICENSE_PUBLIC_KEY",
     "LICENSE_ALGORITHM",
     "LICENSE_AUDIENCE",
