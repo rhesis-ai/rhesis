@@ -265,12 +265,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                     mapped_response[conversation_field] = conversation_id
                     logger.debug(f"Added {conversation_field} to response: {conversation_id}")
 
-            # Preserve important unmapped fields from original response (error info, message, etc.)
-            important_fields = ["error", "status", "message"]
-            for field in important_fields:
-                if field in response_data and field not in mapped_response:
-                    mapped_response[field] = response_data[field]
-                    logger.debug(f"Preserved unmapped field '{field}': {response_data[field]}")
+            # Keep the full API response for display
+            try:
+                raw_copy = json.loads(json.dumps(response_data))
+                mapped_response["raw_response"] = raw_copy
+            except (TypeError, ValueError):
+                mapped_response["raw_response"] = None
 
             return mapped_response
         except json.JSONDecodeError as json_error:
@@ -313,8 +313,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         if endpoint.auth_type or endpoint.auth_token:
             auth_token = self._get_valid_token(db, endpoint)
 
-            # Automatically add Authorization header if not explicitly set
-            if "Authorization" not in headers and auth_token:
+            # Automatically add Authorization header only if the token is not
+            # already referenced in any custom header (e.g. x-goog-api-key).
+            token_already_placed = any(
+                "auth_token" in str(v) or (auth_token and auth_token in str(v))
+                for v in headers.values()
+            )
+            if "Authorization" not in headers and not token_already_placed and auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
         else:
             auth_token = ""
