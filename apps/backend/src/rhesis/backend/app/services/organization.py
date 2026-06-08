@@ -1010,15 +1010,23 @@ def execute_initial_test_runs(db: Session, organization_id: str, user_id: str) -
         try:
             for proj in projects:
                 bind_scope_to_session(db, organization_id, user_id, str(proj.id))
-                for ep in crud.get_endpoints(
-                    db=db,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                    limit=1000,  # Fetch all endpoints (>10 is possible in real orgs)
-                ):
-                    if ep.id not in seen_endpoint_ids:
-                        seen_endpoint_ids.add(ep.id)
-                        endpoints.append(ep)
+                skip = 0
+                page_size = 100
+                while True:
+                    batch = crud.get_endpoints(
+                        db=db,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        skip=skip,
+                        limit=page_size,
+                    )
+                    if not batch:
+                        break
+                    for ep in batch:
+                        if ep.id not in seen_endpoint_ids:
+                            seen_endpoint_ids.add(ep.id)
+                            endpoints.append(ep)
+                    skip += page_size
         finally:
             bind_scope_to_session(db, organization_id, user_id, "")
         result["endpoint_count"] = len(endpoints)
