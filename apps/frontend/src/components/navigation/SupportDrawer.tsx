@@ -165,7 +165,7 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
         >
           <Button
             component="a"
-            href="mailto:hello@rhesis.ai"
+            href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'hello@rhesis.ai'}`}
             variant="outlined"
             startIcon={<EmailOutlinedIcon />}
             fullWidth
