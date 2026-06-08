@@ -2,10 +2,10 @@
 
 All references to is_superuser have been removed from the application code.
 The initial admin's authority is now carried by the organization_member Owner
-row created in the preceding backfill migration (e1f2a3b4c5d6).
+row created in the preceding backfill migration (371c3c3cd787).
 
-Revision ID: f2a3b4c5d6e7
-Revises: e1f2a3b4c5d6
+Revision ID: 382779ccfbd3
+Revises: 371c3c3cd787
 Create Date: 2026-06-08
 """
 

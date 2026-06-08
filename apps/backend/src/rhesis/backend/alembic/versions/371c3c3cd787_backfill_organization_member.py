@@ -9,9 +9,9 @@ exist (idempotent: the EE startup sync may have seeded them earlier).  All
 inserts use ON CONFLICT DO NOTHING so the migration is safe to re-run.
 
 This migration must run *before* the ``is_superuser`` column drop
-(f2a3b4c5d6e7) so the seeded initial admin retains authority as Owner.
+(382779ccfbd3) so the seeded initial admin retains authority as Owner.
 
-Revision ID: e1f2a3b4c5d6
+Revision ID: 371c3c3cd787
 Revises: d9e0f1a2b3c4
 Create Date: 2026-06-08
 """
@@ -82,7 +82,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Remove backfilled rows — leaves any manually-assigned rows intact.
+    # Removes ALL rows in organization_member — the backfill is not separable from
+    # rows created by later API writes, so downgrade is a full wipe.
     # The table itself was created in d9e0f1a2b3c4; only the data is removed here.
     op.execute(
         sa.text(

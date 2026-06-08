@@ -93,11 +93,23 @@ class ProjectMemberRoleAssign(BaseModel):
     role_id: UUID = Field(..., description="ID of the role to assign.")
 
 
+class ProjectMemberRoleRead(BaseModel):
+    """Response schema for project-level role assignment."""
+
+    project_id: UUID
+    user_id: UUID
+    role_id: UUID
+    role: Optional[RoleRead] = None
+
+    model_config = {"from_attributes": True}
+
+
 __all__ = [
     "OrgMemberRead",
     "OrgRoleAssign",
     "PermissionRead",
     "ProjectMemberRoleAssign",
+    "ProjectMemberRoleRead",
     "RoleCreate",
     "RoleRead",
     "RoleUpdate",

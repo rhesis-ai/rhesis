@@ -69,17 +69,14 @@ class PermissionAuthorizationProvider:
             return False
 
         if not self._rbac_available(principal, db):
-            return self._fallback.is_authorized(
-                principal, permission, project_id=project_id, db=db
-            )
+            return self._fallback.is_authorized(principal, permission, project_id=project_id, db=db)
 
         perm_str = str(permission)
         effective_role = self._resolve_role(principal, project_id, db)
 
         if effective_role is None:
             logger.debug(
-                "authorize(ee): deny — no role resolved for principal %s"
-                " (project=%s)",
+                "authorize(ee): deny — no role resolved for principal %s (project=%s)",
                 principal.user_id,
                 project_id,
             )
@@ -106,18 +103,12 @@ class PermissionAuthorizationProvider:
         from rhesis.backend.app.scope import bypass_tenant_filter
 
         with bypass_tenant_filter():
-            org = (
-                db.query(Organization)
-                .filter_by(id=principal.organization_id)
-                .first()
-            )
+            org = db.query(Organization).filter_by(id=principal.organization_id).first()
         if org is None:
             return False
         return FeatureRegistry.is_available(FeatureName.RBAC, org)
 
-    def _resolve_role(
-        self, principal: "Principal", project_id: Optional[UUID], db: "Session"
-    ):
+    def _resolve_role(self, principal: "Principal", project_id: Optional[UUID], db: "Session"):
         """Return the effective :class:`~rhesis.backend.ee.rbac.models.Role` or None.
 
         Project role beats org role when both are present (override, not union).
@@ -129,9 +120,7 @@ class PermissionAuthorizationProvider:
 
         return self._get_org_role(principal, db)
 
-    def _get_project_role(
-        self, principal: "Principal", project_id: UUID, db: "Session"
-    ):
+    def _get_project_role(self, principal: "Principal", project_id: UUID, db: "Session"):
         """Return the project-scoped role for the principal, or None."""
         from rhesis.backend.app.models.project_membership import ProjectMembership
         from rhesis.backend.app.scope import bypass_tenant_filter
@@ -187,6 +176,21 @@ class PermissionAuthorizationProvider:
             .first()
         )
         return rp is not None
+
+    def resolve_effective_role(
+        self, principal: "Principal", project_id: Optional[UUID], db: "Session"
+    ):
+        """Return the effective :class:`~rhesis.backend.ee.rbac.models.Role` or None.
+
+        Returns ``None`` when RBAC is off for the org, when the principal has no
+        org context, or when no membership row exists at either tier.  Used by the
+        router to resolve the actor's level and permissions in a single DB pass.
+        """
+        if principal.organization_id is None:
+            return None
+        if not self._rbac_available(principal, db):
+            return None
+        return self._resolve_role(principal, project_id, db)
 
     def get_effective_permissions(
         self, principal: "Principal", project_id: Optional[UUID], db: "Session"

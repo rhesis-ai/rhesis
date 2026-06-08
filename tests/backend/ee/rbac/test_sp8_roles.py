@@ -56,10 +56,7 @@ def _create_org_and_user(db: Session):
     user_id = uuid.uuid4()
 
     db.execute(
-        text(
-            "INSERT INTO organization (id, name, is_active) "
-            "VALUES (:id, :name, true)"
-        ),
+        text("INSERT INTO organization (id, name, is_active) VALUES (:id, :name, true)"),
         {"id": str(org_id), "name": f"TestOrg-{org_id.hex[:8]}"},
     )
     db.execute(
@@ -120,7 +117,7 @@ class TestFeatureGate:
 @pytest.mark.ee
 @pytest.mark.integration
 class TestBackfillMigration:
-    """Verify the e1f2a3b4c5d6 backfill migration produced correct assignments."""
+    """Verify the 371c3c3cd787 backfill migration produced correct assignments."""
 
     def test_organization_member_table_exists(self, test_db: Session):
         from rhesis.backend.ee.rbac.models import OrganizationMember
@@ -178,8 +175,7 @@ class TestIsSuperuserRemoved:
         from rhesis.backend.app.models.user import User
 
         assert not hasattr(User, "is_superuser"), (
-            "User.is_superuser column must be removed in SP8; "
-            "use org Owner role instead"
+            "User.is_superuser column must be removed in SP8; use org Owner role instead"
         )
 
     def test_user_schema_has_no_is_superuser(self):
@@ -304,10 +300,7 @@ class TestRolePrecedence:
             },
         )
         test_db.execute(
-            text(
-                "INSERT INTO project (id, name, organization_id) "
-                "VALUES (:pid, :name, :oid)"
-            ),
+            text("INSERT INTO project (id, name, organization_id) VALUES (:pid, :name, :oid)"),
             {"pid": str(project_id), "name": f"TestProj-{project_id.hex[:8]}", "oid": test_org_id},
         )
         test_db.flush()
@@ -378,3 +371,380 @@ class TestBootstrapWiring:
         assert isinstance(provider, PermissionAuthorizationProvider), (
             f"Expected PermissionAuthorizationProvider, got {type(provider)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Cache-busting helpers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestCacheBusting:
+    def test_bust_calls_permission_cache(self):
+        from unittest.mock import MagicMock, patch
+
+        from rhesis.backend.ee.rbac.router import _bust
+
+        uid = uuid.uuid4()
+        org_id = uuid.uuid4()
+
+        mock_cache = MagicMock()
+        # Patch at the source module — _bust uses a local import.
+        with patch(
+            "rhesis.backend.app.services.permission_cache.get_permission_cache",
+            return_value=mock_cache,
+        ):
+            _bust(uid, org_id)
+
+        mock_cache.bust_user.assert_called_once_with(uid, org_id)
+
+    def test_bust_swallows_cache_errors(self):
+        from unittest.mock import MagicMock, patch
+
+        from rhesis.backend.ee.rbac.router import _bust
+
+        mock_cache = MagicMock()
+        mock_cache.bust_user.side_effect = RuntimeError("redis down")
+        with patch(
+            "rhesis.backend.app.services.permission_cache.get_permission_cache",
+            return_value=mock_cache,
+        ):
+            # Must not raise.
+            _bust(uuid.uuid4(), uuid.uuid4())
+
+    @pytest.mark.integration
+    def test_bust_role_holders_calls_bust_for_each_holder(self, test_db, test_org_id: str):
+        """_bust_role_holders enumerates org+project holders and busts each."""
+        from unittest.mock import MagicMock, patch
+
+        from sqlalchemy import text
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+        from rhesis.backend.ee.rbac.router import _bust_role_holders
+
+        _do_sync(test_db)
+
+        with bypass_tenant_filter():
+            viewer_role = test_db.query(Role).filter_by(name="Viewer", is_built_in=True).first()
+        assert viewer_role is not None
+
+        user_id = uuid.uuid4()
+        test_db.execute(
+            text(
+                'INSERT INTO "user" (id, email, organization_id, is_active) '
+                "VALUES (:uid, :email, :oid, true)"
+            ),
+            {
+                "uid": str(user_id),
+                "email": f"bust-test-{user_id.hex[:8]}@example.com",
+                "oid": test_org_id,
+            },
+        )
+        test_db.flush()
+
+        member = OrganizationMember(
+            organization_id=uuid.UUID(test_org_id),
+            user_id=user_id,
+            role_id=viewer_role.id,
+        )
+        test_db.add(member)
+        test_db.flush()
+
+        busted = []
+        mock_cache = MagicMock()
+        mock_cache.bust_user.side_effect = lambda uid, oid: busted.append(uid)
+
+        with patch(
+            "rhesis.backend.app.services.permission_cache.get_permission_cache",
+            return_value=mock_cache,
+        ):
+            _bust_role_holders(viewer_role.id, uuid.UUID(test_org_id), test_db)
+
+        assert user_id in busted, "bust_user must be called for each org holder"
+
+
+# ---------------------------------------------------------------------------
+# Last-owner protection (demotion via assign_org_role)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestLastOwnerProtection:
+    """Integration tests for _is_last_owner and demotion guard in assign_org_role."""
+
+    def _setup_owner(self, test_db, test_org_id: str):
+        """Create a user and assign them the Owner role; return (user_id, owner_role)."""
+        from sqlalchemy import text
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+
+        _do_sync(test_db)
+
+        with bypass_tenant_filter():
+            owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
+        assert owner_role is not None
+
+        user_id = uuid.uuid4()
+        test_db.execute(
+            text(
+                'INSERT INTO "user" (id, email, organization_id, is_active) '
+                "VALUES (:uid, :email, :oid, true)"
+            ),
+            {
+                "uid": str(user_id),
+                "email": f"owner-{user_id.hex[:8]}@example.com",
+                "oid": test_org_id,
+            },
+        )
+        test_db.flush()
+        member = OrganizationMember(
+            organization_id=uuid.UUID(test_org_id),
+            user_id=user_id,
+            role_id=owner_role.id,
+        )
+        test_db.add(member)
+        test_db.flush()
+        return user_id, owner_role
+
+    def test_is_last_owner_true_when_sole_owner(self, test_db, test_org_id: str):
+        from rhesis.backend.ee.rbac.models import OrganizationMember
+        from rhesis.backend.ee.rbac.router import _is_last_owner
+
+        user_id, owner_role = self._setup_owner(test_db, test_org_id)
+        member = (
+            test_db.query(OrganizationMember)
+            .filter_by(organization_id=uuid.UUID(test_org_id), user_id=user_id)
+            .first()
+        )
+        assert _is_last_owner(member, uuid.UUID(test_org_id), test_db) is True
+
+    def test_is_last_owner_false_when_multiple_owners(self, test_db, test_org_id: str):
+        from sqlalchemy import text
+
+        from rhesis.backend.ee.rbac.models import OrganizationMember
+        from rhesis.backend.ee.rbac.router import _is_last_owner
+
+        user_id, owner_role = self._setup_owner(test_db, test_org_id)
+
+        # Add a second owner.
+        user2_id = uuid.uuid4()
+        test_db.execute(
+            text(
+                'INSERT INTO "user" (id, email, organization_id, is_active) '
+                "VALUES (:uid, :email, :oid, true)"
+            ),
+            {
+                "uid": str(user2_id),
+                "email": f"owner2-{user2_id.hex[:8]}@example.com",
+                "oid": test_org_id,
+            },
+        )
+        test_db.flush()
+        test_db.add(
+            OrganizationMember(
+                organization_id=uuid.UUID(test_org_id),
+                user_id=user2_id,
+                role_id=owner_role.id,
+            )
+        )
+        test_db.flush()
+
+        member = (
+            test_db.query(OrganizationMember)
+            .filter_by(organization_id=uuid.UUID(test_org_id), user_id=user_id)
+            .first()
+        )
+        assert _is_last_owner(member, uuid.UUID(test_org_id), test_db) is False
+
+    def test_is_last_owner_false_when_non_owner_role(self, test_db, test_org_id: str):
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import _is_last_owner
+
+        _do_sync(test_db)
+        with bypass_tenant_filter():
+            member_role = test_db.query(Role).filter_by(name="Member", is_built_in=True).first()
+        assert member_role is not None
+
+        fake_member = type("M", (), {"role_id": member_role.id})()
+        assert _is_last_owner(fake_member, uuid.UUID(test_org_id), test_db) is False
+
+
+# ---------------------------------------------------------------------------
+# Role scope enforcement on assignment
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestScopeEnforcement:
+    def test_assign_org_role_rejects_project_scoped_role(self, test_db, test_org_id: str):
+        """PUT /organization-members/{uid}/role with a project-scoped role → 422."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.ee.rbac.models import SCOPE_PROJECT, Role
+        from rhesis.backend.ee.rbac.router import assign_org_role
+        from rhesis.backend.ee.rbac.schemas import OrgRoleAssign
+
+        # Create a custom role with scope="project" in this org.
+        project_role = Role(
+            name="ProjectOnly",
+            display_name="Project Only",
+            scope=SCOPE_PROJECT,
+            level=50,
+            is_built_in=False,
+            organization_id=uuid.UUID(test_org_id),
+        )
+        test_db.add(project_role)
+        test_db.flush()
+        assert project_role.scope == SCOPE_PROJECT
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
+            with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                with pytest.raises(HTTPException) as exc_info:
+                    assign_org_role(
+                        user_id=uuid.uuid4(),
+                        body=OrgRoleAssign(role_id=project_role.id),
+                        db=test_db,
+                        current_user=mock_user,
+                        _org=MagicMock(),
+                    )
+
+        assert exc_info.value.status_code == 422
+        assert "project-scoped" in exc_info.value.detail
+
+    def test_assign_project_role_rejects_org_scoped_role(self, test_db, test_org_id: str):
+        """PUT /projects/{pid}/members/{uid}/role with an org-scoped role → 422."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import assign_project_role
+        from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleAssign
+
+        _do_sync(test_db)
+
+        with bypass_tenant_filter():
+            admin_role = test_db.query(Role).filter_by(name="Admin", is_built_in=True).first()
+        assert admin_role is not None
+        assert admin_role.scope == "organization"
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
+            with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                with pytest.raises(HTTPException) as exc_info:
+                    assign_project_role(
+                        project_id=uuid.uuid4(),
+                        user_id=uuid.uuid4(),
+                        body=ProjectMemberRoleAssign(role_id=admin_role.id),
+                        db=test_db,
+                        current_user=mock_user,
+                        _org=MagicMock(),
+                    )
+
+        assert exc_info.value.status_code == 422
+        assert "org-scoped" in exc_info.value.detail
+
+
+# ---------------------------------------------------------------------------
+# Foreign-user validation in assign_org_role
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestForeignUserValidation:
+    def test_assign_org_role_rejects_user_from_different_org(self, test_db, test_org_id: str):
+        """assign_org_role must 404 when user_id doesn't belong to the org."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import assign_org_role
+        from rhesis.backend.ee.rbac.schemas import OrgRoleAssign
+
+        _do_sync(test_db)
+
+        with bypass_tenant_filter():
+            admin_role = test_db.query(Role).filter_by(name="Admin", is_built_in=True).first()
+        assert admin_role is not None
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        foreign_user_id = uuid.uuid4()  # does not exist in this org
+
+        with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
+            with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                # Admin role has many permissions; patch names to avoid escalation 403
+                with patch("rhesis.backend.ee.rbac.router._role_permission_names", return_value=[]):
+                    with pytest.raises(HTTPException) as exc_info:
+                        assign_org_role(
+                            user_id=foreign_user_id,
+                            body=OrgRoleAssign(role_id=admin_role.id),
+                            db=test_db,
+                            current_user=mock_user,
+                            _org=MagicMock(),
+                        )
+
+        assert exc_info.value.status_code == 404
+        assert "not found in this organization" in exc_info.value.detail
+
+
+# ---------------------------------------------------------------------------
+# create_role: 422 (unknown permission) comes before 403 (escalation)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestCreateRolePermissionOrdering:
+    def test_unknown_permission_yields_422_not_403(self):
+        """Submitting an unknown permission name should return 422, not 403."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.ee.rbac.router import create_role
+        from rhesis.backend.ee.rbac.schemas import RoleCreate
+
+        mock_user = MagicMock()
+        mock_user.organization_id = uuid.uuid4()
+        mock_db = MagicMock()
+
+        # Simulate no permissions found in DB.
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+
+        with (
+            patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()),
+            patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                create_role(
+                    body=RoleCreate(
+                        name="test-role",
+                        permission_names=["nonexistent:permission"],
+                    ),
+                    db=mock_db,
+                    current_user=mock_user,
+                    _org=MagicMock(),
+                )
+
+        assert exc_info.value.status_code == 422
+        assert "nonexistent:permission" in exc_info.value.detail
