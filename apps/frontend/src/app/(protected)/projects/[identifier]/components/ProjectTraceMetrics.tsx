@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  useEffect,
+  useCallback,
+} from 'react';
 import {
   Box,
   Typography,
@@ -22,7 +28,6 @@ import GridBadge from '@/components/common/GridBadge';
 import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CloseIcon from '@mui/icons-material/Close';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Link from 'next/link';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -30,13 +35,18 @@ import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
 
 interface ProjectTraceMetricsProps {
   project: Project;
   sessionToken: string;
-  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
+  onProjectUpdate: (updatedProject: Partial<Project>) => Promise<boolean>;
+}
+
+export interface ProjectTraceMetricsHandle {
+  openAddDialog: () => void;
 }
 
 function getTraceMetricIds(project: Project): string[] {
@@ -44,175 +54,170 @@ function getTraceMetricIds(project: Project): string[] {
   return Array.isArray(rawIds) ? rawIds.map(String) : [];
 }
 
-export default function ProjectTraceMetrics({
-  project,
-  sessionToken,
-  onProjectUpdate,
-}: ProjectTraceMetricsProps) {
-  const [metrics, setMetrics] = useState<MetricDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const notifications = useNotifications();
+export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
+  function ProjectTraceMetrics(
+    { project, sessionToken, onProjectUpdate },
+    ref
+  ) {
+    const [metrics, setMetrics] = useState<MetricDetail[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+    const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const notifications = useNotifications();
 
-  const fetchMetrics = useCallback(async () => {
-    if (!sessionToken || !project) {
-      setLoading(false);
-      return;
-    }
+    useImperativeHandle(ref, () => ({
+      openAddDialog: () => setMetricsDialogOpen(true),
+    }));
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      const rawIds = project.attributes?.trace_metrics;
-      const metricIds = Array.isArray(rawIds) ? rawIds : [];
-      if (metricIds.length === 0) {
-        setMetrics([]);
+    const fetchMetrics = useCallback(async () => {
+      if (!sessionToken || !project) {
+        setLoading(false);
         return;
       }
 
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const metricsClient = apiFactory.getMetricsClient();
+      try {
+        setLoading(true);
+        setError(null);
 
-      const results = await Promise.allSettled(
-        metricIds.map((id: string) =>
-          metricsClient.getMetric(
-            id as `${string}-${string}-${string}-${string}-${string}`
+        const rawIds = project.attributes?.trace_metrics;
+        const metricIds = Array.isArray(rawIds) ? rawIds : [];
+        if (metricIds.length === 0) {
+          setMetrics([]);
+          return;
+        }
+
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const metricsClient = apiFactory.getMetricsClient();
+
+        const results = await Promise.allSettled(
+          metricIds.map((id: string) =>
+            metricsClient.getMetric(
+              id as `${string}-${string}-${string}-${string}-${string}`
+            )
           )
-        )
-      );
+        );
 
-      const fetchedMetrics = results
-        .filter(
-          (r): r is PromiseFulfilledResult<MetricDetail> =>
-            r.status === 'fulfilled'
-        )
-        .map(r => r.value)
-        .filter(m => m.metric_scope?.includes('Trace'));
+        const fetchedMetrics = results
+          .filter(
+            (r): r is PromiseFulfilledResult<MetricDetail> =>
+              r.status === 'fulfilled'
+          )
+          .map(r => r.value)
+          .filter(m => m.metric_scope?.includes('Trace'));
 
-      setMetrics(fetchedMetrics);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(`Failed to load metrics: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [project, sessionToken]);
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [fetchMetrics]);
-
-  const handleAddMetric = async (metricId: UUID) => {
-    try {
-      const currentMetricIds = getTraceMetricIds(project);
-      if (currentMetricIds.includes(metricId)) {
-        notifications.show('Metric is already added to this project', {
-          severity: 'warning',
-        });
-        return;
+        setMetrics(fetchedMetrics);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'An unknown error occurred';
+        setError(`Failed to load metrics: ${errorMessage}`);
+      } finally {
+        setLoading(false);
       }
+    }, [project, sessionToken]);
 
-      const newMetricIds = [...currentMetricIds, metricId];
-      const updatedAttributes = {
-        ...(project.attributes || {}),
-        trace_metrics: newMetricIds,
-      };
+    useEffect(() => {
+      fetchMetrics();
+    }, [fetchMetrics]);
 
-      await onProjectUpdate({ attributes: updatedAttributes });
-      setMetricsDialogOpen(false);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'An error occurred';
-      notifications.show(`Failed to add metric: ${errorMessage}`, {
-        severity: 'error',
-      });
-    }
-  };
+    const handleAddMetric = async (metricId: UUID) => {
+      try {
+        const currentMetricIds = getTraceMetricIds(project);
+        if (currentMetricIds.includes(metricId)) {
+          notifications.show('Metric is already added to this project', {
+            severity: 'warning',
+          });
+          return;
+        }
 
-  const handleRemoveMetric = async (metricId: string) => {
-    try {
-      const currentMetricIds = getTraceMetricIds(project);
-      const newMetricIds = currentMetricIds.filter(
-        (id: string) => id !== metricId
-      );
+        const newMetricIds = [...currentMetricIds, metricId];
+        const updatedAttributes = {
+          ...(project.attributes || {}),
+          trace_metrics: newMetricIds,
+        };
 
-      const updatedAttributes = {
-        ...(project.attributes || {}),
-        trace_metrics: newMetricIds,
-      };
+        await onProjectUpdate({ attributes: updatedAttributes });
+        setMetricsDialogOpen(false);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'An error occurred';
+        notifications.show(`Failed to add metric: ${errorMessage}`, {
+          severity: 'error',
+        });
+      }
+    };
 
-      await onProjectUpdate({ attributes: updatedAttributes });
-      notifications.show('Metric removed from project successfully', {
-        severity: 'success',
-      });
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'An error occurred';
-      notifications.show(`Failed to remove metric: ${errorMessage}`, {
-        severity: 'error',
-      });
-    }
-  };
+    const handleRemoveMetric = async (metricId: string) => {
+      try {
+        const currentMetricIds = getTraceMetricIds(project);
+        const newMetricIds = currentMetricIds.filter(
+          (id: string) => id !== metricId
+        );
 
-  const handleBulkRemoveMetrics = async () => {
-    if (selectedRows.length === 0) return;
+        const updatedAttributes = {
+          ...(project.attributes || {}),
+          trace_metrics: newMetricIds,
+        };
 
-    try {
-      setDeleting(true);
-      const currentMetricIds = getTraceMetricIds(project);
-      const newMetricIds = currentMetricIds.filter(
-        (id: string) => !selectedRows.includes(id)
-      );
+        await onProjectUpdate({ attributes: updatedAttributes });
+        notifications.show('Metric removed from project successfully', {
+          severity: 'success',
+        });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'An error occurred';
+        notifications.show(`Failed to remove metric: ${errorMessage}`, {
+          severity: 'error',
+        });
+      }
+    };
 
-      const updatedAttributes = {
-        ...(project.attributes || {}),
-        trace_metrics: newMetricIds,
-      };
+    const handleBulkRemoveMetrics = async () => {
+      if (selectedRows.length === 0) return;
 
-      await onProjectUpdate({ attributes: updatedAttributes });
-      notifications.show(
-        `Successfully removed ${selectedRows.length} metric${selectedRows.length > 1 ? 's' : ''}`,
-        { severity: 'success' }
-      );
-      setSelectedRows([]);
-      setDeleteDialogOpen(false);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'An error occurred';
-      notifications.show(`Failed to remove metrics: ${errorMessage}`, {
-        severity: 'error',
-      });
-    } finally {
-      setDeleting(false);
-    }
-  };
+      try {
+        setDeleting(true);
+        const currentMetricIds = getTraceMetricIds(project);
+        const newMetricIds = currentMetricIds.filter(
+          (id: string) => !selectedRows.includes(id)
+        );
 
-  const handleRowSelectionModelChange = (
-    newSelection: GridRowSelectionModel
-  ) => {
-    setSelectedRows(newSelection);
-  };
+        const updatedAttributes = {
+          ...(project.attributes || {}),
+          trace_metrics: newMetricIds,
+        };
 
-  const excludeMetricIds = metrics.map(m => m.id as UUID);
+        await onProjectUpdate({ attributes: updatedAttributes });
+        notifications.show(
+          `Successfully removed ${selectedRows.length} metric${selectedRows.length > 1 ? 's' : ''}`,
+          { severity: 'success' }
+        );
+        setSelectedRows([]);
+        setDeleteDialogOpen(false);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'An error occurred';
+        notifications.show(`Failed to remove metrics: ${errorMessage}`, {
+          severity: 'error',
+        });
+      } finally {
+        setDeleting(false);
+      }
+    };
 
-  const customToolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        width: '100%',
-        gap: 2,
-      }}
-    >
-      {/* Action buttons - shown when rows are selected */}
-      {selectedRows.length > 0 ? (
-        <Box sx={{ display: 'flex', gap: 1 }}>
+    const handleRowSelectionModelChange = (
+      newSelection: GridRowSelectionModel
+    ) => {
+      setSelectedRows(newSelection);
+    };
+
+    const excludeMetricIds = metrics.map(m => m.id as UUID);
+
+    const customToolbar = (
+      <Box sx={{ display: 'flex', width: '100%' }}>
+        {selectedRows.length > 0 ? (
           <Button
             variant="outlined"
             color="error"
@@ -223,215 +228,170 @@ export default function ProjectTraceMetrics({
             Remove {selectedRows.length} metric
             {selectedRows.length > 1 ? 's' : ''}
           </Button>
-        </Box>
-      ) : (
-        <Box /> // Placeholder when no rows are selected
-      )}
-
-      {/* Spacer to push buttons to the right */}
-      <Box sx={{ flexGrow: 1 }} />
-
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => setMetricsDialogOpen(true)}
-        >
-          Add Metric
-        </Button>
-      </Box>
-    </Box>
-  );
-
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1.5,
-      renderCell: (params: GridRenderCellParams<MetricDetail>) => (
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}
-        >
-          <AutoGraphIcon color="primary" fontSize="small" />
-          <MuiLink
-            component={Link}
-            href={`/metrics/${params.row.id}`}
-            variant="body2"
-            underline="hover"
-            sx={{ fontWeight: 500, color: 'text.primary' }}
-          >
-            {params.row.name}
-          </MuiLink>
-          {params.row.description && (
-            <Tooltip title={params.row.description} placement="top">
-              <InfoOutlinedIcon
-                sx={{ fontSize: '1rem', color: 'text.secondary' }}
-              />
-            </Tooltip>
-          )}
-        </Box>
-      ),
-    },
-    {
-      field: 'score_type',
-      headerName: 'Score Type',
-      flex: 1,
-      renderCell: (params: GridRenderCellParams<MetricDetail>) => (
-        <GridBadge
-          label={
-            params.row.score_type.charAt(0).toUpperCase() +
-            params.row.score_type.slice(1)
-          }
-        />
-      ),
-    },
-    {
-      field: 'backend_type',
-      headerName: 'Backend',
-      flex: 1,
-      renderCell: (params: GridRenderCellParams<MetricDetail>) => {
-        const typeValue = params.row.backend_type?.type_value;
-        if (!typeValue) return null;
-
-        return <GridBadge label={typeValue} />;
-      },
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 60,
-      sortable: false,
-      filterable: false,
-      renderCell: (params: GridRenderCellParams<MetricDetail>) => (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-          }}
-        >
-          <IconButton
-            size="small"
-            onClick={e => {
-              e.stopPropagation();
-              handleRemoveMetric(params.row.id as string);
-            }}
-            sx={{
-              color: 'text.secondary',
-              '&:hover': {
-                color: 'error.main',
-                bgcolor: 'error.50',
-              },
-            }}
-            aria-label={`Remove metric ${params.row.name}`}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      ),
-    },
-  ];
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
-        <CircularProgress size={24} />
-        <Typography color="text.secondary">Loading metrics...</Typography>
+        ) : null}
       </Box>
     );
-  }
 
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ my: 2 }}>
-        {error}
-      </Alert>
-    );
-  }
-
-  return (
-    <Box>
-      {metrics.length === 0 ? (
-        <Box>
+    const columns: GridColDef[] = [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1.5,
+        renderCell: (params: GridRenderCellParams<MetricDetail>) => (
           <Box
             sx={{
               display: 'flex',
-              justifyContent: 'flex-end',
-              mb: 2,
+              alignItems: 'center',
+              gap: 1,
+              height: '100%',
             }}
           >
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setMetricsDialogOpen(true)}
+            <AutoGraphIcon color="primary" fontSize="small" />
+            <MuiLink
+              component={Link}
+              href={`/metrics/${params.row.id}`}
+              variant="body2"
+              underline="hover"
+              sx={{ fontWeight: 500, color: 'text.primary' }}
             >
-              Add Metric
-            </Button>
+              {params.row.name}
+            </MuiLink>
+            {params.row.description && (
+              <Tooltip title={params.row.description} placement="top">
+                <InfoOutlinedIcon
+                  sx={{ fontSize: '1rem', color: 'text.secondary' }}
+                />
+              </Tooltip>
+            )}
           </Box>
+        ),
+      },
+      {
+        field: 'score_type',
+        headerName: 'Score Type',
+        flex: 1,
+        renderCell: (params: GridRenderCellParams<MetricDetail>) => (
+          <GridBadge
+            label={
+              params.row.score_type.charAt(0).toUpperCase() +
+              params.row.score_type.slice(1)
+            }
+          />
+        ),
+      },
+      {
+        field: 'backend_type',
+        headerName: 'Backend',
+        flex: 1,
+        renderCell: (params: GridRenderCellParams<MetricDetail>) => {
+          const typeValue = params.row.backend_type?.type_value;
+          if (!typeValue) return null;
+
+          return <GridBadge label={typeValue} />;
+        },
+      },
+      {
+        field: 'actions',
+        headerName: '',
+        width: 60,
+        sortable: false,
+        filterable: false,
+        renderCell: (params: GridRenderCellParams<MetricDetail>) => (
           <Box
             sx={{
-              py: 4,
-              px: 2,
-              border: '1px dashed',
-              borderColor: 'divider',
-              borderRadius: theme => theme.shape.borderRadius,
-              textAlign: 'center',
-              bgcolor: 'background.default',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
             }}
           >
-            <AutoGraphIcon
-              sx={{
-                fontSize: theme => theme.typography.h3.fontSize,
-                color: 'text.disabled',
-                mb: 1,
-                opacity: 0.5,
+            <IconButton
+              size="small"
+              onClick={e => {
+                e.stopPropagation();
+                handleRemoveMetric(params.row.id as string);
               }}
-            />
-            <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-              No trace metrics configured. Add metrics to evaluate traces
-              automatically.
-            </Typography>
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  color: 'error.main',
+                  bgcolor: 'error.50',
+                },
+              }}
+              aria-label={`Remove metric ${params.row.name}`}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </Box>
+        ),
+      },
+    ];
+
+    if (loading) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Loading metrics...</Typography>
         </Box>
-      ) : (
-        <Paper elevation={2} sx={{ p: 2 }}>
-          <BaseDataGrid
-            rows={metrics}
-            columns={columns}
-            getRowId={row => row.id}
-            checkboxSelection
-            disableRowSelectionOnClick
-            rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={handleRowSelectionModelChange}
-            customToolbarContent={customToolbar}
-            hideFooter
-            disablePaperWrapper
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ my: 2 }}>
+          {error}
+        </Alert>
+      );
+    }
+
+    return (
+      <Box>
+        {metrics.length === 0 ? (
+          <SectionEmptyState
+            icon={AutoGraphIcon}
+            title="No trace metrics yet"
+            description="Add metrics to evaluate traces automatically."
           />
-        </Paper>
-      )}
+        ) : (
+          <Paper elevation={2} sx={{ p: 2 }}>
+            <BaseDataGrid
+              rows={metrics}
+              columns={columns}
+              getRowId={row => row.id}
+              checkboxSelection
+              disableRowSelectionOnClick
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={handleRowSelectionModelChange}
+              customToolbarContent={customToolbar}
+              hideFooter
+              disablePaperWrapper
+            />
+          </Paper>
+        )}
 
-      <SelectMetricsDialog
-        open={metricsDialogOpen}
-        onClose={() => setMetricsDialogOpen(false)}
-        onSelect={handleAddMetric}
-        sessionToken={sessionToken}
-        excludeMetricIds={excludeMetricIds}
-        title="Add Trace Metric"
-        subtitle="Select a trace metric to evaluate all traces in this project"
-        scopeFilter="Trace"
-        strictScope={true}
-      />
+        <SelectMetricsDialog
+          open={metricsDialogOpen}
+          onClose={() => setMetricsDialogOpen(false)}
+          onSelect={handleAddMetric}
+          sessionToken={sessionToken}
+          excludeMetricIds={excludeMetricIds}
+          title="Add Trace Metric"
+          subtitle="Select a trace metric to evaluate all traces in this project"
+          scopeFilter="Trace"
+          strictScope={true}
+          variant="drawer"
+        />
 
-      <DeleteModal
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleBulkRemoveMetrics}
-        isLoading={deleting}
-        title={`Remove Metric${selectedRows.length > 1 ? 's' : ''}`}
-        message={`Are you sure you want to remove ${selectedRows.length} metric${selectedRows.length > 1 ? 's' : ''} from this project? The metrics themselves will not be deleted, they will just be removed from this project's trace evaluation.`}
-        itemType="metrics"
-      />
-    </Box>
-  );
-}
+        <DeleteModal
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={handleBulkRemoveMetrics}
+          isLoading={deleting}
+          title={`Remove Metric${selectedRows.length > 1 ? 's' : ''}`}
+          message={`Are you sure you want to remove ${selectedRows.length} metric${selectedRows.length > 1 ? 's' : ''} from this project? The metrics themselves will not be deleted, they will just be removed from this project's trace evaluation.`}
+          itemType="metrics"
+        />
+      </Box>
+    );
+  }
+);

@@ -195,6 +195,47 @@ export function PrimarySegmentedPills({
   );
 }
 
+/** Toolbar row inside a linked-data card (Figma 1435:46915) — below a card header. */
+export const linkedGridToolbarSx: SxProps<Theme> = {
+  px: '30px',
+  pt: 0,
+  pb: '30px',
+  minHeight: 'auto',
+  borderBottom: 'none',
+};
+
+/** Bleed a grid to SectionCard edges so toolbar/columns/footer share one 30px inset. */
+export const sectionCardGridBleedSx: SxProps<Theme> = {
+  mx: '-30px',
+  width: 'calc(100% + 60px)',
+};
+
+/** 48px row/header height matching Figma linked-data table rows. */
+export const linkedDataGridRowSx: SxProps<Theme> = {
+  '& .MuiDataGrid-columnHeaders': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-columnHeader': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-row': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-cell': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+  '& .MuiDataGrid-columnHeaderTitle': {
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+};
+
 /**
  * Shared toolbar row for BaseDataGrid: filter button, search pill, optional middle/right slots.
  */
