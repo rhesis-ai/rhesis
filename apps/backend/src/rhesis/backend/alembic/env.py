@@ -18,6 +18,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import rhesis.backend.ee.rbac.models  # noqa: F401
+except ImportError:
+    pass
+
 # load environment variables
 load_dotenv()
 

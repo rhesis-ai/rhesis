@@ -211,9 +211,14 @@ async def lifespan(app: FastAPI):
     except Exception as _tp_err:
         logger.warning(f"Could not configure anyio thread limiter: {_tp_err}")
 
-    # Startup: Initialize local environment if enabled
+    # Startup: Initialize local environment + run any registered startup hooks.
+    # Startup hooks are registered by EE bootstrap (e.g. sync_rbac_catalog) and
+    # must be idempotent.  Failures abort startup so misconfiguration is loud.
+    from rhesis.backend.app.startup_hooks import run_startup_hooks
+
     with get_db() as db:
         initialize_local_environment(db)
+        run_startup_hooks(db)
 
     # Pre-fetch exchange rate on startup (non-blocking async)
     from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate_async
