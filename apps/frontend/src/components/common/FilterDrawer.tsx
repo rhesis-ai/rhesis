@@ -122,10 +122,10 @@ export function FilterDrawerShell({
       >
         <Typography
           sx={{
-            fontSize: 22,
+            fontSize: 23,
             fontWeight: 700,
             color: theme => theme.palette.greyscale.title,
-            lineHeight: 1.1,
+            lineHeight: '27.6px',
           }}
         >
           {title}
