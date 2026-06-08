@@ -8,10 +8,10 @@ name: "[EE] Issue License"
 # env-specific values live in GitHub Environments (dev / stg / prd).
 # Two secrets must be set per GitHub Environment before this workflow runs:
 #
-#   LICENSE_PRIVATE_KEY  — Ed25519 private key PEM for that environment.
+#   RHESIS_LICENSE_PRIVATE_KEY  — Ed25519 private key PEM for that environment.
 #                          dev + stg share the nonprod keypair;
 #                          prd gets its own prod keypair.
-#   LICENSE_KID          — Key ID that matches the public key baked into the
+#   RHESIS_LICENSE_KID          — Key ID that matches the public key baked into the
 #                          backend image for that environment.
 #                          dev + stg: "rhesis-nonprod-v1"
 #                          prd:       "rhesis-prod-v1"
@@ -25,8 +25,8 @@ name: "[EE] Issue License"
 # The issued token is written to the database only (never printed to logs).
 #
 # One-time setup per GitHub Environment:
-#   1. Set LICENSE_PRIVATE_KEY to the Ed25519 private key PEM.
-#   2. Set LICENSE_KID to the matching key ID (see above).
+#   1. Set RHESIS_LICENSE_PRIVATE_KEY to the Ed25519 private key PEM.
+#   2. Set RHESIS_LICENSE_KID to the matching key ID (see above).
 #   3. Configure the "prd" GitHub Environment with required reviewers.
 #
 # Usage:
@@ -112,7 +112,7 @@ jobs:
       contents: read
       id-token: write
     # The `prd` GitHub Environment requires reviewer approval before this job
-    # runs — and it's what hands the prod LICENSE_PRIVATE_KEY to the workflow.
+    # runs — and it's what hands the prod RHESIS_LICENSE_PRIVATE_KEY to the workflow.
     # dev/stg environments have no gate and use the nonprod key.
     environment: ${{ github.event.inputs.environment }}
 
@@ -123,19 +123,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Validate LICENSE_PRIVATE_KEY is set
+      - name: Validate RHESIS_LICENSE_PRIVATE_KEY is set
         run: |
-          if [ -z "${{ secrets.LICENSE_PRIVATE_KEY }}" ]; then
-            echo "❌ LICENSE_PRIVATE_KEY is not set for the '${{ github.event.inputs.environment }}' GitHub Environment."
+          if [ -z "${{ secrets.RHESIS_LICENSE_PRIVATE_KEY }}" ]; then
+            echo "❌ RHESIS_LICENSE_PRIVATE_KEY is not set for the '${{ github.event.inputs.environment }}' GitHub Environment."
             echo "   Add it under Settings → Environments → ${{ github.event.inputs.environment }} → Environment secrets."
             exit 1
           fi
-          if [ -z "${{ secrets.LICENSE_KID }}" ]; then
-            echo "❌ LICENSE_KID is not set for the '${{ github.event.inputs.environment }}' GitHub Environment."
+          if [ -z "${{ secrets.RHESIS_LICENSE_KID }}" ]; then
+            echo "❌ RHESIS_LICENSE_KID is not set for the '${{ github.event.inputs.environment }}' GitHub Environment."
             echo "   Add it under Settings → Environments → ${{ github.event.inputs.environment }} → Environment secrets."
             exit 1
           fi
-          echo "✅ LICENSE_PRIVATE_KEY and LICENSE_KID are set for ${{ github.event.inputs.environment }}"
+          echo "✅ RHESIS_LICENSE_PRIVATE_KEY and RHESIS_LICENSE_KID are set for ${{ github.event.inputs.environment }}"
 
       - name: Create and validate service account key file
         run: |
@@ -192,7 +192,7 @@ jobs:
           JOB_NAME="${SERVICE_NAME}-license-issue"
           IMAGE="${{ env.IMAGE_NAME }}:${{ steps.image.outputs.tag }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
-          KID="${{ secrets.LICENSE_KID }}"
+          KID="${{ secrets.RHESIS_LICENSE_KID }}"
 
           # Build CLI args. --dry-run is appended only when requested.
           ARGS="-m,rhesis.backend.ee.licensing.cli,issue"
@@ -227,7 +227,7 @@ jobs:
             --memory=512Mi \
             --cpu=1 \
             --set-cloudsql-instances="${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }}" \
-            --set-env-vars="RHESIS_LICENSE_PRIVATE_KEY=${{ secrets.LICENSE_PRIVATE_KEY }},ENVIRONMENT=${{ env.ENVIRONMENT }},DB_DRIVER=${{ secrets.DB_DRIVER }},DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_NAME=${{ secrets.DB_NAME }},APP_DB_USER=${{ secrets.APP_DB_USER }},APP_DB_PASS=${{ secrets.APP_DB_PASS }}" \
+            --set-env-vars="RHESIS_LICENSE_PRIVATE_KEY=${{ secrets.RHESIS_LICENSE_PRIVATE_KEY }},ENVIRONMENT=${{ env.ENVIRONMENT }},DB_DRIVER=${{ secrets.DB_DRIVER }},DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_NAME=${{ secrets.DB_NAME }},APP_DB_USER=${{ secrets.APP_DB_USER }},APP_DB_PASS=${{ secrets.APP_DB_PASS }}" \
             --command=python \
             --args="$ARGS"
 
@@ -257,7 +257,7 @@ jobs:
           echo "  org_id      : ${{ github.event.inputs.org_id }}"
           echo "  edition     : ${{ github.event.inputs.edition }}"
           echo "  ttl_days    : ${{ github.event.inputs.ttl_days }}"
-          echo "  kid         : ${{ secrets.LICENSE_KID }}"
+          echo "  kid         : ${{ secrets.RHESIS_LICENSE_KID }}"
           echo "  dry_run     : ${{ github.event.inputs.dry_run }}"
           echo "  triggered by: ${{ github.actor }}"
           echo ""

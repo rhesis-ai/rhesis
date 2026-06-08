@@ -54,6 +54,7 @@ import sys
 from datetime import datetime, timezone
 
 from rhesis.backend.ee.licensing.entitlements import (
+    ENV_LICENSE_KID,
     ENV_LICENSE_PRIVATE_KEY,
     LicenseEdition,
     LicenseStatus,
@@ -68,6 +69,10 @@ from rhesis.backend.ee.licensing.tiers import EDITION_ENTITLEMENTS
 
 def _sellable_editions() -> list[str]:
     return sorted(e.value for e in EDITION_ENTITLEMENTS)
+
+
+def _default_kid() -> str:
+    return os.environ.get(ENV_LICENSE_KID, "").strip() or "rhesis-prod-v1"
 
 
 def _parse_edition(value: str) -> LicenseEdition:
@@ -320,8 +325,11 @@ def _build_parser() -> argparse.ArgumentParser:
     kg = sub.add_parser("keygen", help="Generate a new Ed25519 keypair.")
     kg.add_argument(
         "--kid",
-        default="rhesis-prod-v1",
-        help="Key ID to embed in the suggested filename / header (default: rhesis-prod-v1).",
+        default=_default_kid(),
+        help=(
+            "Key ID to embed in the suggested filename / header "
+            f"(default: ${ENV_LICENSE_KID} or rhesis-prod-v1)."
+        ),
     )
     kg.set_defaults(func=cmd_keygen)
 
@@ -356,8 +364,11 @@ def _build_parser() -> argparse.ArgumentParser:
         )
         p.add_argument(
             "--kid",
-            default="rhesis-prod-v1",
-            help="Key ID to use for signing (default: rhesis-prod-v1).",
+            default=_default_kid(),
+            help=(
+                "Key ID to use for signing "
+                f"(default: ${ENV_LICENSE_KID} or rhesis-prod-v1)."
+            ),
         )
         p.add_argument(
             "--features",
