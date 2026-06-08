@@ -272,6 +272,10 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             except (TypeError, ValueError):
                 mapped_response["raw_response"] = None
 
+            for field in ("error", "status", "message"):
+                if field in response_data and field not in mapped_response:
+                    mapped_response[field] = response_data[field]
+
             return mapped_response
         except json.JSONDecodeError as json_error:
             logger.error(f"JSON parsing error from {url}: {str(json_error)}")
