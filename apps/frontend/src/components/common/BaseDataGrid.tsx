@@ -272,16 +272,16 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   // The trailing empty filler cell gets paddingRight via :last-of-type which
   // creates the visual 30px right gap at the grid edge.
   '&& .MuiDataGrid-columnHeader--first': {
-    paddingLeft: '30px',
+    paddingLeft: theme.spacing(3.75),
   },
   '&& .MuiDataGrid-columnHeader--last': {
-    paddingRight: '30px',
+    paddingRight: theme.spacing(3.75),
   },
   '&& .MuiDataGrid-cell:first-child': {
-    paddingLeft: '30px',
+    paddingLeft: theme.spacing(3.75),
   },
   '&& .MuiDataGrid-cell:last-of-type': {
-    paddingRight: '30px',
+    paddingRight: theme.spacing(3.75),
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',

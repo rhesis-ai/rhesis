@@ -54,14 +54,16 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
     color: theme => theme.palette.greyscale.subtitle,
   },
   '& .MuiOutlinedInput-input': {
-    padding: '16px 12px 16px 16px !important',
+    padding: theme =>
+      `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px',
     fontSize: 16,
     lineHeight: '24px',
     boxSizing: 'border-box',
   },
   '& .MuiSelect-select': {
-    padding: '16px 32px 16px 16px !important',
+    padding: theme =>
+      `${theme.spacing(2)} ${theme.spacing(4)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px !important',
     fontSize: 16,
     lineHeight: '24px',
@@ -77,7 +79,8 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
     minHeight: 56,
   },
   '& .MuiOutlinedInput-input.Mui-disabled': {
-    padding: '16px 12px 16px 16px !important',
+    padding: theme =>
+      `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px',
     WebkitTextFillColor: theme => theme.palette.greyscale.border,
     color: theme => theme.palette.greyscale.border,
