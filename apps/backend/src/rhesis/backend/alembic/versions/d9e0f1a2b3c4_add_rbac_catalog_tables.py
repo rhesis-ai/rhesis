@@ -168,9 +168,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.TIMESTAMP(), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),
-        sa.UniqueConstraint(
-            "organization_id", "user_id", name="uq_organization_member_org_user"
-        ),
+        sa.UniqueConstraint("organization_id", "user_id", name="uq_organization_member_org_user"),
     )
     op.create_index("ix_organization_member_id", "organization_member", ["id"], unique=True)
     op.create_index(

@@ -23,7 +23,12 @@ from rhesis.backend.app.schemas.token import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.encryption import hash_token
 
-router = RhesisRouter(prefix="/tokens", tags=["tokens"], responses={404: {"description": "Not found"}}, resource="token")
+router = RhesisRouter(
+    prefix="/tokens",
+    tags=["tokens"],
+    responses={404: {"description": "Not found"}},
+    resource="token",
+)
 
 
 @router.post("/", response_model=TokenCreateResponse)

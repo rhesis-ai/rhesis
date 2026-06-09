@@ -65,17 +65,13 @@ def run(
         )
 
         with bypass_tenant_filter():
-            org: Optional[Organization] = (
-                session.query(Organization).filter_by(id=org_uuid).first()
-            )
+            org: Optional[Organization] = session.query(Organization).filter_by(id=org_uuid).first()
             if org is None:
                 logger.error("Organization %s not found.", org_uuid)
                 sys.exit(1)
 
             user: Optional[User] = (
-                session.query(User)
-                .filter_by(id=user_uuid, organization_id=org_uuid)
-                .first()
+                session.query(User).filter_by(id=user_uuid, organization_id=org_uuid).first()
             )
             if user is None:
                 logger.error(
@@ -95,9 +91,7 @@ def run(
             logger.info("New owner     : %s (%s)", user.email, user_uuid)
 
             if previous_owner_id and str(previous_owner_id) == str(user_uuid):
-                logger.warning(
-                    "The target user is ALREADY the org owner — nothing to do."
-                )
+                logger.warning("The target user is ALREADY the org owner — nothing to do.")
                 return
 
             if dry_run:

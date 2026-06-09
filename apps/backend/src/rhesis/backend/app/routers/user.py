@@ -411,7 +411,11 @@ def update_user(
     return updated_user
 
 
-@router.post("/request-polyphemus-access", response_model=PolyphemusAccessResponse, **capability(Permission.Member.UPDATE))
+@router.post(
+    "/request-polyphemus-access",
+    response_model=PolyphemusAccessResponse,
+    **capability(Permission.Member.UPDATE),
+)
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,
     db: Session = Depends(get_tenant_db_session),

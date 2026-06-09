@@ -2061,9 +2061,7 @@ def get_project(
     # the join table remains reachable before a project context is established.
     with bypass_tenant_filter():
         membership = (
-            db.query(ProjectMembership)
-            .filter_by(project_id=project.id, user_id=user_id)
-            .first()
+            db.query(ProjectMembership).filter_by(project_id=project.id, user_id=user_id).first()
         )
 
     return project if membership is not None else None

@@ -30,7 +30,9 @@ MetricDetailSchema = create_detailed_schema(
 BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
 
 router = RhesisRouter(
-    prefix="/metrics", tags=["metrics"], responses={404: {"description": "Not found"}},
+    prefix="/metrics",
+    tags=["metrics"],
+    responses={404: {"description": "Not found"}},
     resource="metric",
 )
 

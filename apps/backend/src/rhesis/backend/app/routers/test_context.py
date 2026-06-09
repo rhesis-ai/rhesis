@@ -16,7 +16,9 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 
 router = RhesisRouter(
-    prefix="/test-contexts", tags=["test contexts"], responses={404: {"description": "Not found"}},
+    prefix="/test-contexts",
+    tags=["test contexts"],
+    responses={404: {"description": "Not found"}},
     resource="test_context",
 )
 

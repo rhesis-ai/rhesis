@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 
 router = RhesisRouter(
-    prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}},
+    prefix="/organizations",
+    tags=["organizations"],
+    responses={404: {"description": "Not found"}},
     resource="organization",
 )
 
@@ -128,7 +130,11 @@ def update_organization(
     return db_organization
 
 
-@router.post("/{organization_id}/load-initial-data", response_model=dict, **capability(Permission.Organization.UPDATE))
+@router.post(
+    "/{organization_id}/load-initial-data",
+    response_model=dict,
+    **capability(Permission.Organization.UPDATE),
+)
 async def initialize_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -251,7 +257,11 @@ async def initialize_organization_data(
     return response
 
 
-@router.post("/{organization_id}/rollback-initial-data", response_model=dict, **capability(Permission.Organization.UPDATE))
+@router.post(
+    "/{organization_id}/rollback-initial-data",
+    response_model=dict,
+    **capability(Permission.Organization.UPDATE),
+)
 async def rollback_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

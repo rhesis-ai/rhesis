@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
-router = RhesisRouter(prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test")
+router = RhesisRouter(
+    prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test"
+)
 
 
 @router.post("/", response_model=schemas.Test)

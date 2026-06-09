@@ -47,7 +47,9 @@ class TestResultStatsMode(str, Enum):
 
 
 router = RhesisRouter(
-    prefix="/test_results", tags=["test_results"], responses={404: {"description": "Not found"}},
+    prefix="/test_results",
+    tags=["test_results"],
+    responses={404: {"description": "Not found"}},
     resource="test_result",
 )
 

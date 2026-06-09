@@ -51,7 +51,9 @@ class TestRunStatsMode(str, Enum):
 
 
 router = RhesisRouter(
-    prefix="/test_runs", tags=["test_runs"], responses={404: {"description": "Not found"}},
+    prefix="/test_runs",
+    tags=["test_runs"],
+    responses={404: {"description": "Not found"}},
     resource="test_run",
 )
 
@@ -444,7 +446,9 @@ def delete_test_run(
     )
 
 
-@router.post("/{test_run_id}/cancel", response_model=schemas.TestRun, **capability(Permission.TestRun.UPDATE))
+@router.post(
+    "/{test_run_id}/cancel", response_model=schemas.TestRun, **capability(Permission.TestRun.UPDATE)
+)
 def cancel_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),

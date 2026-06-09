@@ -143,9 +143,7 @@ class DefaultAuthorizationProvider(AuthorizationProvider):
         from rhesis.backend.app.models.project_membership import ProjectMembership
 
         if principal.organization_id is None:
-            logger.debug(
-                "authorize: deny — no organization on principal %s", principal.user_id
-            )
+            logger.debug("authorize: deny — no organization on principal %s", principal.user_id)
             return False
 
         # 1. Org owner bypass — allowed for every permission.

@@ -102,7 +102,7 @@ def setup() -> None:
         bypass = "BYPASSRLS" if SIM_BYPASSRLS else "NOBYPASSRLS"
         c.execute(
             text(
-                f'CREATE ROLE "{SIM_ROLE}" LOGIN PASSWORD \'{SIM_PW}\' '
+                f"CREATE ROLE \"{SIM_ROLE}\" LOGIN PASSWORD '{SIM_PW}' "
                 f"NOSUPERUSER {bypass} NOCREATEDB"
             )
         )
@@ -114,8 +114,7 @@ def transfer_ownership() -> None:
     # the non-bypass role own all tables + sequences here too — not just the few
     # tables the migration under test names. This mirrors the FK-validation owner
     # switch and lets the whole remaining migration chain run as the role.
-    print(">>> transfer ALL table/sequence ownership to the non-bypass role",
-          flush=True)
+    print(">>> transfer ALL table/sequence ownership to the non-bypass role", flush=True)
     with _superengine(SIM_DB).connect() as c:
         c.execute(text(f'GRANT USAGE ON SCHEMA public TO "{SIM_ROLE}"'))
         c.execute(text(f'GRANT CREATE ON SCHEMA public TO "{SIM_ROLE}"'))
@@ -129,9 +128,7 @@ def transfer_ownership() -> None:
             c.execute(text(f'ALTER SEQUENCE public."{seq}" OWNER TO "{SIM_ROLE}"'))
         # Confirm the role really is non-bypass / non-super (the whole point).
         row = c.execute(
-            text(
-                "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = :r"
-            ),
+            text("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = :r"),
             {"r": SIM_ROLE},
         ).one()
         print(f"    {SIM_ROLE}: rolsuper={row[0]} rolbypassrls={row[1]}", flush=True)
@@ -154,13 +151,15 @@ def main() -> int:
         # Phase 3: the real test — run the migration as the non-bypass owner.
         _run_alembic(SIM_ROLE, SIM_PW, TARGET_REV)
     except subprocess.CalledProcessError as exc:
-        print(f"\n❌ SIMULATION FAILED (exit {exc.returncode}) — "
-              f"this migration would fail on Cloud SQL.", flush=True)
+        print(
+            f"\n❌ SIMULATION FAILED (exit {exc.returncode}) — "
+            f"this migration would fail on Cloud SQL.",
+            flush=True,
+        )
         teardown()
         return 1
     role_desc = "BYPASSRLS" if SIM_BYPASSRLS else "non-bypass"
-    print(f"\n✅ SIMULATION PASSED — migration runs as a {role_desc} table owner.",
-          flush=True)
+    print(f"\n✅ SIMULATION PASSED — migration runs as a {role_desc} table owner.", flush=True)
     teardown()
     return 0
 
