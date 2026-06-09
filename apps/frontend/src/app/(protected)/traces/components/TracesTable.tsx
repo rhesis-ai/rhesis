@@ -24,7 +24,10 @@ import { formatDuration } from '@/utils/format-duration';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
-import { hasActiveTraceDrawerFilters } from './trace-filter-params';
+import {
+  hasActiveTraceDrawerFilters,
+  countActiveTraceDrawerFilters,
+} from './trace-filter-params';
 
 const PILL_TABS = [
   { label: 'All', value: 'all' },
@@ -39,6 +42,7 @@ interface TracesToolbarState {
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TracesToolbarContext = React.createContext<TracesToolbarState>({
@@ -48,9 +52,14 @@ const TracesToolbarContext = React.createContext<TracesToolbarState>({
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
-function TracesUnifiedToolbar() {
+function TracesUnifiedToolbar({
+  hideTypeFilter,
+}: {
+  hideTypeFilter?: boolean;
+}) {
   const {
     searchQuery,
     setSearchQuery,
@@ -58,6 +67,7 @@ function TracesUnifiedToolbar() {
     setTypeFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TracesToolbarContext);
 
   return (
@@ -67,12 +77,15 @@ function TracesUnifiedToolbar() {
       searchPlaceholder="Search operations…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
-        <ToolbarPillTabs
-          tabs={PILL_TABS}
-          activeValue={typeFilter}
-          onChange={setTypeFilter}
-        />
+        hideTypeFilter ? undefined : (
+          <ToolbarPillTabs
+            tabs={PILL_TABS}
+            activeValue={typeFilter}
+            onChange={setTypeFilter}
+          />
+        )
       }
       rightContent={
         <>
@@ -104,6 +117,7 @@ interface TracesTableProps {
   onFilterDrawerOpen: () => void;
   onFilterDrawerClose: () => void;
   sessionToken: string;
+  fixedTestRunId?: string;
 }
 
 export default function TracesTable({
@@ -125,8 +139,16 @@ export default function TracesTable({
   onFilterDrawerOpen,
   onFilterDrawerClose,
   sessionToken,
+  fixedTestRunId,
 }: TracesTableProps) {
-  const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters);
+  const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
+    testRunScope: Boolean(fixedTestRunId),
+    excludeTestRunId: Boolean(fixedTestRunId),
+  });
+  const activeFilterCount = countActiveTraceDrawerFilters(drawerFilters, {
+    testRunScope: Boolean(fixedTestRunId),
+    excludeTestRunId: Boolean(fixedTestRunId),
+  });
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -367,6 +389,7 @@ export default function TracesTable({
       setTypeFilter: onTypeFilterChange,
       openFilterDrawer: onFilterDrawerOpen,
       hasActiveDrawerFilters,
+      activeFilterCount,
     }),
     [
       searchQuery,
@@ -375,6 +398,7 @@ export default function TracesTable({
       onTypeFilterChange,
       onFilterDrawerOpen,
       hasActiveDrawerFilters,
+      activeFilterCount,
     ]
   );
 
@@ -400,7 +424,9 @@ export default function TracesTable({
         pageSizeOptions={[25, 50, 100]}
         disablePaperWrapper
         showToolbar
-        toolbarSlot={TracesUnifiedToolbar}
+        toolbarSlot={() => (
+          <TracesUnifiedToolbar hideTypeFilter={Boolean(fixedTestRunId)} />
+        )}
         persistState
         storageKey="traces-grid"
         sx={{
@@ -420,6 +446,7 @@ export default function TracesTable({
         filters={drawerFilters}
         onApply={onApplyDrawerFilters}
         sessionToken={sessionToken}
+        fixedTestRunId={fixedTestRunId}
       />
     </TracesToolbarContext.Provider>
   );

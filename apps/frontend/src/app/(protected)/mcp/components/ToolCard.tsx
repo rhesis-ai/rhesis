@@ -9,14 +9,13 @@ interface ConnectedToolCardProps {
   tool: Tool;
   /** Called when delete is confirmed — EntityCard handles stopPropagation internally */
   onDelete: (tool: Tool) => void;
-  /** Called when the card body is clicked — opens the edit drawer */
-  onEdit?: (tool: Tool) => void;
+  onCardClick?: (tool: Tool) => void;
 }
 
 export function ConnectedToolCard({
   tool,
   onDelete,
-  onEdit,
+  onCardClick,
 }: ConnectedToolCardProps) {
   const theme = useTheme();
   const providerName = tool.tool_provider_type?.type_value || 'Unknown';
@@ -56,8 +55,8 @@ export function ConnectedToolCard({
       icon={providerIcon}
       title={tool.name}
       description={tool.description}
-      onClick={onEdit ? () => onEdit(tool) : undefined}
       onDelete={() => onDelete(tool)}
+      onClick={onCardClick ? () => onCardClick(tool) : undefined}
       chipSections={chipSections}
     />
   );

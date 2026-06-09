@@ -1,4 +1,5 @@
 FROM mirror.gcr.io/library/python:3.11-slim
+COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -15,9 +16,6 @@ RUN apt-get update && \
 
 # Copy requirements
 COPY pyproject.toml .
-
-# Install uv for faster installs
-RUN pip install --no-cache-dir uv
 
 # Install dependencies
 RUN uv pip install --system -e .

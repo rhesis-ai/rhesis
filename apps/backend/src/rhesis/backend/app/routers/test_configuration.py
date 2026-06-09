@@ -249,6 +249,7 @@ def execute_test_configuration_endpoint(
                 test_run_id=str(test_run.id),
                 current_user=current_user,
                 task_id=celery_task_id,
+                db=db,
             )
         except Exception as exc:
             # Mark the queued test run as failed so it doesn't stay stuck

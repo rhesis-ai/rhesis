@@ -25,7 +25,11 @@ from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
-from rhesis.backend.app.config.settings import get_frontend_settings, get_rhesis_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_frontend_settings,
+    get_rhesis_settings,
+)
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -33,7 +37,7 @@ from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
 from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 from rhesis.backend.ee.sso.encryption import sso_decrypt, sso_encrypt
-from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError, is_dev_environment
+from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError
 from rhesis.backend.ee.sso.oidc import (
     OIDCProvider,
     verify_signed_state,
@@ -84,7 +88,7 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
             try:
                 config_data["client_secret"] = sso_decrypt(config_data["client_secret"])
             except Exception:
-                if is_dev_environment():
+                if get_application_settings().is_development:
                     logger.warning(
                         "SSO client_secret decryption failed for org %s; "
                         "allowing plaintext fallback in local/test",

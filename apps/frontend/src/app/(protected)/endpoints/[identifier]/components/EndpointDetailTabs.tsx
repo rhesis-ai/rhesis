@@ -1,37 +1,15 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { Box } from '@mui/material';
 import DetailTabNav from '@/components/common/DetailTabNav';
-import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  TAB_KEYS,
-  tabIndexFromKey,
-  type EndpointTabKey,
-} from './endpoint-detail-shared';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
+import { useDetailTabNav } from '@/hooks/useDetailTabNav';
+import { TAB_KEYS, type EndpointTabKey } from './endpoint-detail-shared';
 import EndpointOverviewTab from './EndpointOverviewTab';
 import EndpointConnectionTab from './EndpointConnectionTab';
 import EndpointMappingsTab from './EndpointMappingsTab';
 import EndpointTestTab from './EndpointTestTab';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`endpoint-detail-tabpanel-${index}`}
-      aria-labelledby={`endpoint-detail-tab-${index}`}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
 
 const TAB_LABELS: Record<EndpointTabKey, string> = {
   overview: 'Overview',
@@ -41,19 +19,7 @@ const TAB_LABELS: Record<EndpointTabKey, string> = {
 };
 
 export default function EndpointDetailTabs() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const activeTab = tabIndexFromKey(searchParams.get('tab'));
-
-  const handleTabChange = useCallback(
-    (newValue: number) => {
-      const key = TAB_KEYS[newValue];
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', key);
-      router.push(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
@@ -71,18 +37,18 @@ export default function EndpointDetailTabs() {
         aria-label="Endpoint detail tabs"
       />
 
-      <TabPanel value={activeTab} index={0}>
+      <DetailTabPanel value={activeTab} index={0} prefix="endpoint-detail">
         <EndpointOverviewTab />
-      </TabPanel>
-      <TabPanel value={activeTab} index={1}>
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={1} prefix="endpoint-detail">
         <EndpointConnectionTab />
-      </TabPanel>
-      <TabPanel value={activeTab} index={2}>
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={2} prefix="endpoint-detail">
         <EndpointMappingsTab />
-      </TabPanel>
-      <TabPanel value={activeTab} index={3}>
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={3} prefix="endpoint-detail">
         <EndpointTestTab />
-      </TabPanel>
+      </DetailTabPanel>
     </Box>
   );
 }

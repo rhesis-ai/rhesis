@@ -76,6 +76,7 @@ load_env_file() {
         set -a
         source .env
         set +a
+
         log "${GREEN}✅ Environment loaded${NC}"
     fi
 }

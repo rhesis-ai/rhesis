@@ -120,6 +120,12 @@ variable "env_nics" {
   default = []
 }
 
+variable "gke_public_endpoints" {
+  description = "Map of env name to GKE cluster public endpoint IP (for stg/prd public endpoint kubectl access)"
+  type        = map(string)
+  default     = {}
+}
+
 variable "bind9_tsig_keys" {
   description = "TSIG keys for BIND9 dynamic update (env → {keyname, secret})"
   type = map(object({

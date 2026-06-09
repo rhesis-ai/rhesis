@@ -37,11 +37,6 @@ export const METHODS = ['POST'] as const;
 export const TAB_KEYS = ['overview', 'connection', 'mappings', 'test'] as const;
 export type EndpointTabKey = (typeof TAB_KEYS)[number];
 
-export function tabIndexFromKey(key: string | null): number {
-  const idx = TAB_KEYS.indexOf(key as EndpointTabKey);
-  return idx >= 0 ? idx : 0;
-}
-
 const ICON_MAP: Record<string, React.ComponentType> = {
   SmartToy: SmartToyIcon,
   Devices: DevicesIcon,

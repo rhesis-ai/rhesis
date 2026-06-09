@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import OrganizationMixin, ProjectMixin, TagsMixin
 
 
 class SubscriptionPlan(enum.Enum):
@@ -14,7 +14,7 @@ class SubscriptionPlan(enum.Enum):
     PREMIUM = "premium"
 
 
-class Subscription(Base, TagsMixin, OrganizationMixin):
+class Subscription(Base, ProjectMixin, TagsMixin, OrganizationMixin):
     __tablename__ = "subscription"
 
     name = Column(String, nullable=False)

@@ -13,7 +13,7 @@ logging_settings = get_logging_settings()
 
 LOG_LEVEL = logging_settings.log_level
 LOG_DIR = logging_settings.log_dir
-ENVIRONMENT = application_settings.environment or "production"
+ENVIRONMENT = application_settings.backend_env
 IS_GOOGLE_CLOUD = application_settings.is_google_cloud
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
@@ -261,3 +261,11 @@ def set_logger():
         logger = logging.getLogger(name)
         logger.handlers.clear()
         logger.propagate = True
+
+    # Suppress verbose Celery-internal loggers that emit misleading task-signature
+    # dumps and other low-signal debug chatter at the DEBUG level.
+    for name in (
+        "celery.utils.functional",
+        "celery.app.trace",
+    ):
+        logging.getLogger(name).setLevel(logging.WARNING)

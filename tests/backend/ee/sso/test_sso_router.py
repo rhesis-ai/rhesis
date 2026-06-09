@@ -4,11 +4,10 @@ Pure unit tests that mock DB and encryption -- no network or Postgres needed.
 """
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from pydantic import SecretStr
 
 from rhesis.backend.app.config.settings import get_application_settings
 
@@ -181,7 +180,7 @@ class TestGetSSOConfig:
     def test_plaintext_secret_fallback_in_dev(self, monkeypatch):
         from rhesis.backend.ee.sso.router import _get_sso_config
 
-        monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("BACKEND_ENV", "development")
         get_application_settings.cache_clear()
 
         org = SimpleNamespace(

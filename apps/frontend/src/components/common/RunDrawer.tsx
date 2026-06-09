@@ -14,7 +14,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Divider,
   FormControl,
   FormHelperText,
   IconButton,
@@ -33,16 +32,21 @@ import {
   CallSplit as CallSplitIcon,
   Close as CloseIcon,
   Edit as EditIcon,
+  FlightTakeoff as FlightTakeoffIcon,
   Psychology as PsychologyIcon,
   Replay as ReplayIcon,
-  FlightTakeoff as FlightTakeoffIcon,
   Tune as TuneIcon,
 } from '@mui/icons-material';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Link from 'next/link';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseTag from '@/components/common/BaseTag';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import {
+  drawerDisabledFieldSx,
+  drawerOutlinedFieldSx,
+  drawerTagFieldSx,
+} from '@/components/common/drawerFormFieldSx';
 import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
@@ -67,7 +71,9 @@ import {
 } from '@/utils/test-run-batch';
 import { BiotechIcon } from '@/components/icons';
 import tagStyles from '@/styles/BaseTag.module.css';
+import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
+import { readActiveProjectId } from '@/utils/active-project';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -138,8 +144,8 @@ type RunDrawerModeProps =
       mode: 'runExperiment';
       data: {
         experiment: ExperimentDetail;
-        selectedVersionHashes: Set<string>;
-        onVersionRemove: (hash: string) => void;
+        /** Optional pre-seed: hashes selected in the Versions grid. When omitted the latest version is preselected inside the drawer. */
+        initialVersionHashes?: Set<string>;
       };
     }
   | { mode: 'rerunTestRun'; data: RerunConfig }
@@ -160,6 +166,9 @@ interface ModeConfig {
   title: string;
   saveButtonText: string;
   projectEditable: boolean;
+  /** Controls whether the project selector is rendered. Keeps projectEditable
+   *  true so endpoints still load and the ambient project filters them. */
+  showProjectField: boolean;
   endpointEditable: boolean;
   testSetMode: 'hidden' | 'single' | 'multi-search';
   experimentsEditable: boolean;
@@ -172,6 +181,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Set',
     saveButtonText: 'Execute Test Set',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -182,6 +192,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Test Run Configuration',
     saveButtonText: 'Execute Now',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'single',
     experimentsEditable: true,
@@ -192,16 +203,18 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Run Experiment',
     saveButtonText: 'Run Experiment',
     projectEditable: false,
+    showProjectField: false,
     endpointEditable: true,
-    testSetMode: 'multi-search',
+    testSetMode: 'single',
     experimentsEditable: false,
     showScoringTarget: true,
     showMetrics: true,
   },
   rerunTestRun: {
-    title: 'Re-run Test',
-    saveButtonText: 'Re-run Test',
+    title: 'Re-run Tests',
+    saveButtonText: 'Re-run Tests',
     projectEditable: false,
+    showProjectField: false,
     endpointEditable: false,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -212,6 +225,7 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Sets',
     saveButtonText: 'Run Test Sets',
     projectEditable: true,
+    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'hidden',
     experimentsEditable: true,
@@ -219,6 +233,35 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     showMetrics: true,
   },
 };
+
+const RERUN_SECTION_SX = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '40px',
+} as const;
+
+const RERUN_FIELDS_SX = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '30px',
+} as const;
+
+const RERUN_OUTLINE_BUTTON_SX = {
+  borderWidth: 2,
+  borderColor: 'primary.main',
+  color: 'primary.main',
+  fontWeight: 700,
+  fontSize: 14,
+  lineHeight: '22px',
+  borderRadius: BORDER_RADIUS.sm,
+  px: '16px',
+  py: '8px',
+  textTransform: 'none',
+  '&:hover': { borderWidth: 2 },
+} as const;
+
+const EXPERIMENT_SECTION_DESCRIPTION =
+  "Each selected experiment triggers its own test run with that experiment's parameters pinned. Leave empty to run without an experiment.";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -284,6 +327,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     SelectedExperiment[]
   >([]);
   const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
+
+  // ---- runExperiment internal version selection ----
+  const [internalVersionHashes, setInternalVersionHashes] = useState<
+    Set<string>
+  >(new Set());
 
   // ---- Tags ----
   const [tags, setTags] = useState<string[]>([]);
@@ -351,11 +399,25 @@ export default function RunDrawer(props: RunDrawerProps) {
     setPreflightChecks([]);
 
     if (cfg.projectEditable) {
-      setSelectedProject(null);
+      // Pre-select the session's active project so users don't have to choose
+      const activeId = readActiveProjectId();
+      setSelectedProject(activeId ? (activeId as UUID) : null);
       setSelectedEndpoint(null);
     } else if (experimentData) {
       setSelectedProject(experimentData.experiment.project_id as UUID);
       setSelectedEndpoint(null);
+      // Initialise internal version selection: use pre-seed from grid checkboxes,
+      // falling back to the latest version if none are provided.
+      const preseed = experimentData.initialVersionHashes;
+      if (preseed && preseed.size > 0) {
+        setInternalVersionHashes(new Set(preseed));
+      } else {
+        const versions = experimentData.experiment.versions;
+        const latest = versions[versions.length - 1];
+        setInternalVersionHashes(
+          latest ? new Set([latest.version]) : new Set()
+        );
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -572,15 +634,15 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   useEffect(() => {
     if (mode === 'runExperiment' || mode === 'rerunTestRun') return;
-    if (!selectedProject) {
-      setFilteredEndpoints([]);
-      setSelectedEndpoint(null);
-      return;
-    }
-    setFilteredEndpoints(
-      endpoints.filter(e => e.project_id === selectedProject)
+    // When a project is selected filter to its endpoints; otherwise show all
+    const filtered = selectedProject
+      ? endpoints.filter(e => e.project_id === selectedProject)
+      : endpoints;
+    setFilteredEndpoints(filtered);
+    // Clear endpoint selection if it no longer appears in the filtered list
+    setSelectedEndpoint(prev =>
+      prev && filtered.some(e => e.id === prev) ? prev : null
     );
-    setSelectedEndpoint(null);
   }, [selectedProject, endpoints, mode]);
 
   // Clear experiments on project switch (project-scoped)
@@ -716,7 +778,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       case 'newTestRun':
         return selectedTestSet ? [selectedTestSet.id as string] : [];
       case 'runExperiment':
-        return selectedSearchTestSets.map(ts => ts.id as string);
+        return selectedTestSet ? [selectedTestSet.id as string] : [];
       case 'rerunTestRun':
         return [props.data.testSetId];
       case 'createFromGrid':
@@ -731,8 +793,7 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const resolveExperiments = (): SelectedExperiment[] => {
     if (mode === 'runExperiment') {
-      const versionHashes = Array.from(props.data.selectedVersionHashes);
-      return versionHashes.map(hash => ({
+      return Array.from(internalVersionHashes).map(hash => ({
         experiment_id: props.data.experiment.id,
         experiment_name: props.data.experiment.name,
         version: hash,
@@ -950,17 +1011,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     const endpointId = resolveEndpointId();
     const testSetIds = resolveTestSetIds();
     if (!endpointId || testSetIds.length === 0) return false;
-    if (mode === 'runExperiment' && props.data.selectedVersionHashes.size === 0)
+    if (mode === 'runExperiment' && internalVersionHashes.size === 0)
       return false;
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    mode,
-    selectedEndpoint,
-    selectedTestSet,
-    selectedSearchTestSets,
-    experimentData?.selectedVersionHashes,
-  ]);
+  }, [mode, selectedEndpoint, selectedTestSet, internalVersionHashes]);
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {
@@ -980,6 +1035,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   const renderProjectField = () => {
+    if (!cfg.showProjectField) return null;
+
     if (!cfg.projectEditable) {
       if (mode === 'rerunTestRun') {
         return (
@@ -988,6 +1045,8 @@ export default function RunDrawer(props: RunDrawerProps) {
             value={rerunConfig?.projectName ?? ''}
             disabled
             fullWidth
+            InputLabelProps={{ shrink: true }}
+            sx={drawerDisabledFieldSx}
           />
         );
       }
@@ -1034,9 +1093,8 @@ export default function RunDrawer(props: RunDrawerProps) {
           renderInput={params => (
             <TextField
               {...params}
-              label="Project"
-              required
-              placeholder="Select a project"
+              label="Project (optional — filters endpoints)"
+              placeholder="Active project"
             />
           )}
           isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -1057,15 +1115,15 @@ export default function RunDrawer(props: RunDrawerProps) {
             value={rerunConfig?.endpointName ?? ''}
             disabled
             fullWidth
+            InputLabelProps={{ shrink: true }}
+            sx={drawerDisabledFieldSx}
           />
         );
       }
       return null;
     }
 
-    const options =
-      mode === 'runExperiment' ? filteredEndpoints : filteredEndpoints;
-    const disabled = mode !== 'runExperiment' && !selectedProject;
+    const options = filteredEndpoints;
 
     return (
       <FormControl fullWidth>
@@ -1074,15 +1132,12 @@ export default function RunDrawer(props: RunDrawerProps) {
           value={options.find(e => e.id === selectedEndpoint) || null}
           onChange={(_, v) => setSelectedEndpoint(v?.id ?? null)}
           getOptionLabel={opt => opt.name}
-          disabled={disabled}
           renderInput={params => (
             <TextField
               {...params}
               label="Endpoint"
               required
-              placeholder={
-                disabled ? 'Select a project first' : 'Select endpoint'
-              }
+              placeholder="Select endpoint"
             />
           )}
           renderOption={(props, option) => {
@@ -1118,7 +1173,7 @@ export default function RunDrawer(props: RunDrawerProps) {
           }}
           isOptionEqualToValue={(a, b) => a.id === b.id}
         />
-        {options.length === 0 && !disabled && !loading && (
+        {options.length === 0 && !loading && (
           <FormHelperText>
             No endpoints available for this project
           </FormHelperText>
@@ -1136,6 +1191,8 @@ export default function RunDrawer(props: RunDrawerProps) {
             value={rerunConfig?.testSetName ?? ''}
             disabled
             fullWidth
+            InputLabelProps={{ shrink: true }}
+            sx={drawerDisabledFieldSx}
           />
         );
       }
@@ -1213,14 +1270,14 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const renderExperimentVersionBoxes = () => {
     if (mode !== 'runExperiment') return null;
-    const versionHashes = Array.from(props.data.selectedVersionHashes);
-    if (versionHashes.length === 0) {
-      return (
-        <Alert severity="warning">
-          No versions selected. Close the drawer and select versions first.
-        </Alert>
-      );
-    }
+    const allVersions = props.data.experiment.versions;
+    // Deduplicate versions (same logic as VersionHistory)
+    const seen = new Set<string>();
+    const uniqueVersions = allVersions.filter(v => {
+      if (seen.has(v.version)) return false;
+      seen.add(v.version);
+      return true;
+    });
     return (
       <Box
         sx={{
@@ -1230,25 +1287,116 @@ export default function RunDrawer(props: RunDrawerProps) {
           borderRadius: theme => theme.spacing(1),
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <BiotechIcon fontSize="small" color="primary" />
-          <Typography variant="body2" noWrap>
+          <Typography variant="body2" fontWeight={500} noWrap>
             {props.data.experiment.name}
           </Typography>
+          <Typography variant="caption" color="text.secondary">
+            — select versions to run
+          </Typography>
         </Box>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-          {versionHashes.map(hash => (
-            <Chip
-              key={hash}
-              label={shortVersion(hash)}
-              size="small"
-              variant="outlined"
-              sx={{ fontFamily: 'monospace' }}
-              onDelete={() => props.data.onVersionRemove(hash)}
-            />
-          ))}
-        </Stack>
+        {uniqueVersions.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No versions saved yet.
+          </Typography>
+        ) : (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {[...uniqueVersions].reverse().map(v => {
+              const selected = internalVersionHashes.has(v.version);
+              return (
+                <Chip
+                  key={v.version}
+                  label={shortVersion(v.version)}
+                  size="small"
+                  variant={selected ? 'filled' : 'outlined'}
+                  color={selected ? 'primary' : 'default'}
+                  sx={{ fontFamily: 'monospace', cursor: 'pointer' }}
+                  onClick={() => {
+                    setInternalVersionHashes(prev => {
+                      const next = new Set(prev);
+                      if (next.has(v.version)) {
+                        next.delete(v.version);
+                      } else {
+                        next.add(v.version);
+                      }
+                      return next;
+                    });
+                  }}
+                />
+              );
+            })}
+          </Stack>
+        )}
       </Box>
+    );
+  };
+
+  const renderSelectedExperimentGroups = () => {
+    if (selectedExperiments.length === 0) return null;
+
+    const grouped = new Map<
+      string,
+      { name: string; versions: SelectedExperiment[] }
+    >();
+    for (const exp of selectedExperiments) {
+      const key = String(exp.experiment_id);
+      const group = grouped.get(key) ?? {
+        name: exp.experiment_name,
+        versions: [],
+      };
+      group.versions.push(exp);
+      grouped.set(key, group);
+    }
+
+    return (
+      <Stack spacing={1}>
+        {Array.from(grouped.entries()).map(([expId, group]) => (
+          <Box
+            key={expId}
+            sx={{
+              p: 1.5,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: theme => theme.spacing(1),
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              <BiotechIcon fontSize="small" color="primary" />
+              <Typography variant="body2" noWrap>
+                {group.name}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              {group.versions.map(exp => (
+                <Chip
+                  key={exp.version}
+                  label={shortVersion(exp.version)}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontFamily: 'monospace' }}
+                  onDelete={() =>
+                    setSelectedExperiments(prev =>
+                      prev.filter(
+                        row =>
+                          row.experiment_id !== exp.experiment_id ||
+                          row.version !== exp.version
+                      )
+                    )
+                  }
+                />
+              ))}
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
     );
   };
 
@@ -1256,84 +1404,36 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (!cfg.experimentsEditable) return null;
     if (!effectiveProjectId) return null;
 
+    if (mode === 'rerunTestRun') {
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <FormSectionDivider
+            headline="Experiment"
+            descriptiveText={EXPERIMENT_SECTION_DESCRIPTION}
+          />
+          {renderSelectedExperimentGroups()}
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<AddIcon />}
+            onClick={() => setExperimentsDialogOpen(true)}
+            sx={RERUN_OUTLINE_BUTTON_SX}
+          >
+            Add experiment
+          </Button>
+        </Box>
+      );
+    }
+
+    const experimentGroups = renderSelectedExperimentGroups();
+
     return (
       <Box>
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Each selected experiment triggers its own test run with that
-          experiment&apos;s parameters pinned. Leave empty to run without an
-          experiment.
-        </Alert>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {EXPERIMENT_SECTION_DESCRIPTION}
+        </Typography>
 
-        {selectedExperiments.length > 0 &&
-          (() => {
-            const grouped = new Map<
-              string,
-              { name: string; versions: SelectedExperiment[] }
-            >();
-            for (const exp of selectedExperiments) {
-              const key = String(exp.experiment_id);
-              const group = grouped.get(key) ?? {
-                name: exp.experiment_name,
-                versions: [],
-              };
-              group.versions.push(exp);
-              grouped.set(key, group);
-            }
-            return (
-              <Stack spacing={1} sx={{ mb: 2 }}>
-                {Array.from(grouped.entries()).map(([expId, group]) => (
-                  <Box
-                    key={expId}
-                    sx={{
-                      p: 1.5,
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: theme => theme.spacing(1),
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        mb: 1,
-                      }}
-                    >
-                      <BiotechIcon fontSize="small" color="primary" />
-                      <Typography variant="body2" noWrap>
-                        {group.name}
-                      </Typography>
-                    </Box>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
-                    >
-                      {group.versions.map(exp => (
-                        <Chip
-                          key={exp.version}
-                          label={shortVersion(exp.version)}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontFamily: 'monospace' }}
-                          onDelete={() =>
-                            setSelectedExperiments(prev =>
-                              prev.filter(
-                                row =>
-                                  row.experiment_id !== exp.experiment_id ||
-                                  row.version !== exp.version
-                              )
-                            )
-                          }
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-                ))}
-              </Stack>
-            );
-          })()}
+        {experimentGroups && <Box sx={{ mb: 2 }}>{experimentGroups}</Box>}
 
         <Button
           variant="outlined"
@@ -1348,12 +1448,13 @@ export default function RunDrawer(props: RunDrawerProps) {
   };
 
   const renderExecutionMode = () => (
-    <FormControl fullWidth>
-      <InputLabel>Execution Mode</InputLabel>
+    <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+      <InputLabel shrink>Execution Mode</InputLabel>
       <Select
         value={executionMode}
         onChange={e => setExecutionMode(e.target.value)}
         label="Execution Mode"
+        notched
       >
         <MenuItem value="Parallel">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1387,12 +1488,13 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     return (
       <>
-        <FormControl fullWidth>
-          <InputLabel>Scoring Target</InputLabel>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel shrink>Scoring Target</InputLabel>
           <Select
             value={scoringTarget}
             onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
             label="Scoring Target"
+            notched
           >
             <MenuItem value="fresh">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1460,13 +1562,8 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     return (
       <>
-        <Divider />
-        <Typography variant="subtitle2" color="text.secondary">
-          Test Run Metrics
-        </Typography>
-
-        <FormControl fullWidth>
-          <InputLabel>Metrics Source</InputLabel>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel shrink>Metrics Source</InputLabel>
           <Select
             value={metricMode}
             onChange={e => {
@@ -1474,6 +1571,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               if (e.target.value !== 'define_custom') setSelectedMetrics([]);
             }}
             label="Metrics Source"
+            notched
           >
             {testSetMetrics.length > 0 && (
               <MenuItem value="use_test_set">
@@ -1578,6 +1676,202 @@ export default function RunDrawer(props: RunDrawerProps) {
   };
 
   // -----------------------------------------------------------------------
+  // RerunTestRunDrawer layout (Figma 1641:16598)
+  // -----------------------------------------------------------------------
+
+  const renderRerunTestRunContent = () => (
+    <>
+      <Box sx={RERUN_SECTION_SX}>
+        <FormSectionDivider headline="Execution Target" />
+        <Box sx={RERUN_FIELDS_SX}>
+          {renderTestSetField()}
+          {renderProjectField()}
+          {renderEndpointField()}
+        </Box>
+      </Box>
+
+      {renderExperimentsSection()}
+
+      <Box sx={RERUN_SECTION_SX}>
+        <FormSectionDivider headline="Configuration" />
+        <Box sx={RERUN_FIELDS_SX}>
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Execution Mode</InputLabel>
+            <Select
+              value={executionMode}
+              onChange={e => setExecutionMode(e.target.value)}
+              label="Execution Mode"
+            >
+              <MenuItem value="Parallel">Parallel</MenuItem>
+              <MenuItem value="Sequential">Sequential</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Scoring Target</InputLabel>
+            <Select
+              value={scoringTarget}
+              onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
+              label="Scoring Target"
+            >
+              <MenuItem value="fresh">Fresh Outputs</MenuItem>
+              <MenuItem value="reuse">Reuse Outputs</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Metric Source</InputLabel>
+            <Select
+              value={metricMode}
+              onChange={e => {
+                setMetricMode(e.target.value as MetricMode);
+                if (e.target.value !== 'define_custom') setSelectedMetrics([]);
+              }}
+              label="Metric Source"
+            >
+              {testSetMetrics.length > 0 && (
+                <MenuItem value="use_test_set">Test Set Metrics</MenuItem>
+              )}
+              <MenuItem value="use_behavior">Behavior Metrics</MenuItem>
+              <MenuItem value="define_custom">Custom Metrics</MenuItem>
+            </Select>
+          </FormControl>
+
+          {metricMode === 'define_custom' && (
+            <Box>
+              {selectedMetrics.length > 0 && (
+                <Stack spacing={1} sx={{ mb: 2 }}>
+                  {selectedMetrics.map(metric => (
+                    <Box
+                      key={metric.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.spacing(1),
+                      }}
+                    >
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <AutoGraphIcon fontSize="small" color="primary" />
+                        <Typography variant="body2">{metric.name}</Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveMetric(metric.id)}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<AddIcon />}
+                onClick={() => setMetricsDialogOpen(true)}
+                sx={RERUN_OUTLINE_BUTTON_SX}
+              >
+                Add metric
+              </Button>
+
+              <SelectMetricsDialog
+                open={metricsDialogOpen}
+                onClose={() => setMetricsDialogOpen(false)}
+                onSelect={handleAddMetric}
+                sessionToken={sessionToken}
+                excludeMetricIds={selectedMetrics.map(m => m.id)}
+                title="Add Metric to Execution"
+                subtitle="Select a metric to use for this test run"
+                scopeFilter={metricScopeFilter}
+              />
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      <Box sx={RERUN_SECTION_SX}>
+        <FormSectionDivider headline="Model Settings" />
+        <Box sx={RERUN_FIELDS_SX}>
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedEvaluationModelId}
+            onChange={setSelectedEvaluationModelId}
+            label="Evaluation Model"
+            purpose="evaluation"
+            hideHelperText
+            compact
+            fieldSx={drawerOutlinedFieldSx}
+          />
+
+          {effectiveTestSetType === 'Multi-Turn' && (
+            <ModelSelector
+              sessionToken={sessionToken}
+              value={selectedExecutionModelId}
+              onChange={setSelectedExecutionModelId}
+              label="Execution Model"
+              purpose="execution"
+              hideHelperText
+              compact
+              fieldSx={drawerOutlinedFieldSx}
+            />
+          )}
+
+          <Box
+            sx={{
+              borderTop: 1,
+              borderColor: theme => theme.palette.greyscale.border,
+              pt: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: 16,
+                lineHeight: '24px',
+                color: theme => theme.palette.greyscale.title,
+              }}
+            >
+              Run Preflight Checks
+            </Typography>
+            <Switch
+              checked={preflightEnabled}
+              onChange={e => setPreflightEnabled(e.target.checked)}
+              size="small"
+            />
+          </Box>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <FormSectionDivider headline="Tags" />
+        <BaseTag
+          value={tags}
+          onChange={setTags}
+          label="Tags"
+          placeholder="Add tags (press Enter or comma to add)"
+          chipColor="default"
+          addOnBlur
+          delimiters={[',', 'Enter']}
+          size="small"
+          margin="none"
+          fullWidth
+          chipClassName={tagStyles.modalTag}
+          sx={drawerTagFieldSx}
+        />
+      </Box>
+    </>
+  );
+
+  // -----------------------------------------------------------------------
   // Dynamic title for createFromGrid
   // -----------------------------------------------------------------------
 
@@ -1614,152 +1908,184 @@ export default function RunDrawer(props: RunDrawerProps) {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
         </Box>
+      ) : mode === 'rerunTestRun' ? (
+        renderRerunTestRunContent()
       ) : (
-        <Stack spacing={3}>
-          {/* Experiment versions (runExperiment only) */}
-          {mode === 'runExperiment' && (
-            <>
-              <Typography variant="subtitle2" color="text.secondary">
-                Experiment
-              </Typography>
-              {renderExperimentVersionBoxes()}
-              <Divider />
-            </>
-          )}
-
+        <>
           {/* Execution Target */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Execution Target
-          </Typography>
-
-          {renderTestSetField()}
-          {renderProjectField()}
-          {renderEndpointField()}
-          {renderExperimentsSection()}
-
-          {/* Experiments dialog (editable modes only) */}
-          {cfg.experimentsEditable && (
-            <SelectExperimentsDialog
-              open={experimentsDialogOpen}
-              onClose={() => setExperimentsDialogOpen(false)}
-              onConfirm={setSelectedExperiments}
-              sessionToken={sessionToken}
-              projectId={effectiveProjectId}
-              initialSelection={selectedExperiments}
-              title={`Experiments for this ${mode === 'rerunTestRun' ? 're-run' : 'run'}`}
-              subtitle="Selecting multiple experiments queues one run per experiment."
+          <Box sx={RERUN_SECTION_SX}>
+            <FormSectionDivider
+              headline="Execution Target"
+              descriptiveText="The endpoint that will receive and respond to each test case."
             />
-          )}
+            <Box sx={RERUN_FIELDS_SX}>
+              {mode === 'runExperiment' && renderExperimentVersionBoxes()}
+              {renderTestSetField()}
+              {renderProjectField()}
+              {renderEndpointField()}
+            </Box>
+          </Box>
 
-          {/* Run count summary (runExperiment) */}
+          {/* Experiment */}
+          {cfg.experimentsEditable &&
+            effectiveProjectId &&
+            (() => {
+              const experimentGroups = renderSelectedExperimentGroups();
+              return (
+                <Box
+                  sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+                >
+                  <FormSectionDivider
+                    headline="Experiment"
+                    descriptiveText={EXPERIMENT_SECTION_DESCRIPTION}
+                  />
+                  {experimentGroups}
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setExperimentsDialogOpen(true)}
+                    sx={RERUN_OUTLINE_BUTTON_SX}
+                  >
+                    Add experiment
+                  </Button>
+                </Box>
+              );
+            })()}
+
+          {/* Run count summary (runExperiment only) */}
           {mode === 'runExperiment' &&
             canExecute &&
             (() => {
-              const totalRuns =
-                selectedSearchTestSets.length *
-                props.data.selectedVersionHashes.size;
+              const totalRuns = internalVersionHashes.size;
               return (
                 <Alert severity="info">
                   This will create {totalRuns} test run
-                  {totalRuns !== 1 ? 's' : ''} ({selectedSearchTestSets.length}{' '}
-                  test set
-                  {selectedSearchTestSets.length !== 1 ? 's' : ''} &times;{' '}
-                  {props.data.selectedVersionHashes.size} version
-                  {props.data.selectedVersionHashes.size !== 1 ? 's' : ''})
+                  {totalRuns !== 1 ? 's' : ''} (1 test set &times;{' '}
+                  {internalVersionHashes.size} version
+                  {internalVersionHashes.size !== 1 ? 's' : ''})
                 </Alert>
               );
             })()}
 
-          <Divider />
-
-          {/* Configuration Options */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Configuration Options
-          </Typography>
-
-          {renderExecutionMode()}
-          {renderScoringTarget()}
-          {renderMetrics()}
-
-          <Divider />
-
-          {/* Model Settings */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Model Settings
-          </Typography>
-
-          <ModelSelector
-            sessionToken={sessionToken}
-            value={selectedEvaluationModelId}
-            onChange={setSelectedEvaluationModelId}
-            label="Evaluation Model"
-            purpose="evaluation"
-          />
-
-          {(effectiveTestSetType === 'Multi-Turn' ||
-            mode === 'createFromGrid') && (
-            <ModelSelector
-              sessionToken={sessionToken}
-              value={selectedExecutionModelId}
-              onChange={setSelectedExecutionModelId}
-              label="Execution Model"
-              purpose="execution"
-              helperText={
-                mode === 'createFromGrid'
-                  ? 'Only applies to multi-turn test sets'
-                  : 'Used for multi-turn test execution with Penelope'
-              }
+          {/* Advanced Options */}
+          <Box sx={RERUN_SECTION_SX}>
+            <FormSectionDivider
+              headline="Advanced Options"
+              descriptiveText="Optional overrides — defaults work well for most runs."
             />
-          )}
-
-          <Divider />
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={preflightEnabled}
-                onChange={e => setPreflightEnabled(e.target.checked)}
-                size="small"
+            <Box sx={RERUN_FIELDS_SX}>
+              {renderExecutionMode()}
+              {renderScoringTarget()}
+              {cfg.showMetrics && renderMetrics()}
+              <ModelSelector
+                sessionToken={sessionToken}
+                value={selectedEvaluationModelId}
+                onChange={setSelectedEvaluationModelId}
+                label="Evaluation Model"
+                purpose="evaluation"
+                hideHelperText
+                compact
+                fieldSx={drawerOutlinedFieldSx}
               />
-            }
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <FlightTakeoffIcon
-                  fontSize="small"
-                  color={preflightEnabled ? 'primary' : 'disabled'}
-                  sx={{ mt: 0.25 }}
+              {(effectiveTestSetType === 'Multi-Turn' ||
+                mode === 'createFromGrid') && (
+                <ModelSelector
+                  sessionToken={sessionToken}
+                  value={selectedExecutionModelId}
+                  onChange={setSelectedExecutionModelId}
+                  label="Execution Model"
+                  purpose="execution"
+                  hideHelperText
+                  compact
+                  fieldSx={drawerOutlinedFieldSx}
                 />
-                <Box>
-                  <Typography variant="body2">Run Preflight Checks</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Validate endpoint and model configuration before executing
-                  </Typography>
-                </Box>
-              </Box>
-            }
-            sx={{ ml: 0, mt: 1 }}
-          />
+              )}
+              <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+                <InputLabel shrink>Run Preflight Checks</InputLabel>
+                <Select
+                  value={preflightEnabled ? 'yes' : 'no'}
+                  onChange={e => setPreflightEnabled(e.target.value === 'yes')}
+                  label="Run Preflight Checks"
+                  notched
+                  renderValue={val => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {val === 'yes' ? (
+                        <FlightTakeoffIcon fontSize="small" />
+                      ) : (
+                        <CloseIcon fontSize="small" />
+                      )}
+                      <Box>
+                        <Typography variant="body1">
+                          {val === 'yes' ? 'Yes' : 'No'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {val === 'yes'
+                            ? 'Validate endpoint and model configuration before executing'
+                            : 'Skip validation and start the run immediately'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                >
+                  <MenuItem value="no">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CloseIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body1">No</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Skip validation and start the run immediately
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="yes">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <FlightTakeoffIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body1">Yes</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Validate endpoint and model configuration before
+                          executing
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
 
-          <Divider />
-
-          {/* Tags */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Test Run Tags
-          </Typography>
-          <BaseTag
-            value={tags}
-            onChange={setTags}
-            label="Tags"
-            placeholder="Add tags (press Enter or comma to add)"
-            helperText="These tags help categorize and find this test run"
-            chipColor="default"
-            addOnBlur
-            delimiters={[',', 'Enter']}
-            size="small"
-            fullWidth
-            chipClassName={tagStyles.modalTag}
-          />
-        </Stack>
+          {/* Test Run Tags */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <FormSectionDivider headline="Test Run Tags" />
+            <BaseTag
+              value={tags}
+              onChange={setTags}
+              label="Tags"
+              placeholder="Add tags (press Enter or comma to add)"
+              chipColor="default"
+              addOnBlur
+              delimiters={[',', 'Enter']}
+              size="small"
+              margin="none"
+              fullWidth
+              chipClassName={tagStyles.modalTag}
+              sx={drawerTagFieldSx}
+            />
+          </Box>
+        </>
+      )}
+      {cfg.experimentsEditable && effectiveProjectId && (
+        <SelectExperimentsDialog
+          open={experimentsDialogOpen}
+          onClose={() => setExperimentsDialogOpen(false)}
+          onConfirm={setSelectedExperiments}
+          sessionToken={sessionToken}
+          projectId={effectiveProjectId}
+          initialSelection={selectedExperiments}
+          title={`Experiments for this ${mode === 'rerunTestRun' ? 're-run' : 'run'}`}
+          subtitle="Selecting multiple experiments queues one run per experiment."
+        />
       )}
       {preflightDialogOpen && (
         <PreflightDialog

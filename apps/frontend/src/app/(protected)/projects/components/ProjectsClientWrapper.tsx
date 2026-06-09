@@ -16,9 +16,9 @@ import ProjectFilterDrawer, {
   type ProjectFilters,
   EMPTY_FILTERS,
   hasActiveProjectFilters,
+  countActiveProjectFilters,
 } from './ProjectFilterDrawer';
-import AddIcon from '@mui/icons-material/Add';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -200,7 +200,7 @@ export default function ProjectsClientWrapper({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create project"
             aria-label="Create project"
             data-tour="create-project-button"
@@ -219,6 +219,7 @@ export default function ProjectsClientWrapper({
         searchPlaceholder="Search projects…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveProjectFilters(activeFilters)}
+        activeFilterCount={countActiveProjectFilters(activeFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs

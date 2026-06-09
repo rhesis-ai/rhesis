@@ -70,19 +70,19 @@ spec:
             {{- toYaml .resources | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /health/basic
+              path: {{ (.livenessProbe).httpGet.path | default "/health/basic" }}
               port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: {{ (.livenessProbe).initialDelaySeconds | default 60 }}
+            periodSeconds: {{ (.livenessProbe).periodSeconds | default 30 }}
+            timeoutSeconds: {{ (.livenessProbe).timeoutSeconds | default 10 }}
+            failureThreshold: {{ (.livenessProbe).failureThreshold | default 5 }}
           readinessProbe:
             httpGet:
-              path: /health/basic
+              path: {{ (.readinessProbe).httpGet.path | default "/health/basic" }}
               port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: {{ (.readinessProbe).initialDelaySeconds | default 30 }}
+            periodSeconds: {{ (.readinessProbe).periodSeconds | default 10 }}
+            timeoutSeconds: {{ (.readinessProbe).timeoutSeconds | default 10 }}
+            failureThreshold: {{ (.readinessProbe).failureThreshold | default 5 }}
 {{- end }}
 {{- end }}

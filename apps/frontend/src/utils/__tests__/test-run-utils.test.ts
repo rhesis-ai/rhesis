@@ -1,4 +1,4 @@
-import { pollForTestRun } from '../test-run-utils';
+import { pollForTestRun, getTestRunDisplayTimestamp } from '../test-run-utils';
 
 type MockTestRunsClient = {
   getTestRunsByTestConfiguration: jest.Mock;
@@ -7,6 +7,36 @@ type MockTestRunsClient = {
 function makeMockClient(): MockTestRunsClient {
   return { getTestRunsByTestConfiguration: jest.fn() };
 }
+
+describe('getTestRunDisplayTimestamp', () => {
+  it('prefers attributes.started_at over created_at', () => {
+    expect(
+      getTestRunDisplayTimestamp({
+        attributes: { started_at: '2024-06-01T10:00:00Z' },
+        created_at: '2024-05-01T10:00:00Z',
+        updated_at: '2024-07-01T10:00:00Z',
+      })
+    ).toBe('2024-06-01T10:00:00Z');
+  });
+
+  it('falls back to created_at then updated_at', () => {
+    expect(
+      getTestRunDisplayTimestamp({
+        attributes: {},
+        created_at: '2024-05-01T10:00:00Z',
+        updated_at: '2024-07-01T10:00:00Z',
+      })
+    ).toBe('2024-05-01T10:00:00Z');
+
+    expect(
+      getTestRunDisplayTimestamp({
+        attributes: {},
+        created_at: '',
+        updated_at: '2024-07-01T10:00:00Z',
+      })
+    ).toBe('2024-07-01T10:00:00Z');
+  });
+});
 
 describe('pollForTestRun', () => {
   beforeEach(() => {

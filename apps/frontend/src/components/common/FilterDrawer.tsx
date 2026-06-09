@@ -60,28 +60,37 @@ import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
 interface FilterDrawerShellProps {
   open: boolean;
   onClose: () => void;
-  onReset: () => void;
-  onApply: () => void;
+  /** Omit to hide the Reset button. */
+  onReset?: () => void;
+  /** Label for the reset button. Defaults to "Reset". */
+  resetLabel?: string;
+  /** Omit to hide the Apply button (e.g. when selection has immediate effect). */
+  onApply?: () => void;
   title?: string;
   children: React.ReactNode;
+  /** Defaults to 'left'. */
+  anchor?: 'left' | 'right';
 }
 
 /**
  * Shell for filter side-drawers.
  * Provides a consistent header ("Filter" + close icon),
  * a scrollable content area, and a sticky footer with Reset/Apply buttons.
+ * Pass `onApply` to show the Apply button; omit it when selection has immediate effect.
  */
 export function FilterDrawerShell({
   open,
   onClose,
   onReset,
+  resetLabel = 'Reset',
   onApply,
   title = 'Filter',
   children,
+  anchor = 'left',
 }: FilterDrawerShellProps) {
   return (
     <Drawer
-      anchor="left"
+      anchor={anchor}
       open={open}
       onClose={onClose}
       variant="temporary"
@@ -91,8 +100,8 @@ export function FilterDrawerShell({
           width: 430,
           display: 'flex',
           flexDirection: 'column',
-          p: '30px',
-          gap: '30px',
+          p: 3.75,
+          gap: 3.75,
           boxSizing: 'border-box',
         },
       }}
@@ -113,10 +122,10 @@ export function FilterDrawerShell({
       >
         <Typography
           sx={{
-            fontSize: 22,
+            fontSize: 23,
             fontWeight: 700,
             color: theme => theme.palette.greyscale.title,
-            lineHeight: 1.1,
+            lineHeight: '27.6px',
           }}
         >
           {title}
@@ -138,53 +147,59 @@ export function FilterDrawerShell({
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '30px',
+          gap: 3.75,
           pt: '4px',
         }}
       >
         {children}
       </Box>
 
-      {/* Footer */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '10px',
-          flexShrink: 0,
-        }}
-      >
-        <Button
-          variant="outlined"
-          onClick={onReset}
+      {/* Footer — hidden when neither button is needed */}
+      {(onReset || onApply) && (
+        <Box
           sx={{
-            borderWidth: 2,
-            borderColor: 'primary.main',
-            color: 'primary.main',
-            fontWeight: 700,
-            fontSize: 14,
-            borderRadius: BORDER_RADIUS.sm,
-            px: '16px',
-            py: '8px',
-            '&:hover': { borderWidth: 2 },
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '10px',
+            flexShrink: 0,
           }}
         >
-          Reset
-        </Button>
-        <Button
-          variant="contained"
-          onClick={onApply}
-          sx={{
-            fontWeight: 700,
-            fontSize: 14,
-            borderRadius: BORDER_RADIUS.sm,
-            px: '16px',
-            py: '8px',
-          }}
-        >
-          Apply
-        </Button>
-      </Box>
+          {onReset && (
+            <Button
+              variant="outlined"
+              onClick={onReset}
+              sx={{
+                borderWidth: 2,
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                fontWeight: 700,
+                fontSize: 14,
+                borderRadius: BORDER_RADIUS.sm,
+                px: '16px',
+                py: '8px',
+                '&:hover': { borderWidth: 2 },
+              }}
+            >
+              {resetLabel}
+            </Button>
+          )}
+          {onApply && (
+            <Button
+              variant="contained"
+              onClick={onApply}
+              sx={{
+                fontWeight: 700,
+                fontSize: 14,
+                borderRadius: BORDER_RADIUS.sm,
+                px: '16px',
+                py: '8px',
+              }}
+            >
+              Apply
+            </Button>
+          )}
+        </Box>
+      )}
     </Drawer>
   );
 }
@@ -265,7 +280,7 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
     alignItems: 'center',
     px: '12px',
     py: '6px',
-    borderRadius: '999px',
+    borderRadius: BORDER_RADIUS.pill,
     border: active ? '2px solid' : '1px solid',
     borderColor: active ? 'primary.main' : theme.palette.greyscale.border,
     bgcolor: active ? 'primary.main' : 'transparent',

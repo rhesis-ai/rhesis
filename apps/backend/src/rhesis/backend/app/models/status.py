@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class Status(Base, OrganizationAndUserMixin):
+class Status(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "status"
     name = Column(String)
     description = Column(Text)
@@ -28,7 +28,7 @@ class Status(Base, OrganizationAndUserMixin):
     test_results = relationship("TestResult", back_populates="status")
     use_cases = relationship("UseCase", back_populates="status")
     tests = relationship("Test", back_populates="status")
-    projects = relationship("Project", back_populates="status")
+    projects = relationship("Project", foreign_keys="Project.status_id", back_populates="status")
     metrics = relationship("Metric", back_populates="status")
     models = relationship("Model", back_populates="status")
     tasks = relationship("Task", back_populates="status")

@@ -54,6 +54,7 @@ class EmbeddingService(AsyncService):
             model_id=str(model_id),
             searchable_text=searchable_text,
             current_user=SimpleNamespace(id=user_id, organization_id=organization_id),
+            db=self.db,
         )
 
     def resolve_model_id(self, user_id: str, model_id: str | None = None) -> str:

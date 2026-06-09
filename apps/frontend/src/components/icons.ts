@@ -109,6 +109,8 @@ export { default as CircleIcon } from '@mui/icons-material/CircleOutlined';
 export { default as EngineeringIcon } from '@mui/icons-material/EngineeringOutlined';
 
 export { default as ForumIcon } from '@mui/icons-material/ForumOutlined';
+export { default as DiscordIcon } from './DiscordIcon';
+export { default as EmailOutlinedIcon } from '@mui/icons-material/EmailOutlined';
 
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';

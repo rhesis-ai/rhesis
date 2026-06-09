@@ -73,7 +73,7 @@ async def test_email_notifications(
     try:
         # Use task_launcher to handle context
         result = task_launcher(
-            email_notification_test, test_message=message, current_user=current_user
+            email_notification_test, test_message=message, current_user=current_user, db=db
         )
 
         return {
@@ -111,7 +111,7 @@ async def create_task(
         task = celery_app.tasks[task_path]
 
         # Use task_launcher to handle context
-        result = task_launcher(task, current_user=current_user, **payload)
+        result = task_launcher(task, current_user=current_user, db=db, **payload)
 
         return {"task_id": result.id}
     except KeyError:

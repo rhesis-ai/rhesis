@@ -95,6 +95,11 @@ class MappingResult(BaseModel):
     )
 
 
+def _is_jinja_template(value: Any) -> bool:
+    """Return True when *value* is a Jinja2 template string (dynamic test input)."""
+    return isinstance(value, str) and "{{" in value
+
+
 class MappingService:
     """Orchestrates mapping generation with 4-tier priority system."""
 
@@ -166,21 +171,34 @@ class MappingService:
                     final_response_mapping = auto_result["response_mapping"]
                     source = MappingSource.SDK_HYBRID
 
-            # Preserve user-added fields from the existing DB mapping that are not
-            # present in the SDK decorator. This prevents manual edits (e.g. a
-            # hardcoded tool_id) from being erased every time the SDK reconnects.
+            # Merge DB request mapping with the decorator mapping using template
+            # syntax as the discriminator:
+            #
+            # - Fields only in DB (not in decorator): always preserve (user-added in UI).
+            # - Fields in both, DB value is a Jinja template: still a dynamic input,
+            #   let the decorator update it (covers legitimate decorator changes).
+            # - Fields in both, DB value is a literal (non-template): the user has
+            #   bound this field to a concrete value — preserve it unconditionally.
             if endpoint.request_mapping and final_request_mapping:
-                extra_db_fields = {
-                    k: v
-                    for k, v in endpoint.request_mapping.items()
-                    if k not in final_request_mapping
-                }
-                if extra_db_fields:
+                merged = dict(final_request_mapping)
+                preserved_keys = []
+                for k, db_val in endpoint.request_mapping.items():
+                    if k not in merged:
+                        # Extra field only in DB — always preserve.
+                        merged[k] = db_val
+                        preserved_keys.append(k)
+                    elif not _is_jinja_template(db_val):
+                        # Concrete (non-template) value — the user has explicitly
+                        # bound this field; preserve their value.
+                        merged[k] = db_val
+                        preserved_keys.append(k)
+                    # else: still a Jinja template → let the new decorator value win.
+                if preserved_keys:
                     logger.info(
-                        f"[{function_name}] Preserving user-added request fields from DB: "
-                        f"{list(extra_db_fields.keys())}"
+                        f"[{function_name}] Preserving user-bound request fields from DB: "
+                        f"{preserved_keys}"
                     )
-                    final_request_mapping = {**final_request_mapping, **extra_db_fields}
+                    final_request_mapping = merged
 
             return MappingResult(
                 request_mapping=final_request_mapping,

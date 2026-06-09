@@ -19,6 +19,11 @@ PostDown = iptables -D INPUT -s ${peer_cidr} -j ACCEPT
 # Allow ${peer.identifier} to ${subnet} environment
 PostUp = iptables -A FORWARD -s ${peer.ip}/32 -d ${subnet_cidrs[subnet]} -j ACCEPT
 PostDown = iptables -D FORWARD -s ${peer.ip}/32 -d ${subnet_cidrs[subnet]} -j ACCEPT
+%{ if contains(keys(gke_public_endpoints), subnet) }
+# Allow ${peer.identifier} to ${subnet} GKE public endpoint
+PostUp = iptables -A FORWARD -s ${peer.ip}/32 -d ${gke_public_endpoints[subnet]}/32 -j ACCEPT
+PostDown = iptables -D FORWARD -s ${peer.ip}/32 -d ${gke_public_endpoints[subnet]}/32 -j ACCEPT
+%{ endif }
 %{ endfor }
 # Explicit DROP for any other traffic from ${peer.identifier}
 PostUp = iptables -A FORWARD -s ${peer.ip}/32 -j DROP

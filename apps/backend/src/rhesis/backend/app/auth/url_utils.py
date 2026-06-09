@@ -33,9 +33,9 @@ def build_redirect_url(request, session_token, refresh_token=None):
             # Dev-only escape hatch: a frontend running on the developer's
             # loopback (e.g. ``http://localhost:3000``) is allowed to point
             # at a remote dev backend and still receive the redirect back.
-            # This branch is gated on BACKEND_ENV so production never
-            # honours loopback origins regardless of the Origin/Referer
-            # the browser sent on /auth/login/{provider}.
+            # Dev-only: gated on BACKEND_ENV so production never honours
+            # loopback origins regardless of the Origin/Referer the browser
+            # sent on /auth/login/{provider}.
             frontend_url = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
 
         # Clean up session
@@ -73,9 +73,9 @@ def _is_loopback_dev_origin(parsed_origin) -> bool:
 
     Three independent conditions must all hold:
 
-    * The deployment is **not** production (neither ``BACKEND_ENV`` nor
-      ``ENVIRONMENT`` is set to ``production``). Production deployments
-      never accept loopback origins, regardless of what the browser sent.
+    * The deployment is **not** production (``BACKEND_ENV`` is not
+      ``production``). Production deployments never accept loopback origins,
+      regardless of what the browser sent.
     * The hostname is an exact match against the loopback whitelist.
       ``urlparse`` lowercases the hostname and strips the port, so
       ``LocalHost:3000`` and ``localhost:9999`` both reduce to

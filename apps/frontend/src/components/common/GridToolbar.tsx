@@ -12,6 +12,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 export interface ToolbarPillTab {
   label: string;
   value: string;
+  icon?: React.ReactNode;
 }
 
 export interface GridToolbarProps {
@@ -19,8 +20,10 @@ export interface GridToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   searchWidth?: number;
-  onFilterClick?: () => void;
+  onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
+  /** Number of active filters to display on the filter button badge */
+  activeFilterCount?: number;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   sx?: SxProps<Theme>;
@@ -120,7 +123,7 @@ export function PrimarySegmentedPills({
 }: PrimarySegmentedPillsProps) {
   return (
     <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      {tabs.map(({ value, label }, idx, arr) => {
+      {tabs.map(({ value, label, icon }, idx, arr) => {
         const isSelected =
           mode === 'single'
             ? activeValue === value
@@ -153,6 +156,7 @@ export function PrimarySegmentedPills({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '4px',
               px: '16px',
               py: '8px',
               fontSize: 14,
@@ -177,8 +181,12 @@ export function PrimarySegmentedPills({
                   : theme => `${theme.palette.primary.main}0f`,
               },
               whiteSpace: 'nowrap',
+              '& svg': {
+                fontSize: 20,
+              },
             }}
           >
+            {icon}
             {label}
           </Box>
         );
@@ -186,6 +194,47 @@ export function PrimarySegmentedPills({
     </Box>
   );
 }
+
+/** Toolbar row inside a linked-data card (Figma 1435:46915) — below a card header. */
+export const linkedGridToolbarSx: SxProps<Theme> = {
+  px: '30px',
+  pt: 0,
+  pb: '30px',
+  minHeight: 'auto',
+  borderBottom: 'none',
+};
+
+/** Bleed a grid to SectionCard edges so toolbar/columns/footer share one 30px inset. */
+export const sectionCardGridBleedSx: SxProps<Theme> = {
+  mx: '-30px',
+  width: 'calc(100% + 60px)',
+};
+
+/** 48px row/header height matching Figma linked-data table rows. */
+export const linkedDataGridRowSx: SxProps<Theme> = {
+  '& .MuiDataGrid-columnHeaders': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-columnHeader': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-row': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-cell': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+  '& .MuiDataGrid-columnHeaderTitle': {
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+};
 
 /**
  * Shared toolbar row for BaseDataGrid: filter button, search pill, optional middle/right slots.
@@ -197,16 +246,20 @@ export function GridToolbar({
   searchWidth = 240,
   onFilterClick,
   hasActiveFilters = false,
+  activeFilterCount,
   middleContent,
   rightContent,
   sx,
 }: GridToolbarProps) {
+  // Figma grid-card default: 30px all around. Directory pages and drawers
+  // that render the toolbar outside a grid border override px/py via `sx`
+  // (e.g. `directoryToolbarSx`).
   const baseSx: SxProps<Theme> = {
     display: 'flex',
     alignItems: 'center',
     gap: 1.5,
-    px: 2,
-    py: 1,
+    px: '30px',
+    py: '30px',
     minHeight: 52,
   };
 
@@ -216,6 +269,7 @@ export function GridToolbar({
         <FilterButton
           onClick={onFilterClick}
           hasActiveFilters={hasActiveFilters}
+          activeFilterCount={activeFilterCount}
         />
       ) : null}
       <SearchPill

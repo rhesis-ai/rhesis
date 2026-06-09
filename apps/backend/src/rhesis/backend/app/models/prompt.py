@@ -12,6 +12,7 @@ from .mixins import (
     CommentsMixin,
     CountsMixin,
     OrganizationMixin,
+    ProjectMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -21,6 +22,7 @@ from .use_case import prompt_use_case_association
 
 class Prompt(
     Base,
+    ProjectMixin,
     TagsMixin,
     OrganizationMixin,
     CommentsMixin,

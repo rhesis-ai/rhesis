@@ -121,6 +121,7 @@ class ProvidersResponse(BaseModel):
 
     providers: List[ProviderInfo]
     password_policy: PasswordPolicyResponse
+    quick_start: bool = False
 
 
 class VerifyEmailRequest(BaseModel):
@@ -196,7 +197,7 @@ def is_running_locally() -> bool:
     Never uses any request-derived data. Uses three independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
     2. RHESIS_BASE_URL explicitly configured for localhost
-    3. ENVIRONMENT or BACKEND_ENV set to 'local'
+    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
@@ -207,9 +208,9 @@ def is_running_locally() -> bool:
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
-    # Signal 3: Environment variables indicate local deployment
+    # Signal 3: BACKEND_ENV explicitly set to local
     settings = get_application_settings()
-    if settings.environment == "local" or settings.backend_env == "local":
+    if settings.is_local:
         return True
 
     return False
@@ -297,6 +298,7 @@ def _resolve_org_by_id_or_slug(db: Session, org: str):
 
 @router.get("/providers", response_model=ProvidersResponse)
 async def get_providers(
+    request: Request,
     org: Optional[str] = None,
     db: Session = Depends(get_db_session),
 ):
@@ -336,6 +338,10 @@ async def get_providers(
             min_length=policy.min_length,
             max_length=policy.max_length,
             min_strength_score=policy.min_strength_score,
+        ),
+        quick_start=is_quick_start_enabled(
+            hostname=request.url.hostname,
+            headers=dict(request.headers),
         ),
     )
 

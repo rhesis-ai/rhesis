@@ -13,6 +13,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 
 interface BehaviorDrawerProps {
@@ -148,6 +149,7 @@ const BehaviorDrawer = ({
             helperText={
               validationError || 'A clear, descriptive name for this behavior'
             }
+            sx={drawerOutlinedFieldSx}
           />
 
           <TextField

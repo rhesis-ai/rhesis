@@ -1,11 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarSx,
@@ -23,12 +23,13 @@ import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
   EMPTY_BEHAVIOR_FILTERS,
   hasActiveBehaviorFilters,
+  countActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
 
 interface BehaviorsClientProps {
@@ -44,6 +45,7 @@ export default function BehaviorsClient({
   userId,
   sessionStatus,
 }: BehaviorsClientProps) {
+  const router = useRouter();
   const notifications = useNotifications();
 
   // Data state
@@ -534,7 +536,7 @@ export default function BehaviorsClient({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create behavior"
             aria-label="Create behavior"
             onClick={handleAddNewBehavior}
@@ -548,6 +550,7 @@ export default function BehaviorsClient({
         searchPlaceholder="Search behaviors…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
+        activeFilterCount={countActiveBehaviorFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs
@@ -603,6 +606,7 @@ export default function BehaviorsClient({
               <BehaviorCard
                 key={behavior.id}
                 behavior={behavior}
+                onClick={() => router.push(`/behaviors/${behavior.id}`)}
                 onEdit={() =>
                   handleEditBehavior(
                     behavior.id,

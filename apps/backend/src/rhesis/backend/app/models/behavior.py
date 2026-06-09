@@ -8,6 +8,7 @@ from .mixins import (
     CommentsMixin,
     CountsMixin,
     OrganizationAndUserMixin,
+    ProjectMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -16,6 +17,7 @@ from .mixins import (
 class Behavior(
     Base,
     ActivityTrackableMixin,
+    ProjectMixin,
     OrganizationAndUserMixin,
     TagsMixin,
     CommentsMixin,

@@ -108,7 +108,7 @@ function show_usage() {
   echo "  # Frontend variables"
   echo "  NEXTAUTH_URL                  NextAuth URL"
   echo "  NEXTAUTH_SECRET               NextAuth secret"
-  echo "  NEXT_PUBLIC_API_BASE_URL      API base URL for frontend"
+  echo "  API_BASE_URL                  API base URL for frontend"
   echo "  BACKEND_URL                   Backend URL for frontend"
   echo "  FRONTEND_ENV                  Frontend environment"
   echo "  BACKEND_ENV                   Backend environment"
@@ -311,7 +311,7 @@ SERVICE_VARS=(
   # Frontend variables
   "NEXTAUTH_URL"
   "NEXTAUTH_SECRET"
-  "NEXT_PUBLIC_API_BASE_URL"
+  "API_BASE_URL"
   "BACKEND_URL"
   "FRONTEND_ENV"
   "AUTH_SECRET"
@@ -397,14 +397,14 @@ for env in "${ENV_ARRAY[@]}"; do
     fi
 
     # Set default API URL if not provided
-    if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
+    if [[ -z "${!env_upper}_API_BASE_URL" ]]; then
       if [[ "$env" == "prd" ]]; then
         api_url="https://api.rhesis.ai"
       else
         api_url="https://$env-api.rhesis.ai"
       fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
-      set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_API_BASE_URL not set, using default: $api_url"
+      set_secret "$env" "API_BASE_URL" "$api_url"
     fi
 
     # Set default log level if not provided

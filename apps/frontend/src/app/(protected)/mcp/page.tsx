@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   directoryToolbarSx,
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -27,6 +26,7 @@ import {
 import {
   EMPTY_MCP_FILTERS,
   hasActiveMCPFilters,
+  countActiveMCPFilters,
 } from './components/MCPFilterDrawer';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -39,7 +39,6 @@ export default function MCPSPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
-  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
@@ -130,14 +129,14 @@ export default function MCPSPage() {
     });
   };
 
-  const handleEditClick = (tool: Tool) => {
-    setToolToEdit(tool);
-    setEditDrawerOpen(true);
-  };
-
   const handleDeleteClick = (tool: Tool) => {
     setToolToDelete(tool);
     setDeleteDialogOpen(true);
+  };
+
+  const handleCardClick = (tool: Tool) => {
+    setToolToEdit(tool);
+    setConnectionDrawerOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -201,10 +200,13 @@ export default function MCPSPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Add MCP connection"
             aria-label="Add MCP connection"
-            onClick={() => setConnectionDrawerOpen(true)}
+            onClick={() => {
+              setToolToEdit(null);
+              setConnectionDrawerOpen(true);
+            }}
           />
         </FabGroup>
       }
@@ -221,6 +223,7 @@ export default function MCPSPage() {
         searchPlaceholder="Search MCP connections..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveMCPFilters(filters)}
+        activeFilterCount={countActiveMCPFilters(filters)}
         sx={directoryToolbarSx}
       />
 
@@ -253,7 +256,7 @@ export default function MCPSPage() {
               key={tool.id}
               tool={tool}
               onDelete={handleDeleteClick}
-              onEdit={handleEditClick}
+              onCardClick={handleCardClick}
             />
           ))}
         </Box>
@@ -274,22 +277,11 @@ export default function MCPSPage() {
         open={connectionDrawerOpen}
         providers={providerTypes}
         mcpToolType={mcpToolType}
-        tool={null}
-        mode="create"
-        onClose={() => setConnectionDrawerOpen(false)}
-        onConnect={handleConnect}
-        onUpdate={handleUpdate}
-      />
-
-      <MCPConnectionDrawer
-        open={editDrawerOpen}
-        providers={providerTypes}
-        mcpToolType={mcpToolType}
         tool={toolToEdit}
-        mode="edit"
+        mode={toolToEdit ? 'edit' : 'create'}
         onClose={() => {
-          setEditDrawerOpen(false);
-          setToolToEdit(null);
+          setConnectionDrawerOpen(false);
+          setTimeout(() => setToolToEdit(null), 300);
         }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}

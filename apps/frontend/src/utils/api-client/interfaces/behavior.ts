@@ -99,6 +99,7 @@ export interface BehaviorWithMetrics extends BehaviorBase {
   user_id?: UUID | null;
   organization_id: UUID;
   status_id: UUID;
+  created_at?: string | null;
   status?: Status | null;
   user?: User | null;
   organization: Organization;

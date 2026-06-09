@@ -1,59 +1,55 @@
 'use client';
 
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  useEffect,
-} from 'react';
-import {
-  Box,
-  Paper,
-  useTheme,
-  TablePagination,
-  IconButton,
-  Tooltip,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  Chip,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import ConstructionOutlinedIcon from '@mui/icons-material/ConstructionOutlined';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
-import { SectionCard } from '@/components/common/SectionCard';
-import ViewField from '@/components/common/ViewField';
-import { formatDate } from '@/utils/date';
-import {
-  getMetricsSourceLabel,
-  type ExecutionMetric,
-} from '@/utils/api-client/interfaces/test-configuration';
-import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
-import TestsList from './TestsList';
-import TestDetailPanel from './TestDetailPanel';
-import TestsTableView from './TestsTableView';
-import ComparisonView from './ComparisonView';
-import TestRunHeader from './TestRunHeader';
-import TestRunTags from './TestRunTags';
-import RunDrawer from '@/components/common/RunDrawer';
+import TestRunDetailHeader from './TestRunDetailHeader';
+import TestRunConfigurationTab from './TestRunConfigurationTab';
+import TestRunStatsTab from './TestRunStatsTab';
+import TestRunLinkedEntitiesTab from './TestRunLinkedEntitiesTab';
+import TestRunTracesTab from './TestRunTracesTab';
+import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
+import { getTestEvaluationSummary } from '@/utils/test-result-status';
 
-const TAB_KEYS = ['results', 'configuration', 'logs'] as const;
+const TAB_KEYS = [
+  'summary',
+  'linked_entities',
+  'configuration',
+  'traces',
+] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
-function tabIndexFromKey(key: string | null): number {
+const TAB_LABELS: Record<TabKey, string> = {
+  summary: 'Summary',
+  configuration: 'Configuration',
+  linked_entities: 'Test Cases',
+  traces: 'Traces',
+};
+
+function tabIndexFromKey(
+  key: string | null,
+  preferLinkedEntities: boolean
+): number {
+  if (key === 'results') {
+    return TAB_KEYS.indexOf('linked_entities');
+  }
+  if (key === 'stats') {
+    return TAB_KEYS.indexOf('summary');
+  }
+  if (key === 'logs') {
+    return TAB_KEYS.indexOf('traces');
+  }
   const idx = TAB_KEYS.indexOf(key as TabKey);
-  return idx >= 0 ? idx : 0;
+  if (idx >= 0) return idx;
+  return preferLinkedEntities ? TAB_KEYS.indexOf('linked_entities') : 0;
 }
 
 interface TabPanelProps {
@@ -85,16 +81,6 @@ interface TestRunMainViewProps {
   };
   testRun: TestRunDetail;
   sessionToken: string;
-  testResults: TestResultDetail[];
-  prompts: Record<string, { content: string; name?: string }>;
-  behaviors: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    metrics: Array<{ name: string; description?: string }>;
-  }>;
-  availableMetrics: string[];
-  loading?: boolean;
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
@@ -103,25 +89,35 @@ interface TestRunMainViewProps {
 
 export default function TestRunMainView({
   testRunId,
-  testRunData,
+  testRunData: _testRunData,
   testRun,
   sessionToken,
-  testResults: initialTestResults,
-  prompts,
-  behaviors,
-  availableMetrics,
-  loading = false,
   currentUserId,
   currentUserName,
   currentUserPicture,
   initialSelectedTestId,
 }: TestRunMainViewProps) {
-  const theme = useTheme();
   const notifications = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = tabIndexFromKey(searchParams.get('tab'));
+  const {
+    testResults: loadedTestResults,
+    prompts,
+    behaviors,
+    availableMetrics,
+    loading,
+    error: loadError,
+  } = useTestRunDetailData({
+    testRunId,
+    sessionToken,
+  });
+
+  const preferLinkedEntities = Boolean(initialSelectedTestId);
+  const activeTab = tabIndexFromKey(
+    searchParams.get('tab'),
+    preferLinkedEntities && !searchParams.get('tab')
+  );
 
   const handleTabChange = useCallback(
     (newValue: number) => {
@@ -132,77 +128,18 @@ export default function TestRunMainView({
     },
     [router, searchParams]
   );
-  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
-  const [isComparisonMode, setIsComparisonMode] = useState(false);
-  const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [hasInitialSelection, setHasInitialSelection] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  const [availableTestRuns, setAvailableTestRuns] = useState<
-    Array<{
-      id: string;
-      name?: string;
-      created_at: string;
-      pass_rate?: number;
-      experiment_id?: string;
-      parameter_version?: string;
-    }>
-  >([]);
+  // Whether another test run exists on the same test set to compare against.
+  const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
 
-  // Resizable split panel
-  const [listWidthPercent, setListWidthPercent] = useState(33.33);
-  const splitContainerRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!isDraggingRef.current || !splitContainerRef.current) return;
-      const rect = splitContainerRef.current.getBoundingClientRect();
-      const offsetX = moveEvent.clientX - rect.left;
-      const percent = (offsetX / rect.width) * 100;
-      const clamped = Math.min(Math.max(percent, 20), 60);
-      setListWidthPercent(clamped);
-    };
-
-    const handleMouseUp = () => {
-      isDraggingRef.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, []);
-
-  // Restore body styles if the component unmounts mid-drag (e.g. client-side navigation).
-  // We cannot remove the per-drag closure listeners without storing them in refs, but
-  // resetting the body styles prevents the stuck cursor / non-selectable text bug.
-  useEffect(() => {
-    return () => {
-      if (isDraggingRef.current) {
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-    };
-  }, []);
-
-  // Track only updates to test results (not all test results)
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
   >(new Map());
 
-  // Filter state
   const [filter, setFilter] = useState<FilterState>({
     searchQuery: '',
     statusFilter: 'all',
@@ -215,26 +152,16 @@ export default function TestRunMainView({
     taskCountRange: { min: 0, max: 10 },
   });
 
-  // Merge prop data with any updates
   const testResults = useMemo(() => {
-    if (testResultUpdates.size === 0) {
-      return initialTestResults;
-    }
-    return initialTestResults.map(
+    if (testResultUpdates.size === 0) return loadedTestResults;
+    return loadedTestResults.map(
       test => testResultUpdates.get(test.id) || test
     );
-  }, [initialTestResults, testResultUpdates]);
+  }, [loadedTestResults, testResultUpdates]);
 
-  // Get selected test
-  const selectedTest = useMemo(() => {
-    return testResults.find(t => t.id === selectedTestId) || null;
-  }, [testResults, selectedTestId]);
-
-  // Filter tests based on current filter state
   const filteredTests = useMemo(() => {
     let filtered = [...testResults];
 
-    // Apply search filter
     if (filter.searchQuery) {
       const query = filter.searchQuery.toLowerCase();
       filtered = filtered.filter(test => {
@@ -245,16 +172,15 @@ export default function TestRunMainView({
         ).toLowerCase();
         const goalContent =
           test.test_output?.test_configuration?.goal?.toLowerCase() || '';
-        const responseContent = test.test_output?.output?.toLowerCase() || '';
+        const evaluationContent = getTestEvaluationSummary(test).toLowerCase();
         return (
           promptContent.includes(query) ||
           goalContent.includes(query) ||
-          responseContent.includes(query)
+          evaluationContent.includes(query)
         );
       });
     }
 
-    // Apply status filter
     if (filter.statusFilter !== 'all') {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
@@ -262,27 +188,21 @@ export default function TestRunMainView({
         const totalMetrics = metricValues.length;
         const passedMetrics = metricValues.filter(m => m.is_successful).length;
         const isPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
-
         return filter.statusFilter === 'passed' ? isPassed : !isPassed;
       });
     }
 
-    // Apply behavior filter
     if (filter.selectedBehaviors.length > 0) {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
-
-        // Check if test has at least one metric from selected behaviors
         return filter.selectedBehaviors.some(behaviorId => {
           const behavior = behaviors.find(b => b.id === behaviorId);
           if (!behavior) return false;
-
           return behavior.metrics.some(metric => metrics[metric.name]);
         });
       });
     }
 
-    // Apply metrics filter — show results that contain any of the selected metrics
     if (filter.selectedMetrics.length > 0) {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
@@ -292,33 +212,25 @@ export default function TestRunMainView({
       });
     }
 
-    // Apply review status filter
     if (filter.overruleFilter !== 'all') {
       filtered = filtered.filter(test => {
         const hasReview = !!test.last_review;
         const hasConflict = !test.matches_review;
-
-        if (filter.overruleFilter === 'overruled') {
-          return hasReview;
-        } else if (filter.overruleFilter === 'original') {
-          return !hasReview;
-        } else if (filter.overruleFilter === 'conflicting') {
+        if (filter.overruleFilter === 'overruled') return hasReview;
+        if (filter.overruleFilter === 'original') return !hasReview;
+        if (filter.overruleFilter === 'conflicting')
           return hasReview && hasConflict;
-        }
         return true;
       });
     }
 
-    // Apply comment filter
     if (filter.commentFilter !== 'all') {
       filtered = filtered.filter(test => {
         const commentCount = test.counts?.comments || 0;
-
-        if (filter.commentFilter === 'with_comments') {
-          return commentCount > 0;
-        } else if (filter.commentFilter === 'without_comments') {
+        if (filter.commentFilter === 'with_comments') return commentCount > 0;
+        if (filter.commentFilter === 'without_comments')
           return commentCount === 0;
-        } else if (filter.commentFilter === 'range') {
+        if (filter.commentFilter === 'range') {
           return (
             commentCount >= filter.commentCountRange.min &&
             commentCount <= filter.commentCountRange.max
@@ -328,16 +240,12 @@ export default function TestRunMainView({
       });
     }
 
-    // Apply task filter
     if (filter.taskFilter !== 'all') {
       filtered = filtered.filter(test => {
         const taskCount = test.counts?.tasks || 0;
-
-        if (filter.taskFilter === 'with_tasks') {
-          return taskCount > 0;
-        } else if (filter.taskFilter === 'without_tasks') {
-          return taskCount === 0;
-        } else if (filter.taskFilter === 'range') {
+        if (filter.taskFilter === 'with_tasks') return taskCount > 0;
+        if (filter.taskFilter === 'without_tasks') return taskCount === 0;
+        if (filter.taskFilter === 'range') {
           return (
             taskCount >= filter.taskCountRange.min &&
             taskCount <= filter.taskCountRange.max
@@ -350,26 +258,34 @@ export default function TestRunMainView({
     return filtered;
   }, [testResults, filter, prompts, behaviors]);
 
-  // Handle test selection
-  const handleTestSelect = useCallback((testId: string) => {
-    setSelectedTestId(testId);
+  const handleFilterChange = useCallback((newFilter: FilterState) => {
+    setFilter(newFilter);
   }, []);
 
-  // Handle filter changes
-  const handleFilterChange = useCallback(
-    (newFilter: FilterState) => {
-      setFilter(newFilter);
-      setPage(0);
-      // If current selected test is not in filtered list, clear selection
-      const testStillVisible = testResults.some(t => t.id === selectedTestId);
-      if (!testStillVisible) {
-        setSelectedTestId(null);
-      }
+  const handleDrilldownToBehavior = useCallback(
+    (behaviorId: string) => {
+      setFilter(prev => ({
+        ...prev,
+        selectedBehaviors: [behaviorId],
+        statusFilter: 'failed',
+      }));
+      handleTabChange(TAB_KEYS.indexOf('linked_entities'));
     },
-    [testResults, selectedTestId]
+    [handleTabChange]
   );
 
-  // Handle test result updates (e.g., when tags change)
+  const handleDrilldownToMetric = useCallback(
+    (metricName: string) => {
+      setFilter(prev => ({
+        ...prev,
+        selectedMetrics: [metricName],
+        statusFilter: 'failed',
+      }));
+      handleTabChange(TAB_KEYS.indexOf('linked_entities'));
+    },
+    [handleTabChange]
+  );
+
   const handleTestResultUpdate = useCallback(
     (updatedTest: TestResultDetail) => {
       setTestResultUpdates(prev => {
@@ -381,28 +297,6 @@ export default function TestRunMainView({
     []
   );
 
-  // Handle pagination
-  const handleChangePage = useCallback((_event: unknown, newPage: number) => {
-    setPage(newPage);
-  }, []);
-
-  const handleChangeRowsPerPage = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      setRowsPerPage(parseInt(event.target.value, 10));
-      setPage(0);
-    },
-    []
-  );
-
-  // Paginated tests for split view
-  const paginatedTests = useMemo(() => {
-    return filteredTests.slice(
-      page * rowsPerPage,
-      page * rowsPerPage + rowsPerPage
-    );
-  }, [filteredTests, page, rowsPerPage]);
-
-  // Handle download
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
     try {
@@ -410,8 +304,6 @@ export default function TestRunMainView({
         sessionToken
       ).getTestRunsClient();
       const blob = await testRunsClient.downloadTestRun(testRunId);
-
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -420,11 +312,10 @@ export default function TestRunMainView({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
       notifications.show('Test run results downloaded successfully', {
         severity: 'success',
       });
-    } catch (_error) {
+    } catch {
       notifications.show('Failed to download test run results', {
         severity: 'error',
       });
@@ -433,7 +324,6 @@ export default function TestRunMainView({
     }
   }, [testRunId, sessionToken, notifications]);
 
-  // Handle re-run button click - opens the rerun drawer
   const handleRerun = useCallback(() => {
     if (!testRun.test_configuration_id) {
       notifications.show('Cannot re-run: No test configuration found', {
@@ -441,26 +331,58 @@ export default function TestRunMainView({
       });
       return;
     }
-
-    // Check if we have the required data for re-run
     const testSet = testRun.test_configuration?.test_set;
     const endpoint = testRun.test_configuration?.endpoint;
-
     if (!testSet?.id || !endpoint?.id) {
       notifications.show('Cannot re-run: Missing test set or endpoint data', {
         severity: 'error',
       });
       return;
     }
-
     setIsRerunDrawerOpen(true);
-  }, [
-    testRun.test_configuration_id,
-    testRun.test_configuration,
-    notifications,
-  ]);
+  }, [testRun, notifications]);
 
-  // Handle rename
+  const testSetId = testRun.test_configuration?.test_set?.id;
+
+  useEffect(() => {
+    if (!testSetId) {
+      setHasComparisonRuns(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const testRunsClient = new ApiClientFactory(
+          sessionToken
+        ).getTestRunsClient();
+        const response = await testRunsClient.getTestRuns({
+          limit: 2,
+          skip: 0,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+          filter: `test_configuration/test_set/id eq '${testSetId}'`,
+        });
+        if (!cancelled) {
+          const others = response.data.filter(run => run.id !== testRunId);
+          setHasComparisonRuns(others.length > 0);
+        }
+      } catch {
+        if (!cancelled) setHasComparisonRuns(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [testSetId, testRunId, sessionToken]);
+
+  const handleCompare = useCallback(() => {
+    window.open(
+      `/test-runs/${testRunId}/compare`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }, [testRunId]);
+
   const handleRenameOpen = useCallback(() => {
     setRenameValue(testRun.name || '');
     setRenameDialogOpen(true);
@@ -477,15 +399,16 @@ export default function TestRunMainView({
       return;
     }
     try {
-      const factory = new ApiClientFactory(sessionToken);
-      const testRunsClient = factory.getTestRunsClient();
+      const testRunsClient = new ApiClientFactory(
+        sessionToken
+      ).getTestRunsClient();
       await testRunsClient.updateTestRun(testRunId, { name: trimmed });
       notifications.show('Test run renamed successfully', {
         severity: 'success',
       });
       setRenameDialogOpen(false);
       router.refresh();
-    } catch (_error) {
+    } catch {
       notifications.show('Failed to rename test run', {
         severity: 'error',
       });
@@ -499,274 +422,73 @@ export default function TestRunMainView({
     router,
   ]);
 
-  // Handle rerun drawer success
   const handleRerunSuccess = useCallback(() => {
-    // Navigate to the test runs page to see the new test run
     router.push('/test-runs');
   }, [router]);
 
-  // Fetch available test runs for comparison (lazy-loaded when compare is clicked)
-  const fetchTestRuns = useCallback(async () => {
-    try {
-      // Get test_set_id from the nested test_set object
-      const testSetId = testRun.test_configuration?.test_set?.id;
-
-      if (!testSetId) {
-        setAvailableTestRuns([]);
-        return [];
-      }
-
-      const testRunsClient = new ApiClientFactory(
-        sessionToken
-      ).getTestRunsClient();
-
-      // Use OData filter to get all test runs for the same test set
-      const params = {
-        limit: 50,
-        skip: 0,
-        sort_by: 'created_at' as const,
-        sort_order: 'desc' as const,
-        filter: `test_configuration/test_set/id eq '${testSetId}'`,
-      };
-
-      const response = await testRunsClient.getTestRuns(params);
-
-      // Filter out current test run
-      const runs = response.data
-        .filter(run => run.id !== testRunId)
-        .map(run => ({
-          id: run.id,
-          name: run.name,
-          created_at:
-            (typeof run.attributes?.started_at === 'string'
-              ? run.attributes.started_at
-              : null) ||
-            (typeof run.created_at === 'string' ? run.created_at : '') ||
-            '',
-          pass_rate: undefined, // Will be calculated from test results if needed
-          experiment_id: run.experiment_id ?? undefined,
-          parameter_version:
-            typeof run.attributes?.parameter_version === 'string'
-              ? (run.attributes.parameter_version as string)
-              : undefined,
-          experiment_name:
-            typeof run.attributes?.parameter_experiment_name === 'string'
-              ? (run.attributes.parameter_experiment_name as string)
-              : undefined,
-        }));
-
-      setAvailableTestRuns(runs);
-      return runs;
-    } catch (_error) {
-      setAvailableTestRuns([]);
-      return [];
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (initialSelectedTestId && (!tab || tab === 'results')) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', 'linked_entities');
+      router.replace(`?${params.toString()}`, { scroll: false });
     }
-  }, [testRunId, sessionToken, testRun.test_configuration?.test_set?.id]);
+  }, [initialSelectedTestId, router, searchParams]);
 
-  // Handle compare
-  const handleCompare = useCallback(async () => {
-    // Fetch test runs only when compare is clicked
-    const runs = await fetchTestRuns();
+  const navTabs = TAB_KEYS.map((key, index) => ({
+    key,
+    label: TAB_LABELS[key],
+    id: `test-run-tab-${index}`,
+    'aria-controls': `test-run-tabpanel-${index}`,
+  }));
 
-    if (runs.length === 0) {
-      notifications.show('No other test runs available for comparison', {
-        severity: 'info',
-      });
-      return;
-    }
-    setIsComparisonMode(true);
-  }, [fetchTestRuns, notifications]);
-
-  // Handle load baseline test results
-  const handleLoadBaseline = useCallback(
-    async (baselineTestRunId: string): Promise<TestResultDetail[]> => {
-      try {
-        const testResultsClient = new ApiClientFactory(
-          sessionToken
-        ).getTestResultsClient();
-
-        // Fetch all test results for baseline test run
-        let testResults: TestResultDetail[] = [];
-        let skip = 0;
-        const batchSize = 100;
-        let hasMore = true;
-
-        while (hasMore) {
-          const testResultsResponse = await testResultsClient.getTestResults({
-            filter: `test_run_id eq '${baselineTestRunId}'`,
-            limit: batchSize,
-            skip: skip,
-            sort_by: 'created_at',
-            sort_order: 'desc',
-          });
-
-          testResults = [...testResults, ...testResultsResponse.data];
-
-          const totalCount = testResultsResponse.pagination?.totalCount || 0;
-          hasMore = testResults.length < totalCount;
-          skip += batchSize;
-
-          if (skip > 10000) break;
-        }
-
-        return testResults;
-      } catch (_error) {
-        notifications.show('Failed to load baseline test results', {
-          severity: 'error',
-        });
-        return [];
-      }
-    },
-    [sessionToken, notifications]
-  );
-
-  // Handle initial selection and pagination when initialSelectedTestId is provided
-  React.useEffect(() => {
-    if (
-      initialSelectedTestId &&
-      filteredTests.length > 0 &&
-      !hasInitialSelection
-    ) {
-      // First try to match by test result ID (direct match)
-      let testIndex = filteredTests.findIndex(
-        t => t.id === initialSelectedTestId
-      );
-
-      // If not found, try to match by test_id (for cross-run navigation)
-      if (testIndex === -1) {
-        testIndex = filteredTests.findIndex(
-          t => t.test_id === initialSelectedTestId
-        );
-        if (testIndex !== -1) {
-        }
-      }
-
-      if (testIndex !== -1) {
-        // Calculate which page the test is on
-        const testPage = Math.floor(testIndex / rowsPerPage);
-        setPage(testPage);
-        setSelectedTestId(filteredTests[testIndex].id);
-        setHasInitialSelection(true);
-      } else {
-      }
-    }
-  }, [initialSelectedTestId, filteredTests, rowsPerPage, hasInitialSelection]);
-
-  // Auto-select first test if none selected and tests are available
-  // But DON'T auto-select if we have an initialSelectedTestId that hasn't loaded yet
-  React.useEffect(() => {
-    // Skip auto-selection if we're waiting for initial selection
-    if (initialSelectedTestId && !hasInitialSelection) {
-      return;
-    }
-
-    if (!selectedTestId && filteredTests.length > 0) {
-      setSelectedTestId(filteredTests[0].id);
-    } else if (
-      selectedTestId &&
-      !filteredTests.some(t => t.id === selectedTestId)
-    ) {
-      // If selected test is not in filtered list, select first available or clear selection
-      if (filteredTests.length > 0) {
-        setSelectedTestId(filteredTests[0].id);
-      } else {
-        setSelectedTestId(null);
-      }
-    }
-  }, [
-    selectedTestId,
-    filteredTests,
-    initialSelectedTestId,
-    hasInitialSelection,
-  ]);
-
-  const navTabs = [
-    {
-      key: 'results',
-      label: 'Results',
-      id: 'test-run-tab-0',
-      'aria-controls': 'test-run-tabpanel-0',
-    },
-    {
-      key: 'configuration',
-      label: 'Configuration',
-      id: 'test-run-tab-1',
-      'aria-controls': 'test-run-tabpanel-1',
-    },
-    {
-      key: 'logs',
-      label: 'Logs',
-      id: 'test-run-tab-2',
-      'aria-controls': 'test-run-tabpanel-2',
-    },
-  ];
-
-  const config = testRun.test_configuration;
-  const attrs = config?.attributes as Record<string, unknown> | undefined;
-  const execMetrics = (attrs?.metrics as ExecutionMetric[] | undefined) ?? [];
-  const startedAt = attrs?.started_at as string | undefined;
-  const completedAt = attrs?.completed_at as string | undefined;
-  const metricsSource = attrs?.metrics_source as string | undefined;
-  const executionMode = attrs?.execution_mode as string | undefined;
+  const canRerun = Boolean(testRun.test_configuration_id);
 
   return (
     <Box>
-      {/* Title with rename pencil icon */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4">{testRun.name || `Test Run`}</Typography>
-        <Tooltip title="Rename test run">
-          <IconButton size="small" onClick={handleRenameOpen}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      {loadError && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {loadError}
+        </Typography>
+      )}
 
-      {/* Rename Dialog */}
-      <Dialog
+      <TestRunDetailHeader
+        testRun={testRun}
+        onRename={handleRenameOpen}
+        onCompare={handleCompare}
+        onDownload={handleDownload}
+        onRerun={handleRerun}
+        isDownloading={isDownloading}
+        canRerun={canRerun}
+        canCompare={hasComparisonRuns}
+      />
+
+      <BaseDrawer
         open={renameDialogOpen}
         onClose={handleRenameClose}
-        maxWidth="sm"
-        fullWidth
+        title="Rename Test Run"
+        onSave={() => void handleRenameSubmit()}
+        saveDisabled={
+          !renameValue.trim() || renameValue.trim() === testRun.name
+        }
+        saveButtonText="Save"
       >
-        <DialogTitle>Rename Test Run</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="Name"
-            value={renameValue}
-            onChange={e => setRenameValue(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleRenameSubmit();
-              }
-            }}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleRenameClose}>Cancel</Button>
-          <Button
-            onClick={handleRenameSubmit}
-            variant="contained"
-            disabled={
-              !renameValue.trim() || renameValue.trim() === testRun.name
+        <TextField
+          autoFocus
+          fullWidth
+          label="Name"
+          value={renameValue}
+          onChange={e => setRenameValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void handleRenameSubmit();
             }
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+          }}
+          sx={{ flexShrink: 0 }}
+        />
+      </BaseDrawer>
 
-      {/* Tab navigation */}
       <DetailTabNav
         tabs={navTabs}
         activeIndex={activeTab}
@@ -774,388 +496,69 @@ export default function TestRunMainView({
         aria-label="Test run detail tabs"
       />
 
-      {/* Results Tab */}
       <TabPanel value={activeTab} index={0}>
-        {/* Header with Summary Cards - only show when not in comparison mode */}
-        {!isComparisonMode && (
-          <TestRunHeader
-            testRun={testRun}
-            testResults={testResults}
-            loading={loading}
-            onRefresh={() => router.refresh()}
-          />
-        )}
-
-        {!isComparisonMode ? (
-          <>
-            {/* Filter Bar */}
-            <TestRunFilterBar
-              filter={filter}
-              onFilterChange={handleFilterChange}
-              availableBehaviors={behaviors}
-              availableMetrics={availableMetrics.map(name => ({ name }))}
-              onDownload={handleDownload}
-              onCompare={handleCompare}
-              isDownloading={isDownloading}
-              totalTests={testResults.length}
-              filteredTests={filteredTests.length}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onRerun={handleRerun}
-              isRerunning={isRerunDrawerOpen}
-              canRerun={!!testRun.test_configuration_id}
-            />
-
-            {/* Conditional Layout based on viewMode */}
-            {viewMode === 'split' ? (
-              <Paper
-                elevation={2}
-                sx={{
-                  height: { xs: 900, md: 'calc(100vh - 240px)' },
-                  minHeight: 900,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
-                {/* Content Area with Resizable Split View */}
-                <Box
-                  ref={splitContainerRef}
-                  sx={{
-                    flex: 1,
-                    display: 'flex',
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
-                  {/* Left: Tests List */}
-                  <Box
-                    sx={{
-                      width: {
-                        xs: '100%',
-                        md: `${listWidthPercent}%`,
-                      },
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <TestsList
-                      tests={paginatedTests}
-                      selectedTestId={selectedTestId}
-                      onTestSelect={handleTestSelect}
-                      loading={loading}
-                      prompts={prompts}
-                      testSetType={
-                        testRun.test_configuration?.test_set?.test_set_type
-                          ?.type_value
-                      }
-                    />
-                  </Box>
-
-                  {/* Resize Handle */}
-                  <Box
-                    onMouseDown={handleResizeStart}
-                    sx={{
-                      width: 6,
-                      flexShrink: 0,
-                      cursor: 'col-resize',
-                      display: { xs: 'none', md: 'flex' },
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: 'transparent',
-                      transition: 'background-color 0.15s',
-                      '&:hover, &:active': {
-                        bgcolor: 'action.hover',
-                      },
-                      '&::after': {
-                        content: '""',
-                        width: 2,
-                        height: 32,
-                        borderRadius: theme.shape.borderRadius,
-                        bgcolor: 'divider',
-                        transition: 'background-color 0.15s, height 0.15s',
-                      },
-                      '&:hover::after, &:active::after': {
-                        bgcolor: 'primary.main',
-                        height: 48,
-                      },
-                    }}
-                  />
-
-                  {/* Right: Test Detail Panel */}
-                  <Box
-                    sx={{
-                      flex: 1,
-                      minWidth: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <TestDetailPanel
-                      test={selectedTest}
-                      loading={loading}
-                      prompts={prompts}
-                      behaviors={behaviors}
-                      testRunId={testRunId}
-                      sessionToken={sessionToken}
-                      onTestResultUpdate={handleTestResultUpdate}
-                      currentUserId={currentUserId}
-                      currentUserName={currentUserName}
-                      currentUserPicture={currentUserPicture}
-                      testSetType={
-                        testRun.test_configuration?.test_set?.test_set_type
-                          ?.type_value
-                      }
-                      project={testRun.test_configuration?.endpoint?.project}
-                      projectName={
-                        testRun.test_configuration?.endpoint?.project?.name
-                      }
-                      metricsSource={
-                        testRun.test_configuration?.attributes?.metrics_source
-                      }
-                    />
-                  </Box>
-                </Box>
-
-                {/* Shared Pagination at Bottom */}
-                <TablePagination
-                  rowsPerPageOptions={[10, 25, 50, 100]}
-                  component="div"
-                  count={filteredTests.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                  sx={{
-                    borderTop: 1,
-                    borderColor: 'divider',
-                    backgroundColor: theme.palette.background.paper,
-                    flexShrink: 0,
-                  }}
-                />
-              </Paper>
-            ) : (
-              <TestsTableView
-                tests={filteredTests}
-                prompts={prompts}
-                behaviors={behaviors}
-                testRunId={testRunId}
-                sessionToken={sessionToken}
-                loading={loading}
-                onTestResultUpdate={handleTestResultUpdate}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                currentUserPicture={currentUserPicture}
-                initialSelectedTestId={initialSelectedTestId}
-                testSetType={
-                  testRun.test_configuration?.test_set?.test_set_type
-                    ?.type_value
-                }
-                project={testRun.test_configuration?.endpoint?.project}
-                projectName={
-                  testRun.test_configuration?.endpoint?.project?.name
-                }
-                metricsSource={
-                  testRun.test_configuration?.attributes?.metrics_source
-                }
-              />
-            )}
-
-            {/* Test Run Tags - moved to bottom */}
-            <Paper
-              elevation={0}
-              sx={{
-                mt: 3,
-                p: 2,
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 2,
-              }}
-            >
-              <TestRunTags sessionToken={sessionToken} testRun={testRun} />
-            </Paper>
-          </>
-        ) : (
-          <ComparisonView
-            currentTestRun={{
-              ...testRunData,
-              experiment_id: testRun.experiment_id ?? undefined,
-              parameter_version:
-                typeof testRun.attributes?.parameter_version === 'string'
-                  ? (testRun.attributes.parameter_version as string)
-                  : undefined,
-              experiment_name:
-                typeof testRun.attributes?.parameter_experiment_name ===
-                'string'
-                  ? (testRun.attributes.parameter_experiment_name as string)
-                  : undefined,
-            }}
-            currentTestResults={testResults}
-            availableTestRuns={availableTestRuns}
-            onClose={() => setIsComparisonMode(false)}
-            onLoadBaseline={handleLoadBaseline}
-            prompts={prompts}
-            behaviors={behaviors}
-            testSetType={
-              testRun.test_configuration?.test_set?.test_set_type?.type_value
-            }
-            project={testRun.test_configuration?.endpoint?.project}
-            projectName={testRun.test_configuration?.endpoint?.project?.name}
-          />
-        )}
+        <TestRunStatsTab
+          testRun={testRun}
+          testRunId={testRunId}
+          testResults={testResults}
+          sessionToken={sessionToken}
+          loading={loading}
+          onRefresh={() => router.refresh()}
+          behaviors={behaviors}
+          onViewBehavior={handleDrilldownToBehavior}
+          onViewMetric={handleDrilldownToMetric}
+        />
       </TabPanel>
 
-      {/* Configuration Tab */}
       <TabPanel value={activeTab} index={1}>
-        <SectionCard title="Run Details">
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
-              <ViewField label="Status" value={testRun.status?.name ?? '—'} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ViewField
-                label="Created"
-                value={formatDate(testRun.created_at)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ViewField
-                label="Started"
-                value={startedAt ? formatDate(startedAt) : '—'}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <ViewField
-                label="Completed"
-                value={completedAt ? formatDate(completedAt) : '—'}
-              />
-            </Grid>
-          </Grid>
-        </SectionCard>
-
-        {config?.test_set && (
-          <SectionCard title="Test Set">
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
-                <ViewField label="Name" value={config.test_set.name} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <ViewField
-                  label="Type"
-                  value={config.test_set.test_set_type?.type_value ?? '—'}
-                />
-              </Grid>
-              {config.test_set.description && (
-                <Grid item xs={12}>
-                  <ViewField
-                    label="Description"
-                    value={config.test_set.description}
-                    multiline
-                  />
-                </Grid>
-              )}
-            </Grid>
-          </SectionCard>
-        )}
-
-        {config?.endpoint && (
-          <SectionCard title="Endpoint">
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
-                <ViewField label="Name" value={config.endpoint.name} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <ViewField
-                  label="URL"
-                  value={config.endpoint.endpoint ?? '—'}
-                />
-              </Grid>
-              {config.endpoint.description && (
-                <Grid item xs={12}>
-                  <ViewField
-                    label="Description"
-                    value={config.endpoint.description}
-                    multiline
-                  />
-                </Grid>
-              )}
-            </Grid>
-          </SectionCard>
-        )}
-
-        <SectionCard title="Execution Settings">
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
-              <ViewField label="Execution Mode" value={executionMode ?? '—'} />
-            </Grid>
-            {metricsSource && (
-              <Grid item xs={12} sm={6}>
-                <ViewField
-                  label="Metrics Source"
-                  value={getMetricsSourceLabel(metricsSource)}
-                />
-              </Grid>
-            )}
-            {execMetrics.length > 0 && (
-              <Grid item xs={12}>
-                <Typography
-                  sx={{
-                    fontSize: 14,
-                    color: theme => theme.palette.greyscale.subtitle,
-                    px: '14px',
-                    mb: '6px',
-                  }}
-                >
-                  Metrics
-                </Typography>
-                <Box
-                  sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, px: '14px' }}
-                >
-                  {execMetrics.map(m => (
-                    <Chip
-                      key={m.id}
-                      label={m.name}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
-              </Grid>
-            )}
-          </Grid>
-        </SectionCard>
+        <TestRunLinkedEntitiesTab
+          filteredTests={filteredTests}
+          filter={filter}
+          onFilterChange={handleFilterChange}
+          availableBehaviors={behaviors}
+          availableMetrics={availableMetrics}
+          isDownloading={isDownloading}
+          onDownload={handleDownload}
+          onCompare={handleCompare}
+          canCompare={hasComparisonRuns}
+          onRerun={handleRerun}
+          isRerunning={isRerunDrawerOpen}
+          canRerun={canRerun}
+          totalTests={testResults.length}
+          testRunId={testRunId}
+          sessionToken={sessionToken}
+          loading={loading}
+          prompts={prompts}
+          behaviors={behaviors}
+          onTestResultUpdate={handleTestResultUpdate}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+          initialSelectedTestId={initialSelectedTestId}
+          testSetType={
+            testRun.test_configuration?.test_set?.test_set_type?.type_value
+          }
+          project={testRun.test_configuration?.endpoint?.project}
+          projectName={testRun.test_configuration?.endpoint?.project?.name}
+          metricsSource={testRun.test_configuration?.attributes?.metrics_source}
+        />
       </TabPanel>
 
-      {/* Logs Tab */}
       <TabPanel value={activeTab} index={2}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 10,
-            gap: 2,
-            color: 'text.secondary',
-          }}
-        >
-          <ConstructionOutlinedIcon sx={{ fontSize: 48, opacity: 0.4 }} />
-          <Typography variant="h6" color="text.secondary">
-            Logs coming soon
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Execution logs will be available here once the backend endpoint is
-            ready.
-          </Typography>
-        </Box>
+        <TestRunConfigurationTab testRun={testRun} />
       </TabPanel>
 
-      {/* Re-run Test Run Drawer */}
-      <RunDrawer
-        mode="rerunTestRun"
+      <TabPanel value={activeTab} index={3}>
+        <TestRunTracesTab
+          testRunId={testRunId}
+          sessionToken={sessionToken}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+        />
+      </TabPanel>
+
+      <RerunTestRunDrawer
         open={isRerunDrawerOpen}
         onClose={() => setIsRerunDrawerOpen(false)}
         data={{

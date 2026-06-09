@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
@@ -45,7 +46,6 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.local_function_registry import LocalInvocationContext
 from rhesis.backend.app.services.mcp import (
     create_jira_ticket_from_task,
     extract_mcp,
@@ -59,6 +59,7 @@ from rhesis.backend.app.services.test_generation_pipeline import (
     test_generation_pipeline_stream,
 )
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
+from rhesis.sdk.context import EndpointContext
 
 logger = logging.getLogger(__name__)
 
@@ -565,7 +566,6 @@ async def generate_test_config(
 @router.post("/mcp/search", response_model=List[ItemResult])
 async def search_mcp_server(
     request: SearchMCPRequest,
-    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
@@ -598,8 +598,12 @@ async def search_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
-        ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
-        result = await search_mcp(request.query, request.tool_id, ctx=ctx)
+        ctx = EndpointContext(
+            organization_id=organization_id,
+            user_id=user_id,
+            _db_factory=get_db_with_tenant_variables,
+        )
+        result = await search_mcp(request.query, request.tool_id, ctx)
         return json.loads(result["final_answer"])
     except Exception as e:
         raise handle_mcp_exception(e, "search")
@@ -608,7 +612,6 @@ async def search_mcp_server(
 @router.post("/mcp/extract", response_model=ExtractMCPResponse)
 async def extract_mcp_item(
     request: ExtractMCPRequest,
-    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
@@ -643,7 +646,11 @@ async def extract_mcp_item(
     """
     try:
         organization_id, user_id = tenant_context
-        ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
+        ctx = EndpointContext(
+            organization_id=organization_id,
+            user_id=user_id,
+            _db_factory=get_db_with_tenant_variables,
+        )
         result = await extract_mcp(
             ctx=ctx,
             item_id=request.id,
@@ -658,7 +665,6 @@ async def extract_mcp_item(
 @router.post("/mcp/query", response_model=QueryMCPResponse)
 async def query_mcp_server(
     request: QueryMCPRequest,
-    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
@@ -693,7 +699,11 @@ async def query_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
-        ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
+        ctx = EndpointContext(
+            organization_id=organization_id,
+            user_id=user_id,
+            _db_factory=get_db_with_tenant_variables,
+        )
         result = await query_mcp(
             query=request.query,
             tool_id=request.tool_id,

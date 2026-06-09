@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -8,43 +8,31 @@ import {
   Chip,
   Avatar,
   Stack,
-  Divider,
-  Alert,
-  useTheme,
   Button,
-  ToggleButton,
-  ToggleButtonGroup,
-  Collapse,
   IconButton,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import { formatDistanceToNow } from 'date-fns';
 import {
   TestResultDetail,
   Review,
-  REVIEW_TARGET_TYPES,
-  REVIEW_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Status } from '@/utils/api-client/interfaces/status';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
+import { isPassedStatusName } from '@/utils/test-result-status';
 import {
-  findStatusByCategory,
-  isPassedStatusName,
-} from '@/utils/test-result-status';
-import TrackChangesIcon from '@mui/icons-material/TrackChanges';
-import MentionTextInput, {
   MentionOption,
   renderMentionText,
-  inferReviewTarget,
 } from '@/components/common/MentionTextInput';
+import ReviewJudgementDrawer from './ReviewJudgementDrawer';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
@@ -71,106 +59,45 @@ export default function TestDetailReviewsTab({
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
-  // Review creation state
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [showOthers, setShowOthers] = useState(false);
+
+  // Stable capture of initial comment for the drawer (survives parent reset)
+  const pendingCommentRef = useRef<{
+    comment: string;
+    status?: 'passed' | 'failed';
+  } | null>(null);
 
   // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Handle initial comment and status from turn review
+  // Open the create drawer when a pre-filled comment arrives (e.g. from turn review)
   useEffect(() => {
     if (initialComment) {
-      setReason(initialComment);
-      setShowReviewForm(true);
-      if (initialStatus) {
-        setNewStatus(initialStatus);
-      }
+      pendingCommentRef.current = {
+        comment: initialComment,
+        status: initialStatus,
+      };
+      setCreateOpen(true);
       onCommentUsed?.();
     }
   }, [initialComment, initialStatus, onCommentUsed]);
 
-  // Fetch available statuses
-  useEffect(() => {
-    const fetchStatuses = async () => {
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const statusClient = clientFactory.getStatusClient();
-        const statusList = await statusClient.getStatuses({
-          entity_type: 'TestResult',
-        });
-        setStatuses(statusList);
-      } catch (err) {
-        console.error('Failed to fetch statuses:', err);
-      }
-    };
-
-    if (showReviewForm) {
-      fetchStatuses();
-    }
-  }, [sessionToken, showReviewForm]);
-
-  // Handle review submission
-  const handleSubmitReview = async () => {
-    if (!reason.trim()) {
-      setError('Please provide a reason for your review.');
-      return;
-    }
-
-    // Find the appropriate status using centralized utility
-    const targetStatus = findStatusByCategory(
-      statuses,
-      newStatus === 'passed' ? 'passed' : 'failed'
-    );
-
-    if (!targetStatus) {
-      setError('Could not find appropriate status. Please try again.');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      setError('');
-
-      // Create the review via API
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testResultsClient = clientFactory.getTestResultsClient();
-
-      const reviewTarget = inferReviewTarget(reason);
-      await testResultsClient.createReview(
-        test.id,
-        targetStatus.id,
-        reason.trim(),
-        reviewTarget
-      );
-
-      // Refresh the test result to get updated reviews
-      const updatedTest = await testResultsClient.getTestResult(test.id);
-      onTestResultUpdate(updatedTest);
-
-      // Reset form
-      setReason('');
-      setShowReviewForm(false);
-    } catch (_err) {
-      setError('Failed to save review. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleCloseCreateDrawer = () => {
+    pendingCommentRef.current = null;
+    setCreateOpen(false);
   };
 
-  const handleCancelReview = () => {
-    setReason('');
-    setError('');
-    setShowReviewForm(false);
+  const handleReviewSaved = async (testId: string) => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const testResultsClient = clientFactory.getTestResultsClient();
+    const updatedTest = await testResultsClient.getTestResult(testId);
+    onTestResultUpdate(updatedTest);
   };
 
-  // Handle delete review
+  // Delete handlers
   const handleDeleteReview = (review: Review) => {
     setReviewToDelete(review);
     setDeleteDialogOpen(true);
@@ -178,25 +105,17 @@ export default function TestDetailReviewsTab({
 
   const handleConfirmDelete = async () => {
     if (!reviewToDelete) return;
-
     try {
       setDeleting(true);
-
-      // Delete the review via API
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
-
       await testResultsClient.deleteReview(test.id, reviewToDelete.review_id);
-
-      // Refresh the test result to get updated reviews
       const updatedTest = await testResultsClient.getTestResult(test.id);
       onTestResultUpdate(updatedTest);
-
-      // Close dialog
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
     } catch (_err) {
-      // Could add error handling here
+      // Silently fail; no error state change to avoid breaking the delete flow
     } finally {
       setDeleting(false);
     }
@@ -207,8 +126,8 @@ export default function TestDetailReviewsTab({
     setReviewToDelete(null);
   };
 
-  // Calculate automated status for comparison
-  const getAutomatedStatus = () => {
+  // Automated status computation
+  const automatedStatus = useMemo(() => {
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -221,500 +140,365 @@ export default function TestDetailReviewsTab({
           : 'Failed',
       count: `${passedMetrics}/${totalMetrics}`,
     };
-  };
+  }, [test]);
 
-  const automatedStatus = getAutomatedStatus();
-  const hasReviews =
-    test.test_reviews?.reviews && test.test_reviews.reviews.length > 0;
   const lastReview = test.last_review;
 
-  // Calculate conflict ourselves (don't trust backend's matches_review)
-  // A conflict exists if the review decision differs from the automated decision
-  let hasConflict = false;
-  if (lastReview && lastReview.status?.name) {
-    const reviewPassed = isPassedStatusName(lastReview.status.name);
-    hasConflict = reviewPassed !== automatedStatus.passed;
-  }
+  // Conflict: human review disagrees with automated
+  const hasConflict = useMemo(() => {
+    if (!lastReview?.status?.name) return false;
+    return (
+      isPassedStatusName(lastReview.status.name) !== automatedStatus.passed
+    );
+  }, [lastReview, automatedStatus]);
 
-  // Format date helper
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleString();
-  };
-
-  // Get review status with normalized display label
   const getReviewStatusDisplay = (
     statusName: string
-  ): {
-    passed: boolean;
-    label: string;
-  } => {
+  ): { passed: boolean; label: string } => {
     const isPassed = isPassedStatusName(statusName);
     const name = statusName.toLowerCase();
-
     let label = statusName;
-    if (name === 'fail') {
-      label = 'Failed';
-    } else if (name === 'pass') {
-      label = 'Passed';
-    }
-
-    return {
-      passed: isPassed,
-      label,
-    };
+    if (name === 'fail') label = 'Failed';
+    else if (name === 'pass') label = 'Passed';
+    return { passed: isPassed, label };
   };
 
+  const formatRelativeTime = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), {
+        addSuffix: true,
+      }).toUpperCase();
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  // Split reviews: mine vs others
+  const allReviews = useMemo(
+    () => test.test_reviews?.reviews ?? [],
+    [test.test_reviews]
+  );
+
+  const sortedReviews = useMemo(
+    () =>
+      [...allReviews].sort(
+        (a, b) =>
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      ),
+    [allReviews]
+  );
+
+  const myReviews = useMemo(
+    () => sortedReviews.filter(r => String(r.user.user_id) === currentUserId),
+    [sortedReviews, currentUserId]
+  );
+
+  const otherReviews = useMemo(
+    () => sortedReviews.filter(r => String(r.user.user_id) !== currentUserId),
+    [sortedReviews, currentUserId]
+  );
+
+  // Once the user has their own review, always show all reviews automatically.
+  // The showOthers toggle only matters before the user has reviewed.
+  const visibleReviews =
+    myReviews.length > 0 || showOthers ? sortedReviews : myReviews;
+
+  const noReviewsAtAll = allReviews.length === 0;
+  const myReviewsEmpty = myReviews.length === 0;
+
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Status Overview */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h6" fontWeight={600} gutterBottom>
-          Test Result
-        </Typography>
-
-        {/* Automated vs Review Status Comparison */}
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2,
-            backgroundColor: hasConflict
-              ? alpha(
-                  theme.palette.warning.main,
-                  theme.palette.action.hoverOpacity
-                )
-              : theme.palette.background.default,
-            border: hasConflict
-              ? `1px solid ${theme.palette.warning.light}`
-              : undefined,
-          }}
-        >
-          <Stack spacing={2}>
-            {/* Automated Status */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                sx={{ minWidth: 120 }}
-              >
-                Automated:
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <StatusChip
-                  passed={automatedStatus.passed}
-                  label={`${automatedStatus.label} ${automatedStatus.count}`}
-                  size="small"
-                  variant="outlined"
-                />
-              </Box>
-            </Box>
-
-            {/* Review Status */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                sx={{ minWidth: 120 }}
-              >
-                Human Review:
-              </Typography>
-              {lastReview ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {(() => {
-                    const display = getReviewStatusDisplay(
-                      lastReview.status.name
-                    );
-                    return (
-                      <>
-                        <StatusChip
-                          passed={display.passed}
-                          label={display.label}
-                          size="small"
-                          variant="outlined"
-                        />
-                        {hasConflict && (
-                          <Chip
-                            icon={
-                              <WarningAmberIcon
-                                sx={{ fontSize: 'caption.fontSize' }}
-                              />
-                            }
-                            label="Conflict"
-                            size="small"
-                            color="warning"
-                            variant="filled"
-                            sx={{ ml: 1 }}
-                          />
-                        )}
-                      </>
-                    );
-                  })()}
-                </Box>
-              ) : (
-                <Chip
-                  label="No Review"
-                  size="small"
-                  color="default"
-                  variant="outlined"
-                />
-              )}
-            </Box>
-          </Stack>
-        </Paper>
-
-        {/* Conflict Alert */}
-        {hasConflict && (
-          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 2 }}>
-            <Typography variant="body2">
-              <strong>Status Conflict Detected:</strong> The human review status
-              differs from the automated test result. This indicates the
-              reviewer disagreed with the automation.
-            </Typography>
-          </Alert>
-        )}
-      </Box>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* Reviews History */}
-      <Box>
-        <Typography variant="h6" fontWeight={600} gutterBottom>
-          Review History
-        </Typography>
-
-        {hasReviews && test.test_reviews?.reviews ? (
-          <Stack spacing={2}>
-            {test.test_reviews.reviews
-              .sort(
-                (a, b) =>
-                  new Date(b.updated_at).getTime() -
-                  new Date(a.updated_at).getTime()
-              )
-              .map((review, index) => {
-                const isLatest = index === 0;
-                const display = getReviewStatusDisplay(review.status.name);
-
-                return (
-                  <Paper
-                    key={review.review_id}
-                    variant="outlined"
-                    sx={{
-                      p: 2,
-                      backgroundColor: isLatest
-                        ? alpha(
-                            theme.palette.primary.main,
-                            theme.palette.action.hoverOpacity
-                          )
-                        : theme.palette.background.default,
-                      border: isLatest
-                        ? `1px solid ${theme.palette.primary.light}`
-                        : undefined,
-                    }}
-                  >
-                    <Stack spacing={2}>
-                      {/* Review Header */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
-                        >
-                          <Avatar
-                            sx={{
-                              width: theme.spacing(4),
-                              height: theme.spacing(4),
-                              fontSize: 'caption.fontSize',
-                            }}
-                          >
-                            {review.user.name.charAt(0).toUpperCase()}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight={600}>
-                              {review.user.name}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {formatDate(review.updated_at)}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                        >
-                          {isLatest && (
-                            <Chip
-                              label="Latest"
-                              size="small"
-                              color="primary"
-                              variant="filled"
-                              sx={{ mr: 1 }}
-                            />
-                          )}
-                          <StatusChip
-                            passed={display.passed}
-                            label={display.label}
-                            size="small"
-                            variant="outlined"
-                          />
-                          {/* Delete button - only show for review owner */}
-                          {review.user.user_id === currentUserId && (
-                            <Tooltip title="Delete review">
-                              <IconButton
-                                size="small"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  handleDeleteReview(review);
-                                }}
-                                sx={{
-                                  ml: 0.5,
-                                  '&:hover': {
-                                    backgroundColor: alpha(
-                                      theme.palette.error.main,
-                                      theme.palette.action.focusOpacity
-                                    ),
-                                    color: theme.palette.error.main,
-                                  },
-                                }}
-                              >
-                                <DeleteOutlineIcon
-                                  sx={{ fontSize: 'body2.fontSize' }}
-                                />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </Box>
-
-                      {/* Review Content */}
-                      <Box>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          <strong>Comments:</strong>
-                        </Typography>
-                        <Paper
-                          variant="outlined"
-                          sx={{
-                            p: 1.5,
-                            backgroundColor: theme.palette.background.paper,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                            }}
-                          >
-                            {renderMentionText(
-                              review.comments,
-                              {
-                                user: theme.palette.success.main,
-                                metric: theme.palette.secondary.main,
-                                turn: theme.palette.info.main,
-                              },
-                              {
-                                user: alpha(
-                                  theme.palette.success.main,
-                                  theme.palette.action.disabledOpacity
-                                ),
-                                metric: alpha(
-                                  theme.palette.secondary.main,
-                                  theme.palette.action.disabledOpacity
-                                ),
-                                turn: alpha(
-                                  theme.palette.info.main,
-                                  theme.palette.action.disabledOpacity
-                                ),
-                              }
-                            )}
-                          </Typography>
-                        </Paper>
-                      </Box>
-
-                      {/* Review Metadata */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 2,
-                          flexWrap: 'wrap',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Chip
-                          icon={<TrackChangesIcon />}
-                          label={
-                            REVIEW_TARGET_LABELS[
-                              review.target
-                                ?.type as keyof typeof REVIEW_TARGET_LABELS
-                            ] ??
-                            REVIEW_TARGET_LABELS[
-                              REVIEW_TARGET_TYPES.TEST_RESULT
-                            ]
-                          }
-                          size="small"
-                          variant="outlined"
-                          color={
-                            review.target?.type === REVIEW_TARGET_TYPES.METRIC
-                              ? 'secondary'
-                              : review.target?.type === REVIEW_TARGET_TYPES.TURN
-                                ? 'info'
-                                : 'default'
-                          }
-                        />
-                        {review.created_at !== review.updated_at && (
-                          <Chip
-                            label="Edited"
-                            size="small"
-                            variant="outlined"
-                            color="info"
-                          />
-                        )}
-                      </Box>
-                    </Stack>
-                  </Paper>
-                );
-              })}
-          </Stack>
-        ) : (
-          <Paper
+    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Metadata row */}
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.primary">
+            Automated:
+          </Typography>
+          <StatusChip
+            passed={automatedStatus.passed}
+            label={`${automatedStatus.label} ${automatedStatus.count}`}
+            size="small"
             variant="outlined"
-            sx={{
-              p: 4,
-              textAlign: 'center',
-              backgroundColor: theme.palette.background.default,
-            }}
-          >
-            <InfoOutlinedIcon
-              sx={{
-                fontSize: theme.typography.h3.fontSize,
-                color: theme.palette.text.disabled,
-                mb: 2,
-              }}
-            />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No Reviews Yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              This test result has not been reviewed by any human evaluators.
-            </Typography>
-          </Paper>
-        )}
-
-        {/* Add Review Section */}
-        <Box sx={{ mt: 3 }}>
-          {!showReviewForm ? (
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setShowReviewForm(true)}
-              fullWidth
-              sx={{ py: 1.5 }}
-            >
-              Add Review
-            </Button>
+          />
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.primary">
+            Human Review:
+          </Typography>
+          {lastReview ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {(() => {
+                const display = getReviewStatusDisplay(lastReview.status.name);
+                return (
+                  <>
+                    <StatusChip
+                      passed={display.passed}
+                      label={display.label}
+                      size="small"
+                      variant="outlined"
+                    />
+                    {hasConflict && (
+                      <Chip
+                        icon={
+                          <WarningAmberIcon
+                            sx={{
+                              fontSize: '14px !important',
+                              color: '#de3355 !important',
+                            }}
+                          />
+                        }
+                        label="Conflict"
+                        size="small"
+                        sx={{
+                          borderRadius: BORDER_RADIUS.pill,
+                          bgcolor: '#fdedee',
+                          color: '#de3355',
+                          border: 'none',
+                          '& .MuiChip-label': { color: '#de3355' },
+                        }}
+                      />
+                    )}
+                  </>
+                );
+              })()}
+            </Box>
           ) : (
-            <Collapse in={showReviewForm}>
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 3,
-                  backgroundColor: theme.palette.background.default,
-                  border: `1px solid ${theme.palette.primary.light}`,
-                }}
-              >
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Add Your Review
-                </Typography>
-
-                {/* Status Toggle */}
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                    New Status
-                  </Typography>
-                  <ToggleButtonGroup
-                    value={newStatus}
-                    exclusive
-                    onChange={(_, value) => value && setNewStatus(value)}
-                    size="small"
-                    fullWidth
-                  >
-                    <ToggleButton
-                      value="passed"
-                      sx={{
-                        '&.Mui-selected': {
-                          backgroundColor: theme.palette.success.main,
-                          color: theme.palette.success.contrastText,
-                          '&:hover': {
-                            backgroundColor: theme.palette.success.dark,
-                          },
-                        },
-                      }}
-                    >
-                      <CheckCircleOutlineIcon
-                        sx={{ mr: 1, fontSize: 'body2.fontSize' }}
-                      />
-                      Pass
-                    </ToggleButton>
-                    <ToggleButton
-                      value="failed"
-                      sx={{
-                        '&.Mui-selected': {
-                          backgroundColor: theme.palette.error.main,
-                          color: theme.palette.error.contrastText,
-                          '&:hover': {
-                            backgroundColor: theme.palette.error.dark,
-                          },
-                        },
-                      }}
-                    >
-                      <CancelOutlinedIcon
-                        sx={{ mr: 1, fontSize: 'body2.fontSize' }}
-                      />
-                      Fail
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
-
-                {/* Comments */}
-                <Box sx={{ mb: 3 }}>
-                  <MentionTextInput
-                    label="Comments"
-                    value={reason}
-                    onChange={setReason}
-                    placeholder="Explain your review decision... Type @ to mention"
-                    mentionableMetrics={mentionableMetrics}
-                    mentionableTurns={mentionableTurns}
-                    error={!!error}
-                    helperText={error}
-                    minRows={4}
-                  />
-                </Box>
-
-                {/* Actions */}
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
-                  <Button onClick={handleCancelReview} disabled={submitting}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleSubmitReview}
-                    disabled={submitting || !reason.trim()}
-                  >
-                    {submitting ? 'Submitting...' : 'Submit Review'}
-                  </Button>
-                </Stack>
-              </Paper>
-            </Collapse>
+            <Chip
+              label="No Review"
+              size="small"
+              variant="outlined"
+              sx={{ borderRadius: BORDER_RADIUS.pill }}
+            />
           )}
         </Box>
       </Box>
+
+      {/* Conflict banner */}
+      {hasConflict && (
+        <Box
+          sx={{
+            bgcolor: '#ffab24',
+            borderRadius: BORDER_RADIUS.xs,
+            px: '30px',
+            py: '12px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            overflow: 'hidden',
+          }}
+        >
+          <Box sx={{ pr: '12px', py: '7px', flexShrink: 0 }}>
+            <WarningAmberIcon sx={{ fontSize: 22, color: '#fff !important' }} />
+          </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              py: '8px',
+              flex: '1 0 0',
+            }}
+          >
+            <Typography
+              sx={{
+                color: 'white',
+                fontWeight: 700,
+                fontSize: 18,
+                lineHeight: '25px',
+              }}
+            >
+              Status Conflict Detected:
+            </Typography>
+            <Typography
+              sx={{ color: 'white', fontSize: 16, lineHeight: '24px' }}
+            >
+              The human review status differs from the automated test result.
+              This indicates the reviewer disagreed with the automation.
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* Reviews section */}
+      {noReviewsAtAll ? (
+        <EmptyStateCard
+          title="No reviews created yet"
+          onCreateReview={() => setCreateOpen(true)}
+        />
+      ) : myReviewsEmpty && !showOthers ? (
+        <EmptyStateCard
+          title="You have not created any reviews yet"
+          onCreateReview={() => setCreateOpen(true)}
+          showOthersCount={otherReviews.length}
+          onShowOthers={() => setShowOthers(true)}
+        />
+      ) : (
+        <Paper
+          variant="outlined"
+          sx={{
+            boxShadow: ELEVATION.xs,
+            borderRadius: BORDER_RADIUS.md,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Card header */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 3,
+              pt: 3,
+              pb: 2,
+            }}
+          >
+            <Typography variant="h6" color="primary" fontWeight={600}>
+              Reviews
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              sx={{ '& .MuiSvgIcon-root': { color: 'primary.main' } }}
+            >
+              Create
+            </Button>
+          </Box>
+
+          {/* Review items */}
+          <Stack
+            divider={<Box sx={{ borderTop: 1, borderColor: 'divider' }} />}
+          >
+            {visibleReviews.map(review => {
+              const display = getReviewStatusDisplay(review.status.name);
+              return (
+                <Box key={review.review_id} sx={{ px: 3, py: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      mb: 1.5,
+                    }}
+                  >
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
+                    >
+                      <Avatar
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          fontSize: '0.75rem',
+                          bgcolor: 'primary.main',
+                        }}
+                      >
+                        {review.user.name.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Typography variant="body2" fontWeight={700}>
+                        {review.user.name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ letterSpacing: 0.5 }}
+                      >
+                        {formatRelativeTime(review.updated_at)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
+                      <StatusChip
+                        passed={display.passed}
+                        label={display.label}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {String(review.user.user_id) === currentUserId && (
+                        <Tooltip title="Delete review">
+                          <IconButton
+                            size="small"
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleDeleteReview(review);
+                            }}
+                            sx={{
+                              color: 'primary.main',
+                              '& .MuiSvgIcon-root': { color: 'primary.main' },
+                              '&:hover': {
+                                bgcolor: alpha(
+                                  theme.palette.error.main,
+                                  theme.palette.action.focusOpacity
+                                ),
+                                color: 'error.main',
+                                '& .MuiSvgIcon-root': { color: 'error.main' },
+                              },
+                            }}
+                          >
+                            <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+
+                  {/* Comment */}
+                  <Box
+                    sx={{
+                      bgcolor: theme.palette.greyscale.fieldSurface,
+                      borderRadius: BORDER_RADIUS.xs,
+                      p: 2,
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    >
+                      {renderMentionText(
+                        review.comments,
+                        {
+                          user: theme.palette.success.main,
+                          metric: theme.palette.secondary.main,
+                          turn: theme.palette.info.main,
+                        },
+                        {
+                          user: alpha(
+                            theme.palette.success.main,
+                            theme.palette.action.disabledOpacity
+                          ),
+                          metric: alpha(
+                            theme.palette.secondary.main,
+                            theme.palette.action.disabledOpacity
+                          ),
+                          turn: alpha(
+                            theme.palette.info.main,
+                            theme.palette.action.disabledOpacity
+                          ),
+                        }
+                      )}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Paper>
+      )}
+
+      {/* Create Review Drawer */}
+      <ReviewJudgementDrawer
+        open={createOpen}
+        onClose={handleCloseCreateDrawer}
+        test={test}
+        sessionToken={sessionToken}
+        onSave={handleReviewSaved}
+        initialComment={pendingCommentRef.current?.comment}
+        initialStatus={pendingCommentRef.current?.status}
+        mentionableMetrics={mentionableMetrics}
+        mentionableTurns={mentionableTurns}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteModal
@@ -729,5 +513,70 @@ export default function TestDetailReviewsTab({
         showTopBorder={true}
       />
     </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+interface EmptyStateCardProps {
+  title: string;
+  onCreateReview: () => void;
+  showOthersCount?: number;
+  onShowOthers?: () => void;
+}
+
+function EmptyStateCard({
+  title,
+  onCreateReview,
+  showOthersCount,
+  onShowOthers,
+}: EmptyStateCardProps) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 4,
+        boxShadow: ELEVATION.xs,
+        borderRadius: BORDER_RADIUS.md,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2,
+        textAlign: 'center',
+      }}
+    >
+      <InfoOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+      <Typography variant="h6" color="primary" fontWeight={600}>
+        {title}
+      </Typography>
+      <Typography variant="body2">
+        Create a review to evaluate this test result and provide your assessment
+        of the automated findings.
+      </Typography>
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={onCreateReview}
+        sx={{
+          borderRadius: BORDER_RADIUS.md,
+          // Override the MuiDrawer theme rule that sets all icons to body color
+          '& .MuiSvgIcon-root': { color: '#FFFFFF' },
+        }}
+      >
+        Create review
+      </Button>
+      {showOthersCount !== undefined && showOthersCount > 0 && onShowOthers && (
+        <Button
+          variant="text"
+          color="primary"
+          onClick={onShowOthers}
+          sx={{ textTransform: 'none', textDecoration: 'underline' }}
+        >
+          {`Show reviews from other users (${showOthersCount})`}
+        </Button>
+      )}
+    </Paper>
   );
 }

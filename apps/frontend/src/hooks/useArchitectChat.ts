@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { isPlanComplete } from '@/utils/architect/plan';
+import { readActiveProjectId } from '@/utils/active-project';
 import {
   EventType,
   WebSocketMessage,
@@ -68,6 +69,14 @@ interface UseArchitectChatOptions {
   sessionId: string | null;
   /** Seed the conversation with this user message immediately on mount. */
   initialUserMessage?: string | null;
+  /**
+   * The project_id the session was created under. Sent with every message so
+   * the backend can satisfy the project_isolation RLS policy when looking up
+   * the session. Must be the session's own project_id, NOT the currently active
+   * project cookie — these can differ when the user switches projects after
+   * creating the session.
+   */
+  sessionProjectId?: string | null;
 }
 
 export interface ChatAttachments {
@@ -139,7 +148,7 @@ const HIDDEN_TOOL_NAMES = new Set<string>(['save_plan', 'await_task']);
 export function useArchitectChat(
   options: UseArchitectChatOptions
 ): UseArchitectChatResult {
-  const { sessionId, initialUserMessage } = options;
+  const { sessionId, initialUserMessage, sessionProjectId } = options;
   const {
     isConnected,
     send,
@@ -672,6 +681,14 @@ export function useArchitectChat(
         session_id: sessionId,
         message: trimmed,
       };
+      // Use the session's own project_id (not the currently active project
+      // cookie) so the backend can find the session under project_isolation RLS.
+      // The two may differ when the user switches projects after creating the
+      // session; sending the wrong project_id causes a "Session not found" error.
+      const projectId = sessionProjectId ?? readActiveProjectId();
+      if (projectId) {
+        payload.project_id = projectId;
+      }
       if (attachments) {
         payload.attachments = attachments;
       }

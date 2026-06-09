@@ -7,13 +7,34 @@ import type { FabProps as MuiFabProps } from '@mui/material/Fab';
 import { ELEVATION, FAB_GROUP_GAP } from '@/styles/theme';
 
 export { FAB_GROUP_GAP };
+export { default as FabAddIcon } from './FabAddIcon';
 
-/** Shared FAB surface styles (56px circle, primary fill, elevation) */
+/** Figma FAB icon slot — 32×32 with 24×24 glyph (12.5% inset) */
+const fabIconSlotSx = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 32,
+  height: 32,
+  flexShrink: 0,
+  lineHeight: 0,
+  '& > .MuiSvgIcon-root': {
+    width: 24,
+    height: 24,
+    fontSize: 24,
+  },
+} as const;
+
+/** Shared FAB surface styles (56px circle, 12px padding, primary fill, elevation) */
 export const fabButtonSx = {
   bgcolor: 'primary.main',
   color: 'primary.contrastText',
   width: 56,
   height: 56,
+  minWidth: 56,
+  minHeight: 56,
+  padding: '12px',
+  boxSizing: 'border-box',
   boxShadow: ELEVATION.xs,
   '&:hover': {
     bgcolor: 'primary.dark',
@@ -33,11 +54,9 @@ export interface FabProps extends Omit<MuiFabProps, 'children'> {
 }
 
 /**
- * Figma-aligned FAB component.
+ * Figma-aligned FAB component (node 1639:10079).
  *
- * Wraps MUI `Fab` with Rhesis styling:
- *   - Teal/primary.main fill, white icon, 56px circular
- *   - Accepts an optional `tooltip` for accessibility
+ * 56px circle, 12px padding, 32px icon slot, primary fill, elevation XS.
  */
 export function Fab({
   icon,
@@ -60,7 +79,13 @@ export function Fab({
       }}
       {...props}
     >
-      {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : icon}
+      {loading ? (
+        <CircularProgress size={24} sx={{ color: '#fff' }} />
+      ) : (
+        <Box component="span" sx={fabIconSlotSx}>
+          {icon}
+        </Box>
+      )}
     </MuiFab>
   );
 

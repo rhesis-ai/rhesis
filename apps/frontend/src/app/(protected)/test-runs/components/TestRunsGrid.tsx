@@ -8,16 +8,12 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import DeleteIcon from '@mui/icons-material/Delete';
-import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import ListIcon from '@mui/icons-material/List';
-import { formatDate } from '@/utils/date';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
 import {
   GridColDef,
-  GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
   GridToolbarColumnsButton,
@@ -52,21 +48,23 @@ import TestRunFilterDrawer, {
   type TestRunFilters,
   EMPTY_TEST_RUN_FILTERS,
   hasActiveTestRunFilters,
+  countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
-type TurnTypeFilter = 'all' | 'single-turn' | 'multi-turn';
 
 // ── Status pill tabs ─────────────────────────────────────────────────────────
 
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Queued', value: 'Queued' },
   { label: 'In Progress', value: 'Progress' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Partial', value: 'Partial' },
   { label: 'Failed', value: 'Failed' },
-  { label: 'Cancelled', value: 'Cancelled' },
 ];
 
 // ── Toolbar context ──────────────────────────────────────────────────────────
@@ -78,6 +76,7 @@ interface TestRunsToolbarState {
   setStatusFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
@@ -87,6 +86,7 @@ const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
   setStatusFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 function TestRunsUnifiedToolbar() {
@@ -97,6 +97,7 @@ function TestRunsUnifiedToolbar() {
     setStatusFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TestRunsToolbarContext);
 
   return (
@@ -106,6 +107,7 @@ function TestRunsUnifiedToolbar() {
       searchPlaceholder="Search test runs…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
         <ToolbarPillTabs
           tabs={STATUS_TABS}
@@ -148,17 +150,17 @@ function TestRunsGrid({
   const [statusFilter, setStatusFilter] = useState('all');
 
   // ── Core grid state ────────────────────────────────────────────────────────
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
-  const [turnTypeFilter, setTurnTypeFilter] = useState<TurnTypeFilter>('all');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
@@ -189,20 +191,12 @@ function TestRunsGrid({
 
         const filterString = combineTestRunFiltersToOData(filterModel);
 
-        const turnTypeFilterStr =
-          turnTypeFilter !== 'all'
-            ? `test_configuration/test_set/test_set_type/type_value eq '${turnTypeFilter}'`
-            : '';
-        const combinedFilter = [filterString, turnTypeFilterStr]
-          .filter(Boolean)
-          .join(' and ');
-
         const apiParams: Parameters<typeof testRunsClient.getTestRuns>[0] = {
           skip,
           limit,
           sort_by: 'created_at',
           sort_order: 'desc' as const,
-          ...(combinedFilter && { filter: combinedFilter }),
+          ...(filterString && { filter: filterString }),
           ...(runKindFilter === 'experiments' && { has_experiment: true }),
           ...(runKindFilter === 'tests' && { has_experiment: false }),
         };
@@ -226,13 +220,7 @@ function TestRunsGrid({
         }
       }
     },
-    [
-      sessionToken,
-      filterModel,
-      runKindFilter,
-      turnTypeFilter,
-      onTotalCountChange,
-    ]
+    [sessionToken, filterModel, runKindFilter, onTotalCountChange]
   );
 
   useEffect(() => {
@@ -334,10 +322,43 @@ function TestRunsGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
 
+  // ── Row action handlers ────────────────────────────────────────────────────
+
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleRowEditAction = useCallback(
+    (id: string) => {
+      router.push(`/test-runs/${id}`);
+    },
+    [router]
+  );
+
+  const handleRowCancelAction = useCallback((id: string) => {
+    setPendingCancelId(id);
+    setCancelModalOpen(true);
+  }, []);
+
+  const isCancellableRun = useCallback((row: Record<string, unknown>) => {
+    const statusName = (
+      (row.status as { name?: string } | undefined)?.name ?? ''
+    ).toLowerCase();
+    return statusName === 'queued' || statusName === 'progress';
+  }, []);
+
   // ── Column definitions ────────────────────────────────────────────────────
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const columns: GridColDef[] = useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => handleRowEditAction(id),
+      onCancel: id => handleRowCancelAction(id),
+      canCancel: isCancellableRun,
+      onDelete: id => handleRowDeleteAction(id),
+      width: 112,
+    });
+    return [
       {
         field: 'name',
         headerName: 'Name',
@@ -373,6 +394,46 @@ function TestRunsGrid({
         },
       },
       {
+        field: 'pass_rate',
+        headerName: 'Pass Rate',
+        width: 110,
+        minWidth: 90,
+        resizable: true,
+        align: 'right',
+        headerAlign: 'right',
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => {
+          const stats = row.stats;
+          if (!stats || !stats.total) return null;
+          return (stats.passed / stats.total) * 100;
+        },
+        renderCell: params => {
+          const value = params.value as number | null;
+          if (value === null || value === undefined) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          }
+          return <Typography variant="body2">{value.toFixed(1)}%</Typography>;
+        },
+      },
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 120,
+        minWidth: 90,
+        resizable: true,
+        renderCell: params => {
+          const status = params.row.status?.name;
+          if (!status) return null;
+
+          return <GridBadge label={status} />;
+        },
+      },
+      {
         field: 'test_set_type',
         headerName: 'Type',
         width: 120,
@@ -392,38 +453,6 @@ function TestRunsGrid({
 
           return <GridBadge label={testSetType} />;
         },
-      },
-      {
-        field: 'status',
-        headerName: 'Status',
-        width: 120,
-        minWidth: 90,
-        resizable: true,
-        renderCell: params => {
-          const status = params.row.status?.name;
-          if (!status) return null;
-
-          return <GridBadge label={status} />;
-        },
-      },
-      {
-        field: 'completed_at',
-        headerName: 'Completed',
-        width: 160,
-        minWidth: 120,
-        resizable: true,
-        valueGetter: (_, row) =>
-          (row.attributes?.completed_at as string | undefined) ?? null,
-        renderCell: params =>
-          params.value ? (
-            <Typography variant="body2" noWrap>
-              {formatDate(params.value)}
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.disabled">
-              —
-            </Typography>
-          ),
       },
       {
         field: 'experiment',
@@ -599,9 +628,14 @@ function TestRunsGrid({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [
+    handleRowEditAction,
+    handleRowCancelAction,
+    isCancellableRun,
+    handleRowDeleteAction,
+  ]);
 
   // ── Row handlers ──────────────────────────────────────────────────────────
 
@@ -610,13 +644,6 @@ function TestRunsGrid({
       router.push(`/test-runs/${params.id}`);
     },
     [router]
-  );
-
-  const handleSelectionChange = useCallback(
-    (newSelection: GridRowSelectionModel) => {
-      setSelectedRows(newSelection);
-    },
-    []
   );
 
   const handlePaginationModelChange = useCallback(
@@ -638,41 +665,31 @@ function TestRunsGrid({
 
   // ── Delete handlers ───────────────────────────────────────────────────────
 
-  const handleDeleteSelected = useCallback(() => {
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    if (validSelectedRows.length === 0) return;
-    setDeleteModalOpen(true);
-  }, [selectedRows]);
-
   const handleDeleteConfirm = useCallback(async () => {
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    if (validSelectedRows.length === 0) return;
+    if (!pendingDeleteId) return;
 
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testRunsClient = clientFactory.getTestRunsClient();
 
-      await Promise.all(
-        validSelectedRows.map(id => testRunsClient.deleteTestRun(id.toString()))
-      );
+      await testRunsClient.deleteTestRun(pendingDeleteId);
 
-      notifications.show(
-        `Successfully deleted ${validSelectedRows.length} test run${validSelectedRows.length === 1 ? '' : 's'}`,
-        { severity: 'success' }
-      );
+      notifications.show('Successfully deleted test run', {
+        severity: 'success',
+      });
 
+      setPendingDeleteId(null);
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
-      setSelectedRows([]);
     } catch (_error) {
-      notifications.show('Failed to delete test runs', { severity: 'error' });
+      notifications.show('Failed to delete test run', { severity: 'error' });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
   }, [
-    selectedRows,
+    pendingDeleteId,
     sessionToken,
     notifications,
     paginationModel,
@@ -681,29 +698,13 @@ function TestRunsGrid({
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   }, []);
 
   // ── Cancel handlers ───────────────────────────────────────────────────────
 
-  const cancellableSelectedRuns = useMemo(() => {
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-    return testRuns.filter(run => {
-      const status = run.status?.name?.toLowerCase();
-      return (
-        validSelectedRows.includes(run.id) &&
-        (status === 'queued' || status === 'progress')
-      );
-    });
-  }, [selectedRows, testRuns]);
-
-  const handleCancelSelected = useCallback(() => {
-    setCancelModalOpen(true);
-  }, []);
-
   const handleCancelConfirm = useCallback(async () => {
-    const ids = cancellableSelectedRuns.map(run => run.id.toString());
-
-    if (ids.length === 0) {
+    if (!pendingCancelId) {
       setCancelModalOpen(false);
       return;
     }
@@ -712,23 +713,22 @@ function TestRunsGrid({
       setIsCancelling(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testRunsClient = clientFactory.getTestRunsClient();
-      await Promise.all(ids.map(id => testRunsClient.cancelTestRun(id)));
-      notifications.show(
-        `Successfully cancelled ${ids.length} test run${ids.length === 1 ? '' : 's'}`,
-        { severity: 'success' }
-      );
+      await testRunsClient.cancelTestRun(pendingCancelId);
+      notifications.show('Successfully cancelled test run', {
+        severity: 'success',
+      });
+      setPendingCancelId(null);
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
-      setSelectedRows([]);
       onRefresh?.();
     } catch (_error) {
-      notifications.show('Failed to cancel test runs', { severity: 'error' });
+      notifications.show('Failed to cancel test run', { severity: 'error' });
     } finally {
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
   }, [
-    cancellableSelectedRuns,
+    pendingCancelId,
     sessionToken,
     notifications,
     paginationModel,
@@ -738,6 +738,7 @@ function TestRunsGrid({
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);
+    setPendingCancelId(null);
   }, []);
 
   const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
@@ -745,100 +746,33 @@ function TestRunsGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
-  const handleTurnTypeFilterChange = useCallback((value: TurnTypeFilter) => {
-    setTurnTypeFilter(value);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
-
-  const actionButtons = useMemo(() => {
-    const buttons = [];
-    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-
-    if (cancellableSelectedRuns.length > 0) {
-      buttons.push({
-        label: `Cancel Test Run${cancellableSelectedRuns.length === 1 ? '' : 's'}`,
-        icon: <StopCircleOutlinedIcon />,
-        variant: 'outlined' as const,
-        color: 'warning' as const,
-        onClick: handleCancelSelected,
-      });
-    }
-
-    if (validSelectedRows.length > 0) {
-      buttons.push({
-        label: 'Delete Test Runs',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: handleDeleteSelected,
-      });
-    }
-
-    return buttons;
-  }, [
-    selectedRows,
-    cancellableSelectedRuns,
-    handleCancelSelected,
-    handleDeleteSelected,
-  ]);
-
   const runKindToolbar = useMemo(
     () => (
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => handleRunKindFilterChange('all')}
-            variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => handleRunKindFilterChange('tests')}
-            variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
-            startIcon={<ScienceIcon fontSize="small" />}
-          >
-            Tests
-          </Button>
-          <Button
-            onClick={() => handleRunKindFilterChange('experiments')}
-            variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
-            startIcon={<BiotechIcon fontSize="small" />}
-          >
-            Experiments
-          </Button>
-        </ButtonGroup>
-
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => handleTurnTypeFilterChange('all')}
-            variant={turnTypeFilter === 'all' ? 'contained' : 'outlined'}
-          >
-            All turns
-          </Button>
-          <Button
-            onClick={() => handleTurnTypeFilterChange('single-turn')}
-            variant={
-              turnTypeFilter === 'single-turn' ? 'contained' : 'outlined'
-            }
-          >
-            Single-turn
-          </Button>
-          <Button
-            onClick={() => handleTurnTypeFilterChange('multi-turn')}
-            variant={turnTypeFilter === 'multi-turn' ? 'contained' : 'outlined'}
-          >
-            Multi-turn
-          </Button>
-        </ButtonGroup>
-      </Box>
+      <ButtonGroup size="small" variant="outlined">
+        <Button
+          onClick={() => handleRunKindFilterChange('all')}
+          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
+          startIcon={<ListIcon fontSize="small" />}
+        >
+          All
+        </Button>
+        <Button
+          onClick={() => handleRunKindFilterChange('tests')}
+          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
+          startIcon={<ScienceIcon fontSize="small" />}
+        >
+          Tests
+        </Button>
+        <Button
+          onClick={() => handleRunKindFilterChange('experiments')}
+          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
+          startIcon={<BiotechIcon fontSize="small" />}
+        >
+          Experiments
+        </Button>
+      </ButtonGroup>
     ),
-    [
-      runKindFilter,
-      handleRunKindFilterChange,
-      turnTypeFilter,
-      handleTurnTypeFilterChange,
-    ]
+    [runKindFilter, handleRunKindFilterChange]
   );
 
   return (
@@ -850,30 +784,13 @@ function TestRunsGrid({
         setStatusFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
+        activeFilterCount: countActiveTestRunFilters(drawerFilters),
       }}
     >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-      )}
-
-      {Array.isArray(selectedRows) && selectedRows.length > 0 && (
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            borderBottom: theme =>
-              `1px solid ${theme.palette.greyscale.border}`,
-          }}
-        >
-          <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} selected
-          </Typography>
-        </Box>
       )}
 
       <BaseDataGrid
@@ -886,20 +803,17 @@ function TestRunsGrid({
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
         serverSideFiltering={true}
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={Array.isArray(selectedRows) ? selectedRows : []}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/test-runs/${row.id}`}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
-        checkboxSelection
-        disableRowSelectionOnClick
-        actionButtons={actionButtons}
         gridToolbarExtra={runKindToolbar}
         disablePaperWrapper={true}
         showToolbar={true}
         toolbarSlot={TestRunsUnifiedToolbar}
         persistState
+        sx={rowActionsHoverSx}
       />
 
       <DeleteModal
@@ -907,8 +821,8 @@ function TestRunsGrid({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
-        title="Delete Test Runs"
-        message={`Are you sure you want to delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? Don't worry, related data will not be deleted, only ${Array.isArray(selectedRows) && selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+        title="Delete Test Run"
+        message="Are you sure you want to delete this test run? Related data will not be deleted."
         itemType="test runs"
       />
 
@@ -917,8 +831,8 @@ function TestRunsGrid({
         onClose={handleCancelClose}
         onConfirm={handleCancelConfirm}
         isLoading={isCancelling}
-        title={`Cancel Test Run${cancellableSelectedRuns.length === 1 ? '' : 's'}`}
-        message={`Are you sure you want to cancel ${cancellableSelectedRuns.length} test run${cancellableSelectedRuns.length === 1 ? '' : 's'}? ${cancellableSelectedRuns.length === 1 ? 'It' : 'They'} will be stopped and marked as Cancelled.`}
+        title="Cancel Test Run"
+        message="Are you sure you want to cancel this test run? It will be stopped and marked as Cancelled."
         itemType="test run"
         confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
         cancelButtonText="Keep Running"

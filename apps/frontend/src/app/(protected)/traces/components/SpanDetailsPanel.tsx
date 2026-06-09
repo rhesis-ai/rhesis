@@ -1155,7 +1155,6 @@ export default function SpanDetailsPanel({
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               currentUserPicture={currentUserPicture}
-              elevation={0}
             />
           </TabPanel>
         )}

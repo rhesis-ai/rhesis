@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.schemas import Base
@@ -108,6 +108,21 @@ class PolyphemusAccess(BaseModel):
     requested_at: Optional[datetime] = Field(None, description="When access was requested")
 
 
+class DefaultProjectSetting(BaseModel):
+    """The user's default (auto-selected) project."""
+
+    project_id: UUID4 = Field(..., description="Project ID")
+    name: str = Field(..., description="Project name (denormalized for display)")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_id_key(cls, data: Any) -> Any:
+        """Accept stored dicts that use the legacy ``id`` key instead of ``project_id``."""
+        if isinstance(data, dict) and "id" in data and "project_id" not in data:
+            data = {**data, "project_id": data["id"]}
+        return data
+
+
 class UserSettings(BaseModel):
     """Complete user settings schema"""
 
@@ -122,6 +137,9 @@ class UserSettings(BaseModel):
     onboarding: Optional[OnboardingProgress] = Field(default_factory=OnboardingProgress)
     polyphemus_access: Optional[PolyphemusAccess] = Field(
         None, description="Polyphemus access information"
+    )
+    default_project: Optional[DefaultProjectSetting] = Field(
+        None, description="The user's default project, auto-selected on login"
     )
     is_verified: Optional[bool] = Field(None, description="User verification status")
 
@@ -138,6 +156,7 @@ class UserSettingsUpdate(BaseModel):
     privacy: Optional[PrivacySettings] = None
     onboarding: Optional[OnboardingProgress] = None
     polyphemus_access: Optional[PolyphemusAccess] = None
+    default_project: Optional[DefaultProjectSetting] = None
 
 
 # User schemas

@@ -14,3 +14,21 @@ variable "gke_deletion_protection" {
   default     = false
 }
 
+variable "file_storage_bucket_name" {
+  description = "GCS bucket name for Rhesis backend file storage"
+  type        = string
+  default     = "sources-files-rhesis-dev"
+}
+
+variable "force_destroy" {
+  description = "Allow bucket destruction even when non-empty (set false for production data)"
+  type        = bool
+  default     = false
+}
+
+variable "state_bucket" {
+  description = "GCS bucket holding all env Terraform states (used to read wireguard remote state)"
+  type        = string
+  default     = "rhesis-platform-admin-tfstate"
+}
+

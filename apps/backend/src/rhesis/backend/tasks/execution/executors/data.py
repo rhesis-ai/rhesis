@@ -115,12 +115,20 @@ def get_test_metrics(
     metrics = []
 
     # CRITICAL: Set RLS session variables before accessing relationships
-    # Without this, the behavior.metrics query will fail or return empty due to RLS policies
-    from rhesis.backend.app.database import set_session_variables
+    # Without this, the behavior.metrics query will fail or return empty due to RLS policies.
+    # Carry the project (from the test, falling back to the test configuration) so the
+    # project-scoped metric queries stay visible under fail-closed RLS.
+    from rhesis.backend.app.database import bind_scope_to_session
 
-    if organization_id or user_id:
+    project_id = ""
+    if getattr(test, "project_id", None):
+        project_id = str(test.project_id)
+    elif test_configuration is not None and getattr(test_configuration, "project_id", None):
+        project_id = str(test_configuration.project_id)
+
+    if organization_id or user_id or project_id:
         try:
-            set_session_variables(db, organization_id or "", user_id or "")
+            bind_scope_to_session(db, organization_id or "", user_id or "", project_id)
         except Exception as e:
             logger.error(f"Failed to set RLS session variables: {e}")
 

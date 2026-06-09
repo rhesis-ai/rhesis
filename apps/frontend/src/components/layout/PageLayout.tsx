@@ -16,7 +16,7 @@ export interface BreadcrumbItem {
 }
 
 export interface PageLayoutProps {
-  title?: string;
+  title?: string | React.ReactNode;
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
   /** Actions rendered top-right (e.g. FAB cluster) */
@@ -24,6 +24,9 @@ export interface PageLayoutProps {
   /** Optional metadata strip rendered below the description (e.g. "created by / created on") */
   metadata?: React.ReactNode;
   children: React.ReactNode;
+  /** When true the layout grows to fill the available flex height so child screens
+   *  can pin a bottom ActionBar to the viewport edge without magic numbers. */
+  fullHeight?: boolean;
 }
 
 function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
@@ -107,13 +110,24 @@ export function PageLayout({
   actions,
   metadata,
   children,
+  fullHeight = false,
 }: PageLayoutProps) {
   const crumbItems = breadcrumbs?.filter(b => b.label?.trim()) ?? [];
   const hasBreadcrumbs = crumbItems.length > 0;
   const hasHeader = hasBreadcrumbs || title || description || actions;
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box
+      sx={{
+        width: '100%',
+        ...(fullHeight && {
+          display: 'flex',
+          flexDirection: 'column',
+          flexGrow: 1,
+          minHeight: 0,
+        }),
+      }}
+    >
       {hasHeader && (
         <Box
           sx={{
@@ -145,19 +159,22 @@ export function PageLayout({
                     minHeight: 56,
                   }}
                 >
-                  {title && (
-                    <Typography
-                      variant="h4"
-                      component="h1"
-                      sx={{
-                        flex: '1 1 0',
-                        minWidth: 0,
-                        color: theme => theme.palette.greyscale.title,
-                      }}
-                    >
-                      {title}
-                    </Typography>
-                  )}
+                  {title &&
+                    (typeof title === 'string' ? (
+                      <Typography
+                        variant="h4"
+                        component="h1"
+                        sx={{
+                          flex: '1 1 0',
+                          minWidth: 0,
+                          color: theme => theme.palette.greyscale.title,
+                        }}
+                      >
+                        {title}
+                      </Typography>
+                    ) : (
+                      <Box sx={{ flex: '1 1 0', minWidth: 0 }}>{title}</Box>
+                    ))}
                   {actions && (
                     <Box
                       sx={{
@@ -198,7 +215,20 @@ export function PageLayout({
         </Box>
       )}
 
-      {children}
+      {fullHeight ? (
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {children}
+        </Box>
+      ) : (
+        children
+      )}
     </Box>
   );
 }

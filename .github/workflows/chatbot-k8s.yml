@@ -1,0 +1,80 @@
+name: "[Build & Deploy] Chatbot (K8s)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to build and push to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        default: ''
+        type: string
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to build and push to'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        type: string
+        default: ''
+      deploy:
+        description: 'Patch values file to trigger ArgoCD deploy after build'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ inputs.environment || github.event.inputs.environment }}
+
+  gate:
+    needs: validate-inputs
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve build and push
+        run: echo "Build and push approved for ${{ github.event.inputs.environment }}"
+
+  build:
+    needs: [validate-inputs, gate]
+    if: |
+      always() &&
+      needs.validate-inputs.result == 'success' &&
+      (needs.gate.result == 'success' || needs.gate.result == 'skipped')
+    uses: ./.github/workflows/k8s-build-push.yml
+    with:
+      image: rhesis-chatbot
+      dockerfile: apps/chatbot/Dockerfile
+      context: .
+      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      tag: ${{ inputs.tag || github.event.inputs.tag }}
+    secrets: inherit
+
+  deploy:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || inputs.deploy
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      tag: ${{ needs.build.outputs.tag }}
+      service: chatbot
+    secrets: inherit

@@ -68,7 +68,7 @@ function LinkedTestsUnifiedToolbar() {
       searchWidth={288}
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
-      sx={{ mb: 3, px: 0, py: 0, borderBottom: 'none', minHeight: 'auto' }}
+      sx={{ px: '30px', pt: 0, pb: '30px', minHeight: 'auto' }}
       rightContent={
         <>
           <GridToolbarColumnsButton />

@@ -192,6 +192,17 @@ const nextConfig = {
         maxAge: 1000 * 60 * 5, // 5 minutes instead of default
       };
 
+      // The filesystem cache emits "PackFileCacheStrategy: Serializing big
+      // strings" notices at webpack's infrastructure log level. They are a
+      // harmless dev-only performance hint (not an error), so raise the
+      // infrastructure log level to silence the noise while still surfacing
+      // real errors. ignoreWarnings does not apply here — these are
+      // infrastructure logs, not compilation warnings.
+      config.infrastructureLogging = {
+        ...config.infrastructureLogging,
+        level: 'error',
+      };
+
       // Reduce worker threads to prevent memory issues
       config.parallelism = 2;
     } else {

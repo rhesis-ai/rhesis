@@ -1,43 +1,19 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { SectionCard } from '@/components/common/SectionCard';
+import { useDetailTabNav } from '@/hooks/useDetailTabNav';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { getOrgSettingsSections } from '@/lib/extension-registries';
 import OrganizationDetailsForm from './OrganizationDetailsForm';
 import ContactInformationForm from './ContactInformationForm';
 import DangerZone from './DangerZone';
 
 const TAB_KEYS = ['information', 'sso-api', 'danger'] as const;
-type TabKey = (typeof TAB_KEYS)[number];
 
 const SSO_API_SECTION_IDS = new Set(['sso', 'api-clients']);
-
-function tabIndexFromKey(key: string | null): number {
-  const idx = TAB_KEYS.indexOf(key as TabKey);
-  return idx >= 0 ? idx : 0;
-}
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`org-settings-tabpanel-${index}`}
-      aria-labelledby={`org-settings-tab-${index}`}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
 
 interface OrganizationSettingsTabsProps {
   organization: Organization;
@@ -50,10 +26,7 @@ export default function OrganizationSettingsTabs({
   sessionToken,
   onUpdate,
 }: OrganizationSettingsTabsProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const activeTab = tabIndexFromKey(searchParams.get('tab'));
+  const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
   const extensionSections = useMemo(() => getOrgSettingsSections(), []);
   const ssoApiSections = useMemo(
@@ -62,22 +35,20 @@ export default function OrganizationSettingsTabs({
     [extensionSections]
   );
 
-  const handleTabChange = useCallback(
-    (_event: React.SyntheticEvent, newValue: number) => {
-      const key = TAB_KEYS[newValue];
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', key);
-      router.push(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  // MUI Tabs fires (_event, newValue) — adapt to hook signature
+  const handleMuiTabChange = (
+    _event: React.SyntheticEvent,
+    newValue: number
+  ) => {
+    handleTabChange(newValue);
+  };
 
   return (
     <Box>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={activeTab}
-          onChange={handleTabChange}
+          onChange={handleMuiTabChange}
           aria-label="organization settings tabs"
         >
           <Tab
@@ -98,7 +69,7 @@ export default function OrganizationSettingsTabs({
         </Tabs>
       </Box>
 
-      <TabPanel value={activeTab} index={0}>
+      <DetailTabPanel value={activeTab} index={0} prefix="org-settings">
         <OrganizationDetailsForm
           organization={organization}
           sessionToken={sessionToken}
@@ -109,9 +80,9 @@ export default function OrganizationSettingsTabs({
           sessionToken={sessionToken}
           onUpdate={onUpdate}
         />
-      </TabPanel>
+      </DetailTabPanel>
 
-      <TabPanel value={activeTab} index={1}>
+      <DetailTabPanel value={activeTab} index={1} prefix="org-settings">
         {ssoApiSections.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             SSO and API client settings are not available for this installation.
@@ -126,13 +97,13 @@ export default function OrganizationSettingsTabs({
             );
           })
         )}
-      </TabPanel>
+      </DetailTabPanel>
 
-      <TabPanel value={activeTab} index={2}>
+      <DetailTabPanel value={activeTab} index={2} prefix="org-settings">
         <SectionCard title="Danger Zone" variant="danger">
           <DangerZone organization={organization} sessionToken={sessionToken} />
         </SectionCard>
-      </TabPanel>
+      </DetailTabPanel>
     </Box>
   );
 }

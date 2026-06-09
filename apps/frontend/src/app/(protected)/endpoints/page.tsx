@@ -4,10 +4,9 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ApiIcon } from '@/components/icons';
 import EndpointsGrid from './components/EndpointsGrid';
@@ -78,7 +77,7 @@ export default function EndpointsPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="New Endpoint"
             onClick={() => setCreateDrawerOpen(true)}
             data-tour="create-endpoint-button"

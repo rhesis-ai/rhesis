@@ -33,6 +33,15 @@ export function hasActiveMetricDrawerFilters(f: MetricDrawerFilters): boolean {
   );
 }
 
+export function countActiveMetricDrawerFilters(f: MetricDrawerFilters): number {
+  return (
+    f.type.length +
+    f.scoreType.length +
+    f.metricScope.length +
+    (f.behavior !== '' ? 1 : 0)
+  );
+}
+
 const METRIC_TYPE_LABELS: Record<string, string> = {
   'custom-prompt': 'LLM Judge',
   'api-call': 'External API',

@@ -77,35 +77,36 @@ export default function TracesClientWrapper({
       }
     >
       <Box sx={{ mt: 2, mb: 2 }}>
-        <Paper
-          sx={{
-            width: '100%',
-            borderRadius: BORDER_RADIUS.md,
-            boxShadow: ELEVATION.xs,
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            overflow: 'hidden',
-          }}
-        >
-          <TracesClient
-            sessionToken={sessionToken}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            currentUserPicture={currentUserPicture}
-            initialTraceId={initialTraceId}
-            initialProjectId={initialProjectId}
-            refreshKey={refreshKey}
-            onRefresh={handleRefresh}
-            onUnfilteredEmpty={handleUnfilteredEmpty}
-          />
-        </Paper>
-        {showEmptyHint && (
-          <Box sx={{ mt: 3 }}>
-            <EntityEmptyState
-              icon={TimelineOutlinedIcon}
-              title="No traces yet"
-              description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
+        {!showEmptyHint && (
+          <Paper
+            sx={{
+              width: '100%',
+              borderRadius: BORDER_RADIUS.md,
+              boxShadow: ELEVATION.xs,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            <TracesClient
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+              initialTraceId={initialTraceId}
+              initialProjectId={initialProjectId}
+              refreshKey={refreshKey}
+              onRefresh={handleRefresh}
+              onUnfilteredEmpty={handleUnfilteredEmpty}
             />
-          </Box>
+          </Paper>
+        )}
+        {showEmptyHint && (
+          <EntityEmptyState
+            card
+            icon={TimelineOutlinedIcon}
+            title="No traces yet"
+            description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
+          />
         )}
       </Box>
     </PageLayout>

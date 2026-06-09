@@ -13,6 +13,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { Status } from '@/utils/api-client/interfaces/status';
+import { readActiveProjectId } from '@/utils/active-project';
 
 export interface EndpointFilters {
   connectionType: string;
@@ -30,6 +31,10 @@ export const EMPTY_ENDPOINT_FILTERS: EndpointFilters = {
 
 export function hasActiveEndpointFilters(f: EndpointFilters): boolean {
   return Object.values(f).some(v => v !== '');
+}
+
+export function countActiveEndpointFilters(f: EndpointFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
 }
 
 const CONNECTION_TYPE_OPTIONS = [
@@ -105,7 +110,21 @@ export default function EndpointFilterDrawer({
           const projectsArray = Array.isArray(projectsResponse)
             ? projectsResponse
             : projectsResponse?.data || [];
-          setProjects(projectsArray.filter((p: Project) => p?.id && p?.name));
+          const filtered = projectsArray.filter(
+            (p: Project) => p?.id && p?.name
+          );
+          setProjects(filtered);
+
+          // Pre-select active project when no project filter is already set
+          if (!draft.projectId) {
+            const activeId = readActiveProjectId();
+            if (
+              activeId &&
+              filtered.some((p: Project) => String(p.id) === activeId)
+            ) {
+              setDraft(prev => ({ ...prev, projectId: activeId }));
+            }
+          }
         }
 
         const uniqueStatuses = statusesResponse.filter(

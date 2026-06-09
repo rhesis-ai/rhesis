@@ -15,6 +15,7 @@ import {
   buildTraceQueryParams,
   EMPTY_TRACE_DRAWER_FILTERS,
   hasActiveTraceDrawerFilters,
+  sanitizeTraceDrawerFiltersForTestRunScope,
   type TraceDrawerFilters,
 } from './trace-filter-params';
 
@@ -31,6 +32,7 @@ interface TracesClientProps {
   currentUserPicture?: string;
   initialTraceId?: string | null;
   initialProjectId?: string | null;
+  fixedTestRunId?: string;
   refreshKey?: number;
   onRefresh?: () => void;
   onUnfilteredEmpty?: (empty: boolean) => void;
@@ -43,6 +45,7 @@ export default function TracesClient({
   currentUserPicture,
   initialTraceId = null,
   initialProjectId = null,
+  fixedTestRunId,
   refreshKey: externalRefreshKey = 0,
   onRefresh,
   onUnfilteredEmpty,
@@ -67,11 +70,16 @@ export default function TracesClient({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [drawerFilters, setDrawerFilters] = useState<TraceDrawerFilters>(
-    () => ({
-      ...EMPTY_TRACE_DRAWER_FILTERS,
-      ...(initialProjectId ? { projectId: initialProjectId } : {}),
-    })
+  const [drawerFilters, setDrawerFilters] = useState<TraceDrawerFilters>(() =>
+    fixedTestRunId
+      ? sanitizeTraceDrawerFiltersForTestRunScope(
+          EMPTY_TRACE_DRAWER_FILTERS,
+          fixedTestRunId
+        )
+      : {
+          ...EMPTY_TRACE_DRAWER_FILTERS,
+          ...(initialProjectId ? { projectId: initialProjectId } : {}),
+        }
   );
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [limit, setLimit] = useState(50);
@@ -142,7 +150,10 @@ export default function TracesClient({
     const unfiltered =
       typeFilter === 'all' &&
       !searchQuery.trim() &&
-      !hasActiveTraceDrawerFilters(drawerFilters);
+      !hasActiveTraceDrawerFilters(drawerFilters, {
+        testRunScope: Boolean(fixedTestRunId),
+        excludeTestRunId: Boolean(fixedTestRunId),
+      });
     onUnfilteredEmpty?.(!loading && totalCount === 0 && unfiltered);
   }, [
     loading,
@@ -150,6 +161,7 @@ export default function TracesClient({
     typeFilter,
     searchQuery,
     drawerFilters,
+    fixedTestRunId,
     onUnfilteredEmpty,
   ]);
 
@@ -181,6 +193,19 @@ export default function TracesClient({
     setOffset(0);
   };
 
+  const handleApplyDrawerFilters = useCallback(
+    (filters: TraceDrawerFilters) => {
+      if (fixedTestRunId) {
+        setDrawerFilters(
+          sanitizeTraceDrawerFiltersForTestRunScope(filters, fixedTestRunId)
+        );
+        return;
+      }
+      setDrawerFilters(filters);
+    },
+    [fixedTestRunId]
+  );
+
   const handleRefresh = () => {
     onRefresh?.();
   };
@@ -209,11 +234,12 @@ export default function TracesClient({
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
         drawerFilters={drawerFilters}
-        onApplyDrawerFilters={setDrawerFilters}
+        onApplyDrawerFilters={handleApplyDrawerFilters}
         filterDrawerOpen={filterDrawerOpen}
         onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
         onFilterDrawerClose={() => setFilterDrawerOpen(false)}
         sessionToken={sessionToken}
+        fixedTestRunId={fixedTestRunId}
       />
 
       {showFilteredEmpty && (

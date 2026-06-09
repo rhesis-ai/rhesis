@@ -41,8 +41,6 @@ DATABASE_ENV_VARS = (
 FRONTEND_ENV_VARS = ("FRONTEND_URL",)
 APPLICATION_ENV_VARS = (
     "QUICK_START",
-    "ENVIRONMENT",
-    "ENV",
     "BACKEND_ENV",
     "GCP_PROJECT",
     "GOOGLE_CLOUD_PROJECT",
@@ -266,12 +264,11 @@ def test_database_settings_unix_socket_url(clean_database_env, monkeypatch):
 
     settings = DatabaseSettings(_env_file=None)
 
-    assert (
-        settings.app_url
-        == (
-            "postgresql://app-user:app-pass@/mydb?host=/cloudsql/project:region:instance"  # trufflehog:ignore
-        )
+    expected = (
+        "postgresql://app-user:app-pass@/mydb"
+        "?host=/cloudsql/project:region:instance"  # trufflehog:ignore
     )
+    assert settings.app_url == expected
 
 
 @pytest.mark.unit
@@ -628,7 +625,6 @@ def test_application_settings_defaults(clean_application_env):
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is False
-    assert settings.environment == ""
     assert settings.backend_env == "development"
     assert settings.gcp_project is None
     assert settings.google_cloud_project is None
@@ -645,7 +641,6 @@ def test_application_settings_loads_existing_environment_variables(
     clean_application_env, monkeypatch
 ):
     monkeypatch.setenv("QUICK_START", "true")
-    monkeypatch.setenv("ENVIRONMENT", "Staging")
     monkeypatch.setenv("BACKEND_ENV", "Production")
     monkeypatch.setenv("GCP_PROJECT", "rhesis-prod")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "rhesis-prod-2")
@@ -655,7 +650,6 @@ def test_application_settings_loads_existing_environment_variables(
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is True
-    assert settings.environment == "staging"
     assert settings.backend_env == "production"
     assert settings.gcp_project == "rhesis-prod"
     assert settings.google_cloud_project == "rhesis-prod-2"
@@ -664,39 +658,23 @@ def test_application_settings_loads_existing_environment_variables(
 
 
 @pytest.mark.unit
-def test_application_settings_environment_alias_choice_env(clean_application_env, monkeypatch):
-    """ENVIRONMENT and ENV are equivalent aliases for the same field."""
-    monkeypatch.setenv("ENV", "production")
-
-    settings = ApplicationSettings(_env_file=None)
-
-    assert settings.environment == "production"
-    assert settings.is_production is True
-
-
-@pytest.mark.unit
 @pytest.mark.parametrize(
-    "backend_env,environment,expected_is_production",
+    "backend_env,expected_is_production",
     [
-        # Either signal being production wins.
-        ("production", "", True),
-        ("development", "production", True),
-        ("PRODUCTION", "", True),
-        # Neither signal being production -> not production.
-        ("development", "", False),
-        ("local", "", False),
-        ("development", "staging", False),
-        ("", "", False),
+        ("production", True),
+        ("PRODUCTION", True),
+        ("development", False),
+        ("local", False),
+        ("staging", False),
+        ("", False),
     ],
 )
-def test_application_settings_is_production_or_logic(
-    clean_application_env, monkeypatch, backend_env, environment, expected_is_production
+def test_application_settings_is_production(
+    clean_application_env, monkeypatch, backend_env, expected_is_production
 ):
-    """is_production fires when EITHER backend_env or environment is production."""
+    """is_production is driven exclusively by BACKEND_ENV."""
     if backend_env:
         monkeypatch.setenv("BACKEND_ENV", backend_env)
-    if environment:
-        monkeypatch.setenv("ENVIRONMENT", environment)
 
     settings = ApplicationSettings(_env_file=None)
 
@@ -737,13 +715,14 @@ class TestLoopbackCorsRegex:
 
         assert get_frontend_settings().loopback_cors_regex is None
 
-    def test_returns_none_when_environment_is_production(self, clean_application_env, monkeypatch):
-        """ENVIRONMENT=production wins over BACKEND_ENV=development."""
+    def test_returns_regex_when_only_environment_is_production(
+        self, clean_application_env, monkeypatch
+    ):
+        """ENVIRONMENT=production alone no longer gates; only BACKEND_ENV drives is_production."""
         monkeypatch.setenv("BACKEND_ENV", "development")
-        monkeypatch.setenv("ENVIRONMENT", "production")
         get_application_settings.cache_clear()
 
-        assert get_frontend_settings().loopback_cors_regex is None
+        assert get_frontend_settings().loopback_cors_regex is not None
 
     def test_returns_regex_in_development(self, clean_application_env, monkeypatch):
         monkeypatch.setenv("BACKEND_ENV", "development")
