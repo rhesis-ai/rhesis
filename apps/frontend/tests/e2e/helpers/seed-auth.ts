@@ -112,7 +112,10 @@ export async function seedAuthWithoutBackend(browser: Browser) {
     JSON.stringify(storageState, null, 2)
   );
 
-  const context = await browser.newContext({ storageState: AUTH_STORAGE_PATH });
+  const context = await browser.newContext({
+    baseURL: origin,
+    storageState: AUTH_STORAGE_PATH,
+  });
   const page = await context.newPage();
 
   await page.route('**/api/v1/projects**', route =>
@@ -127,8 +130,8 @@ export async function seedAuthWithoutBackend(browser: Browser) {
     })
   );
 
-  await page.goto('/insights');
-  await page.waitForURL('**/insights', { timeout: 30_000 });
+  await page.goto(`${origin}/insights`);
+  await page.waitForURL(`${origin}/insights`, { timeout: 30_000 });
 
   await context.storageState({ path: AUTH_STORAGE_PATH });
   await context.close();

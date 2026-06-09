@@ -7,6 +7,14 @@ import {
 } from './constants/paths';
 import { getServerBackendUrl } from './utils/url-resolver';
 
+/** Decode a JWT payload segment without Node `Buffer` (middleware runs on Edge). */
+function decodeBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padLen = (4 - (base64.length % 4)) % 4;
+  const padded = padLen ? `${base64}${'='.repeat(padLen)}` : base64;
+  return atob(padded);
+}
+
 /** Local JWT check for Playwright runs without a backend (E2E_NO_DOCKER=1). */
 function verifySessionLocally(sessionToken: string): boolean {
   try {
@@ -15,9 +23,10 @@ function verifySessionLocally(sessionToken: string): boolean {
     }
 
     const [, payloadB64] = sessionToken.split('.');
-    const payload = JSON.parse(
-      Buffer.from(payloadB64, 'base64url').toString('utf-8')
-    ) as { exp?: number; user?: { organization_id?: string | null } };
+    const payload = JSON.parse(decodeBase64Url(payloadB64)) as {
+      exp?: number;
+      user?: { organization_id?: string | null };
+    };
 
     const exp = payload.exp;
     if (!exp || Math.floor(Date.now() / 1000) >= exp) {

@@ -39,7 +39,8 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> $GITHUB_OUTPUT
+        run: |
+          echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
         working-directory: apps/frontend
 
       - name: Cache Playwright browsers

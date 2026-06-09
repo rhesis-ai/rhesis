@@ -153,7 +153,6 @@ export class MockApiHelper {
 
 /** Assert a MUI DataGrid (or ARIA grid) is visible. */
 export async function expectDataGridVisible(page: Page) {
-  const { expect } = await import('@playwright/test');
   const grid = page.locator('.MuiDataGrid-root, [role="grid"]').first();
   await expect(grid).toBeVisible({ timeout: 15_000 });
 }

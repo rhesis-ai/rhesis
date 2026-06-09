@@ -24,7 +24,7 @@ From `apps/frontend`:
 
 ## End-to-end (Playwright)
 
-Changes under `apps/frontend/**` trigger **[Test] Frontend E2E** in CI. CI uses Docker for the Quick Start backend (`make test-e2e`).
+Changes under `apps/frontend/**` trigger **[Test] Frontend E2E** in CI. CI uses Docker for the Quick Start backend (`make test-e2e-ci`, Chromium only).
 
 **Locally without Docker** (frontend + mocked API only):
 
@@ -39,9 +39,10 @@ This starts a dedicated dev server on port **3100** (so it does not clash with `
 **CI / full backend** (requires Docker):
 
 ```bash
-make test-e2e        # @sanity|@crud — same as CI
-make test-e2e-smoke # @sanity only
-make docker-down   # tear down stack
+make test-e2e        # @sanity|@crud on Chromium + Firefox (local)
+make test-e2e-ci     # @sanity|@crud on Chromium only — same as CI
+make test-e2e-smoke  # @sanity only
+make docker-down     # tear down stack
 ```
 
 Debug: `npm run test:e2e:ui` or `npm run test:e2e:headed`. Config: `playwright.config.ts`; specs: `tests/e2e/`.
