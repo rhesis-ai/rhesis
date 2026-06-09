@@ -30,15 +30,15 @@ jobs:
       - name: Save backend image
         run: |
           docker images rhesis-frontend-e2e-backend:ci
-          docker save rhesis-frontend-e2e-backend:ci | gzip > ../../frontend-e2e-backend-image.tar.gz
-          ls -lh ../../frontend-e2e-backend-image.tar.gz
+          docker save rhesis-frontend-e2e-backend:ci | gzip > frontend-e2e-backend-image.tar.gz
+          ls -lh frontend-e2e-backend-image.tar.gz
         working-directory: apps/frontend
 
       - name: Upload backend image
         uses: actions/upload-artifact@v7
         with:
           name: frontend-e2e-backend-image
-          path: frontend-e2e-backend-image.tar.gz
+          path: apps/frontend/frontend-e2e-backend-image.tar.gz
           retention-days: 1
           if-no-files-found: error
 
@@ -87,10 +87,11 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: frontend-e2e-backend-image
+          path: apps/frontend
 
       - name: Load backend image
         run: |
-          gunzip -c ../../frontend-e2e-backend-image.tar.gz | docker load
+          gunzip -c frontend-e2e-backend-image.tar.gz | docker load
           docker images rhesis-frontend-e2e-backend:ci
         working-directory: apps/frontend
 

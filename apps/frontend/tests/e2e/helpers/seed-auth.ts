@@ -118,15 +118,30 @@ export async function seedAuthWithoutBackend(browser: Browser) {
   });
   const page = await context.newPage();
 
-  await page.route('**/api/v1/projects**', route =>
+  // Layout prerequisites — must not mock all /projects** as [] or /projects/mine
+  // is caught and ActiveProjectContext clears rh_active_project_id.
+  await page.route('**/projects/mine**', route =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       headers: {
-        'x-total-count': '0',
+        'x-total-count': String(projectsFixture.length),
         'access-control-expose-headers': 'x-total-count',
       },
-      body: JSON.stringify([]),
+      body: JSON.stringify(projectsFixture),
+    })
+  );
+
+  await page.route('**/users/settings**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ui: { theme: 'light' },
+        models: {},
+        notifications: {},
+        default_project: { project_id: projectsFixture[0]?.id ?? null },
+      }),
     })
   );
 

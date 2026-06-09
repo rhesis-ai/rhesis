@@ -7,12 +7,27 @@ import {
 } from './constants/paths';
 import { getServerBackendUrl } from './utils/url-resolver';
 
+const decodeBase64 =
+  globalThis.atob ??
+  ((value: string) => Buffer.from(value, 'base64').toString('binary'));
+
 /** Decode a JWT payload segment without Node `Buffer` (middleware runs on Edge). */
 function decodeBase64Url(value: string): string {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padLen = (4 - (base64.length % 4)) % 4;
   const padded = padLen ? `${base64}${'='.repeat(padLen)}` : base64;
-  return atob(padded);
+  return decodeBase64(padded);
+}
+
+/** Unsigned JWT verification is allowed only for local Playwright (E2E_NO_DOCKER). */
+function isLocalE2EVerificationEnabled(): boolean {
+  return (
+    process.env.E2E_NO_DOCKER === '1' &&
+    process.env.NODE_ENV !== 'production' &&
+    (process.env.FRONTEND_ENV === 'development' ||
+      process.env.FRONTEND_ENV === 'test' ||
+      !process.env.FRONTEND_ENV)
+  );
 }
 
 /** Local JWT check for Playwright runs without a backend (E2E_NO_DOCKER=1). */
@@ -41,7 +56,7 @@ function verifySessionLocally(sessionToken: string): boolean {
 
 // Helper function to verify token with backend
 async function verifySessionWithBackend(sessionToken: string) {
-  if (process.env.E2E_NO_DOCKER === '1') {
+  if (isLocalE2EVerificationEnabled()) {
     return verifySessionLocally(sessionToken);
   }
 
