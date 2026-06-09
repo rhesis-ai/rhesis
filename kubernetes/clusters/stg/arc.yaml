@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: feat/self-hosted-runner-workload
+    targetRevision: main
     path: kubernetes/clusters/stg/arc
   destination:
     server: https://kubernetes.default.svc

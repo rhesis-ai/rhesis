@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: oci://ghcr.io/actions/actions-runner-controller-charts
+    repoURL: ghcr.io/actions/actions-runner-controller-charts
     chart: gha-runner-scale-set
     targetRevision: 0.9.3
     helm:
@@ -35,3 +35,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=false
+      - SkipDryRunOnMissingResource=true
