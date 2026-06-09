@@ -1,9 +1,3 @@
-import React, { ReactElement } from 'react';
-import {
-  render as rtlRender,
-  RenderOptions,
-} from '@testing-library/react-original';
-
 const mockSession = {
   user: {
     id: 'user-1',
@@ -23,12 +17,6 @@ jest.mock('next-auth/react', () => ({
   signIn: jest.fn(),
   signOut: jest.fn(),
 }));
-
-// Re-export themed render (global ThemeProvider is applied via jest mapper).
-const customRender = (
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) => rtlRender(ui, { ...options });
 
 // Test data factories
 export const createMockModel = (overrides = {}) => ({
@@ -172,6 +160,5 @@ export const createMockTask = (overrides = {}) => ({
   ...overrides,
 });
 
-// Re-export everything from React Testing Library
+// Themed RTL (ThemeProvider via jest moduleNameMapper in testing-library-react.tsx).
 export * from '@testing-library/react';
-export { customRender as render };
