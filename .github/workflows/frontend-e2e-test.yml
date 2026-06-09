@@ -23,17 +23,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Build backend test image
         run: docker compose -f ../../tests/docker-compose.frontend.yml build frontend-test-backend
         working-directory: apps/frontend
 
       - name: Save backend image
         run: |
-          IMAGE=$(docker compose -f ../../tests/docker-compose.frontend.yml images -q frontend-test-backend)
+          IMAGE=$(docker compose -f ../../tests/docker-compose.frontend.yml images -q frontend-test-backend | head -1)
+          if [ -z "$IMAGE" ]; then
+            echo "::error::Could not resolve frontend-test-backend image ID after build"
+            docker compose -f ../../tests/docker-compose.frontend.yml images
+            exit 1
+          fi
+          echo "Saving image $IMAGE"
           docker save "$IMAGE" | gzip > ../../frontend-e2e-backend-image.tar.gz
+          ls -lh ../../frontend-e2e-backend-image.tar.gz
         working-directory: apps/frontend
 
       - name: Upload backend image
@@ -42,6 +46,7 @@ jobs:
           name: frontend-e2e-backend-image
           path: frontend-e2e-backend-image.tar.gz
           retention-days: 1
+          if-no-files-found: error
 
   e2e:
     needs: prepare-docker
@@ -90,7 +95,10 @@ jobs:
           name: frontend-e2e-backend-image
 
       - name: Load backend image
-        run: gunzip -c frontend-e2e-backend-image.tar.gz | docker load
+        run: |
+          gunzip -c frontend-e2e-backend-image.tar.gz | docker load
+          docker compose -f ../../tests/docker-compose.frontend.yml images frontend-test-backend
+        working-directory: apps/frontend
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/3)
         run: make test-e2e-ci-no-build
