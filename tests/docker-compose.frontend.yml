@@ -28,7 +28,6 @@ x-frontend-backend-config: &frontend-backend-config
   LOG_LEVEL: INFO
   ENVIRONMENT: test
   BACKEND_ENV: local
-  FRONTEND_URL: "http://localhost:3000"
   QUICK_START: true
   RHESIS_CONNECTOR_DISABLED: true
 
