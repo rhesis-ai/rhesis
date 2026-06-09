@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   clearActiveProjectId,
@@ -45,6 +46,7 @@ export function ActiveProjectProvider({
   initialActiveProject?: Project | null;
 }) {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
@@ -53,6 +55,10 @@ export function ActiveProjectProvider({
 
   const fetchProjects = useCallback(async () => {
     if (!session?.session_token) return;
+    if (pathname.startsWith('/onboarding')) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const factory = new ApiClientFactory(session.session_token);
@@ -103,7 +109,7 @@ export function ActiveProjectProvider({
     } finally {
       setLoading(false);
     }
-  }, [session?.session_token]);
+  }, [session?.session_token, pathname]);
 
   useEffect(() => {
     fetchProjects();
