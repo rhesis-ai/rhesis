@@ -1,15 +1,9 @@
 import React, { ReactElement } from 'react';
-import { render, RenderOptions } from '@testing-library/react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import {
+  render as rtlRender,
+  RenderOptions,
+} from '@testing-library/react-original';
 
-// Create a theme for tests
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-  },
-});
-
-// Mock Next.js session
 const mockSession = {
   user: {
     id: 'user-1',
@@ -30,20 +24,11 @@ jest.mock('next-auth/react', () => ({
   signOut: jest.fn(),
 }));
 
-// Providers wrapper for testing
-interface AllTheProvidersProps {
-  children: React.ReactNode;
-}
-
-const AllTheProviders = ({ children }: AllTheProvidersProps) => {
-  return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
-};
-
-// Custom render function
+// Re-export themed render (global ThemeProvider is applied via jest mapper).
 const customRender = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>
-) => render(ui, { wrapper: AllTheProviders, ...options });
+) => rtlRender(ui, { ...options });
 
 // Test data factories
 export const createMockModel = (overrides = {}) => ({

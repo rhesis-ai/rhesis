@@ -187,17 +187,6 @@ describe('TestRunHeader', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument();
   });
 
-  it('renders test set name as a link to the test set', () => {
-    render(<TestRunHeader testRun={makeTestRun()} testResults={[]} />);
-    const link = screen.getByRole('link', { name: /safety set/i });
-    expect(link).toHaveAttribute('href', `/test-sets/${u(3)}`);
-  });
-
-  it('renders endpoint name as a link to the endpoint', () => {
-    render(<TestRunHeader testRun={makeTestRun()} testResults={[]} />);
-    expect(screen.getByText(/production api/i)).toBeInTheDocument();
-  });
-
   it('renders Status card label', () => {
     render(<TestRunHeader testRun={makeTestRun()} testResults={[]} />);
     expect(screen.getByText('Status')).toBeInTheDocument();

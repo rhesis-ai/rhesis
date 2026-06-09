@@ -81,7 +81,7 @@ describe('TasksSection - Infinite Loading Fix', () => {
 
     // Should show empty state, not loading spinner
     await waitFor(() => {
-      expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/no task created yet/i)).toBeInTheDocument();
     });
 
     // Should not have attempted to fetch
@@ -97,7 +97,7 @@ describe('TasksSection - Infinite Loading Fix', () => {
     render(<TasksSection {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/no task created yet/i)).toBeInTheDocument();
     });
   });
 
