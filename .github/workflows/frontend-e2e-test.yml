@@ -90,7 +90,7 @@ jobs:
 
       - name: Load backend image
         run: |
-          gunzip -c frontend-e2e-backend-image.tar.gz | docker load
+          gunzip -c ../../frontend-e2e-backend-image.tar.gz | docker load
           docker images rhesis-frontend-e2e-backend:ci
         working-directory: apps/frontend
 
