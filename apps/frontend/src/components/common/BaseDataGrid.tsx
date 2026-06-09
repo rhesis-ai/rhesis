@@ -272,8 +272,8 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     overflow: 'hidden',
     borderColor: theme.palette.greyscale.border,
   },
-  // Clip cell content with ellipsis — prevents layout blowout from long strings
-  '& .MuiDataGrid-cell > *': {
+  // Clip typography in cells — avoids breaking chip/stack renderers (I1)
+  '& .MuiDataGrid-cell .MuiTypography-root': {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',

@@ -10,10 +10,20 @@ import JsonMonacoField from './JsonMonacoField';
 
 const DOCS_URL = 'https://docs.rhesis.ai/endpoints/request-response-mapping';
 
-function MappingHelp({ tooltip }: { tooltip: string }) {
+function MappingHelp({
+  tooltip,
+  ariaLabel,
+}: {
+  tooltip: string;
+  ariaLabel: string;
+}) {
   return (
     <Tooltip title={tooltip} placement="top">
-      <IconButton size="small" sx={{ ml: 0.5, color: 'text.secondary' }}>
+      <IconButton
+        size="small"
+        aria-label={ariaLabel}
+        sx={{ ml: 0.5, color: 'text.secondary' }}
+      >
         <InfoIcon fontSize="small" />
       </IconButton>
     </Tooltip>
@@ -133,6 +143,7 @@ export default function EndpointMappingsTab() {
                 Use <code>{'{{ field }}'}</code> placeholders.
               </Typography>
               <MappingHelp
+                ariaLabel="Request mapping help"
                 tooltip={`Maps prompt and context fields from Rhesis tests to your endpoint body. See ${DOCS_URL}`}
               />
             </Box>
@@ -165,6 +176,7 @@ export default function EndpointMappingsTab() {
                 include a <code>response</code> key.
               </Typography>
               <MappingHelp
+                ariaLabel="Response mapping help"
                 tooltip={`Maps fields from your endpoint's JSON response to Rhesis result fields. See ${DOCS_URL}`}
               />
             </Box>

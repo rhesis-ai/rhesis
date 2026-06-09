@@ -162,6 +162,7 @@ export default function EndpointCreateDrawer({
           <TextField
             fullWidth
             required
+            name="name"
             label="Name"
             value={form.name}
             onChange={e => set('name', e.target.value)}
@@ -256,6 +257,7 @@ export default function EndpointCreateDrawer({
               <TextField
                 fullWidth
                 required
+                name="url"
                 label="URL"
                 placeholder="api.example.com/v1/chat"
                 helperText={

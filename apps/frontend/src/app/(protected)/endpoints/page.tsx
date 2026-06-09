@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -17,9 +18,17 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setCreateDrawerOpen(true);
+    }
+  }, [searchParams]);
 
   useDocumentTitle('Endpoints');
 
@@ -48,6 +57,13 @@ export default function EndpointsPage() {
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
+
+  const handleCreateDrawerClose = React.useCallback(() => {
+    setCreateDrawerOpen(false);
+    if (searchParams.get('create') === '1') {
+      router.replace('/endpoints', { scroll: false });
+    }
+  }, [router, searchParams]);
 
   if (status === 'loading') {
     return (
@@ -115,7 +131,7 @@ export default function EndpointsPage() {
 
       <EndpointCreateDrawer
         open={createDrawerOpen}
-        onClose={() => setCreateDrawerOpen(false)}
+        onClose={handleCreateDrawerClose}
         onCreated={handleRefresh}
       />
     </PageLayout>
