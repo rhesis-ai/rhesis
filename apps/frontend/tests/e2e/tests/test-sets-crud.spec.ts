@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { TestSetsPage } from '../pages/TestSetsPage';
 import { MockApiHelper } from '../helpers/MockApiHelper';
+import { confirmDeleteDialog } from '../helpers/CrudHelper';
 
 import testSetsFixture from '../fixtures/test-sets.json';
 
@@ -68,7 +69,7 @@ test.describe('Test Sets — CRUD @crud', () => {
     await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
   });
 
-  test('can delete a test set via the grid selection', async ({ page }) => {
+  test('can delete a test set via row actions', async ({ page }) => {
     const UNIQUE_NAME = `e2e-ts-del-${Date.now()}`;
 
     const testSetsPage = new TestSetsPage(page);
@@ -109,20 +110,9 @@ test.describe('Test Sets — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
 
-    // --- Delete: select the row and use the toolbar delete button ---
-    await testSetsPage.selectRowByText(UNIQUE_NAME);
-
-    // The "Delete Test Sets" button should appear in the toolbar
-    await expect(
-      page.getByRole('button', { name: /delete test sets/i })
-    ).toBeVisible({ timeout: 5_000 });
-
-    await testSetsPage.clickDeleteSelected();
-
-    // Confirm in the delete modal/dialog
-    const deleteDialog = page.getByRole('dialog');
-    await expect(deleteDialog).toBeVisible({ timeout: 5_000 });
-    await deleteDialog.getByRole('button', { name: /delete/i }).click();
+    // --- Delete: hover row and click the delete icon ---
+    await testSetsPage.deleteRowByText(UNIQUE_NAME);
+    await confirmDeleteDialog(page);
 
     // The test set should no longer appear
     await page.waitForLoadState('networkidle');

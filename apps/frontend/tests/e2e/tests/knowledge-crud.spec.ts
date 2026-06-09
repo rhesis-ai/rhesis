@@ -28,7 +28,9 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.openUploadSourceDialog();
 
     // Dialog should be visible
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /upload source/i })
+    ).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -65,10 +67,8 @@ test.describe('Knowledge — CRUD @crud', () => {
     // Submit the upload
     await knowledgePage.submitUpload();
 
-    // Wait for the dialog to close
-    await page
-      .getByRole('dialog')
-      .waitFor({ state: 'hidden', timeout: 20_000 });
+    // Wait for the drawer to close
+    await knowledgePage.waitForUploadDrawerClosed();
 
     await page.waitForLoadState('networkidle');
 
@@ -102,9 +102,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
     await knowledgePage.setSourceTitle(UNIQUE_TITLE);
     await knowledgePage.submitUpload();
-    await page
-      .getByRole('dialog')
-      .waitFor({ state: 'hidden', timeout: 20_000 });
+    await knowledgePage.waitForUploadDrawerClosed();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_TITLE).first()).toBeVisible({
       timeout: 15_000,

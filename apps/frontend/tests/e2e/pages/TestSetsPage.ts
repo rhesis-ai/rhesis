@@ -41,21 +41,26 @@ export class TestSetsPage {
 
   /** Open the "New Test Set" drawer. */
   async openNewTestSetDrawer() {
-    await this.newTestSetButton.click();
-    // Wait for the drawer to slide in
-    await this.page
-      .getByRole('presentation')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    const fab = this.newTestSetButton;
+    const fabVisible = await fab
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (fabVisible) {
+      await fab.click();
+    } else {
+      await this.page.getByRole('button', { name: /create test set/i }).click();
+    }
+
+    await expect(
+      this.page.getByRole('heading', { name: /^new test set$/i })
+    ).toBeVisible({ timeout: 10_000 });
   }
 
-  /** Select a grid row that contains the given text. */
-  async selectRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text });
-    await row.locator('input[type="checkbox"]').click();
-  }
-
-  /** Click the "Delete Test Sets" toolbar button (only visible when rows are selected). */
-  async clickDeleteSelected() {
-    await this.page.getByRole('button', { name: /delete test sets/i }).click();
+  /** Delete a row via the hover-revealed row-actions delete icon. */
+  async deleteRowByText(text: string) {
+    const row = this.page.locator('[role="row"]', { hasText: text }).first();
+    await row.scrollIntoViewIfNeeded();
+    await row.hover();
+    await row.locator('.row-actions button').last().click();
   }
 }

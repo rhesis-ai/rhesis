@@ -84,9 +84,17 @@ export class TasksPage extends BasePage {
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
   async deleteRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text });
+    const row = this.page.locator('[role="row"]', { hasText: text }).first();
+    await row.scrollIntoViewIfNeeded();
     await row.hover();
     await row.locator('.row-actions button').last().click();
+  }
+
+  /** Wait until a created task title appears in the grid or page body. */
+  async expectTaskVisible(title: string) {
+    await expect(this.page.getByText(title).first()).toBeVisible({
+      timeout: 15_000,
+    });
   }
 
   /** Click a row to navigate to the task detail page. */

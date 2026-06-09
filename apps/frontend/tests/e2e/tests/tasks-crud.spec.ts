@@ -20,7 +20,9 @@ test.describe('Tasks — CRUD @crud', () => {
 
     await tasksPage.openCreateDrawer();
 
-    const titleInput = page.getByRole('textbox', { name: /title/i }).first();
+    const titleInput = page
+      .getByRole('textbox', { name: /task title/i })
+      .first();
     const hasTitle = await titleInput
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
@@ -45,6 +47,9 @@ test.describe('Tasks — CRUD @crud', () => {
     }
     await saveBtn.click();
 
+    await page
+      .getByRole('heading', { name: /^new task$/i })
+      .waitFor({ state: 'hidden', timeout: 15_000 });
     await page.waitForLoadState('networkidle');
     return true;
   }
@@ -74,7 +79,9 @@ test.describe('Tasks — CRUD @crud', () => {
     await expect(page).toHaveURL(/\/tasks/);
     await expect(page).not.toHaveURL(/\/tasks\/create$/);
 
-    const titleInput = page.getByRole('textbox', { name: /title/i }).first();
+    const titleInput = page
+      .getByRole('textbox', { name: /task title/i })
+      .first();
     const hasTitle = await titleInput
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
@@ -160,11 +167,11 @@ test.describe('Tasks — CRUD @crud', () => {
 
     await tasksPage.goto();
     await tasksPage.expectLoaded();
+    await page.reload();
+    await tasksPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(UNIQUE_TITLE).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await tasksPage.expectTaskVisible(UNIQUE_TITLE);
 
     await tasksPage.deleteRowByText(UNIQUE_TITLE);
     await confirmDeleteDialog(page);

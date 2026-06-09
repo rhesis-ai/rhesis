@@ -42,7 +42,7 @@ export class BehaviorsPage extends BasePage {
   /** Assert that behavior cards or an empty state message is visible. */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
-    const cards = this.page.locator('.MuiCard-root');
+    const cards = this.behaviorCards();
     const emptyNoFilter = this.page.getByText(/no behaviors found/i);
     const emptyFiltered = this.page.getByText(/no behaviors match/i);
     const emptyFirst = this.page.getByText(/no behavior yet/i);
@@ -61,6 +61,20 @@ export class BehaviorsPage extends BasePage {
         hasEmptyFirst ||
         hasMain
     ).toBeTruthy();
+  }
+
+  /** EntityCard renders as MuiButtonBase-root, not MuiCard-root. */
+  private behaviorCard(name: string) {
+    return this.page
+      .locator('.MuiButtonBase-root')
+      .filter({ has: this.page.getByText(name, { exact: true }) })
+      .first();
+  }
+
+  private behaviorCards() {
+    return this.page.locator('.MuiButtonBase-root').filter({
+      has: this.page.locator('[data-testid="entity-card-description"]'),
+    });
   }
 
   // ── CRUD helpers ──────────────────────────────────────────────────────────
@@ -124,7 +138,7 @@ export class BehaviorsPage extends BasePage {
 
   /** Open a behavior card on the detail page. */
   async openBehaviorDetail(name: string) {
-    await this.page.locator('.MuiCard-root', { hasText: name }).click();
+    await this.behaviorCard(name).click();
     await this.page.waitForURL(/\/behaviors\//, { timeout: 15_000 });
     await this.page.waitForLoadState('networkidle');
   }
@@ -140,8 +154,8 @@ export class BehaviorsPage extends BasePage {
 
   /** Delete uses the icon-only control on the card header. */
   async clickDeleteOnCard(name: string) {
-    const card = this.page.locator('.MuiCard-root', { hasText: name });
-    await card.locator('button').first().click();
+    const card = this.behaviorCard(name);
+    await card.locator('button').click();
   }
 
   /** Assign metrics from the behavior detail Linked Metrics tab. */
@@ -153,16 +167,14 @@ export class BehaviorsPage extends BasePage {
 
   /** Returns true if a behavior card with the given name is visible. */
   async cardIsVisible(name: string): Promise<boolean> {
-    return this.page
-      .locator('.MuiCard-root', { hasText: name })
+    return this.behaviorCard(name)
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
   }
 
   /** Returns true if no behavior card with the given name is visible. */
   async cardIsGone(name: string): Promise<boolean> {
-    return this.page
-      .locator('.MuiCard-root', { hasText: name })
+    return this.behaviorCard(name)
       .isHidden({ timeout: 15_000 })
       .catch(() => false);
   }

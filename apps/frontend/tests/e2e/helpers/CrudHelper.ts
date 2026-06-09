@@ -21,10 +21,25 @@ export async function selectGridRowByText(page: Page, text: string) {
  * Grids use createRowActionsColumn — delete is the trailing icon button.
  */
 export async function deleteGridRowByText(page: Page, text: string) {
-  const row = page.locator('[role="row"]', { hasText: text });
+  const row = page.locator('[role="row"]', { hasText: text }).first();
+  await row.scrollIntoViewIfNeeded();
   await row.hover();
   await row.locator('.row-actions button').last().click();
 }
+
+/** Wait until a drawer heading is no longer visible (BaseDrawer uses role=presentation). */
+export async function waitForDrawerHeadingHidden(
+  page: Page,
+  heading: string | RegExp,
+  timeout = 15_000
+) {
+  await page
+    .getByRole('heading', { name: heading })
+    .waitFor({ state: 'hidden', timeout });
+}
+
+/** UUID that is valid but unlikely to exist in Quick Start seed data. */
+export const NON_EXISTENT_UUID = '00000000-0000-0000-0000-000000000099';
 
 /**
  * Confirm a MUI deletion dialog by clicking the primary destructive button.

@@ -69,6 +69,13 @@ export class KnowledgePage extends BasePage {
     await submitBtn.click();
   }
 
+  /** BaseDrawer stays mounted — wait for the heading to hide instead of dialog. */
+  async waitForUploadDrawerClosed() {
+    await this.page
+      .getByRole('heading', { name: /upload source/i })
+      .waitFor({ state: 'hidden', timeout: 20_000 });
+  }
+
   /** Select a grid row that contains the given text by clicking its checkbox. */
   async selectRowByText(text: string) {
     const row = this.page.locator('[role="row"]', { hasText: text });
@@ -77,7 +84,8 @@ export class KnowledgePage extends BasePage {
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
   async deleteRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text });
+    const row = this.page.locator('[role="row"]', { hasText: text }).first();
+    await row.scrollIntoViewIfNeeded();
     await row.hover();
     await row.locator('.row-actions button').last().click();
   }

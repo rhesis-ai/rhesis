@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { MockApiHelper } from '../helpers/MockApiHelper';
 import { TestRunDetailPage } from '../pages/TestRunDetailPage';
+import { NON_EXISTENT_UUID } from '../helpers/CrudHelper';
 
 import testRunDetailFixture from '../fixtures/test-run-detail.json';
 import testResultsFixture from '../fixtures/test-results.json';
@@ -65,7 +66,7 @@ test.describe('Test Run Detail @sanity', () => {
   });
 
   test('invalid test run ID is handled gracefully', async ({ page }) => {
-    const response = await page.goto('/test-runs/non-existent-id-12345');
+    const response = await page.goto(`/test-runs/${NON_EXISTENT_UUID}`);
     expect(response?.status()).toBeLessThan(500);
     await expect(page.locator('body')).not.toContainText('Application error');
   });

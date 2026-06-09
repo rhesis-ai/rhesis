@@ -141,36 +141,28 @@ test.describe('Behaviors — CRUD @crud', () => {
     await behaviorsPage.clickAddMetricOnCard(UNIQUE_NAME);
 
     // Assign Metric drawer opens from the Linked Metrics tab
-    const dialog = page.getByRole('dialog', { name: /assign metric/i });
-    const dialogVisible = await dialog
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(
-        true,
-        'Assign Metric drawer did not open — skipping metric assignment'
-      );
-      return;
-    }
+    await expect(
+      page.getByRole('heading', { name: /assign metric/i })
+    ).toBeVisible({ timeout: 10_000 });
 
-    // Pick the first available metric in the list
-    const firstMetricOption = dialog
-      .locator('[role="checkbox"], input[type="checkbox"]')
-      .first();
-    const hasMetric = await firstMetricOption
+    const drawer = page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
+
+    // Pick the first available metric row in the assign drawer grid
+    const metricRow = drawer.locator('[role="row"]').nth(1);
+    const hasMetric = await metricRow
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
     if (!hasMetric) {
       test.skip(
         true,
-        'No metrics available in dialog — skipping metric assignment'
+        'No metrics available in assign drawer — skipping metric assignment'
       );
       return;
     }
-    await firstMetricOption.click();
+    await metricRow.locator('input[type="checkbox"]').click();
 
     // Confirm assignment
-    const saveBtn = dialog.getByRole('button', { name: /^assign$/i }).first();
+    const saveBtn = drawer.getByRole('button', { name: /^assign$/i }).first();
     const hasSave = await saveBtn
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
