@@ -228,6 +228,19 @@ export function useArchitectChat(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  // When the WebSocket disconnects mid-response, reset isLoading so the
+  // chat input re-enables instead of staying frozen.
+  const prevIsConnectedRef = useRef(true);
+  useEffect(() => {
+    const wasConnected = prevIsConnectedRef.current;
+    prevIsConnectedRef.current = isConnected;
+    if (wasConnected && !isConnected && isLoading) {
+      setIsLoading(false);
+      setStreamingState(initialStreamingState);
+      pendingCorrelationRef.current = null;
+    }
+  }, [isConnected, isLoading]);
+
   // Permanently mark the bubble whose task just completed with
   // taskCompleted: true. Triggered on the falling edge of isAwaitingTask
   // using the message id captured when the spinner was first shown. The

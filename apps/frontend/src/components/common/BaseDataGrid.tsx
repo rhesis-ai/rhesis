@@ -254,15 +254,34 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   },
   '& .MuiDataGrid-columnHeaderTitle': {
     fontWeight: 700,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   '& .MuiDataGrid-columnHeader': {
     fontWeight: 'bold',
+  },
+  // Right-align header titles for numeric columns to match cell alignment
+  '& .MuiDataGrid-columnHeader--alignRight .MuiDataGrid-columnHeaderTitle': {
+    textAlign: 'right',
+    width: '100%',
   },
   '& .MuiDataGrid-cell': {
     display: 'flex',
     alignItems: 'center',
     overflow: 'hidden',
     borderColor: theme.palette.greyscale.border,
+  },
+  // Clip typography in cells — avoids breaking chip/stack renderers (I1)
+  '& .MuiDataGrid-cell .MuiTypography-root': {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%',
+  },
+  // Numeric cells right-align by default (MUI sets align="right" on type:"number")
+  '& .MuiDataGrid-cell--textRight': {
+    justifyContent: 'flex-end',
   },
   // Figma: 30px horizontal inset for first/last column, aligned with the
   // toolbar and pagination footer (both use px: '30px').

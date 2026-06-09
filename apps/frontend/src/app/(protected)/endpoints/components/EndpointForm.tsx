@@ -939,9 +939,6 @@ export default function EndpointForm() {
                     if (!formData.method) {
                       throw new Error('Method is required');
                     }
-                    if (!formData.auth_token) {
-                      throw new Error('Auth token is required for testing');
-                    }
 
                     // Parse test input
                     let inputData;
@@ -998,7 +995,7 @@ export default function EndpointForm() {
                       request_mapping: requestMapping,
                       response_mapping: responseMapping,
                       auth_type: 'bearer_token' as const,
-                      auth_token: formData.auth_token,
+                      auth_token: formData.auth_token ?? '',
                       input_data: inputData,
                       endpoint_path: formData.endpoint_path || undefined,
                       response_format: formData.response_format || 'json',
