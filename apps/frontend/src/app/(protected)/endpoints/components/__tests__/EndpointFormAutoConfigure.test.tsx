@@ -1,13 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-// Mock next/dynamic so that dynamic regions trigger a React re-render once the
-// loader promise resolves.  Using useState + useEffect means the component will
-// render null on the first pass, then re-render with the loaded component after
-// the (microtask-scheduled) promise settles — matching real React Suspense
-// semantics and avoiding permanently-null dynamic zones.
 jest.mock(
   'next/dynamic',
   () => (loader: () => Promise<{ default: React.ComponentType }>) => {
@@ -26,18 +21,12 @@ jest.mock(
   }
 );
 
-// Mock next/navigation
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-  }),
-  useParams: () => ({
-    identifier: undefined,
-  }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  // Supply a project identifier so project_id is pre-filled and step 0 is valid
+  useParams: () => ({ identifier: 'proj-1' }),
 }));
 
-// Mock next-auth
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
     data: { session_token: 'test-token' },
@@ -45,7 +34,6 @@ jest.mock('next-auth/react', () => ({
   }),
 }));
 
-// Mock Monaco Editor
 jest.mock('@monaco-editor/react', () => {
   const MockEditor = ({
     value,
@@ -63,21 +51,14 @@ jest.mock('@monaco-editor/react', () => {
   return { __esModule: true, default: MockEditor };
 });
 
-// Mock NotificationContext
 jest.mock('@/components/common/NotificationContext', () => ({
-  useNotifications: () => ({
-    show: jest.fn(),
-  }),
+  useNotifications: () => ({ show: jest.fn() }),
 }));
 
-// Mock OnboardingContext
 jest.mock('@/contexts/OnboardingContext', () => ({
-  useOnboarding: () => ({
-    markStepComplete: jest.fn(),
-  }),
+  useOnboarding: () => ({ markStepComplete: jest.fn() }),
 }));
 
-// Mock api-client
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getProjectsClient: () => ({
@@ -93,7 +74,6 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
-// Mock actions
 jest.mock('@/actions/endpoints', () => ({
   createEndpoint: jest.fn(),
 }));
@@ -102,7 +82,6 @@ jest.mock('@/actions/endpoints/auto-configure', () => ({
   autoConfigureEndpoint: jest.fn(),
 }));
 
-// Mock AutoConfigureModal to simplify form integration testing
 jest.mock('../AutoConfigureModal', () => {
   const MockModal = ({
     open,
@@ -135,67 +114,72 @@ jest.mock('../AutoConfigureModal', () => {
   return { __esModule: true, default: MockModal };
 });
 
-// Import after all mocks
 import EndpointForm from '../EndpointForm';
 
-describe('EndpointForm Auto-configure Integration', () => {
+// Navigate from step 0 to step 2 (body/mapping step).
+// Relies on useParams returning identifier:'proj-1' so project_id is pre-filled.
+async function navigateToBodyStep(user: ReturnType<typeof userEvent.setup>) {
+  await waitFor(() =>
+    expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
+  );
+
+  // Fill required fields in step 0
+  fireEvent.change(screen.getByRole('textbox', { name: /endpoint name/i }), {
+    target: { value: 'My API' },
+  });
+  fireEvent.change(screen.getByRole('textbox', { name: /endpoint url/i }), {
+    target: { value: 'https://api.example.com' },
+  });
+
+  // project_id is pre-filled via useParams identifier; click Next twice
+  await user.click(screen.getByRole('button', { name: /next →/i }));
+  await user.click(screen.getByRole('button', { name: /next →/i }));
+}
+
+describe('EndpointForm — Body step auto-configure', () => {
   jest.setTimeout(10000);
-  it('renders auto-configure button', async () => {
+
+  it('renders the auto-configure button on the body step', async () => {
+    const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
-
-    const button = screen.getByRole('button', { name: /auto-configure/i });
-    expect(button).toBeInTheDocument();
-  });
-
-  it('auto-configure button is disabled when basic info is incomplete', () => {
-    render(<EndpointForm />);
-
-    const button = screen.getByRole('button', { name: /auto-configure/i });
-    expect(button).toBeDisabled();
-  });
-
-  it('auto-configure button is enabled when basic info is complete', () => {
-    render(<EndpointForm />);
-
-    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
-      target: { value: 'My API' },
-    });
-    fireEvent.change(screen.getByRole('textbox', { name: /url/i }), {
-      target: { value: 'https://api.example.com' },
-    });
-    fireEvent.change(screen.getByLabelText(/api token/i), {
-      target: { value: 'test-token' },
-    });
+    await navigateToBodyStep(user);
 
     expect(
       screen.getByRole('button', { name: /auto-configure/i })
-    ).not.toBeDisabled();
+    ).toBeInTheDocument();
   });
 
   it('clicking auto-configure opens the modal', async () => {
     const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
-
-    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
-      target: { value: 'My API' },
-    });
-    fireEvent.change(screen.getByRole('textbox', { name: /url/i }), {
-      target: { value: 'https://api.example.com' },
-    });
-    fireEvent.change(screen.getByLabelText(/api token/i), {
-      target: { value: 'test-token' },
-    });
+    await navigateToBodyStep(user);
 
     await user.click(screen.getByRole('button', { name: /auto-configure/i }));
 
     expect(screen.getByTestId('auto-configure-modal')).toBeInTheDocument();
   });
 
-  it('auth token field is in Basic Information tab', () => {
+  it('auth token field is in the headers step (step 1)', async () => {
+    const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
 
-    // We're on the Basic Information tab (tab 0) by default
-    // Auth token should be visible
+    // On step 0 (basics) there is no auth token field
+    expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
+    );
+
+    // Fill basics and advance to step 1
+    fireEvent.change(screen.getByRole('textbox', { name: /endpoint name/i }), {
+      target: { value: 'My API' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: /endpoint url/i }), {
+      target: { value: 'https://api.example.com' },
+    });
+    await user.click(screen.getByRole('button', { name: /next →/i }));
+
+    // Auth token should now be visible in step 1 (headers)
     expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
   });
 });

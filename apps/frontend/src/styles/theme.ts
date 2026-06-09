@@ -475,6 +475,12 @@ const getDesignTokens = (mode: PaletteMode) => {
             fontSize: '0.75rem', // 12px
             lineHeight: 1.4,
             padding: '6px 10px',
+            backgroundColor: mode === 'light' ? '#FFFFFF' : '#1C2128',
+            color: mode === 'light' ? '#1C2128' : '#E6EDF3',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          },
+          arrow: {
+            color: mode === 'light' ? '#FFFFFF' : '#1C2128',
           },
         },
       },

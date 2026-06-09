@@ -1,68 +1,70 @@
 'use client';
 
-import { Grid, Typography } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
-import { PlayArrowIcon } from '@/components/icons';
+import { useState } from 'react';
 import SectionCard from '@/components/common/SectionCard';
 import { useEndpointDetailContext } from './EndpointDetailContext';
-import JsonMonacoField from './JsonMonacoField';
+import TestAndMap from '../../components/TestAndMap';
+import { bodyToRequestMapping } from '../../components/mappingUtils';
+import { invokeEndpoint } from '@/actions/endpoints';
 
 export default function EndpointTestTab() {
-  const {
-    editorTheme,
-    editorWrapperStyle,
-    testInput,
-    setTestInput,
-    testResponse,
-    isTestingEndpoint,
-    runTest,
-  } = useEndpointDetailContext();
+  const { endpoint, saveFields } = useEndpointDetailContext();
+
+  const [testResponse, setTestResponse] = useState('');
+  const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
+
+  const requestTemplate = JSON.stringify(
+    endpoint.request_mapping ?? {},
+    null,
+    2
+  );
+
+  const responseMapping = (endpoint.response_mapping ?? {}) as Record<
+    string,
+    string
+  >;
+
+  const handleRequestTemplateChange = (t: string) => {
+    saveFields({ request_mapping: bodyToRequestMapping(t) });
+  };
+
+  const handleResponseMappingChange = (m: Record<string, string>) => {
+    saveFields({ response_mapping: m });
+  };
+
+  const handleTest = async (inputData: Record<string, unknown>) => {
+    setIsTestingEndpoint(true);
+    setTestResponse('');
+    try {
+      const result = await invokeEndpoint(endpoint.id, inputData);
+      if (result.success) {
+        setTestResponse(JSON.stringify(result.data ?? {}, null, 2));
+      } else {
+        setTestResponse(
+          JSON.stringify({ error: result.error ?? 'Request failed' }, null, 2)
+        );
+      }
+    } catch (err) {
+      setTestResponse(
+        JSON.stringify({ error: (err as Error).message }, null, 2)
+      );
+    } finally {
+      setIsTestingEndpoint(false);
+    }
+  };
 
   return (
     <SectionCard title="Test connection">
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Enter sample JSON. It will be matched to your request template and
-        parsed using your response mappings.
-      </Typography>
-      <Grid container spacing={2}>
-        <Grid size={12}>
-          <JsonMonacoField
-            editorKey="test-input"
-            height="280px"
-            theme={editorTheme}
-            wrapperSx={editorWrapperStyle}
-            value={testInput}
-            onChange={setTestInput}
-          />
-        </Grid>
-        <Grid size={12}>
-          <LoadingButton
-            variant="contained"
-            color="primary"
-            onClick={runTest}
-            loading={isTestingEndpoint}
-            loadingPosition="start"
-            startIcon={<PlayArrowIcon />}
-          >
-            Test Endpoint
-          </LoadingButton>
-        </Grid>
-        {testResponse && (
-          <Grid size={12}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Response
-            </Typography>
-            <JsonMonacoField
-              editorKey="test-response"
-              height="280px"
-              theme={editorTheme}
-              wrapperSx={editorWrapperStyle}
-              value={testResponse}
-              readOnly
-            />
-          </Grid>
-        )}
-      </Grid>
+      <TestAndMap
+        key={endpoint.id}
+        requestTemplate={requestTemplate}
+        responseMapping={responseMapping}
+        onRequestTemplateChange={handleRequestTemplateChange}
+        onResponseMappingChange={handleResponseMappingChange}
+        onTest={handleTest}
+        testResponse={testResponse}
+        isTestingEndpoint={isTestingEndpoint}
+      />
     </SectionCard>
   );
 }

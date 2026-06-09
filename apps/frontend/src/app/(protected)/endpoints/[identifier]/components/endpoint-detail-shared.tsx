@@ -78,7 +78,3 @@ export function getEnvironmentChipColor():
   | 'warning' {
   return 'default';
 }
-
-export const DEFAULT_TEST_INPUT = `{
-  "input": "[place your input here]"
-}`;
