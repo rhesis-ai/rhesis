@@ -43,6 +43,10 @@ const nextConfig = {
   // Standalone mode for minimizing container size
   output: 'standalone',
 
+  // Isolated build dir for Playwright (E2E_NO_DOCKER) so a second dev server
+  // can run alongside the normal dev server on port 3000.
+  ...(process.env.E2E_NO_DOCKER === '1' ? { distDir: '.next-e2e' } : {}),
+
   // Compiler optimizations
   compiler: {
     // Remove console.log in production only

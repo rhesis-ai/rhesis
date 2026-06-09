@@ -24,6 +24,24 @@ From `apps/frontend`:
 
 ## End-to-end (Playwright)
 
-Changes under `apps/frontend/**` trigger **[Test] Frontend E2E** in CI. Locally: install deps and Playwright browsers (`npx playwright install`), ensure Docker is available, then from `apps/frontend` run **`make test-e2e`** (same `@sanity|@crud` run as CI) or **`make test-e2e-smoke`** (faster, `@sanity` only). **`make docker-down`** / **`make docker-clean`** tear the stack down.
+Changes under `apps/frontend/**` trigger **[Test] Frontend E2E** in CI. CI uses Docker for the Quick Start backend (`make test-e2e`).
 
-The `Makefile` wires Quick Start auth and `localhost:14003` for the Docker backend—test-only settings, not production secrets. Debug: **`npm run test:e2e:ui`** or **`npm run test:e2e:headed`**. Config: `playwright.config.ts`; specs: `tests/e2e/`.
+**Locally without Docker** (frontend + mocked API only):
+
+```bash
+cd apps/frontend
+npx playwright install chromium   # once
+make test-e2e-local               # @mocked tests on http://localhost:3100
+```
+
+This starts a dedicated dev server on port **3100** (so it does not clash with `npm run dev` on 3000), seeds auth without a backend (`E2E_NO_DOCKER=1`), and runs Playwright route mocks for API data.
+
+**CI / full backend** (requires Docker):
+
+```bash
+make test-e2e        # @sanity|@crud — same as CI
+make test-e2e-smoke # @sanity only
+make docker-down   # tear down stack
+```
+
+Debug: `npm run test:e2e:ui` or `npm run test:e2e:headed`. Config: `playwright.config.ts`; specs: `tests/e2e/`.

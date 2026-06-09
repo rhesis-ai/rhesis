@@ -7,8 +7,35 @@ import {
 } from './constants/paths';
 import { getServerBackendUrl } from './utils/url-resolver';
 
+/** Local JWT check for Playwright runs without a backend (E2E_NO_DOCKER=1). */
+function verifySessionLocally(sessionToken: string): boolean {
+  try {
+    if (!sessionToken.includes('.') || sessionToken.split('.').length !== 3) {
+      return false;
+    }
+
+    const [, payloadB64] = sessionToken.split('.');
+    const payload = JSON.parse(
+      Buffer.from(payloadB64, 'base64url').toString('utf-8')
+    ) as { exp?: number; user?: { organization_id?: string | null } };
+
+    const exp = payload.exp;
+    if (!exp || Math.floor(Date.now() / 1000) >= exp) {
+      return false;
+    }
+
+    return Boolean(payload.user?.organization_id);
+  } catch {
+    return false;
+  }
+}
+
 // Helper function to verify token with backend
 async function verifySessionWithBackend(sessionToken: string) {
+  if (process.env.E2E_NO_DOCKER === '1') {
+    return verifySessionLocally(sessionToken);
+  }
+
   try {
     const response = await fetch(`${getServerBackendUrl()}/auth/verify`, {
       method: 'POST',
@@ -32,7 +59,9 @@ async function verifySessionWithBackend(sessionToken: string) {
 
 // Helper function to get session token from request
 function getSessionTokenFromRequest(request: NextRequest): string | null {
-  const sessionCookie = request.cookies.get('next-auth.session-token');
+  const sessionCookie =
+    request.cookies.get('authjs.session-token') ??
+    request.cookies.get('next-auth.session-token');
   if (!sessionCookie?.value) return null;
 
   const cookieValue = sessionCookie.value;

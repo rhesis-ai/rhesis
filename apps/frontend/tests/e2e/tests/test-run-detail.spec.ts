@@ -27,6 +27,7 @@ test.describe('Test Run Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/test_runs',
       FIXTURE_ID,
@@ -44,6 +45,7 @@ test.describe('Test Run Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/test_runs',
       FIXTURE_ID,
@@ -52,7 +54,10 @@ test.describe('Test Run Detail @sanity', () => {
     await mock.mockList('/test_results', []);
 
     await page.goto(`/test-runs/${FIXTURE_ID}`);
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible' });
 
     const mainContent = page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible();
