@@ -175,4 +175,3 @@ export const createMockTask = (overrides = {}) => ({
 // Re-export everything from React Testing Library
 export * from '@testing-library/react';
 export { customRender as render };
-export type { AllTheProvidersProps };
