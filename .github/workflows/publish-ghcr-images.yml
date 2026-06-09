@@ -76,7 +76,7 @@ jobs:
           touch "${{ runner.temp }}/digests/worker/${worker_digest#sha256:}"
 
       - name: Upload backend digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-backend-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/backend/*
@@ -84,7 +84,7 @@ jobs:
           retention-days: 1
 
       - name: Upload worker digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-worker-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/worker/*
@@ -145,7 +145,7 @@ jobs:
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-frontend-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/*
@@ -170,7 +170,7 @@ jobs:
 
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-${{ matrix.image }}-*
