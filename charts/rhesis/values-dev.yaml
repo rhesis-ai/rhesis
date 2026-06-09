@@ -31,7 +31,7 @@ config:
   nextauthUrl: "https://dev-app.rhesis.ai"
   nextPublicAuth0ClientId: ""
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
-
+  nextPublicSupportEmail: "hello@rhesis.ai"
   # Backend
   rhesisBaseUrl: "https://dev-api.rhesis.ai"
   frontendUrl: "https://dev-app.rhesis.ai"
@@ -178,7 +178,7 @@ workers:
     image:
       repository: rhesis-worker
       tag: "de9832ee"
-    replicas: 2
+    replicas: 1
     resources:
       requests:
         # Live: ~900Mi+ per worker; 250m CPU request improves spread across nodes.
@@ -190,8 +190,8 @@ workers:
         cpu: "1000m"
     hpa:
       enabled: true
-      minReplicas: 2
-      maxReplicas: 3
+      minReplicas: 1
+      maxReplicas: 2
       targetCPUUtilizationPercentage: 60
       targetMemoryUtilizationPercentage: 75
     # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.
