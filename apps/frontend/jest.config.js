@@ -25,6 +25,9 @@ const customJestConfig = {
   // Use v8 coverage provider to avoid inflight/test-exclude compatibility issue
   coverageProvider: 'v8',
   moduleNameMapper: {
+    // Themed RTL render for all unit tests (see src/test/testing-library-react.tsx).
+    '^@testing-library/react-original$': '@testing-library/react',
+    '^@testing-library/react$': '<rootDir>/src/test/testing-library-react.tsx',
     // Path aliases must mirror tsconfig.json + next.config.mjs so test
     // imports resolve identically to runtime imports.
     '^@/(.*)$': '<rootDir>/src/$1',

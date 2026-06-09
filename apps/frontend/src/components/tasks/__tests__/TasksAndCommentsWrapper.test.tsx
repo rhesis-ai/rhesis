@@ -20,6 +20,17 @@ jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({ push: jest.fn() })),
 }));
 
+jest.mock('next-auth/react', () => ({
+  useSession: jest.fn(() => ({
+    data: { session_token: 'tok', user: { id: 'u1', name: 'Alice' } },
+    status: 'authenticated',
+  })),
+}));
+
+jest.mock('../TaskCreationDrawer', () => ({
+  TaskCreationDrawer: () => null,
+}));
+
 jest.mock('../TasksSection', () => ({
   TasksSection: () => <div data-testid="tasks-section" />,
 }));

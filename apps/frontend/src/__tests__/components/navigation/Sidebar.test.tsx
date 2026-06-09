@@ -121,7 +121,7 @@ describe('Sidebar', () => {
     it('hides requireSuperuser items for non-superusers', () => {
       setupMocks({ navigation, isSuperuser: false });
       render(<Sidebar />);
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      expect(screen.getByText('Insights')).toBeInTheDocument();
       expect(screen.queryByText('Metrics')).not.toBeInTheDocument();
       expect(screen.queryByText('Models')).not.toBeInTheDocument();
     });
@@ -129,7 +129,7 @@ describe('Sidebar', () => {
     it('shows requireSuperuser items for superusers', () => {
       setupMocks({ navigation, isSuperuser: true });
       render(<Sidebar />);
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      expect(screen.getByText('Insights')).toBeInTheDocument();
       expect(screen.getByText('Metrics')).toBeInTheDocument();
       expect(screen.getByText('Models')).toBeInTheDocument();
     });
@@ -137,7 +137,7 @@ describe('Sidebar', () => {
 
   // ── Fix 1 regression: full path accumulation ───────────────────────────
   describe('path accumulation for nested nav items', () => {
-    it('renders child items with the correct accumulated href', () => {
+    it('renders a parent nav item at its segment path (children are not inline)', () => {
       const navigation: NavigationItem[] = [
         {
           kind: 'page',
@@ -149,13 +149,11 @@ describe('Sidebar', () => {
           ],
         },
       ];
-      // Set pathname to something that makes the parent expand (active)
       setupMocks({ navigation, pathname: '/organizations/settings' });
       render(<Sidebar />);
 
-      // The child link must have the full path, not just /settings
-      const settingsLink = screen.getByRole('link', { name: /settings/i });
-      expect(settingsLink).toHaveAttribute('href', '/organizations/settings');
+      const orgLink = screen.getByRole('link', { name: /organization/i });
+      expect(orgLink).toHaveAttribute('href', '/organizations');
     });
 
     it('renders a top-level item with the correct href', () => {
@@ -202,7 +200,9 @@ describe('Sidebar', () => {
       expect(screen.getByText('Org Settings')).toBeInTheDocument();
       expect(screen.getByText('Team')).toBeInTheDocument();
       expect(screen.getByText('Projects')).toBeInTheDocument();
-      expect(screen.getByText('Switch project')).toBeInTheDocument();
+      expect(
+        screen.getByRole('menuitem', { name: /switch project/i })
+      ).toBeInTheDocument();
     });
 
     it('navigates to org settings when Org Settings is clicked', () => {
