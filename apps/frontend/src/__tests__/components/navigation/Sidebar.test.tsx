@@ -200,7 +200,9 @@ describe('Sidebar', () => {
       expect(screen.getByText('Org Settings')).toBeInTheDocument();
       expect(screen.getByText('Team')).toBeInTheDocument();
       expect(screen.getByText('Projects')).toBeInTheDocument();
-      expect(screen.getByText('Switch project')).toBeInTheDocument();
+      expect(
+        screen.getByRole('menuitem', { name: /switch project/i })
+      ).toBeInTheDocument();
     });
 
     it('navigates to org settings when Org Settings is clicked', () => {
