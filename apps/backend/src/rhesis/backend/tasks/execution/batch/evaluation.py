@@ -67,6 +67,25 @@ async def _evaluate_multi_turn_metrics(
     if not filtered_configs:
         return {}
 
+    # If conversation_history could not be built (empty summary), drop metrics
+    # that require it so they don't surface a confusing type error.
+    if conversation_history is None:
+        from rhesis.sdk.metrics.base import MetricScope
+
+        filtered_configs = [
+            mc
+            for mc in filtered_configs
+            if not (
+                mc.metric_scope
+                and all(
+                    (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
+                    for s in mc.metric_scope
+                )
+            )
+        ]
+        if not filtered_configs:
+            return {}
+
     return await evaluator.a_evaluate(
         input_text=goal,
         output_text=conversation_text.strip(),
@@ -87,11 +106,14 @@ async def _evaluate_single_turn_metrics(
 ) -> Dict[str, Any]:
     from rhesis.backend.tasks.execution.response_extractor import (
         extract_response_with_fallback,
+        normalize_context_to_list,
     )
 
     actual_response = extract_response_with_fallback(output)
     metadata = output.get("metadata") if isinstance(output, dict) else None
     tool_calls = output.get("tool_calls") if isinstance(output, dict) else None
+    raw_context = output.get("context") if isinstance(output, dict) else None
+    context = normalize_context_to_list(raw_context)
 
     # Inject probe-level notes (e.g. trigger strings for Garak probe-coupled detectors)
     # directly into the metric configs so the metric has them at construction time.
@@ -99,11 +121,30 @@ async def _evaluate_single_turn_metrics(
     garak_notes = (test.test_metadata or {}).get("garak_notes") if test else None
     metric_configs = _inject_probe_notes(ctx.metric_configs, garak_notes)
 
+    # Drop metrics that are scoped exclusively to Multi-Turn — they require
+    # conversation_history which is not available for single-turn tests.
+    from rhesis.sdk.metrics.base import MetricScope
+
+    metric_configs = [
+        mc
+        for mc in metric_configs
+        if not (
+            mc.metric_scope
+            and all(
+                (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
+                for s in mc.metric_scope
+            )
+        )
+    ]
+
+    if not metric_configs:
+        return {}
+
     return await evaluator.a_evaluate(
         input_text=prompt_content,
         output_text=actual_response,
         expected_output=expected_response,
-        context=[],
+        context=context,
         metrics=metric_configs,
         metadata=metadata,
         tool_calls=tool_calls,

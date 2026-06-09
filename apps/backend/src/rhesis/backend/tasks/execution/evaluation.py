@@ -108,6 +108,22 @@ def evaluate_single_turn_metrics(
     metadata = result.get("metadata") if isinstance(result, dict) else None
     tool_calls = result.get("tool_calls") if isinstance(result, dict) else None
 
+    # Drop metrics scoped exclusively to Multi-Turn — they require conversation_history.
+    from rhesis.sdk.metrics.base import MetricScope
+
+    metrics = [
+        mc
+        for mc in metrics
+        if not (
+            hasattr(mc, "metric_scope")
+            and mc.metric_scope
+            and all(
+                (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
+                for s in mc.metric_scope
+            )
+        )
+    ]
+
     try:
         metrics_results = metrics_evaluator.evaluate(
             input_text=prompt_content,
