@@ -29,14 +29,8 @@ jobs:
 
       - name: Save backend image
         run: |
-          IMAGE=$(docker compose -f ../../tests/docker-compose.frontend.yml images -q frontend-test-backend | head -1)
-          if [ -z "$IMAGE" ]; then
-            echo "::error::Could not resolve frontend-test-backend image ID after build"
-            docker compose -f ../../tests/docker-compose.frontend.yml images
-            exit 1
-          fi
-          echo "Saving image $IMAGE"
-          docker save "$IMAGE" | gzip > ../../frontend-e2e-backend-image.tar.gz
+          docker images rhesis-frontend-e2e-backend:ci
+          docker save rhesis-frontend-e2e-backend:ci | gzip > ../../frontend-e2e-backend-image.tar.gz
           ls -lh ../../frontend-e2e-backend-image.tar.gz
         working-directory: apps/frontend
 
@@ -97,7 +91,7 @@ jobs:
       - name: Load backend image
         run: |
           gunzip -c frontend-e2e-backend-image.tar.gz | docker load
-          docker compose -f ../../tests/docker-compose.frontend.yml images frontend-test-backend
+          docker images rhesis-frontend-e2e-backend:ci
         working-directory: apps/frontend
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/3)
