@@ -140,15 +140,15 @@ test.describe('Behaviors — CRUD @crud', () => {
     // --- Assign metric: click the "+" icon on the card ---
     await behaviorsPage.clickAddMetricOnCard(UNIQUE_NAME);
 
-    // The Select Metrics dialog should open
-    const dialog = page.getByRole('dialog');
+    // Assign Metric drawer opens from the Linked Metrics tab
+    const dialog = page.getByRole('dialog', { name: /assign metric/i });
     const dialogVisible = await dialog
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!dialogVisible) {
       test.skip(
         true,
-        'Select Metrics dialog did not open — skipping metric assignment'
+        'Assign Metric drawer did not open — skipping metric assignment'
       );
       return;
     }
@@ -169,10 +169,8 @@ test.describe('Behaviors — CRUD @crud', () => {
     }
     await firstMetricOption.click();
 
-    // Close/confirm the dialog
-    const saveBtn = dialog
-      .getByRole('button', { name: /save|done|confirm|close/i })
-      .first();
+    // Confirm assignment
+    const saveBtn = dialog.getByRole('button', { name: /^assign$/i }).first();
     const hasSave = await saveBtn
       .isVisible({ timeout: 5_000 })
       .catch(() => false);

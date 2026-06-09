@@ -75,9 +75,11 @@ export class KnowledgePage extends BasePage {
     await row.locator('input[type="checkbox"]').click();
   }
 
-  /** Click the "Delete Sources" toolbar button (visible only when rows are selected). */
-  async clickDeleteSelected() {
-    await this.page.getByRole('button', { name: /delete sources/i }).click();
+  /** Delete a row via the hover-revealed row-actions delete icon. */
+  async deleteRowByText(text: string) {
+    const row = this.page.locator('[role="row"]', { hasText: text });
+    await row.hover();
+    await row.locator('.row-actions button').last().click();
   }
 
   /** Returns true if a row containing the given text is visible in the grid. */

@@ -6,7 +6,7 @@ import { confirmDeleteDialog } from '../helpers/CrudHelper';
  * CRUD interaction tests for Tasks.
  *
  * Covers: D4.3 (create task via drawer on /tasks), D4.5 (change status auto-save),
- * D4.8 (select + bulk delete).
+ * D4.8 (delete task via row actions).
  */
 test.describe('Tasks — CRUD @crud', () => {
   async function createTaskViaDrawer(
@@ -148,13 +148,13 @@ test.describe('Tasks — CRUD @crud', () => {
     );
   });
 
-  test('can bulk-delete tasks via the grid selection', async ({ page }) => {
+  test('can delete a task via row actions', async ({ page }) => {
     const UNIQUE_TITLE = `e2e-task-del-${Date.now()}`;
     const tasksPage = new TasksPage(page);
 
     const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
     if (!created) {
-      test.skip(true, 'Could not create task — skipping bulk delete test');
+      test.skip(true, 'Could not create task — skipping delete test');
       return;
     }
 
@@ -166,21 +166,7 @@ test.describe('Tasks — CRUD @crud', () => {
       timeout: 15_000,
     });
 
-    await tasksPage.selectRowByText(UNIQUE_TITLE);
-
-    const deleteBtn = page.getByRole('button', { name: /delete/i }).first();
-    const hasDelete = await deleteBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasDelete) {
-      test.skip(
-        true,
-        'Delete button not visible after row selection — skipping'
-      );
-      return;
-    }
-
-    await deleteBtn.click();
+    await tasksPage.deleteRowByText(UNIQUE_TITLE);
     await confirmDeleteDialog(page);
     await page.waitForLoadState('networkidle');
 

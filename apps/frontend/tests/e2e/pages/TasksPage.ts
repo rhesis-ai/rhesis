@@ -82,9 +82,11 @@ export class TasksPage extends BasePage {
     await row.locator('input[type="checkbox"]').click();
   }
 
-  /** Click the bulk delete button (only visible when rows are selected). */
-  async clickDeleteSelected() {
-    await this.page.getByRole('button', { name: /delete/i }).click();
+  /** Delete a row via the hover-revealed row-actions delete icon. */
+  async deleteRowByText(text: string) {
+    const row = this.page.locator('[role="row"]', { hasText: text });
+    await row.hover();
+    await row.locator('.row-actions button').last().click();
   }
 
   /** Click a row to navigate to the task detail page. */

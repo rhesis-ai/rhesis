@@ -6,7 +6,7 @@ import { confirmDeleteDialog } from '../helpers/CrudHelper';
 /**
  * CRUD interaction tests for the Knowledge (sources) page.
  *
- * Covers: A2.3 (upload a TXT file), A2.6 (select + delete sources).
+ * Covers: A2.3 (upload a TXT file), A2.6 (delete a source via row actions).
  * Uses a small fixture TXT file from the fixtures directory.
  */
 test.describe('Knowledge — CRUD @crud', () => {
@@ -80,9 +80,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     ).toBeTruthy();
   });
 
-  test('can delete a knowledge source via the grid selection', async ({
-    page,
-  }) => {
+  test('can delete a knowledge source via row actions', async ({ page }) => {
     const UNIQUE_TITLE = `e2e-src-del-${Date.now()}`;
     const fixturePath = path.join(__dirname, '../fixtures/fixture.txt');
 
@@ -112,22 +110,8 @@ test.describe('Knowledge — CRUD @crud', () => {
       timeout: 15_000,
     });
 
-    // --- Delete: select the row and click delete ---
-    await knowledgePage.selectRowByText(UNIQUE_TITLE);
-
-    const deleteVisible = await page
-      .getByRole('button', { name: /delete sources/i })
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!deleteVisible) {
-      test.skip(
-        true,
-        'Delete Sources button not visible after row selection — skipping'
-      );
-      return;
-    }
-
-    await knowledgePage.clickDeleteSelected();
+    // --- Delete: hover row and click the delete icon ---
+    await knowledgePage.deleteRowByText(UNIQUE_TITLE);
     await confirmDeleteDialog(page);
     await page.waitForLoadState('networkidle');
 

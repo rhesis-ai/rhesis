@@ -17,6 +17,16 @@ export async function selectGridRowByText(page: Page, text: string) {
 }
 
 /**
+ * Delete a grid row via the hover-revealed row-actions delete icon.
+ * Grids use createRowActionsColumn — delete is the trailing icon button.
+ */
+export async function deleteGridRowByText(page: Page, text: string) {
+  const row = page.locator('[role="row"]', { hasText: text });
+  await row.hover();
+  await row.locator('.row-actions button').last().click();
+}
+
+/**
  * Confirm a MUI deletion dialog by clicking the primary destructive button.
  * Waits for the dialog to close after confirmation.
  */
