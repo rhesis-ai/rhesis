@@ -115,7 +115,7 @@ jobs:
               body: `<details><summary>Terraform Plan — <code>${{ steps.ctx.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
             });
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tfplan-${{ steps.ctx.outputs.target_env }}
           path: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/tfplan
@@ -179,7 +179,7 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tfplan-${{ needs.plan.outputs.target_env }}
           path: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
