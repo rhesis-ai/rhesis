@@ -68,6 +68,8 @@ interface FilterDrawerShellProps {
   onApply?: () => void;
   title?: string;
   children: React.ReactNode;
+  /** Defaults to 'left'. */
+  anchor?: 'left' | 'right';
 }
 
 /**
@@ -84,10 +86,11 @@ export function FilterDrawerShell({
   onApply,
   title = 'Filter',
   children,
+  anchor = 'left',
 }: FilterDrawerShellProps) {
   return (
     <Drawer
-      anchor="left"
+      anchor={anchor}
       open={open}
       onClose={onClose}
       variant="temporary"
@@ -119,10 +122,10 @@ export function FilterDrawerShell({
       >
         <Typography
           sx={{
-            fontSize: 22,
+            fontSize: 23,
             fontWeight: 700,
             color: theme => theme.palette.greyscale.title,
-            lineHeight: 1.1,
+            lineHeight: '27.6px',
           }}
         >
           {title}

@@ -43,7 +43,7 @@ export default function TestSetDetailTabs({
       key === 'basic'
         ? 'Basic Information'
         : key === 'linked'
-          ? 'Linked entities'
+          ? 'Linked Tests'
           : 'Tasks',
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,

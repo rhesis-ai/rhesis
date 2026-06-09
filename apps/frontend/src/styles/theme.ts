@@ -296,6 +296,9 @@ const getDesignTokens = (mode: PaletteMode) => {
             '& .MuiSvgIcon-root': {
               color: mode === 'light' ? gs.body : '#FFFFFF',
             },
+            '& .MuiAvatar-root .MuiSvgIcon-root': {
+              color: 'inherit',
+            },
             '& .MuiButton-icon .MuiSvgIcon-root, & .MuiButton-startIcon .MuiSvgIcon-root, & .MuiButton-endIcon .MuiSvgIcon-root':
               {
                 color: 'inherit',
@@ -349,13 +352,13 @@ const getDesignTokens = (mode: PaletteMode) => {
               '&:hover': { backgroundColor: '#FDD803', color: '#1A1A1A' },
             },
             '&.MuiButton-outlinedPrimary': {
-              color: '#0080AF',
-              borderColor: '#0080AF',
+              color: mode === 'dark' ? '#33A6CB' : '#0080AF',
+              borderColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
               backgroundColor: 'transparent',
               '&:hover': {
-                backgroundColor: '#0080AF',
+                backgroundColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
                 color: '#FFFFFF',
-                borderColor: '#0080AF',
+                borderColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
               },
             },
             '&.MuiButton-outlinedSecondary': {

@@ -254,15 +254,34 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   },
   '& .MuiDataGrid-columnHeaderTitle': {
     fontWeight: 700,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   '& .MuiDataGrid-columnHeader': {
     fontWeight: 'bold',
+  },
+  // Right-align header titles for numeric columns to match cell alignment
+  '& .MuiDataGrid-columnHeader--alignRight .MuiDataGrid-columnHeaderTitle': {
+    textAlign: 'right',
+    width: '100%',
   },
   '& .MuiDataGrid-cell': {
     display: 'flex',
     alignItems: 'center',
     overflow: 'hidden',
     borderColor: theme.palette.greyscale.border,
+  },
+  // Clip typography in cells — avoids breaking chip/stack renderers (I1)
+  '& .MuiDataGrid-cell .MuiTypography-root': {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%',
+  },
+  // Numeric cells right-align by default (MUI sets align="right" on type:"number")
+  '& .MuiDataGrid-cell--textRight': {
+    justifyContent: 'flex-end',
   },
   // Figma: 30px horizontal inset for first/last column, aligned with the
   // toolbar and pagination footer (both use px: '30px').
@@ -272,16 +291,16 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   // The trailing empty filler cell gets paddingRight via :last-of-type which
   // creates the visual 30px right gap at the grid edge.
   '&& .MuiDataGrid-columnHeader--first': {
-    paddingLeft: '30px',
+    paddingLeft: theme.spacing(3.75),
   },
   '&& .MuiDataGrid-columnHeader--last': {
-    paddingRight: '30px',
+    paddingRight: theme.spacing(3.75),
   },
   '&& .MuiDataGrid-cell:first-child': {
-    paddingLeft: '30px',
+    paddingLeft: theme.spacing(3.75),
   },
   '&& .MuiDataGrid-cell:last-of-type': {
-    paddingRight: '30px',
+    paddingRight: theme.spacing(3.75),
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
@@ -1028,7 +1047,7 @@ export default function BaseDataGrid({
         display: 'none',
       },
     },
-    _sx,
+    ...(Array.isArray(_sx) ? _sx : _sx ? [_sx] : []),
   ].filter(Boolean) as SxProps<Theme>;
 
   const hasHeaderContent = !!(

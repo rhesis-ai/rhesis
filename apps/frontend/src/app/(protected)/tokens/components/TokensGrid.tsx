@@ -1,19 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Box,
-  IconButton,
-  Tooltip,
-  Paper,
-  CircularProgress,
-} from '@mui/material';
+import React, { useContext, useState } from 'react';
+import { Box, Tooltip, IconButton } from '@mui/material';
 import {
   GridPaginationModel,
   type GridRenderCellParams,
   type GridColDef,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { DeleteIcon } from '@/components/icons';
@@ -24,6 +22,77 @@ import {
   ROW_ACTIONS_CLASS,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+
+// ── Toolbar status filter options ────────────────────────────────────────────
+
+export type TokenStatusFilter = 'all' | 'active' | 'expired';
+
+export const STATUS_OPTIONS: { value: TokenStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+];
+
+// ── Toolbar context (passes search/filter state into the DataGrid slot) ──────
+
+export interface TokensToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  statusFilter: TokenStatusFilter;
+  setStatusFilter: (v: TokenStatusFilter) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
+}
+
+export const TokensToolbarContext = React.createContext<TokensToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  statusFilter: 'all',
+  setStatusFilter: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
+});
+
+function TokensUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+    activeFilterCount,
+  } = useContext(TokensToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search tokens…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={STATUS_OPTIONS}
+          activeValue={statusFilter}
+          onChange={v => setStatusFilter(v as TokenStatusFilter)}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
+
+// ── Grid component ────────────────────────────────────────────────────────────
 
 interface TokensGridProps {
   tokens: Token[];
@@ -58,13 +127,13 @@ export default function TokensGrid({
     setRefreshModalOpen(true);
   };
 
-  const columns = [
+  const columns: GridColDef[] = [
     {
       field: 'name',
       headerName: 'Name',
       flex: 1,
       renderCell: (params: GridRenderCellParams) => (
-        <span style={{ fontWeight: 'medium' }}>{params.row.name}</span>
+        <span style={{ fontWeight: 500 }}>{params.row.name}</span>
       ),
     },
     {
@@ -156,46 +225,25 @@ export default function TokensGrid({
     } as GridColDef,
   ];
 
-  // Initial load spinner — only when we don't have any rows yet.
-  if (loading && tokens.length === 0) {
-    return (
-      <Paper
-        elevation={2}
-        sx={{
-          width: '100%',
-          mb: 2,
-          py: 8,
-          px: 3,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <CircularProgress />
-      </Paper>
-    );
-  }
-
   return (
     <>
-      <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
-        <Box sx={{ p: 2 }}>
-          <BaseDataGrid
-            columns={columns}
-            rows={tokens}
-            loading={loading}
-            getRowId={row => (row as Token).id}
-            density="standard"
-            paginationModel={paginationModel}
-            onPaginationModelChange={onPaginationModelChange}
-            serverSidePagination={false}
-            totalRows={totalCount}
-            pageSizeOptions={[10, 25, 50]}
-            disablePaperWrapper={true}
-            sx={rowActionsHoverSx}
-          />
-        </Box>
-      </Paper>
+      <BaseDataGrid
+        columns={columns}
+        rows={tokens}
+        loading={loading}
+        getRowId={row => (row as Token).id}
+        density="standard"
+        paginationModel={paginationModel}
+        onPaginationModelChange={onPaginationModelChange}
+        serverSidePagination={false}
+        totalRows={totalCount}
+        pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
+        toolbarSlot={TokensUnifiedToolbar}
+        persistState
+        storageKey="tokens-grid"
+        sx={rowActionsHoverSx}
+      />
       <RefreshTokenModal
         open={refreshModalOpen}
         onClose={() => setRefreshModalOpen(false)}

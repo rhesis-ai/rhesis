@@ -15,6 +15,8 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   GridToolbar,
+  linkedDataGridRowSx,
+  linkedGridToolbarSx,
   PrimarySegmentedPills,
   type ToolbarPillTab,
 } from '@/components/common/GridToolbar';
@@ -62,7 +64,7 @@ function LinkedEntitiesToolbar() {
       onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
       hasActiveFilters={hasActiveFilters}
       activeFilterCount={activeFilterCount}
-      sx={{ px: '30px', pt: 0, pb: '30px', minHeight: 'auto' }}
+      sx={linkedGridToolbarSx}
       middleContent={
         pillTabs && pillTabs.length > 0 ? (
           <PrimarySegmentedPills
@@ -154,7 +156,7 @@ export default function LinkedEntitiesGrid({
 
   // BaseDataGrid bakes in the 30px first/last column inset so the header,
   // toolbar, cells and footer all line up at 30px.
-  const gridSx = rowActionsHoverSx;
+  const gridSx = [linkedDataGridRowSx, rowActionsHoverSx] as SxProps<Theme>;
 
   const contextValue: LinkedEntitiesContextValue = {
     searchQuery,

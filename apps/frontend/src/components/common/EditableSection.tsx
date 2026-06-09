@@ -10,7 +10,7 @@ import {
 interface EditableSectionProps<T> {
   title: string;
   initialValue: T;
-  onSave: (draft: T) => Promise<void>;
+  onSave: (draft: T) => Promise<boolean | void>;
   isDirty?: (draft: T, initial: T) => boolean;
   children: (ctx: {
     draft: T;
@@ -56,8 +56,10 @@ export function EditableSection<T>({
     if (!dirty || isSaving) return;
     setIsSaving(true);
     try {
-      await onSave(draft);
-      setIsEditing(false);
+      const ok = await onSave(draft);
+      if (ok !== false) {
+        setIsEditing(false);
+      }
     } finally {
       setIsSaving(false);
     }

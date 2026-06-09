@@ -18,13 +18,17 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
     Determine if Quick Start mode should be enabled.
 
     Quick Start is ONLY enabled when ALL of the following conditions are met:
-    1. QUICK_START environment variable is explicitly set to 'true'
-    2. Hostname/domain does NOT indicate cloud deployment
-    3. HTTP headers do NOT indicate cloud deployment
-    4. Google Cloud environment variables are NOT present
+    1. The process-level gate passes (QUICK_START is 'true' and no Google Cloud
+       environment signals are present) -- see
+       ``ApplicationSettings.quick_start_allowed_by_env``
+    2. Hostname/domain does NOT match a known cloud-platform domain
+    3. HTTP headers do NOT carry known cloud-platform fingerprints
 
     This is a fail-secure function: if ANY signal indicates cloud deployment,
-    it returns False. Default is False for safety.
+    it returns False. Default is False for safety. Note that the security
+    boundary is the explicit, opt-in env gate (step 1); the request-level
+    checks are generic, non-branded cloud-platform fingerprints kept only as
+    defense-in-depth.
 
     Args:
         hostname: Optional hostname to check (from request or manual override)
@@ -38,25 +42,21 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
         >>> is_quick_start_enabled()
         True
 
-        >>> # Quick start disabled if any cloud signal present
-        >>> is_quick_start_enabled(hostname="api.rhesis.ai")
+        >>> # Quick start disabled if a cloud-platform domain is present
+        >>> is_quick_start_enabled(hostname="my-service.a.run.app")
         False
     """
-    # 1. Check QUICK_START configuration (default: false for safety)
-    application_settings = get_application_settings()
-    if not application_settings.quick_start:
+    # 1. Process-level gate (QUICK_START + Google Cloud env signals).
+    #    Deployment-static checks live on ApplicationSettings so they stay in
+    #    one place alongside the rest of the environment detection.
+    if not get_application_settings().quick_start_allowed_by_env:
         return False
 
     logger.debug("Quick Start environment variable set to 'true', validating deployment signals...")
 
-    # 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
+    # 2. HOSTNAME/DOMAIN CHECKS - Fail if a cloud-platform domain is detected
     if hostname:
         hostname_lower = hostname.lower()
-
-        # Check for Rhesis cloud domains (any domain containing rhesis.ai)
-        if "rhesis.ai" in hostname_lower:
-            logger.warning(f" Quick Start disabled: Cloud hostname detected ({hostname})")
-            return False
 
         # Google Cloud Run domains
         cloud_run_domains = [
@@ -73,57 +73,16 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
 
     # 3. HTTP HEADERS CHECKS - Fail if cloud headers detected
     if headers:
-        # Check for Rhesis cloud domains in Host header
-        # (any domain containing rhesis.ai)
-        host = headers.get("host", headers.get("Host", "")).lower()
-        if host:
-            if "rhesis.ai" in host:
-                logger.warning(f" Quick Start disabled: Cloud Host header detected ({host})")
-                return False
-
-        # Check for X-Forwarded-Host (proxy/load balancer indicator)
-        forwarded_host = headers.get("x-forwarded-host", headers.get("X-Forwarded-Host", ""))
-        if forwarded_host:
-            logger.warning(
-                f" Quick Start disabled: X-Forwarded-Host header present ({forwarded_host})"
-            )
-            return False
-
-        # Check for Cloud Run specific headers
+        # Check for Cloud Run specific headers (compared case-insensitively)
         cloud_run_headers = [
             "x-cloud-trace-context",
-            "X-Cloud-Trace-Context",
             "x-appengine-",
-            "X-Appengine-",
         ]
 
         for header_key in headers.keys():
-            if any(header_key.lower().startswith(h.lower()) for h in cloud_run_headers):
+            if any(header_key.lower().startswith(h) for h in cloud_run_headers):
                 logger.warning(f" Quick Start disabled: Cloud Run header detected ({header_key})")
                 return False
-
-    # 4. GOOGLE CLOUD ENVIRONMENT CHECKS - Fail if GCP env vars present
-    k_service = application_settings.cloud_run_service
-    k_revision = application_settings.cloud_run_revision
-    gcp_project = application_settings.gcp_project or application_settings.google_cloud_project
-
-    if k_service:
-        logger.warning(
-            f" Quick Start disabled: K_SERVICE environment variable present ({k_service})"
-        )
-        return False
-
-    if k_revision:
-        logger.warning(
-            f" Quick Start disabled: K_REVISION environment variable present ({k_revision})"
-        )
-        return False
-
-    if gcp_project:
-        logger.warning(
-            f" Quick Start disabled: GCP_PROJECT environment variable present ({gcp_project})"
-        )
-        return False
 
     # All checks passed - Quick Start is enabled
     logger.info(" Quick Start mode enabled - all signals confirm local development")

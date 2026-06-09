@@ -9,9 +9,14 @@ interface ConnectedToolCardProps {
   tool: Tool;
   /** Called when delete is confirmed — EntityCard handles stopPropagation internally */
   onDelete: (tool: Tool) => void;
+  onCardClick?: (tool: Tool) => void;
 }
 
-export function ConnectedToolCard({ tool, onDelete }: ConnectedToolCardProps) {
+export function ConnectedToolCard({
+  tool,
+  onDelete,
+  onCardClick,
+}: ConnectedToolCardProps) {
   const theme = useTheme();
   const providerName = tool.tool_provider_type?.type_value || 'Unknown';
   const providerIcon = MCP_PROVIDER_ICONS[providerName] ?? (
@@ -51,6 +56,7 @@ export function ConnectedToolCard({ tool, onDelete }: ConnectedToolCardProps) {
       title={tool.name}
       description={tool.description}
       onDelete={() => onDelete(tool)}
+      onClick={onCardClick ? () => onCardClick(tool) : undefined}
       chipSections={chipSections}
     />
   );

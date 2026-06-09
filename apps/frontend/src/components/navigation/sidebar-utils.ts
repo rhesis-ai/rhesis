@@ -5,6 +5,7 @@ import {
   type NavigationPageItem,
   type NavigationLinkItem,
   type NavigationHeaderItem,
+  type NavigationActionItem,
 } from '@/types/navigation';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
@@ -78,7 +79,7 @@ export type SectionGroup = {
 };
 export type FooterLinksGroup = {
   type: 'footer-links';
-  items: NavigationLinkItem[];
+  items: (NavigationLinkItem | NavigationActionItem)[];
 };
 export type NavGroup = StandaloneGroup | SectionGroup | FooterLinksGroup;
 
@@ -88,7 +89,7 @@ export function groupNavItems(items: NavigationItem[]): NavGroup[] {
     header: NavigationHeaderItem;
     items: NavigationPageItem[];
   } | null = null;
-  const footerLinks: NavigationLinkItem[] = [];
+  const footerLinks: (NavigationLinkItem | NavigationActionItem)[] = [];
   let inFooter = false;
 
   for (const item of items) {
@@ -105,7 +106,8 @@ export function groupNavItems(items: NavigationItem[]): NavGroup[] {
       continue;
     }
     if (inFooter) {
-      if (item.kind === 'link') footerLinks.push(item);
+      if (item.kind === 'link' || item.kind === 'action')
+        footerLinks.push(item);
       continue;
     }
     if (item.kind === 'header') {

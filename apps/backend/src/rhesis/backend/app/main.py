@@ -28,7 +28,11 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
-from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.auth.user_utils import (
+    require_current_user,
+    require_current_user_or_token,
+    require_current_user_or_token_without_context,
+)
 from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
@@ -123,20 +127,63 @@ def apply_authz_backstop(app: FastAPI) -> None:
         _inject_route_dependency(route, Depends(require_permission(cap)))
 
 
-def apply_auth_backstop(app: FastAPI) -> None:
-    """Append a baseline auth dependency to every non-public HTTP route.
+# Authentication dependencies the backstop recognizes as "already protected".
+#
+# A route that declares any of these — directly or transitively via a tenant
+# dependency such as ``get_tenant_db_session`` (which itself depends on
+# ``require_current_user_or_token``) — is already authenticated. The backstop
+# must NOT inject ``require_current_user_or_token`` on top of these, because
+# some routes intentionally use a *weaker* policy: onboarding routes
+# (``POST /organizations/``, ``PUT /users/{id}``) use
+# ``require_current_user_or_token_without_context`` so a brand-new user who has
+# no organization yet can create one. Blindly stacking the org-requiring
+# variant on top breaks onboarding with a 403 ("User is not associated with an
+# organization").
+_AUTH_DEPENDENCY_CALLS = frozenset(
+    {
+        require_current_user_or_token,
+        require_current_user_or_token_without_context,
+        require_current_user,
+    }
+)
 
-    Defense-in-depth backstop: every HTTP route whose exact path is **not**
-    in :data:`PUBLIC_ROUTES` gets ``require_current_user_or_token`` injected,
+
+def _dependant_has_auth(dependant, seen: set | None = None) -> bool:
+    """Recursively check whether a route's dependant tree declares any auth dependency.
+
+    Walks the sub-dependency graph so transitive auth (e.g. a route depending on
+    ``get_tenant_db_session`` -> ``get_tenant_context`` -> ``require_current_user_or_token``)
+    is detected, not just auth declared directly on the handler.
+    """
+    if seen is None:
+        seen = set()
+    for sub in dependant.dependencies:
+        call = getattr(sub, "call", None)
+        if call in _AUTH_DEPENDENCY_CALLS:
+            return True
+        if call is not None and id(call) not in seen:
+            seen.add(id(call))
+            if _dependant_has_auth(sub, seen):
+                return True
+    return False
+
+
+def apply_auth_backstop(app: FastAPI) -> None:
+    """Append a baseline auth dependency to routes that declare none.
+
+    Defense-in-depth backstop: every HTTP route whose exact path is **not** in
+    :data:`PUBLIC_ROUTES` and that does **not** already declare an
+    authentication dependency gets ``require_current_user_or_token`` injected,
     guaranteeing that no route is ever accidentally exposed without
     authentication.
 
-    This does not replace per-handler authorization. Handlers still declare
-    their own dependencies (session-only ``require_current_user``, superuser
-    checks, project-membership checks, etc.) and those remain authoritative.
-    Because FastAPI caches dependency results per request, the duplicated
-    ``require_current_user_or_token`` resolves only once even when a handler
-    declares it too.
+    Routes that already declare an auth dependency are left untouched so their
+    own (possibly weaker) policy remains authoritative. This matters for
+    onboarding: ``POST /organizations/`` and ``PUT /users/{id}`` use
+    ``require_current_user_or_token_without_context`` so a brand-new user with
+    no organization can create one. Stacking the org-requiring
+    ``require_current_user_or_token`` on top of those would reject onboarding
+    with a 403 even though the route is correctly authenticated.
 
     Post-hoc injection (see :func:`_inject_route_dependency`) is used rather than
     a custom ``route_class`` because ``include_router`` copies routes with their
@@ -153,6 +200,11 @@ def apply_auth_backstop(app: FastAPI) -> None:
         if not isinstance(route, APIRoute):
             continue
         if route.path in PUBLIC_ROUTES:
+            continue
+        # Skip routes that already authenticate themselves (directly or via a
+        # tenant dependency). Injecting on top would override an intentionally
+        # weaker policy such as the context-free auth used during onboarding.
+        if _dependant_has_auth(route.dependant):
             continue
         _inject_route_dependency(route, backstop)
 

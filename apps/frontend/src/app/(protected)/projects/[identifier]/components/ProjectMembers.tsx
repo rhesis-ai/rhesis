@@ -1,37 +1,28 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Autocomplete,
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-  IconButton,
-  TextField,
-  Typography,
-} from '@mui/material';
+import * as React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
-import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { UsersClient } from '@/utils/api-client/users-client';
 import {
   ProjectMember,
   ProjectMemberUser,
 } from '@/utils/api-client/interfaces/project';
-import { User } from '@/utils/api-client/interfaces/user';
-import { DeleteIcon } from '@/components/icons';
+import { DeleteIcon, PersonAddIcon } from '@/components/icons';
 
 interface ProjectMembersProps {
   projectId: string;
   sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
+  refreshKey?: number;
+  onMembersLoaded?: (members: ProjectMember[]) => void;
 }
 
 function getMemberDisplayName(
@@ -43,16 +34,12 @@ function getMemberDisplayName(
   return parts.length > 0 ? parts.join(' ') : (user.email ?? 'Unknown');
 }
 
-function getUserDisplayName(user: User): string {
-  if (user.name) return user.name;
-  const parts = [user.given_name, user.family_name].filter(Boolean);
-  return parts.length > 0 ? parts.join(' ') : user.email;
-}
-
 export default function ProjectMembers({
   projectId,
   sessionToken,
   ownerId,
+  refreshKey = 0,
+  onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
 
@@ -63,13 +50,6 @@ export default function ProjectMembers({
     page: 0,
     pageSize: 25,
   });
-
-  const [orgUsers, setOrgUsers] = useState<User[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [selectedRole] = useState<string>('member');
-  const [adding, setAdding] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(
@@ -86,84 +66,17 @@ export default function ProjectMembers({
         .getProjectsClient()
         .getProjectMembers(projectId);
       setMembers(data);
+      onMembersLoaded?.(data);
     } catch {
       setMembersError('Failed to load project members.');
     } finally {
       setMembersLoading(false);
     }
-  }, [projectId, sessionToken]);
+  }, [projectId, sessionToken, onMembersLoaded]);
 
   useEffect(() => {
     fetchMembers();
-  }, [fetchMembers]);
-
-  // Load non-member org users for the add-member autocomplete.
-  // Waits for the members list to finish loading so we can pass an OData
-  // exclusion filter — only users not already in the project are fetched.
-  useEffect(() => {
-    if (membersLoading) return;
-
-    let cancelled = false;
-    async function load() {
-      setUsersLoading(true);
-      setUsersError(null);
-      try {
-        // Pass '' as projectId so getHeaders() skips X-Project-Id entirely.
-        // Users are org-scoped; the header would trigger project membership
-        // validation that is irrelevant here.
-        const usersClient = new UsersClient(sessionToken, undefined, '');
-
-        // Build an OData exclusion filter so the API only returns users who
-        // are not yet project members.
-        const memberIds = members.map(m => m.user_id);
-        const $filter =
-          memberIds.length > 0
-            ? memberIds.map(id => `id ne '${id}'`).join(' and ')
-            : undefined;
-
-        const result = await usersClient.getUsers({ limit: 100, $filter });
-        if (!cancelled) setOrgUsers(result.data);
-      } catch {
-        if (!cancelled) setUsersError('Failed to load organisation members.');
-      } finally {
-        if (!cancelled) setUsersLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionToken, members, membersLoading]);
-
-  // addableUsers is now already pre-filtered by the API; keep the client-side
-  // guard as a safety net against any race between the two fetches.
-  const memberUserIds = new Set(members.map(m => m.user_id));
-  const addableUsers = orgUsers.filter(u => !memberUserIds.has(u.id));
-
-  const handleAdd = async () => {
-    if (!selectedUser) return;
-    setAdding(true);
-    try {
-      const factory = new ApiClientFactory(sessionToken);
-      await factory.getProjectsClient().addProjectMember(projectId, {
-        user_id: selectedUser.id,
-        role: selectedRole,
-      });
-      notifications.show(
-        `${getUserDisplayName(selectedUser)} added to the project.`,
-        { severity: 'success' }
-      );
-      setSelectedUser(null);
-      await fetchMembers();
-    } catch (err) {
-      notifications.show(
-        err instanceof Error ? err.message : 'Failed to add member.',
-        { severity: 'error' }
-      );
-    } finally {
-      setAdding(false);
-    }
-  };
+  }, [fetchMembers, refreshKey]);
 
   const handleRemoveClick = (member: ProjectMember) => {
     setMemberToRemove(member);
@@ -280,86 +193,35 @@ export default function ProjectMembers({
 
   return (
     <Box>
-      {/* Add member row */}
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 3, alignItems: 'center' }}>
-        <Autocomplete<User>
-          options={addableUsers}
-          loading={usersLoading}
-          value={selectedUser}
-          onChange={(_e, value) => setSelectedUser(value)}
-          getOptionLabel={getUserDisplayName}
-          isOptionEqualToValue={(opt, val) => opt.id === val.id}
-          noOptionsText={
-            usersError
-              ? 'Failed to load members'
-              : addableUsers.length === 0 && !usersLoading
-                ? 'All organisation members are already in this project'
-                : 'No members found'
-          }
-          renderInput={params => (
-            <TextField
-              {...params}
-              placeholder="Search org members to add…"
-              size="small"
-              slotProps={{
-                input: {
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {usersLoading && <CircularProgress size={16} />}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                },
-              }}
-            />
-          )}
-          sx={{ width: 320 }}
-        />
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={
-            adding ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <PersonAddOutlinedIcon />
-            )
-          }
-          disabled={!selectedUser || adding}
-          onClick={handleAdd}
-        >
-          Add as member
-        </Button>
-      </Box>
-
-      {usersError && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          {usersError}
-        </Alert>
-      )}
-
       {membersError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {membersError}
         </Alert>
       )}
 
-      <BaseDataGrid
-        rows={members}
-        columns={columns}
-        loading={membersLoading}
-        getRowId={row =>
-          `${(row as ProjectMember).project_id}-${(row as ProjectMember).user_id}`
-        }
-        paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
-        serverSidePagination={false}
-        totalRows={members.length}
-        pageSizeOptions={[10, 25, 50]}
-        disableRowSelectionOnClick
-        disablePaperWrapper
-      />
+      {!membersLoading && members.length === 0 ? (
+        <SectionEmptyState
+          icon={PersonAddIcon}
+          title="No members yet"
+          description="Add organisation members to grant them access to this project."
+        />
+      ) : (
+        <BaseDataGrid
+          rows={members}
+          columns={columns}
+          loading={membersLoading}
+          getRowId={row =>
+            `${(row as ProjectMember).project_id}-${(row as ProjectMember).user_id}`
+          }
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          serverSidePagination={false}
+          totalRows={members.length}
+          pageSizeOptions={[10, 25, 50]}
+          disableRowSelectionOnClick
+          disablePaperWrapper
+        />
+      )}
 
       <DeleteModal
         open={deleteOpen}

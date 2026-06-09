@@ -39,6 +39,7 @@ export default function MCPSPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
+  const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
 
@@ -133,6 +134,11 @@ export default function MCPSPage() {
     setDeleteDialogOpen(true);
   };
 
+  const handleCardClick = (tool: Tool) => {
+    setToolToEdit(tool);
+    setConnectionDrawerOpen(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!session?.session_token || !toolToDelete) return;
     try {
@@ -197,7 +203,10 @@ export default function MCPSPage() {
             icon={<FabAddIcon />}
             tooltip="Add MCP connection"
             aria-label="Add MCP connection"
-            onClick={() => setConnectionDrawerOpen(true)}
+            onClick={() => {
+              setToolToEdit(null);
+              setConnectionDrawerOpen(true);
+            }}
           />
         </FabGroup>
       }
@@ -247,6 +256,7 @@ export default function MCPSPage() {
               key={tool.id}
               tool={tool}
               onDelete={handleDeleteClick}
+              onCardClick={handleCardClick}
             />
           ))}
         </Box>
@@ -267,9 +277,12 @@ export default function MCPSPage() {
         open={connectionDrawerOpen}
         providers={providerTypes}
         mcpToolType={mcpToolType}
-        tool={null}
-        mode="create"
-        onClose={() => setConnectionDrawerOpen(false)}
+        tool={toolToEdit}
+        mode={toolToEdit ? 'edit' : 'create'}
+        onClose={() => {
+          setConnectionDrawerOpen(false);
+          setTimeout(() => setToolToEdit(null), 300);
+        }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}
       />

@@ -16,11 +16,13 @@ export const ROW_ACTIONS_CLASS = 'row-actions';
 export const rowActionsHoverSx: SxProps<Theme> = {
   [`& .${ROW_ACTIONS_CLASS}`]: {
     opacity: 0,
+    visibility: 'hidden',
     pointerEvents: 'none',
-    transition: 'opacity 0.15s ease',
+    transition: 'opacity 0.15s ease, visibility 0.15s ease',
   },
   [`& .MuiDataGrid-row:hover .${ROW_ACTIONS_CLASS}`]: {
     opacity: 1,
+    visibility: 'visible',
     pointerEvents: 'auto',
   },
 };

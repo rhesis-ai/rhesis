@@ -26,7 +26,7 @@ config:
   dbUser: "rhesis-user"
 
   # Frontend
-  nextPublicApiBaseUrl: "https://dev-api.rhesis.ai"
+  apiBaseUrl: "https://dev-api.rhesis.ai"
   nextPublicAppUrl: "https://dev-app.rhesis.ai"
   nextauthUrl: "https://dev-app.rhesis.ai"
   nextPublicAuth0ClientId: ""
@@ -78,19 +78,21 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  # Dev: slow cold start (e.g. Garak). Helm replaces nested maps — keep full blocks.
-  # Liveness worst-case ≈ 900 + 29*45 = 2205s (~37m) before restart if /health never succeeds.
+  # Observed startup time: ~93s after container start (StatReload + Garak/LiteLLM imports).
+  # Image pull adds ~90s before container start but doesn't count toward probe delay.
+  # Helm replaces nested maps — keep full blocks.
+  # Liveness worst-case ≈ 180 + 29*45 = 1485s (~25m) before restart if /health never returns.
   livenessProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 900
+    initialDelaySeconds: 180
     periodSeconds: 45
     timeoutSeconds: 15
     failureThreshold: 30
   readinessProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 600
+    initialDelaySeconds: 120
     periodSeconds: 20
     timeoutSeconds: 15
     failureThreshold: 90
@@ -193,19 +195,19 @@ workers:
       targetCPUUtilizationPercentage: 60
       targetMemoryUtilizationPercentage: 75
     # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.
-    # Mirrors the backend/polyphemus pattern — generous delays to avoid premature kills.
-    # Liveness worst-case ≈ 600 + 29×45 = 1905s (~32m) before restart.
+    # Allow extra headroom vs backend (no StatReload, but Garak cache pre-warm).
+    # Liveness worst-case ≈ 240 + 29×45 = 1545s (~26m) before restart.
     livenessProbe:
       httpGet:
         path: /health/basic
-      initialDelaySeconds: 600
+      initialDelaySeconds: 240
       periodSeconds: 45
       timeoutSeconds: 15
       failureThreshold: 30
     readinessProbe:
       httpGet:
         path: /health/basic
-      initialDelaySeconds: 300
+      initialDelaySeconds: 150
       periodSeconds: 20
       timeoutSeconds: 15
       failureThreshold: 90
@@ -240,17 +242,19 @@ polyphemus:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Polyphemus: similar Python/FastAPI startup to backend (~90-120s observed).
+  # Liveness worst-case ≈ 180 + 29×45 = 1485s (~25m) before restart.
   livenessProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 900
+    initialDelaySeconds: 180
     periodSeconds: 45
     timeoutSeconds: 15
     failureThreshold: 30
   readinessProbe:
     httpGet:
       path: /health
-    initialDelaySeconds: 600
+    initialDelaySeconds: 120
     periodSeconds: 20
     timeoutSeconds: 15
     failureThreshold: 90

@@ -28,11 +28,9 @@ import {
 } from '@mui/icons-material';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
+import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { SSOClient } from '../api/sso-client';
 import type { SSOConfig, SSOTestResult } from '../types';
-
-const SSO_DISPLAY_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 const DEFAULT_SSO_CONFIG: SSOConfig = {
   enabled: false,
@@ -51,6 +49,7 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
 export default function SSOConfigForm() {
   const { organization, sessionToken, onUpdate } = useOrgSettings();
   const notifications = useNotifications();
+  const ssoDisplayBaseUrl = getClientApiBaseUrl();
   const [formData, setFormData] = useState<SSOConfig>(DEFAULT_SSO_CONFIG);
   const [initialData, setInitialData] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -277,13 +276,13 @@ export default function SSOConfigForm() {
                     variant="body2"
                     sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flexGrow: 1 }}
                   >
-                    {`${SSO_DISPLAY_BASE_URL}/auth/sso/${formData.slug}`}
+                    {`${ssoDisplayBaseUrl}/auth/sso/${formData.slug}`}
                   </Typography>
                   <Tooltip title="Copy URL">
                     <IconButton
                       size="small"
                       onClick={() => {
-                        const url = `${SSO_DISPLAY_BASE_URL}/auth/sso/${formData.slug}`;
+                        const url = `${ssoDisplayBaseUrl}/auth/sso/${formData.slug}`;
                         navigator.clipboard.writeText(url);
                         notifications.show('URL copied to clipboard', { severity: 'success', autoHideDuration: 3000 });
                       }}
