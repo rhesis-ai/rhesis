@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { BehaviorsPage } from '../pages/BehaviorsPage';
-import { confirmDeleteDialog } from '../helpers/CrudHelper';
+import { confirmDeleteDialog, openDrawer } from '../helpers/CrudHelper';
 
 /**
  * CRUD interaction tests for Behaviors.

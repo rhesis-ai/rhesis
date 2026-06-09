@@ -52,7 +52,7 @@ test.describe('Tasks — CRUD @crud', () => {
     await waitForDrawerClosed(page);
 
     await page.waitForLoadState('networkidle');
-    await tasksPage.expectTaskVisible(UNIQUE_TITLE);
+    await tasksPage.expectTaskVisible(title);
     return true;
   }
 

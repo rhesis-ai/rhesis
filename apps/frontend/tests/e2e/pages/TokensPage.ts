@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test';
+import { type Page, type Locator, expect } from '@playwright/test';
 import { expectOpenDrawerTitle } from '../helpers/CrudHelper';
 
 /**
