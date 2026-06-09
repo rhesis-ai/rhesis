@@ -191,7 +191,7 @@ describe('Sidebar', () => {
       expect(orgLinks).toHaveLength(0);
     });
 
-    it('opens Settings and Team in a popover when the org brand is clicked', () => {
+    it('opens org menu items in a popover when the org brand is clicked', () => {
       setupMocks();
       (useNavigationItems as jest.Mock).mockReturnValue({
         navigation: [],
@@ -199,11 +199,13 @@ describe('Sidebar', () => {
       });
       render(<Sidebar />);
       fireEvent.click(screen.getByText('Acme Corp'));
-      expect(screen.getByText('Settings')).toBeInTheDocument();
+      expect(screen.getByText('Org Settings')).toBeInTheDocument();
       expect(screen.getByText('Team')).toBeInTheDocument();
+      expect(screen.getByText('Projects')).toBeInTheDocument();
+      expect(screen.getByText('Switch project')).toBeInTheDocument();
     });
 
-    it('navigates to settings when Settings is clicked', () => {
+    it('navigates to org settings when Org Settings is clicked', () => {
       setupMocks();
       (useNavigationItems as jest.Mock).mockReturnValue({
         navigation: [],
@@ -211,8 +213,20 @@ describe('Sidebar', () => {
       });
       render(<Sidebar />);
       fireEvent.click(screen.getByText('Acme Corp'));
-      fireEvent.click(screen.getByText('Settings'));
+      fireEvent.click(screen.getByText('Org Settings'));
       expect(mockRouterPush).toHaveBeenCalledWith('/organizations/settings');
+    });
+
+    it('navigates to projects when Projects is clicked', () => {
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+      fireEvent.click(screen.getByText('Acme Corp'));
+      fireEvent.click(screen.getByText('Projects'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/projects');
     });
 
     it('navigates to team when Team is clicked', () => {

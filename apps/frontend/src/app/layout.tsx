@@ -14,7 +14,6 @@ import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import {
   ScienceIcon,
   BiotechIcon,
-  AppsIcon,
   VpnKeyIcon,
   TestRunsIcon,
   AssessmentIcon,
@@ -90,12 +89,6 @@ async function getNavigationItems(
     {
       kind: 'header',
       title: 'Define',
-    },
-    {
-      kind: 'page',
-      segment: 'projects',
-      title: 'Projects',
-      icon: <AppsIcon key="projects-icon" />,
     },
     {
       kind: 'page',
