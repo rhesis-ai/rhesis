@@ -37,15 +37,27 @@ jobs:
         run: make install
         working-directory: apps/frontend
 
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> $GITHUB_OUTPUT
+        working-directory: apps/frontend
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.playwright-version.outputs.version }}
+
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+        timeout-minutes: 10
+        run: npx playwright install --with-deps chromium
         working-directory: apps/frontend
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/3)
-        run: make test-e2e
+        run: make test-e2e-ci
         working-directory: apps/frontend
         env:
           PLAYWRIGHT_SHARD: "${{ matrix.shard }}/3"

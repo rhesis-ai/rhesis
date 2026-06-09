@@ -1,7 +1,7 @@
 # Frontend Makefile
 # Mimics the validation script behavior with focus on errors only
 
-.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install docker-up docker-down docker-clean test-e2e
+.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install docker-up docker-down docker-clean test-e2e test-e2e-ci
 
 # Default target
 help:
@@ -109,6 +109,14 @@ test-e2e: docker-up
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
 	NEXTAUTH_URL=http://localhost:3000 \
 	npx playwright test --grep "@sanity|@crud"
+
+# CI E2E — Chromium only (Firefox browser install is skipped in GitHub Actions)
+test-e2e-ci: docker-up
+	API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
+	NEXTAUTH_URL=http://localhost:3000 \
+	npx playwright test --grep "@sanity|@crud" --project=chromium
 
 # Run only @sanity smoke tests (faster, cross-browser)
 test-e2e-smoke: docker-up
