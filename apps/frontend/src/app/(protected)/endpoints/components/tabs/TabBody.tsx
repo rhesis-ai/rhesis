@@ -4,7 +4,6 @@ import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { AutoFixHighIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
-import ActionBar from '@/components/common/ActionBar';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import TestAndMap from '../TestAndMap';
 
@@ -19,37 +18,29 @@ interface TestResult {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
-interface StepBodyProps {
+interface TabBodyProps {
   reqBody: string;
   resBody: string;
   onReqBodyChange: React.Dispatch<React.SetStateAction<string>>;
   onResBodyChange: React.Dispatch<React.SetStateAction<string>>;
   testResult: TestResult | null;
   isTestingEndpoint: boolean;
-  testPassed: boolean;
-  isSubmitting: boolean;
   onRunTest: (inputData: Record<string, unknown>) => void;
-  onSubmit: () => void;
-  onBack: () => void;
   onAutoConfigureOpen: () => void;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function StepBody({
+export default function TabBody({
   reqBody,
   resBody,
   onReqBodyChange,
   onResBodyChange,
   testResult,
   isTestingEndpoint,
-  testPassed,
-  isSubmitting,
   onRunTest,
-  onSubmit,
-  onBack,
   onAutoConfigureOpen,
-}: StepBodyProps) {
+}: TabBodyProps) {
   // Derive testResponse string from testResult
   const testResponse = (() => {
     if (!testResult) return '';
@@ -76,9 +67,6 @@ export default function StepBody({
   const handleResponseMappingChange = (m: Record<string, string>) => {
     onResBodyChange(JSON.stringify(m, null, 2));
   };
-
-  // Derive mappings for checking if output is mapped
-  const mappings: Record<string, string> = responseMapping;
 
   return (
     <Box>
@@ -141,16 +129,6 @@ export default function StepBody({
           isTestingEndpoint={isTestingEndpoint}
         />
       </SectionCard>
-
-      <ActionBar
-        leftButton={{ label: '← Back', onClick: onBack, variant: 'outlined' }}
-        rightButton={{
-          label: 'Save endpoint',
-          onClick: onSubmit,
-          variant: 'contained',
-          disabled: !testPassed || isSubmitting || !mappings.output,
-        }}
-      />
     </Box>
   );
 }

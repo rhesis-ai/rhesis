@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Box, Step, StepLabel, Stepper, Alert } from '@mui/material';
+import { Box, Tab, Tabs, Alert } from '@mui/material';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
+import ActionBar from '@/components/common/ActionBar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -15,9 +17,9 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import AutoConfigureModal from './AutoConfigureModal';
-import StepBasics from './steps/StepBasics';
-import StepHeaders from './steps/StepHeaders';
-import StepBody from './steps/StepBody';
+import TabBasics from './tabs/TabBasics';
+import TabHeaders from './tabs/TabHeaders';
+import TabBody from './tabs/TabBody';
 import {
   bodyToRequestMapping,
   parseBodyMapping,
@@ -60,7 +62,7 @@ export default function EndpointForm() {
   const params = useParams<{ identifier?: string }>();
   const projectIdFromUrl = params?.identifier || '';
 
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [reqBody, setReqBody] = useState<string>(DEFAULT_REQ_BODY);
   const [resBody, setResBody] = useState<string>(DEFAULT_RES_BODY);
   const [testResult, setTestResult] = useState<{
@@ -313,63 +315,80 @@ export default function EndpointForm() {
 
   return (
     <Box>
-      <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
-        <Step>
-          <StepLabel>Basics</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Headers</StepLabel>
-        </Step>
-        <Step>
-          <StepLabel>Body</StepLabel>
-        </Step>
-      </Stepper>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_e, v) => setActiveTab(v)}
+          aria-label="endpoint creation tabs"
+        >
+          <Tab
+            label="Basics"
+            id="endpoint-tab-0"
+            aria-controls="endpoint-tabpanel-0"
+          />
+          <Tab
+            label="Headers"
+            id="endpoint-tab-1"
+            aria-controls="endpoint-tabpanel-1"
+          />
+          <Tab
+            label="Body"
+            id="endpoint-tab-2"
+            aria-controls="endpoint-tabpanel-2"
+          />
+        </Tabs>
+      </Box>
 
-      {activeStep === 0 && (
-        <StepBasics
+      <DetailTabPanel value={activeTab} index={0} prefix="endpoint">
+        <TabBasics
           formData={formData}
           onChange={handleChange}
           projects={projects}
           loadingProjects={loadingProjects}
-          isValid={step1Valid}
-          onNext={() => setActiveStep(1)}
-          onCancel={handleCancel}
         />
-      )}
+      </DetailTabPanel>
 
-      {activeStep === 1 && (
-        <StepHeaders
+      <DetailTabPanel value={activeTab} index={1} prefix="endpoint">
+        <TabHeaders
           formData={formData}
           onChange={handleChange}
           showAuthToken={showAuthToken}
           onToggleAuthToken={() => setShowAuthToken(v => !v)}
-          onNext={() => setActiveStep(2)}
-          onBack={() => setActiveStep(0)}
         />
-      )}
+      </DetailTabPanel>
 
-      {activeStep === 2 && (
-        <StepBody
+      <DetailTabPanel value={activeTab} index={2} prefix="endpoint">
+        <TabBody
           reqBody={reqBody}
           resBody={resBody}
           onReqBodyChange={setReqBody}
           onResBodyChange={setResBody}
           testResult={testResult}
           isTestingEndpoint={isTestingEndpoint}
-          testPassed={testPassed}
-          isSubmitting={isSubmitting}
           onRunTest={handleRunTest}
-          onSubmit={handleSubmit}
-          onBack={() => setActiveStep(1)}
           onAutoConfigureOpen={() => setAutoConfigureOpen(true)}
         />
-      )}
+      </DetailTabPanel>
 
       {error && (
         <Box sx={{ mt: 2 }}>
           <Alert severity="error">{error}</Alert>
         </Box>
       )}
+
+      <ActionBar
+        leftButton={{
+          label: 'Cancel',
+          onClick: handleCancel,
+          variant: 'outlined',
+        }}
+        rightButton={{
+          label: 'Save endpoint',
+          onClick: handleSubmit,
+          variant: 'contained',
+          disabled: !testPassed || isSubmitting || !step1Valid,
+        }}
+      />
 
       <AutoConfigureModal
         open={autoConfigureOpen}

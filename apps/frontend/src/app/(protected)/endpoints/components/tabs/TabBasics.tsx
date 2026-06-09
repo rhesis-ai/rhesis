@@ -33,25 +33,19 @@ import type { FormData } from '../EndpointForm';
 
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 
-interface StepBasicsProps {
+interface TabBasicsProps {
   formData: FormData;
   onChange: (field: keyof FormData, value: unknown) => void;
   projects: Project[];
   loadingProjects: boolean;
-  isValid: boolean;
-  onNext: () => void;
-  onCancel: () => void;
 }
 
-export default function StepBasics({
+export default function TabBasics({
   formData,
   onChange,
   projects,
   loadingProjects,
-  isValid,
-  onNext,
-  onCancel,
-}: StepBasicsProps) {
+}: TabBasicsProps) {
   const validateUrl = (url: string) => {
     try {
       new URL(url);
@@ -242,30 +236,6 @@ export default function StepBasics({
           </AccordionDetails>
         </Accordion>
       </SectionCard>
-
-      <Box
-        sx={{
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          p: 2,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Button variant="outlined" size="large" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          size="large"
-          onClick={onNext}
-          disabled={!isValid}
-        >
-          Next →
-        </Button>
-      </Box>
     </Box>
   );
 }

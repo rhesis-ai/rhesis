@@ -7,11 +7,9 @@ import {
   Typography,
   IconButton,
   InputAdornment,
-  Button,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
-import ActionBar from '@/components/common/ActionBar';
 import HeadersEditor from '../HeadersEditor';
 import {
   LockIcon,
@@ -20,23 +18,19 @@ import {
 } from '@/components/icons';
 import type { FormData } from '../EndpointForm';
 
-interface StepHeadersProps {
+interface TabHeadersProps {
   formData: FormData;
   onChange: (field: keyof FormData, value: unknown) => void;
   showAuthToken: boolean;
   onToggleAuthToken: () => void;
-  onNext: () => void;
-  onBack: () => void;
 }
 
-export default function StepHeaders({
+export default function TabHeaders({
   formData,
   onChange,
   showAuthToken,
   onToggleAuthToken,
-  onNext,
-  onBack,
-}: StepHeadersProps) {
+}: TabHeadersProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
 
@@ -85,11 +79,6 @@ export default function StepHeaders({
           editorTheme={editorTheme}
         />
       </SectionCard>
-
-      <ActionBar
-        leftButton={{ label: '← Back', onClick: onBack, variant: 'outlined' }}
-        rightButton={{ label: 'Next →', onClick: onNext, variant: 'contained' }}
-      />
     </Box>
   );
 }
