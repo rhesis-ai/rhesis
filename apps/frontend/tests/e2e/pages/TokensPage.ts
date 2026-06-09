@@ -1,4 +1,5 @@
-import { type Page, type Locator, expect } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
+import { expectOpenDrawerTitle } from '../helpers/CrudHelper';
 
 /**
  * Page Object for the API Tokens page (/tokens).
@@ -38,9 +39,7 @@ export class TokensPage {
   /** Open the create-token drawer (BaseDrawer, not a dialog). */
   async openCreateTokenModal() {
     await this.createTokenButton.click();
-    await expect(
-      this.page.getByRole('heading', { name: /create new token/i })
-    ).toBeVisible({ timeout: 5_000 });
+    await expectOpenDrawerTitle(this.page, /create new token/i);
   }
 
   /** Delete a token via the hover-revealed row-actions delete icon. */

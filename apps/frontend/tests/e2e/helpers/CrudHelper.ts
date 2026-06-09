@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
 
 /**
  * Shared helpers for CRUD-style E2E tests.
@@ -27,15 +27,38 @@ export async function deleteGridRowByText(page: Page, text: string) {
   await row.locator('.row-actions button').last().click();
 }
 
+/** Locator for the currently open MUI drawer (BaseDrawer titles are plain Typography). */
+export function openDrawer(page: Page) {
+  return page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
+}
+
+/** Wait until the open drawer shows the expected title text. */
+export async function expectOpenDrawerTitle(
+  page: Page,
+  title: string | RegExp,
+  timeout = 10_000
+) {
+  const drawer = openDrawer(page);
+  await drawer.waitFor({ state: 'visible', timeout });
+  await expect(
+    drawer.getByText(title, { exact: typeof title === 'string' })
+  ).toBeVisible({
+    timeout,
+  });
+}
+
+/** Wait until no drawer is open. */
+export async function waitForDrawerClosed(page: Page, timeout = 15_000) {
+  await openDrawer(page).waitFor({ state: 'hidden', timeout });
+}
+
 /** Wait until a drawer heading is no longer visible (BaseDrawer uses role=presentation). */
 export async function waitForDrawerHeadingHidden(
   page: Page,
-  heading: string | RegExp,
+  title: string | RegExp,
   timeout = 15_000
 ) {
-  await page
-    .getByRole('heading', { name: heading })
-    .waitFor({ state: 'hidden', timeout });
+  await waitForDrawerClosed(page, timeout);
 }
 
 /** UUID that is valid but unlikely to exist in Quick Start seed data. */

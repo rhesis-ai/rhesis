@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { TokensPage } from '../pages/TokensPage';
-import { confirmDeleteDialog } from '../helpers/CrudHelper';
+import {
+  confirmDeleteDialog,
+  openDrawer,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 /**
  * CRUD interaction tests for API Tokens.
@@ -17,18 +21,20 @@ test.describe('API Tokens — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
 
     await tokensPage.openCreateTokenModal();
-    await page.getByRole('textbox', { name: /token name/i }).fill(UNIQUE_NAME);
-    await page.getByRole('button', { name: /^create$/i }).click();
+    const createDrawer = openDrawer(page);
+    await createDrawer
+      .getByRole('textbox', { name: /token name/i })
+      .fill(UNIQUE_NAME);
+    await createDrawer.getByRole('button', { name: /^create$/i }).click();
+    await waitForDrawerClosed(page);
 
-    await expect(
-      page.getByRole('heading', { name: /your new api token/i })
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(UNIQUE_NAME)).toBeVisible();
-
-    await page.getByRole('button', { name: /^close$/i }).click();
-    await expect(
-      page.getByRole('heading', { name: /your new api token/i })
-    ).not.toBeVisible({ timeout: 5_000 });
+    const tokenDrawer = openDrawer(page);
+    await expect(tokenDrawer.getByText(/your new api token/i)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(tokenDrawer.getByText(UNIQUE_NAME)).toBeVisible();
+    await tokenDrawer.getByRole('button', { name: /^close$/i }).click();
+    await waitForDrawerClosed(page);
 
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 10_000 });
@@ -43,15 +49,19 @@ test.describe('API Tokens — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
 
     await tokensPage.openCreateTokenModal();
-    await page
+    const createDrawer = openDrawer(page);
+    await createDrawer
       .getByRole('textbox', { name: /token name/i })
       .fill(TOKEN_TO_DELETE);
-    await page.getByRole('button', { name: /^create$/i }).click();
+    await createDrawer.getByRole('button', { name: /^create$/i }).click();
+    await waitForDrawerClosed(page);
 
-    await expect(
-      page.getByRole('heading', { name: /your new api token/i })
-    ).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /^close$/i }).click();
+    const tokenDrawer = openDrawer(page);
+    await expect(tokenDrawer.getByText(/your new api token/i)).toBeVisible({
+      timeout: 10_000,
+    });
+    await tokenDrawer.getByRole('button', { name: /^close$/i }).click();
+    await waitForDrawerClosed(page);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(TOKEN_TO_DELETE)).toBeVisible({
       timeout: 10_000,

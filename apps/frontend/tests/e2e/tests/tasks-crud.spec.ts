@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { TasksPage } from '../pages/TasksPage';
-import { confirmDeleteDialog } from '../helpers/CrudHelper';
+import {
+  confirmDeleteDialog,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 /**
  * CRUD interaction tests for Tasks.
@@ -46,11 +49,10 @@ test.describe('Tasks — CRUD @crud', () => {
       return false;
     }
     await saveBtn.click();
+    await waitForDrawerClosed(page);
 
-    await page
-      .getByRole('heading', { name: /^new task$/i })
-      .waitFor({ state: 'hidden', timeout: 15_000 });
     await page.waitForLoadState('networkidle');
+    await tasksPage.expectTaskVisible(UNIQUE_TITLE);
     return true;
   }
 
@@ -166,8 +168,6 @@ test.describe('Tasks — CRUD @crud', () => {
     }
 
     await tasksPage.goto();
-    await tasksPage.expectLoaded();
-    await page.reload();
     await tasksPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 

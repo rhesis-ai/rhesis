@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { waitForDrawerClosed } from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Knowledge (sources) page (/knowledge).
@@ -69,11 +70,9 @@ export class KnowledgePage extends BasePage {
     await submitBtn.click();
   }
 
-  /** BaseDrawer stays mounted — wait for the heading to hide instead of dialog. */
+  /** BaseDrawer stays mounted — wait for the drawer to close. */
   async waitForUploadDrawerClosed() {
-    await this.page
-      .getByRole('heading', { name: /upload source/i })
-      .waitFor({ state: 'hidden', timeout: 20_000 });
+    await waitForDrawerClosed(this.page, 20_000);
   }
 
   /** Select a grid row that contains the given text by clicking its checkbox. */

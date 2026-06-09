@@ -1,7 +1,11 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { KnowledgePage } from '../pages/KnowledgePage';
-import { confirmDeleteDialog } from '../helpers/CrudHelper';
+import {
+  confirmDeleteDialog,
+  openDrawer,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 /**
  * CRUD interaction tests for the Knowledge (sources) page.
@@ -28,9 +32,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.openUploadSourceDialog();
 
     // Dialog should be visible
-    await expect(
-      page.getByRole('heading', { name: /upload source/i })
-    ).toBeVisible();
+    await expect(openDrawer(page).getByText(/upload source/i)).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );

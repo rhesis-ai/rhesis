@@ -141,9 +141,9 @@ test.describe('Behaviors — CRUD @crud', () => {
     await behaviorsPage.clickAddMetricOnCard(UNIQUE_NAME);
 
     // Assign Metric drawer opens from the Linked Metrics tab
-    await expect(
-      page.getByRole('heading', { name: /assign metric/i })
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(openDrawer(page).getByText(/assign metric/i)).toBeVisible({
+      timeout: 10_000,
+    });
 
     const drawer = page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
 

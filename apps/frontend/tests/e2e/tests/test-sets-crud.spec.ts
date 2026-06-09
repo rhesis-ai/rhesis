@@ -2,7 +2,11 @@
 import { test, expect } from '@playwright/test';
 import { TestSetsPage } from '../pages/TestSetsPage';
 import { MockApiHelper } from '../helpers/MockApiHelper';
-import { confirmDeleteDialog } from '../helpers/CrudHelper';
+import {
+  confirmDeleteDialog,
+  openDrawer,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 import testSetsFixture from '../fixtures/test-sets.json';
 
@@ -24,26 +28,12 @@ test.describe('Test Sets — CRUD @crud', () => {
     // Open the "New Test Set" drawer
     await testSetsPage.openNewTestSetDrawer();
 
-    // The drawer heading should be visible (BaseDrawer renders <Typography variant="h6">)
-    const drawerHeading = page.getByRole('heading', {
-      name: /^new test set$/i,
-    });
-    await expect(drawerHeading).toBeVisible({ timeout: 10_000 });
+    const drawer = openDrawer(page);
 
-    // Fill the required Name field.
-    // Scope to [role="presentation"] (the MUI Drawer portal) so we never
-    // accidentally match a DataGrid filter textbox with the same accessible name.
-    await page
-      .locator('[role="presentation"]')
-      .getByRole('textbox', { name: /^name/i })
-      .fill(UNIQUE_NAME);
+    // Fill the required Name field inside the open drawer.
+    await drawer.getByRole('textbox', { name: /^name/i }).fill(UNIQUE_NAME);
 
-    // Explicitly select the Test Set Type.
-    // MUI Select renders as role="button" with aria-haspopup="listbox" — not
-    // role="combobox".  Scope to the drawer presentation element.
-    const typeSelectBtn = page
-      .locator('[role="presentation"] [aria-haspopup="listbox"]')
-      .first();
+    const typeSelectBtn = drawer.locator('[aria-haspopup="listbox"]').first();
     await typeSelectBtn.click();
     const singleTurnOption = page.getByRole('option', { name: /single.turn/i });
     const optionsAvailable = await singleTurnOption
@@ -57,12 +47,8 @@ test.describe('Test Sets — CRUD @crud', () => {
     await singleTurnOption.click();
 
     // Save (button text from BaseDrawer default is "Save Changes")
-    await page.getByRole('button', { name: /save changes/i }).click();
-
-    // Wait for the drawer to close.
-    // BaseDrawer uses keepMounted:true, so the heading stays in the DOM but
-    // becomes CSS-hidden when open=false.  Using the h6 heading is reliable.
-    await expect(drawerHeading).not.toBeVisible({ timeout: 15_000 });
+    await drawer.getByRole('button', { name: /save changes/i }).click();
+    await waitForDrawerClosed(page);
 
     // The new test set should appear in the list
     await page.waitForLoadState('networkidle');
@@ -79,17 +65,12 @@ test.describe('Test Sets — CRUD @crud', () => {
 
     // --- Setup: create a test set to delete ---
     await testSetsPage.openNewTestSetDrawer();
-    const setupHeading = page.getByRole('heading', { name: /^new test set$/i });
-    await expect(setupHeading).toBeVisible({ timeout: 10_000 });
+    const drawer = openDrawer(page);
 
-    await page
-      .locator('[role="presentation"]')
-      .getByRole('textbox', { name: /^name/i })
-      .fill(UNIQUE_NAME);
+    await drawer.getByRole('textbox', { name: /^name/i }).fill(UNIQUE_NAME);
 
-    // Explicitly select the Test Set Type; skip if options not available
-    const setupTypeSelectBtn = page
-      .locator('[role="presentation"] [aria-haspopup="listbox"]')
+    const setupTypeSelectBtn = drawer
+      .locator('[aria-haspopup="listbox"]')
       .first();
     await setupTypeSelectBtn.click();
     const setupOption = page.getByRole('option', { name: /single.turn/i });
@@ -103,10 +84,8 @@ test.describe('Test Sets — CRUD @crud', () => {
     }
     await setupOption.click();
 
-    await page.getByRole('button', { name: /save changes/i }).click();
-
-    // Wait for drawer to close and test set to appear
-    await expect(setupHeading).not.toBeVisible({ timeout: 15_000 });
+    await drawer.getByRole('button', { name: /save changes/i }).click();
+    await waitForDrawerClosed(page);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
 

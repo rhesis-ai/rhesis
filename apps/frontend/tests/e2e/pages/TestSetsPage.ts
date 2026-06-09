@@ -1,4 +1,5 @@
 import { type Page, type Locator, expect } from '@playwright/test';
+import { expectOpenDrawerTitle } from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Test Sets list page (/test-sets).
@@ -41,19 +42,19 @@ export class TestSetsPage {
 
   /** Open the "New Test Set" drawer. */
   async openNewTestSetDrawer() {
-    const fab = this.newTestSetButton;
-    const fabVisible = await fab
-      .isVisible({ timeout: 5_000 })
+    const emptyAction = this.page
+      .getByRole('button', { name: /create test set/i })
+      .first();
+    const emptyVisible = await emptyAction
+      .isVisible({ timeout: 3_000 })
       .catch(() => false);
-    if (fabVisible) {
-      await fab.click();
+    if (emptyVisible) {
+      await emptyAction.click();
     } else {
-      await this.page.getByRole('button', { name: /create test set/i }).click();
+      await this.newTestSetButton.click();
     }
 
-    await expect(
-      this.page.getByRole('heading', { name: /^new test set$/i })
-    ).toBeVisible({ timeout: 10_000 });
+    await expectOpenDrawerTitle(this.page, /^new test set$/i);
   }
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
