@@ -79,15 +79,6 @@ jobs:
       deploy: false
     secrets: inherit
 
-  chatbot-build:
-    needs: gate
-    uses: ./.github/workflows/chatbot-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
   polyphemus-build:
     needs: gate
     uses: ./.github/workflows/polyphemus-k8s.yml
@@ -117,6 +108,7 @@ jobs:
 
   # After all images are pushed, update global.imageTag once so ArgoCD
   # rolls all services to the same tag in a single Helm upgrade.
+  # Note: chatbot is excluded — 9GB image, deploy separately via chatbot-k8s.yml.
   deploy-all:
     needs:
       - gate
@@ -124,7 +116,6 @@ jobs:
       - worker-build
       - frontend-build
       - docs-build
-      - chatbot-build
       - polyphemus-build
       - otel-collector-build
       - telemetry-processor-build
@@ -132,5 +123,5 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
-      # service left empty → patches global.imageTag for all services
+      # service left empty → sets per-service image tags for all deploy-all services
     secrets: inherit

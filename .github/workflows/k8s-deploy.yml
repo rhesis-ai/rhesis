@@ -40,7 +40,16 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Self-hosted runner inside the target cluster's VPC so ArgoCD's internal
+    # hostname (e.g. dev-argocd.rhesis.ai) resolves via kube-dns. Build/push
+    # jobs stay on ubuntu-latest because Artifact Registry is public.
+    runs-on: ${{ inputs.environment == 'prd' && 'arc-runner-prd' || inputs.environment == 'stg' && 'arc-runner-stg' || 'arc-runner-dev' }}
+    # Serialize deploys per app+environment: ArgoCD rejects concurrent syncs on the
+    # same application with FailedPrecondition. cancel-in-progress: false queues the
+    # next deploy rather than dropping it, so no deploy is silently skipped.
+    concurrency:
+      group: argocd-sync-${{ inputs.app_name }}-${{ inputs.environment }}
+      cancel-in-progress: false
     permissions:
       contents: none
 
@@ -49,10 +58,13 @@ jobs:
         run: |
           ARGOCD_VERSION="v2.14.4"
           ARGOCD_SHA256="ed774771701f8e5a9330918e4f905f2f171e2181906aec792c9ff6907a4c480f"
-          curl -sSL -o /usr/local/bin/argocd \
+          # ARC runner pods are non-root — write to $HOME/bin instead of /usr/local/bin
+          mkdir -p "$HOME/bin"
+          curl -sSL -o "$HOME/bin/argocd" \
             "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
-          echo "${ARGOCD_SHA256}  /usr/local/bin/argocd" | sha256sum -c -
-          chmod +x /usr/local/bin/argocd
+          echo "${ARGOCD_SHA256}  $HOME/bin/argocd" | sha256sum -c -
+          chmod +x "$HOME/bin/argocd"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
 
       - name: Set image tag parameter on ArgoCD Application
         env:
@@ -61,30 +73,87 @@ jobs:
           TAG: ${{ inputs.tag }}
           SERVICE: ${{ inputs.service }}
         run: |
-          if [ -z "$SERVICE" ]; then
-            PARAM="global.imageTag=$TAG"
-            echo "Setting global.imageTag=$TAG on app ${{ inputs.app_name }} [${{ inputs.environment }}]"
-          else
-            PARAM="${SERVICE}.image.tag=$TAG"
-            echo "Setting ${SERVICE}.image.tag=$TAG on app ${{ inputs.app_name }} [${{ inputs.environment }}]"
-          fi
+          # workers is a Helm array ([]interface{}), so dot-notation fails.
+          # Use index notation workers[0].image.tag instead of workers.image.tag.
+          #
+          # Empty SERVICE = deploy-all. We CANNOT just set global.imageTag here: the
+          # chart helper resolves each image as coalesce(<svc>.image.tag, global.imageTag),
+          # and `argocd app set --helm-set <svc>.image.tag=...` from earlier individual
+          # deploys persists as a parameter override on the Application. A per-service
+          # override therefore permanently shadows global.imageTag, so bumping global
+          # alone is a no-op for any service ever deployed on its own — the sync finds no
+          # diff and nothing rolls. Instead we set every deploy-all service's tag
+          # explicitly, which overwrites those stale overrides and guarantees a rollout.
+          # chatbot is intentionally excluded (9GB image, built/deployed separately via
+          # chatbot-k8s.yml) and left on its own pinned tag.
+          SET_FLAGS=()
+          case "$SERVICE" in
+            "")
+              for KEY in backend.image.tag frontend.image.tag docs.image.tag \
+                         polyphemus.image.tag otelCollector.image.tag \
+                         telemetryProcessor.image.tag "workers[0].image.tag"; do
+                SET_FLAGS+=(--helm-set "${KEY}=$TAG")
+              done
+              ;;
+            workers)  SET_FLAGS+=(--helm-set "workers[0].image.tag=$TAG") ;;
+            *)        SET_FLAGS+=(--helm-set "${SERVICE}.image.tag=$TAG") ;;
+          esac
+          echo "Setting tags on app ${{ inputs.app_name }} [${{ inputs.environment }}]:"
+          printf '  %s\n' "${SET_FLAGS[@]}"
 
           argocd app set "${{ inputs.app_name }}" \
-            --helm-set "$PARAM" \
+            "${SET_FLAGS[@]}" \
             --server "$ARGOCD_SERVER" \
             --auth-token "$ARGOCD_AUTH_TOKEN" \
             --grpc-web
+
+      - name: Resolve Resource Flag
+        env:
+          SERVICE: ${{ inputs.service }}
+        run: |
+          # Map values key (camelCase) → Deployment name (kebab-case).
+          # workers[0] → worker-default (the only worker type currently defined).
+          # If additional worker types are added (workers[1], workers[2]...), add
+          # them here and consider switching to a full-app sync for the workers service.
+          case "$SERVICE" in
+            otelCollector)      DEPLOY_NAME="otel-collector" ;;
+            telemetryProcessor) DEPLOY_NAME="telemetry-processor" ;;
+            workers)            DEPLOY_NAME="worker-default" ;;
+            "")                 DEPLOY_NAME="" ;;
+            *)                  DEPLOY_NAME="$SERVICE" ;;
+          esac
+
+          if [ -n "$DEPLOY_NAME" ]; then
+            echo "RESOURCE_FLAG=--resource=apps:Deployment:${DEPLOY_NAME}" >> "$GITHUB_ENV"
+            echo "Targeting single resource: apps:Deployment:${DEPLOY_NAME}"
+          else
+            echo "RESOURCE_FLAG=" >> "$GITHUB_ENV"
+            echo "Targeting full application"
+          fi
 
       - name: Sync ArgoCD Application
         env:
           ARGOCD_SERVER: ${{ inputs.environment == 'prd' && secrets.ARGOCD_SERVER_PRD || inputs.environment == 'stg' && secrets.ARGOCD_SERVER_STG || secrets.ARGOCD_SERVER_DEV }}
           ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
         run: |
-          argocd app sync "${{ inputs.app_name }}" \
-            --server "$ARGOCD_SERVER" \
-            --auth-token "$ARGOCD_AUTH_TOKEN" \
-            --grpc-web \
-            --timeout 120
+          # Retry up to 5 times with 30s back-off to handle residual
+          # "another operation is already in progress" races not caught by
+          # the concurrency group (e.g. a manual sync in the ArgoCD UI).
+          for attempt in $(seq 1 5); do
+            argocd app sync "${{ inputs.app_name }}" \
+              --server "$ARGOCD_SERVER" \
+              --auth-token "$ARGOCD_AUTH_TOKEN" \
+              --grpc-web \
+              --timeout 300 \
+              ${RESOURCE_FLAG:+"$RESOURCE_FLAG"} && break
+            if [ "$attempt" -lt 5 ]; then
+              echo "Attempt $attempt failed — waiting 30s before retry..."
+              sleep 30
+            else
+              echo "All 5 sync attempts failed."
+              exit 1
+            fi
+          done
 
       - name: Wait for rollout to be healthy
         env:
@@ -96,4 +165,5 @@ jobs:
             --auth-token "$ARGOCD_AUTH_TOKEN" \
             --grpc-web \
             --health \
-            --timeout 300
+            --timeout 1200 \
+            ${RESOURCE_FLAG:+"$RESOURCE_FLAG"}
