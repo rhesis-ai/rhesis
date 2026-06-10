@@ -18,6 +18,17 @@ spec:
         runnerScaleSetName: arc-runner-stg
         minRunners: 0
         maxRunners: 3
+        template:
+          spec:
+            containers:
+              - name: runner
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 512Mi
+                  limits:
+                    cpu: "2"
+                    memory: 2Gi
         containerMode:
           type: kubernetes
           kubernetesModeWorkVolumeClaim:
