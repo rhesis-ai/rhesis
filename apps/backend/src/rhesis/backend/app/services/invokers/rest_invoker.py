@@ -182,6 +182,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             endpoint.request_mapping or {}, template_context
         )
 
+        # Unwrap __body__ — used when the template string isn't valid JSON on its own
+        # (e.g. it contains Jinja expressions that produce JSON fragments inline).
+        if isinstance(request_body, dict) and list(request_body.keys()) == ["__body__"]:
+            request_body = request_body["__body__"]
+
+        logger.debug(f"Request body to send: {request_body}")
+
         # Strip reserved meta keys (e.g. system_prompt) from the wire body
         self._strip_meta_keys(request_body)
 
@@ -272,6 +279,11 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             except (TypeError, ValueError):
                 mapped_response["raw_response"] = None
 
+            # Include the actual rendered request for the frontend preview
+            mapped_response["raw_request"] = self._create_request_details(
+                method, url, headers, request_body
+            )
+
             for field in ("error", "status", "message"):
                 if field in response_data and field not in mapped_response:
                     mapped_response[field] = response_data[field]
@@ -348,9 +360,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 rendered_headers[key] = value
 
         headers = rendered_headers
-
-        # Inject context headers using shared base method
-        self._inject_context_headers(headers, input_data)
 
         return headers
 
