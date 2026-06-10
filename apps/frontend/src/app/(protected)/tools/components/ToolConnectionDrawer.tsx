@@ -18,6 +18,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -135,6 +136,7 @@ export function ToolConnectionDrawer({
     providerProp ?? null
   );
 
+  const theme = useTheme();
   const isEditMode = mode === 'edit';
   const provider = providerProp ?? selectedProvider;
 
@@ -731,7 +733,6 @@ export function ToolConnectionDrawer({
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
 
-
   const displayName = provider?.type_value
     ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
     : 'Tool Provider';
@@ -794,7 +795,6 @@ export function ToolConnectionDrawer({
             (setup guide)
           </Link>
         </Typography>
-
 
         {!isEditMode && providers.length > 0 && (
           <FormControl fullWidth>
@@ -957,7 +957,7 @@ export function ToolConnectionDrawer({
                 variant="outlined"
                 size="medium"
                 onClick={handleTestConnection}
-                disabled={
+                disabled={Boolean(
                   testingConnection ||
                   loading ||
                   !authToken ||
@@ -973,7 +973,7 @@ export function ToolConnectionDrawer({
                       username ||
                       (authToken && authToken !== '************')) &&
                     (!instanceUrl || !username))
-                }
+                )}
                 sx={{ minWidth: 150 }}
               >
                 {testingConnection ? 'Testing...' : 'Test Connection'}
