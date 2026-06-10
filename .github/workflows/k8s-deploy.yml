@@ -41,29 +41,11 @@ on:
         default: ''
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Validate environment parameter
-        uses: ./.github/actions/validate-environment
-        with:
-          environment: ${{ inputs.environment }}
-
   deploy:
-    needs: validate
     # Self-hosted runner inside the target cluster's VPC so ArgoCD's internal
     # hostname (e.g. dev-argocd.rhesis.ai) resolves via kube-dns. Build/push
     # jobs stay on ubuntu-latest because Artifact Registry is public.
     runs-on: ${{ inputs.environment == 'prd' && 'arc-runner-prd' || inputs.environment == 'stg' && 'arc-runner-stg' || 'arc-runner-dev' }}
-    # Serialize deploys per app+environment: ArgoCD rejects concurrent syncs on the
-    # same application with FailedPrecondition. cancel-in-progress: false queues the
-    # next deploy rather than dropping it, so no deploy is silently skipped.
-    concurrency:
-      group: argocd-sync-${{ inputs.app_name }}-${{ inputs.environment }}
-      cancel-in-progress: false
     permissions:
       contents: none
 

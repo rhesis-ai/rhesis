@@ -3,6 +3,8 @@ kind: Kustomization
 namespace: argocd
 resources:
   - https://github.com/argoproj/argo-cd//manifests/cluster-install/?ref=v3.2.1
+  - arc-charts-repository.yaml
+  - arc-appproject.yaml
 patches:
   - path: ./patches/argocd-cm.yaml
     target:
