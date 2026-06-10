@@ -1,19 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Typography } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import { useNotifications } from '@/components/common/NotificationContext';
 import EditableSection from '@/components/common/EditableSection';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import JsonMonacoField from './JsonMonacoField';
+import { variableChipSx } from '../../components/endpoint-styles';
 
-function parseJsonField(
+function parseStringRecordJsonField(
   value: string,
   fieldLabel: string,
   notify: (msg: string) => void
-): Record<string, unknown> {
+): Record<string, string> {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(value);
+    parsed = JSON.parse(value);
     if (
       parsed === null ||
       typeof parsed !== 'object' ||
@@ -21,22 +23,15 @@ function parseJsonField(
     ) {
       throw new Error(`${fieldLabel} must be a JSON object`);
     }
-    return parsed as Record<string, unknown>;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : `Invalid JSON in ${fieldLabel}`;
     notify(message);
     throw new Error('validation');
   }
-}
-
-function parseStringRecordJsonField(
-  value: string,
-  fieldLabel: string,
-  notify: (msg: string) => void
-): Record<string, string> {
-  const parsed = parseJsonField(value, fieldLabel, notify);
-  for (const [key, entry] of Object.entries(parsed)) {
+  for (const [key, entry] of Object.entries(
+    parsed as Record<string, unknown>
+  )) {
     if (typeof entry !== 'string') {
       notify(`${fieldLabel}: "${key}" must be a string value`);
       throw new Error('validation');
@@ -54,14 +49,6 @@ export default function EndpointMappingsTab() {
   const headersInitial = useMemo(
     () => JSON.stringify(endpoint.request_headers || {}, null, 2),
     [endpoint.request_headers]
-  );
-  const requestMappingInitial = useMemo(
-    () => JSON.stringify(endpoint.request_mapping || {}, null, 2),
-    [endpoint.request_mapping]
-  );
-  const responseMappingInitial = useMemo(
-    () => JSON.stringify(endpoint.response_mapping || {}, null, 2),
-    [endpoint.response_mapping]
   );
 
   const notifyError = (msg: string) => {
@@ -87,8 +74,26 @@ export default function EndpointMappingsTab() {
             <>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Custom headers for your endpoint. Authorization and Content-Type
-                are provided automatically. Example:{' '}
-                <code>{`{ "x-api-key": "{{ auth_token }}" }`}</code>
+                are provided automatically. Use{' '}
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'inline-flex',
+                    verticalAlign: 'middle',
+                    mx: 0.5,
+                  }}
+                >
+                  <Chip
+                    label="{{ auth_token }}"
+                    size="small"
+                    sx={{
+                      ...variableChipSx,
+                      height: 20,
+                      '& .MuiChip-label': { px: 0.75 },
+                    }}
+                  />
+                </Box>{' '}
+                to reference your API token in a header value.
               </Typography>
               <JsonMonacoField
                 editorKey="request-headers"
@@ -103,48 +108,6 @@ export default function EndpointMappingsTab() {
           )}
         </EditableSection>
       )}
-
-      <EditableSection
-        title="Request mapping"
-        initialValue={requestMappingInitial}
-        onSave={async draft => {
-          const parsed = parseJsonField(draft, 'Request mapping', notifyError);
-          await saveFields({ request_mapping: parsed });
-        }}
-      >
-        {({ draft, setDraft, isEditing }) => (
-          <JsonMonacoField
-            editorKey="request-mapping"
-            height="360px"
-            theme={editorTheme}
-            wrapperSx={editorWrapperStyle}
-            readOnly={!isEditing}
-            value={draft}
-            onChange={setDraft}
-          />
-        )}
-      </EditableSection>
-
-      <EditableSection
-        title="Response mapping"
-        initialValue={responseMappingInitial}
-        onSave={async draft => {
-          const parsed = parseJsonField(draft, 'Response mapping', notifyError);
-          await saveFields({ response_mapping: parsed });
-        }}
-      >
-        {({ draft, setDraft, isEditing }) => (
-          <JsonMonacoField
-            editorKey="response-mapping"
-            height="280px"
-            theme={editorTheme}
-            wrapperSx={editorWrapperStyle}
-            readOnly={!isEditing}
-            value={draft}
-            onChange={setDraft}
-          />
-        )}
-      </EditableSection>
     </>
   );
 }

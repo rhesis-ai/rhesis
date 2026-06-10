@@ -14,8 +14,8 @@ import EndpointTestTab from './EndpointTestTab';
 const TAB_LABELS: Record<EndpointTabKey, string> = {
   overview: 'Overview',
   connection: 'Connection',
-  mappings: 'Mappings',
-  test: 'Test',
+  headers: 'Headers',
+  mappings: 'Test',
 };
 
 export default function EndpointDetailTabs() {

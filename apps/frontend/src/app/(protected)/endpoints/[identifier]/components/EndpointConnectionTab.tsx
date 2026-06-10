@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   Box,
+  Chip,
   FormControl,
   Grid,
   IconButton,
@@ -22,6 +23,7 @@ import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { METHODS } from './endpoint-detail-shared';
+import { variableChipSx } from '../../components/endpoint-styles';
 import EndpointSdkConnectionPanel from './EndpointSdkConnectionPanel';
 
 interface RestConnectionDraft {
@@ -133,7 +135,25 @@ export default function EndpointConnectionTab() {
                 >
                   Token will be encrypted and sent as{' '}
                   <code>Authorization: Bearer &lt;token&gt;</code>. Use{' '}
-                  <code>{'{{ auth_token }}'}</code> in custom headers.
+                  <Box
+                    component="span"
+                    sx={{
+                      display: 'inline-flex',
+                      verticalAlign: 'middle',
+                      mx: 0.5,
+                    }}
+                  >
+                    <Chip
+                      label="{{ auth_token }}"
+                      size="small"
+                      sx={{
+                        ...variableChipSx,
+                        height: 20,
+                        '& .MuiChip-label': { px: 0.75 },
+                      }}
+                    />
+                  </Box>{' '}
+                  to reference it in custom header values.
                 </Typography>
                 <TextField
                   fullWidth

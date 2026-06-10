@@ -34,7 +34,12 @@ export const ENVIRONMENTS = [
 
 export const METHODS = ['POST'] as const;
 
-export const TAB_KEYS = ['overview', 'connection', 'mappings', 'test'] as const;
+export const TAB_KEYS = [
+  'overview',
+  'connection',
+  'headers',
+  'mappings',
+] as const;
 export type EndpointTabKey = (typeof TAB_KEYS)[number];
 
 const ICON_MAP: Record<string, React.ComponentType> = {
