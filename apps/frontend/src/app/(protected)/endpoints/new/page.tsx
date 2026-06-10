@@ -1,5 +1,17 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { PageLayout } from '@/components/layout/PageLayout';
+import EndpointForm from '../components/EndpointForm';
 
 export default function NewEndpointPage() {
-  redirect('/endpoints?create=1');
+  const breadcrumbs = [
+    { label: 'Endpoints', href: '/endpoints' },
+    { label: 'Create New Endpoint' },
+  ];
+
+  return (
+    <PageLayout title="Create New Endpoint" breadcrumbs={breadcrumbs}>
+      <EndpointForm />
+    </PageLayout>
+  );
 }

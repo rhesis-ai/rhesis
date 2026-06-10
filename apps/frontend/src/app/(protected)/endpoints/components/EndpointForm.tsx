@@ -80,7 +80,7 @@ export default function EndpointForm() {
     error?: string;
   } | null>(null);
   const [isTabTestRunning, setIsTabTestRunning] = useState(false);
-  const [testPassed, setTestPassed] = useState(false);
+  const [_testPassed, setTestPassed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
