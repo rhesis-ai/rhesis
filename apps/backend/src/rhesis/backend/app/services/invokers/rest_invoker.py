@@ -361,12 +361,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         headers = rendered_headers
 
-        # Propagate caller identity as context headers when present in input_data
-        if input_data:
-            if "organization_id" in input_data:
-                headers["X-Organization-ID"] = input_data["organization_id"]
-            if "user_id" in input_data:
-                headers["X-User-ID"] = input_data["user_id"]
+        # Inject context headers using shared base method
+        self._inject_context_headers(headers, input_data)
 
         return headers
 
