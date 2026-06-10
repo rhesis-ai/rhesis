@@ -25,18 +25,8 @@ spec:
         maxRunners: 5
         template:
           spec:
-            # The runner runs as uid 1001 (member of group 123); the work-volume
-            # PVC mounts root-owned. fsGroup 123 makes it group-writable, else the
-            # job fails with "Access to the path '/home/runner/_work/_tool' is denied".
-            securityContext:
-              fsGroup: 123
             containers:
               - name: runner
-                # image/command must be repeated: Helm replaces the whole
-                # containers array, so omitting them drops the chart defaults
-                # and the runner pod fails with "spec.containers[0].image: Required".
-                image: ghcr.io/actions/actions-runner:latest
-                command: ["/home/runner/run.sh"]
                 resources:
                   requests:
                     cpu: 500m
@@ -44,13 +34,6 @@ spec:
                   limits:
                     cpu: "2"
                     memory: 4Gi
-        containerMode:
-          type: kubernetes
-          kubernetesModeWorkVolumeClaim:
-            accessModes: ["ReadWriteOnce"]
-            resources:
-              requests:
-                storage: 1Gi
   destination:
     server: https://kubernetes.default.svc
     namespace: arc-runners
