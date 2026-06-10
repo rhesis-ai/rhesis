@@ -4,9 +4,22 @@ from fastapi import HTTPException
 from sqlalchemy import inspect
 from sqlalchemy.orm import RelationshipProperty
 
+from rhesis.backend.app.utils.count_sort import (
+    VIRTUAL_COUNT_SORT_FIELDS,
+    model_supports_count_sort,
+)
+
 
 def validate_sort_field(model: Type, sort_by: str) -> None:
     """Validate that the sort field exists in the model"""
+    if sort_by in VIRTUAL_COUNT_SORT_FIELDS:
+        if not model_supports_count_sort(model, sort_by):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid sort field: {sort_by}. Model does not support this count sort.",
+            )
+        return
+
     if not hasattr(model, sort_by) and sort_by not in inspect(model).columns.keys():
         model_columns = inspect(model).columns.keys()
         raise HTTPException(

@@ -1,5 +1,9 @@
 import type { GridFilterModel } from '@mui/x-data-grid';
 import type { TestFilters } from './TestFilterDrawer';
+import {
+  appendPresenceFilterItems,
+  stripPresenceFilterItems,
+} from '@/components/common/presence-filter';
 
 export const TEST_DRAWER_FILTER_FIELDS = [
   'test_type.type_value',
@@ -48,11 +52,13 @@ export function applyTestDrawerFiltersToModel(
   prev: GridFilterModel,
   drawerFilters: TestFilters
 ): GridFilterModel {
-  const otherItems = prev.items.filter(
-    item =>
-      !TEST_DRAWER_FILTER_FIELDS.includes(
-        item.field as (typeof TEST_DRAWER_FILTER_FIELDS)[number]
-      )
+  const otherItems = stripPresenceFilterItems(
+    prev.items.filter(
+      item =>
+        !TEST_DRAWER_FILTER_FIELDS.includes(
+          item.field as (typeof TEST_DRAWER_FILTER_FIELDS)[number]
+        )
+    )
   );
   const drawerItems: GridFilterModel['items'] = [];
 
@@ -92,5 +98,12 @@ export function applyTestDrawerFiltersToModel(
     });
   }
 
-  return { ...prev, items: [...otherItems, ...drawerItems] };
+  return {
+    ...prev,
+    items: appendPresenceFilterItems([...otherItems, ...drawerItems], {
+      tags: drawerFilters.tags,
+      comments: drawerFilters.comments,
+      tasks: drawerFilters.tasks,
+    }),
+  };
 }

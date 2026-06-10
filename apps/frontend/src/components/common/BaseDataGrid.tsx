@@ -333,6 +333,10 @@ function QuickFilterToolbar() {
 
 // Column menu that only shows sort actions (no Filter, no Hide/Manage columns).
 function SortOnlyColumnMenu(props: GridColumnMenuProps) {
+  if (props.colDef?.sortable === false) {
+    return null;
+  }
+
   return (
     <GridColumnMenu
       {...props}

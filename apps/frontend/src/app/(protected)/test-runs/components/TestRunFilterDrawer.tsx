@@ -7,6 +7,13 @@ import {
   FilterSection,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
+import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import {
+  EMPTY_ACTIVITY_PRESENCE_FILTERS,
+  countActivePresenceFilters,
+  hasActivePresenceFilters,
+  type ActivityPresenceFilters,
+} from '@/components/common/presence-filter';
 
 export interface TestRunFilters {
   /** test_configuration/test_set/name contains */
@@ -15,20 +22,34 @@ export interface TestRunFilters {
   executor: string;
   /** tags contains */
   tag: string;
+  tags: ActivityPresenceFilters['tags'];
+  comments: ActivityPresenceFilters['comments'];
+  tasks: ActivityPresenceFilters['tasks'];
 }
 
 export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
   testSet: '',
   executor: '',
   tag: '',
+  ...EMPTY_ACTIVITY_PRESENCE_FILTERS,
 };
 
 export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
-  return Object.values(f).some(v => v !== '');
+  return (
+    f.testSet !== '' ||
+    f.executor !== '' ||
+    f.tag !== '' ||
+    hasActivePresenceFilters(f)
+  );
 }
 
 export function countActiveTestRunFilters(f: TestRunFilters): number {
-  return Object.values(f).filter(v => v !== '').length;
+  return (
+    (f.testSet !== '' ? 1 : 0) +
+    (f.executor !== '' ? 1 : 0) +
+    (f.tag !== '' ? 1 : 0) +
+    countActivePresenceFilters(f)
+  );
 }
 
 const textFieldSx = {
@@ -107,6 +128,22 @@ export default function TestRunFilterDrawer({
           sx={textFieldSx}
         />
       </FilterSection>
+
+      <ActivityPresenceFiltersSection
+        values={{
+          tags: draft.tags,
+          comments: draft.comments,
+          tasks: draft.tasks,
+        }}
+        onChange={next =>
+          setDraft(prev => ({
+            ...prev,
+            tags: next.tags,
+            comments: next.comments,
+            tasks: next.tasks,
+          }))
+        }
+      />
     </FilterDrawerShell>
   );
 }

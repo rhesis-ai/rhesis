@@ -12,6 +12,13 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
 import { TEST_TYPES } from '@/constants/test-types';
+import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import {
+  EMPTY_ACTIVITY_PRESENCE_FILTERS,
+  countActivePresenceFilters,
+  hasActivePresenceFilters,
+  type ActivityPresenceFilters,
+} from '@/components/common/presence-filter';
 
 export interface TestFilters {
   /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
@@ -24,6 +31,9 @@ export interface TestFilters {
   category: string;
   /** topic/name contains */
   topic: string;
+  tags: ActivityPresenceFilters['tags'];
+  comments: ActivityPresenceFilters['comments'];
+  tasks: ActivityPresenceFilters['tasks'];
 }
 
 export const EMPTY_TEST_FILTERS: TestFilters = {
@@ -32,14 +42,29 @@ export const EMPTY_TEST_FILTERS: TestFilters = {
   behavior: '',
   category: '',
   topic: '',
+  ...EMPTY_ACTIVITY_PRESENCE_FILTERS,
 };
 
 export function hasActiveTestFilters(f: TestFilters): boolean {
-  return Object.values(f).some(v => v !== '');
+  return (
+    f.testType !== '' ||
+    f.status !== '' ||
+    f.behavior !== '' ||
+    f.category !== '' ||
+    f.topic !== '' ||
+    hasActivePresenceFilters(f)
+  );
 }
 
 export function countActiveTestFilters(f: TestFilters): number {
-  return Object.values(f).filter(v => v !== '').length;
+  return (
+    (f.testType !== '' ? 1 : 0) +
+    (f.status !== '' ? 1 : 0) +
+    (f.behavior !== '' ? 1 : 0) +
+    (f.category !== '' ? 1 : 0) +
+    (f.topic !== '' ? 1 : 0) +
+    countActivePresenceFilters(f)
+  );
 }
 
 const TEST_TYPE_OPTIONS = [
@@ -210,6 +235,22 @@ export default function TestFilterDrawer({
         'Select category…'
       )}
       {renderAutocomplete('Topic', 'topic', topicOptions, 'Select topic…')}
+
+      <ActivityPresenceFiltersSection
+        values={{
+          tags: draft.tags,
+          comments: draft.comments,
+          tasks: draft.tasks,
+        }}
+        onChange={next =>
+          setDraft(prev => ({
+            ...prev,
+            tags: next.tags,
+            comments: next.comments,
+            tasks: next.tasks,
+          }))
+        }
+      />
     </FilterDrawerShell>
   );
 }

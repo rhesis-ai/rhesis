@@ -386,6 +386,23 @@ describe('combineTestFiltersToOData', () => {
     expect(result).toContain('test');
     expect(result).toContain('search');
   });
+
+  it('converts tag, comment, and task presence filters', () => {
+    const withTags = combineTestFiltersToOData({
+      items: [{ field: 'tags', operator: 'isNotEmpty', value: true, id: 1 }],
+    });
+    expect(withTags).toBe('_tags_relationship/any()');
+
+    const withoutComments = combineTestFiltersToOData({
+      items: [{ field: 'comments', operator: 'isEmpty', value: true, id: 1 }],
+    });
+    expect(withoutComments).toBe('not comments/any()');
+
+    const withTasks = combineTestFiltersToOData({
+      items: [{ field: 'tasks', operator: 'isNotEmpty', value: true, id: 1 }],
+    });
+    expect(withTasks).toBe('tasks/any()');
+  });
 });
 
 describe('combineSourceFiltersToOData', () => {
@@ -436,6 +453,17 @@ describe('combineTestRunFiltersToOData', () => {
     });
     expect(result).toContain('run');
     expect(result).toContain('nightly');
+  });
+
+  it('converts comment and task presence filters', () => {
+    const result = combineTestRunFiltersToOData({
+      items: [
+        { field: 'comments', operator: 'isNotEmpty', value: true, id: 1 },
+        { field: 'tasks', operator: 'isEmpty', value: true, id: 2 },
+      ],
+    });
+    expect(result).toContain('comments/any()');
+    expect(result).toContain('not tasks/any()');
   });
 });
 
@@ -491,5 +519,16 @@ describe('combineTestSetFiltersToOData', () => {
     });
     expect(result).toContain('_tags_relationship/any');
     expect(result).toContain('important');
+  });
+
+  it('converts comment and task presence filters', () => {
+    const result = combineTestSetFiltersToOData({
+      items: [
+        { field: 'comments', operator: 'isNotEmpty', value: true, id: 1 },
+        { field: 'tasks', operator: 'isEmpty', value: true, id: 2 },
+      ],
+    });
+    expect(result).toContain('comments/any()');
+    expect(result).toContain('not tasks/any()');
   });
 });

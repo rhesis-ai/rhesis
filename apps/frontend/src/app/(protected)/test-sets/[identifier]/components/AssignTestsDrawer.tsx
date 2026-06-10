@@ -21,6 +21,7 @@ import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
   hasActiveTestFilters,
+  countActiveTestFilters,
 } from '@/app/(protected)/tests/components/TestFilterDrawer';
 import {
   applyQuickFilterToModel,
@@ -228,9 +229,7 @@ export default function AssignTestsDrawer({
         onPaginationModelChange={handlePaginationModelChange}
         onFilterClick={() => setFilterOpen(true)}
         hasActiveFilters={hasActiveTestFilters(drawerFilters)}
-        activeFilterCount={
-          Object.values(drawerFilters).filter(value => Boolean(value)).length
-        }
+        activeFilterCount={countActiveTestFilters(drawerFilters)}
         onCreateNew={() => {
           onClose();
           router.push('/tests/new-manual');

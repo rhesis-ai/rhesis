@@ -30,6 +30,7 @@ import TestFilterDrawer, {
   EMPTY_TEST_FILTERS,
   hasActiveTestFilters,
 } from '@/app/(protected)/tests/components/TestFilterDrawer';
+import { applyTestDrawerFiltersToModel } from '@/app/(protected)/tests/components/test-filter-model';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -184,55 +185,7 @@ export default function TestSetTestsGrid({
   }, [searchQuery]);
 
   useEffect(() => {
-    setFilterModel(prev => {
-      const DRAWER_FIELDS = [
-        'test_type.type_value',
-        'status.name',
-        'behavior.name',
-        'category.name',
-        'topic.name',
-      ];
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
-      );
-      const drawerItems: GridFilterModel['items'] = [];
-      if (drawerFilters.testType) {
-        drawerItems.push({
-          field: 'test_type.type_value',
-          operator: 'equals',
-          value: drawerFilters.testType,
-        });
-      }
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status.name',
-          operator: 'contains',
-          value: drawerFilters.status,
-        });
-      }
-      if (drawerFilters.behavior) {
-        drawerItems.push({
-          field: 'behavior.name',
-          operator: 'contains',
-          value: drawerFilters.behavior,
-        });
-      }
-      if (drawerFilters.category) {
-        drawerItems.push({
-          field: 'category.name',
-          operator: 'contains',
-          value: drawerFilters.category,
-        });
-      }
-      if (drawerFilters.topic) {
-        drawerItems.push({
-          field: 'topic.name',
-          operator: 'contains',
-          value: drawerFilters.topic,
-        });
-      }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
-    });
+    setFilterModel(prev => applyTestDrawerFiltersToModel(prev, drawerFilters));
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
 
