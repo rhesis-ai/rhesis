@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { test, expect } from '@playwright/test';
-import { MockApiHelper } from '../helpers/MockApiHelper';
+import { MockApiHelper, expectDataGridVisible } from '../helpers/MockApiHelper';
 
 import projectsFixture from '../fixtures/projects.json';
 import testsFixture from '../fixtures/tests.json';
@@ -27,27 +27,27 @@ import tokensFixture from '../fixtures/tokens.json';
 test.describe('Projects — mocked states @mocked', () => {
   test('empty state shows no-projects message', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/projects', []);
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    const emptyMsg = page.getByText(/no projects found/i);
-    await expect(emptyMsg).toBeVisible();
+    await expect(page.getByText(/no project yet/i)).toBeVisible();
   });
 
   test('populated state shows project cards', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/projects', projectsFixture as any[]);
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    // At least one project card rendered
-    const cards = page.locator('.MuiCard-root');
-    expect(await cards.count()).toBeGreaterThan(0);
+    await expect(page.getByText('E2E Test Project Alpha')).toBeVisible();
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/projects', 500);
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
@@ -64,16 +64,17 @@ test.describe('Projects — mocked states @mocked', () => {
 test.describe('Tests — mocked states @mocked', () => {
   test('populated state shows data grid with rows', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/tests', testsFixture as any[]);
     await page.goto('/tests');
     await page.waitForLoadState('networkidle');
 
-    const grid = page.locator('[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expectDataGridVisible(page);
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/tests', 500);
     await page.goto('/tests');
     await page.waitForLoadState('networkidle');
@@ -88,16 +89,17 @@ test.describe('Tests — mocked states @mocked', () => {
 test.describe('Test Sets — mocked states @mocked', () => {
   test('populated state shows data grid with rows', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/test_sets', testSetsFixture as any[]);
     await page.goto('/test-sets');
     await page.waitForLoadState('networkidle');
 
-    const grid = page.locator('[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expectDataGridVisible(page);
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/test_sets', 500);
     await page.goto('/test-sets');
     await page.waitForLoadState('networkidle');
@@ -112,16 +114,17 @@ test.describe('Test Sets — mocked states @mocked', () => {
 test.describe('Test Runs — mocked states @mocked', () => {
   test('populated state shows data grid with rows', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/test_runs', testRunsFixture as any[]);
     await page.goto('/test-runs');
     await page.waitForLoadState('networkidle');
 
-    const grid = page.locator('[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expectDataGridVisible(page);
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/test_runs', 500);
     await page.goto('/test-runs');
     await page.waitForLoadState('networkidle');
@@ -136,26 +139,27 @@ test.describe('Test Runs — mocked states @mocked', () => {
 test.describe('Behaviors — mocked states @mocked', () => {
   test('empty state shows no-behaviors message', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/behaviors', []);
     await page.goto('/behaviors');
     await page.waitForLoadState('networkidle');
 
-    const emptyMsg = page.getByText(/no behaviors found/i);
-    await expect(emptyMsg).toBeVisible();
+    await expect(page.getByText(/no behavior yet/i)).toBeVisible();
   });
 
   test('populated state shows behavior cards', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/behaviors', behaviorsFixture as any[]);
     await page.goto('/behaviors');
     await page.waitForLoadState('networkidle');
 
-    const cards = page.locator('.MuiCard-root');
-    expect(await cards.count()).toBeGreaterThan(0);
+    await expect(page.getByText(behaviorsFixture[0].name)).toBeVisible();
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/behaviors', 500);
     await page.goto('/behaviors');
     await page.waitForLoadState('networkidle');
@@ -170,16 +174,17 @@ test.describe('Behaviors — mocked states @mocked', () => {
 test.describe('Endpoints — mocked states @mocked', () => {
   test('populated state shows data grid with rows', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/endpoints', endpointsFixture as any[]);
     await page.goto('/endpoints');
     await page.waitForLoadState('networkidle');
 
-    const grid = page.locator('[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expectDataGridVisible(page);
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/endpoints', 500);
     await page.goto('/endpoints');
     await page.waitForLoadState('networkidle');
@@ -194,16 +199,17 @@ test.describe('Endpoints — mocked states @mocked', () => {
 test.describe('Tasks — mocked states @mocked', () => {
   test('populated state shows data grid with rows', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/tasks', tasksFixture as any[]);
     await page.goto('/tasks');
     await page.waitForLoadState('networkidle');
 
-    const grid = page.locator('[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expectDataGridVisible(page);
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/tasks', 500);
     await page.goto('/tasks');
     await page.waitForLoadState('networkidle');
@@ -218,27 +224,28 @@ test.describe('Tasks — mocked states @mocked', () => {
 test.describe('API Tokens — mocked states @mocked', () => {
   test('empty state shows create-token message', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/tokens', []);
     await page.goto('/tokens');
     await page.waitForLoadState('networkidle');
 
-    // The "Create API Token" button is always shown (toolbar + empty state overlay)
     const createBtn = page.getByRole('button', { name: /create api token/i });
     await expect(createBtn.first()).toBeVisible();
   });
 
   test('populated state shows data grid with rows', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/tokens', tokensFixture as any[]);
     await page.goto('/tokens');
     await page.waitForLoadState('networkidle');
 
-    const grid = page.locator('[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expectDataGridVisible(page);
   });
 
   test('error state does not crash the page', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockError('/tokens', 500);
     await page.goto('/tokens');
     await page.waitForLoadState('networkidle');

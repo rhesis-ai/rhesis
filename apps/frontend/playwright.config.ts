@@ -3,9 +3,57 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright configuration for Rhesis frontend E2E tests.
  *
- * Uses backend Quick Start mode to bypass OAuth and enable local-login flow
- * during tests.
+ * CI (with Docker backend): Quick Start auto-login via /auth/local-login.
+ * Local without Docker (E2E_NO_DOCKER=1): seeds auth from fixture JWT;
+ * runs on port 3100 to avoid clashing with a dev server on 3000.
  */
+const isNoDocker = process.env.E2E_NO_DOCKER === '1';
+const e2ePort = isNoDocker ? '3100' : '3000';
+const baseURL = `http://localhost:${e2ePort}`;
+
+const mockBackendOrigin = 'http://127.0.0.1:8080';
+
+const webServerEnv = {
+  API_BASE_URL: process.env.API_BASE_URL || `${mockBackendOrigin}/api/v1`,
+  BACKEND_URL: process.env.BACKEND_URL || mockBackendOrigin,
+  E2E_NO_DOCKER: process.env.E2E_NO_DOCKER || '',
+  FRONTEND_ENV: process.env.FRONTEND_ENV || 'development',
+  NEXTAUTH_SECRET:
+    process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || baseURL,
+};
+
+const webServer = isNoDocker
+  ? [
+      {
+        command: 'node tests/e2e/mock-backend.mjs',
+        url: 'http://127.0.0.1:8080/health',
+        reuseExistingServer: false,
+        timeout: 30_000,
+      },
+      {
+        command: `npm run dev:turbo -- -p ${e2ePort}`,
+        url: baseURL,
+        reuseExistingServer: false,
+        timeout: 120_000,
+        env: webServerEnv,
+      },
+    ]
+  : {
+      command: 'npm run dev:turbo',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        API_BASE_URL:
+          process.env.API_BASE_URL || 'http://localhost:8080/api/v1',
+        BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
+        NEXTAUTH_SECRET:
+          process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
+        NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      },
+    };
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -27,7 +75,7 @@ export default defineConfig({
     : undefined,
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -99,17 +147,5 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'npm run dev:turbo',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:8080',
-      BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
-      NEXTAUTH_SECRET:
-        process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
-      NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
-    },
-  },
+  webServer,
 });

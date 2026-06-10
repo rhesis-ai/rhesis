@@ -5,16 +5,45 @@ on:
     branches: [main]
     paths:
       - 'apps/frontend/**'
+      - 'tests/docker-compose.frontend.yml'
       - '.github/workflows/frontend-e2e-test.yml'
   pull_request:
     branches: [main]
     paths:
       - 'apps/frontend/**'
+      - 'tests/docker-compose.frontend.yml'
       - '.github/workflows/frontend-e2e-test.yml'
   workflow_dispatch:
 
 jobs:
+  prepare-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build backend test image
+        run: docker compose -f ../../tests/docker-compose.frontend.yml build frontend-test-backend
+        working-directory: apps/frontend
+
+      - name: Save backend image
+        run: |
+          docker images rhesis-frontend-e2e-backend:ci
+          docker save rhesis-frontend-e2e-backend:ci | gzip > frontend-e2e-backend-image.tar.gz
+          ls -lh frontend-e2e-backend-image.tar.gz
+        working-directory: apps/frontend
+
+      - name: Upload backend image
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-e2e-backend-image
+          path: apps/frontend/frontend-e2e-backend-image.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
   e2e:
+    needs: prepare-docker
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -37,15 +66,37 @@ jobs:
         run: make install
         working-directory: apps/frontend
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+      - name: Get Playwright version
+        id: playwright-version
+        run: |
+          echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
         working-directory: apps/frontend
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        timeout-minutes: 10
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/frontend
+
+      - name: Download backend image
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-e2e-backend-image
+          path: apps/frontend
+
+      - name: Load backend image
+        run: |
+          gunzip -c frontend-e2e-backend-image.tar.gz | docker load
+          docker images rhesis-frontend-e2e-backend:ci
+        working-directory: apps/frontend
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/3)
-        run: make test-e2e
+        run: make test-e2e-ci-no-build
         working-directory: apps/frontend
         env:
           PLAYWRIGHT_SHARD: "${{ matrix.shard }}/3"

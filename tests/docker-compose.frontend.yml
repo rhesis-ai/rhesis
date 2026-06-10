@@ -68,6 +68,7 @@ services:
       - /data
 
   frontend-test-backend:
+    image: rhesis-frontend-e2e-backend:ci
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile
