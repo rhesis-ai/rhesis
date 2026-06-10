@@ -1,4 +1,4 @@
-import { EntityType } from '@/types/tasks';
+import { EntityType, type TaskMetadata } from '@/types/tasks';
 
 /**
  * Get the display name for an entity type
@@ -96,6 +96,50 @@ export const isValidEntityType = (
  * - "Foo (Copy)"   → "Foo (Copy 2)"
  * - "Foo (Copy 2)" → "Foo (Copy 3)"
  */
+/**
+ * Build a navigation URL for a task's linked entity (comment, test result, etc.).
+ */
+export const buildLinkedEntityUrl = (task: {
+  entity_type?: string;
+  entity_id?: string;
+  task_metadata?: TaskMetadata;
+}): string | null => {
+  if (!task.entity_type || !task.entity_id) {
+    return null;
+  }
+
+  if (task.entity_type === 'TestResult' && task.task_metadata?.test_run_id) {
+    const queryParams = new URLSearchParams();
+    queryParams.append('selectedresult', task.entity_id);
+    const queryString = queryParams.toString();
+    const commentHash = task.task_metadata?.comment_id
+      ? `#comment-${task.task_metadata.comment_id}`
+      : '';
+    return `/test-runs/${task.task_metadata.test_run_id}?${queryString}${commentHash}`;
+  }
+
+  const entityUrlMap = getEntityUrlMap();
+  const entityPath =
+    entityUrlMap[task.entity_type] || task.entity_type.toLowerCase();
+  const baseUrl = `/${entityPath}/${task.entity_id}`;
+
+  const queryParams = new URLSearchParams();
+  if (task.task_metadata?.test_result_id) {
+    queryParams.append(
+      'selectedresult',
+      String(task.task_metadata.test_result_id)
+    );
+  }
+  const queryString = queryParams.toString()
+    ? `?${queryParams.toString()}`
+    : '';
+  const commentHash = task.task_metadata?.comment_id
+    ? `#comment-${task.task_metadata.comment_id}`
+    : '';
+
+  return `${baseUrl}${queryString}${commentHash}`;
+};
+
 export const generateCopyName = (name: string): string => {
   const copyPattern = /^(.*) \(Copy(?: (\d+))?\)$/;
   const match = name.match(copyPattern);
