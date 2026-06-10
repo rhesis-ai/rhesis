@@ -51,7 +51,10 @@ async def _evaluate_multi_turn_metrics(
     output: Dict[str, Any],
 ) -> Dict[str, Any]:
     from rhesis.backend.tasks.execution.constants import CONVERSATION_SUMMARY_KEY
-    from rhesis.backend.tasks.execution.evaluation import _build_conversation_history
+    from rhesis.backend.tasks.execution.evaluation import (
+        _build_conversation_history,
+        _is_multi_turn_only,
+    )
 
     conversation_summary = output.get(CONVERSATION_SUMMARY_KEY, [])
     conversation_history = _build_conversation_history(conversation_summary)
@@ -67,24 +70,11 @@ async def _evaluate_multi_turn_metrics(
     if not filtered_configs:
         return {}
 
-    # If conversation_history could not be built (empty summary), drop metrics
-    # that require it so they don't surface a confusing type error.
+    # Empty conversation summary means there is nothing to evaluate in a multi-turn
+    # context — return early rather than passing conversation_history=None to metrics
+    # that may accept it (including those with metric_scope=None or mixed scopes).
     if conversation_history is None:
-        from rhesis.sdk.metrics.base import MetricScope
-
-        filtered_configs = [
-            mc
-            for mc in filtered_configs
-            if not (
-                mc.metric_scope
-                and all(
-                    (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
-                    for s in mc.metric_scope
-                )
-            )
-        ]
-        if not filtered_configs:
-            return {}
+        return {}
 
     return await evaluator.a_evaluate(
         input_text=goal,
@@ -123,19 +113,9 @@ async def _evaluate_single_turn_metrics(
 
     # Drop metrics that are scoped exclusively to Multi-Turn — they require
     # conversation_history which is not available for single-turn tests.
-    from rhesis.sdk.metrics.base import MetricScope
+    from rhesis.backend.tasks.execution.evaluation import _is_multi_turn_only
 
-    metric_configs = [
-        mc
-        for mc in metric_configs
-        if not (
-            mc.metric_scope
-            and all(
-                (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
-                for s in mc.metric_scope
-            )
-        )
-    ]
+    metric_configs = [mc for mc in metric_configs if not _is_multi_turn_only(mc)]
 
     if not metric_configs:
         return {}
