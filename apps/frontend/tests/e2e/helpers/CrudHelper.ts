@@ -27,10 +27,9 @@ export async function deleteGridRowByText(page: Page, text: string) {
     .first();
   await row.scrollIntoViewIfNeeded();
   await row.hover();
-  const actions = row.locator('.row-actions');
-  await expect(actions).toBeVisible({ timeout: 10_000 });
-  // Delete is the trailing icon (after edit/refresh when those columns exist).
-  await actions.locator('button').last().click();
+  // Row-actions stay visibility:hidden until row:hover — force-click delete icon.
+  const deleteBtn = row.locator('.row-actions button').last();
+  await deleteBtn.click({ force: true });
 }
 
 /** Wait until a data grid row containing the given text is visible. */

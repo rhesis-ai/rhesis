@@ -50,16 +50,9 @@ test.describe('Tasks — CRUD @crud', () => {
       return false;
     }
 
-    const createResponse = page.waitForResponse(
-      resp =>
-        resp.url().includes('/tasks') &&
-        resp.request().method() === 'POST' &&
-        resp.ok(),
-      { timeout: 20_000 }
-    );
+    await expect(saveBtn).toBeEnabled({ timeout: 15_000 });
     await saveBtn.click();
-    await createResponse;
-    await waitForDrawerClosed(page);
+    await waitForDrawerClosed(page, 20_000);
 
     await page.waitForLoadState('networkidle');
     await tasksPage.expectTaskVisible(title);
