@@ -6,7 +6,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 spec:
-  project: default
+  project: arc-runners
   source:
     repoURL: ghcr.io/actions/actions-runner-controller-charts
     chart: gha-runner-scale-set
