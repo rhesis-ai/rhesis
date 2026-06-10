@@ -24,8 +24,7 @@ def _get_metric_signature(metric: BaseMetric) -> Any:
     named = {
         name
         for name, p in a_eval_params.items()
-        if p.kind
-        not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        if p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
         and name != "self"
     }
     if named:
