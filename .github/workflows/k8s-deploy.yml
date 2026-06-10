@@ -39,7 +39,19 @@ on:
         default: ''
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ inputs.environment }}
+
   deploy:
+    needs: validate
     # Self-hosted runner inside the target cluster's VPC so ArgoCD's internal
     # hostname (e.g. dev-argocd.rhesis.ai) resolves via kube-dns. Build/push
     # jobs stay on ubuntu-latest because Artifact Registry is public.
