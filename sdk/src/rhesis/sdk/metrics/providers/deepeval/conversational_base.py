@@ -120,6 +120,12 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         if self._metric is None:
             raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
 
+        if conversation_history is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires conversation_history to evaluate. "
+                "No conversation history was provided."
+            )
+
         # Convert to DeepEval format, passing chatbot_role if provided
         test_case = self._to_deepeval_format(
             conversation_history, chatbot_role=chatbot_role, **kwargs
@@ -157,6 +163,12 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         """
         if self._metric is None:
             raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
+
+        if conversation_history is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires conversation_history to evaluate. "
+                "No conversation history was provided."
+            )
 
         metric_copy = copy.copy(self._metric)
 
