@@ -1,0 +1,37 @@
+[
+  {
+    "service": "backend",
+    "workflow": "backend-k8s.yml",
+    "helmImageTag": "backend.image.tag"
+  },
+  {
+    "service": "workers",
+    "workflow": "worker-k8s.yml",
+    "helmImageTag": "workers[0].image.tag"
+  },
+  {
+    "service": "frontend",
+    "workflow": "frontend-k8s.yml",
+    "helmImageTag": "frontend.image.tag"
+  },
+  {
+    "service": "docs",
+    "workflow": "docs-k8s.yml",
+    "helmImageTag": "docs.image.tag"
+  },
+  {
+    "service": "polyphemus",
+    "workflow": "polyphemus-k8s.yml",
+    "helmImageTag": "polyphemus.image.tag"
+  },
+  {
+    "service": "otelCollector",
+    "workflow": "otel-collector-k8s.yml",
+    "helmImageTag": "otelCollector.image.tag"
+  },
+  {
+    "service": "telemetryProcessor",
+    "workflow": "telemetry-processor-k8s.yml",
+    "helmImageTag": "telemetryProcessor.image.tag"
+  }
+]

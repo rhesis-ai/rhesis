@@ -27,7 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.resolve-tag.outputs.tag }}
+      build-matrix: ${{ steps.services.outputs.build-matrix }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Load deploy-all service list
+        id: services
+        uses: ./.github/actions/k8s-deploy-all-services
+
       - name: Approve build and push all K8s services
         run: |
           echo "Building and pushing all K8s service images to ${{ github.event.inputs.environment }}"
@@ -43,85 +51,28 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Resolved tag: $TAG"
 
-  backend-build:
+  build:
     needs: gate
-    uses: ./.github/workflows/backend-k8s.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.gate.outputs.build-matrix) }}
+    uses: ./.github/workflows/${{ matrix.workflow }}
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
-  worker-build:
-    needs: gate
-    uses: ./.github/workflows/worker-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  frontend-build:
-    needs: gate
-    uses: ./.github/workflows/frontend-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  docs-build:
-    needs: gate
-    uses: ./.github/workflows/docs-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  polyphemus-build:
-    needs: gate
-    uses: ./.github/workflows/polyphemus-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  otel-collector-build:
-    needs: gate
-    uses: ./.github/workflows/otel-collector-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  telemetry-processor-build:
-    needs: gate
-    uses: ./.github/workflows/telemetry-processor-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  # After all images are pushed, update global.imageTag once so ArgoCD
-  # rolls all services to the same tag in a single Helm upgrade.
-  # Note: chatbot is excluded — 9GB image, deploy separately via chatbot-k8s.yml.
+  # After all images are pushed, set every deploy-all service's image tag so ArgoCD
+  # rolls them together. chatbot is excluded — see .github/k8s/deploy-all-services.json.
   deploy-all:
     needs:
       - gate
-      - backend-build
-      - worker-build
-      - frontend-build
-      - docs-build
-      - polyphemus-build
-      - otel-collector-build
-      - telemetry-processor-build
+      - build
     uses: ./.github/workflows/k8s-deploy.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
-      # service left empty → sets per-service image tags for all deploy-all services
+      # service left empty → helm-set flags from deploy-all-services.json
     secrets: inherit

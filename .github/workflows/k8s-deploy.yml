@@ -3,7 +3,9 @@ name: "[Deploy] K8s via ArgoCD (reusable)"
 # Uses the ArgoCD CLI to set the image tag parameter on the ArgoCD Application
 # and trigger an immediate sync — no git commit required.
 #
-# All-services deploy:  leave `service` empty → sets global.imageTag
+# All-services deploy:  leave `service` empty → sets per-service image tags for all
+#                       deploy-all services in .github/k8s/deploy-all-services.json
+#                       (chatbot excluded).
 # Per-service deploy:   set `service` to the values key (e.g. backend, workers)
 #                       → sets <service>.image.tag only
 #
@@ -33,7 +35,7 @@ on:
         description: |
           Values key for a per-service deploy (e.g. backend, workers, frontend,
           chatbot, polyphemus, otelCollector, telemetryProcessor, docs).
-          Leave empty to set global.imageTag and roll all services together.
+          Leave empty to roll all services in .github/k8s/deploy-all-services.json.
         required: false
         type: string
         default: ''
@@ -41,6 +43,8 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      helm-image-tags: ${{ steps.services.outputs.helm-image-tags }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -49,6 +53,10 @@ jobs:
         uses: ./.github/actions/validate-environment
         with:
           environment: ${{ inputs.environment }}
+
+      - name: Load deploy-all service list
+        id: services
+        uses: ./.github/actions/k8s-deploy-all-services
 
   deploy:
     needs: validate
@@ -84,6 +92,7 @@ jobs:
           ARGOCD_AUTH_TOKEN: ${{ inputs.environment == 'prd' && secrets.ARGOCD_AUTH_TOKEN_PRD || inputs.environment == 'stg' && secrets.ARGOCD_AUTH_TOKEN_STG || secrets.ARGOCD_AUTH_TOKEN_DEV }}
           TAG: ${{ inputs.tag }}
           SERVICE: ${{ inputs.service }}
+          DEPLOY_ALL_HELM_TAGS: ${{ needs.validate.outputs.helm-image-tags }}
         run: |
           # workers is a Helm array ([]interface{}), so dot-notation fails.
           # Use index notation workers[0].image.tag instead of workers.image.tag.
@@ -97,15 +106,19 @@ jobs:
           # diff and nothing rolls. Instead we set every deploy-all service's tag
           # explicitly, which overwrites those stale overrides and guarantees a rollout.
           # chatbot is intentionally excluded (9GB image, built/deployed separately via
-          # chatbot-k8s.yml) and left on its own pinned tag.
+          # chatbot-k8s.yml) and left on its own pinned tag. Deploy-all keys come from
+          # .github/k8s/deploy-all-services.json (see k8s-deploy-all-services action).
           SET_FLAGS=()
           case "$SERVICE" in
             "")
-              for KEY in backend.image.tag frontend.image.tag docs.image.tag \
-                         polyphemus.image.tag otelCollector.image.tag \
-                         telemetryProcessor.image.tag "workers[0].image.tag"; do
+              if [ -z "$DEPLOY_ALL_HELM_TAGS" ]; then
+                echo "❌ deploy-all helm tags missing — check .github/k8s/deploy-all-services.json"
+                exit 1
+              fi
+              while IFS= read -r KEY; do
+                [ -z "$KEY" ] && continue
                 SET_FLAGS+=(--helm-set "${KEY}=$TAG")
-              done
+              done <<< "$DEPLOY_ALL_HELM_TAGS"
               ;;
             workers)  SET_FLAGS+=(--helm-set "workers[0].image.tag=$TAG") ;;
             *)        SET_FLAGS+=(--helm-set "${SERVICE}.image.tag=$TAG") ;;
