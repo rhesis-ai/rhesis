@@ -124,6 +124,9 @@ def evaluate_single_turn_metrics(
         )
     ]
 
+    if not metrics:
+        return metrics_results
+
     try:
         metrics_results = metrics_evaluator.evaluate(
             input_text=prompt_content,

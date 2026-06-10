@@ -86,6 +86,82 @@ class TestEvaluateSingleTurnMetrics:
 
         assert result == {}
 
+    def test_multi_turn_only_metrics_are_excluded(self):
+        """Metrics scoped exclusively to Multi-Turn are not passed to the evaluator."""
+        from rhesis.sdk.metrics import MetricConfig
+        from rhesis.sdk.metrics.base import MetricScope
+
+        mock_evaluator = MagicMock()
+        mock_evaluator.evaluate.return_value = {}
+
+        multi_turn_metric = MetricConfig(
+            name="conv_metric",
+            class_name="ConversationalJudge",
+            metric_scope=[MetricScope.MULTI_TURN],
+        )
+
+        result = evaluate_single_turn_metrics(
+            metrics_evaluator=mock_evaluator,
+            prompt_content="test input",
+            expected_response="expected",
+            context=[],
+            result={"output": "response"},
+            metrics=[multi_turn_metric],
+        )
+
+        mock_evaluator.evaluate.assert_not_called()
+        assert result == {}
+
+    def test_single_turn_metrics_are_not_excluded(self):
+        """Metrics scoped to Single-Turn are still passed to the evaluator."""
+        from rhesis.sdk.metrics import MetricConfig
+        from rhesis.sdk.metrics.base import MetricScope
+
+        mock_evaluator = MagicMock()
+        mock_evaluator.evaluate.return_value = {"accuracy": {"score": 0.9}}
+
+        single_turn_metric = MetricConfig(
+            name="accuracy",
+            class_name="NumericJudge",
+            metric_scope=[MetricScope.SINGLE_TURN],
+        )
+
+        evaluate_single_turn_metrics(
+            metrics_evaluator=mock_evaluator,
+            prompt_content="test input",
+            expected_response="expected",
+            context=[],
+            result={"output": "response"},
+            metrics=[single_turn_metric],
+        )
+
+        mock_evaluator.evaluate.assert_called_once()
+
+    def test_mixed_scope_metric_is_not_excluded(self):
+        """A metric scoped to both Single-Turn and Multi-Turn is kept for single-turn."""
+        from rhesis.sdk.metrics import MetricConfig
+        from rhesis.sdk.metrics.base import MetricScope
+
+        mock_evaluator = MagicMock()
+        mock_evaluator.evaluate.return_value = {}
+
+        mixed_metric = MetricConfig(
+            name="mixed",
+            class_name="NumericJudge",
+            metric_scope=[MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN],
+        )
+
+        evaluate_single_turn_metrics(
+            metrics_evaluator=mock_evaluator,
+            prompt_content="test",
+            expected_response="",
+            context=[],
+            result={"output": "response"},
+            metrics=[mixed_metric],
+        )
+
+        mock_evaluator.evaluate.assert_called_once()
+
 
 # ============================================================================
 # Backward compatibility alias tests
@@ -110,7 +186,7 @@ class TestEvaluatePromptResponseAlias:
             expected_response="e",
             context=[],
             result={"output": "o"},
-            metrics=[],
+            metrics=[{"name": "m1"}],
         )
 
         assert result == {"m1": {"score": 0.5}}
