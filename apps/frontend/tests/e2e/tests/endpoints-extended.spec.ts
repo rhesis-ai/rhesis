@@ -59,7 +59,7 @@ test.describe('Endpoint navigation @sanity', () => {
     } else {
       // Navigate directly if no link is visible (might require project context)
       await page.goto('/endpoints/new');
-      await expect(page).toHaveURL(/\/endpoints(\?create=1)?$/);
+      await expect(page).toHaveURL(/\/endpoints\/new$/);
       await expect(page.locator('input[name="name"]')).toBeVisible({
         timeout: 15_000,
       });

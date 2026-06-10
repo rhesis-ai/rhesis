@@ -42,10 +42,10 @@ export class EndpointsPage {
     return this.dataGrid.isVisible().catch(() => false);
   }
 
-  /** Navigate to new endpoint creation (opens create drawer via redirect). */
+  /** Navigate to new endpoint creation page. */
   async gotoNewEndpoint() {
     await this.page.goto('/endpoints/new');
-    await expect(this.page).toHaveURL(/\/endpoints(\?create=1)?$/);
+    await expect(this.page).toHaveURL(/\/endpoints\/new$/);
     await expect(this.page.locator('input[name="name"]')).toBeVisible({
       timeout: 15_000,
     });
