@@ -3,6 +3,5 @@ kind: Kustomization
 
 resources:
   - ../../../base/arc
-  - namespaces.yaml
   - arc-external-secret.yaml
   - arc-runner-set-application.yaml

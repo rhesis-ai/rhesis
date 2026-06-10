@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - arc-appproject.yaml
+  - namespaces.yaml
   - arc-controller-application.yaml
