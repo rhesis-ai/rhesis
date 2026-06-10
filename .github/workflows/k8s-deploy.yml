@@ -3,9 +3,9 @@ name: "[Deploy] K8s via ArgoCD (reusable)"
 # Uses the ArgoCD CLI to set the image tag parameter on the ArgoCD Application
 # and trigger an immediate sync — no git commit required.
 #
-# All-services deploy:  leave `service` empty → sets per-service image tags for all
-#                       deploy-all services in .github/k8s/deploy-all-services.json
-#                       (chatbot excluded).
+# All-services deploy:  leave `service` empty → sets per-service image tags explicitly
+#                       for every deploy-all service (chatbot excluded). The list is
+#                       hardcoded below; keep it in sync with deploy-all-k8s.yml.
 # Per-service deploy:   set `service` to the values key (e.g. backend, workers)
 #                       → sets <service>.image.tag only
 #
@@ -35,7 +35,7 @@ on:
         description: |
           Values key for a per-service deploy (e.g. backend, workers, frontend,
           chatbot, polyphemus, otelCollector, telemetryProcessor, docs).
-          Leave empty to set global.imageTag and roll all services together.
+          Leave empty to roll all deploy-all services (see deploy-all-k8s.yml).
         required: false
         type: string
         default: ''
@@ -100,6 +100,9 @@ jobs:
           # explicitly, which overwrites those stale overrides and guarantees a rollout.
           # chatbot is intentionally excluded (9GB image, built/deployed separately via
           # chatbot-k8s.yml) and left on its own pinned tag.
+          #
+          # Deploy-all service list — must match the build jobs and deploy-all needs
+          # block in deploy-all-k8s.yml. When adding a service, update both files.
           SET_FLAGS=()
           case "$SERVICE" in
             "")

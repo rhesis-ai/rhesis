@@ -43,6 +43,10 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Resolved tag: $TAG"
 
+  # Deploy-all service list — each service needs a build job below and a matching
+  # entry in deploy-all needs. When adding a service, also update the helm-set
+  # loop in k8s-deploy.yml (empty service case). chatbot is excluded (9GB image;
+  # deploy separately via chatbot-k8s.yml).
   backend-build:
     needs: gate
     uses: ./.github/workflows/backend-k8s.yml
@@ -106,9 +110,8 @@ jobs:
       deploy: false
     secrets: inherit
 
-  # After all images are pushed, update global.imageTag once so ArgoCD
-  # rolls all services to the same tag in a single Helm upgrade.
-  # Note: chatbot is excluded — 9GB image, deploy separately via chatbot-k8s.yml.
+  # After all images are pushed, k8s-deploy.yml sets per-service image tags and
+  # syncs ArgoCD (see k8s-deploy.yml for why global.imageTag is not used).
   deploy-all:
     needs:
       - gate
@@ -123,5 +126,5 @@ jobs:
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
-      # service left empty → sets per-service image tags for all deploy-all services
+      # service left empty → deploy-all helm-set list in k8s-deploy.yml
     secrets: inherit
