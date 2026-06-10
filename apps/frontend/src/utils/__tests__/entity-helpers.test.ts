@@ -1,4 +1,5 @@
 import {
+  buildLinkedEntityUrl,
   getEntityDisplayName,
   getEntityPath,
   getEntityUrlMap,
@@ -64,6 +65,37 @@ describe('getEntityIconName', () => {
   it('falls back to Assignment for unknown types', () => {
     // @ts-expect-error testing unknown type
     expect(getEntityIconName('Unknown')).toBe('Assignment');
+  });
+});
+
+describe('buildLinkedEntityUrl', () => {
+  it('returns null when entity is missing', () => {
+    expect(buildLinkedEntityUrl({})).toBeNull();
+    expect(
+      buildLinkedEntityUrl({ entity_type: 'Test', entity_id: undefined })
+    ).toBeNull();
+  });
+
+  it('builds a standard entity URL', () => {
+    expect(
+      buildLinkedEntityUrl({
+        entity_type: 'Test',
+        entity_id: 'test-id',
+      })
+    ).toBe('/tests/test-id');
+  });
+
+  it('builds a test run URL for test results', () => {
+    expect(
+      buildLinkedEntityUrl({
+        entity_type: 'TestResult',
+        entity_id: 'result-id',
+        task_metadata: {
+          test_run_id: 'run-id',
+          comment_id: 'comment-id',
+        },
+      })
+    ).toBe('/test-runs/run-id?selectedresult=result-id#comment-comment-id');
   });
 });
 
