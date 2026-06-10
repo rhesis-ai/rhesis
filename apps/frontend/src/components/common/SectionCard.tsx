@@ -10,8 +10,8 @@ export type SectionCardVariant = 'default' | 'danger';
 export interface SectionCardProps {
   /** When omitted (along with subtitle and actions), the header row is skipped entirely */
   title?: string;
-  /** Optional subtitle below the title (Body S, secondary) */
-  subtitle?: string;
+  /** Optional subtitle below the title (Body S, secondary). Accepts a string or React node for inline links. */
+  subtitle?: React.ReactNode;
   /** Header actions (e.g. Edit button, FAB) */
   actions?: React.ReactNode;
   variant?: SectionCardVariant;
