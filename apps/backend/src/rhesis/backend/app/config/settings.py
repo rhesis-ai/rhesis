@@ -263,6 +263,10 @@ class RhesisSettings(BaseSettings):
 
     base_url: str = Field(default="https://api.rhesis.ai", alias="RHESIS_BASE_URL")
     api_key: str | None = Field(default=None, alias="RHESIS_API_KEY")
+    # Public, browser-reachable URL of *this* backend. Used to build OAuth/SSO
+    # callback URLs. Falls back to RHESIS_BASE_URL when unset — correct only
+    # when this backend is itself reachable at that address.
+    api_base_url: str | None = Field(default=None, alias="API_BASE_URL")
 
 
 @lru_cache

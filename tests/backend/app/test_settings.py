@@ -68,7 +68,7 @@ MODEL_ENV_VARS = (
     "DEFAULT_EXECUTION_MODEL",
     "DEFAULT_EMBEDDING_MODEL",
 )
-RHESIS_ENV_VARS = ("RHESIS_BASE_URL", "RHESIS_API_KEY")
+RHESIS_ENV_VARS = ("RHESIS_BASE_URL", "RHESIS_API_KEY", "API_BASE_URL")
 TELEMETRY_ENV_VARS = (
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "OTEL_SERVICE_NAME",
@@ -765,6 +765,7 @@ def test_rhesis_settings_uses_system_defaults(clean_rhesis_env):
 
     assert settings.base_url == "https://api.rhesis.ai"
     assert settings.api_key is None
+    assert settings.api_base_url is None
 
 
 @pytest.mark.unit
@@ -776,6 +777,16 @@ def test_rhesis_settings_loads_existing_environment_variables(clean_rhesis_env, 
 
     assert settings.base_url == "https://api.example.com"
     assert settings.api_key == "test-rhesis-api-key"
+
+
+@pytest.mark.unit
+def test_rhesis_settings_api_base_url_override(clean_rhesis_env, monkeypatch):
+    monkeypatch.setenv("API_BASE_URL", "https://custom-api.example.com")
+
+    settings = RhesisSettings(_env_file=None)
+
+    assert settings.api_base_url == "https://custom-api.example.com"
+    assert settings.base_url == "https://api.rhesis.ai"
 
 
 @pytest.mark.unit

@@ -33,8 +33,8 @@ from tests.backend.fixtures.test_setup import (
 fake = Faker()
 
 
-def _mock_rhesis_settings(base_url: str):
-    return lambda: Mock(base_url=base_url)
+def _mock_rhesis_settings(base_url: str, api_base_url=None):
+    return lambda: Mock(base_url=base_url, api_base_url=api_base_url)
 
 
 def _mock_application_settings(backend_env: str = "development"):
@@ -1731,3 +1731,80 @@ class TestGetCallbackUrl:
         )
         url = get_callback_url(request)
         assert url == "https://staging.rhesis.ai/auth/callback"
+
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_rhesis_settings",
+        new=_mock_rhesis_settings(
+            "https://api.rhesis.ai",
+            api_base_url="https://api-rhesis.prod.example.com",
+        ),
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("production"),
+    )
+    def test_api_base_url_overrides_rhesis_base_url(self, mock_qs):
+        """API_BASE_URL takes precedence over RHESIS_BASE_URL for callbacks."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="api-rhesis.prod.example.com",
+            port=443,
+            headers={"host": "api-rhesis.prod.example.com"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://api-rhesis.prod.example.com/auth/callback"
+
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_rhesis_settings",
+        new=_mock_rhesis_settings("https://api.rhesis.ai", api_base_url=None),
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("production"),
+    )
+    def test_api_base_url_unset_falls_back_to_rhesis_base_url(self, mock_qs):
+        """When API_BASE_URL is unset, callback falls back to RHESIS_BASE_URL."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="api.rhesis.ai",
+            port=443,
+            headers={"host": "api.rhesis.ai"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://api.rhesis.ai/auth/callback"
+
+
+@pytest.mark.unit
+class TestGetBackendPublicUrl:
+    """Test get_backend_public_url() resolver."""
+
+    @patch(
+        "rhesis.backend.app.routers.auth.get_rhesis_settings",
+        new=_mock_rhesis_settings(
+            "https://api.rhesis.ai",
+            api_base_url="https://custom-api.example.com",
+        ),
+    )
+    def test_returns_api_base_url_when_set(self):
+        from rhesis.backend.app.routers.auth import get_backend_public_url
+
+        assert get_backend_public_url() == "https://custom-api.example.com"
+
+    @patch(
+        "rhesis.backend.app.routers.auth.get_rhesis_settings",
+        new=_mock_rhesis_settings("https://api.rhesis.ai", api_base_url=None),
+    )
+    def test_falls_back_to_rhesis_base_url(self):
+        from rhesis.backend.app.routers.auth import get_backend_public_url
+
+        assert get_backend_public_url() == "https://api.rhesis.ai"

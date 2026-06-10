@@ -28,7 +28,6 @@ from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
-    get_rhesis_settings,
 )
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
@@ -162,15 +161,20 @@ def _generate_pkce() -> tuple:
 
 
 def _get_sso_callback_url(request: Request) -> str:
-    """Build the SSO callback URL."""
-    from rhesis.backend.app.routers.auth import is_running_locally
+    """Build the SSO callback URL.
 
-    rhesis_base_url = get_rhesis_settings().base_url
+    Uses the backend's public URL (API_BASE_URL, falling back to
+    RHESIS_BASE_URL) so the redirect_uri sent to the IdP matches the host
+    the browser actually reaches this backend at.
+    """
+    from rhesis.backend.app.routers.auth import get_backend_public_url, is_running_locally
 
-    if is_running_locally() and not rhesis_base_url:
+    backend_url = get_backend_public_url()
+
+    if is_running_locally() and not backend_url:
         base_url = str(request.base_url).rstrip("/")
-    elif rhesis_base_url:
-        base_url = rhesis_base_url.rstrip("/")
+    elif backend_url:
+        base_url = backend_url.rstrip("/")
     else:
         base_url = str(request.base_url).rstrip("/")
 

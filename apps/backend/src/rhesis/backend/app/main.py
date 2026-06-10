@@ -180,6 +180,20 @@ async def lifespan(app: FastAPI):
     """
     set_logger()
 
+    # Warn when API_BASE_URL is not set in a non-local deployment. Callback
+    # URLs then fall back to RHESIS_BASE_URL which may not be this backend's
+    # own public host (e.g. a self-hosted backend using the hosted SDK target).
+    from rhesis.backend.app.config.settings import get_rhesis_settings
+    from rhesis.backend.app.routers.auth import get_backend_public_url, is_running_locally
+
+    if not is_running_locally() and not get_rhesis_settings().api_base_url:
+        logger.warning(
+            "API_BASE_URL is not set; OAuth/SSO callback URLs will fall back to "
+            "RHESIS_BASE_URL (%s). Set API_BASE_URL to this backend's public host "
+            "if it differs from RHESIS_BASE_URL.",
+            get_backend_public_url(),
+        )
+
     # Apply fail-fast Celery broker settings for the web process.
     # Must happen before any Celery task is published from an HTTP handler.
     from rhesis.backend.celery.core import apply_web_context_overrides

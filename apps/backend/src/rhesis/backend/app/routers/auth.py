@@ -187,8 +187,15 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
-def _get_rhesis_base_url() -> str:
-    return get_rhesis_settings().base_url
+def get_backend_public_url() -> str:
+    """Return the public, browser-reachable URL of *this* backend.
+
+    Prefers API_BASE_URL (the deployment's own public host); falls back to
+    RHESIS_BASE_URL (the SDK target). The fallback is only correct when
+    the two coincide.
+    """
+    settings = get_rhesis_settings()
+    return settings.api_base_url or settings.base_url
 
 
 def is_running_locally() -> bool:
@@ -196,15 +203,15 @@ def is_running_locally() -> bool:
 
     Never uses any request-derived data. Uses three independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
-    2. RHESIS_BASE_URL explicitly configured for localhost
+    2. API_BASE_URL (or its RHESIS_BASE_URL fallback) configured for localhost
     3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
         return True
 
-    # Signal 2: RHESIS_BASE_URL points to a local address
-    parsed_host = urlparse(_get_rhesis_base_url()).hostname or ""
+    # Signal 2: the backend's public URL points to a local address
+    parsed_host = urlparse(get_backend_public_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
@@ -223,7 +230,8 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     listening port to preserve session cookie domain alignment. Only
     whitelisted local hostnames (localhost, 127.0.0.1, ::1) are
     accepted; any other value falls back to 'localhost'. For
-    production, uses RHESIS_BASE_URL.
+    production, uses the backend's public URL (API_BASE_URL, falling
+    back to RHESIS_BASE_URL).
     """
     if is_running_locally():
         # Local: use request hostname to match session cookie domain
@@ -237,8 +245,8 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
         port = server[1] if server else 8080
         base_url = f"http://{hostname}:{port}"
     else:
-        # Production: always use configured base URL
-        base_url = _get_rhesis_base_url().rstrip("/")
+        # Production: always use the backend's configured public URL
+        base_url = get_backend_public_url().rstrip("/")
 
     callback_url = f"{base_url}/auth/callback"
 
