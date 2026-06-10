@@ -42,6 +42,7 @@ FRONTEND_ENV_VARS = ("FRONTEND_URL",)
 APPLICATION_ENV_VARS = (
     "QUICK_START",
     "BACKEND_ENV",
+    "API_BASE_URL",
     "GCP_PROJECT",
     "GOOGLE_CLOUD_PROJECT",
     "K_SERVICE",
@@ -630,6 +631,7 @@ def test_application_settings_defaults(clean_application_env):
     assert settings.google_cloud_project is None
     assert settings.cloud_run_service is None
     assert settings.cloud_run_revision is None
+    assert settings.api_base_url == "http://localhost:8080"
     # Default posture is non-production (dev-only affordances are on by
     # default, matching utils/git_utils.should_show_git_info).
     assert settings.is_production is False
@@ -646,10 +648,12 @@ def test_application_settings_loads_existing_environment_variables(
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "rhesis-prod-2")
     monkeypatch.setenv("K_SERVICE", "rhesis-backend")
     monkeypatch.setenv("K_REVISION", "rhesis-backend-00042-abc")
+    monkeypatch.setenv("API_BASE_URL", "https://api.example.com")
 
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is True
+    assert settings.api_base_url == "https://api.example.com"
     assert settings.backend_env == "production"
     assert settings.gcp_project == "rhesis-prod"
     assert settings.google_cloud_project == "rhesis-prod-2"
@@ -693,6 +697,26 @@ def test_get_application_settings_cache_clear_allows_env_overrides(
 
     assert get_application_settings().is_development is False
     assert get_application_settings().backend_env == "production"
+
+
+@pytest.mark.unit
+def test_application_settings_api_base_url_validation(clean_application_env, monkeypatch):
+    monkeypatch.setenv("API_BASE_URL", "not-a-url")
+
+    with pytest.raises(ValidationError):
+        ApplicationSettings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_get_application_settings_api_base_url_cache_clear(
+    clean_application_env, monkeypatch
+):
+    assert get_application_settings().api_base_url == "http://localhost:8080"
+
+    monkeypatch.setenv("API_BASE_URL", "https://cached-api.example.com")
+    get_application_settings.cache_clear()
+
+    assert get_application_settings().api_base_url == "https://cached-api.example.com"
 
 
 @pytest.mark.unit

@@ -31,9 +31,13 @@ data:
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
 
   # -------------------------------------------------------------------------
-  # Frontend / Auth0
+  # Deployment public API URL (backend auth callbacks + frontend browser)
   # -------------------------------------------------------------------------
   API_BASE_URL: {{ .Values.config.apiBaseUrl | quote }}
+
+  # -------------------------------------------------------------------------
+  # Frontend / Auth0
+  # -------------------------------------------------------------------------
   NEXT_PUBLIC_APP_URL: {{ .Values.config.nextPublicAppUrl | quote }}
   NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
   NEXTAUTH_URL: {{ .Values.config.nextauthUrl | quote }}
@@ -43,7 +47,7 @@ data:
   NEXT_PUBLIC_SUPPORT_EMAIL: {{ .Values.config.nextPublicSupportEmail | quote }}
 
   # -------------------------------------------------------------------------
-  # Backend
+  # Backend (Rhesis platform API for hosted models)
   # -------------------------------------------------------------------------
   RHESIS_BASE_URL: {{ .Values.config.rhesisBaseUrl | quote }}
   FRONTEND_URL: {{ .Values.config.frontendUrl | quote }}

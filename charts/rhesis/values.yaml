@@ -60,7 +60,7 @@ config:
   # Redis/Valkey (host is computed from subchart or externalValkey)
   redisPort: "6379"
 
-  # Frontend
+  # Deployment public API URL (backend OAuth/SSO callbacks and frontend browser)
   apiBaseUrl: ""
   nextPublicAppUrl: ""
   nextauthUrl: ""
@@ -69,7 +69,7 @@ config:
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
-  # Backend
+  # Rhesis platform API for hosted models (rhesis/rhesis-default, etc.)
   rhesisBaseUrl: ""
   frontendUrl: ""
   backendUrl: ""

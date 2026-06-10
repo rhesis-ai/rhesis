@@ -35,6 +35,7 @@ Note: These commands generate `apps/backend/.env` and `apps/frontend/.env.local`
     ['`ENVIRONMENT`', 'Environment name (e.g. `development`).'],
     ['`BACKEND_ENV`', 'Backend environment label (e.g. `development`).'],
     ['`LOG_LEVEL`', 'Log level (e.g. `DEBUG`).'],
+    ['`API_BASE_URL`', 'Public URL of this deployment\'s backend API (OAuth/SSO callbacks), e.g. `http://localhost:8080`.'],
     ['`FRONTEND_URL`', 'Public frontend URL (CORS and redirects), e.g. `http://localhost:3000`.'],
     ['`BACKEND_URL`', 'Backend URL as reachable by clients and tools, e.g. `http://localhost:8080`.'],
     ['`JWT_SECRET_KEY`', 'Secret for signing JWTs. Change for any non-local deployment.'],
@@ -47,13 +48,13 @@ Note: These commands generate `apps/backend/.env` and `apps/frontend/.env.local`
 
 These are not added by `./rh dev init` but are commonly needed when you deploy, integrate OAuth, email, observability, or hosted models.
 
-**Rhesis API key (hosted models):** If you keep default model settings that use Rhesis-hosted inference (`rhesis/rhesis-default` for generation, evaluation, or execution; `rhesis/rhesis-embedding` for embeddings), set `RHESIS_API_KEY` to a key from the Rhesis platform (https://app.rhesis.ai) — create or copy an API key from your account or organization settings and add it to the backend environment in production (or to your secret store). Set `RHESIS_BASE_URL` if the API base URL must differ from the default `https://api.rhesis.ai`.
+**Rhesis API key (hosted models):** If you keep default model settings that use Rhesis-hosted inference (`rhesis/rhesis-default` for generation, evaluation, or execution; `rhesis/rhesis-embedding` for embeddings), set `RHESIS_API_KEY` to a key from the Rhesis platform (https://app.rhesis.ai) — create or copy an API key from your account or organization settings and add it to the backend environment in production (or to your secret store). Set `RHESIS_BASE_URL` if the Rhesis platform API URL must differ from the default `https://api.rhesis.ai` (for example when using hosted models against the SaaS API while self-hosting the app).
 
 <Table
   headers={['Variable', 'Required / default', 'Description']}
   rows={[
     ['`RHESIS_API_KEY`', 'Optional locally; **required** when using `rhesis/rhesis-default` models', 'Authenticates calls to Rhesis-hosted models. Obtain from the Rhesis platform (API keys in the app).'],
-    ['`RHESIS_BASE_URL`', 'Default: `https://api.rhesis.ai`', 'Backend API base URL; set explicitly in production so callbacks and integrations resolve correctly.'],
+    ['`RHESIS_BASE_URL`', 'Default: `https://api.rhesis.ai`', 'Rhesis platform API URL for hosted-model calls only; not used for OAuth/SSO callbacks.'],
     ['`SESSION_SECRET_KEY`', 'Required in production', 'Session middleware signing key. Local dev may use a fallback when running locally; production must set this.'],
     ['`DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, `DEFAULT_EXECUTION_MODEL`', 'Default: `rhesis/rhesis-default`', 'Model IDs in `provider/model` form for generation, evaluation, and endpoint execution. Rhesis defaults need `RHESIS_API_KEY`; switch to OpenAI, Gemini, Azure, or Vertex and set the matching provider env vars instead if you prefer not to use a platform key.'],
     ['`DEFAULT_EMBEDDING_MODEL`', 'Default: `rhesis/rhesis-embedding`', 'Embedding model ID in `provider/model` form. Explicit deployment secrets or `.env` values override this default; keep an older provider value only if you want to continue using that provider for embeddings.'],
@@ -76,7 +77,7 @@ For a full production file (many more keys), teams often load secrets from Googl
 <Table
   headers={['Variable', 'Description']}
   rows={[
-    ['`API_BASE_URL`', 'Backend API URL exposed to browser code through `window.__ENV__`, e.g. `http://localhost:8080`.'],
+    ['`API_BASE_URL`', 'Same semantic as backend `API_BASE_URL`: this deployment\'s public backend API URL, exposed to browser code through `window.__ENV__`, e.g. `http://localhost:8080`.'],
     ['`BACKEND_URL`', 'Backend URL for server-side requests, e.g. `http://localhost:8080`.'],
     ['`NEXTAUTH_URL`', 'Must match how users open the app (same origin as the frontend).'],
     ['`NEXTAUTH_SECRET`', 'NextAuth secret; change for non-local deployments.'],
