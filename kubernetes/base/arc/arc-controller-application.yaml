@@ -25,3 +25,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # ARC CRDs (e.g. autoscalingrunnersets) exceed the 262144-byte annotation
+      # limit of client-side apply's last-applied-configuration. Server-side
+      # apply avoids writing that annotation.
+      - ServerSideApply=true
