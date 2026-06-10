@@ -21,6 +21,7 @@ import {
 } from '@/components/icons';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
+import { normalizeUrl } from '@/utils/validation';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { METHODS } from './endpoint-detail-shared';
 import { variableChipSx } from '../../components/endpoint-styles';
@@ -62,7 +63,7 @@ export default function EndpointConnectionTab() {
         initialValue={restInitial}
         onSave={async draft => {
           await saveFields({
-            url: draft.url,
+            url: normalizeUrl(draft.url),
             method: draft.method,
           });
         }}
@@ -74,6 +75,8 @@ export default function EndpointConnectionTab() {
                 <TextField
                   fullWidth
                   label="URL"
+                  placeholder="api.example.com or https://api.example.com"
+                  helperText="https:// will be added automatically if omitted"
                   value={draft.url}
                   onChange={e =>
                     setDraft(prev => ({ ...prev, url: e.target.value }))

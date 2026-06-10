@@ -6,12 +6,19 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { TEST_TYPES } from '@/constants/test-types';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import {
+  EMPTY_ACTIVITY_PRESENCE_FILTERS,
+  countActivePresenceFilters,
+  hasActivePresenceFilters,
+  type ActivityPresenceFilters,
+} from '@/components/common/presence-filter';
 
 export interface TestSetFilters {
   /** test_set_type/type_value equals */
@@ -22,6 +29,9 @@ export interface TestSetFilters {
   creator: string;
   /** tags/name contains */
   tag: string;
+  tags: ActivityPresenceFilters['tags'];
+  comments: ActivityPresenceFilters['comments'];
+  tasks: ActivityPresenceFilters['tasks'];
 }
 
 export const EMPTY_TEST_SET_FILTERS: TestSetFilters = {
@@ -29,14 +39,27 @@ export const EMPTY_TEST_SET_FILTERS: TestSetFilters = {
   status: '',
   creator: '',
   tag: '',
+  ...EMPTY_ACTIVITY_PRESENCE_FILTERS,
 };
 
 export function hasActiveTestSetFilters(f: TestSetFilters): boolean {
-  return Object.values(f).some(v => v !== '');
+  return (
+    f.testSetType !== '' ||
+    f.status !== '' ||
+    f.creator !== '' ||
+    f.tag !== '' ||
+    hasActivePresenceFilters(f)
+  );
 }
 
 export function countActiveTestSetFilters(f: TestSetFilters): number {
-  return Object.values(f).filter(v => v !== '').length;
+  return (
+    (f.testSetType !== '' ? 1 : 0) +
+    (f.status !== '' ? 1 : 0) +
+    (f.creator !== '' ? 1 : 0) +
+    (f.tag !== '' ? 1 : 0) +
+    countActivePresenceFilters(f)
+  );
 }
 
 const TEST_SET_TYPE_OPTIONS = [
@@ -44,15 +67,7 @@ const TEST_SET_TYPE_OPTIONS = [
   { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ] as const;
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
-  },
-};
+const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestSetFilterDrawerProps {
   open: boolean;
@@ -192,6 +207,22 @@ export default function TestSetFilterDrawer({
         'Select creator…'
       )}
       {renderAutocomplete('Tag', 'tag', tagOptions, 'Select tag…')}
+
+      <ActivityPresenceFiltersSection
+        values={{
+          tags: draft.tags,
+          comments: draft.comments,
+          tasks: draft.tasks,
+        }}
+        onChange={next =>
+          setDraft(prev => ({
+            ...prev,
+            tags: next.tags,
+            comments: next.comments,
+            tasks: next.tasks,
+          }))
+        }
+      />
     </FilterDrawerShell>
   );
 }

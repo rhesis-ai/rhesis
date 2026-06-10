@@ -3,6 +3,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
@@ -33,7 +34,12 @@ export default async function BehaviorDetailPage({ params }: PageProps) {
   }
 
   const { identifier } = await params;
-  const client = new BehaviorClient(session.session_token);
+  const projectId = await getServerActiveProjectId();
+  const client = new BehaviorClient(
+    session.session_token,
+    undefined,
+    projectId
+  );
 
   const behavior = await client.getBehaviorWithMetrics(identifier as UUID);
 

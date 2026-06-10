@@ -24,3 +24,5 @@ resources:
   - cnpg-cluster-application.yaml
   # rhesis-app-secrets: see clusters/stg/external-secrets/rhesis-app-secrets.yaml
   - rhesis/rhesis-application.yaml
+  # ARC self-hosted runner: gives deploy jobs VPC-internal access to ArgoCD
+  - arc.yaml

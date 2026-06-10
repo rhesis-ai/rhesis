@@ -1,4 +1,8 @@
 import { type Page, type Locator, expect } from '@playwright/test';
+import {
+  expectOpenDrawerTitle,
+  deleteGridRowByText,
+} from '../helpers/CrudHelper';
 
 /**
  * Page Object for the API Tokens page (/tokens).
@@ -9,7 +13,6 @@ export class TokensPage {
 
   constructor(private readonly page: Page) {
     this.dataGrid = page.locator('[role="grid"]');
-    // The create button appears in both the toolbar (when tokens exist) and the empty state
     this.createTokenButton = page
       .getByRole('button', { name: /create api token/i })
       .first();
@@ -36,18 +39,14 @@ export class TokensPage {
       .waitFor({ state: 'visible', timeout: 15_000 });
   }
 
-  /** Click the "Create API Token" button (works regardless of empty/populated state). */
+  /** Open the create-token drawer (BaseDrawer, not a dialog). */
   async openCreateTokenModal() {
     await this.createTokenButton.click();
-    await expect(
-      this.page.getByRole('dialog', { name: /create new token/i })
-    ).toBeVisible({ timeout: 5_000 });
+    await expectOpenDrawerTitle(this.page, /create new token/i);
   }
 
-  /** Click the delete icon in the row that contains the given token name. */
-  async deleteTokenByName(name: string) {
-    const row = this.page.locator('[role="row"]', { hasText: name });
-    // The delete icon button has tooltip "Delete Token"
-    await row.getByRole('button').last().click();
+  /** Delete a token via the hover-revealed row-actions delete icon. */
+  async deleteRowByText(name: string) {
+    await deleteGridRowByText(this.page, name);
   }
 }

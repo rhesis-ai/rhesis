@@ -44,7 +44,7 @@ export class ProjectDetailPage extends BasePage {
   }
 
   async expectMetadataStripVisible() {
-    await expect(this.page.getByText('created by:')).toBeVisible();
-    await expect(this.page.getByText('created on:')).toBeVisible();
+    await expect(this.page.getByText(/created by:/i)).toBeVisible();
+    await expect(this.page.getByText(/created on:/i)).toBeVisible();
   }
 }

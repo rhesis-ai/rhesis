@@ -40,7 +40,7 @@ export default function TestDetailTabs({
         ? 'Overview'
         : key === 'linked'
           ? 'Linked Test Sets'
-          : 'Tasks & Comments',
+          : 'Tasks',
     id: `test-detail-tab-${index}`,
     'aria-controls': `test-detail-tabpanel-${index}`,
   }));

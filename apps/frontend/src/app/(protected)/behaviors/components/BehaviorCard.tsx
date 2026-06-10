@@ -102,7 +102,6 @@ export default function BehaviorCard({
         description={behavior.description || 'No description provided'}
         onClick={onClick}
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}
-        status={behavior.status?.name}
         userName={behavior.user?.name}
         chipSections={chipSections}
       />

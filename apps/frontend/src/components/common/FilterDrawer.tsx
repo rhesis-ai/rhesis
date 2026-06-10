@@ -299,3 +299,14 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
     },
   });
 }
+
+/** Shared TextField styling for filter drawer autocomplete/text inputs. */
+export const filterDrawerTextFieldSx: SxProps<Theme> = theme => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: BORDER_RADIUS.sm,
+    fontSize: theme.typography.body2.fontSize,
+  },
+  '& .MuiOutlinedInput-input': {
+    padding: `${theme.spacing(2.5)} ${theme.spacing(1.75)}`,
+  },
+});

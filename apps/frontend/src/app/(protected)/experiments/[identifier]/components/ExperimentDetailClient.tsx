@@ -47,7 +47,7 @@ const TAB_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   overview: 'Overview',
   parameters: 'Parameters',
   versions: 'Versions',
-  runs: 'Experiment runs',
+  runs: 'Experiment Runs',
 };
 
 interface ExperimentDetailClientProps {

@@ -89,6 +89,7 @@
 
   # Next.js build output
   .next
+  .next-e2e
   out
 
   # Auto-generated files

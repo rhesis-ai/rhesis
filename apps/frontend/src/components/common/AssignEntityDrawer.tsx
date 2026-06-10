@@ -6,6 +6,7 @@ import NorthEastIcon from '@mui/icons-material/NorthEast';
 import type { SxProps, Theme } from '@mui/material/styles';
 import {
   GridColDef,
+  GridPaginationModel,
   GridRowModel,
   GridRowSelectionModel,
 } from '@mui/x-data-grid';
@@ -31,17 +32,21 @@ export interface AssignEntityDrawerProps {
   searchPlaceholder?: string;
   /** Parent-supplied predicate for pill/drawer filtering (search is handled internally). */
   rowFilter?: (row: GridRowModel) => boolean;
-  // Filter (tune) button
   onFilterClick?: () => void;
   hasActiveFilters?: boolean;
   activeFilterCount?: number;
-  // Centered segmented quick-filter pills
   pillTabs?: ToolbarPillTab[];
   activePill?: string;
   onPillChange?: (value: string) => void;
-  // Jump-off action (top-right) to create a brand-new entity elsewhere
   onCreateNew?: () => void;
   createNewLabel?: string;
+  /** Controlled search — parent owns query (e.g. server-side test search). */
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+  serverSidePagination?: boolean;
+  totalRows?: number;
+  paginationModel?: GridPaginationModel;
+  onPaginationModelChange?: (model: GridPaginationModel) => void;
 }
 
 export default function AssignEntityDrawer({
@@ -64,21 +69,42 @@ export default function AssignEntityDrawer({
   onPillChange,
   onCreateNew,
   createNewLabel = 'Create new',
+  searchQuery: controlledSearchQuery,
+  onSearchQueryChange,
+  serverSidePagination = false,
+  totalRows,
+  paginationModel,
+  onPaginationModelChange,
 }: AssignEntityDrawerProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
   const [saving, setSaving] = useState(false);
 
+  const isControlledSearch = controlledSearchQuery !== undefined;
+  const searchQuery = isControlledSearch
+    ? controlledSearchQuery
+    : internalSearchQuery;
+
   useEffect(() => {
     if (open) {
-      setSearchQuery('');
+      if (!isControlledSearch) {
+        setInternalSearchQuery('');
+      }
       setSelected([]);
     }
-  }, [open]);
+  }, [open, isControlledSearch]);
+
+  const handleSearchInputChange = (query: string) => {
+    if (isControlledSearch) {
+      onSearchQueryChange?.(query);
+    } else {
+      setInternalSearchQuery(query);
+    }
+  };
 
   const filteredRows = useMemo(() => {
     let result = rowFilter ? rows.filter(rowFilter) : rows;
-    if (searchQuery.trim()) {
+    if (!isControlledSearch && searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(row => {
         const name = typeof row.name === 'string' ? row.name : '';
@@ -91,7 +117,7 @@ export default function AssignEntityDrawer({
       });
     }
     return result;
-  }, [rows, rowFilter, searchQuery]);
+  }, [rows, rowFilter, searchQuery, isControlledSearch]);
 
   const handleAssign = async () => {
     setSaving(true);
@@ -104,13 +130,21 @@ export default function AssignEntityDrawer({
 
   const hasSelection = Array.isArray(selected) && selected.length > 0;
 
-  // Fill the card's remaining height (rows scroll internally, footer pinned).
-  // BaseDataGrid bakes in the 30px first/last column inset so the toolbar,
-  // cells and footer all line up at 30px.
-  const gridSx = {
-    flex: 1,
-    minHeight: 0,
-  } as SxProps<Theme>;
+  const gridContainerSx: SxProps<Theme> = serverSidePagination
+    ? {
+        flex: 1,
+        minHeight: 480,
+        display: 'flex',
+        flexDirection: 'column',
+      }
+    : {
+        flex: 1,
+        minHeight: 400,
+      };
+
+  const gridSx: SxProps<Theme> = serverSidePagination
+    ? { flex: 1, minHeight: 400, height: '100%' }
+    : { flex: 1, minHeight: 400 };
 
   return (
     <BaseDrawer
@@ -135,13 +169,13 @@ export default function AssignEntityDrawer({
           border: (theme: Theme) =>
             `1px solid ${theme.palette.greyscale.border}`,
           boxShadow: ELEVATION.xs,
-          overflow: 'hidden',
+          overflow: serverSidePagination ? 'visible' : 'hidden',
         }}
       >
         <Box sx={{ px: '30px', pt: '30px', pb: '30px', flexShrink: 0 }}>
           <GridToolbar
             searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            onSearchChange={handleSearchInputChange}
             searchPlaceholder={searchPlaceholder}
             searchWidth={288}
             onFilterClick={onFilterClick ? () => onFilterClick() : undefined}
@@ -187,25 +221,38 @@ export default function AssignEntityDrawer({
             }
           />
         </Box>
-        <BaseDataGrid
-          rows={filteredRows}
-          columns={columns}
-          loading={loading}
-          getRowId={getRowId}
-          checkboxSelection
-          disableRowSelectionOnClick
-          disableColumnResize
-          autoHeight={false}
-          onRowSelectionModelChange={setSelected}
-          rowSelectionModel={selected}
-          disablePaperWrapper
-          pageSizeOptions={[10, 25, 50]}
-          initialState={{
-            pagination: { paginationModel: { page: 0, pageSize: 10 } },
-          }}
-          hideRowsPerPageBelow={0}
-          sx={gridSx}
-        />
+        <Box sx={gridContainerSx}>
+          <BaseDataGrid
+            rows={filteredRows}
+            columns={columns}
+            loading={loading}
+            getRowId={getRowId}
+            checkboxSelection
+            disableRowSelectionOnClick
+            disableColumnResize
+            autoHeight={!serverSidePagination}
+            onRowSelectionModelChange={setSelected}
+            rowSelectionModel={selected}
+            disablePaperWrapper
+            pageSizeOptions={[10, 25, 50]}
+            {...(serverSidePagination &&
+            paginationModel &&
+            onPaginationModelChange
+              ? {
+                  serverSidePagination: true,
+                  totalRows,
+                  paginationModel,
+                  onPaginationModelChange,
+                }
+              : {
+                  initialState: {
+                    pagination: { paginationModel: { page: 0, pageSize: 10 } },
+                  },
+                })}
+            hideRowsPerPageBelow={serverSidePagination ? 10 : 0}
+            sx={gridSx}
+          />
+        </Box>
       </Paper>
     </BaseDrawer>
   );

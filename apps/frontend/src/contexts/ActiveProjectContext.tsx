@@ -8,12 +8,14 @@ import React, {
   useState,
 } from 'react';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   clearActiveProjectId,
   readActiveProjectId,
   writeActiveProjectId,
 } from '@/utils/active-project';
+import { UUID } from 'crypto';
 import { Project } from '@/utils/api-client/interfaces/project';
 
 interface ActiveProjectContextValue {
@@ -45,6 +47,7 @@ export function ActiveProjectProvider({
   initialActiveProject?: Project | null;
 }) {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
@@ -53,6 +56,10 @@ export function ActiveProjectProvider({
 
   const fetchProjects = useCallback(async () => {
     if (!session?.session_token) return;
+    if (pathname.startsWith('/onboarding')) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const factory = new ApiClientFactory(session.session_token);
@@ -103,31 +110,50 @@ export function ActiveProjectProvider({
     } finally {
       setLoading(false);
     }
-  }, [session?.session_token]);
+  }, [session?.session_token, pathname]);
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  const setActiveProject = useCallback((project: Project | null) => {
-    const previousId = readActiveProjectId();
-    const nextId = project ? String(project.id) : null;
+  const setActiveProject = useCallback(
+    async (project: Project | null) => {
+      const previousId = readActiveProjectId();
+      const nextId = project ? String(project.id) : null;
 
-    if (project) {
-      writeActiveProjectId(nextId as string);
-    } else {
-      clearActiveProjectId();
-    }
-    setActiveProjectState(project);
+      if (project) {
+        writeActiveProjectId(nextId as string);
 
-    // Project scope is sent as the X-Project-Id header, read from the cookie at
-    // request time. Most data views are client components that fetch once on mount,
-    // so router.refresh() (server-only) would not refetch them. A full reload is the
-    // reliable way to make every project-scoped view pick up the new project.
-    if (previousId !== nextId && typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  }, []);
+        // Persist as default_project so the selection survives logout/login.
+        const token = session?.session_token;
+        if (token) {
+          try {
+            const factory = new ApiClientFactory(token);
+            await factory.getUsersClient().updateUserSettings({
+              default_project: {
+                project_id: project.id as UUID,
+                name: project.name,
+              },
+            });
+          } catch {
+            // Cookie still scopes the current session; ignore persistence failure.
+          }
+        }
+      } else {
+        clearActiveProjectId();
+      }
+      setActiveProjectState(project);
+
+      // Project scope is sent as the X-Project-Id header, read from the cookie at
+      // request time. Most data views are client components that fetch once on mount,
+      // so router.refresh() (server-only) would not refetch them. A full reload is the
+      // reliable way to make every project-scoped view pick up the new project.
+      if (previousId !== nextId && typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    },
+    [session?.session_token]
+  );
 
   return (
     <ActiveProjectContext.Provider

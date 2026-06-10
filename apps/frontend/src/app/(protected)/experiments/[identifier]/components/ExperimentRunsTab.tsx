@@ -29,6 +29,7 @@ import {
   ExperimentResultsRunItem,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
@@ -229,7 +230,7 @@ export default function ExperimentRunsTab({
 
   const title =
     !loading && runs.length > 0
-      ? `Experiment runs (${runs.length})`
+      ? `Experiment Runs (${runs.length})`
       : undefined;
 
   const filteredRuns = useMemo(() => {
@@ -295,7 +296,7 @@ export default function ExperimentRunsTab({
                 startIcon={<PlayArrowIcon />}
                 onClick={onRunExperiment}
                 sx={{
-                  borderRadius: '12px',
+                  borderRadius: BORDER_RADIUS.md,
                   px: '20px',
                   py: '12px',
                   fontSize: 18,
@@ -347,7 +348,7 @@ export default function ExperimentRunsTab({
         showHeader
         width={560}
         saveButtonText=""
-        closeButtonText="Close"
+        closeButtonText=""
       >
         {drawerRun && (
           <RunSummaryContent

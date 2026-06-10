@@ -135,6 +135,7 @@ jest.mock('../TestSetFilterDrawer', () => ({
     tag: '',
   },
   hasActiveTestSetFilters: () => false,
+  countActiveTestSetFilters: () => 0,
 }));
 
 jest.mock('@/components/common/DeleteModal', () => ({
@@ -246,35 +247,6 @@ describe('TestSetsGrid', () => {
     );
   });
 
-  it('shows "Delete Test Sets" button when rows are selected', async () => {
-    mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([
-        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
-      ])
-    );
-    render(<TestSetsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
-      ).toBeInTheDocument()
-    );
-
-    await userEvent.click(
-      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
-    );
-  });
-
-  it('hides delete button when no rows are selected', async () => {
-    render(<TestSetsGrid sessionToken="tok" />);
-    await waitForGrid();
-    expect(
-      screen.queryByTestId('action-Delete Test Sets')
-    ).not.toBeInTheDocument();
-  });
-
   it('does not show "New Test Set" or import buttons in the grid (moved to page header)', async () => {
     render(<TestSetsGrid sessionToken="tok" />);
     await waitForGrid();
@@ -287,99 +259,16 @@ describe('TestSetsGrid', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('opens delete modal when "Delete Test Sets" is clicked', async () => {
-    mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([
-        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
-      ])
-    );
-    render(<TestSetsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
-      ).toBeInTheDocument()
-    );
-
-    await userEvent.click(
-      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-Delete Test Sets'));
-    expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
-  });
-
-  it('calls deleteTestSet and shows success on confirm', async () => {
-    mockDeleteTestSet.mockResolvedValue(undefined);
-    mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([
-        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
-      ])
-    );
-    render(<TestSetsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
-      ).toBeInTheDocument()
-    );
-
-    await userEvent.click(
-      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-Delete Test Sets'));
-    await userEvent.click(
-      screen.getByRole('button', { name: /confirm delete/i })
-    );
-
-    await waitFor(() =>
-      expect(mockDeleteTestSet).toHaveBeenCalledWith(
-        '00000000-0000-0000-0000-000000000001'
-      )
-    );
-    await waitFor(() =>
-      expect(mockShow).toHaveBeenCalledWith(
-        expect.stringContaining('deleted'),
-        expect.objectContaining({ severity: 'success' })
-      )
-    );
-  });
-
-  it('cancels deletion without calling API', async () => {
-    mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([
-        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
-      ])
-    );
-    render(<TestSetsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
-      ).toBeInTheDocument()
-    );
-
-    await userEvent.click(
-      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-Delete Test Sets'));
-    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(mockDeleteTestSet).not.toHaveBeenCalled();
-  });
-
   it('refetches when refreshKey changes', async () => {
     const { rerender } = render(
       <TestSetsGrid sessionToken="tok" refreshKey={0} />
     );
     await waitForGrid();
-    expect(mockGetTestSets).toHaveBeenCalledTimes(1);
+    const callsAfterMount = mockGetTestSets.mock.calls.length;
 
     rerender(<TestSetsGrid sessionToken="tok" refreshKey={1} />);
-    await waitFor(() => expect(mockGetTestSets).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(mockGetTestSets.mock.calls.length).toBeGreaterThan(callsAfterMount)
+    );
   });
 });

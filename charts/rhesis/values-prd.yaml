@@ -43,7 +43,7 @@ config:
   nextauthUrl: "https://app.rhesis.ai"
   nextPublicAuth0ClientId: ""
   nextPublicAuth0Domain: "rhesis.eu.auth0.com"
-
+  nextPublicSupportEmail: "hello@rhesis.ai"
   # Backend
   rhesisBaseUrl: "https://api.rhesis.ai"
   frontendUrl: "https://app.rhesis.ai"

@@ -1,17 +1,26 @@
 import fs from 'fs';
 import { test as setup, expect } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
+import { seedAuthWithoutBackend } from './helpers/seed-auth';
 
 /**
  * Authentication setup — runs once before all tests.
  *
- * Relies on backend Quick Start mode, which auto-logs in via the
+ * With E2E_NO_DOCKER=1 (local runs without Docker): seeds a signed-out
+ * storageState JWT that proxy.ts accepts locally — no backend required.
+ *
+ * Otherwise relies on backend Quick Start mode, which auto-logs in via the
  * /auth/local-login endpoint and redirects to /architect. The resulting
  * browser state (cookies, localStorage)
  * is persisted to tests/e2e/.auth/user.json so every test project that
  * depends on "setup" starts already authenticated.
  */
-setup('authenticate via Quick Start', async ({ page }) => {
+setup('authenticate via Quick Start', async ({ page, browser }) => {
+  if (process.env.E2E_NO_DOCKER === '1') {
+    await seedAuthWithoutBackend(browser);
+    return;
+  }
+
   const loginPage = new LoginPage(page);
   await loginPage.loginViaQuickStart();
 

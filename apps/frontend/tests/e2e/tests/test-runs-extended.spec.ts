@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { TestRunsPage } from '../pages/TestRunsPage';
+import { NON_EXISTENT_UUID } from '../helpers/CrudHelper';
 
 test.describe('Test Runs — Extended @sanity', () => {
   test('test runs page loads and shows content area', async ({ page }) => {
@@ -48,7 +49,7 @@ test.describe('Test Run detail page @sanity', () => {
     page,
   }) => {
     // Navigate to a non-existent test run — should not 500
-    const response = await page.goto('/test-runs/non-existent-id-12345');
+    const response = await page.goto(`/test-runs/${NON_EXISTENT_UUID}`);
     // Either a redirect (3xx) or a handled error page (4xx) is acceptable; 5xx is not
     if (response) {
       expect(response.status()).not.toBe(500);

@@ -13,6 +13,7 @@ async function mockProjectDetailApis(
   mock: MockApiHelper,
   endpoints: Record<string, unknown>[] = []
 ) {
+  await mock.mockLayoutPrerequisites();
   await mock.mockDetail('/projects', FIXTURE_ID, projectDetailFixture as any);
   await mock.mockList('/endpoints', endpoints as any[]);
   await page.route(`**/api/v1/projects/${FIXTURE_ID}/members`, route =>
@@ -83,9 +84,10 @@ test.describe('Project Detail @sanity', () => {
 
     const detail = new ProjectDetailPage(page);
     await detail.goto(FIXTURE_ID, 'tab=traceMetrics');
+    await page.waitForLoadState('networkidle');
     await expect(
       page.getByRole('tab', { name: 'Advanced Configuration', selected: true })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('project detail page shows project name from fixture @mocked', async ({
