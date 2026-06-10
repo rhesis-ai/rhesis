@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import type { OnMount, BeforeMount } from '@monaco-editor/react';
 import { useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { insertableVariableChipSx } from './endpoint-styles';
 
 // Injected once — colors {{ ... }} template tokens inline inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -58,6 +59,24 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ),
 });
 
+const MESSAGES_PROVIDERS = [
+  {
+    label: 'OpenAI',
+    value: '{{ messages | tojson }}',
+    hint: 'Standard [{role, content}] format used by OpenAI and Anthropic',
+  },
+  {
+    label: 'Anthropic',
+    value: '{{ messages | to_anthropic_messages | tojson }}',
+    hint: 'Strips system message from array (pass system separately)',
+  },
+  {
+    label: 'Gemini',
+    value: '{{ messages | to_gemini_contents | tojson }}',
+    hint: 'Converts to [{role, parts: [{text}]}] format for Gemini',
+  },
+];
+
 const FILES_PROVIDERS = [
   {
     label: 'OpenAI',
@@ -76,16 +95,23 @@ const FILES_PROVIDERS = [
   },
 ];
 
+interface Variable {
+  /** Single chip — use this OR chips, not both */
+  name?: string;
+  /** Multiple chips rendered in one row, sharing the description below */
+  chips?: string[];
+  /** Optional label shown above the chip(s) to name a group */
+  groupLabel?: string;
+  required?: boolean;
+  description?: string;
+  docsUrl?: string;
+}
+
 interface Props {
   value: string;
   onChange: (value: string) => void;
-  variables: {
-    name: string;
-    required?: boolean;
-    description?: string;
-    docsUrl?: string;
-  }[];
-  layout?: 'top' | 'side';
+  variables: Variable[];
+  layout?: 'top' | 'side' | 'bottom';
 }
 
 type MonacoInstance = Parameters<BeforeMount>[0];
@@ -106,6 +132,8 @@ export default function RequestBodyEditor({
   const [filesAnchor, setFilesAnchor] = React.useState<null | HTMLElement>(
     null
   );
+  const [messagesAnchor, setMessagesAnchor] =
+    React.useState<null | HTMLElement>(null);
 
   // Keep decoration CSS in sync with theme primary colour
   useEffect(() => {
@@ -187,11 +215,8 @@ export default function RequestBodyEditor({
         text,
       },
     ]);
-    // Place cursor after inserted text; for params, land after the dot inside the token
-    const newCol =
-      text === '"{{ params. }}"'
-        ? position.column + '"{{ params.'.length
-        : position.column + text.length;
+    // Place cursor after inserted text
+    const newCol = position.column + text.length;
     editor.setPosition({ lineNumber: position.lineNumber, column: newCol });
     editor.focus();
   };
@@ -200,15 +225,14 @@ export default function RequestBodyEditor({
   const STRING_VARS = new Set([
     '{{ input }}',
     '{{ system_prompt }}',
-    '{{ session_id }}',
     '{{ conversation_id }}',
   ]);
 
   const handleChipClick = (name: string, e: React.MouseEvent<HTMLElement>) => {
     if (name === '{{ files }}') {
       setFilesAnchor(e.currentTarget);
-    } else if (name === '{{ params.* }}') {
-      insertAtCursor('"{{ params. }}"');
+    } else if (name === '{{ messages }}') {
+      setMessagesAnchor(e.currentTarget);
     } else if (STRING_VARS.has(name)) {
       insertAtCursor(`"${name}"`);
     } else {
@@ -216,27 +240,8 @@ export default function RequestBodyEditor({
     }
   };
 
-  const chipsSx = {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    height: 22,
-    cursor: 'pointer',
-    bgcolor: (t: { palette: { mode: string } }) =>
-      t.palette.mode === 'light'
-        ? 'rgba(0,128,175,0.08)'
-        : 'rgba(0,128,175,0.18)',
-    color: 'primary.main',
-    border: 1,
-    borderColor: 'transparent',
-    '& .MuiChip-label': { px: 1 },
-    '&:hover': {
-      bgcolor: (t: { palette: { mode: string } }) =>
-        t.palette.mode === 'light'
-          ? 'rgba(0,128,175,0.16)'
-          : 'rgba(0,128,175,0.28)',
-      borderColor: 'primary.main',
-    },
-  };
+  const chipLabel = (name: string) =>
+    name === '{{ files }}' || name === '{{ messages }}' ? `${name} ▾` : name;
 
   const editor = (
     <Box
@@ -252,6 +257,7 @@ export default function RequestBodyEditor({
           outlineOffset: '-1px',
         },
         flex: layout === 'side' ? 1 : undefined,
+        flexShrink: layout === 'bottom' ? 0 : undefined,
       }}
     >
       <MonacoEditor
@@ -278,6 +284,73 @@ export default function RequestBodyEditor({
     </Box>
   );
 
+  const variableColumn = (variable: Variable, i: number) => {
+    const names = variable.chips ?? (variable.name ? [variable.name] : []);
+    const { groupLabel, description, docsUrl } = variable;
+    return (
+      <Box
+        // eslint-disable-next-line react/no-array-index-key
+        key={i}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          p: 1.5,
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'background.default',
+        }}
+      >
+        {groupLabel && (
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', fontSize: 11, fontWeight: 600 }}
+          >
+            {groupLabel}
+          </Typography>
+        )}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {names.map(name => (
+            <Chip
+              key={name}
+              label={chipLabel(name)}
+              size="small"
+              onClick={e => handleChipClick(name, e)}
+              sx={{ ...insertableVariableChipSx, alignSelf: 'flex-start' }}
+            />
+          ))}
+        </Box>
+        {(description || docsUrl) && (
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.disabled', fontSize: 10, lineHeight: 1.4 }}
+          >
+            {description}
+            {docsUrl && (
+              <>
+                {' '}
+                <Box
+                  component="a"
+                  href={docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    color: 'primary.main',
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                >
+                  Docs ↗
+                </Box>
+              </>
+            )}
+          </Typography>
+        )}
+      </Box>
+    );
+  };
+
   const chipsPanel =
     layout === 'side' ? (
       <Box
@@ -290,50 +363,77 @@ export default function RequestBodyEditor({
           pl: 1.5,
         }}
       >
-        {variables.map(({ name, description, docsUrl }) => (
-          <Box
-            key={name}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
-          >
-            <Chip
-              label={name === '{{ files }}' ? `${name} ▾` : name}
-              size="small"
-              onClick={e => handleChipClick(name, e)}
-              sx={{ ...chipsSx, alignSelf: 'flex-start' }}
-            />
-            {(description || docsUrl) && (
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'text.disabled',
-                  fontSize: 10,
-                  lineHeight: 1.4,
-                  pl: 0.25,
-                }}
-              >
-                {description}
-                {docsUrl && (
-                  <>
-                    {' '}
-                    <Box
-                      component="a"
-                      href={docsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{
-                        color: 'primary.main',
-                        textDecoration: 'none',
-                        '&:hover': { textDecoration: 'underline' },
-                      }}
-                    >
-                      Docs ↗
-                    </Box>
-                  </>
-                )}
-              </Typography>
-            )}
-          </Box>
-        ))}
+        {variables.map((variable, i) => {
+          const names =
+            variable.chips ?? (variable.name ? [variable.name] : []);
+          const { groupLabel, description, docsUrl } = variable;
+          return (
+            <Box
+              // eslint-disable-next-line react/no-array-index-key
+              key={i}
+              sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
+            >
+              {groupLabel && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    pl: 0.25,
+                  }}
+                >
+                  {groupLabel}
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {names.map(name => (
+                  <Chip
+                    key={name}
+                    label={chipLabel(name)}
+                    size="small"
+                    onClick={e => handleChipClick(name, e)}
+                    sx={{
+                      ...insertableVariableChipSx,
+                      alignSelf: 'flex-start',
+                    }}
+                  />
+                ))}
+              </Box>
+              {(description || docsUrl) && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.disabled',
+                    fontSize: 10,
+                    lineHeight: 1.4,
+                    pl: 0.25,
+                  }}
+                >
+                  {description}
+                  {docsUrl && (
+                    <>
+                      {' '}
+                      <Box
+                        component="a"
+                        href={docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{
+                          color: 'primary.main',
+                          textDecoration: 'none',
+                          '&:hover': { textDecoration: 'underline' },
+                        }}
+                      >
+                        Docs ↗
+                      </Box>
+                    </>
+                  )}
+                </Typography>
+              )}
+            </Box>
+          );
+        })}
       </Box>
     ) : (
       <Box
@@ -345,15 +445,20 @@ export default function RequestBodyEditor({
           alignItems: 'center',
         }}
       >
-        {variables.map(({ name }) => (
-          <Chip
-            key={name}
-            label={name === '{{ files }}' ? `${name} ▾` : name}
-            size="small"
-            onClick={e => handleChipClick(name, e)}
-            sx={chipsSx}
-          />
-        ))}
+        {variables.flatMap((variable, i) =>
+          (variable.chips ?? (variable.name ? [variable.name] : [])).map(
+            name => (
+              <Chip
+                // eslint-disable-next-line react/no-array-index-key
+                key={`${i}-${name}`}
+                label={chipLabel(name)}
+                size="small"
+                onClick={e => handleChipClick(name, e)}
+                sx={insertableVariableChipSx}
+              />
+            )
+          )
+        )}
       </Box>
     );
 
@@ -370,6 +475,18 @@ export default function RequestBodyEditor({
         {editor}
         {layout === 'side' && chipsPanel}
       </Box>
+      {layout === 'bottom' && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 1,
+            mt: 1.5,
+          }}
+        >
+          {variables.map((variable, i) => variableColumn(variable, i))}
+        </Box>
+      )}
 
       <Menu
         anchorEl={filesAnchor}
@@ -395,6 +512,61 @@ export default function RequestBodyEditor({
           <MenuItem
             key={label}
             onClick={() => insertAtCursor(v)}
+            sx={{ fontSize: 12 }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ fontSize: 12 }}>
+                {label}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  color: 'text.disabled',
+                  display: 'block',
+                }}
+              >
+                {v}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ fontSize: 10, color: 'text.disabled' }}
+              >
+                {hint}
+              </Typography>
+            </Box>
+          </MenuItem>
+        ))}
+      </Menu>
+
+      <Menu
+        anchorEl={messagesAnchor}
+        open={Boolean(messagesAnchor)}
+        onClose={() => setMessagesAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { minWidth: 260 } } }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            px: 2,
+            py: 0.5,
+            display: 'block',
+            color: 'text.disabled',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Provider format
+        </Typography>
+        {MESSAGES_PROVIDERS.map(({ label, value: v, hint }) => (
+          <MenuItem
+            key={label}
+            onClick={() => {
+              setMessagesAnchor(null);
+              insertAtCursor(v);
+            }}
             sx={{ fontSize: 12 }}
           >
             <Box>

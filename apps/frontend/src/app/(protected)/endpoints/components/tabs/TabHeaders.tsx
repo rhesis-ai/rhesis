@@ -7,10 +7,12 @@ import {
   Typography,
   IconButton,
   InputAdornment,
+  Chip,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
 import HeadersEditor from '../HeadersEditor';
+import { variableChipSx } from '../endpoint-styles';
 import {
   LockIcon,
   VisibilityIcon,
@@ -48,7 +50,29 @@ export default function TabHeaders({
           onChange={e => onChange('auth_token', e.target.value)}
           placeholder="sk-..."
           sx={{ mb: 3 }}
-          helperText="Added automatically as Authorization: Bearer in the request headers."
+          helperText={
+            <Box
+              component="span"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flexWrap: 'wrap',
+              }}
+            >
+              Stored as
+              <Chip
+                label="{{ auth_token }}"
+                size="small"
+                sx={{
+                  ...variableChipSx,
+                  height: 18,
+                  '& .MuiChip-label': { px: 0.75 },
+                }}
+              />
+              in the editor below.
+            </Box>
+          }
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

@@ -22,7 +22,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Chip,
 } from '@mui/material';
 import { SectionCard } from '@/components/common/SectionCard';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
@@ -63,19 +62,30 @@ export default function TabBasics({
       >
         {/* URL */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'flex-start' }}>
-          <Chip
-            label="POST"
-            size="small"
+          <Box
             sx={{
-              mt: 2,
-              fontFamily: 'monospace',
-              fontWeight: 600,
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
+              height: 56,
+              display: 'flex',
+              alignItems: 'center',
+              px: 1.5,
+              border: 1,
+              borderColor: 'divider',
               borderRadius: 1,
+              bgcolor: 'action.hover',
               flexShrink: 0,
             }}
-          />
+          >
+            <Typography
+              sx={{
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                fontSize: 14,
+                color: 'text.secondary',
+              }}
+            >
+              POST
+            </Typography>
+          </Box>
           <TextField
             fullWidth
             required
@@ -184,7 +194,7 @@ export default function TabBasics({
           sx={{
             border: 1,
             borderColor: 'divider',
-            borderRadius: `${BORDER_RADIUS.sm}px !important`,
+            borderRadius: `${BORDER_RADIUS.sm} !important`,
             mb: 2,
           }}
         >

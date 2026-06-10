@@ -1,53 +1,77 @@
 'use client';
 
-import {
+import React, {
   useState,
   useMemo,
   useEffect,
   useCallback,
   Fragment,
-  useRef,
 } from 'react';
 import {
   Box,
   Typography,
   Chip,
-  TextField,
-  Button,
   Popover,
   List,
   ListItemButton,
   ListItemText,
-  Divider,
+  Link,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
-import {
-  PlayArrowIcon,
-  KeyboardArrowDownIcon,
-  KeyboardArrowUpIcon,
-} from '@/components/icons';
+import { PlayArrowIcon, CheckIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { alpha } from '@mui/material/styles';
+import { insertableVariableChipSx } from './endpoint-styles';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const REQUEST_VARIABLES = [
   {
+    groupLabel: 'Input',
     name: '{{ input }}',
-    description: 'The test prompt sent to your endpoint.',
+    description: 'Required. The test prompt sent to your endpoint.',
   },
-  { name: '{{ messages }}', description: 'Full conversation history.' },
   {
+    groupLabel: 'Multi-turn',
+    chips: ['{{ messages }}', '{{ conversation_id }}'],
+    description:
+      'messages: full conversation history for stateless endpoints. conversation_id: tracking ID for both stateful and stateless endpoints.',
+    docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
+  },
+  {
+    groupLabel: 'System prompt',
     name: '{{ system_prompt }}',
-    description: 'System prompt prepended to the conversation.',
+    description:
+      'Prepended to the messages array and stripped from the request body before sending.',
   },
   {
-    name: '{{ conversation_id }}',
-    description: 'Conversation ID — pass it back to continue a session.',
-  },
-  {
+    groupLabel: 'Files',
     name: '{{ files }}',
-    description: 'Files (images, documents) attached to the request.',
+    description:
+      'File attachments (images, PDFs). Use provider filters: to_openai, to_anthropic, to_gemini.',
+    docsUrl:
+      'https://docs.rhesis.ai/docs/endpoints/single-turn#file-format-filters',
+  },
+  {
+    groupLabel: 'Experiments',
+    name: '{{ params }}',
+    description:
+      'Required if you run experiments. Access individual values with dot notation: {{ params.model }}, {{ params.temperature }}.',
+    docsUrl:
+      'https://docs.rhesis.ai/docs/endpoints#using-experiment-parameters',
+  },
+  {
+    groupLabel: 'Execution context',
+    chips: [
+      '{{ test_id }}',
+      '{{ test_run_id }}',
+      '{{ test_configuration_id }}',
+    ],
+    description:
+      'Auto-filled by Rhesis during test runs. Include any of these if your API needs to log which test triggered the request.',
+    docsUrl:
+      'https://docs.rhesis.ai/docs/endpoints/mapping-examples#test-execution-context',
   },
 ];
 
@@ -55,37 +79,42 @@ const OUTPUT_VARIABLES = [
   {
     name: 'output',
     label: '{{ output }}',
-    description: 'Main response text — evaluated against your metrics.',
+    groupLabel: 'Output',
+    description:
+      'Required. The main response text, evaluated against your metrics.',
   },
   {
     name: 'conversation_id',
     label: '{{ conversation_id }}',
-    description: 'Conversation ID — Rhesis passes it back on the next turn.',
-  },
-  {
-    name: 'metadata',
-    label: '{{ metadata }}',
-    description: 'Structured data (model, token counts…).',
+    groupLabel: 'Conversation ID',
+    description: 'Conversation ID for multi-turn tracking.',
+    docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
   },
   {
     name: 'context',
     label: '{{ context }}',
-    description: 'Retrieved documents or additional sources.',
+    groupLabel: 'Context',
+    description:
+      'Retrieved documents or sources — used by context-dependent metrics.',
+  },
+  {
+    name: 'metadata',
+    label: '{{ metadata }}',
+    groupLabel: 'Metadata',
+    description:
+      'Structured data (model version, token counts…). Stored with the result and available to custom metrics.',
+  },
+  {
+    name: 'tool_calls',
+    label: '{{ tool_calls }}',
+    groupLabel: 'Tool calls',
+    description:
+      'Tool or function calls made during response generation. Available to metrics that evaluate tool use.',
   },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Handles both plain {{ var }} and Jinja filter expressions {{ var | filter }}
-function extractTemplateVars(template: string): string[] {
-  const vars = new Set<string>();
-  for (const m of template.matchAll(/\{\{\s*([\w.]+)(?:\s*\|[^}]*)?\s*\}\}/g)) {
-    vars.add(m[1]);
-  }
-  return [...vars];
-}
-
-// Handles both dot-notation (a.b.c) and bracket-notation (a[0].b)
 function getAtPath(obj: unknown, path: string): unknown {
   if (!path) return obj;
   const parts: string[] = [];
@@ -145,10 +174,12 @@ function JsonTree({
         <Box
           component="span"
           sx={{
-            bgcolor: theme =>
-              theme.palette.mode === 'light'
-                ? 'rgba(0,128,175,0.10)'
-                : 'rgba(0,128,175,0.20)',
+            bgcolor: (t: {
+              palette: { mode: string; primary: { main: string } };
+            }) =>
+              t.palette.mode === 'light'
+                ? alpha(t.palette.primary.main, 0.1)
+                : alpha(t.palette.primary.main, 0.2),
             color: 'primary.main',
             px: '4px',
             py: '1px',
@@ -281,10 +312,18 @@ function JsonTree({
                   px: '2px',
                   ml: '-2px',
                   fontWeight: isAlreadyMapped ? 600 : 400,
+                  textDecoration: 'underline',
+                  textDecorationStyle: 'dashed',
+                  textDecorationColor: isAlreadyMapped
+                    ? 'rgba(0,128,175,0.5)'
+                    : 'rgba(100,100,100,0.35)',
+                  textUnderlineOffset: '3px',
                   '&:hover': {
-                    bgcolor: 'rgba(0,128,175,0.10)',
+                    bgcolor: (t: { palette: { primary: { main: string } } }) =>
+                      alpha(t.palette.primary.main, 0.1),
                     outline: '1px dashed',
                     outlineColor: 'primary.main',
+                    textDecorationColor: 'primary.main',
                   },
                 }}
               >
@@ -316,52 +355,6 @@ function JsonTree({
   return null;
 }
 
-// ── Request Preview Headers sub-component ────────────────────────────────────
-
-function RequestPreviewHeaders({ headers }: { headers: unknown }) {
-  if (!headers || typeof headers !== 'object') return null;
-  const entries = Object.entries(headers as Record<string, string>);
-  if (!entries.length) return null;
-  return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      {entries.map(([k, v], i) => (
-        <Box
-          key={k}
-          sx={{
-            display: 'flex',
-            px: 1.5,
-            py: 0.5,
-            gap: 2,
-            bgcolor: i % 2 === 0 ? 'action.hover' : 'transparent',
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              fontFamily: 'monospace',
-              color: 'primary.main',
-              minWidth: 180,
-              flexShrink: 0,
-            }}
-          >
-            {k}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              fontFamily: 'monospace',
-              color: 'text.secondary',
-              wordBreak: 'break-all',
-            }}
-          >
-            {String(v)}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface TestAndMapProps {
@@ -385,47 +378,16 @@ export default function TestAndMap({
   testResponse,
   isTestingEndpoint,
 }: TestAndMapProps) {
-  // Local editable state seeded from prop
   const [requestTemplate, setRequestTemplate] = useState(requestTemplateProp);
 
-  // Re-seed when prop changes (e.g. endpoint switches)
   useEffect(() => {
     setRequestTemplate(requestTemplateProp);
   }, [requestTemplateProp]);
 
-  // Extract {{ var }} names from whatever is in the editor right now
-  const inputVars = useMemo(
-    () => extractTemplateVars(requestTemplate),
-    [requestTemplate]
-  );
-
-  const FILE_VAR_RE = /^(files?|images?)$/i;
-  const isFileVar = (v: string) => FILE_VAR_RE.test(v);
-
-  // Text values for non-file vars
-  const [varValues, setVarValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(inputVars.filter(v => !isFileVar(v)).map(v => [v, '']))
-  );
-  // File objects for file vars
-  const [fileValues, setFileValues] = useState<Record<string, File[]>>({});
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const inputVarsKey = inputVars.join(',');
-  useEffect(() => {
-    setVarValues(
-      Object.fromEntries(inputVars.filter(v => !isFileVar(v)).map(v => [v, '']))
-    );
-    setFileValues({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputVarsKey]);
-
   // ── Response mapping state ─────────────────────────────────────────────────
 
-  // pathToVar: response JSON path (without $.) → output var name
-  // Starts empty — user maps manually by clicking keys in the response tree
   const [pathToVar, setPathToVar] = useState<Record<string, string>>({});
 
-  // Popover for key mapping
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
   const [pendingPath, setPendingPath] = useState('');
 
@@ -453,24 +415,6 @@ export default function TestAndMap({
     [pathToVar, pendingPath, onResponseMappingChange]
   );
 
-  const handleRemoveMapping = useCallback(
-    (varName: string) => {
-      const newPathToVar = { ...pathToVar };
-      for (const p of Object.keys(newPathToVar)) {
-        if (newPathToVar[p] === varName) delete newPathToVar[p];
-      }
-      setPathToVar(newPathToVar);
-
-      const newResponseMapping: Record<string, string> = {};
-      for (const [p, v] of Object.entries(newPathToVar)) {
-        newResponseMapping[v] = `$.${p}`;
-      }
-      onResponseMappingChange(newResponseMapping);
-    },
-    [pathToVar, onResponseMappingChange]
-  );
-
-  // Parse response JSON
   const parsedResponse = useMemo(() => {
     if (!testResponse) return null;
     try {
@@ -480,281 +424,258 @@ export default function TestAndMap({
     }
   }, [testResponse]);
 
-  // Extract raw_request from response (present on both success and error)
-  const rawRequest = useMemo(() => {
-    if (!parsedResponse || typeof parsedResponse !== 'object') return null;
+  const mappingTarget = useMemo(() => {
+    if (!parsedResponse || typeof parsedResponse !== 'object')
+      return parsedResponse;
     const r = parsedResponse as Record<string, unknown>;
-    return (r.raw_request ?? r.request ?? null) as Record<
-      string,
-      unknown
-    > | null;
+    return r.raw_response != null ? r.raw_response : parsedResponse;
   }, [parsedResponse]);
 
-  const [requestPreviewOpen, setRequestPreviewOpen] = useState(false);
-
-  // Extract mapped values from parsed response
   const mappedValues = useMemo(() => {
-    if (!parsedResponse) return {};
+    if (!mappingTarget) return {};
     const out: Record<string, unknown> = {};
     for (const [path, varName] of Object.entries(pathToVar)) {
-      out[varName] = getAtPath(parsedResponse, path);
+      out[varName] = getAtPath(mappingTarget, path);
     }
     return out;
-  }, [parsedResponse, pathToVar]);
-
-  const chipSx = {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    height: 22,
-    cursor: 'pointer',
-    bgcolor: (t: { palette: { mode: string } }) =>
-      t.palette.mode === 'light'
-        ? 'rgba(0,128,175,0.08)'
-        : 'rgba(0,128,175,0.18)',
-    color: 'primary.main',
-    border: 1,
-    borderColor: 'transparent',
-    '& .MuiChip-label': { px: 1 },
-    '&:hover': {
-      bgcolor: (t: { palette: { mode: string } }) =>
-        t.palette.mode === 'light'
-          ? 'rgba(0,128,175,0.16)'
-          : 'rgba(0,128,175,0.28)',
-      borderColor: 'primary.main',
-    },
-  };
+  }, [mappingTarget, pathToVar]);
 
   const mappedVarNames = new Set(Object.values(pathToVar));
+
+  const mappedPaths = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const [path, varName] of Object.entries(pathToVar)) {
+      out[varName] = `$.${path}`;
+    }
+    return out;
+  }, [pathToVar]);
+
+  const outputVarCard = (v: (typeof OUTPUT_VARIABLES)[number]) => {
+    const isMapped = mappedVarNames.has(v.name);
+    const jsonPath = mappedPaths[v.name];
+    return (
+      <Box
+        key={v.name}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          p: 1.5,
+          border: 1,
+          borderColor: isMapped ? 'success.light' : 'divider',
+          borderRadius: 1,
+          bgcolor: isMapped
+            ? (t: { palette: { mode: string } }) =>
+                t.palette.mode === 'light'
+                  ? 'rgba(76,175,80,0.04)'
+                  : 'rgba(76,175,80,0.08)'
+            : 'background.default',
+        }}
+      >
+        {v.groupLabel && (
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', fontSize: 11, fontWeight: 600 }}
+          >
+            {v.groupLabel}
+          </Typography>
+        )}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Chip
+            label={
+              isMapped ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>{v.label}</span>
+                  <CheckIcon sx={{ fontSize: 11 }} />
+                </Box>
+              ) : (
+                v.label
+              )
+            }
+            size="small"
+            sx={{
+              ...insertableVariableChipSx,
+              ...(isMapped && {
+                bgcolor: (t: { palette: { mode: string } }) =>
+                  t.palette.mode === 'light'
+                    ? 'rgba(76,175,80,0.08)'
+                    : 'rgba(76,175,80,0.18)',
+                color: 'success.main',
+                borderColor: 'success.light',
+              }),
+            }}
+          />
+          {isMapped && jsonPath && (
+            <Typography
+              variant="caption"
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: 10,
+                color: 'success.main',
+              }}
+            >
+              → {jsonPath}
+            </Typography>
+          )}
+        </Box>
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.disabled', fontSize: 10, lineHeight: 1.4 }}
+        >
+          {v.description}
+          {v.docsUrl && (
+            <>
+              {' '}
+              <Box
+                component="a"
+                href={v.docsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                Docs ↗
+              </Box>
+            </>
+          )}
+        </Typography>
+      </Box>
+    );
+  };
+
+  const outputVarGrid = (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 1,
+        mt: 1.5,
+      }}
+    >
+      {OUTPUT_VARIABLES.map(outputVarCard)}
+    </Box>
+  );
 
   const handleEditorChange = (t: string) => {
     setRequestTemplate(t);
     onRequestTemplateChange(t);
   };
 
-  const handleTest = async () => {
-    const inputData: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(varValues)) {
-      try {
-        inputData[k] = JSON.parse(v);
-      } catch {
-        inputData[k] = v;
-      }
-    }
-    // Encode files as base64 data URIs
-    for (const [k, files] of Object.entries(fileValues)) {
-      if (!files.length) continue;
-      const encoded = await Promise.all(
-        files.map(
-          f =>
-            new Promise<{ name: string; content_type: string; data: string }>(
-              (resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const dataUri = reader.result as string;
-                  // Strip "data:<mime>;base64," prefix — backend filters expect raw base64
-                  const raw = dataUri.includes(',')
-                    ? dataUri.split(',')[1]
-                    : dataUri;
-                  resolve({ name: f.name, content_type: f.type, data: raw });
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(f);
-              }
-            )
-        )
-      );
-      inputData[k] = encoded;
-    }
-    onTest(inputData);
+  const handleQuickTest = () => {
+    onTest({ input: 'Hello, how are you?' });
   };
+
+  const inlineCode = {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    bgcolor: (t: { palette: { mode: string } }) =>
+      t.palette.mode === 'light'
+        ? 'rgba(0,0,0,0.06)'
+        : 'rgba(255,255,255,0.08)',
+    borderRadius: '3px',
+    px: '4px',
+    py: '1px',
+  };
+
+  const panelSx = {
+    border: 1,
+    borderColor: 'divider',
+    borderRadius: BORDER_RADIUS.md,
+    mb: 2,
+  };
+
+  const panelHeaderSx = {
+    px: 2.5,
+    py: 1.5,
+    borderBottom: 1,
+    borderColor: 'divider',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1.5,
+  };
+
+  const panelBodySx = { p: 2.5 };
 
   return (
     <Box>
-      {/* ── Request ── */}
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        Request
-      </Typography>
-
-      <RequestBodyEditor
-        value={requestTemplate}
-        onChange={handleEditorChange}
-        variables={REQUEST_VARIABLES}
-        layout="side"
-      />
-
-      {/* ── Placeholder input rows ── */}
-      {inputVars.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          {inputVars.map(v => (
-            <Box
-              key={v}
-              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}
-            >
-              <Chip
-                label={`{{ ${v} }}`}
-                size="small"
-                sx={{ ...chipSx, cursor: 'default', flexShrink: 0 }}
-              />
-              {isFileVar(v) ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    flex: 1,
-                  }}
-                >
-                  <input
-                    type="file"
-                    multiple
-                    ref={el => {
-                      fileInputRefs.current[v] = el;
-                    }}
-                    style={{ display: 'none' }}
-                    onChange={e => {
-                      const files = Array.from(e.target.files ?? []);
-                      setFileValues(prev => ({ ...prev, [v]: files }));
-                    }}
-                  />
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => fileInputRefs.current[v]?.click()}
-                  >
-                    Upload
-                  </Button>
-                  {(fileValues[v]?.length ?? 0) > 0 ? (
-                    <Typography
-                      variant="caption"
-                      sx={{ color: 'text.secondary' }}
-                    >
-                      {fileValues[v].map(f => f.name).join(', ')}
-                    </Typography>
-                  ) : (
-                    <Typography
-                      variant="caption"
-                      sx={{ color: 'text.disabled' }}
-                    >
-                      No files selected
-                    </Typography>
-                  )}
-                </Box>
-              ) : (
-                <TextField
-                  size="small"
-                  fullWidth
-                  multiline
-                  maxRows={4}
-                  placeholder={`Value for ${v}…`}
-                  value={varValues[v] ?? ''}
-                  onChange={e =>
-                    setVarValues(prev => ({ ...prev, [v]: e.target.value }))
-                  }
-                />
-              )}
-            </Box>
-          ))}
+      {/* ── 1. Format the request ── */}
+      <Box sx={panelSx}>
+        <Box sx={panelHeaderSx}>
+          <Typography variant="subtitle2" sx={{ flex: 1 }}>
+            1 · Format the request
+          </Typography>
+          <LoadingButton
+            variant="contained"
+            size="small"
+            onClick={handleQuickTest}
+            loading={isTestingEndpoint}
+            loadingPosition="start"
+            startIcon={<PlayArrowIcon />}
+          >
+            Test
+          </LoadingButton>
         </Box>
-      )}
-
-      {/* ── Test button ── */}
-      <Box sx={{ mt: 2, mb: testResponse ? 3 : 0 }}>
-        <LoadingButton
-          variant="contained"
-          color="primary"
-          onClick={handleTest}
-          loading={isTestingEndpoint}
-          loadingPosition="start"
-          startIcon={<PlayArrowIcon />}
-        >
-          Test
-        </LoadingButton>
+        <Box sx={panelBodySx}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
+            Rhesis sends test prompts to your API automatically. Here you define
+            the exact JSON body it should use — place{' '}
+            <Box component="code" sx={inlineCode}>
+              {'{{ input }}'}
+            </Box>{' '}
+            wherever your API expects the prompt, then fill in any other fields
+            your endpoint requires (model, temperature, etc.).
+          </Typography>
+          <RequestBodyEditor
+            value={requestTemplate}
+            onChange={handleEditorChange}
+            variables={REQUEST_VARIABLES}
+            layout="bottom"
+          />
+        </Box>
       </Box>
 
-      {/* ── Request Preview ── */}
-      {rawRequest && (
-        <Box sx={{ mt: 2 }}>
-          <Box
-            onClick={() => setRequestPreviewOpen(o => !o)}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              cursor: 'pointer',
-              userSelect: 'none',
-              width: 'fit-content',
-            }}
-          >
-            {requestPreviewOpen ? (
-              <KeyboardArrowUpIcon
-                sx={{ fontSize: 16, color: 'text.disabled' }}
-              />
-            ) : (
-              <KeyboardArrowDownIcon
-                sx={{ fontSize: 16, color: 'text.disabled' }}
-              />
-            )}
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.disabled', fontFamily: 'monospace' }}
-            >
-              {String(rawRequest.method ?? 'POST')}{' '}
-              {String(rawRequest.url ?? '')}
-            </Typography>
-          </Box>
-
-          {requestPreviewOpen && (
-            <Box
-              sx={{
-                mt: 1,
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: BORDER_RADIUS.sm,
-                overflow: 'hidden',
-              }}
-            >
-              {/* Headers */}
-              <RequestPreviewHeaders headers={rawRequest.headers} />
-              {/* Body */}
-              {rawRequest.body !== undefined && (
-                <Box
-                  component="pre"
-                  sx={{
-                    m: 0,
-                    p: 1.5,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    color: 'text.secondary',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxHeight: 300,
-                    overflowY: 'auto',
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  {typeof rawRequest.body === 'string'
-                    ? rawRequest.body
-                    : JSON.stringify(rawRequest.body, null, 2)}
-                </Box>
-              )}
-            </Box>
-          )}
-        </Box>
-      )}
-
-      {/* ── Response ── */}
-      {testResponse && (
-        <>
-          <Divider sx={{ mb: 3, mt: rawRequest ? 2 : 0 }} />
-
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Response
+      {/* ── 2. Map response ── */}
+      <Box sx={panelSx}>
+        <Box sx={panelHeaderSx}>
+          <Typography variant="subtitle2">
+            2 · Tell Rhesis where the answer is
           </Typography>
+        </Box>
+        <Box sx={panelBodySx}>
+          {testResponse ? (
+            <>
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', mb: 2.5 }}
+              >
+                Your API returned the JSON below. <strong>Click any key</strong>{' '}
+                to assign it to a Rhesis variable. At minimum, map{' '}
+                <Box component="code" sx={inlineCode}>
+                  {'{{ output }}'}
+                </Box>{' '}
+                to the field that holds your model&apos;s reply — that&apos;s
+                the text Rhesis will score against your metrics.{' '}
+                <Link
+                  href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
+                  target="_blank"
+                  rel="noopener"
+                  variant="body2"
+                >
+                  See all variables ↗
+                </Link>
+              </Typography>
 
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-            {/* JSON tree */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              {parsedResponse !== null ? (
+              {mappingTarget !== null ? (
                 <Box
                   component="pre"
                   sx={{
@@ -776,7 +697,7 @@ export default function TestAndMap({
                   }}
                 >
                   <JsonTree
-                    value={parsedResponse}
+                    value={mappingTarget}
                     path=""
                     depth={0}
                     comma={false}
@@ -803,112 +724,24 @@ export default function TestAndMap({
                   {testResponse}
                 </Box>
               )}
-            </Box>
 
-            {/* Output variable chips on the right */}
-            <Box
-              sx={{
-                width: 200,
-                flexShrink: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.75,
-                pt: 0.5,
-              }}
-            >
-              {OUTPUT_VARIABLES.map(({ name, label, description }) => {
-                const isMapped = mappedVarNames.has(name);
-                return (
-                  <Box
-                    key={name}
-                    sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
-                  >
-                    <Chip
-                      label={isMapped ? `✓ ${label}` : label}
-                      size="small"
-                      onDelete={
-                        isMapped ? () => handleRemoveMapping(name) : undefined
-                      }
-                      sx={{
-                        ...chipSx,
-                        alignSelf: 'flex-start',
-                        cursor: 'default',
-                        ...(isMapped && {
-                          bgcolor: (t: { palette: { mode: string } }) =>
-                            t.palette.mode === 'light'
-                              ? 'rgba(56,142,60,0.08)'
-                              : 'rgba(56,142,60,0.18)',
-                          color: 'success.main',
-                          borderColor: 'rgba(56,142,60,0.3)',
-                        }),
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'text.disabled',
-                        fontSize: 10,
-                        lineHeight: 1.4,
-                        pl: 0.25,
-                      }}
-                    >
-                      {description}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Box>
-          </Box>
-
-          {/* ── Mapped output rows ── */}
-          {Object.keys(pathToVar).length > 0 && (
-            <Box
-              sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}
-            >
-              {OUTPUT_VARIABLES.filter(v => mappedVarNames.has(v.name)).map(
-                ({ name, label }) => {
-                  const val = mappedValues[name];
-                  return (
-                    <Box
-                      key={name}
-                      sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
-                    >
-                      <Chip
-                        label={label}
-                        size="small"
-                        sx={{ ...chipSx, cursor: 'default', flexShrink: 0 }}
-                      />
-                      {val !== undefined ? (
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: 'text.secondary',
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 500,
-                          }}
-                        >
-                          {typeof val === 'string' ? val : JSON.stringify(val)}
-                        </Typography>
-                      ) : (
-                        <Typography
-                          variant="caption"
-                          sx={{ color: 'text.disabled', fontStyle: 'italic' }}
-                        >
-                          not found in response
-                        </Typography>
-                      )}
-                    </Box>
-                  );
-                }
-              )}
+              {outputVarGrid}
+            </>
+          ) : (
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.disabled', mb: 0.5 }}
+              >
+                Click <strong>Test</strong> above to fire a live request. Your
+                API&apos;s JSON response will appear here — then click any key
+                to tell Rhesis which field holds your model&apos;s reply.
+              </Typography>
+              {outputVarGrid}
             </Box>
           )}
-        </>
-      )}
+        </Box>
+      </Box>
 
       {/* ── Key mapping popover ── */}
       <Popover
@@ -937,7 +770,7 @@ export default function TestAndMap({
           {pendingPath}
         </Typography>
         <List dense disablePadding sx={{ pb: 0.5 }}>
-          {OUTPUT_VARIABLES.map(({ name, label, description }) => (
+          {OUTPUT_VARIABLES.map(({ name, label }) => (
             <ListItemButton
               key={name}
               onClick={() => handlePickOutputVar(name)}
@@ -946,14 +779,40 @@ export default function TestAndMap({
             >
               <ListItemText
                 primary={label}
-                secondary={description}
                 slotProps={{
                   primary: { sx: { fontFamily: 'monospace', fontSize: 12 } },
-                  secondary: { sx: { fontSize: 10 } },
                 }}
               />
             </ListItemButton>
           ))}
+          {pathToVar[pendingPath] !== undefined && (
+            <>
+              <Box
+                sx={{ mx: 2, my: 0.5, borderTop: 1, borderColor: 'divider' }}
+              />
+              <ListItemButton
+                onClick={() => {
+                  const next = { ...pathToVar };
+                  delete next[pendingPath];
+                  setPathToVar(next);
+                  const newMapping: Record<string, string> = {};
+                  for (const [p, v] of Object.entries(next))
+                    newMapping[v] = `$.${p}`;
+                  onResponseMappingChange(newMapping);
+                  setPopoverAnchor(null);
+                  setPendingPath('');
+                }}
+                sx={{ px: 2, py: 0.75 }}
+              >
+                <ListItemText
+                  primary="Remove mapping"
+                  slotProps={{
+                    primary: { sx: { fontSize: 12, color: 'error.main' } },
+                  }}
+                />
+              </ListItemButton>
+            </>
+          )}
         </List>
       </Popover>
     </Box>

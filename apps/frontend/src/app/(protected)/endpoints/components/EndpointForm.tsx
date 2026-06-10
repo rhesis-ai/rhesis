@@ -20,6 +20,7 @@ import AutoConfigureModal from './AutoConfigureModal';
 import TabBasics from './tabs/TabBasics';
 import TabHeaders from './tabs/TabHeaders';
 import TabBody from './tabs/TabBody';
+import TabTest from './tabs/TabTest';
 import {
   bodyToRequestMapping,
   parseBodyMapping,
@@ -72,6 +73,13 @@ export default function EndpointForm() {
     error?: string;
   } | null>(null);
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
+  const [tabTestResult, setTabTestResult] = useState<{
+    success: boolean;
+    status?: number;
+    response?: Record<string, unknown>;
+    error?: string;
+  } | null>(null);
+  const [isTabTestRunning, setIsTabTestRunning] = useState(false);
   const [testPassed, setTestPassed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -175,9 +183,21 @@ export default function EndpointForm() {
     Boolean(formData.name) &&
     Boolean(formData.project_id);
 
-  const handleRunTest = async (inputData: Record<string, unknown>) => {
-    setIsTestingEndpoint(true);
-    setTestResult(null);
+  const runTest = async (
+    inputData: Record<string, unknown>,
+    setResult: React.Dispatch<
+      React.SetStateAction<{
+        success: boolean;
+        status?: number;
+        response?: Record<string, unknown>;
+        error?: string;
+      } | null>
+    >,
+    setTesting: React.Dispatch<React.SetStateAction<boolean>>,
+    onSuccess?: () => void
+  ) => {
+    setTesting(true);
+    setResult(null);
     try {
       if (!formData.url || !validateUrl(formData.url)) {
         throw new Error('Please enter a valid URL in step 1');
@@ -223,19 +243,26 @@ export default function EndpointForm() {
 
       const r = result as Record<string, unknown>;
       const success = r.success !== false && !r.error;
-      setTestResult({ success: Boolean(success), response: r });
-      if (success) setTestPassed(true);
+      setResult({ success: Boolean(success), response: r });
+      if (success) onSuccess?.();
     } catch (err) {
       const msg = (err as Error).message ?? '';
-      // A 500 from the backend is an internal error, not something the user can act on directly
       const display = msg.includes('500')
         ? 'The server encountered an error processing the response. Check the backend logs for details.'
         : msg;
-      setTestResult({ success: false, error: display });
+      setResult({ success: false, error: display });
     } finally {
-      setIsTestingEndpoint(false);
+      setTesting(false);
     }
   };
+
+  const handleRunTest = (inputData: Record<string, unknown>) =>
+    runTest(inputData, setTestResult, setIsTestingEndpoint, () =>
+      setTestPassed(true)
+    );
+
+  const handleTabRunTest = (inputData: Record<string, unknown>) =>
+    runTest(inputData, setTabTestResult, setIsTabTestRunning);
 
   const handleSubmit = async () => {
     setError(null);
@@ -332,9 +359,14 @@ export default function EndpointForm() {
             aria-controls="endpoint-tabpanel-1"
           />
           <Tab
-            label="Body"
+            label="Mapping"
             id="endpoint-tab-2"
             aria-controls="endpoint-tabpanel-2"
+          />
+          <Tab
+            label="Test"
+            id="endpoint-tab-3"
+            aria-controls="endpoint-tabpanel-3"
           />
         </Tabs>
       </Box>
@@ -370,6 +402,20 @@ export default function EndpointForm() {
         />
       </DetailTabPanel>
 
+      <DetailTabPanel value={activeTab} index={3} prefix="endpoint">
+        <TabTest
+          url={formData.url}
+          method={formData.method}
+          reqBody={reqBody}
+          resBody={resBody}
+          requestHeaders={formData.request_headers}
+          authToken={formData.auth_token}
+          testResult={tabTestResult}
+          isTestingEndpoint={isTabTestRunning}
+          onRunTest={handleTabRunTest}
+        />
+      </DetailTabPanel>
+
       {error && (
         <Box sx={{ mt: 2 }}>
           <Alert severity="error">{error}</Alert>
@@ -386,7 +432,7 @@ export default function EndpointForm() {
           label: 'Save endpoint',
           onClick: handleSubmit,
           variant: 'contained',
-          disabled: !testPassed || isSubmitting || !step1Valid,
+          disabled: isSubmitting || !step1Valid,
         }}
       />
 
