@@ -18,7 +18,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "709e4ae75c8e"
-down_revision: Union[str, Sequence[str], None] = "d4e5f6a7b8c3"
+down_revision: Union[str, Sequence[str], None] = "b7c8d9e0f1a2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
