@@ -390,9 +390,7 @@ class TestProjectByIdMembershipEnforcement:
 
     # --- GET ---
 
-    def test_non_member_get_by_id_returns_404(
-        self, authenticated_client, test_db, test_org_id
-    ):
+    def test_non_member_get_by_id_returns_404(self, authenticated_client, test_db, test_org_id):
         """A user who is NOT enrolled cannot read a project by ID (404)."""
         project = _make_project(test_db, test_org_id)
         test_db.flush()
@@ -414,9 +412,7 @@ class TestProjectByIdMembershipEnforcement:
 
     # --- PUT ---
 
-    def test_non_member_put_by_id_returns_404(
-        self, authenticated_client, test_db, test_org_id
-    ):
+    def test_non_member_put_by_id_returns_404(self, authenticated_client, test_db, test_org_id):
         """A user who is NOT enrolled cannot update a project by ID (404)."""
         project = _make_project(test_db, test_org_id)
         test_db.flush()
@@ -443,9 +439,7 @@ class TestProjectByIdMembershipEnforcement:
 
     # --- DELETE ---
 
-    def test_non_member_delete_by_id_returns_404(
-        self, authenticated_client, test_db, test_org_id
-    ):
+    def test_non_member_delete_by_id_returns_404(self, authenticated_client, test_db, test_org_id):
         """A user who is NOT enrolled cannot delete a project by ID (404)."""
         project = _make_project(test_db, test_org_id)
         test_db.flush()
@@ -569,7 +563,8 @@ class TestEnrollmentService:
         enroll_user_in_project(test_db, str(user.id), str(project_a.id), test_org_id)
         test_db.flush()
         test_db.refresh(user)
-        assert (user.user_settings or {}).get("default_project", {}).get("project_id") == str(project_a.id)
+        default_project_id = (user.user_settings or {}).get("default_project", {}).get("project_id")
+        assert default_project_id == str(project_a.id)
 
         enroll_user_in_project(test_db, str(user.id), str(project_b.id), test_org_id)
         test_db.flush()

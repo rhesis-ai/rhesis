@@ -26,7 +26,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.token_utils import create_session_token
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -148,9 +147,7 @@ class TestUserUpdateAuthorization:
     - is_superuser=True on the User row confers NO authz privilege.
     """
 
-    def test_user_can_update_own_profile(
-        self, authenticated_client, authenticated_user_id
-    ):
+    def test_user_can_update_own_profile(self, authenticated_client, authenticated_user_id):
         """A user may always update their own profile (self-update path)."""
         payload = {"name": f"Updated Name {uuid.uuid4().hex[:6]}"}
 
@@ -161,9 +158,7 @@ class TestUserUpdateAuthorization:
         # 200 OK or wrapped JSON response for self-update
         assert response.status_code == status.HTTP_200_OK
 
-    def test_non_owner_cannot_update_other_user(
-        self, authenticated_client, test_db, test_org_id
-    ):
+    def test_non_owner_cannot_update_other_user(self, authenticated_client, test_db, test_org_id):
         """A non-owner (org.owner_id is NOT the caller) gets 403 on another user's profile."""
         # Ensure the test org has NO owner (or a different owner) so the
         # authenticated user is definitely not the org Owner.

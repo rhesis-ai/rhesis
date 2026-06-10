@@ -178,7 +178,7 @@ class TestRecycleGetDeletedEndpoint:
             test_db, models.Behavior, behavior2.id, organization_id=secondary_org_id
         )
 
-        # Get deleted behaviors - should only return items from authenticated user's organization context (test_org_id)
+        # Get deleted behaviors — should only return items from the authenticated user's org context
         response = authenticated_client.get("/recycle/behavior")
 
         assert response.status_code == status.HTTP_200_OK
@@ -473,7 +473,6 @@ class TestRecycleBulkRestoreEndpoint:
         """Test bulk restore with some items not found."""
         import uuid
 
-
         # Create and delete one topic
         topic = crud_utils.create_item(
             test_db, models.Topic, TopicDataFactory.sample_data(), organization_id=test_org_id
@@ -544,7 +543,7 @@ class TestRecycleEmptyBinEndpoint:
 
         # Verify all are gone
         for category_id in category_ids:
-            found = crud_utils.get_item(
+            crud_utils.get_item(
                 test_db,
                 models.Category,
                 category_id,
@@ -579,7 +578,7 @@ class TestRecycleEmptyBinEndpoint:
             test_db, models.Behavior, behavior2.id, organization_id=secondary_org_id
         )
 
-        # Empty bin - should only affect items in the authenticated user's organization (test_org_id)
+        # Empty bin — should only affect items in the authenticated user's org
         response = authenticated_client.delete("/recycle/empty/behavior?confirm=true")
 
         assert response.status_code == status.HTTP_200_OK

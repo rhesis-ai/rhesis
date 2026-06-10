@@ -32,7 +32,6 @@ from rhesis.backend.app.services.organization import (
     unenroll_user_from_project,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -134,9 +133,7 @@ class TestRoleIdColumn:
 
         test_db.rollback()
 
-    def test_enroll_user_in_project_default_role_id_is_none(
-        self, test_db: Session, test_org_id
-    ):
+    def test_enroll_user_in_project_default_role_id_is_none(self, test_db: Session, test_org_id):
         """enroll_user_in_project defaults role_id to None (binary mode)."""
         user = _unique_user(test_db, test_org_id)
         project = _make_project(test_db, test_org_id)
@@ -260,9 +257,7 @@ class TestMemberEndpointGating:
 
         org, original = self._strip_owner(test_db, test_org_id, authenticated_user_id)
         try:
-            response = authenticated_client.delete(
-                f"/projects/{project.id}/members/{other.id}"
-            )
+            response = authenticated_client.delete(f"/projects/{project.id}/members/{other.id}")
         finally:
             self._restore_owner(test_db, org, original)
 
@@ -321,9 +316,7 @@ class TestMemberEndpointGating:
         _enroll(test_db, str(other.id), str(project.id), test_org_id)
 
         try:
-            response = authenticated_client.delete(
-                f"/projects/{project.id}/members/{other.id}"
-            )
+            response = authenticated_client.delete(f"/projects/{project.id}/members/{other.id}")
         finally:
             org.owner_id = original
             test_db.flush()
@@ -425,9 +418,7 @@ class TestRecoverOrgOwnerCLI:
         new_owner = _unique_user(test_db, test_org_id)
         test_db.commit()  # commit so the CLI's independent session can see it
 
-        org_before = (
-            test_db.query(models.Organization).filter_by(id=test_org_id).first()
-        )
+        org_before = test_db.query(models.Organization).filter_by(id=test_org_id).first()
         owner_before = org_before.owner_id
 
         # Dry run should complete without raising.
@@ -435,16 +426,12 @@ class TestRecoverOrgOwnerCLI:
 
         # Re-query to verify the owner_id was NOT changed.
         test_db.expire(org_before)
-        org_after = (
-            test_db.query(models.Organization).filter_by(id=test_org_id).first()
-        )
+        org_after = test_db.query(models.Organization).filter_by(id=test_org_id).first()
         assert org_after.owner_id == owner_before, (
             "dry_run=True must not mutate organization.owner_id"
         )
 
-    def test_real_run_reassigns_owner(
-        self, test_db: Session, test_org_id, authenticated_user_id
-    ):
+    def test_real_run_reassigns_owner(self, test_db: Session, test_org_id, authenticated_user_id):
         """dry_run=False reassigns organization.owner_id to the target user."""
         from rhesis.backend.app.management.recover_org_owner import run
 
@@ -459,9 +446,7 @@ class TestRecoverOrgOwnerCLI:
         # The CLI uses its own session (SessionLocal), so expire the fixture session
         # and re-read to see the committed change.
         test_db.expire_all()
-        org_after = (
-            test_db.query(models.Organization).filter_by(id=test_org_id).first()
-        )
+        org_after = test_db.query(models.Organization).filter_by(id=test_org_id).first()
         assert str(org_after.owner_id) == str(new_owner.id), (
             "real run must update organization.owner_id to the new owner"
         )
