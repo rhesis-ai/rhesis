@@ -61,6 +61,7 @@ export function createRowActionsColumn({
     headerName: '',
     width,
     sortable: false,
+    hideable: false,
     disableColumnMenu: true,
     align: 'center',
     headerAlign: 'center',
