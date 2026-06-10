@@ -8,29 +8,70 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
-## [0.8.0] - Unreleased
+## [0.8.0] - 2026-05-21
 
-### Storage migration: file bytes move out of Postgres
+### Platform Release
 
-This release migrates all file content from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). The change eliminates Cloud Run memory crashes caused by multi-MB file buffers and brings consistent streaming upload/download semantics across all execution paths.
+This release includes the following component versions:
 
-**Breaking changes:**
+- **Backend 0.8.0**
+- **Frontend 0.8.0**
+- **SDK 0.8.0**
+- **Polyphemus 0.3.0**
 
-- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
-- `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
-- `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
+### Summary
 
-**New features:**
+This release introduces **Parameters & Experiments**, expands **Test Explorer**, adds Enterprise Edition SSO and API Clients, and moves file bytes out of Postgres into object storage. It also hardens Polyphemus adversarial generation and updates SDK connector paths for parameter and file-aware execution.
 
-- `GET /files/{id}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px).
-- `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported).
-- `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes.
-- `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`).
-- ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching.
+### Featured Capabilities
 
-**Deployment:** Apply Alembic revision `9b25f353e9c8` (adds storage columns), deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
+**Parameters & Experiments**
 
-**IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
+- Project-scoped parameter schemas with typed values and defaults
+- Versioned experiments with sequential version identifiers such as `v1`, `v2`, and `v3`
+- Environment-based parameter routing, replacing the older "Labels" terminology
+- Unified parameter injection with `{{ params.* }}` in endpoint request mappings
+- Experiment selection in execution drawers, including multiple experiment-version pairs
+- SDK support through `Parameters.get()`, `Experiment.run()`, and `TestSet.execute(experiment=...)`
+
+**File storage and multimodal execution**
+
+- File bytes are stored in object storage through `STORAGE_SERVICE_URI` (`file://`, `gs://`, or `s3://`)
+- `GET /files/{id}/content` returns HTTP 302 to a presigned URL instead of streaming bytes directly
+- `FileCreate` no longer accepts a `content` field; uploads stream bytes while Postgres stores metadata
+- `File.extracted_text` is pre-computed at upload time
+- `GET /files/{id}/thumbnail?size=N` serves WebP thumbnails at `72`, `144`, or `288` pixels
+- `FileReference` lets SDK connector endpoints receive file metadata and fetch bytes on demand
+- `extraction_status` on file responses reports `pending`, `done`, `failed`, or `not_applicable`
+- ETag and If-None-Match support improves browser caching for content and thumbnails
+
+**Enterprise authentication and feature gating**
+
+- Per-organization OIDC SSO with slug-based login URLs and auto-provisioning controls
+- API Clients for RFC 8693 token exchange from organization IdP tokens to Rhesis JWTs
+- Central `FeatureRegistry` and `GET /features` endpoint for license-aware UI gating
+- EE backend bootstrap keeps SSO and API Clients outside the Community import graph
+
+**Test Explorer and Architect**
+
+- Test Explorer adds adaptive test-set creation, import, export, and evaluation workflows
+- Architect task progress events stream worker updates into the active chat bubble
+- Architect plan tracking includes per-category progress and ready/blocked gates
+- Adaptive testing surfaces are now named Explorer across backend, frontend, and SDK clients
+
+**Polyphemus 0.3.0**
+
+- Adversarial system primer is injected on every Polyphemus request
+- Schema-generation calls place the primer before schema instructions
+- Batch item failures are logged and returned per item instead of silently disappearing
+- Synthesizer `harmful=True` mode generates adversarial-only test cases
+- The Polyphemus image is slimmer by depending on backend core instead of the full backend extras stack
+
+### Deployment notes
+
+- Apply Alembic revision `9b25f353e9c8`, deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy file `content` column.
+- Backend and worker identities need object read/write permissions for the configured storage bucket or filesystem path.
+- `./rh start` now prompts interactively for `RHESIS_API_KEY` when the local environment file does not contain one.
 
 
 ## [0.7.1] - 2026-05-07

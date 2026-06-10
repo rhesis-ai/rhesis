@@ -167,7 +167,7 @@ This means every test in a run uses the exact same parameter values, and those v
 Both endpoint types receive the same resolved parameters:
 
 - **REST endpoints** access parameters through `\{\{ params.* \}\}` in request mappings, as shown above. Your external API receives the rendered values in the HTTP request body.
-- **SDK connector endpoints** can also receive parameters as direct keyword arguments via the `@endpoint` decorator's `parameters` option, or read them through `Parameters.get()`. See [Connector Injection](/docs/experiments/connector-injection) for details.
+- **SDK connector endpoints** should access parameters through `\{\{ params.* \}\}` in `request_mapping`, or read the test-run snapshot through `Parameters.get()` from inside the function. The legacy `@endpoint(parameters=...)` kwarg-merging path is deprecated. See [Connector Injection](/docs/experiments/connector-injection) for details.
 
 ## Creating an Endpoint
 

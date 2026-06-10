@@ -300,6 +300,48 @@ For embeddings, supported default provider prefixes are `rhesis`, `openai`, `gem
 
 Supported language-model provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.
 
+#### Object Storage for Files
+
+Rhesis stores uploaded file bytes in object storage. Metadata remains in Postgres, but file content, thumbnails, and execution attachments are read from the configured storage backend.
+
+Set `STORAGE_SERVICE_URI` in `.env.docker`:
+
+<CodeBlock filename=".env.docker" language="bash">
+{`# Local filesystem for single-host deployments or CI
+STORAGE_SERVICE_URI=file:///var/lib/rhesis/files
+
+# Google Cloud Storage
+# STORAGE_SERVICE_URI=gs://your-rhesis-files-bucket
+
+# S3-compatible object storage
+# STORAGE_SERVICE_URI=s3://your-rhesis-files-bucket`}
+</CodeBlock>
+
+| Backend | Example | Operational notes |
+|---|---|---|
+| Local filesystem | `file:///var/lib/rhesis/files` | Mount the same persistent volume into backend and worker containers |
+| Google Cloud Storage | `gs://bucket-name` | Grant the backend and worker identity object read/write permissions |
+| S3-compatible storage | `s3://bucket-name` | Provide credentials through the standard AWS environment variables |
+
+Downloads from `GET /files/{id}/content` and thumbnails from `GET /files/{id}/thumbnail` redirect to presigned URLs. Browsers and the SDK follow these redirects automatically; custom clients should allow redirects.
+
+<Callout type="info">
+  If you are upgrading from a pre-0.8.0 deployment, apply the storage-column
+  migration, deploy code that streams file bytes to object storage, and only
+  then apply the migration that drops the legacy database `content` column.
+</Callout>
+
+#### Enterprise Features
+
+Enterprise Edition features are discovered at runtime through `GET /features`. The endpoint returns license metadata and enabled feature names for the current organization. Frontend pages hide gated UI until the feature appears in that response.
+
+| Feature | Feature name | Related docs |
+|---|---|---|
+| Single Sign-On | `sso` | [Single Sign-On](/docs/organizations/sso) |
+| API Clients | `api_clients` | [API Clients](/docs/organizations/api-clients) |
+
+When the Enterprise package is not installed, Rhesis runs in Community mode and these features are unavailable.
+
 ## Telemetry & Privacy
 
 <Callout type="info">

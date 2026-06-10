@@ -33,7 +33,7 @@ For multi-turn tests, the **Conversation** tab supports trace-driven debugging:
 
 ## Parameters Used
 
-When a test run targets a parameter experiment, it snapshots the experiment's resolved values at queue time. This guarantees that test runs remain reproducible even if the experiment or label changes later.
+When a test run targets a parameter experiment, it snapshots the experiment's resolved values at queue time. This guarantees that test runs remain reproducible even if the experiment or environment changes later.
 
 The Test Run detail page displays an **Experiment** card showing the experiment name, version (e.g., `v3`), the source environment (if any), and an expandable **Resolved Values** panel. (Values for `secret_ref` slots are masked so credentials never leak into the test run record.)
 
