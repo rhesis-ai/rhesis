@@ -29,6 +29,7 @@ import {
   ExperimentResultsRunItem,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
@@ -295,7 +296,7 @@ export default function ExperimentRunsTab({
                 startIcon={<PlayArrowIcon />}
                 onClick={onRunExperiment}
                 sx={{
-                  borderRadius: '12px',
+                  borderRadius: BORDER_RADIUS.md,
                   px: '20px',
                   py: '12px',
                   fontSize: 18,

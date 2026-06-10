@@ -22,7 +22,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import dynamic from 'next/dynamic';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -939,7 +939,7 @@ export function MCPConnectionDrawer({
 
   const sectionHeadingSx = {
     fontWeight: 700,
-    fontSize: '18px',
+    fontSize: theme.typography.h6.fontSize,
     lineHeight: '25px',
     color: 'text.primary',
   } as const;
@@ -1145,13 +1145,25 @@ export function MCPConnectionDrawer({
                   sx={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    borderRadius: '4px',
+                    borderRadius: BORDER_RADIUS.xs,
                     px: '30px',
                     py: '12px',
                     mt: 2,
                     ...(testResult.is_authenticated === 'Yes'
-                      ? { backgroundColor: '#c8f5eb', color: '#0080af' }
-                      : { backgroundColor: '#fadbde', color: '#de3355' }),
+                      ? {
+                          backgroundColor: alpha(
+                            theme.palette.primary.main,
+                            0.12
+                          ),
+                          color: theme.palette.primary.main,
+                        }
+                      : {
+                          backgroundColor: alpha(
+                            theme.palette.error.main,
+                            0.12
+                          ),
+                          color: theme.palette.error.main,
+                        }),
                   }}
                 >
                   <Box
@@ -1181,9 +1193,9 @@ export function MCPConnectionDrawer({
                     }}
                   >
                     <Typography
+                      variant="h6"
                       sx={{
                         fontWeight: 700,
-                        fontSize: '18px',
                         lineHeight: '25px',
                         color: 'inherit',
                       }}
@@ -1192,13 +1204,7 @@ export function MCPConnectionDrawer({
                         ? 'Connection Successful'
                         : 'Connection Failed'}
                     </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: '16px',
-                        lineHeight: '24px',
-                        color: 'inherit',
-                      }}
-                    >
+                    <Typography variant="body1" sx={{ color: 'inherit' }}>
                       {testResult.message}
                     </Typography>
                   </Box>
