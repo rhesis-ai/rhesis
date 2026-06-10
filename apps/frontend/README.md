@@ -1,5 +1,7 @@
 # Rhesis Frontend
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for linting, tests, and E2E setup.
+
 Next.js app for the Rhesis web UI (TypeScript, Material UI, NextAuth). Dependencies are listed in `package.json` and installed with **npm**. The production **Dockerfile** uses **Node 24**; use a compatible Node locally.
 
 ## Design System (UI Revamp — 2026-05)
