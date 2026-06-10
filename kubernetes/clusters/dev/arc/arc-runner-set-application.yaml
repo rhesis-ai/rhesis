@@ -33,6 +33,8 @@ spec:
           spec:
             containers:
               - name: runner
+                image: ghcr.io/actions/actions-runner:latest
+                command: ["/home/runner/run.sh"]
                 resources:
                   requests:
                     cpu: 250m
