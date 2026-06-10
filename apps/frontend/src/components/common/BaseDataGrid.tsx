@@ -333,6 +333,10 @@ function QuickFilterToolbar() {
 
 // Column menu that only shows sort actions (no Filter, no Hide/Manage columns).
 function SortOnlyColumnMenu(props: GridColumnMenuProps) {
+  if (props.colDef?.sortable === false) {
+    return null;
+  }
+
   return (
     <GridColumnMenu
       {...props}
@@ -533,6 +537,16 @@ export default function BaseDataGrid({
   const router = useRouter();
   const apiRef = useGridApiRef();
 
+  const gridColumns = React.useMemo(
+    () =>
+      columns.map(col =>
+        col.field === 'actions' ? { ...col, hideable: false } : col
+      ),
+    [columns]
+  );
+
+  const hasActionsColumn = gridColumns.some(col => col.field === 'actions');
+
   // Grid state persistence
   const {
     initialState: persistedState,
@@ -562,6 +576,7 @@ export default function BaseDataGrid({
         columnVisibilityModel: {
           ...initialState.columns?.columnVisibilityModel,
           ...persistedState.columns?.columnVisibilityModel,
+          ...(hasActionsColumn && { actions: true }),
         },
         // Deep merge orderedFields only if persisted (user reordered columns).
         // Reconcile against the current columns so a newly added column lands
@@ -595,7 +610,7 @@ export default function BaseDataGrid({
       // Density: persisted overrides initial
       ...(persistedState.density && { density: persistedState.density }),
     };
-  }, [persistState, persistedState, initialState, columns]);
+  }, [persistState, persistedState, initialState, columns, hasActionsColumn]);
 
   // Save state callback - memoized to avoid unnecessary re-subscriptions
   const handleStateChange = useCallback(() => {
@@ -1237,7 +1252,7 @@ export default function BaseDataGrid({
               <StyledDataGrid
                 apiRef={apiRef}
                 rows={serverSidePagination ? rows : filteredRows}
-                columns={columns}
+                columns={gridColumns}
                 getRowId={getRowId}
                 {...(autoHeight && { autoHeight: true })}
                 pagination
@@ -1309,7 +1324,7 @@ export default function BaseDataGrid({
                 <StyledDataGrid
                   apiRef={apiRef}
                   rows={serverSidePagination ? rows : filteredRows}
-                  columns={columns}
+                  columns={gridColumns}
                   getRowId={getRowId}
                   {...(autoHeight && { autoHeight: true })}
                   pagination

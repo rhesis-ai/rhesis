@@ -367,7 +367,19 @@ class QueryBuilder:
 
     def _apply_sorting(self):
         """Apply sorting if configured"""
-        if self._sort_by:
+        from rhesis.backend.app.utils.count_sort import (
+            apply_virtual_count_sort,
+            is_virtual_count_sort,
+        )
+
+        if self._sort_by and is_virtual_count_sort(self._sort_by):
+            self.query = apply_virtual_count_sort(
+                self.query,
+                self.model,
+                self._sort_by,
+                self._sort_order,
+            )
+        elif self._sort_by:
             order_column = getattr(self.model, self._sort_by)
             if self._sort_order == "desc":
                 self.query = self.query.order_by(desc(order_column))

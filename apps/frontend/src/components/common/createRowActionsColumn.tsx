@@ -5,6 +5,7 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { GridColDef } from '@mui/x-data-grid';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import type { SvgIconComponent } from '@mui/icons-material';
 import { EditIcon, DeleteIcon } from '@/components/icons';
 
 export const ROW_ACTIONS_CLASS = 'row-actions';
@@ -36,6 +37,7 @@ interface RowActionsColumnOptions {
   editTooltip?: string;
   deleteTooltip?: string;
   cancelTooltip?: string;
+  deleteIcon?: SvgIconComponent;
 }
 
 /**
@@ -52,12 +54,14 @@ export function createRowActionsColumn({
   editTooltip = 'Edit',
   deleteTooltip = 'Delete',
   cancelTooltip = 'Cancel',
+  deleteIcon: DeleteIconComponent = DeleteIcon,
 }: RowActionsColumnOptions): GridColDef {
   return {
     field: 'actions',
     headerName: '',
     width,
     sortable: false,
+    hideable: false,
     disableColumnMenu: true,
     align: 'center',
     headerAlign: 'center',
@@ -137,7 +141,7 @@ export function createRowActionsColumn({
                   },
                 }}
               >
-                <DeleteIcon sx={{ fontSize: 18 }} />
+                <DeleteIconComponent sx={{ fontSize: 18 }} />
               </IconButton>
             </Tooltip>
           )}
