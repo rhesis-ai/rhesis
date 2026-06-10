@@ -16,6 +16,12 @@ export interface SectionEmptyStateProps {
   actionDisabled?: boolean;
   /** When true, shows a leading + icon on the optional CTA button. */
   showAddIcon?: boolean;
+  /**
+   * When true (default), renders the bordered inset panel for use inside
+   * {@link SectionCard}. Set false when {@link SectionCard} is the only
+   * card shell (avoids a double border).
+   */
+  inset?: boolean;
 }
 
 /**
@@ -33,14 +39,17 @@ export default function SectionEmptyState({
   onAction,
   actionDisabled = false,
   showAddIcon = false,
+  inset = true,
 }: SectionEmptyStateProps) {
   return (
     <Box
       sx={{
-        border: theme => `1px solid ${theme.palette.greyscale.border}`,
-        borderRadius: BORDER_RADIUS.md,
+        ...(inset && {
+          border: theme => `1px solid ${theme.palette.greyscale.border}`,
+          borderRadius: BORDER_RADIUS.md,
+        }),
         px: { xs: 2, sm: 4, md: '200px' },
-        py: '40px',
+        py: inset ? '40px' : 0,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

@@ -17,10 +17,14 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Stack,
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
+import { SectionCard } from '@/components/common/SectionCard';
+import SectionEmptyState from '@/components/common/SectionEmptyState';
+import { RouteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { ApiClientsClient } from '../api/api-clients-client';
@@ -174,7 +178,63 @@ export default function ApiClientsSection() {
     }
   };
 
+  const openCreateDrawer = () => {
+    setCreateError(null);
+    setCreateOpen(true);
+  };
+
+  const drawers = (
+    <>
+      <CreateApiClientDrawer
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        onSubmit={handleCreate}
+        errorMessage={createError}
+      />
+      {revealing && (
+        <ClientSecretDisplayDrawer
+          open={revealing !== null}
+          clientId={revealing.client_id}
+          clientSecret={revealing.client_secret}
+          title={revealTitle}
+          onAcknowledge={() => setRevealing(null)}
+        />
+      )}
+    </>
+  );
+
+  if (loading) {
+    return (
+      <SectionCard>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      </SectionCard>
+    );
+  }
+
+  if (clients.length === 0) {
+    return (
+      <>
+        <SectionCard>
+          <SectionEmptyState
+            icon={RouteIcon}
+            title="No API clients yet"
+            description="API Clients let an external integration trade an OIDC access token from your IdP for a Rhesis access token (RFC 8693). Configure the IdP under Single Sign-On first; clients only work for organizations with SSO enabled and a slug set."
+            actionLabel="Create API client"
+            onAction={openCreateDrawer}
+            showAddIcon
+            inset={false}
+          />
+        </SectionCard>
+        {drawers}
+      </>
+    );
+  }
+
   return (
+    <>
+    <SectionCard title="API Clients">
     <Stack spacing={2}>
       {/* Description and CTA share one row. `alignItems: flex-start`
           pins the button to the top so the description wraps cleanly
@@ -198,10 +258,7 @@ export default function ApiClientsSection() {
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
-          onClick={() => {
-            setCreateError(null);
-            setCreateOpen(true);
-          }}
+          onClick={openCreateDrawer}
           sx={{ flexShrink: 0 }}
         >
           Create
@@ -219,23 +276,10 @@ export default function ApiClientsSection() {
         onDelete={handleDelete}
       />
 
-      <CreateApiClientDrawer
-        open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        onSubmit={handleCreate}
-        errorMessage={createError}
-      />
-
-      {revealing && (
-        <ClientSecretDisplayDrawer
-          open={revealing !== null}
-          clientId={revealing.client_id}
-          clientSecret={revealing.client_secret}
-          title={revealTitle}
-          onAcknowledge={() => setRevealing(null)}
-        />
-      )}
     </Stack>
+    </SectionCard>
+    {drawers}
+    </>
   );
 }
 
