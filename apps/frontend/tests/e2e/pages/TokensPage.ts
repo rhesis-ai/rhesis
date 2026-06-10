@@ -1,5 +1,8 @@
 import { type Page, type Locator, expect } from '@playwright/test';
-import { expectOpenDrawerTitle } from '../helpers/CrudHelper';
+import {
+  expectOpenDrawerTitle,
+  deleteGridRowByText,
+} from '../helpers/CrudHelper';
 
 /**
  * Page Object for the API Tokens page (/tokens).
@@ -44,9 +47,6 @@ export class TokensPage {
 
   /** Delete a token via the hover-revealed row-actions delete icon. */
   async deleteRowByText(name: string) {
-    const row = this.page.locator('[role="row"]', { hasText: name }).first();
-    await row.scrollIntoViewIfNeeded();
-    await row.hover();
-    await row.locator('.row-actions button').last().click();
+    await deleteGridRowByText(this.page, name);
   }
 }

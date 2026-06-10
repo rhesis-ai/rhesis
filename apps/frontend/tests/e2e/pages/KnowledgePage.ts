@@ -1,6 +1,10 @@
 import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
-import { waitForDrawerClosed } from '../helpers/CrudHelper';
+import {
+  expectOpenDrawerTitle,
+  openDrawer,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Knowledge (sources) page (/knowledge).
@@ -32,9 +36,7 @@ export class KnowledgePage extends BasePage {
   /** Open the "Upload Source" drawer. */
   async openUploadSourceDialog() {
     await this.uploadButton.click();
-    await this.page
-      .getByRole('presentation')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    await expectOpenDrawerTitle(this.page, /^upload source$/i);
   }
 
   /**
@@ -42,8 +44,7 @@ export class KnowledgePage extends BasePage {
    * The title may be pre-filled from the filename — this clears and refills it.
    */
   async setSourceTitle(title: string) {
-    const titleInput = this.page
-      .getByRole('presentation')
+    const titleInput = openDrawer(this.page)
       .getByRole('textbox', { name: /title/i })
       .first();
     await titleInput.clear();
@@ -52,22 +53,28 @@ export class KnowledgePage extends BasePage {
 
   /** Set the description field in the upload drawer. */
   async setSourceDescription(description: string) {
-    const descInput = this.page
-      .getByRole('presentation')
-      .getByRole('textbox', { name: /description/i });
+    const descInput = openDrawer(this.page).getByRole('textbox', {
+      name: /description/i,
+    });
     const visible = await descInput
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (visible) await descInput.fill(description);
   }
 
-  /** Submit the upload drawer. */
+  /** Submit the upload drawer and wait for the API response. */
   async submitUpload() {
-    const submitBtn = this.page
-      .getByRole('presentation')
-      .getByRole('button', { name: /upload source/i })
-      .last();
-    await submitBtn.click();
+    const uploadResponse = this.page.waitForResponse(
+      resp =>
+        resp.url().includes('/sources') &&
+        resp.request().method() === 'POST' &&
+        resp.ok(),
+      { timeout: 30_000 }
+    );
+    await openDrawer(this.page)
+      .getByRole('button', { name: /^upload source$/i })
+      .click();
+    await uploadResponse;
   }
 
   /** BaseDrawer stays mounted — wait for the drawer to close. */
@@ -75,24 +82,24 @@ export class KnowledgePage extends BasePage {
     await waitForDrawerClosed(this.page, 20_000);
   }
 
-  /** Select a grid row that contains the given text by clicking its checkbox. */
-  async selectRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text });
-    await row.locator('input[type="checkbox"]').click();
-  }
-
   /** Delete a row via the hover-revealed row-actions delete icon. */
   async deleteRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text }).first();
+    const row = this.page
+      .locator('.MuiDataGrid-row')
+      .filter({ hasText: text })
+      .first();
     await row.scrollIntoViewIfNeeded();
     await row.hover();
-    await row.locator('.row-actions button').last().click();
+    const deleteBtn = row.getByRole('button', { name: /^delete$/i });
+    await expect(deleteBtn).toBeVisible({ timeout: 10_000 });
+    await deleteBtn.click();
   }
 
   /** Returns true if a row containing the given text is visible in the grid. */
   async rowIsVisible(text: string): Promise<boolean> {
     return this.page
-      .locator('[role="row"]', { hasText: text })
+      .locator('.MuiDataGrid-row')
+      .filter({ hasText: text })
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
   }
@@ -100,7 +107,8 @@ export class KnowledgePage extends BasePage {
   /** Returns true if no row containing the given text is visible. */
   async rowIsGone(text: string): Promise<boolean> {
     return this.page
-      .locator('[role="row"]', { hasText: text })
+      .locator('.MuiDataGrid-row')
+      .filter({ hasText: text })
       .isHidden({ timeout: 15_000 })
       .catch(() => false);
   }

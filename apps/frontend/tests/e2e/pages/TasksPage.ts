@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { deleteGridRowByText, openDrawer } from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Tasks list page (/tasks).
@@ -29,12 +30,22 @@ export class TasksPage extends BasePage {
       .catch(() => false);
     if (fabVisible) {
       await fab.click();
-      return;
+    } else {
+      const emptyAction = this.page
+        .getByRole('button', { name: /create task/i })
+        .first();
+      await emptyAction.click();
     }
-    const emptyAction = this.page
-      .getByRole('button', { name: /create task/i })
-      .first();
-    await emptyAction.click();
+
+    const drawer = openDrawer(this.page);
+    await drawer
+      .getByRole('textbox', { name: /task title/i })
+      .waitFor({ state: 'visible', timeout: 10_000 });
+    await this.page
+      .waitForResponse(resp => resp.url().includes('/status') && resp.ok(), {
+        timeout: 15_000,
+      })
+      .catch(() => null);
   }
 
   /**
@@ -84,10 +95,7 @@ export class TasksPage extends BasePage {
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
   async deleteRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text }).first();
-    await row.scrollIntoViewIfNeeded();
-    await row.hover();
-    await row.locator('.row-actions button').last().click();
+    await deleteGridRowByText(this.page, text);
   }
 
   /** Wait until a created task title appears in the grid or page body. */

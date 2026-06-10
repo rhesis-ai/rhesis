@@ -82,9 +82,10 @@ test.describe('Behaviors — CRUD @crud', () => {
       .waitFor({ state: 'hidden', timeout: 15_000 });
     await page.waitForLoadState('networkidle');
 
-    // The updated name should appear on the card
-    const updated = await behaviorsPage.cardIsVisible(UPDATED_NAME);
-    expect(updated).toBeTruthy();
+    // Updated name appears on the detail page after save
+    await expect(page.getByText(UPDATED_NAME).first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('can delete a behavior via the delete icon', async ({ page }) => {
@@ -141,7 +142,7 @@ test.describe('Behaviors — CRUD @crud', () => {
     await behaviorsPage.clickAddMetricOnCard(UNIQUE_NAME);
 
     // Assign Metric drawer opens from the Linked Metrics tab
-    await expect(openDrawer(page).getByText(/assign metric/i)).toBeVisible({
+    await expect(openDrawer(page).getByText(/^assign metric$/i)).toBeVisible({
       timeout: 10_000,
     });
 
@@ -171,8 +172,9 @@ test.describe('Behaviors — CRUD @crud', () => {
 
     await page.waitForLoadState('networkidle');
 
-    // The behavior card should still be visible (no crash)
-    const visible = await behaviorsPage.cardIsVisible(UNIQUE_NAME);
-    expect(visible).toBeTruthy();
+    // Behavior detail page should still show the behavior name
+    await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

@@ -1,5 +1,8 @@
 import { type Page, type Locator, expect } from '@playwright/test';
-import { expectOpenDrawerTitle } from '../helpers/CrudHelper';
+import {
+  expectOpenDrawerTitle,
+  deleteGridRowByText,
+} from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Test Sets list page (/test-sets).
@@ -59,9 +62,6 @@ export class TestSetsPage {
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
   async deleteRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text }).first();
-    await row.scrollIntoViewIfNeeded();
-    await row.hover();
-    await row.locator('.row-actions button').last().click();
+    await deleteGridRowByText(this.page, text);
   }
 }

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { TasksPage } from '../pages/TasksPage';
 import {
   confirmDeleteDialog,
+  openDrawer,
   waitForDrawerClosed,
 } from '../helpers/CrudHelper';
 
@@ -48,7 +49,16 @@ test.describe('Tasks — CRUD @crud', () => {
     if (!hasSave) {
       return false;
     }
+
+    const createResponse = page.waitForResponse(
+      resp =>
+        resp.url().includes('/tasks') &&
+        resp.request().method() === 'POST' &&
+        resp.ok(),
+      { timeout: 20_000 }
+    );
     await saveBtn.click();
+    await createResponse;
     await waitForDrawerClosed(page);
 
     await page.waitForLoadState('networkidle');

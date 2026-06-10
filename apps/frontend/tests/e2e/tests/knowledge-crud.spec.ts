@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { KnowledgePage } from '../pages/KnowledgePage';
 import {
   confirmDeleteDialog,
-  openDrawer,
+  expectGridRowVisible,
   waitForDrawerClosed,
 } from '../helpers/CrudHelper';
 
@@ -31,8 +31,7 @@ test.describe('Knowledge — CRUD @crud', () => {
 
     await knowledgePage.openUploadSourceDialog();
 
-    // Dialog should be visible
-    await expect(openDrawer(page).getByText(/upload source/i)).toBeVisible();
+    // Drawer should be visible
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -68,18 +67,9 @@ test.describe('Knowledge — CRUD @crud', () => {
 
     // Submit the upload
     await knowledgePage.submitUpload();
-
-    // Wait for the drawer to close
     await knowledgePage.waitForUploadDrawerClosed();
-
     await page.waitForLoadState('networkidle');
-
-    // The new source row should appear in the grid
-    const visible = await knowledgePage.rowIsVisible(UNIQUE_TITLE);
-    expect(
-      visible,
-      `Expected source "${UNIQUE_TITLE}" to appear in the grid`
-    ).toBeTruthy();
+    await expectGridRowVisible(page, UNIQUE_TITLE);
   });
 
   test('can delete a knowledge source via row actions', async ({ page }) => {
@@ -106,9 +96,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await knowledgePage.submitUpload();
     await knowledgePage.waitForUploadDrawerClosed();
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(UNIQUE_TITLE).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await expectGridRowVisible(page, UNIQUE_TITLE);
 
     // --- Delete: hover row and click the delete icon ---
     await knowledgePage.deleteRowByText(UNIQUE_TITLE);

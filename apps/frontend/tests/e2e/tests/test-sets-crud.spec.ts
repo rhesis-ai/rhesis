@@ -4,6 +4,7 @@ import { TestSetsPage } from '../pages/TestSetsPage';
 import { MockApiHelper } from '../helpers/MockApiHelper';
 import {
   confirmDeleteDialog,
+  expectGridRowVisible,
   openDrawer,
   waitForDrawerClosed,
 } from '../helpers/CrudHelper';
@@ -52,7 +53,7 @@ test.describe('Test Sets — CRUD @crud', () => {
 
     // The new test set should appear in the list
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
+    await expectGridRowVisible(page, UNIQUE_NAME);
   });
 
   test('can delete a test set via row actions', async ({ page }) => {
@@ -87,7 +88,7 @@ test.describe('Test Sets — CRUD @crud', () => {
     await drawer.getByRole('button', { name: /save changes/i }).click();
     await waitForDrawerClosed(page);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
+    await expectGridRowVisible(page, UNIQUE_NAME);
 
     // --- Delete: hover row and click the delete icon ---
     await testSetsPage.deleteRowByText(UNIQUE_NAME);

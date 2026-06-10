@@ -138,8 +138,19 @@ export class BehaviorsPage extends BasePage {
 
   /** Open a behavior card on the detail page. */
   async openBehaviorDetail(name: string) {
+    await expect(this.behaviorCard(name)).toBeVisible({ timeout: 15_000 });
+
+    const detailResponse = this.page.waitForResponse(
+      resp =>
+        /\/behaviors\/[0-9a-f-]{36}/i.test(resp.url()) &&
+        resp.request().method() === 'GET' &&
+        resp.status() === 200,
+      { timeout: 20_000 }
+    );
+
     await this.behaviorCard(name).click();
     await this.page.waitForURL(/\/behaviors\//, { timeout: 15_000 });
+    await detailResponse;
     await this.page.waitForLoadState('networkidle');
   }
 

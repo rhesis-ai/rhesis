@@ -21,10 +21,24 @@ export async function selectGridRowByText(page: Page, text: string) {
  * Grids use createRowActionsColumn — delete is the trailing icon button.
  */
 export async function deleteGridRowByText(page: Page, text: string) {
-  const row = page.locator('[role="row"]', { hasText: text }).first();
+  const row = page
+    .locator('.MuiDataGrid-row')
+    .filter({ hasText: text })
+    .first();
   await row.scrollIntoViewIfNeeded();
   await row.hover();
-  await row.locator('.row-actions button').last().click();
+  const deleteBtn = row.getByRole('button', { name: /^delete$/i });
+  await expect(deleteBtn).toBeVisible({ timeout: 10_000 });
+  await deleteBtn.click();
+}
+
+/** Wait until a data grid row containing the given text is visible. */
+export async function expectGridRowVisible(page: Page, text: string) {
+  const row = page
+    .locator('.MuiDataGrid-row')
+    .filter({ hasText: text })
+    .first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
 }
 
 /** Locator for the currently open MUI drawer (BaseDrawer titles are plain Typography). */
