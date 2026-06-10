@@ -3,7 +3,9 @@ name: "[Deploy] K8s via ArgoCD (reusable)"
 # Uses the ArgoCD CLI to set the image tag parameter on the ArgoCD Application
 # and trigger an immediate sync — no git commit required.
 #
-# All-services deploy:  leave `service` empty → sets global.imageTag
+# All-services deploy:  leave `service` empty → sets per-service image tags for all
+#                       deploy-all services in .github/k8s/deploy-all-services.json
+#                       (chatbot excluded).
 # Per-service deploy:   set `service` to the values key (e.g. backend, workers)
 #                       → sets <service>.image.tag only
 #
