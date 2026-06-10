@@ -151,14 +151,10 @@ export default function EndpointTestTab() {
 
   const resolvedHeaders = useMemo<Record<string, string>>(() => {
     const h = (endpoint.request_headers ?? {}) as Record<string, string>;
-    const token =
-      ((endpoint as unknown as Record<string, unknown>).auth_token as
-        | string
-        | undefined) ?? '';
     return Object.fromEntries(
       Object.entries(h).map(([k, v]) => [
         k,
-        v.replace(/\{\{\s*auth_token\s*\}\}/g, token),
+        v.replace(/\{\{\s*auth_token\s*\}\}/g, '[hidden]'),
       ])
     );
   }, [endpoint]);

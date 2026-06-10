@@ -178,10 +178,10 @@ export default function TabTest({
     return Object.fromEntries(
       Object.entries(h).map(([k, v]) => [
         k,
-        v.replace(/\{\{\s*auth_token\s*\}\}/g, authToken || ''),
+        v.replace(/\{\{\s*auth_token\s*\}\}/g, '[hidden]'),
       ])
     );
-  }, [requestHeaders, authToken]);
+  }, [requestHeaders]);
 
   const curlText = useMemo(() => {
     const substituted = substituteVars(reqBody || '{}', varValues);
