@@ -49,7 +49,7 @@ import {
 } from '@/components/common/drawerFormFieldSx';
 import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
-import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
+import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -326,7 +326,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [selectedExperiments, setSelectedExperiments] = useState<
     SelectedExperiment[]
   >([]);
-  const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
+  const [experimentsDrawerOpen, setExperimentsDrawerOpen] = useState(false);
 
   // ---- runExperiment internal version selection ----
   const [internalVersionHashes, setInternalVersionHashes] = useState<
@@ -1416,7 +1416,7 @@ export default function RunDrawer(props: RunDrawerProps) {
             variant="outlined"
             fullWidth
             startIcon={<AddIcon />}
-            onClick={() => setExperimentsDialogOpen(true)}
+            onClick={() => setExperimentsDrawerOpen(true)}
             sx={RERUN_OUTLINE_BUTTON_SX}
           >
             Add experiment
@@ -1439,7 +1439,7 @@ export default function RunDrawer(props: RunDrawerProps) {
           variant="outlined"
           size="small"
           startIcon={<AddIcon />}
-          onClick={() => setExperimentsDialogOpen(true)}
+          onClick={() => setExperimentsDrawerOpen(true)}
         >
           Add Experiment
         </Button>
@@ -1668,6 +1668,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               title="Add Metric to Execution"
               subtitle="Select a metric to use for this test run"
               scopeFilter={metricScopeFilter}
+              variant="drawer"
             />
           </Box>
         )}
@@ -1790,6 +1791,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                 title="Add Metric to Execution"
                 subtitle="Select a metric to use for this test run"
                 scopeFilter={metricScopeFilter}
+                variant="drawer"
               />
             </Box>
           )}
@@ -1943,7 +1945,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                   <Button
                     variant="outlined"
                     startIcon={<AddIcon />}
-                    onClick={() => setExperimentsDialogOpen(true)}
+                    onClick={() => setExperimentsDrawerOpen(true)}
                     sx={RERUN_OUTLINE_BUTTON_SX}
                   >
                     Add experiment
@@ -2076,9 +2078,9 @@ export default function RunDrawer(props: RunDrawerProps) {
         </>
       )}
       {cfg.experimentsEditable && effectiveProjectId && (
-        <SelectExperimentsDialog
-          open={experimentsDialogOpen}
-          onClose={() => setExperimentsDialogOpen(false)}
+        <SelectExperimentsDrawer
+          open={experimentsDrawerOpen}
+          onClose={() => setExperimentsDrawerOpen(false)}
           onConfirm={setSelectedExperiments}
           sessionToken={sessionToken}
           projectId={effectiveProjectId}

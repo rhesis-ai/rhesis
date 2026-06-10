@@ -30,8 +30,8 @@ import type {
   AuthClientCreateRequest,
 } from '../types';
 import ApiClientsList from './ApiClientsList';
-import CreateApiClientDialog from './CreateApiClientDialog';
-import ClientSecretDisplayDialog from './ClientSecretDisplayDialog';
+import CreateApiClientDrawer from './CreateApiClientDrawer';
+import ClientSecretDisplayDrawer from './ClientSecretDisplayDrawer';
 
 export default function ApiClientsSection() {
   const { organization, sessionToken } = useOrgSettings();
@@ -219,7 +219,7 @@ export default function ApiClientsSection() {
         onDelete={handleDelete}
       />
 
-      <CreateApiClientDialog
+      <CreateApiClientDrawer
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         onSubmit={handleCreate}
@@ -227,7 +227,7 @@ export default function ApiClientsSection() {
       />
 
       {revealing && (
-        <ClientSecretDisplayDialog
+        <ClientSecretDisplayDrawer
           open={revealing !== null}
           clientId={revealing.client_id}
           clientSecret={revealing.client_secret}

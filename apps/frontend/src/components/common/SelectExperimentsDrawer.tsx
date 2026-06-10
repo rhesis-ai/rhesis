@@ -8,11 +8,8 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
+  Drawer,
   FormControl,
   IconButton,
   InputAdornment,
@@ -25,6 +22,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { BACKDROP_COLORS } from '@/styles/theme';
+import {
+  drawerFooterCancelButtonSx,
+  drawerFooterSaveButtonSx,
+} from '@/components/common/drawerFormFieldSx';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -48,7 +50,7 @@ import { getApiErrorMessage } from '@/utils/error-utils';
 import { experimentHref } from '@/utils/experiment-links';
 import type { SelectedExperiment } from '@/utils/test-run-batch';
 
-interface SelectExperimentsDialogProps {
+interface SelectExperimentsDrawerProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (experiments: SelectedExperiment[]) => void;
@@ -83,14 +85,14 @@ function dedupeVersionsByHash(
 }
 
 /**
- * Multi-experiment picker dialog.
+ * Multi-experiment picker drawer.
  *
  * Supports selecting multiple versions from the same experiment —
  * each selected (experiment, version) pair produces its own test run.
  * The version dropdown previews values; a separate "Add this version"
  * button adds the previewed version to the selection.
  */
-export default function SelectExperimentsDialog({
+export default function SelectExperimentsDrawer({
   open,
   onClose,
   onConfirm,
@@ -99,7 +101,7 @@ export default function SelectExperimentsDialog({
   initialSelection = [],
   title = 'Add Experiments',
   subtitle = 'Pick one or more experiment versions to run. Each selected version triggers its own run.',
-}: SelectExperimentsDialogProps) {
+}: SelectExperimentsDrawerProps) {
   const notifications = useNotifications();
   const searchRef = React.useRef<HTMLInputElement>(null);
 
@@ -765,29 +767,50 @@ export default function SelectExperimentsDialog({
   };
 
   return (
-    <Dialog
+    <Drawer
+      anchor="right"
       open={open}
       onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      TransitionProps={{ onEntered: () => searchRef.current?.focus() }}
-      PaperProps={{ sx: { maxHeight: '95vh' } }}
+      variant="temporary"
+      ModalProps={{ keepMounted: true }}
+      SlideProps={{ onEntered: () => searchRef.current?.focus() }}
+      PaperProps={{
+        sx: {
+          width: 'min(1200px, 100vw)',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+        },
+      }}
+      sx={{
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.create,
+        },
+      }}
     >
-      <DialogTitle>
-        <Typography variant="h6" component="div">
+      <Box sx={{ flexShrink: 0, px: 3, pt: 3, pb: 2 }}>
+        <Typography
+          sx={{
+            fontSize: 23,
+            fontWeight: 700,
+            lineHeight: '27.6px',
+            color: theme => theme.palette.greyscale.title,
+          }}
+        >
           {title}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           {subtitle}
         </Typography>
-      </DialogTitle>
+      </Box>
 
-      <DialogContent
-        dividers
+      <Box
         sx={{
-          p: 0,
-          overflow: 'hidden',
+          flex: 1,
           minHeight: theme => theme.spacing(60),
+          overflow: 'hidden',
+          borderTop: 1,
+          borderColor: 'divider',
         }}
       >
         <Box
@@ -961,32 +984,36 @@ export default function SelectExperimentsDialog({
             {renderDetailPane()}
           </Box>
         </Box>
-      </DialogContent>
+      </Box>
 
-      <DialogActions sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
+      <Box
+        sx={{
+          flexShrink: 0,
+          px: 3,
+          py: 2,
+          borderTop: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+        }}
+      >
         {selectedRows.length > 0 && (
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 0.75,
-              mb: 1,
-              alignItems: 'center',
-            }}
-          >
-            <Typography variant="caption" color="text.secondary">
-              {selectedRows.length} selected — will trigger{' '}
-              {selectedRows.length} run
-              {selectedRows.length === 1 ? '' : 's'} per test set
-            </Typography>
-          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {selectedRows.length} selected — will trigger {selectedRows.length}{' '}
+            run
+            {selectedRows.length === 1 ? '' : 's'} per test set
+          </Typography>
         )}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button onClick={onClose}>Cancel</Button>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <Button onClick={onClose} sx={drawerFooterCancelButtonSx}>
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleConfirm}
             disabled={editMode && savingVersion}
+            sx={drawerFooterSaveButtonSx}
           >
             {selectedRows.length === 0
               ? 'Run without experiment'
@@ -995,7 +1022,7 @@ export default function SelectExperimentsDialog({
                 }`}
           </Button>
         </Box>
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </Drawer>
   );
 }

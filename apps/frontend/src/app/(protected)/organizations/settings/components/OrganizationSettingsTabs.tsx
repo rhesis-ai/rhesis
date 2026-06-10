@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
+import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { getOrgSettingsSections } from '@/lib/extension-registries';
 import OrganizationDetailsForm from './OrganizationDetailsForm';
@@ -35,39 +36,26 @@ export default function OrganizationSettingsTabs({
     [extensionSections]
   );
 
-  // MUI Tabs fires (_event, newValue) — adapt to hook signature
-  const handleMuiTabChange = (
-    _event: React.SyntheticEvent,
-    newValue: number
-  ) => {
-    handleTabChange(newValue);
-  };
+  const navTabs = TAB_KEYS.map((key, index) => ({
+    key,
+    label:
+      key === 'information'
+        ? 'Information'
+        : key === 'sso-api'
+          ? 'SSO & API'
+          : 'Danger zone',
+    id: `org-settings-tab-${index}`,
+    'aria-controls': `org-settings-tabpanel-${index}`,
+  }));
 
   return (
-    <Box>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleMuiTabChange}
-          aria-label="organization settings tabs"
-        >
-          <Tab
-            label="Information"
-            id="org-settings-tab-0"
-            aria-controls="org-settings-tabpanel-0"
-          />
-          <Tab
-            label="SSO & API"
-            id="org-settings-tab-1"
-            aria-controls="org-settings-tabpanel-1"
-          />
-          <Tab
-            label="Danger zone"
-            id="org-settings-tab-2"
-            aria-controls="org-settings-tabpanel-2"
-          />
-        </Tabs>
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <DetailTabNav
+        tabs={navTabs}
+        activeIndex={activeTab}
+        onChange={handleTabChange}
+        aria-label="Organization settings sections"
+      />
 
       <DetailTabPanel value={activeTab} index={0} prefix="org-settings">
         <OrganizationDetailsForm
