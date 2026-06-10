@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -22,7 +23,12 @@ from rhesis.backend.app.schemas.token import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.encryption import hash_token
 
-router = APIRouter(prefix="/tokens", tags=["tokens"], responses={404: {"description": "Not found"}})
+router = RhesisRouter(
+    prefix="/tokens",
+    tags=["tokens"],
+    responses={404: {"description": "Not found"}},
+    resource="token",
+)
 
 
 @router.post("/", response_model=TokenCreateResponse)

@@ -2,6 +2,7 @@ import urllib.parse
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -33,11 +34,12 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.tasks.embedding.graph import compute_source_graph_task
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/sources",
     tags=["sources"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="source",
 )
 
 

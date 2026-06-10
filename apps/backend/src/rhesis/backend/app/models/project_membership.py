@@ -16,6 +16,12 @@ class ProjectMembership(Base):
     Created automatically when:
     - A user creates a project (auto-enrolled as owner)
     - A user is invited to an organization that has a Default Project
+
+    ``role_id`` references ``role.id`` (ON DELETE SET NULL).  While NULL the
+    community DefaultAuthorizationProvider treats the row as plain binary
+    membership.  The EE PermissionAuthorizationProvider reads this column to
+    resolve the caller's effective project role; on role deletion the FK clears
+    the column and the member falls back to their org-level role.
     """
 
     __tablename__ = "project_membership"
@@ -36,6 +42,12 @@ class ProjectMembership(Base):
         GUID(),
         ForeignKey("organization.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    role_id = Column(
+        GUID(),
+        ForeignKey("role.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 

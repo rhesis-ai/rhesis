@@ -89,7 +89,6 @@ def create_test_user(
         family_name="User",
         auth0_id=f"test-auth0-id-{uuid.uuid4()}",
         is_active=True,
-        is_superuser=False,  # Regular user by default
         organization_id=organization_id,
         last_login_at=datetime.now(timezone.utc),
     )
@@ -180,6 +179,14 @@ def create_test_organization_and_user(
 
         # Create user
         user = create_test_user(db, organization.id, user_email, user_name)
+
+        # Make the test user the org owner — mirrors real onboarding where the
+        # first user to create an org becomes its owner.  Tests that need to
+        # exercise non-owner behaviour should temporarily set org.owner_id = None
+        # (or a different user ID) and restore it after the assertion.
+        organization.owner_id = user.id
+        db.flush()
+        print(f"👑 Set org owner to user {user.id}")
 
         # Create API token for the user
         api_token = create_test_api_token(db, user)

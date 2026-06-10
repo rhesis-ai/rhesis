@@ -28,8 +28,8 @@ def embedding_model(test_db: Session, test_org_id: str, authenticated_user_id: s
 
     if not provider_type:
         provider_type = TypeLookup(
+            type_name="ProviderType",
             type_value="openai",
-            type_category="provider",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -447,6 +447,17 @@ class TestEmbeddingGenerator:
             )
             .first()
         )
+
+        if not provider_type:
+            provider_type = TypeLookup(
+                type_name="ProviderType",
+                type_value="openai",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+            test_db.add(provider_type)
+            test_db.commit()
+            test_db.refresh(provider_type)
 
         dimensions_to_test = [384, 768, 1024, 1536]
 

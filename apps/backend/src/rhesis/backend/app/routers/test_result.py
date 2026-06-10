@@ -4,6 +4,7 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -45,8 +46,11 @@ class TestResultStatsMode(str, Enum):
     SUMMARY = "summary"  # Overall + metadata only (lightweight)
 
 
-router = APIRouter(
-    prefix="/test_results", tags=["test_results"], responses={404: {"description": "Not found"}}
+router = RhesisRouter(
+    prefix="/test_results",
+    tags=["test_results"],
+    responses={404: {"description": "Not found"}},
+    resource="test_result",
 )
 
 

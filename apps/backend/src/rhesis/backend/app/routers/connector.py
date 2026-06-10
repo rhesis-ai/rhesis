@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
@@ -30,7 +31,7 @@ from rhesis.backend.app.services.connector.schemas import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/connector", tags=["connector"])
+router = RhesisRouter(prefix="/connector", tags=["connector"], resource="connector")
 
 
 def _assert_project_membership(db: Session, project_id_str: str, user: User) -> None:

@@ -26,6 +26,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -56,22 +57,24 @@ from rhesis.backend.app.services.experiment import (
     to_read,
 )
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/projects/{project_id}/parameters",
     tags=["parameters"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="parameter",
 )
 
 
 # A second router for the per-project *experiments* collection. Mounted
 # under the same project prefix but a different URL segment, so it
 # carries its own tag for the OpenAPI grouping.
-project_experiments_router = APIRouter(
+project_experiments_router = RhesisRouter(
     prefix="/projects/{project_id}/experiments",
     tags=["experiments"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="experiment",
 )
 
 

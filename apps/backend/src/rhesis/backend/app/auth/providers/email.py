@@ -240,7 +240,6 @@ class EmailProvider(AuthProvider):
             password_hash=password_hash,
             provider_type=AuthProviderType.EMAIL,
             is_active=True,
-            is_superuser=False,
         )
 
         user = crud.create_user(db, user_data)

@@ -3,6 +3,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import create_model
@@ -29,11 +30,12 @@ BehaviorWithMetricsSchema = create_model(
     metrics=(List[MetricDetailSchema], []),
 )
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/behaviors",
     tags=["behaviors"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="behavior",
 )
 
 

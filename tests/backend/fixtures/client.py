@@ -71,11 +71,6 @@ def superuser_client(test_db, client):
         test_db, test_org_name, test_user_email, test_user_name
     )
 
-    # Make the user a superuser
-    user.is_superuser = True
-    test_db.commit()
-    test_db.refresh(user)
-
     # Set auth header
     client.headers.update({"Authorization": f"Bearer {token.token}"})
 

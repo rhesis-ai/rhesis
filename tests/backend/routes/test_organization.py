@@ -296,24 +296,30 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
 class TestOrganizationUserRelationships(OrganizationTestMixin, BaseEntityTests):
     """Organization-specific user relationship tests"""
 
-    def test_create_organization_requires_owner_and_user_ids(
+    def test_create_organization_sets_owner_id_server_side(
         self, authenticated_client: TestClient, authenticated_user
     ):
-        """Test organization creation requires owner_id and user_id"""
+        """SP3: owner_id and user_id are set server-side from the authenticated caller.
+
+        The old route validated that the client supplied both fields; after SP3 the
+        server always overrides them with current_user.id so neither is required in
+        the request body.
+        """
+        import uuid as _uuid
+
         data = self.get_sample_data()
-        # Explicitly remove owner_id and user_id to test validation
+        # Remove client-supplied ids — server must fill them in
         data.pop("owner_id", None)
         data.pop("user_id", None)
 
         response = authenticated_client.post(self.endpoints.create, json=data)
 
-        # Should fail without required user relationships
-        assert response.status_code in [
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-        ]
-        error_detail = response.json().get("detail", "")
-        assert any(field in str(error_detail) for field in ["owner_id", "user_id", "required"])
+        assert response.status_code == status.HTTP_200_OK
+        result = response.json()
+        assert result["owner_id"] == str(authenticated_user.id), (
+            "owner_id must equal the authenticated caller's id (set server-side)"
+        )
+        assert result["user_id"] == str(authenticated_user.id)
 
     def test_create_organization_with_valid_user_ids(
         self, organization_with_owner, authenticated_user
@@ -328,19 +334,26 @@ class TestOrganizationUserRelationships(OrganizationTestMixin, BaseEntityTests):
         assert organization["owner_id"] == str(authenticated_user.id)
         assert organization["user_id"] == str(authenticated_user.id)
 
-    def test_organization_user_relationship_validation(self, authenticated_client: TestClient):
-        """Test organization creation with invalid user IDs"""
+    def test_organization_user_relationship_validation(
+        self, authenticated_client: TestClient, authenticated_user
+    ):
+        """SP3: client-supplied owner_id/user_id with non-existent UUIDs are ignored.
+
+        Before SP3 the server trusted the body values, causing FK violations.
+        After SP3 the server always uses current_user.id, so forged IDs never
+        reach the DB and the org is created successfully.
+        """
         data = self.get_sample_data()
-        data["owner_id"] = str(uuid.uuid4())  # Non-existent user
-        data["user_id"] = str(uuid.uuid4())  # Non-existent user
+        data["owner_id"] = str(uuid.uuid4())  # Non-existent — should be overridden
+        data["user_id"] = str(uuid.uuid4())  # Non-existent — should be overridden
 
         response = authenticated_client.post(self.endpoints.create, json=data)
 
-        # Should handle foreign key constraint violations gracefully
-        assert response.status_code in [
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-        ]
+        # Server overrides with current_user.id → creation succeeds
+        assert response.status_code == status.HTTP_200_OK
+        result = response.json()
+        assert result["owner_id"] == str(authenticated_user.id)
+        assert result["user_id"] == str(authenticated_user.id)
 
 
 @pytest.mark.integration

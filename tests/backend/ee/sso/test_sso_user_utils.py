@@ -8,7 +8,6 @@ Uses mock DB and model objects to test the security-critical logic:
  - auto-provisioning gate
 """
 
-from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -18,8 +17,8 @@ from pydantic import SecretStr
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthUser
-from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 from rhesis.backend.ee.sso.schemas import SSOConfig
+from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 
 
 def _sso_config(**overrides):
@@ -83,7 +82,6 @@ class _FakeQuery:
 
 
 class TestFindOrCreateSSOUser:
-
     def _mock_db(self, query_results=None):
         """Return a mock db where query(...) returns sequential results."""
         db = MagicMock()
@@ -197,12 +195,10 @@ class TestFindOrCreateSSOUser:
         user_data = mock_create_user.call_args[0][1]
         assert user_data.email == "newuser@example.com"
         assert user_data.organization_id == org.id
-        assert user_data.is_superuser is False
         assert user_data.is_email_verified is True
 
 
 class TestSSOLoginErrorCarriesReasonCode:
-
     def test_reason_code_on_exception(self):
         err = SSOLoginError("test_code", "Custom message")
         assert err.reason_code == "test_code"

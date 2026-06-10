@@ -3,6 +3,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -28,8 +29,11 @@ MetricDetailSchema = create_detailed_schema(
 )
 BehaviorDetailSchema = create_detailed_schema(schemas.Behavior, models.Behavior)
 
-router = APIRouter(
-    prefix="/metrics", tags=["metrics"], responses={404: {"description": "Not found"}}
+router = RhesisRouter(
+    prefix="/metrics",
+    tags=["metrics"],
+    responses={404: {"description": "Not found"}},
+    resource="metric",
 )
 
 

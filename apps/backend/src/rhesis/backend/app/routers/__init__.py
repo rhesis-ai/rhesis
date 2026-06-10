@@ -1,5 +1,6 @@
 # Import existing routers
 from .architect import router as architect_router
+from .capabilities import router as capabilities_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
 from .category import router as category_router
@@ -98,6 +99,7 @@ __all__ = [
     "task",
     "task_management",
     "garak",
+    "capabilities",
     "features",
     "file",
     "file_import",
@@ -158,6 +160,7 @@ routers = sorted(
         websocket_router,
         explorer_router,
         architect_router,
+        capabilities_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

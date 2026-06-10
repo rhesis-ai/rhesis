@@ -143,7 +143,6 @@ def find_or_create_sso_user(
         provider_type=auth_user.provider_type,
         external_provider_id=auth_user.external_id,
         is_active=True,
-        is_superuser=False,
         is_email_verified=True,
         last_login_at=current_time,
         organization_id=organization.id,

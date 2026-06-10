@@ -24,6 +24,7 @@ import uuid
 from typing import Any, Callable, List, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -39,10 +40,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/files",
     tags=["files"],
     responses={404: {"description": "Not found"}},
+    resource="file",
 )
 
 # Size limits (applied during streaming — no full materialisation)

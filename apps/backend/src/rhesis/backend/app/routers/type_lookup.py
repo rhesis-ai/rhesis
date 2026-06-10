@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -13,11 +14,12 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/type_lookups",
     tags=["type_lookups"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="type_lookup",
 )
 
 

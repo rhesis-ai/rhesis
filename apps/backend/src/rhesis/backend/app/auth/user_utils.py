@@ -83,7 +83,6 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             auth0_id=auth0_id,
             picture=user_profile["picture"],
             is_active=True,
-            is_superuser=False,
             is_email_verified=True,  # Auth0/IdP has verified the email
             last_login_at=current_time,
         )
@@ -156,7 +155,6 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         provider_type=auth_user.provider_type,
         external_provider_id=auth_user.external_id,
         is_active=True,
-        is_superuser=False,
         is_email_verified=True,  # OAuth/credentials auth confirms email ownership
         last_login_at=current_time,
     )

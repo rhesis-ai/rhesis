@@ -5,6 +5,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -34,7 +35,7 @@ from rhesis.backend.app.services.preflight import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/preflight-checks", tags=["preflight"])
+router = RhesisRouter(prefix="/preflight-checks", tags=["preflight"], resource="preflight")
 
 
 def _is_multi_turn(test_set: TestSet) -> bool:

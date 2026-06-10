@@ -2,6 +2,8 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import capability
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -18,11 +20,12 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 # Create the detailed schema for Comment
 CommentDetailSchema = create_detailed_schema(schemas.Comment, models.Comment)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/comments",
     tags=["comments"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="comment",
 )
 
 """
@@ -222,7 +225,7 @@ def read_comments_by_entity(
     return comments
 
 
-@router.post("/{comment_id}/emoji/{emoji}")
+@router.post("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
 def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
@@ -290,7 +293,7 @@ def add_emoji_reaction(
     return updated_comment
 
 
-@router.delete("/{comment_id}/emoji/{emoji}")
+@router.delete("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
 def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,

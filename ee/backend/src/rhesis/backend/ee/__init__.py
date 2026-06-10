@@ -79,6 +79,8 @@ def bootstrap(app: "FastAPI") -> None:
         mint_for_client_bound_refresh,
     )
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
+    from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+    from rhesis.backend.ee.rbac.router import router as rbac_router
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
     from rhesis.backend.ee.sso.router import router as sso_router
     from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
@@ -108,6 +110,26 @@ def bootstrap(app: "FastAPI") -> None:
             description="Per-organization OIDC-based SSO.",
         )
     )
+
+    # ---- RBAC feature -----------------------------------------------
+    FeatureRegistry.register(
+        Feature(
+            name=FeatureName.RBAC,
+            display_name="Role-Based Access Control",
+            description=(
+                "Full RBAC: project-role overrides, custom roles, and "
+                "org-level role assignments. Activates the "
+                "PermissionAuthorizationProvider (SP8)."
+            ),
+        )
+    )
+
+    # Install the EE authorization provider.  The community
+    # DefaultAuthorizationProvider is replaced for the lifetime of the process;
+    # per-org RBAC availability is checked inside the provider itself.
+    from rhesis.backend.app.auth.rbac import set_authorization_provider
+
+    set_authorization_provider(PermissionAuthorizationProvider())
 
     # API Clients depends on SSO at runtime: the token-exchange flow
     # validates the subject token against the org's SSOConfig issuer.
@@ -165,10 +187,8 @@ def bootstrap(app: "FastAPI") -> None:
     # so the public/token route lists apply uniformly. Without this, the SSO
     # admin endpoints would silently fall back to vanilla APIRoute and any
     # future EE route relying on path-based auth would break.
-    for r in (sso_router, api_clients_router, token_exchange_router):
+    for r in (sso_router, api_clients_router, token_exchange_router, rbac_router):
         r.route_class = app.router.route_class
         app.include_router(r)
 
-    logger.info(
-        "EE bootstrap complete - registered features: [sso, api_clients]"
-    )
+    logger.info("EE bootstrap complete - registered features: [sso, api_clients, rbac]")

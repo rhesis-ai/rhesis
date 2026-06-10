@@ -1,6 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -18,11 +20,12 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 ProjectDetailSchema = create_detailed_schema(schemas.Project, models.Project)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/projects",
     tags=["projects"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="project",
 )
 
 
@@ -121,7 +124,11 @@ async def read_projects(
     return results
 
 
-@router.get("/{project_id}/members", response_model=list[schemas.ProjectMember])
+@router.get(
+    "/{project_id}/members",
+    response_model=list[schemas.ProjectMember],
+    **capability(Permission.ProjectMember.MANAGE),
+)
 def read_project_members(
     project_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -136,7 +143,12 @@ def read_project_members(
     return crud.get_project_members(db=db, project_id=project_id, organization_id=organization_id)
 
 
-@router.post("/{project_id}/members", response_model=schemas.ProjectMember, status_code=201)
+@router.post(
+    "/{project_id}/members",
+    response_model=schemas.ProjectMember,
+    status_code=201,
+    **capability(Permission.ProjectMember.MANAGE),
+)
 def add_project_member(
     project_id: uuid.UUID,
     body: schemas.ProjectMemberCreate,
@@ -169,10 +181,15 @@ def add_project_member(
         project_id=project_id,
         user_id=body.user_id,
         organization_id=organization_id,
+        role_id=body.role_id,
     )
 
 
-@router.delete("/{project_id}/members/{user_id}", status_code=204)
+@router.delete(
+    "/{project_id}/members/{user_id}",
+    status_code=204,
+    **capability(Permission.ProjectMember.MANAGE),
+)
 def remove_project_member(
     project_id: uuid.UUID,
     user_id: uuid.UUID,

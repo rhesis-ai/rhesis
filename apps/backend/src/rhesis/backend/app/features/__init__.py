@@ -42,6 +42,8 @@ class FeatureName(str, Enum):
 
     SSO = "sso"
     API_CLIENTS = "api_clients"
+    #: Full RBAC: project-role overrides + custom roles (Phase 2, SP7–SP9).
+    RBAC = "rbac"
 
 
 # Accept either the enum or its raw string value so dynamic call sites

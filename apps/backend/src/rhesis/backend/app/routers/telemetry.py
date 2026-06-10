@@ -6,6 +6,7 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -36,10 +37,11 @@ from rhesis.backend.app.services.trace_review_override import (
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/telemetry",
     tags=["telemetry"],
     responses={404: {"description": "Not found"}},
+    resource="telemetry",
 )
 logger = logging.getLogger(__name__)
 
