@@ -17,7 +17,7 @@ spec:
         githubConfigSecret: arc-github-app-secret
         runnerScaleSetName: arc-runner-prd
         minRunners: 0
-        maxRunners: 3
+        maxRunners: 5
         template:
           spec:
             containers:
