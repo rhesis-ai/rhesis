@@ -15,6 +15,11 @@ spec:
       valuesObject:
         githubConfigUrl: https://github.com/rhesis-ai/rhesis
         githubConfigSecret: arc-github-app-secret
+        # ArgoCD renders charts with `helm template` (no cluster lookup), so the
+        # chart cannot auto-discover the controller ServiceAccount. Set it explicitly.
+        controllerServiceAccount:
+          namespace: arc-systems
+          name: arc-controller-gha-rs-controller
         runnerScaleSetName: arc-runner-prd
         minRunners: 0
         maxRunners: 5
