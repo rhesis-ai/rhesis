@@ -25,6 +25,11 @@ spec:
         maxRunners: 3
         template:
           spec:
+            # The runner runs as uid 1001 (member of group 123); the work-volume
+            # PVC mounts root-owned. fsGroup 123 makes it group-writable, else the
+            # job fails with "Access to the path '/home/runner/_work/_tool' is denied".
+            securityContext:
+              fsGroup: 123
             containers:
               - name: runner
                 # image/command must be repeated: Helm replaces the whole
