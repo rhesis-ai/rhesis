@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
@@ -116,24 +116,13 @@ jest.mock('../AutoConfigureModal', () => {
 
 import EndpointForm from '../EndpointForm';
 
-// Navigate from step 0 to step 2 (body/mapping step).
-// Relies on useParams returning identifier:'proj-1' so project_id is pre-filled.
+// Navigate to the Mapping tab (index 2).
 async function navigateToBodyStep(user: ReturnType<typeof userEvent.setup>) {
   await waitFor(() =>
     expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
   );
 
-  // Fill required fields in step 0
-  fireEvent.change(screen.getByRole('textbox', { name: /endpoint name/i }), {
-    target: { value: 'My API' },
-  });
-  fireEvent.change(screen.getByRole('textbox', { name: /endpoint url/i }), {
-    target: { value: 'https://api.example.com' },
-  });
-
-  // project_id is pre-filled via useParams identifier; click Next twice
-  await user.click(screen.getByRole('button', { name: /next →/i }));
-  await user.click(screen.getByRole('button', { name: /next →/i }));
+  await user.click(screen.getByRole('tab', { name: /mapping/i }));
 }
 
 describe('EndpointForm — Body step auto-configure', () => {
@@ -145,7 +134,7 @@ describe('EndpointForm — Body step auto-configure', () => {
     await navigateToBodyStep(user);
 
     expect(
-      screen.getByRole('button', { name: /auto-configure/i })
+      screen.getByRole('button', { name: /auto mapping/i })
     ).toBeInTheDocument();
   });
 
@@ -154,32 +143,26 @@ describe('EndpointForm — Body step auto-configure', () => {
     render(<EndpointForm />);
     await navigateToBodyStep(user);
 
-    await user.click(screen.getByRole('button', { name: /auto-configure/i }));
+    await user.click(screen.getByRole('button', { name: /auto mapping/i }));
 
     expect(screen.getByTestId('auto-configure-modal')).toBeInTheDocument();
   });
 
-  it('auth token field is in the headers step (step 1)', async () => {
+  it('auth token field is in the headers tab', async () => {
     const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
-
-    // On step 0 (basics) there is no auth token field
-    expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
 
     await waitFor(() =>
       expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
     );
 
-    // Fill basics and advance to step 1
-    fireEvent.change(screen.getByRole('textbox', { name: /endpoint name/i }), {
-      target: { value: 'My API' },
-    });
-    fireEvent.change(screen.getByRole('textbox', { name: /endpoint url/i }), {
-      target: { value: 'https://api.example.com' },
-    });
-    await user.click(screen.getByRole('button', { name: /next →/i }));
+    // On the Basics tab there is no auth token field
+    expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
 
-    // Auth token should now be visible in step 1 (headers)
+    // Click the Headers tab
+    await user.click(screen.getByRole('tab', { name: /headers/i }));
+
+    // Auth token should now be visible in the Headers tab
     expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
   });
 });
