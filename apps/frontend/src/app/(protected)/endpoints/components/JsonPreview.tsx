@@ -40,9 +40,9 @@ export const OUTPUT_VARIABLES = [
 // ── Token colours ─────────────────────────────────────────────────────────────
 
 const T = {
-  str: '#ce9178',
-  num: '#b5cea8',
-  kw: '#569cd6',
+  str: (t: Theme) => (t.palette.mode === 'dark' ? '#ce9178' : '#a31515'),
+  num: (t: Theme) => (t.palette.mode === 'dark' ? '#b5cea8' : '#098658'),
+  kw: (t: Theme) => (t.palette.mode === 'dark' ? '#569cd6' : '#0070c1'),
   bracket: 'text.secondary',
   comma: 'text.disabled',
   key: 'text.secondary',

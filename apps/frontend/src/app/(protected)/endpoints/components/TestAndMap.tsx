@@ -21,7 +21,7 @@ import { LoadingButton } from '@mui/lab';
 import { PlayArrowIcon, CheckIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { alpha } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import { insertableVariableChipSx } from './endpoint-styles';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -149,9 +149,9 @@ interface JsonTreeProps {
 
 const T = {
   key: 'primary.main',
-  str: '#ce9178',
-  num: '#b5cea8',
-  kw: '#569cd6',
+  str: (t: Theme) => (t.palette.mode === 'dark' ? '#ce9178' : '#a31515'),
+  num: (t: Theme) => (t.palette.mode === 'dark' ? '#b5cea8' : '#098658'),
+  kw: (t: Theme) => (t.palette.mode === 'dark' ? '#569cd6' : '#0070c1'),
   bracket: 'text.secondary',
   comma: 'text.disabled',
 };
@@ -319,9 +319,10 @@ function JsonTree({
                   fontWeight: isAlreadyMapped ? 600 : 400,
                   textDecoration: 'underline',
                   textDecorationStyle: 'dashed',
-                  textDecorationColor: isAlreadyMapped
-                    ? 'rgba(0,128,175,0.5)'
-                    : 'rgba(100,100,100,0.35)',
+                  textDecorationColor: (t: Theme) =>
+                    isAlreadyMapped
+                      ? alpha(t.palette.primary.main, 0.5)
+                      : alpha(t.palette.greyscale.subtitle, 0.5),
                   textUnderlineOffset: '3px',
                   '&:hover': {
                     bgcolor: (t: { palette: { primary: { main: string } } }) =>
@@ -470,10 +471,10 @@ export default function TestAndMap({
           borderColor: isMapped ? 'success.light' : 'divider',
           borderRadius: 1,
           bgcolor: isMapped
-            ? (t: { palette: { mode: string } }) =>
+            ? (t: Theme) =>
                 t.palette.mode === 'light'
-                  ? 'rgba(76,175,80,0.04)'
-                  : 'rgba(76,175,80,0.08)'
+                  ? alpha(t.palette.success.main, 0.04)
+                  : alpha(t.palette.success.main, 0.08)
             : 'background.default',
         }}
       >
@@ -508,10 +509,10 @@ export default function TestAndMap({
             sx={{
               ...insertableVariableChipSx,
               ...(isMapped && {
-                bgcolor: (t: { palette: { mode: string } }) =>
+                bgcolor: (t: Theme) =>
                   t.palette.mode === 'light'
-                    ? 'rgba(76,175,80,0.08)'
-                    : 'rgba(76,175,80,0.18)',
+                    ? alpha(t.palette.success.main, 0.08)
+                    : alpha(t.palette.success.main, 0.18),
                 color: 'success.main',
                 borderColor: 'success.light',
               }),
