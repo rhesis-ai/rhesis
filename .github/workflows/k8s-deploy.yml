@@ -157,21 +157,14 @@ jobs:
           # "another operation is already in progress" races not caught by
           # the concurrency group (e.g. a manual sync in the ArgoCD UI).
           for attempt in $(seq 1 5); do
-            OUTPUT=$(argocd app sync "${{ inputs.app_name }}" \
+            argocd app sync "${{ inputs.app_name }}" \
               --server "$ARGOCD_SERVER" \
               --auth-token "$ARGOCD_AUTH_TOKEN" \
               --grpc-web \
               --timeout 300 \
-              ${RESOURCE_FLAG:+"$RESOURCE_FLAG"} 2>&1)
-            EXIT_CODE=$?
-            echo "$OUTPUT"
-            [ $EXIT_CODE -eq 0 ] && break
-            if ! echo "$OUTPUT" | grep -qi "another operation"; then
-              echo "Non-retryable error — failing fast."
-              exit 1
-            fi
+              ${RESOURCE_FLAG:+"$RESOURCE_FLAG"} && break
             if [ "$attempt" -lt 5 ]; then
-              echo "Attempt $attempt failed (concurrent operation) — waiting 30s before retry..."
+              echo "Attempt $attempt failed — waiting 30s before retry..."
               sleep 30
             else
               echo "All 5 sync attempts failed."
