@@ -92,12 +92,6 @@ export const isValidEntityType = (
 };
 
 /**
- * Generate a duplicate name with an incrementing "(Copy N)" suffix.
- * - "Foo"          → "Foo (Copy)"
- * - "Foo (Copy)"   → "Foo (Copy 2)"
- * - "Foo (Copy 2)" → "Foo (Copy 3)"
- */
-/**
  * Build a navigation URL for a task's linked entity (comment, test result, etc.).
  */
 export const buildLinkedEntityUrl = (task: {
@@ -141,6 +135,12 @@ export const buildLinkedEntityUrl = (task: {
   return `${baseUrl}${queryString}${commentHash}`;
 };
 
+/**
+ * Generate a duplicate name with an incrementing "(Copy N)" suffix.
+ * - "Foo"          → "Foo (Copy)"
+ * - "Foo (Copy)"   → "Foo (Copy 2)"
+ * - "Foo (Copy 2)" → "Foo (Copy 3)"
+ */
 export const generateCopyName = (name: string): string => {
   const copyPattern = /^(.*) \(Copy(?: (\d+))?\)$/;
   const match = name.match(copyPattern);

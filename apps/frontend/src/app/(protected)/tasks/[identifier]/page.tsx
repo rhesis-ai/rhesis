@@ -342,6 +342,8 @@ export default function TaskDetailPage({ params }: PageProps) {
     };
   }, [isLoading, hasInitialLoad, taskId, session?.session_token]);
 
+  // Keep the last loaded task visible while retrying so transient failures
+  // still show cached data instead of flashing back to the loading state.
   const handleRetry = () => {
     setLoadingTimeout(false);
     setHasInitialLoad(false);

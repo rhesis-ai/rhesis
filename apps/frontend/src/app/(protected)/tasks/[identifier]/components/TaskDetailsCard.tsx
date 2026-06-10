@@ -144,8 +144,15 @@ export default function TaskDetailsCard({
   const assigneeForDraft = (
     assigneeId: string
   ): AssigneeDisplay | undefined => {
+    if (!assigneeId) {
+      return undefined;
+    }
+
     const fromList = users.find(user => user.id === assigneeId);
-    if (fromList) return fromList;
+    if (fromList) {
+      return fromList;
+    }
+
     return task.assignee;
   };
 

@@ -12,6 +12,7 @@ import { Task } from '@/types/tasks';
 import {
   buildLinkedEntityUrl,
   getEntityDisplayName,
+  isValidEntityType,
 } from '@/utils/entity-helpers';
 
 interface TaskLinkedEntityTabProps {
@@ -36,9 +37,9 @@ export default function TaskLinkedEntityTab({
     );
   }
 
-  const entityLabel = getEntityDisplayName(
-    task.entity_type as Parameters<typeof getEntityDisplayName>[0]
-  );
+  const entityLabel = isValidEntityType(task.entity_type)
+    ? getEntityDisplayName(task.entity_type)
+    : task.entity_type;
   const navigationLabel = task.task_metadata?.comment_id
     ? 'Go to associated comment'
     : `Go to ${entityLabel}`;
