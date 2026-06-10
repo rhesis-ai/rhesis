@@ -15,6 +15,7 @@ import {
   readActiveProjectId,
   writeActiveProjectId,
 } from '@/utils/active-project';
+import { UUID } from 'crypto';
 import { Project } from '@/utils/api-client/interfaces/project';
 
 interface ActiveProjectContextValue {
@@ -130,7 +131,7 @@ export function ActiveProjectProvider({
             const factory = new ApiClientFactory(token);
             await factory.getUsersClient().updateUserSettings({
               default_project: {
-                project_id: String(project.id),
+                project_id: project.id as UUID,
                 name: project.name,
               },
             });
