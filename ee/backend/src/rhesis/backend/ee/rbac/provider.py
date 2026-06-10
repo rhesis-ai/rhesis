@@ -161,10 +161,26 @@ class PermissionAuthorizationProvider:
             return db.query(Role).filter_by(id=member.role_id).first()
 
     def _role_has_permission(self, role, perm_str: str, db: "Session") -> bool:
-        """Return True when *role* carries *perm_str* and it is not retired."""
-        from rhesis.backend.ee.rbac.models import Permission, RolePermission
+        """Return True when *role* carries *perm_str*.
 
-        # Permission and RolePermission have no organization_id, so no bypass needed.
+        Built-in roles compute their permission set from code via
+        :func:`~rhesis.backend.ee.rbac.models.permissions_for_built_in_role` —
+        no ``role_permission`` rows are read or required for them.  Custom roles
+        (``is_built_in=False``) resolve via the ``role_permission`` join as
+        before.  This eliminates the need to keep ``role_permission`` rows in
+        sync for built-in roles.
+        """
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import (
+            Permission,
+            RolePermission,
+            permissions_for_built_in_role,
+        )
+
+        if role.is_built_in:
+            return perm_str in permissions_for_built_in_role(role.name, get_all_capabilities())
+
+        # Custom role: resolve via role_permission join.
         rp = (
             db.query(RolePermission)
             .join(Permission, RolePermission.permission_id == Permission.id)
@@ -200,6 +216,9 @@ class PermissionAuthorizationProvider:
         Used by ``GET /me/permissions`` and the privilege-escalation guard to
         inspect what the actor actually holds before a role create/assign.
         Returns an empty set when RBAC is off or no role is found.
+
+        Built-in roles compute their permission set from code; custom roles
+        query ``role_permission``.  See :meth:`_role_has_permission`.
         """
         if not self._rbac_available(principal, db):
             return set()
@@ -208,7 +227,15 @@ class PermissionAuthorizationProvider:
         if role is None:
             return set()
 
-        from rhesis.backend.ee.rbac.models import Permission, RolePermission
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import (
+            Permission,
+            RolePermission,
+            permissions_for_built_in_role,
+        )
+
+        if role.is_built_in:
+            return permissions_for_built_in_role(role.name, get_all_capabilities())
 
         rows = (
             db.query(Permission.name)

@@ -72,7 +72,6 @@ def bootstrap(app: "FastAPI") -> None:
     )
     from rhesis.backend.app.config.settings import get_application_settings
     from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
-    from rhesis.backend.app.startup_hooks import register_startup_hook
     from rhesis.backend.ee.api_clients.cache_headers import (
         TokenEndpointCacheHeadersMiddleware,
     )
@@ -82,7 +81,6 @@ def bootstrap(app: "FastAPI") -> None:
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
     from rhesis.backend.ee.rbac.router import router as rbac_router
-    from rhesis.backend.ee.rbac.sync import sync_rbac_catalog
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
     from rhesis.backend.ee.sso.router import router as sso_router
     from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
@@ -125,11 +123,6 @@ def bootstrap(app: "FastAPI") -> None:
             ),
         )
     )
-
-    # Register the RBAC catalog sync to run at startup after the DB
-    # session is available.  The hook is idempotent: safe to register
-    # multiple times (e.g. during test-suite app rebuilds).
-    register_startup_hook(sync_rbac_catalog)
 
     # Install the EE authorization provider.  The community
     # DefaultAuthorizationProvider is replaced for the lifetime of the process;
@@ -198,6 +191,4 @@ def bootstrap(app: "FastAPI") -> None:
         r.route_class = app.router.route_class
         app.include_router(r)
 
-    logger.info(
-        "EE bootstrap complete - registered features: [sso, api_clients, rbac]"
-    )
+    logger.info("EE bootstrap complete - registered features: [sso, api_clients, rbac]")

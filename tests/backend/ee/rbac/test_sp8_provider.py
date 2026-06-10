@@ -134,9 +134,7 @@ class TestRoleResolutionPrecedence:
             patch.object(provider, "_get_org_role", return_value=fake_org_role),
             patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
         ):
-            provider.is_authorized(
-                principal, "test_set:read", project_id=uuid.uuid4(), db=db
-            )
+            provider.is_authorized(principal, "test_set:read", project_id=uuid.uuid4(), db=db)
 
         # The check must use the project role, not the org role.
         mock_check.assert_called_once_with(fake_project_role, "test_set:read", db)
@@ -154,9 +152,7 @@ class TestRoleResolutionPrecedence:
             patch.object(provider, "_get_org_role", return_value=fake_org_role),
             patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
         ):
-            provider.is_authorized(
-                principal, "test_set:read", project_id=project_id, db=db
-            )
+            provider.is_authorized(principal, "test_set:read", project_id=project_id, db=db)
 
         mock_check.assert_called_once_with(fake_org_role, "test_set:read", db)
 
@@ -187,9 +183,7 @@ class TestRoleResolutionPrecedence:
             patch.object(provider, "_get_org_role", return_value=fake_org_role),
             patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
         ):
-            provider.is_authorized(
-                principal, "organization:update", project_id=None, db=db
-            )
+            provider.is_authorized(principal, "organization:update", project_id=None, db=db)
 
         mock_check.assert_called_once_with(fake_org_role, "organization:update", db)
 
@@ -212,9 +206,7 @@ class TestPermissionChecks:
             patch.object(provider, "_get_org_role", return_value=fake_role),
             patch.object(provider, "_role_has_permission", return_value=True),
         ):
-            result = provider.is_authorized(
-                principal, "test_set:read", project_id=None, db=db
-            )
+            result = provider.is_authorized(principal, "test_set:read", project_id=None, db=db)
 
         assert result is True
 
@@ -229,9 +221,7 @@ class TestPermissionChecks:
             patch.object(provider, "_get_org_role", return_value=fake_role),
             patch.object(provider, "_role_has_permission", return_value=False),
         ):
-            result = provider.is_authorized(
-                principal, "test_set:delete", project_id=None, db=db
-            )
+            result = provider.is_authorized(principal, "test_set:delete", project_id=None, db=db)
 
         assert result is False
 
@@ -275,6 +265,7 @@ class TestProviderInterface:
     def test_provider_is_not_defined_in_core(self):
         """PermissionAuthorizationProvider must NOT be imported by core at module level."""
         import sys
+
         # The core rbac module must not expose PermissionAuthorizationProvider.
         core_module = sys.modules.get("rhesis.backend.app.auth.rbac")
         assert core_module is not None
@@ -285,3 +276,107 @@ class TestProviderInterface:
 
     def test_fallback_is_default_provider(self, provider):
         assert isinstance(provider._fallback, DefaultAuthorizationProvider)
+
+
+# ---------------------------------------------------------------------------
+# Built-in role branch — permissions computed from code, not DB rows
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestBuiltInRoleBranch:
+    """_role_has_permission must compute built-in permissions from code.
+
+    These tests verify the branch introduced when the runtime sync was removed:
+    built-in roles (is_built_in=True) must resolve permissions via
+    permissions_for_built_in_role(), never via role_permission rows.
+    """
+
+    def _make_role(self, name: str, is_built_in: bool = True):
+        role = MagicMock()
+        role.name = name
+        role.is_built_in = is_built_in
+        return role
+
+    def test_built_in_owner_has_known_capability(self, provider):
+        """Owner (built-in) must hold any capability in the live catalog."""
+        db = MagicMock()
+        role = self._make_role("Owner", is_built_in=True)
+        # Owner gets everything — pick a capability that is always present
+        result = provider._role_has_permission(role, "test_set:read", db)
+        assert result is True, "Owner built-in must hold test_set:read"
+
+    def test_built_in_none_has_no_capability(self, provider):
+        """None (built-in) must hold zero capabilities."""
+        db = MagicMock()
+        role = self._make_role("None", is_built_in=True)
+        result = provider._role_has_permission(role, "test_set:read", db)
+        assert result is False, "None built-in must hold no capabilities"
+
+    def test_built_in_viewer_holds_read_not_delete(self, provider):
+        """Viewer (built-in) holds :read caps but not :delete."""
+        db = MagicMock()
+        role = self._make_role("Viewer", is_built_in=True)
+        assert provider._role_has_permission(role, "test_set:read", db) is True
+        assert provider._role_has_permission(role, "test_set:delete", db) is False
+
+    def test_built_in_does_not_query_db(self, provider):
+        """Built-in role check must not call db.query at all."""
+        db = MagicMock()
+        role = self._make_role("Admin", is_built_in=True)
+        provider._role_has_permission(role, "organization:update", db)
+        db.query.assert_not_called()
+
+    def test_custom_role_queries_db(self, provider):
+        """Custom role (is_built_in=False) must fall through to the DB join."""
+        db = MagicMock()
+        role = self._make_role("QA Lead", is_built_in=False)
+        # db.query chain: query → join → filter → first
+        mock_query = MagicMock()
+        db.query.return_value = mock_query
+        mock_query.join.return_value = mock_query
+        mock_query.filter.return_value = mock_query
+        mock_query.first.return_value = None  # deny
+        result = provider._role_has_permission(role, "test_set:read", db)
+        assert result is False
+        db.query.assert_called_once()
+
+    def test_get_effective_permissions_built_in_no_db(self, provider):
+        """get_effective_permissions for a built-in role must not touch the DB."""
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        principal = _make_principal()
+        db = MagicMock()
+        fake_role = self._make_role("Member", is_built_in=True)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_resolve_role", return_value=fake_role),
+        ):
+            perms = provider.get_effective_permissions(principal, project_id=None, db=db)
+
+        expected = permissions_for_built_in_role("Member", get_all_capabilities())
+        assert perms == expected
+        db.query.assert_not_called()
+
+    def test_get_effective_permissions_custom_role_queries_db(self, provider):
+        """get_effective_permissions for a custom role must query role_permission."""
+        principal = _make_principal()
+        db = MagicMock()
+        fake_role = self._make_role("Custom", is_built_in=False)
+
+        mock_q = MagicMock()
+        db.query.return_value = mock_q
+        mock_q.join.return_value = mock_q
+        mock_q.filter.return_value = mock_q
+        mock_q.all.return_value = []
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_resolve_role", return_value=fake_role),
+        ):
+            perms = provider.get_effective_permissions(principal, project_id=None, db=db)
+
+        assert perms == set()
+        db.query.assert_called_once()
