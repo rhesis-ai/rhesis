@@ -27,9 +27,10 @@ export async function deleteGridRowByText(page: Page, text: string) {
     .first();
   await row.scrollIntoViewIfNeeded();
   await row.hover();
-  const deleteBtn = row.getByRole('button', { name: /^delete$/i });
-  await expect(deleteBtn).toBeVisible({ timeout: 10_000 });
-  await deleteBtn.click();
+  const actions = row.locator('.row-actions');
+  await expect(actions).toBeVisible({ timeout: 10_000 });
+  // Delete is the trailing icon (after edit/refresh when those columns exist).
+  await actions.locator('button').last().click();
 }
 
 /** Wait until a data grid row containing the given text is visible. */
@@ -54,11 +55,10 @@ export async function expectOpenDrawerTitle(
 ) {
   const drawer = openDrawer(page);
   await drawer.waitFor({ state: 'visible', timeout });
+  // BaseDrawer title is Typography — avoid matching the footer save button.
   await expect(
-    drawer.getByText(title, { exact: typeof title === 'string' })
-  ).toBeVisible({
-    timeout,
-  });
+    drawer.getByRole('paragraph').filter({ hasText: title }).first()
+  ).toBeVisible({ timeout });
 }
 
 /** Wait until no drawer is open. */

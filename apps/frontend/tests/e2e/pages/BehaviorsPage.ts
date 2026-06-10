@@ -157,7 +157,11 @@ export class BehaviorsPage extends BasePage {
   /** Edit opens from the behavior detail page (card actions were removed). */
   async clickEditOnCard(name: string) {
     await this.openBehaviorDetail(name);
-    await this.page.getByRole('button', { name: /^edit$/i }).click();
+    await this.page
+      .locator('main')
+      .getByRole('button', { name: /^edit$/i })
+      .first()
+      .click();
     await this.page
       .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'visible', timeout: 10_000 });

@@ -1,6 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 import {
+  deleteGridRowByText,
   expectOpenDrawerTitle,
   openDrawer,
   waitForDrawerClosed,
@@ -84,15 +85,7 @@ export class KnowledgePage extends BasePage {
 
   /** Delete a row via the hover-revealed row-actions delete icon. */
   async deleteRowByText(text: string) {
-    const row = this.page
-      .locator('.MuiDataGrid-row')
-      .filter({ hasText: text })
-      .first();
-    await row.scrollIntoViewIfNeeded();
-    await row.hover();
-    const deleteBtn = row.getByRole('button', { name: /^delete$/i });
-    await expect(deleteBtn).toBeVisible({ timeout: 10_000 });
-    await deleteBtn.click();
+    await deleteGridRowByText(this.page, text);
   }
 
   /** Returns true if a row containing the given text is visible in the grid. */
