@@ -266,6 +266,15 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize local environment + run any registered startup hooks.
     # Startup hooks are registered by EE bootstrap (e.g. sync_rbac_catalog) and
     # must be idempotent.  Failures abort startup so misconfiguration is loud.
+    #
+    # Both calls share a single get_db() transaction deliberately: if either
+    # fails the whole block rolls back atomically, avoiding a half-initialised
+    # DB state (e.g. local env seeded but RBAC catalog missing, or vice versa).
+    #
+    # This block must complete and commit before the lifespan yield below so
+    # that the permission/role catalog is fully populated before the first
+    # request is served.  Requests that arrive before the sync commits would
+    # query an empty permission table and either 403 every caller or raise.
     from rhesis.backend.app.startup_hooks import run_startup_hooks
 
     with get_db() as db:
