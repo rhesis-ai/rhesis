@@ -1,31 +1,21 @@
 'use client';
 
 /**
- * One-shot client-secret reveal dialog.
+ * One-shot client-secret reveal drawer.
  *
  * Shown immediately after a successful create or rotate. The
  * plaintext secret is the **only** thing we render that the user
- * cannot get back any other way -- if they close this dialog
+ * cannot get back any other way -- if they close this drawer
  * without copying the secret, the only recovery is another rotation
  * (which invalidates the previous secret entirely).
  *
  * Design choices:
  *
- * - **Non-dismissible chrome.** The dialog has no `onClose` on the
- *   backdrop / Escape key. The only way out is the explicit
- *   acknowledgement button. This stops the operator from absent-mindedly
- *   clicking outside and losing the secret.
+ * - **Non-dismissible chrome.** The drawer has no backdrop / Escape
+ *   close. The only way out is the explicit acknowledgement button.
  * - **Confirmation required.** A checkbox must be ticked before the
- *   acknowledgement button enables. Forces a deliberate action so
- *   the workflow has a clear "I have copied the secret" moment.
- * - **Copy-to-clipboard right next to the value.** No mouse-drag
- *   selection of a long URL-safe string -- a copy button avoids
- *   transcription mistakes and avoids leaving the value in the
- *   selection clipboard longer than necessary.
- * - **Monospace + breakable.** The secret is `secrets.token_urlsafe(32)`
- *   on the backend, which has no obvious break points; rendering it
- *   monospace + word-break-all keeps it visually contained without
- *   horizontal scrolling.
+ *   acknowledgement button enables.
+ * - **Copy-to-clipboard right next to the value.**
  */
 
 import * as React from 'react';
@@ -34,10 +24,7 @@ import {
   Box,
   Button,
   Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Drawer,
   FormControlLabel,
   IconButton,
   Stack,
@@ -46,40 +33,30 @@ import {
 } from '@mui/material';
 import { ContentCopy as CopyIcon } from '@mui/icons-material';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { BACKDROP_COLORS } from '@/styles/theme';
+import {
+  drawerFooterSaveButtonSx,
+  DRAWER_WIDTH,
+} from '@/components/common/drawerFormFieldSx';
 
-interface ClientSecretDisplayDialogProps {
+interface ClientSecretDisplayDrawerProps {
   open: boolean;
   clientId: string;
   clientSecret: string;
-  /**
-   * Called when the user explicitly acknowledges they have saved
-   * the secret. The parent should treat this as the close handler;
-   * the dialog itself does not provide a "cancel" path.
-   */
   onAcknowledge: () => void;
-  /**
-   * Title override -- defaults to a "Save your client secret" wording
-   * that fits both the create flow and the rotate flow. Pass an
-   * explicit title for the rotate case so the user knows the previous
-   * secret has stopped working.
-   */
   title?: string;
 }
 
-export default function ClientSecretDisplayDialog({
+export default function ClientSecretDisplayDrawer({
   open,
   clientId,
   clientSecret,
   onAcknowledge,
   title = 'Save your client secret',
-}: ClientSecretDisplayDialogProps) {
+}: ClientSecretDisplayDrawerProps) {
   const notifications = useNotifications();
   const [acknowledged, setAcknowledged] = React.useState(false);
 
-  // Reset the checkbox each time a new secret arrives so the user
-  // always has to re-acknowledge. Otherwise a stale `true` from a
-  // previous rotation would let them dismiss without seeing the new
-  // one.
   React.useEffect(() => {
     if (open) setAcknowledged(false);
   }, [open, clientSecret]);
@@ -100,25 +77,55 @@ export default function ClientSecretDisplayDialog({
   };
 
   return (
-    <Dialog
+    <Drawer
+      anchor="right"
       open={open}
-      // Disable backdrop / escape close so the only exit is the
-      // acknowledgement button -- the secret is unrecoverable, the
-      // friction is the point.
+      variant="temporary"
       disableEscapeKeyDown
-      maxWidth="sm"
-      fullWidth
-      // Note: MUI's Dialog has no built-in disableBackdropClick; we
-      // ignore the onClose argument when the reason is backdrop or
-      // escape. (MUI v5+ pattern.)
       onClose={(_event, reason) => {
         if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
           return;
         }
       }}
+      PaperProps={{
+        sx: {
+          width: DRAWER_WIDTH,
+          display: 'flex',
+          flexDirection: 'column',
+          p: '30px',
+          gap: '40px',
+          boxSizing: 'border-box',
+        },
+      }}
+      sx={{
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.create,
+        },
+      }}
     >
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
+      <Box sx={{ flexShrink: 0 }}>
+        <Typography
+          sx={{
+            fontSize: 23,
+            fontWeight: 700,
+            lineHeight: '27.6px',
+            color: theme => theme.palette.greyscale.title,
+          }}
+        >
+          {title}
+        </Typography>
+      </Box>
+
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '30px',
+        }}
+      >
         <Stack spacing={2}>
           <Alert severity="warning">
             This is the only time you will see this secret. Store it in
@@ -177,17 +184,19 @@ export default function ClientSecretDisplayDialog({
             label="I have saved the client secret in a safe place."
           />
         </Stack>
-      </DialogContent>
-      <DialogActions>
+      </Box>
+
+      <Box sx={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           variant="contained"
           color="primary"
           disabled={!acknowledged}
           onClick={onAcknowledge}
+          sx={drawerFooterSaveButtonSx}
         >
           Done
         </Button>
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </Drawer>
   );
 }
