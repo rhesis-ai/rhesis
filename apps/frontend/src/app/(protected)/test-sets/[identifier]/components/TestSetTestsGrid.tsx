@@ -82,7 +82,6 @@ interface TestSetTestsGridProps {
   embedded?: boolean;
   onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
-  onLinkedIdsChange?: (ids: string[]) => void;
 }
 
 export default function TestSetTestsGrid({
@@ -90,7 +89,6 @@ export default function TestSetTestsGrid({
   testSetId,
   testSetType,
   onTotalCountChange,
-  onLinkedIdsChange,
 }: TestSetTestsGridProps) {
   const isMounted = useRef(true);
   const router = useRouter();
@@ -137,7 +135,6 @@ export default function TestSetTestsGrid({
         if (!filterString) {
           onTotalCountChange?.(count);
         }
-        onLinkedIdsChange?.(response.data.map(t => String(t.id)));
         setError(null);
       }
     } catch (_error) {
@@ -157,7 +154,6 @@ export default function TestSetTestsGrid({
     paginationModel.pageSize,
     filterModel,
     onTotalCountChange,
-    onLinkedIdsChange,
   ]);
 
   useEffect(() => {

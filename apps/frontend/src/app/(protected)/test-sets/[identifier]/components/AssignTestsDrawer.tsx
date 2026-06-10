@@ -30,15 +30,12 @@ import {
 import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { getTestSetTestColumns } from './testSetTestColumns';
 
-const LINKED_IDS_PAGE_SIZE = 100;
-
 interface AssignTestsDrawerProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
   testSetId: string;
   testSetType?: string;
-  linkedTestIds: Set<string>;
   onAssign: (tests: TestDetail[]) => Promise<void>;
 }
 
@@ -48,7 +45,6 @@ export default function AssignTestsDrawer({
   sessionToken,
   testSetId,
   testSetType,
-  linkedTestIds,
   onAssign,
 }: AssignTestsDrawerProps) {
   const router = useRouter();
@@ -67,8 +63,9 @@ export default function AssignTestsDrawer({
   });
   const [totalCount, setTotalCount] = useState(0);
 
-  const [resolvedLinkedIds, setResolvedLinkedIds] =
-    useState<Set<string>>(linkedTestIds);
+  const [resolvedLinkedIds, setResolvedLinkedIds] = useState<Set<string>>(
+    new Set()
+  );
   const testsByIdRef = useRef<Map<string, TestDetail>>(new Map());
   const isMountedRef = useRef(true);
 
@@ -80,10 +77,6 @@ export default function AssignTestsDrawer({
   }, []);
 
   useEffect(() => {
-    setResolvedLinkedIds(linkedTestIds);
-  }, [linkedTestIds]);
-
-  useEffect(() => {
     available.forEach(test => {
       if (test.id) {
         testsByIdRef.current.set(String(test.id), test);
@@ -92,23 +85,19 @@ export default function AssignTestsDrawer({
   }, [available]);
 
   const fetchLinkedIds = useCallback(async () => {
-    if (linkedTestIds.size > 0) {
-      setResolvedLinkedIds(new Set(linkedTestIds));
-      return;
-    }
-
     try {
       const factory = new ApiClientFactory(sessionToken);
       const testSetsClient = factory.getTestSetsClient();
-      const response = await testSetsClient.getTestSetTests(testSetId, {
-        limit: LINKED_IDS_PAGE_SIZE,
-        skip: 0,
-      });
-      setResolvedLinkedIds(new Set(response.data.map(test => String(test.id))));
+      const linkedTests = await testSetsClient.getAllTestSetTests(testSetId);
+      if (!isMountedRef.current) return;
+      setResolvedLinkedIds(
+        new Set(linkedTests.map(test => String(test.id)).filter(Boolean))
+      );
     } catch {
+      if (!isMountedRef.current) return;
       setResolvedLinkedIds(new Set());
     }
-  }, [linkedTestIds, sessionToken, testSetId]);
+  }, [sessionToken, testSetId]);
 
   const fetchTests = useCallback(async () => {
     if (!sessionToken || !open) return;

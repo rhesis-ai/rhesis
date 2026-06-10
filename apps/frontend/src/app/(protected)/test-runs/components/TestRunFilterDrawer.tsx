@@ -5,8 +5,8 @@ import { TextField } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
+  filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
-import { BORDER_RADIUS } from '@/styles/theme';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
   EMPTY_ACTIVITY_PRESENCE_FILTERS,
@@ -52,15 +52,7 @@ export function countActiveTestRunFilters(f: TestRunFilters): number {
   );
 }
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
-  },
-};
+const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestRunFilterDrawerProps {
   open: boolean;

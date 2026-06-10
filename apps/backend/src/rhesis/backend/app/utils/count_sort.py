@@ -51,6 +51,7 @@ def _tag_count_subquery(model, entity_type: str):
             and_(
                 TaggedItem.entity_id == model.id,
                 TaggedItem.entity_type == entity_type,
+                TaggedItem.deleted_at.is_(None),
             )
         )
         .correlate(model)

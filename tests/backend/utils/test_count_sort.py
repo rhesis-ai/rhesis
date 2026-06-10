@@ -43,3 +43,10 @@ def test_apply_virtual_count_sort_builds_query(test_db):
     compiled = str(sorted_query.statement.compile(compile_kwargs={"literal_binds": True}))
     assert "comment" in compiled.lower()
     assert "count" in compiled.lower()
+
+
+def test_tag_count_subquery_excludes_soft_deleted_links(test_db):
+    query = test_db.query(Test)
+    sorted_query = apply_virtual_count_sort(query, Test, "tags_count", "asc")
+    compiled = str(sorted_query.statement.compile(compile_kwargs={"literal_binds": True}))
+    assert "deleted_at" in compiled.lower()

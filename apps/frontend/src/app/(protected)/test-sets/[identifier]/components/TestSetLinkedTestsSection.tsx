@@ -57,7 +57,6 @@ export default function TestSetLinkedTestsSection({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalCount, setTotalCount] = useState(initialTestCount);
-  const [linkedTestIds, setLinkedTestIds] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(initialIsGenerating);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -109,10 +108,6 @@ export default function TestSetLinkedTestsSection({
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(k => k + 1);
-  }, []);
-
-  const handleLinkedIdsChange = useCallback((ids: string[]) => {
-    setLinkedTestIds(new Set(ids));
   }, []);
 
   const handleAssignTests = async (tests: TestDetail[]) => {
@@ -248,7 +243,6 @@ export default function TestSetLinkedTestsSection({
               testSetType={testSetType}
               onRefresh={handleRefresh}
               onTotalCountChange={setTotalCount}
-              onLinkedIdsChange={handleLinkedIdsChange}
             />
           </Paper>
 
@@ -268,7 +262,6 @@ export default function TestSetLinkedTestsSection({
         sessionToken={sessionToken}
         testSetId={testSetId}
         testSetType={testSetType}
-        linkedTestIds={linkedTestIds}
         onAssign={handleAssignTests}
       />
     </>

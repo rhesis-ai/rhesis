@@ -6,9 +6,9 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
 import { TEST_TYPES } from '@/constants/test-types';
@@ -72,15 +72,7 @@ const TEST_TYPE_OPTIONS = [
   { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ] as const;
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
-  },
-};
+const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestFilterDrawerProps {
   open: boolean;
