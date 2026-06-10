@@ -277,6 +277,7 @@ export default function TaskDetailPage({ params }: PageProps) {
           throw new Error('No session token available');
         }
 
+        const sessionToken = session.session_token;
         const taskData = await getTask(taskId);
         if (!taskData) {
           throw new Error('Task not found');
@@ -284,10 +285,10 @@ export default function TaskDetailPage({ params }: PageProps) {
 
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
-            getStatusesForTask(session.session_token, taskData.status_id),
-            getPrioritiesForTask(session.session_token, taskData.priority_id),
+            getStatusesForTask(sessionToken, taskData.status_id),
+            getPrioritiesForTask(sessionToken, taskData.priority_id),
             (async () => {
-              const clientFactory = new ApiClientFactory(session.session_token);
+              const clientFactory = new ApiClientFactory(sessionToken);
               const usersClient = clientFactory.getUsersClient();
               const response = await usersClient.getUsers();
               return response.data || [];

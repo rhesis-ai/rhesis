@@ -15,8 +15,14 @@ import {
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
-import { Priority, Status, Task, TaskUpdate, User } from '@/types/tasks';
+import { Priority, Status, Task, TaskUpdate } from '@/types/tasks';
+import type { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+
+interface AssigneeDisplay {
+  name?: string;
+  picture?: string;
+}
 
 interface TaskDetailsDraft {
   title: string;
@@ -31,7 +37,7 @@ interface TaskDetailsCardProps {
   statuses: Status[];
   priorities: Priority[];
   users: User[];
-  onSave: (update: TaskUpdate) => Promise<Task | undefined>;
+  onSave: (update: TaskUpdate) => Promise<Task | null | undefined>;
   onTaskUpdated: (task: Task) => void;
 }
 
@@ -39,7 +45,7 @@ function UserFieldContent({
   user,
   fallback,
 }: {
-  user?: User | null;
+  user?: AssigneeDisplay | null;
   fallback: string;
 }) {
   if (!user?.name) {
@@ -135,8 +141,13 @@ export default function TaskDetailsCard({
     return Boolean(updatedTask);
   };
 
-  const assigneeForDraft = (assigneeId: string) =>
-    users.find(user => user.id === assigneeId) ?? task.assignee;
+  const assigneeForDraft = (
+    assigneeId: string
+  ): AssigneeDisplay | undefined => {
+    const fromList = users.find(user => user.id === assigneeId);
+    if (fromList) return fromList;
+    return task.assignee;
+  };
 
   return (
     <EditableSection

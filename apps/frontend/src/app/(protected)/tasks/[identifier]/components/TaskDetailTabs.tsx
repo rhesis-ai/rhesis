@@ -6,7 +6,8 @@ import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
-import { Priority, Status, Task, TaskUpdate, User } from '@/types/tasks';
+import { Priority, Status, Task, TaskUpdate } from '@/types/tasks';
+import type { User } from '@/utils/api-client/interfaces/user';
 import TaskDetailsCard from './TaskDetailsCard';
 import TaskLinkedEntityTab from './TaskLinkedEntityTab';
 
@@ -28,7 +29,10 @@ interface TaskDetailTabsProps {
   currentUserName: string;
   currentUserPicture?: string;
   onTaskUpdated: (task: Task) => void;
-  updateTask: (id: string, data: TaskUpdate) => Promise<Task | undefined>;
+  updateTask: (
+    id: string,
+    data: TaskUpdate
+  ) => Promise<Task | null | undefined>;
 }
 
 export default function TaskDetailTabs({

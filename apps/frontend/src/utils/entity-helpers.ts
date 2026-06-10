@@ -1,4 +1,5 @@
-import { EntityType, type TaskMetadata } from '@/types/tasks';
+import { EntityType } from '@/types/tasks';
+import type { TaskMetadata } from '@/utils/api-client/interfaces/task';
 
 /**
  * Get the display name for an entity type
