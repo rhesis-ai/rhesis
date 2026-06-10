@@ -513,7 +513,11 @@ export default function MetricsDirectoryTab({
             <MenuItem
               onClick={() => {
                 setFabAnchorEl(null);
-                router.push('/metrics/new?type=custom-code');
+                window.open(
+                  'https://docs.rhesis.ai/docs/metrics/code-metrics',
+                  '_blank',
+                  'noopener,noreferrer'
+                );
               }}
             >
               Code Evaluation
@@ -604,6 +608,9 @@ export default function MetricsDirectoryTab({
               b => b.name || 'Unnamed Behavior'
             );
 
+            const isCustomMetric =
+              metric.backend_type?.type_value?.toLowerCase() === 'custom';
+
             return (
               <MetricCard
                 key={metric.id}
@@ -626,7 +633,9 @@ export default function MetricsDirectoryTab({
                         setSelectedMetric(metric);
                         setAssignDialogOpen(true);
                       }
-                    : () => router.push(`/metrics/${metric.id}`)
+                    : isCustomMetric
+                      ? () => router.push(`/metrics/${metric.id}`)
+                      : undefined
                 }
                 onDelete={
                   assignedBehaviors.length === 0 &&

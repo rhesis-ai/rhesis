@@ -53,6 +53,7 @@ import {
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
+import { TEST_TYPES } from '@/constants/test-types';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -85,8 +86,8 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
 
 const PILL_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ];
 
 function TestsUnifiedToolbar() {

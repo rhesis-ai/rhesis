@@ -34,6 +34,7 @@ import {
 import { UUID } from 'crypto';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
+import { BORDER_RADIUS } from '@/styles/theme';
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -184,7 +185,9 @@ export function MCPConnectionDrawer({
   const getEditorWrapperStyle = () => ({
     border: 1,
     borderColor: jsonError ? 'error.main' : 'divider',
-    borderRadius: theme.shape.borderRadius,
+    borderRadius: BORDER_RADIUS.md,
+    minHeight: 300,
+    overflow: 'hidden',
     '&:hover': {
       borderColor: jsonError ? 'error.main' : 'text.primary',
     },
@@ -1271,12 +1274,14 @@ export function MCPConnectionDrawer({
                 <Box
                   component="pre"
                   sx={{
+                    m: 0,
                     p: 2,
                     bgcolor: 'background.default',
                     border: 1,
-                    borderColor: 'divider',
-                    borderRadius: theme => theme.shape.borderRadius,
+                    borderColor: 'greyscale.border',
+                    borderRadius: BORDER_RADIUS.md,
                     fontSize: theme => theme.typography.body2.fontSize,
+                    fontFamily: 'monospace',
                     overflow: 'auto',
                   }}
                 >
@@ -1297,6 +1302,18 @@ export function MCPConnectionDrawer({
                     theme={editorTheme}
                     value={toolMetadata}
                     onChange={handleToolMetadataChange}
+                    loading={
+                      <Box
+                        sx={{
+                          height: 300,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <CircularProgress size={24} />
+                      </Box>
+                    }
                     options={{
                       minimap: { enabled: false },
                       lineNumbers: 'on',

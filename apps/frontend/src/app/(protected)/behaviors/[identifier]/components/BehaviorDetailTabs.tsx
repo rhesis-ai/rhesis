@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Chip, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import {
   GridColDef,
   GridRenderCellParams,
@@ -10,6 +10,7 @@ import {
 import GridBadge from '@/components/common/GridBadge';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import { LinkOffIcon, AutoGraphIcon } from '@/components/icons';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
 import LinkedEntitiesFilterDrawer, {
@@ -27,7 +28,6 @@ import GeneralInfoCard from '@/components/common/GeneralInfoCard';
 import ViewField from '@/components/common/ViewField';
 import EditableSectionCard from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
-import { AutoGraphIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
 import type {
   BehaviorWithMetrics,
@@ -213,25 +213,7 @@ function BehaviorBasicInfo({
       <Stack spacing={3}>
         <GeneralInfoCard onEdit={() => setEditOpen(true)}>
           <Stack spacing={3}>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 3,
-              }}
-            >
-              <ViewField label="Name" value={behavior.name} />
-              {behavior.status?.name && (
-                <ViewField label="Status">
-                  <Chip
-                    label={behavior.status.name}
-                    size="small"
-                    variant="outlined"
-                    sx={{ mt: 0.5 }}
-                  />
-                </ViewField>
-              )}
-            </Box>
+            <ViewField label="Name" value={behavior.name} />
 
             <ViewField
               label="Description"
@@ -405,6 +387,7 @@ function BehaviorLinkedMetrics({
       createRowActionsColumn({
         onDelete: id => handleUnassign(id),
         deleteTooltip: 'Unassign',
+        deleteIcon: LinkOffIcon,
       }),
     ],
     [handleUnassign]

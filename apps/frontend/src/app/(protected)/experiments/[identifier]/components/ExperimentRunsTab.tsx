@@ -229,7 +229,7 @@ export default function ExperimentRunsTab({
 
   const title =
     !loading && runs.length > 0
-      ? `Experiment runs (${runs.length})`
+      ? `Experiment Runs (${runs.length})`
       : undefined;
 
   const filteredRuns = useMemo(() => {
@@ -347,7 +347,7 @@ export default function ExperimentRunsTab({
         showHeader
         width={560}
         saveButtonText=""
-        closeButtonText="Close"
+        closeButtonText=""
       >
         {drawerRun && (
           <RunSummaryContent

@@ -13,6 +13,7 @@ import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import { LinkOffIcon, RouteIcon } from '@/components/icons';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
 import LinkedEntitiesFilterDrawer, {
@@ -22,7 +23,6 @@ import LinkedEntitiesFilterDrawer, {
   hasActiveLinkedFilters,
   countActiveLinkedFilters,
 } from '@/components/common/LinkedEntitiesFilterDrawer';
-import { RouteIcon } from '@/components/icons';
 import { MetricDetailView } from './MetricDetailView';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
@@ -185,6 +185,7 @@ function MetricLinkedBehaviors({
       createRowActionsColumn({
         onDelete: id => handleUnassign(id),
         deleteTooltip: 'Unassign',
+        deleteIcon: LinkOffIcon,
       }),
     ],
     [handleUnassign]

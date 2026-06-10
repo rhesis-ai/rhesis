@@ -52,6 +52,7 @@ export { default as ViewListIcon } from '@mui/icons-material/ViewListOutlined';
 export { default as AttachFileIcon } from '@mui/icons-material/AttachFileOutlined';
 export { default as AddIcon } from '@mui/icons-material/AddOutlined';
 export { default as DeleteIcon } from '@mui/icons-material/DeleteOutlined';
+export { default as LinkOffIcon } from '@mui/icons-material/LinkOffOutlined';
 export { default as CheckIcon } from '@mui/icons-material/CheckOutlined';
 export { default as CheckCircleIcon } from '@mui/icons-material/CheckCircleOutlined';
 export { default as AddTaskIcon } from '@mui/icons-material/AddTaskOutlined';

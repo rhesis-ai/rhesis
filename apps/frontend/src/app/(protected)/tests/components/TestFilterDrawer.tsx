@@ -11,9 +11,10 @@ import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { TEST_TYPES } from '@/constants/test-types';
 
 export interface TestFilters {
-  /** test_type/type_value equals: 'single_turn' | 'multi_turn' | '' */
+  /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
   testType: string;
   /** status/name contains */
   status: string;
@@ -42,8 +43,8 @@ export function countActiveTestFilters(f: TestFilters): number {
 }
 
 const TEST_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ] as const;
 
 const textFieldSx = {

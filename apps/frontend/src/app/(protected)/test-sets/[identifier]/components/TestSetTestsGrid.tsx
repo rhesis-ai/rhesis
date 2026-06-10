@@ -18,20 +18,13 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { Box, Alert } from '@mui/material';
-import GridBadge from '@/components/common/GridBadge';
-import TagLabel from '@/components/common/Tag';
+import { Alert } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
-import { Tag } from '@/utils/api-client/interfaces/tag';
-import {
-  getTestContentValue,
-  renderTestContentCell,
-} from '@/app/(protected)/tests/components/test-grid-helpers';
-import { isMultiTurnTest } from '@/constants/test-types';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { getTestSetTestColumns } from './testSetTestColumns';
 import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
@@ -88,6 +81,7 @@ interface TestSetTestsGridProps {
   embedded?: boolean;
   onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
+  onLinkedIdsChange?: (ids: string[]) => void;
 }
 
 export default function TestSetTestsGrid({
@@ -95,6 +89,7 @@ export default function TestSetTestsGrid({
   testSetId,
   testSetType,
   onTotalCountChange,
+  onLinkedIdsChange,
 }: TestSetTestsGridProps) {
   const isMounted = useRef(true);
   const router = useRouter();
@@ -141,6 +136,7 @@ export default function TestSetTestsGrid({
         if (!filterString) {
           onTotalCountChange?.(count);
         }
+        onLinkedIdsChange?.(response.data.map(t => String(t.id)));
         setError(null);
       }
     } catch (_error) {
@@ -160,6 +156,7 @@ export default function TestSetTestsGrid({
     paginationModel.pageSize,
     filterModel,
     onTotalCountChange,
+    onLinkedIdsChange,
   ]);
 
   useEffect(() => {
@@ -247,95 +244,7 @@ export default function TestSetTestsGrid({
   );
 
   const columns: GridColDef[] = React.useMemo(
-    () => [
-      {
-        field: 'prompt.content',
-        headerName: isMultiTurnTest(testSetType) ? 'Goal' : 'Content',
-        flex: 3,
-        valueGetter: getTestContentValue,
-        renderCell: renderTestContentCell,
-      },
-      {
-        field: 'behavior',
-        headerName: 'Behavior',
-        flex: 1,
-        renderCell: params => {
-          const behaviorName = params.row.behavior?.name;
-          if (!behaviorName) return null;
-
-          return <GridBadge label={behaviorName} />;
-        },
-      },
-      {
-        field: 'topic',
-        headerName: 'Topic',
-        flex: 1,
-        renderCell: params => {
-          const topicName = params.row.topic?.name;
-          if (!topicName) return null;
-
-          return <GridBadge label={topicName} />;
-        },
-      },
-      {
-        field: 'category',
-        headerName: 'Category',
-        flex: 1,
-        renderCell: params => {
-          const categoryName = params.row.category?.name;
-          if (!categoryName) return null;
-
-          return <GridBadge label={categoryName} />;
-        },
-      },
-      {
-        field: 'test_type.type_value',
-        headerName: 'Test Type',
-        flex: 1,
-        valueGetter: (_value, row) => row.test_type?.type_value || '',
-        renderCell: params => {
-          const testType = params.row.test_type?.type_value;
-          if (!testType) return null;
-
-          return <GridBadge label={testType} />;
-        },
-      },
-      {
-        field: 'tags',
-        headerName: 'Tags',
-        flex: 1.5,
-        minWidth: 140,
-        sortable: false,
-        renderCell: params => {
-          const test = params.row;
-          if (!test.tags || test.tags.length === 0) {
-            return null;
-          }
-
-          const validTags = test.tags.filter(
-            (tag: Tag) => tag && tag.id && tag.name
-          );
-
-          return (
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 0.5,
-                flexWrap: 'nowrap',
-                overflow: 'hidden',
-              }}
-            >
-              {validTags.slice(0, 2).map((tag: Tag) => (
-                <TagLabel key={tag.id} label={tag.name} />
-              ))}
-              {validTags.length > 2 && (
-                <TagLabel label={`+${validTags.length - 2}`} />
-              )}
-            </Box>
-          );
-        },
-      },
-    ],
+    () => getTestSetTestColumns(testSetType),
     [testSetType]
   );
 

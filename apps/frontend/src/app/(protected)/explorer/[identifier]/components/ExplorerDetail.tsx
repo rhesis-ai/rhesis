@@ -49,7 +49,6 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { GridToolbar as AppGridToolbar } from '@/components/common/GridToolbar';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { EntityInfoBanner } from '@/components/common/EntityInfoBanner';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -3761,7 +3760,10 @@ export default function ExplorerDetail({
           anchor="right"
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <EntityInfoBanner name="To keep results consistent with a new endpoint or metric, use Get outputs and Evaluate for all tests in this set." />
+            <Alert severity="info" sx={{ py: 1, px: 2 }}>
+              To keep results consistent with a new endpoint or metric, use Get
+              outputs and Evaluate for all tests in this set.
+            </Alert>
             <Autocomplete
               options={endpointOptions}
               getOptionLabel={option =>
