@@ -27,6 +27,11 @@ spec:
           spec:
             containers:
               - name: runner
+                # image/command must be repeated: Helm replaces the whole
+                # containers array, so omitting them drops the chart defaults
+                # and the runner pod fails with "spec.containers[0].image: Required".
+                image: ghcr.io/actions/actions-runner:latest
+                command: ["/home/runner/run.sh"]
                 resources:
                   requests:
                     cpu: 250m
