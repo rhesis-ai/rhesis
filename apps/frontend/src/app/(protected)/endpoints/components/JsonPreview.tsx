@@ -40,9 +40,9 @@ export const OUTPUT_VARIABLES = [
 // ── Token colours ─────────────────────────────────────────────────────────────
 
 const T = {
-  str: (t: Theme) => (t.palette.mode === 'dark' ? '#ce9178' : '#a31515'),
-  num: (t: Theme) => (t.palette.mode === 'dark' ? '#b5cea8' : '#098658'),
-  kw: (t: Theme) => (t.palette.mode === 'dark' ? '#569cd6' : '#0070c1'),
+  str: (t: Theme) => (t.palette.mode === 'dark' ? '#ce9178' : '#a31515'), // Intentional: syntax-highlighting token, no theme equivalent
+  num: (t: Theme) => (t.palette.mode === 'dark' ? '#b5cea8' : '#098658'), // Intentional: syntax-highlighting token, no theme equivalent
+  kw: (t: Theme) => (t.palette.mode === 'dark' ? '#569cd6' : '#0070c1'), // Intentional: syntax-highlighting token, no theme equivalent
   bracket: 'text.secondary',
   comma: 'text.disabled',
   key: 'text.secondary',

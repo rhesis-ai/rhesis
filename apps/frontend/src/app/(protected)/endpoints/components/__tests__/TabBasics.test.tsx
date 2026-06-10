@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TabBasics from '../tabs/TabBasics';
 import type { FormData } from '../EndpointForm';
+import type { Project } from '@/utils/api-client/interfaces/project';
 
 const defaultFormData: FormData = {
   name: '',
@@ -24,7 +25,7 @@ const defaultFormData: FormData = {
 const projects = [
   { id: 'proj-1', name: 'Alpha', description: 'First' },
   { id: 'proj-2', name: 'Beta', description: 'Second' },
-];
+] as unknown as Project[];
 
 describe('TabBasics', () => {
   it('renders required text fields', () => {
