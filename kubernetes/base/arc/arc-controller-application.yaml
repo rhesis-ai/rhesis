@@ -10,6 +10,10 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
+    # The ARC CRDs are ~1 MB; the apiserver fills in schema/conversion defaults
+    # that client-side diff reports as perpetual drift (OutOfSync forever).
+    # Server-side diff compares against the apiserver's merge result instead.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: arc-runners
   source:
