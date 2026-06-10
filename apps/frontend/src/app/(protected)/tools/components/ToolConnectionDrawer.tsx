@@ -1084,7 +1084,6 @@ export function ToolConnectionDrawer({
               </FormControl>
             </Stack>
           )}
-        </Stack>
 
         {!isEditMode && !connectionTested && !testResult && (
           <Alert severity="info">
