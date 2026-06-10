@@ -51,10 +51,7 @@ async def _evaluate_multi_turn_metrics(
     output: Dict[str, Any],
 ) -> Dict[str, Any]:
     from rhesis.backend.tasks.execution.constants import CONVERSATION_SUMMARY_KEY
-    from rhesis.backend.tasks.execution.evaluation import (
-        _build_conversation_history,
-        _is_multi_turn_only,
-    )
+    from rhesis.backend.tasks.execution.evaluation import _build_conversation_history
 
     conversation_summary = output.get(CONVERSATION_SUMMARY_KEY, [])
     conversation_history = _build_conversation_history(conversation_summary)
