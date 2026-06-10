@@ -690,7 +690,7 @@ export default function SelectExperimentsDrawer({
                     p: 1.5,
                     border: '1px solid',
                     borderColor: 'divider',
-                    borderRadius: theme => theme.shape.borderRadius,
+                    borderRadius: 1,
                   }}
                 >
                   <Stack
