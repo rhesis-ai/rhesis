@@ -263,12 +263,6 @@ export default function TaskDetailsCard({
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6 }}>
-            <ViewField label="Creator" helperText="User who created this task">
-              <UserFieldContent user={task.user} fallback="Unknown" />
-            </ViewField>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6 }}>
             {isEditing ? (
               <FormControl fullWidth>
                 <InputLabel shrink>Assignee</InputLabel>
