@@ -89,7 +89,6 @@ def create_test_user(
         family_name="User",
         auth0_id=f"test-auth0-id-{uuid.uuid4()}",
         is_active=True,
-        is_superuser=False,  # Regular user by default
         organization_id=organization_id,
         last_login_at=datetime.now(timezone.utc),
     )

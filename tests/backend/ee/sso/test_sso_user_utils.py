@@ -197,7 +197,6 @@ class TestFindOrCreateSSOUser:
         user_data = mock_create_user.call_args[0][1]
         assert user_data.email == "newuser@example.com"
         assert user_data.organization_id == org.id
-        assert user_data.is_superuser is False
         assert user_data.is_email_verified is True
 
 

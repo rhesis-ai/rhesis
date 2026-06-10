@@ -47,7 +47,6 @@ def _unique_user(test_db: Session, org_id: str) -> models.User:
         given_name="SP6",
         family_name="Test",
         is_active=True,
-        is_superuser=False,
         auth0_id=f"auth0|sp6{suffix}",
         organization_id=org_id,
     )

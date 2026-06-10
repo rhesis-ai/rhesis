@@ -219,12 +219,6 @@ class TestUserUpdateAuthorization:
         org.owner_id = None
         test_db.flush()
 
-        # Set is_superuser=True on the caller (the column still exists).
-        caller = test_db.query(models.User).filter_by(id=authenticated_user_id).first()
-        original_superuser = caller.is_superuser
-        caller.is_superuser = True
-        test_db.flush()
-
         other_user = _unique_user(test_db, test_org_id)
 
         response = authenticated_client.put(
@@ -232,13 +226,12 @@ class TestUserUpdateAuthorization:
             json={"name": "superuser bypass attempt"},
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN, (
-            "is_superuser=True must NOT allow updating another user's profile — "
+            "Non-owner must NOT be allowed to update another user's profile — "
             "only org Owner (member:manage) may do so"
         )
 
         # Restore
         org.owner_id = original_owner_id
-        caller.is_superuser = original_superuser
         test_db.flush()
 
 
