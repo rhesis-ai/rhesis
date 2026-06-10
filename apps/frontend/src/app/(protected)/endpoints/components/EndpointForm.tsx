@@ -45,7 +45,7 @@ export interface FormData {
 }
 
 const DEFAULT_REQ_BODY =
-  '{\n  "messages": [{"role": "user", "content": "{{ input }}"}]\n}';
+  '{\n  "input": "{{ input }}",\n  "messages": "{{ messages | tojson }}",\n  "conversation_id": "{{ conversation_id }}",\n  "files": "{{ files | to_openai | tojson }}"\n}';
 
 const DEFAULT_RES_BODY = '{\n  "output": "$.choices[0].message.content"\n}';
 

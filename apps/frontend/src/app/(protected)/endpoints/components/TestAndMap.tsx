@@ -35,15 +35,20 @@ const REQUEST_VARIABLES = [
   {
     groupLabel: 'Multi-turn',
     chips: ['{{ messages }}', '{{ conversation_id }}'],
-    description:
-      'messages: full conversation history for stateless endpoints. conversation_id: tracking ID for both stateful and stateless endpoints.',
+    description: (
+      <>
+        <strong>messages</strong>: full conversation history for stateless
+        endpoints. <strong>conversation_id</strong>: tracking ID for both
+        stateful and stateless endpoints.
+      </>
+    ),
     docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
   },
   {
     groupLabel: 'System prompt',
     name: '{{ system_prompt }}',
     description:
-      'Prepended to the messages array and stripped from the request body before sending.',
+      'Injected as the system message. Rhesis removes it from the body before sending.',
   },
   {
     groupLabel: 'Files',
@@ -69,7 +74,7 @@ const REQUEST_VARIABLES = [
       '{{ test_configuration_id }}',
     ],
     description:
-      'Auto-filled by Rhesis during test runs. Include any of these if your API needs to log which test triggered the request.',
+      'Auto-filled on every test run — useful if your API logs or traces which test triggered the request.',
     docsUrl:
       'https://docs.rhesis.ai/docs/endpoints/mapping-examples#test-execution-context',
   },
@@ -81,7 +86,7 @@ const OUTPUT_VARIABLES = [
     label: '{{ output }}',
     groupLabel: 'Output',
     description:
-      'Required. The main response text, evaluated against your metrics.',
+      'Required. The text your model returned — this is what Rhesis scores.',
   },
   {
     name: 'conversation_id',
@@ -608,11 +613,11 @@ export default function TestAndMap({
 
   return (
     <Box>
-      {/* ── 1. Format the request ── */}
+      {/* ── 1. Map the request body ── */}
       <Box sx={panelSx}>
         <Box sx={panelHeaderSx}>
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            1 · Format the request
+            Request body
           </Typography>
           <LoadingButton
             variant="contained"
@@ -627,13 +632,12 @@ export default function TestAndMap({
         </Box>
         <Box sx={panelBodySx}>
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-            Rhesis sends test prompts to your API automatically. Here you define
-            the exact JSON body it should use — place{' '}
+            Define the JSON body Rhesis sends with each test. Place{' '}
             <Box component="code" sx={inlineCode}>
               {'{{ input }}'}
             </Box>{' '}
-            wherever your API expects the prompt, then fill in any other fields
-            your endpoint requires (model, temperature, etc.).
+            where your API expects the prompt and add any fixed fields your
+            endpoint needs.
           </Typography>
           <RequestBodyEditor
             value={requestTemplate}
@@ -647,9 +651,7 @@ export default function TestAndMap({
       {/* ── 2. Map response ── */}
       <Box sx={panelSx}>
         <Box sx={panelHeaderSx}>
-          <Typography variant="subtitle2">
-            2 · Tell Rhesis where the answer is
-          </Typography>
+          <Typography variant="subtitle2">Response</Typography>
         </Box>
         <Box sx={panelBodySx}>
           {testResponse ? (
@@ -731,11 +733,10 @@ export default function TestAndMap({
             <Box>
               <Typography
                 variant="body2"
-                sx={{ color: 'text.disabled', mb: 0.5 }}
+                sx={{ color: 'text.secondary', mb: 2.5 }}
               >
-                Click <strong>Test</strong> above to fire a live request. Your
-                API&apos;s JSON response will appear here — then click any key
-                to tell Rhesis which field holds your model&apos;s reply.
+                Run a test to see your API&apos;s response here, then click any
+                key to map it.
               </Typography>
               {outputVarGrid}
             </Box>

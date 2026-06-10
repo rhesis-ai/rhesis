@@ -92,9 +92,9 @@ export default function TabBody({
       {/* Auto Mapping */}
       <Box sx={panelSx}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <AutoFixHighIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+          <AutoFixHighIcon sx={{ fontSize: 20, color: 'primary.main' }} />
           <Typography
-            variant="subtitle2"
+            variant="subtitle1"
             sx={{ color: 'primary.main', fontWeight: 600 }}
           >
             Auto Mapping
@@ -109,8 +109,8 @@ export default function TabBody({
           }}
         >
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Let Rhesis analyse your API and fill in request and response fields
-            automatically.
+            Paste your API docs or a sample response and Rhesis will configure
+            the mapping for you.
           </Typography>
           <Button
             variant="contained"
@@ -136,23 +136,23 @@ export default function TabBody({
         }}
       >
         <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mb: manualExpanded ? 0.5 : 0,
-          }}
+          onClick={() => setManualExpanded(e => !e)}
+          sx={{ cursor: 'pointer' }}
         >
-          <Typography
-            variant="subtitle2"
-            sx={{ color: 'primary.main', fontWeight: 600, flex: 1 }}
-          >
-            Manual Mapping
-          </Typography>
           <Box
-            onClick={() => setManualExpanded(e => !e)}
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              mb: 0.5,
+            }}
           >
+            <Typography
+              variant="subtitle1"
+              sx={{ color: 'primary.main', fontWeight: 600, flex: 1 }}
+            >
+              Manual Mapping
+            </Typography>
             {manualExpanded ? (
               <KeyboardArrowUpIcon
                 sx={{ fontSize: 20, color: 'primary.main' }}
@@ -163,21 +163,9 @@ export default function TabBody({
               />
             )}
           </Box>
-        </Box>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-            cursor: 'pointer',
-          }}
-          onClick={() => setManualExpanded(e => !e)}
-        >
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Tell Rhesis how to call your API and where to find the answer.
-            Define the request format once, fire a test call, then click the
-            field in the response that contains your model&apos;s reply.{' '}
+            Define the request format, run a test call, then click the response
+            field that holds your model&apos;s reply.{' '}
             <Link
               href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
               target="_blank"

@@ -11,7 +11,7 @@ export const OUTPUT_VARIABLES = [
     name: 'output',
     label: '{{ output }}',
     description:
-      'Required. The main response text, evaluated against your metrics.',
+      'Required. The text your model returned — this is what Rhesis scores.',
   },
   {
     name: 'conversation_id',

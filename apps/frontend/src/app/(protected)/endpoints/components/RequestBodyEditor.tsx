@@ -103,7 +103,7 @@ interface Variable {
   /** Optional label shown above the chip(s) to name a group */
   groupLabel?: string;
   required?: boolean;
-  description?: string;
+  description?: React.ReactNode;
   docsUrl?: string;
 }
 
