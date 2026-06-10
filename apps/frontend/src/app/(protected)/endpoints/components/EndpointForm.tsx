@@ -159,7 +159,7 @@ export default function EndpointForm() {
       );
       const asJson: Record<string, string> = {};
       rows.forEach(r => {
-        if (r.rhesis) asJson[r.rhesis] = r.api;
+        if (r.rhesis) asJson[r.rhesis] = `$.${r.api}`;
       });
       setResBody(JSON.stringify(asJson, null, 2));
     }

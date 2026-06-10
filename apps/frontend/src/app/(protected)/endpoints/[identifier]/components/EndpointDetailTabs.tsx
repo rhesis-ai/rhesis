@@ -8,7 +8,7 @@ import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { TAB_KEYS, type EndpointTabKey } from './endpoint-detail-shared';
 import EndpointOverviewTab from './EndpointOverviewTab';
 import EndpointConnectionTab from './EndpointConnectionTab';
-import EndpointMappingsTab from './EndpointMappingsTab';
+import EndpointHeadersTab from './EndpointHeadersTab';
 import EndpointTestTab from './EndpointTestTab';
 
 const TAB_LABELS: Record<EndpointTabKey, string> = {
@@ -44,7 +44,7 @@ export default function EndpointDetailTabs() {
         <EndpointConnectionTab />
       </DetailTabPanel>
       <DetailTabPanel value={activeTab} index={2} prefix="endpoint-detail">
-        <EndpointMappingsTab />
+        <EndpointHeadersTab />
       </DetailTabPanel>
       <DetailTabPanel value={activeTab} index={3} prefix="endpoint-detail">
         <EndpointTestTab />

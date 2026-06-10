@@ -375,9 +375,19 @@ export interface TestAndMapProps {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+function responseMappingToPathToVar(
+  mapping: Record<string, string>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [varName, jsonPath] of Object.entries(mapping)) {
+    out[jsonPath.replace(/^\$\./, '')] = varName;
+  }
+  return out;
+}
+
 export default function TestAndMap({
   requestTemplate: requestTemplateProp,
-  responseMapping: _responseMapping,
+  responseMapping,
   onRequestTemplateChange,
   onResponseMappingChange,
   onTest,
@@ -392,7 +402,17 @@ export default function TestAndMap({
 
   // ── Response mapping state ─────────────────────────────────────────────────
 
-  const [pathToVar, setPathToVar] = useState<Record<string, string>>({});
+  const [pathToVar, setPathToVar] = useState<Record<string, string>>(() =>
+    responseMappingToPathToVar(responseMapping)
+  );
+
+  const responseMappingKey = useMemo(
+    () => JSON.stringify(responseMapping),
+    [responseMapping]
+  );
+  useEffect(() => {
+    setPathToVar(responseMappingToPathToVar(JSON.parse(responseMappingKey)));
+  }, [responseMappingKey]);
 
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
   const [pendingPath, setPendingPath] = useState('');

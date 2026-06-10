@@ -184,8 +184,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         # Unwrap __body__ — used when the template string isn't valid JSON on its own
         # (e.g. it contains Jinja expressions that produce JSON fragments inline).
+        # After Jinja rendering the result should be a valid JSON document; parse it
+        # back so _async_request can send it as json= rather than a quoted string.
         if isinstance(request_body, dict) and list(request_body.keys()) == ["__body__"]:
-            request_body = request_body["__body__"]
+            raw = request_body["__body__"]
+            if isinstance(raw, str):
+                try:
+                    request_body = json.loads(raw)
+                except (json.JSONDecodeError, ValueError):
+                    request_body = raw
+            else:
+                request_body = raw
 
         logger.debug(f"Request body to send: {request_body}")
 
