@@ -74,7 +74,7 @@ const listByResource = {
 
 const e2eUser = {
   ...loadJson('e2e-user.json'),
-  is_superuser: true,
+  is_superuser: false,
   is_email_verified: true,
 };
 

@@ -82,6 +82,8 @@ export interface EndpointFormProps {
   onCancel?: () => void;
   onCreated?: () => void;
   hideActionBar?: boolean;
+  /** Hide project picker — project is inferred from active project scope */
+  hideProjectSelect?: boolean;
   onSubmitStateChange?: (state: EndpointFormSubmitState) => void;
 }
 
@@ -96,6 +98,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       onCancel,
       onCreated,
       hideActionBar = false,
+      hideProjectSelect = false,
       onSubmitStateChange,
     },
     ref
@@ -162,6 +165,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     }, [projectIdFromUrl]);
 
     useEffect(() => {
+      if (hideProjectSelect) {
+        setLoadingProjects(false);
+        return;
+      }
+
       const fetchProjects = async () => {
         if (!session?.session_token) {
           setLoadingProjects(false);
@@ -182,7 +190,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         }
       };
       fetchProjects();
-    }, [session]);
+    }, [session, hideProjectSelect]);
 
     const handleChange = (field: keyof FormData, value: unknown) => {
       setFormData(prev => ({ ...prev, [field]: value }));
@@ -448,6 +456,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               onChange={handleChange}
               projects={projects}
               loadingProjects={loadingProjects}
+              hideProjectSelect={hideProjectSelect}
             />
           </DetailTabPanel>
 

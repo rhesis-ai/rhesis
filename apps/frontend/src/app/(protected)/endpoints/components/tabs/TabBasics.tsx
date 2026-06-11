@@ -35,6 +35,8 @@ interface TabBasicsProps {
   onChange: (field: keyof FormData, value: unknown) => void;
   projects: Project[];
   loadingProjects: boolean;
+  /** Hide project picker — project is inferred from the active project scope */
+  hideProjectSelect?: boolean;
 }
 
 function ProjectSelect({
@@ -113,6 +115,7 @@ export default function TabBasics({
   onChange,
   projects,
   loadingProjects,
+  hideProjectSelect = false,
 }: TabBasicsProps) {
   const validateUrl = (url: string) => {
     try {
@@ -127,14 +130,20 @@ export default function TabBasics({
     <Box>
       <SectionCard
         title="Overview"
-        subtitle="Choose a project, name your endpoint, and configure how Rhesis connects to it."
+        subtitle={
+          hideProjectSelect
+            ? 'Name your endpoint and configure how Rhesis connects to it.'
+            : 'Choose a project, name your endpoint, and configure how Rhesis connects to it.'
+        }
       >
-        <ProjectSelect
-          formData={formData}
-          onChange={onChange}
-          projects={projects}
-          loadingProjects={loadingProjects}
-        />
+        {!hideProjectSelect && (
+          <ProjectSelect
+            formData={formData}
+            onChange={onChange}
+            projects={projects}
+            loadingProjects={loadingProjects}
+          />
+        )}
 
         <TextField
           fullWidth
