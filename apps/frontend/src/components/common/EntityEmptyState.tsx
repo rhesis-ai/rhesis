@@ -113,7 +113,7 @@ export default function EntityEmptyState({
 
       {actionLabel && onAction && (
         <Button
-          variant="contained"
+          variant={card ? 'outlined' : 'contained'}
           startIcon={resolvedShowAddIcon ? <AddIcon /> : undefined}
           onClick={onAction}
           disabled={actionDisabled}
@@ -127,6 +127,10 @@ export default function EntityEmptyState({
                   textTransform: 'none',
                   px: '20px',
                   py: '12px',
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                  },
                 }
               : { mt: 1, fontWeight: 700 }
           }

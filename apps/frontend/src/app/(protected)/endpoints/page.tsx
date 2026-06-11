@@ -9,7 +9,7 @@ import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { ApiIcon } from '@/components/icons';
+import EndpointsIcon from '@/components/EndpointsIcon';
 import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -115,7 +115,8 @@ export default function EndpointsPage() {
         <Box sx={{ mt: 2, mb: 2 }}>
           {endpointCount === 0 ? (
             <EntityEmptyState
-              icon={ApiIcon}
+              card
+              icon={EndpointsIcon}
               title="No endpoints yet"
               description="Create your first endpoint to connect your application under test and start running tests and evaluations."
               actionLabel="Create endpoint"
