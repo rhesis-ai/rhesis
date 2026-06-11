@@ -28,7 +28,7 @@ export function DetailTabPanel({
       id={`${prefix}-tabpanel-${index}`}
       aria-labelledby={`${prefix}-tab-${index}`}
     >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ pt: 5 }}>{children}</Box>}
     </div>
   );
 }

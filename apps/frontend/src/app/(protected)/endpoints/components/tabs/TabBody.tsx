@@ -1,17 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Button, Collapse, Link, Typography } from '@mui/material';
+import { Box, Button, Collapse, Link, IconButton } from '@mui/material';
 import {
   AutoFixHighIcon,
   KeyboardArrowDownIcon,
   KeyboardArrowUpIcon,
 } from '@/components/icons';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { alpha } from '@mui/material/styles';
+import { SectionCard } from '@/components/common/SectionCard';
 import TestAndMap from '../TestAndMap';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TestResult {
   success: boolean;
@@ -19,8 +16,6 @@ interface TestResult {
   response?: Record<string, unknown>;
   error?: string;
 }
-
-// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface TabBodyProps {
   reqBody: string;
@@ -32,8 +27,6 @@ interface TabBodyProps {
   onRunTest: (inputData: Record<string, unknown>) => void;
   onAutoConfigureOpen: () => void;
 }
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 export default function TabBody({
   reqBody,
@@ -72,46 +65,12 @@ export default function TabBody({
     onResBodyChange(JSON.stringify(m, null, 2));
   };
 
-  const panelSx = {
-    border: 1,
-    borderColor: 'primary.main',
-    borderRadius: BORDER_RADIUS.md,
-    px: 3,
-    py: 2.5,
-    mb: 3,
-    bgcolor: (theme: {
-      palette: { mode: string; primary: { main: string } };
-    }) =>
-      theme.palette.mode === 'light'
-        ? alpha(theme.palette.primary.main, 0.04)
-        : alpha(theme.palette.primary.main, 0.1),
-  };
-
   return (
-    <Box>
-      {/* Auto Mapping */}
-      <Box sx={panelSx}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <AutoFixHighIcon sx={{ fontSize: 20, color: 'primary.main' }} />
-          <Typography
-            variant="subtitle1"
-            sx={{ color: 'primary.main', fontWeight: 600 }}
-          >
-            Auto Mapping
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-          }}
-        >
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Paste your API docs or a sample response and Rhesis will configure
-            the mapping for you.
-          </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <SectionCard
+        title="Auto Mapping"
+        subtitle="Paste your API docs or a sample response and Rhesis will configure the mapping for you."
+        actions={
           <Button
             variant="contained"
             startIcon={<AutoFixHighIcon />}
@@ -120,77 +79,49 @@ export default function TabBody({
           >
             Auto Mapping
           </Button>
-        </Box>
-      </Box>
+        }
+      />
 
-      {/* Manual Mapping — collapsible */}
-      <Box
-        sx={{
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: BORDER_RADIUS.md,
-          px: 3,
-          py: 2.5,
-          mb: 3,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Box
-          onClick={() => setManualExpanded(e => !e)}
-          sx={{ cursor: 'pointer' }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              mb: 0.5,
-            }}
-          >
-            <Typography
-              variant="subtitle1"
-              sx={{ color: 'primary.main', fontWeight: 600, flex: 1 }}
-            >
-              Manual Mapping
-            </Typography>
-            {manualExpanded ? (
-              <KeyboardArrowUpIcon
-                sx={{ fontSize: 20, color: 'primary.main' }}
-              />
-            ) : (
-              <KeyboardArrowDownIcon
-                sx={{ fontSize: 20, color: 'primary.main' }}
-              />
-            )}
-          </Box>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+      <SectionCard
+        title="Manual Mapping"
+        subtitle={
+          <>
             Define the request format, run a test call, then click the response
             field that holds your model&apos;s reply.{' '}
             <Link
               href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
               target="_blank"
               rel="noopener"
-              onClick={e => e.stopPropagation()}
             >
               See examples ↗
             </Link>
-          </Typography>
-        </Box>
-
+          </>
+        }
+        actions={
+          <IconButton
+            aria-label={
+              manualExpanded ? 'Collapse manual mapping' : 'Expand manual mapping'
+            }
+            onClick={() => setManualExpanded(e => !e)}
+            size="small"
+            sx={{ color: 'primary.main' }}
+          >
+            {manualExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+          </IconButton>
+        }
+      >
         <Collapse in={manualExpanded}>
-          <Box sx={{ mt: 2.5 }}>
-            <TestAndMap
-              requestTemplate={reqBody}
-              responseMapping={responseMapping}
-              onRequestTemplateChange={handleRequestTemplateChange}
-              onResponseMappingChange={handleResponseMappingChange}
-              onTest={onRunTest}
-              testResponse={testResponse}
-              isTestingEndpoint={isTestingEndpoint}
-            />
-          </Box>
+          <TestAndMap
+            requestTemplate={reqBody}
+            responseMapping={responseMapping}
+            onRequestTemplateChange={handleRequestTemplateChange}
+            onResponseMappingChange={handleResponseMappingChange}
+            onTest={onRunTest}
+            testResponse={testResponse}
+            isTestingEndpoint={isTestingEndpoint}
+          />
         </Collapse>
-      </Box>
+      </SectionCard>
     </Box>
   );
 }

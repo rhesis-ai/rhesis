@@ -4,13 +4,13 @@ import React from 'react';
 import {
   Box,
   TextField,
-  Typography,
   IconButton,
   InputAdornment,
   Chip,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import HeadersEditor from '../HeadersEditor';
 import { variableChipSx } from '../endpoint-styles';
 import {
@@ -89,13 +89,12 @@ export default function TabHeaders({
           }}
         />
 
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: 'block', mb: 1 }}
-        >
-          Custom headers
-        </Typography>
+        <Box sx={{ mt: 1, mb: 2 }}>
+          <FormSectionDivider
+            headline="Custom headers"
+            descriptiveText="Add headers Rhesis should include on every request."
+          />
+        </Box>
         <HeadersEditor
           authToken={formData.auth_token}
           customHeaders={formData.request_headers}

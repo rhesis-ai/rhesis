@@ -37,6 +37,9 @@ describe('TabBasics', () => {
         loadingProjects={false}
       />
     );
+    expect(screen.getByRole('textbox', { name: /method/i })).toHaveValue(
+      'POST'
+    );
     expect(
       screen.getByRole('textbox', { name: /endpoint url/i })
     ).toBeInTheDocument();

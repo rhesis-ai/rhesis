@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { useNotifications } from '@/components/common/NotificationContext';
 import EditableSection from '@/components/common/EditableSection';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import JsonMonacoField from './JsonMonacoField';
 
@@ -61,12 +62,11 @@ export default function EndpointHeadersTab() {
       }}
     >
       {({ draft, setDraft, isEditing }) => (
-        <>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Custom headers for your endpoint. Authorization and Content-Type are
-            provided automatically. Example:{' '}
-            <code>{`{ "x-api-key": "{{ auth_token }}" }`}</code>
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <FormSectionDivider
+            headline="Custom headers"
+            descriptiveText="Authorization and Content-Type are provided automatically. Example: { &quot;x-api-key&quot;: &quot;{{ auth_token }}&quot; }"
+          />
           <JsonMonacoField
             editorKey="request-headers"
             height="200px"
@@ -76,7 +76,7 @@ export default function EndpointHeadersTab() {
             value={draft}
             onChange={setDraft}
           />
-        </>
+        </Box>
       )}
     </EditableSection>
   );

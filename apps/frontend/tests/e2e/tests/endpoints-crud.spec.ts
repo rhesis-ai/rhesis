@@ -27,7 +27,7 @@ test.describe('Endpoints — CRUD @crud', () => {
     );
     await expect(page.locator('body')).not.toContainText('Application error');
 
-    // Create drawer should open with required fields.
+    // Create page should show required fields.
     // name attributes on TextFields keep selectors stable for e2e.
     const nameField = page.locator('input[name="name"]');
     const urlField = page.locator('input[name="url"]');

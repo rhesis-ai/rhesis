@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo } from 'react';
 import {
   Box,
@@ -10,7 +11,6 @@ import {
   Select,
   Switch,
   TextField,
-  Typography,
   FormControl,
   InputLabel,
 } from '@mui/material';
@@ -20,6 +20,12 @@ import ViewField from '@/components/common/ViewField';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { ENVIRONMENTS } from './endpoint-detail-shared';
+import {
+  connectionTarget,
+  detailGridSpacing,
+  formatConfigSource,
+  formatEnvironment,
+} from './endpoint-overview-utils';
 
 interface IdentityDraft {
   name: string;
@@ -53,6 +59,7 @@ function projectFromEndpoint(endpoint: {
 
 export default function EndpointOverviewTab() {
   const { endpoint, projects, saveFields } = useEndpointDetailContext();
+  const target = connectionTarget(endpoint);
 
   const identityInitial = useMemo(
     () => identityFromEndpoint(endpoint),
@@ -63,10 +70,16 @@ export default function EndpointOverviewTab() {
     [endpoint]
   );
 
+  const projectName = endpoint.project_id
+    ? projects[endpoint.project_id]?.name ||
+      endpoint.project?.name ||
+      'Loading project...'
+    : 'No project assigned';
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <EditableSection
-        title="Identity"
+        title="Endpoint details"
         initialValue={identityInitial}
         onSave={async draft => {
           await saveFields({
@@ -76,7 +89,11 @@ export default function EndpointOverviewTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <Grid container spacing={2}>
+          <Grid
+            container
+            columnSpacing={detailGridSpacing.columnSpacing(isEditing)}
+            rowSpacing={detailGridSpacing.rowSpacing(isEditing)}
+          >
             <Grid size={{ xs: 12, md: 6 }}>
               {isEditing ? (
                 <TextField
@@ -92,6 +109,12 @@ export default function EndpointOverviewTab() {
               )}
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
+              <ViewField label="Connection type">
+                <GridBadge size="detail" label={endpoint.connection_type} />
+              </ViewField>
+            </Grid>
+
+            <Grid size={12}>
               {isEditing ? (
                 <TextField
                   fullWidth
@@ -104,14 +127,76 @@ export default function EndpointOverviewTab() {
                     }))
                   }
                   multiline
-                  minRows={2}
+                  minRows={3}
                 />
               ) : (
                 <ViewField
                   label="Description"
                   value={endpoint.description || 'No description provided'}
+                  multiline
                 />
               )}
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <ViewField label="Status">
+                <GridBadge
+                  size="detail"
+                  label={endpoint.status?.name ?? 'Unknown'}
+                />
+              </ViewField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <ViewField label="Config source">
+                <GridBadge
+                  size="detail"
+                  label={formatConfigSource(endpoint.config_source)}
+                />
+              </ViewField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <ViewField label="Environment">
+                <GridBadge
+                  size="detail"
+                  label={formatEnvironment(endpoint.environment)}
+                />
+              </ViewField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              {endpoint.connection_type === 'REST' && endpoint.method ? (
+                <ViewField label="Method">
+                  <GridBadge size="detail" label={endpoint.method} />
+                </ViewField>
+              ) : (
+                <ViewField label="Method" value="—" />
+              )}
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <ViewField label="Project">
+                {endpoint.project_id ? (
+                  <Link
+                    href={`/projects/${endpoint.project_id}`}
+                    style={{ color: 'inherit', fontWeight: 500 }}
+                  >
+                    {projectName}
+                  </Link>
+                ) : (
+                  'No project assigned'
+                )}
+              </ViewField>
+            </Grid>
+
+            <Grid size={12}>
+              <ViewField
+                label="Target"
+                value={target}
+                inputSx={{
+                  fontFamily:
+                    endpoint.connection_type === 'SDK' ? 'monospace' : 'inherit',
+                  wordBreak: 'break-all',
+                }}
+              />
             </Grid>
           </Grid>
         )}
@@ -128,19 +213,13 @@ export default function EndpointOverviewTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <Grid container spacing={2}>
-            {/* Project is immutable after creation — always shown read-only */}
-            <Grid size={12}>
-              <ViewField
-                label="Project"
-                value={
-                  endpoint.project_id
-                    ? projects[endpoint.project_id]?.name ||
-                      endpoint.project?.name ||
-                      'Loading project...'
-                    : 'No project assigned'
-                }
-              />
+          <Grid
+            container
+            columnSpacing={detailGridSpacing.columnSpacing(isEditing)}
+            rowSpacing={detailGridSpacing.rowSpacing(isEditing)}
+          >
+            <Grid size={{ xs: 12, md: 6 }}>
+              <ViewField label="Project" value={projectName} />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               {isEditing ? (
@@ -158,7 +237,7 @@ export default function EndpointOverviewTab() {
                   >
                     {ENVIRONMENTS.map(env => (
                       <MenuItem key={env} value={env}>
-                        {env}
+                        {formatEnvironment(env)}
                       </MenuItem>
                     ))}
                   </Select>
@@ -166,10 +245,7 @@ export default function EndpointOverviewTab() {
               ) : (
                 <ViewField
                   label="Environment"
-                  value={
-                    endpoint.environment.charAt(0).toUpperCase() +
-                    endpoint.environment.slice(1)
-                  }
+                  value={formatEnvironment(endpoint.environment)}
                 />
               )}
             </Grid>
@@ -196,29 +272,13 @@ export default function EndpointOverviewTab() {
                   </FormHelperText>
                 </>
               ) : (
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Tracing
-                  </Typography>
-                  <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
-                    <GridBadge
-                      size="detail"
-                      label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
-                    />
-                  </Box>
-                </Box>
+                <ViewField label="Tracing">
+                  <GridBadge
+                    size="detail"
+                    label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
+                  />
+                </ViewField>
               )}
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Typography variant="caption" color="text.secondary">
-                Status
-              </Typography>
-              <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
-                <GridBadge
-                  size="detail"
-                  label={endpoint.status?.name ?? 'Unknown'}
-                />
-              </Box>
             </Grid>
           </Grid>
         )}

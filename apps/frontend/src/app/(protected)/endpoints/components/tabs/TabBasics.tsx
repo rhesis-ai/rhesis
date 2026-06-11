@@ -10,7 +10,6 @@ import {
   MenuItem,
   Alert,
   Button,
-  Typography,
   ToggleButton,
   ToggleButtonGroup,
   FormControlLabel,
@@ -19,15 +18,12 @@ import {
   ListItemIcon,
   ListItemText,
   FormHelperText,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Grid,
 } from '@mui/material';
 import { SectionCard } from '@/components/common/SectionCard';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { KeyboardArrowDownIcon } from '@/components/icons';
 import type { FormData } from '../EndpointForm';
 
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
@@ -60,49 +56,39 @@ export default function TabBasics({
         title="Connect your model under test"
         subtitle="Enter the API URL of the AI application you want to test. Rhesis will send test prompts to this endpoint and evaluate how it responds."
       >
-        {/* URL */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'flex-start' }}>
-          <Box
-            sx={{
-              height: 56,
-              display: 'flex',
-              alignItems: 'center',
-              px: 1.5,
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 1,
-              bgcolor: 'action.hover',
-              flexShrink: 0,
-            }}
-          >
-            <Typography
-              sx={{
-                fontFamily: 'monospace',
-                fontWeight: 700,
-                fontSize: 14,
-                color: 'text.secondary',
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid size={{ xs: 12, sm: 3, md: 2 }}>
+            <TextField
+              fullWidth
+              label="Method"
+              value={formData.method}
+              onChange={e => onChange('method', e.target.value)}
+              slotProps={{
+                input: {
+                  readOnly: true,
+                  sx: { fontFamily: 'monospace', fontWeight: 700 },
+                },
               }}
-            >
-              POST
-            </Typography>
-          </Box>
-          <TextField
-            fullWidth
-            required
-            label="Endpoint URL"
-            value={formData.url}
-            onChange={e => onChange('url', e.target.value)}
-            placeholder="https://api.example.com/chat"
-            error={Boolean(formData.url && !validateUrl(formData.url))}
-            helperText={
-              formData.url && !validateUrl(formData.url)
-                ? 'Enter a valid URL'
-                : undefined
-            }
-          />
-        </Box>
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 9, md: 10 }}>
+            <TextField
+              fullWidth
+              required
+              label="Endpoint URL"
+              value={formData.url}
+              onChange={e => onChange('url', e.target.value)}
+              placeholder="https://api.example.com/chat"
+              error={Boolean(formData.url && !validateUrl(formData.url))}
+              helperText={
+                formData.url && !validateUrl(formData.url)
+                  ? 'Enter a valid URL'
+                  : undefined
+              }
+            />
+          </Grid>
+        </Grid>
 
-        {/* Name */}
         <TextField
           fullWidth
           required
@@ -112,7 +98,6 @@ export default function TabBasics({
           sx={{ mb: 2 }}
         />
 
-        {/* Description — directly under name */}
         <TextField
           fullWidth
           label="Description"
@@ -123,7 +108,6 @@ export default function TabBasics({
           sx={{ mb: 2 }}
         />
 
-        {/* Project */}
         {projects.length === 0 && !loadingProjects ? (
           <Alert
             severity="warning"
@@ -142,7 +126,7 @@ export default function TabBasics({
             No projects available. Please create a project first.
           </Alert>
         ) : (
-          <FormControl fullWidth required sx={{ mb: 2 }}>
+          <FormControl fullWidth required sx={{ mb: 3 }}>
             <InputLabel>Select Project</InputLabel>
             <Select
               value={formData.project_id}
@@ -187,64 +171,44 @@ export default function TabBasics({
           </FormControl>
         )}
 
-        {/* Advanced */}
-        <Accordion
-          disableGutters
-          elevation={0}
-          sx={{
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: `${BORDER_RADIUS.sm} !important`,
-            mb: 2,
-          }}
-        >
-          <AccordionSummary expandIcon={<KeyboardArrowDownIcon />}>
-            <Typography variant="body2" color="text.secondary">
-              Additional settings
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mb: 1 }}
-            >
-              Environment
-            </Typography>
-            <ToggleButtonGroup
-              value={formData.environment}
-              exclusive
-              onChange={(_, v) => {
-                if (v) onChange('environment', v);
-              }}
-              sx={{ mb: 2 }}
-            >
-              {ENVIRONMENTS.map(env => (
-                <ToggleButton
-                  key={env}
-                  value={env}
-                  sx={{ textTransform: 'capitalize' }}
-                >
-                  {env}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
+        <FormSectionDivider
+          headline="Additional settings"
+          descriptiveText="Environment and telemetry options for this endpoint."
+        />
+        <Box sx={{ mt: 2 }}>
+          <FormHelperText sx={{ mb: 1 }}>Environment</FormHelperText>
+          <ToggleButtonGroup
+            value={formData.environment}
+            exclusive
+            onChange={(_, v) => {
+              if (v) onChange('environment', v);
+            }}
+            sx={{ mb: 2 }}
+          >
+            {ENVIRONMENTS.map(env => (
+              <ToggleButton
+                key={env}
+                value={env}
+                sx={{ textTransform: 'capitalize' }}
+              >
+                {env}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.disable_tracing}
-                  onChange={e => onChange('disable_tracing', e.target.checked)}
-                />
-              }
-              label="Disable tracing"
-            />
-            <FormHelperText sx={{ mb: 2 }}>
-              When enabled, invocations will not generate traces or telemetry
-              data
-            </FormHelperText>
-          </AccordionDetails>
-        </Accordion>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.disable_tracing}
+                onChange={e => onChange('disable_tracing', e.target.checked)}
+              />
+            }
+            label="Disable tracing"
+          />
+          <FormHelperText>
+            When enabled, invocations will not generate traces or telemetry data
+          </FormHelperText>
+        </Box>
       </SectionCard>
     </Box>
   );

@@ -12,8 +12,7 @@ import {
 import dynamic from 'next/dynamic';
 import type { OnMount, BeforeMount } from '@monaco-editor/react';
 import { useTheme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { insertableVariableChipSx } from './endpoint-styles';
+import { editorContainerSx, insertableVariableChipSx } from './endpoint-styles';
 
 // Injected once — colors {{ ... }} template tokens inline inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -39,14 +38,11 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   loading: () => (
     <Box
       sx={{
+        ...editorContainerSx,
         height: 200,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: BORDER_RADIUS.sm,
-        bgcolor: 'background.default',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -246,11 +242,7 @@ export default function RequestBodyEditor({
   const editor = (
     <Box
       sx={{
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: BORDER_RADIUS.sm,
-        overflow: 'hidden',
-        '&:hover': { borderColor: 'text.primary' },
+        ...editorContainerSx,
         '&:focus-within': {
           outline: '2px solid',
           outlineColor: 'primary.main',
@@ -296,10 +288,8 @@ export default function RequestBodyEditor({
           flexDirection: 'column',
           gap: 0.5,
           p: 1.5,
-          border: 1,
-          borderColor: 'divider',
           borderRadius: 1,
-          bgcolor: 'background.default',
+          bgcolor: theme => theme.palette.greyscale.fieldSurface,
         }}
       >
         {groupLabel && (

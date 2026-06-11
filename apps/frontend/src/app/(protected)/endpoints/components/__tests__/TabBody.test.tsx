@@ -46,13 +46,11 @@ describe('TabBody', () => {
     expect(screen.getByText(/manual mapping/i)).toBeInTheDocument();
   });
 
-  it('expands Manual Mapping section when clicked', async () => {
-    const user = userEvent.setup({ delay: null });
+  it('expands Manual Mapping section when expand control is clicked', async () => {
     render(<TabBody {...defaultProps} />);
-    expect(screen.queryByTestId('test-and-map')).toBeInTheDocument();
-    // Initially collapsed — clicking the header expands it
-    fireEvent.click(screen.getByText(/manual mapping/i));
-    // After expand the TestAndMap is visible (MUI Collapse shows it)
+    fireEvent.click(
+      screen.getByRole('button', { name: /expand manual mapping/i })
+    );
     expect(screen.getByTestId('test-and-map')).toBeInTheDocument();
   });
 

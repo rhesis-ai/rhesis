@@ -2,7 +2,8 @@
 
 import { Fragment } from 'react';
 import { Box } from '@mui/material';
-import { alpha, type Theme } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
+import { variableChipSx } from './endpoint-styles';
 
 // ── Output variables ──────────────────────────────────────────────────────────
 
@@ -49,8 +50,8 @@ const T = {
 };
 
 const varChipSx = {
-  bgcolor: (t: Theme) => alpha(t.palette.primary.main, 0.12),
-  color: 'primary.main',
+  ...variableChipSx,
+  display: 'inline',
   px: '4px',
   py: '1px',
   borderRadius: '3px',

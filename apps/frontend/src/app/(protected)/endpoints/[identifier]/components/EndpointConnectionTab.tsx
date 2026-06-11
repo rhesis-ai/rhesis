@@ -2,8 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import {
-  Box,
-  Chip,
   FormControl,
   Grid,
   IconButton,
@@ -13,6 +11,8 @@ import {
   Select,
   TextField,
   Typography,
+  Box,
+  Chip,
 } from '@mui/material';
 import {
   LockIcon,
@@ -21,9 +21,11 @@ import {
 } from '@/components/icons';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { normalizeUrl } from '@/utils/validation';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { METHODS } from './endpoint-detail-shared';
+import { detailGridSpacing } from './endpoint-overview-utils';
 import { variableChipSx } from '../../components/endpoint-styles';
 import EndpointSdkConnectionPanel from './EndpointSdkConnectionPanel';
 
@@ -57,7 +59,7 @@ export default function EndpointConnectionTab() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <EditableSection<RestConnectionDraft>
         title="REST connection"
         initialValue={restInitial}
@@ -69,7 +71,11 @@ export default function EndpointConnectionTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <Grid container spacing={2}>
+          <Grid
+            container
+            columnSpacing={detailGridSpacing.columnSpacing(isEditing)}
+            rowSpacing={detailGridSpacing.rowSpacing(isEditing)}
+          >
             <Grid size={{ xs: 12, md: 8 }}>
               {isEditing ? (
                 <TextField
@@ -128,16 +134,15 @@ export default function EndpointConnectionTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <FormSectionDivider
+              headline="API token"
+              descriptiveText="Token will be encrypted and sent as Authorization: Bearer header"
+            />
             {isEditing ? (
               <>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Token will be encrypted and sent as{' '}
-                  <code>Authorization: Bearer &lt;token&gt;</code>. Use{' '}
+                <Typography variant="body2" color="text.secondary">
+                  Use{' '}
                   <Box
                     component="span"
                     sx={{
@@ -230,7 +235,7 @@ export default function EndpointConnectionTab() {
                 }
               />
             )}
-          </>
+          </Box>
         )}
       </EditableSection>
     </Box>

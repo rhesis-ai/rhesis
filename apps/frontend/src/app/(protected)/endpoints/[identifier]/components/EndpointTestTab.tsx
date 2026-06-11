@@ -1,39 +1,36 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Chip,
-  CircularProgress,
-  Collapse,
-  Divider,
-  Alert,
-} from '@mui/material';
+import { useState, useMemo } from 'react';
 import { LoadingButton } from '@mui/lab';
-import {
-  PlayArrowIcon,
-  ArrowRightAltIcon,
-  FileUploadIcon,
-  KeyboardArrowDownIcon,
-  KeyboardArrowUpIcon,
-} from '@/components/icons';
+import { PlayArrowIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { invokeEndpoint } from '@/actions/endpoints';
-import {
-  variableChipSx,
-  testPanelSx,
-  testPanelHeaderSx,
-  testPreviewSx,
-} from '../../components/endpoint-styles';
-import {
-  JsonPreview,
-  TemplatePreview,
-  responseMappingToPathToVar,
-} from '../../components/JsonPreview';
+import EndpointTestWorkbench from '../../components/EndpointTestWorkbench';
+import { responseMappingToPathToVar } from '../../components/JsonPreview';
+
+function extractVars(template: string): string[] {
+  const vars = new Set<string>();
+  for (const m of template.matchAll(/\{\{\s*([\w.]+)(?:\s*\|[^}]*)?\s*\}\}/g)) {
+    vars.add(m[1].split('.')[0]);
+  }
+  return [...vars];
+}
+
+function applyJsonPath(obj: unknown, path: string): unknown {
+  const cleaned = path.replace(/^\$\.?/, '');
+  if (!cleaned) return obj;
+  const parts: string[] = [];
+  const re = /([^.[]+)|\[(\d+)\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned)) !== null) parts.push(m[1] ?? m[2]);
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (cur == null || typeof cur !== 'object') return undefined;
+    cur = (cur as Record<string, unknown>)[p];
+  }
+  return cur;
+}
 
 const SENSITIVE_HEADERS = new Set(['authorization', 'x-api-key', 'api-key']);
 
@@ -45,29 +42,6 @@ function maskHeaders(headers: Record<string, string>): Record<string, string> {
       return [k, `${prefix}[hidden]`];
     })
   );
-}
-
-function buildCurl(
-  method: string,
-  url: string,
-  headers: Record<string, string>,
-  body: string
-): string {
-  const lines: string[] = [`curl -X ${method} '${url}'`];
-  for (const [k, v] of Object.entries(maskHeaders(headers)))
-    lines.push(`  -H '${k}: ${v}'`);
-  const trimmed = body.trim();
-  if (trimmed && trimmed !== '{}') {
-    const pretty = (() => {
-      try {
-        return JSON.stringify(JSON.parse(trimmed), null, 2);
-      } catch {
-        return trimmed;
-      }
-    })();
-    lines.push(`  -d '${pretty.replace(/'/g, "\\'")}'`);
-  }
-  return lines.join(' \\\n');
 }
 
 function substituteVars(
@@ -93,29 +67,28 @@ function substituteVars(
   return result;
 }
 
-const FILE_VAR_RE = /^(files?|images?)$/i;
-
-function extractVars(template: string): string[] {
-  const vars = new Set<string>();
-  for (const m of template.matchAll(/\{\{\s*([\w.]+)(?:\s*\|[^}]*)?\s*\}\}/g)) {
-    vars.add(m[1].split('.')[0]);
+function buildCurl(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: string
+): string {
+  const lines: string[] = [`curl -X ${method} '${url}'`];
+  for (const [k, v] of Object.entries(maskHeaders(headers))) {
+    lines.push(`  -H '${k}: ${v}'`);
   }
-  return [...vars];
-}
-
-function applyJsonPath(obj: unknown, path: string): unknown {
-  const cleaned = path.replace(/^\$\.?/, '');
-  if (!cleaned) return obj;
-  const parts: string[] = [];
-  const re = /([^.[]+)|\[(\d+)\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(cleaned)) !== null) parts.push(m[1] ?? m[2]);
-  let cur: unknown = obj;
-  for (const p of parts) {
-    if (cur == null || typeof cur !== 'object') return undefined;
-    cur = (cur as Record<string, unknown>)[p];
+  const trimmed = body.trim();
+  if (trimmed && trimmed !== '{}') {
+    const pretty = (() => {
+      try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2);
+      } catch {
+        return trimmed;
+      }
+    })();
+    lines.push(`  -d '${pretty.replace(/'/g, "\\'")}'`);
   }
-  return cur;
+  return lines.join(' \\\n');
 }
 
 export default function EndpointTestTab() {
@@ -141,13 +114,10 @@ export default function EndpointTestTab() {
 
   const [varValues, setVarValues] = useState<Record<string, string>>({});
   const [fileValues, setFileValues] = useState<Record<string, File[]>>({});
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [rawResponse, setRawResponse] = useState<unknown>(null);
   const [statusCode, setStatusCode] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reqExpanded, setReqExpanded] = useState(false);
-  const [resExpanded, setResExpanded] = useState(false);
 
   const resolvedHeaders = useMemo<Record<string, string>>(() => {
     const h = (endpoint.request_headers ?? {}) as Record<string, string>;
@@ -174,15 +144,6 @@ export default function EndpointTestTab() {
     requestTemplate,
     varValues,
   ]);
-
-  const rawResponseText = useMemo(() => {
-    if (!rawResponse) return '';
-    try {
-      return JSON.stringify(rawResponse, null, 2);
-    } catch {
-      return String(rawResponse);
-    }
-  }, [rawResponse]);
 
   const mappedValues = useMemo(() => {
     if (!rawResponse) return {} as Record<string, unknown>;
@@ -232,8 +193,9 @@ export default function EndpointTestTab() {
       );
       if (responseMapping.conversation_id) {
         const convId = applyJsonPath(raw, responseMapping.conversation_id);
-        if (typeof convId === 'string')
+        if (typeof convId === 'string') {
           setVarValues(prev => ({ ...prev, conversation_id: convId }));
+        }
       }
     } catch (err) {
       setError((err as Error).message);
@@ -241,25 +203,6 @@ export default function EndpointTestTab() {
       setIsTestingEndpoint(false);
     }
   };
-
-  const isSuccess = statusCode.startsWith('2');
-
-  const sectionDivider = (label: string) => (
-    <Divider sx={{ my: 2 }}>
-      <Typography
-        variant="caption"
-        sx={{
-          color: 'text.disabled',
-          fontWeight: 600,
-          fontSize: 10,
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-        }}
-      >
-        {label}
-      </Typography>
-    </Divider>
-  );
 
   return (
     <SectionCard
@@ -277,307 +220,24 @@ export default function EndpointTestTab() {
         </LoadingButton>
       }
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
-        {/* Left — request */}
-        <Box sx={testPanelSx}>
-          <Box
-            sx={{ ...testPanelHeaderSx, cursor: 'pointer', userSelect: 'none' }}
-            onClick={() => setReqExpanded(v => !v)}
-          >
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'monospace',
-                fontWeight: 700,
-                color: 'text.secondary',
-                fontSize: 11,
-                flexShrink: 0,
-              }}
-            >
-              {endpoint.method || 'POST'}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'monospace',
-                color: 'text.disabled',
-                fontSize: 11,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1,
-              }}
-            >
-              {endpoint.url}
-            </Typography>
-            {reqExpanded ? (
-              <KeyboardArrowUpIcon
-                sx={{ fontSize: 14, color: 'text.disabled', flexShrink: 0 }}
-              />
-            ) : (
-              <KeyboardArrowDownIcon
-                sx={{ fontSize: 14, color: 'text.disabled', flexShrink: 0 }}
-              />
-            )}
-          </Box>
-          <Collapse in={reqExpanded}>
-            <Box
-              component="pre"
-              sx={{
-                ...testPreviewSx,
-                minHeight: 'unset',
-                borderBottom: 1,
-                borderColor: 'divider',
-              }}
-            >
-              {curlText}
-            </Box>
-          </Collapse>
-          <Box component="pre" sx={testPreviewSx}>
-            <TemplatePreview template={requestTemplate || '{}'} />
-          </Box>
-          {sectionDivider('What Rhesis sends')}
-          <Box
-            sx={{
-              px: 2,
-              pb: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-            }}
-          >
-            {inputVars.length === 0 ? (
-              <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-                No template variables in request body.
-              </Typography>
-            ) : (
-              inputVars.map(v => (
-                <Box
-                  key={v}
-                  sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
-                >
-                  <Chip
-                    label={`{{ ${v} }}`}
-                    size="small"
-                    sx={{ ...variableChipSx, flexShrink: 0, mt: 0.5 }}
-                  />
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'text.disabled', flexShrink: 0, mt: 0.5 }}
-                  >
-                    :
-                  </Typography>
-                  {FILE_VAR_RE.test(v) ? (
-                    <>
-                      <input
-                        type="file"
-                        multiple
-                        ref={el => {
-                          fileInputRefs.current[v] = el;
-                        }}
-                        style={{ display: 'none' }}
-                        onChange={e =>
-                          setFileValues(prev => ({
-                            ...prev,
-                            [v]: Array.from(e.target.files ?? []),
-                          }))
-                        }
-                      />
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<FileUploadIcon />}
-                        onClick={() => fileInputRefs.current[v]?.click()}
-                      >
-                        {(fileValues[v]?.length ?? 0) > 0
-                          ? fileValues[v].map(f => f.name).join(', ')
-                          : 'Upload'}
-                      </Button>
-                    </>
-                  ) : (
-                    <TextField
-                      size="small"
-                      fullWidth
-                      multiline={v === 'input' || v === 'system_prompt'}
-                      maxRows={4}
-                      placeholder={
-                        v === 'conversation_id'
-                          ? 'Auto-filled from last response'
-                          : ''
-                      }
-                      value={varValues[v] ?? ''}
-                      onChange={e =>
-                        setVarValues(prev => ({ ...prev, [v]: e.target.value }))
-                      }
-                    />
-                  )}
-                </Box>
-              ))
-            )}
-          </Box>
-        </Box>
-
-        {/* Center arrow */}
-        <Box
-          sx={{
-            width: 48,
-            flexShrink: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            pt: '140px',
-          }}
-        >
-          {isTestingEndpoint ? (
-            <CircularProgress size={20} />
-          ) : (
-            <ArrowRightAltIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
-          )}
-        </Box>
-
-        {/* Right — response */}
-        <Box sx={testPanelSx}>
-          <Box
-            sx={{
-              ...testPanelHeaderSx,
-              minHeight: 36,
-              cursor: rawResponse != null ? 'pointer' : 'default',
-              userSelect: 'none',
-            }}
-            onClick={() => {
-              if (rawResponse != null) setResExpanded(v => !v);
-            }}
-          >
-            {statusCode ? (
-              <>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: isSuccess ? 'success.main' : 'error.main',
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    fontSize: 11,
-                    color: isSuccess ? 'success.main' : 'error.main',
-                    flex: 1,
-                  }}
-                >
-                  {statusCode}
-                </Typography>
-                {resExpanded ? (
-                  <KeyboardArrowUpIcon
-                    sx={{ fontSize: 14, color: 'text.disabled', flexShrink: 0 }}
-                  />
-                ) : (
-                  <KeyboardArrowDownIcon
-                    sx={{ fontSize: 14, color: 'text.disabled', flexShrink: 0 }}
-                  />
-                )}
-              </>
-            ) : (
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.disabled', fontSize: 11 }}
-              >
-                No response yet
-              </Typography>
-            )}
-          </Box>
-          <Collapse in={resExpanded}>
-            <Box
-              component="pre"
-              sx={{
-                ...testPreviewSx,
-                minHeight: 'unset',
-                borderBottom: 1,
-                borderColor: 'divider',
-              }}
-            >
-              {rawResponseText}
-            </Box>
-          </Collapse>
-          <Box component="pre" sx={testPreviewSx}>
-            {rawResponse != null ? (
-              <JsonPreview value={rawResponse} pathToVar={pathToVar} />
-            ) : (
-              <Box
-                component="span"
-                sx={{
-                  color: 'text.disabled',
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                }}
-              >
-                Run a test to see the response
-              </Box>
-            )}
-          </Box>
-          {sectionDivider('What Rhesis reads')}
-          <Box
-            sx={{
-              px: 2,
-              pb: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-            }}
-          >
-            {Object.keys(responseMapping).length === 0 ? (
-              <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-                No response mapping configured yet.
-              </Typography>
-            ) : (
-              Object.entries(responseMapping).map(([varName, path]) => {
-                const val = mappedValues[varName];
-                return (
-                  <Box
-                    key={varName}
-                    sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
-                  >
-                    <Chip
-                      label={`{{ ${varName} }}`}
-                      size="small"
-                      sx={{ ...variableChipSx, flexShrink: 0, mt: 0.5 }}
-                    />
-                    <Typography
-                      variant="body2"
-                      sx={{ color: 'text.disabled', flexShrink: 0, mt: 0.5 }}
-                    >
-                      :
-                    </Typography>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      multiline
-                      maxRows={4}
-                      value={
-                        val !== undefined
-                          ? typeof val === 'string'
-                            ? val
-                            : JSON.stringify(val, null, 2)
-                          : ''
-                      }
-                      placeholder={rawResponse ? 'not found' : path}
-                      slotProps={{ input: { readOnly: true } }}
-                    />
-                  </Box>
-                );
-              })
-            )}
-          </Box>
-        </Box>
-      </Box>
-      {error && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      )}
+      <EndpointTestWorkbench
+        method={endpoint.method || 'POST'}
+        url={endpoint.url || ''}
+        requestTemplate={requestTemplate}
+        responseMapping={responseMapping}
+        pathToVar={pathToVar}
+        inputVars={inputVars}
+        varValues={varValues}
+        onVarValuesChange={setVarValues}
+        fileValues={fileValues}
+        onFileValuesChange={setFileValues}
+        curlText={curlText}
+        rawResponse={rawResponse}
+        statusCode={statusCode}
+        mappedValues={mappedValues}
+        isTestingEndpoint={isTestingEndpoint}
+        error={error}
+      />
     </SectionCard>
   );
 }

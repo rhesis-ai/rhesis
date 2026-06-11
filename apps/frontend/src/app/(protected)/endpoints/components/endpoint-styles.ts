@@ -6,13 +6,9 @@ export const variableChipSx = {
   fontFamily: 'monospace',
   fontSize: 11,
   height: 22,
-  bgcolor: (t: Theme) =>
-    t.palette.mode === 'light'
-      ? alpha(t.palette.primary.main, 0.08)
-      : alpha(t.palette.primary.main, 0.18),
-  color: 'primary.main',
-  border: 1,
-  borderColor: 'transparent',
+  bgcolor: (t: Theme) => t.palette.greyscale.surface1,
+  color: (t: Theme) => t.palette.greyscale?.body ?? t.palette.text.primary,
+  border: 'none',
   '& .MuiChip-label': { px: 1 },
 };
 
@@ -23,44 +19,38 @@ export const insertableVariableChipSx = {
   '&:hover': {
     bgcolor: (t: Theme) =>
       t.palette.mode === 'light'
-        ? alpha(t.palette.primary.main, 0.16)
-        : alpha(t.palette.primary.main, 0.28),
-    borderColor: 'primary.main',
+        ? alpha(t.palette.greyscale?.body ?? '#2a2e36', 0.08)
+        : alpha(t.palette.greyscale?.body ?? '#c9d1d9', 0.12),
   },
 };
 
-// Shared layout for the side-by-side request/response panels in test tabs
-export const testPanelSx = {
-  flex: 1,
-  border: 1,
-  borderColor: 'divider',
-  borderRadius: BORDER_RADIUS.sm,
-  overflow: 'hidden',
-  display: 'flex',
-  flexDirection: 'column' as const,
-  minWidth: 0,
-};
-
-export const testPanelHeaderSx = {
-  px: 2,
-  py: 1,
-  borderBottom: 1,
-  borderColor: 'divider',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 1,
+/** Read-only / preview content block (Figma fieldSurface) */
+export const fieldSurfaceBoxSx = {
+  bgcolor: (t: Theme) => t.palette.greyscale.fieldSurface,
+  borderRadius: BORDER_RADIUS.xs,
+  pl: '16px',
+  pr: '12px',
+  py: '16px',
 };
 
 export const testPreviewSx = {
-  p: 2,
+  ...fieldSurfaceBoxSx,
   fontFamily: 'monospace',
   fontSize: 12,
-  color: 'text.secondary',
+  color: (t: Theme) => t.palette.greyscale.body,
   whiteSpace: 'pre-wrap' as const,
   wordBreak: 'break-word' as const,
   overflowY: 'auto' as const,
-  bgcolor: 'background.default',
-  minHeight: 180,
+  minHeight: 120,
   maxHeight: 280,
   m: 0,
+};
+
+/** Editable Monaco / JSON editor container */
+export const editorContainerSx = {
+  border: 1,
+  borderColor: (t: Theme) => t.palette.greyscale.border,
+  borderRadius: BORDER_RADIUS.xs,
+  bgcolor: (t: Theme) => t.palette.greyscale.fieldSurface,
+  overflow: 'hidden' as const,
 };

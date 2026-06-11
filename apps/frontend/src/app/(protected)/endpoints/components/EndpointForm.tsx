@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Box, Tab, Tabs, Alert } from '@mui/material';
+import { Box, Alert } from '@mui/material';
+import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import ActionBar from '@/components/common/ActionBar';
 import { useSession } from 'next-auth/react';
@@ -48,6 +49,13 @@ const DEFAULT_REQ_BODY =
   '{\n  "input": "{{ input }}",\n  "messages": "{{ messages | tojson }}",\n  "conversation_id": "{{ conversation_id }}",\n  "files": "{{ files | to_openai | tojson }}"\n}';
 
 const DEFAULT_RES_BODY = '{\n  "output": "$.choices[0].message.content"\n}';
+
+const CREATE_TABS = [
+  { key: 'basics', label: 'Basics' },
+  { key: 'headers', label: 'Headers' },
+  { key: 'mapping', label: 'Mapping' },
+  { key: 'test', label: 'Test' },
+] as const;
 
 function validateUrl(url: string) {
   try {
@@ -340,37 +348,32 @@ export default function EndpointForm() {
       projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
     );
 
+  const navTabs = CREATE_TABS.map((tab, index) => ({
+    key: tab.key,
+    label: tab.label,
+    id: `endpoint-tab-${index}`,
+    'aria-controls': `endpoint-tabpanel-${index}`,
+  }));
+
   return (
-    <Box>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(_e, v) => setActiveTab(v)}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
+      <Box sx={{ mb: 3 }}>
+        <DetailTabNav
+          tabs={navTabs}
+          activeIndex={activeTab}
+          onChange={setActiveTab}
           aria-label="endpoint creation tabs"
-        >
-          <Tab
-            label="Basics"
-            id="endpoint-tab-0"
-            aria-controls="endpoint-tabpanel-0"
-          />
-          <Tab
-            label="Headers"
-            id="endpoint-tab-1"
-            aria-controls="endpoint-tabpanel-1"
-          />
-          <Tab
-            label="Mapping"
-            id="endpoint-tab-2"
-            aria-controls="endpoint-tabpanel-2"
-          />
-          <Tab
-            label="Test"
-            id="endpoint-tab-3"
-            aria-controls="endpoint-tabpanel-3"
-          />
-        </Tabs>
+        />
       </Box>
 
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
       <DetailTabPanel value={activeTab} index={0} prefix="endpoint">
         <TabBasics
           formData={formData}
@@ -421,8 +424,15 @@ export default function EndpointForm() {
           <Alert severity="error">{error}</Alert>
         </Box>
       )}
+      </Box>
 
       <ActionBar
+        sx={{
+          borderTop: 0,
+          bgcolor: 'transparent',
+          position: 'relative',
+          flexShrink: 0,
+        }}
         leftButton={{
           label: 'Cancel',
           onClick: handleCancel,

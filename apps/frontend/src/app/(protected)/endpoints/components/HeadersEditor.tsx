@@ -5,7 +5,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import type { OnMount } from '@monaco-editor/react';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { editorContainerSx } from './endpoint-styles';
 
 // Shared with RequestBodyEditor — colours {{ ... }} tokens inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -31,14 +31,11 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   loading: () => (
     <Box
       sx={{
+        ...editorContainerSx,
         height: '140px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: BORDER_RADIUS.sm,
-        bgcolor: 'background.default',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -230,11 +227,7 @@ export default function HeadersEditor({
   return (
     <Box
       sx={{
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: BORDER_RADIUS.sm,
-        overflow: 'hidden',
-        '&:hover': { borderColor: 'text.primary' },
+        ...editorContainerSx,
         '&:focus-within': {
           outline: '2px solid',
           outlineColor: 'primary.main',

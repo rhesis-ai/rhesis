@@ -20,9 +20,12 @@ import {
 import { LoadingButton } from '@mui/lab';
 import { PlayArrowIcon, CheckIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { alpha, type Theme } from '@mui/material/styles';
-import { insertableVariableChipSx } from './endpoint-styles';
+import {
+  insertableVariableChipSx,
+  testPreviewSx,
+} from './endpoint-styles';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -613,33 +616,22 @@ export default function TestAndMap({
     py: '1px',
   };
 
-  const panelSx = {
-    border: 1,
-    borderColor: 'divider',
-    borderRadius: BORDER_RADIUS.md,
-    mb: 2,
-  };
-
-  const panelHeaderSx = {
-    px: 2.5,
-    py: 1.5,
-    borderBottom: 1,
-    borderColor: 'divider',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 1.5,
-  };
-
-  const panelBodySx = { p: 2.5 };
-
   return (
-    <Box>
-      {/* ── 1. Map the request body ── */}
-      <Box sx={panelSx}>
-        <Box sx={panelHeaderSx}>
-          <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            Request body
-          </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <Box>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          <FormSectionDivider
+            headline="Request body"
+            descriptiveText="Define the JSON body Rhesis sends with each test. Place {{ input }} where your API expects the prompt."
+          />
           <LoadingButton
             variant="contained"
             size="small"
@@ -647,34 +639,25 @@ export default function TestAndMap({
             loading={isTestingEndpoint}
             loadingPosition="start"
             startIcon={<PlayArrowIcon />}
+            sx={{ flexShrink: 0, mt: 0.5 }}
           >
             Test
           </LoadingButton>
         </Box>
-        <Box sx={panelBodySx}>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
-            Define the JSON body Rhesis sends with each test. Place{' '}
-            <Box component="code" sx={inlineCode}>
-              {'{{ input }}'}
-            </Box>{' '}
-            where your API expects the prompt and add any fixed fields your
-            endpoint needs.
-          </Typography>
-          <RequestBodyEditor
-            value={requestTemplate}
-            onChange={handleEditorChange}
-            variables={REQUEST_VARIABLES}
-            layout="bottom"
-          />
-        </Box>
+        <RequestBodyEditor
+          value={requestTemplate}
+          onChange={handleEditorChange}
+          variables={REQUEST_VARIABLES}
+          layout="bottom"
+        />
       </Box>
 
-      {/* ── 2. Map response ── */}
-      <Box sx={panelSx}>
-        <Box sx={panelHeaderSx}>
-          <Typography variant="subtitle2">Response</Typography>
-        </Box>
-        <Box sx={panelBodySx}>
+      <Box>
+        <FormSectionDivider
+          headline="Response"
+          descriptiveText="Run a test, then click any key in the response to map it to a Rhesis variable."
+        />
+        <Box sx={{ mt: 2 }}>
           {testResponse ? (
             <>
               <Typography
@@ -702,21 +685,9 @@ export default function TestAndMap({
                 <Box
                   component="pre"
                   sx={{
-                    m: 0,
-                    p: 1.5,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: BORDER_RADIUS.sm,
-                    bgcolor: 'background.paper',
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    lineHeight: 1.8,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    overflowX: 'auto',
-                    color: 'text.secondary',
+                    ...testPreviewSx,
                     maxHeight: 400,
-                    overflowY: 'auto',
+                    lineHeight: 1.8,
                   }}
                 >
                   <JsonTree
@@ -729,21 +700,7 @@ export default function TestAndMap({
                   />
                 </Box>
               ) : (
-                <Box
-                  component="pre"
-                  sx={{
-                    m: 0,
-                    p: 1.5,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: BORDER_RADIUS.sm,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: 'text.secondary',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}
-                >
+                <Box component="pre" sx={testPreviewSx}>
                   {testResponse}
                 </Box>
               )}
@@ -765,7 +722,7 @@ export default function TestAndMap({
         </Box>
       </Box>
 
-      {/* ── Key mapping popover ── */}
+      {/* Key mapping popover */}
       <Popover
         open={Boolean(popoverAnchor)}
         anchorEl={popoverAnchor}

@@ -10,7 +10,11 @@ export default function NewEndpointPage() {
   ];
 
   return (
-    <PageLayout title="Create New Endpoint" breadcrumbs={breadcrumbs}>
+    <PageLayout
+      title="Create New Endpoint"
+      breadcrumbs={breadcrumbs}
+      fullHeight
+    >
       <EndpointForm />
     </PageLayout>
   );
