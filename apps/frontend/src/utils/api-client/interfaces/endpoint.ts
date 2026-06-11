@@ -78,8 +78,6 @@ export interface Endpoint {
 
   // Note: auth_token, client_secret, last_token are write-only fields
   // They can be set during create/update but are never returned in responses
-  auth_token?: string;
-  client_secret?: string;
 }
 
 // Type for editing endpoints - includes write-only fields
