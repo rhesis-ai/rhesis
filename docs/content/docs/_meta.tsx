@@ -79,7 +79,9 @@ const meta: MetaRecord = {
   },
 
   architect: 'Architect',
+  'agent-skill': 'Agent Skill',
   organizations: 'Organizations & Team',
+  deployment: 'Deployment',
 
   '---define': {
     type: 'separator',
@@ -120,7 +122,6 @@ const meta: MetaRecord = {
   'results-overview': 'Insights',
   'test-runs': 'Test Runs',
   experiments: 'Experiments',
-  tracing: 'Traces',
   tasks: 'Tasks',
 
   '---connect': {
@@ -132,14 +133,12 @@ const meta: MetaRecord = {
       </span>
     ),
   },
+  tracing: 'Traces',
   endpoints: 'Endpoints',
   mcp: 'MCP',
   models: 'Models',
-  'agent-skill': 'Agent Skill',
   integrations: 'Integrations',
-  deployment: 'Deployment',
-  frameworks: 'Frameworks',
-  'api-tokens': 'API',
+  'api-tokens': 'API Tokens',
 
   '---bottom': {
     type: 'separator',
