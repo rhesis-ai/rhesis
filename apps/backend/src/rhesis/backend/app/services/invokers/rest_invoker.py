@@ -46,6 +46,11 @@ def _get_http_client() -> httpx.AsyncClient:
     stored_loop = getattr(_tls, "http_client_loop", None)
 
     if client is None or client.is_closed or stored_loop is not current_loop:
+        if client is not None and not client.is_closed and current_loop is not None:
+            try:
+                current_loop.create_task(client.aclose())
+            except Exception:
+                pass
         client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
         _tls.http_client = client
         _tls.http_client_loop = current_loop
@@ -72,6 +77,7 @@ def _close_thread_local_client() -> None:
             pass
         finally:
             _tls.http_client = None
+            _tls.http_client_loop = None
 
 
 class RestEndpointInvoker(BaseEndpointInvoker):
