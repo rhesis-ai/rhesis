@@ -5,6 +5,7 @@ const meta: MetaRecord = {
   'setup-environment': 'Setup Environment',
   'connecting-application': 'Connect Application',
   'run-evaluations': 'Run Evaluations',
+  projects: 'Projects',
 }
 
 export default meta;

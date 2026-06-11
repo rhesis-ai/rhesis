@@ -188,6 +188,7 @@ BACKEND_ENV=development
 LOG_LEVEL=DEBUG
 
 # URLs
+API_BASE_URL=http://localhost:8080
 FRONTEND_URL=http://localhost:3000
 BACKEND_URL=http://localhost:8080
 

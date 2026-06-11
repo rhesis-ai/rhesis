@@ -23,6 +23,9 @@ langgraph = [
     "langchain>=0.1.0",
     "langchain-core>=1.3.3",
 ]
+crewai = [
+    "crewai[google-genai]>=0.108.0",
+]
 
 [tool.uv]
 exclude-newer = "1 week"
