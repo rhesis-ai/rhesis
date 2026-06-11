@@ -33,13 +33,12 @@ from tests.backend.fixtures.test_setup import (
 fake = Faker()
 
 
-def _mock_rhesis_settings(base_url: str):
-    return lambda: Mock(base_url=base_url)
-
-
-def _mock_application_settings(backend_env: str = "development"):
+def _mock_application_settings(
+    backend_env: str = "development",
+    api_base_url: str = "https://api.rhesis.ai",
+):
     env = backend_env.lower()
-    settings = Mock(backend_env=env)
+    settings = Mock(backend_env=env, api_base_url=api_base_url)
     settings.is_local = env == "local"
     settings.is_development = env != "production"
     settings.is_production = env == "production"
@@ -1506,10 +1505,6 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("local"),
     )
@@ -1531,10 +1526,6 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("local"),
     )
@@ -1551,11 +1542,11 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("http://localhost:8080"),
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings(api_base_url="http://localhost:8080"),
     )
-    def test_rhesis_base_url_localhost_uses_localhost(self, mock_qs):
-        """RHESIS_BASE_URL with localhost returns localhost callback."""
+    def test_api_base_url_localhost_uses_localhost(self, mock_qs):
+        """API_BASE_URL with localhost returns localhost callback."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="localhost", port=8080)
@@ -1570,10 +1561,6 @@ class TestGetCallbackUrl:
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
     )
     @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
@@ -1597,10 +1584,6 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("local"),
     )
@@ -1617,15 +1600,11 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("production"),
     )
-    def test_production_uses_rhesis_base_url(self, mock_qs):
-        """Production (no local signals) uses RHESIS_BASE_URL."""
+    def test_production_uses_api_base_url(self, mock_qs):
+        """Production (no local signals) uses API_BASE_URL."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(
@@ -1641,15 +1620,11 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("production"),
     )
     def test_spoofed_localhost_host_header_uses_base_url(self, mock_qs):
-        """Spoofed Host: localhost in production uses RHESIS_BASE_URL."""
+        """Spoofed Host: localhost in production uses API_BASE_URL."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(
@@ -1665,15 +1640,11 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("production"),
     )
     def test_spoofed_evil_host_header_uses_base_url(self, mock_qs):
-        """Spoofed Host: evil.com in production uses RHESIS_BASE_URL."""
+        """Spoofed Host: evil.com in production uses API_BASE_URL."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(
@@ -1689,15 +1660,11 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("https://api.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
         new=_mock_application_settings("production"),
     )
     def test_localhost_attacker_com_uses_base_url(self, mock_qs):
-        """localhost.attacker.com bypass attempt uses RHESIS_BASE_URL."""
+        """localhost.attacker.com bypass attempt uses API_BASE_URL."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(
@@ -1713,12 +1680,11 @@ class TestGetCallbackUrl:
         return_value=False,
     )
     @patch(
-        "rhesis.backend.app.routers.auth.get_rhesis_settings",
-        new=_mock_rhesis_settings("http://staging.rhesis.ai"),
-    )
-    @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("production"),
+        new=_mock_application_settings(
+            "production",
+            api_base_url="http://staging.rhesis.ai",
+        ),
     )
     def test_http_to_https_rewrite_for_non_localhost(self, mock_qs):
         """HTTP base URL for non-localhost gets rewritten to HTTPS."""
@@ -1731,3 +1697,31 @@ class TestGetCallbackUrl:
         )
         url = get_callback_url(request)
         assert url == "https://staging.rhesis.ai/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"RHESIS_BASE_URL": "https://api.rhesis.ai"},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings(
+            "production",
+            api_base_url="https://self-hosted.example.com",
+        ),
+    )
+    def test_hybrid_split_uses_api_base_url_not_rhesis(self, mock_qs):
+        """Hybrid setup: OAuth uses API_BASE_URL, not RHESIS_BASE_URL."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="self-hosted.example.com",
+            port=443,
+            headers={"host": "self-hosted.example.com"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://self-hosted.example.com/auth/callback"

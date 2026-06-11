@@ -28,7 +28,6 @@ from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
-    get_rhesis_settings,
 )
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
@@ -165,12 +164,12 @@ def _get_sso_callback_url(request: Request) -> str:
     """Build the SSO callback URL."""
     from rhesis.backend.app.routers.auth import is_running_locally
 
-    rhesis_base_url = get_rhesis_settings().base_url
+    api_base_url = get_application_settings().api_base_url
 
-    if is_running_locally() and not rhesis_base_url:
+    if is_running_locally() and not api_base_url:
         base_url = str(request.base_url).rstrip("/")
-    elif rhesis_base_url:
-        base_url = rhesis_base_url.rstrip("/")
+    elif api_base_url:
+        base_url = api_base_url.rstrip("/")
     else:
         base_url = str(request.base_url).rstrip("/")
 
