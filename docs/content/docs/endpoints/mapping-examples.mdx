@@ -73,7 +73,7 @@ function/tool call data if your model uses tool calling.
   instead to let Rhesis manage the full conversation history automatically. The
   response mapping stays the same. See the
   [Stateless Endpoint example](#stateless-conversation-endpoint) below or
-  [Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  [Multi-Turn Conversations](/docs/endpoints/request-mapping#stateless-endpoints)
   for details.
 </Callout>
 
@@ -113,7 +113,7 @@ Anthropic returns the response in `content[0].text` rather than
   **Multi-turn conversations**: Like OpenAI, the Anthropic API is stateless.
   Replace the hardcoded `messages` array with `"messages": "{{ messages }}"` to
   let Rhesis manage conversation history across multiple turns. See
-  [Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  [Multi-Turn Conversations](/docs/endpoints/request-mapping#stateless-endpoints)
   for details.
 </Callout>
 
@@ -161,14 +161,14 @@ applicable.
   multi-turn testing, replace the hardcoded `contents` array with
   `"contents": "{{ messages }}"` to let Rhesis manage the conversation
   history. See
-  [Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  [Multi-Turn Conversations](/docs/endpoints/request-mapping#stateless-endpoints)
   for details.
 </Callout>
 
 ## File Attachments
 
 When tests include file attachments (images, PDFs, or other documents), use the
-built-in [file format filters](/docs/endpoints/single-turn#file-format-filters)
+built-in [file format filters](/docs/endpoints/request-mapping#file-format-filters)
 to convert them into the format your provider expects. The `files` variable
 contains an array of file objects with `filename`, `content_type`, and `data`
 (base64-encoded content).
@@ -188,7 +188,7 @@ contains an array of file objects with `filename`, `content_type`, and `data`
 }`}
 </CodeBlock>
 
-The `to_anthropic` filter converts images to `\{"type": "image", "source": \{"type": "base64", ...\}\}` blocks and PDFs to `\{"type": "document", ...\}` blocks.
+The `to_anthropic` filter converts images to `\{"type": "image", "source": \{"type": "base64", ...}}` blocks and PDFs to `\{"type": "document", ...\}` blocks.
 
 ### OpenAI with Files
 
@@ -204,7 +204,7 @@ The `to_anthropic` filter converts images to `\{"type": "image", "source": \{"ty
 }`}
 </CodeBlock>
 
-The `to_openai` filter converts each file to `\{"type": "image_url", "image_url": \{"url": "data:...;base64,..."\}\}`.
+The `to_openai` filter converts each file to `\{"type": "image_url", "image_url": \{"url": "data:...;base64,..."}}`.
 
 ### Google Gemini with Files
 
@@ -223,7 +223,7 @@ The `to_openai` filter converts each file to `\{"type": "image_url", "image_url"
 }`}
 </CodeBlock>
 
-The `to_gemini` filter converts each file to `\{"inline_data": \{"mime_type": "...", "data": "..."\}\}`.
+The `to_gemini` filter converts each file to `\{"inline_data": \{"mime_type": "...", "data": "..."}}`.
 
 <Callout type="info">
   Response mappings remain the same whether or not files are attached. The
@@ -304,7 +304,7 @@ identifier.
 
 On the first turn, `conversation_id` renders as `null`. The API returns a new
 conversation ID, which Rhesis automatically includes in subsequent requests.
-See [Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations)
+See [Multi-Turn Conversations](/docs/endpoints/request-mapping#multi-turn-conversations)
 for details.
 
 ## Stateless Conversation Endpoint
@@ -336,7 +336,7 @@ LLM provider APIs).
 Rhesis detects the `messages` variable and manages conversation history
 internally. The `system_prompt` is prepended to the messages array and removed
 from the request body before sending. See
-[Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations) for
+[Multi-Turn Conversations](/docs/endpoints/request-mapping#multi-turn-conversations) for
 details.
 
 ## Test Execution Context
@@ -513,10 +513,7 @@ The mapping works the same regardless of transport protocol (REST or WebSocket).
 
 <Callout type="default">
   **Next Steps**
-  - Learn about [Single-Turn Endpoints](/docs/endpoints/single-turn) for
-    template syntax details
-  - Configure [Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations)
-    for conversational testing
-  - Explore [SDK Endpoints](/docs/endpoints/sdk-endpoints) for code-first
-    endpoint definition
+  - See [Request Mapping](/docs/endpoints/request-mapping) for template syntax and filters
+  - See [Multi-Turn Conversations](/docs/endpoints/request-mapping#multi-turn-conversations) for conversational patterns
+  - See [Response Mapping](/docs/endpoints/response-mapping) for extraction details
 </Callout>

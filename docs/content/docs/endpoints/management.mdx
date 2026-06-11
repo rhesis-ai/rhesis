@@ -2,35 +2,34 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Managing Endpoints
 
-## Testing Your Endpoint
+## Testing an Endpoint
 
-Before running full test suites, verify your endpoint configuration works correctly. Navigate to the **Test Connection** tab, enter sample input data, and click **Test Endpoint**. Review the response to ensure it returns expected data.
+Open an endpoint and go to the **Test** tab to send a live request and verify your configuration before running full test suites.
 
-<img src="/screenshots/rhesis-ai-endpoint-test-connection.png" alt="Test Connection" className="screenshot" />
+Rhesis reads your request body template and generates a fill-in row for each detected variable (`input`, `files`, `image`, etc.). Variables of type `files` or `image` show a file upload input instead of a text field.
 
-## Modifying Endpoints
+Click **Test** to send the request. A collapsible request preview shows the fully-rendered HTTP request — method, URL, headers, and body — with auth values masked.
 
-### Viewing Endpoints
+After a successful response, the JSON tree is clickable. Click any key to map it to an output variable (`output`, `context`, `metadata`, etc.). The mapping is saved to the endpoint's response mapping automatically.
 
-The Endpoints page displays all your configured endpoints organized by project. Each entry shows the project icon and name, the endpoint name, the protocol (REST or WebSocket), and the environment (development, staging, or production). Click any endpoint to view its full configuration and execution history.
+<Callout type="info">
+  The response mapping you build here is the same one used during test runs. You can also edit it directly in the **Overview** tab.
+</Callout>
 
-### Editing Endpoints
+## Endpoint Detail Tabs
 
-Open the endpoint details page, click **Edit**, modify any configuration fields, and click **Save**. Changes take effect immediately for new test runs.
-
-### Copy endpoints
-
-Easy functionality to copy the configurations of an existing to a new one.
-
-To create a copy of an existing endpoint, open the endpoint details page and click **Duplicate**. Rhesis creates a new endpoint with the same configuration and appends "(Copy)" to the name. You can also select multiple endpoints from the grid and duplicate them in bulk.
-
-From the endpoint details page, you can also navigate to the **Playground** to interact freely with the endpoint.
+| Tab | Description |
+|---|---|
+| **Overview** | Name, URL, protocol, method, request body template, and response mapping |
+| **Headers** | Authentication token and custom request headers |
+| **Test** | Interactive test-and-map workbench |
+| **Test Runs** | History of test runs executed against this endpoint |
 
 ## Exploring an Endpoint Programmatically
 
-External agents and API clients can launch an async Penelope exploration with `POST /endpoints/{endpoint_id}/explore`. Use this when you want endpoint capability discovery outside the web Architect chat, for example from an MCP client or automation script.
+External agents and API clients can launch an async Penelope exploration with `POST /endpoints/{endpoint_id}/explore`. Use this when you want endpoint capability discovery outside the web Architect chat — for example from an MCP client or automation script.
 
-The route validates that the endpoint belongs to the current tenant, starts a Celery task, and returns a `task_id`. Poll `GET /jobs/{task_id}` until the job reaches `SUCCESS`; the job result contains the exploration findings, conversation summary, strategy, duration, and endpoint ID.
+The route validates that the endpoint belongs to the current tenant, starts a Celery task, and returns a `task_id`. Poll `GET /jobs/{task_id}` until the job reaches `SUCCESS`; the result contains the exploration findings, conversation summary, strategy, duration, and endpoint ID.
 
 <CodeBlock filename="explore-endpoint.sh" language="bash">
 {`curl -X POST "https://api.rhesis.ai/api/v1/endpoints/00000000-0000-0000-0000-000000000000/explore" \
@@ -70,37 +69,31 @@ Provide either `strategy` or a non-empty `goal`.
 Select one or more endpoints from the grid and click **Delete**.
 
 <Callout type="warning">
-  **Important**: Deleting an endpoint does not delete associated test
-  configurations or historical test results. Your test data remains intact, but
-  you cannot execute new tests with a deleted endpoint.
+  Deleting an endpoint does not delete associated test configurations or historical test results. Your test data remains intact, but you cannot execute new tests against a deleted endpoint.
 </Callout>
 
 ## Using Endpoints in Tests
 
 ### Executing Test Sets
 
-When you run a test set, select which endpoint to execute it against, configure the execution mode (parallel or sequential), and click **Run Tests**. Rhesis sends each test's prompt through the endpoint and evaluates responses against your configured metrics.
+Select an endpoint, configure the execution mode (parallel or sequential), and click **Run Tests**. Rhesis sends each test prompt through the endpoint and evaluates responses against your metrics.
 
 ### Multiple Endpoints
 
-Creating multiple endpoints opens up powerful testing scenarios. You can run the same tests against different AI models to compare their performance, set up separate endpoints for each environment to validate changes before production deployment, configure A/B tests to compare response quality across different settings, or use different endpoints for load and performance testing. Each test run is independent, allowing you to analyze differences in behavior, quality, and performance across your various configurations.
+Run identical tests against different endpoints to compare models, environments, or configurations. Each test run is independent, so differences in behavior and quality are easy to analyze side by side.
 
 ## Disabling Tracing
 
-Each endpoint has a **Disable tracing** toggle available in both the creation form and the endpoint detail page. When this option is turned on, invocations to the endpoint will not generate traces or telemetry data. The tracing status is displayed as a chip (Enabled or Disabled) on the endpoint detail page.
+Each endpoint has a **Disable tracing** toggle available in both the creation form and the detail page. When on, invocations skip trace and telemetry collection. Tracing is enabled by default.
 
-This is useful when you want to call an endpoint during test runs without collecting trace data, for example when the endpoint already emits its own telemetry or when tracing would add unwanted overhead.
-
-By default, tracing is enabled on all endpoints.
+Useful when the endpoint already emits its own telemetry or when tracing overhead is unwanted.
 
 ## Environment Management
 
 Organize endpoints by environment to match your deployment workflow.
 
-**Development** endpoints typically point to local or development servers where you can iterate quickly, debug issues, and test configuration changes without any risk to production systems.
+- **Development** — Local or dev servers. Safe for rapid iteration and configuration changes.
+- **Staging** — Pre-production systems for validation and integration testing before promotion.
+- **Production** — Live production APIs. Use for regression testing and quality monitoring; modify with care.
 
-**Staging** endpoints connect to pre-production systems for validation, integration testing, and performance verification before promoting changes to production.
-
-**Production** endpoints represent live production APIs. Use these for regression testing and quality monitoring of your deployed AI systems. These endpoints require extra care when modifying.
-
-Environment tags help you quickly identify which endpoints are production-critical and which are safe for experimentation.
+Environment tags are shown on the Endpoints grid so you can quickly spot production-critical endpoints.

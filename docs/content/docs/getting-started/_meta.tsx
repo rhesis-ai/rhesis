@@ -6,6 +6,7 @@ const meta: MetaRecord = {
   'connecting-application': 'Connect Application',
   'run-evaluations': 'Run Evaluations',
   projects: 'Projects',
+  'default-chatbot': 'Default Chatbot (Rosalind)',
 }
 
 export default meta;

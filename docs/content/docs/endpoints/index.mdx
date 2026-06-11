@@ -8,55 +8,34 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Endpoints
 
-Configure and manage API endpoints that your tests execute against.
+An endpoint is how Rhesis connects to your AI model or application to send test inputs and evaluate responses.
 
-<Callout type="default">
-  **What are Endpoints?** Endpoints represent the AI services or APIs that you
-  want to test. They define how Rhesis connects to your application, sends test
-  inputs, and receives responses for evaluation.
-</Callout>
+There are two ways to set one up depending on how your model is exposed:
 
-## Why Endpoints?
+- **REST or WebSocket** — your model is behind an HTTP API. You configure the URL, authentication, and request/response mappings [directly in the platform](/docs/endpoints/creating-endpoints). This is the most common case.
+- **SDK** — your model is a Python function with no HTTP layer. You register it as an endpoint using the `@endpoint` decorator from the Rhesis SDK. See [SDK Endpoints](/docs/endpoints/sdk-endpoints).
 
-Endpoints enable you to test AI applications without hardcoding API details into every test. They provide:
-
-- **Reusability**: Configure once, use across hundreds of tests
-- **Flexibility**: Switch between models, environments, or providers without changing tests
-- **Comparison**: Run identical tests against different endpoints to compare performance
-- **Version Control**: Track configuration changes and their impact on test results
-- **Security**: Centralize API keys and credentials in one place
-
-## Understanding Endpoints
-
-An endpoint in Rhesis is a complete configuration for calling an external API. When you run tests, Rhesis:
-
-1. Takes your test prompt or input
-2. Formats it according to your endpoint's request template
-3. Sends the request to your API
-4. Receives the response
-5. Evaluates the response against your metrics
-
-Think of endpoints as the bridge between your tests and the AI system you're evaluating.
+Once configured, an endpoint can be reused across any number of tests and test sets. You can also run the same tests against multiple endpoints to compare models, environments, or configurations.
 
 ## Platform-Managed Variables
 
-Rhesis uses a set of platform-managed variables to standardize communication between your tests and your API. You map these variables to the fields your endpoint expects (in request templates) and the fields your endpoint returns (in response mappings). This abstraction lets Rhesis work with any API regardless of its specific field names.
+Rhesis populates these variables at runtime; you reference them in request templates and extract them in response mappings.
 
 ### Request Variables
 
-These variables are available in your request body templates using Jinja2 syntax (`\{\{ variable \}\}`). Rhesis populates them automatically when running tests.
+Available in request body templates via Jinja2 syntax (`{{ variable }}`).
 
-| Variable | Required | Description |
-|---|---|---|
-| `input` | Yes | The user query or test prompt. This is the primary text sent to your AI endpoint. |
-| `files` | No | Array of file attachments included with the test. Each file is an object with `filename`, `content_type`, and `data` (base64-encoded). Use [file format filters](/docs/endpoints/single-turn#file-format-filters) to convert files into provider-specific formats. |
-| `conversation_id` | No | Conversation tracking identifier for multi-turn endpoints (both stateful and stateless). Rhesis uses this to track conversations across turns. |
-| `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
-| `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
-| `params` | No | Resolved [experiment parameters](/docs/experiments) for the current test run. Access individual values with dot notation: `\{\{ params.model \}\}`, `\{\{ params.temperature \}\}`. Only populated when the test run is associated with an experiment; empty dict otherwise. See [Using Experiment Parameters](#using-experiment-parameters) below. |
-| `test_id` | No | Unique identifier of the test being executed. Only populated during test runs; renders as an empty string otherwise. Place it wherever your API expects it -- see [Test Execution Context](/platform/endpoints/mapping-examples#test-execution-context) for examples. |
-| `test_run_id` | No | Unique identifier of the current test run. Only populated during test runs; renders as an empty string otherwise. |
-| `test_configuration_id` | No | Unique identifier of the test configuration driving the run. Only populated during test runs; renders as an empty string otherwise. |
+| Variable | Description |
+|---|---|
+| `input` | The user query or test prompt. This is the primary text sent to your AI endpoint. |
+| `files` | Array of file attachments included with the test. Each file is an object with `filename`, `content_type`, and `data` (base64-encoded). Use [file format filters](/docs/endpoints/request-mapping#file-format-filters) to convert files into provider-specific formats. |
+| `conversation_id` | Conversation tracking identifier for multi-turn endpoints (both stateful and stateless). Rhesis uses this to track conversations across turns. |
+| `messages` | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
+| `system_prompt` | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
+| `params` | Resolved [experiment parameters](/docs/experiments) for the current test run. Access individual values with dot notation: `{{ params.model }}`, `{{ params.temperature }}`. Only populated when the test run is associated with an experiment; empty dict otherwise. See [Using Experiment Parameters](#using-experiment-parameters) below. |
+| `test_id` | Unique identifier of the test being executed. Only populated during test runs; renders as an empty string otherwise. Place it wherever your API expects it — see [Test Execution Context](/docs/endpoints/mapping-examples#test-execution-context) for examples. |
+| `test_run_id` | Unique identifier of the current test run. Only populated during test runs; renders as an empty string otherwise. |
+| `test_configuration_id` | Unique identifier of the test configuration driving the run. Only populated during test runs; renders as an empty string otherwise. |
 
 <Callout type="info">
   Provider-specific Jinja filters such as `to_anthropic`, `to_openai`, and `to_gemini` are documented in
@@ -65,15 +44,15 @@ These variables are available in your request body templates using Jinja2 syntax
 
 ### Response Variables
 
-These variables are extracted from your API response using JSONPath or Jinja2 expressions in the response mapping. Rhesis uses them for evaluation, display, and conversation tracking.
+Extracted from your API response using JSONPath or Jinja2 expressions in the response mapping.
 
-| Variable | Required | Description |
-|---|---|---|
-| `output` | Yes | The main response text from your API. This is what Rhesis evaluates against your metrics. |
-| `context` | No | Additional context or reasoning provided by the response (e.g., retrieved documents, sources). |
-| `metadata` | No | Structured data about the response (e.g., model version, token counts, confidence scores). Stored with the test result and available to [custom metrics](/docs/metrics#using-metadata-in-evaluation) during evaluation. |
-| `tool_calls` | No | Tool or function calls made by the API during response generation (e.g., function calls, API lookups). Stored with the test result and available to metrics that evaluate tool use. |
-| Conversation ID fields | For conversational | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Map one of these for both stateful and stateless multi-turn endpoints so Rhesis can track conversations across turns. |
+| Variable | Description |
+|---|---|
+| `output` | The main response text from your API. This is what Rhesis evaluates against your metrics. |
+| `context` | Additional context or reasoning provided by the response (e.g., retrieved documents, sources). |
+| `metadata` | Structured data about the response (e.g., model version, token counts, confidence scores). Stored with the test result and available to [custom metrics](/docs/metrics#using-metadata-in-evaluation) during evaluation. |
+| `tool_calls` | Tool or function calls made by the API during response generation. Stored with the test result and available to metrics that evaluate tool use. |
+| Conversation ID fields | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Map one of these for multi-turn endpoints so Rhesis can track conversations across turns. |
 
 <Callout type="info">
   You can include additional custom fields in both request templates and response
@@ -81,35 +60,7 @@ These variables are extracted from your API response using JSONPath or Jinja2 ex
   actively use them for evaluation or conversation management.
 </Callout>
 
-### How Mapping Works
-
-Request and response mappings tell Rhesis how to translate between its standard variables and your API's specific field names.
-
-**Request mapping** uses Jinja2 templates to place platform variables into your API's expected request body structure:
-
-<CodeBlock filename="request-mapping-example.json" language="json">
-  {`{
-  "model": "gpt-4",
-  "messages": [
-    {
-      "role": "user",
-      "content": "{{ input }}"
-    }
-  ],
-  "temperature": 0.7
-}`}
-</CodeBlock>
-
-**Response mapping** uses JSONPath expressions to extract values from your API's response into platform variables:
-
-<CodeBlock filename="response-mapping-example.json" language="json">
-  {`{
-  "output": "$.choices[0].message.content",
-  "metadata": "$.usage"
-}`}
-</CodeBlock>
-
-For full details on template syntax, filters, and advanced mapping techniques, see [Single-Turn Endpoints](/docs/endpoints/single-turn).
+**Request mapping** uses Jinja2 templates to format platform variables into your API's request body. **Response mapping** uses JSONPath expressions to extract values from the response. For full details, see [Request Mapping](/docs/endpoints/request-mapping) and [Response Mapping](/docs/endpoints/response-mapping).
 
 ## Using Experiment Parameters
 
@@ -152,95 +103,20 @@ When no experiment is associated with a test run, `params` is an empty object an
 }`}
 </CodeBlock>
 
-### How it works
+SDK connector endpoints can also receive parameters as keyword arguments or via `Parameters.get()` — see [Connector Injection](/docs/experiments/connector-injection).
 
-Parameter injection follows the same flow for both REST and SDK connector endpoints:
+## Managing Endpoints
 
-1. When a test run is created, the experiment's parameter values are **resolved once** and stored as an immutable snapshot on the test run.
-2. During execution, the snapshot is injected into the Jinja2 template context as `params`.
-3. The template renderer evaluates `\{\{ params.model \}\}` (or any other parameter name) against the snapshot.
+- **Edit** — Open the detail page, click **Edit**, update any fields, click **Save**.
+- **Duplicate** — Click **Duplicate** on the detail page to copy the full configuration. "(Copy)" is appended to the name. You can also bulk-duplicate from the grid.
+- **Delete** — Select one or more endpoints from the grid and click **Delete**. Historical test results are preserved.
 
-This means every test in a run uses the exact same parameter values, and those values are recorded alongside the test results for full reproducibility.
-
-### REST vs. SDK connector
-
-Both endpoint types receive the same resolved parameters:
-
-- **REST endpoints** access parameters through `\{\{ params.* \}\}` in request mappings, as shown above. Your external API receives the rendered values in the HTTP request body.
-- **SDK connector endpoints** can also receive parameters as direct keyword arguments via the `@endpoint` decorator's `parameters` option, or read them through `Parameters.get()`. See [Connector Injection](/docs/experiments/connector-injection) for details.
-
-## Creating an Endpoint
-
-<Callout type="info">
-  **New to mapping?** Use the [Auto-Configure](/docs/endpoints/auto-configure)
-  feature to let AI generate your request and response mappings automatically.
-  Just paste a curl command, code snippet, or API documentation and Rhesis
-  handles the rest.
-</Callout>
-
-### Manual Configuration
-
-Create an endpoint from scratch with full control over all settings.
-
-Configure the endpoint name, description, project assignment, and environment. Then set up the request by providing the API URL, protocol (REST or WebSocket), and HTTP method.
-
-**Request Headers**
-
-Define authentication and other required headers in JSON format:
-
-<CodeBlock filename="headers.json" language="json">
-  {`{
-  "Authorization": "Bearer {{ auth_token }}",
-  "Content-Type": "application/json"
-}`}
-</CodeBlock>
-
-The `auth_token` variable is a platform-managed placeholder that Rhesis
-automatically replaces with the authentication token you configure in the
-endpoint settings UI. You can reference it using Jinja2 syntax
-(`\{\{ auth_token \}\}`) or the legacy `\{API_KEY\}` / `\{auth_token\}`
-placeholders with single braces.
-
-If you configure an authentication token in the UI but do not include an
-`Authorization` header explicitly, Rhesis automatically adds
-`Authorization: Bearer <token>` to the request headers.
-
-**Request and Response Mappings**
-
-Configure your request body template and response mappings to bridge platform variables with your API's fields. Rhesis supports two endpoint patterns depending on how your API handles conversations:
-
-- **[Single-Turn Endpoints](/docs/endpoints/single-turn)**: Standard request/response mapping with Jinja2 templates and JSONPath. Covers most use cases including simple query-response APIs.
-- **[Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations)**: Conversation tracking for stateful endpoints (your API manages session state) and message history for stateless endpoints (Rhesis manages conversation state).
-- **[Mapping Examples](/docs/endpoints/mapping-examples)**: Practical examples for OpenAI, Anthropic, Google Gemini, RAG pipelines, WebSocket endpoints, and more.
-
-### Disabling Tracing
-
-Each endpoint has a **Disable tracing** toggle. When turned on, invocations
-skip trace and telemetry collection. This is useful when the endpoint already
-emits its own telemetry or when tracing overhead is unwanted. Tracing is
-enabled by default. See [Managing Endpoints](/docs/endpoints/management#disabling-tracing)
-for details.
-
-### SDK Endpoints
-
-If your AI logic lives in Python functions, you can register them as endpoints
-directly from code using the Rhesis SDK. Decorate your functions with `@endpoint`
-and the SDK handles registration and mapping automatically. See
-[SDK Endpoints](/docs/endpoints/sdk-endpoints) for details, or the full
-[SDK Connector reference](/sdk/connector) for advanced patterns.
+The detail page has four tabs: **Overview** (template + response mapping), **Headers** (auth token + custom headers), **Test** (interactive test-and-map workbench), and **Test Runs** (execution history).
 
 <Callout type="default">
   **Next Steps**
-  - Try [Auto-Configure](/docs/endpoints/auto-configure) to let AI generate
-    mappings from a curl command or code snippet
-  - Learn about [Single-Turn Endpoints](/docs/endpoints/single-turn) for
-    request/response mapping details
-  - Configure [Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations)
-    for conversational AI testing
-  - Register Python functions with [SDK Endpoints](/docs/endpoints/sdk-endpoints)
-  - Browse [Mapping Examples](/docs/endpoints/mapping-examples) for
-    real-world configuration patterns
-  - Generate [Tests](/docs/tests-generation) with AI to create
-    comprehensive coverage
-  - Define [Metrics](/docs/metrics) to evaluate response quality
+  - [Create an Endpoint](/docs/endpoints/creating-endpoints) — wizard walkthrough and Auto-Configure
+  - [Request Mapping](/docs/endpoints/request-mapping) — Jinja2 syntax, filters, multi-turn patterns
+  - [Response Mapping](/docs/endpoints/response-mapping) — JSONPath and Jinja2 extraction
+  - [Examples](/docs/endpoints/mapping-examples) — real-world provider configurations
 </Callout>
