@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-11
+
+### Changed
+
+- build(docker): pin uv to 0.11.19 in service images (#1882)
+
+Avoid :latest drift and align chatbot/telemetry-processor with COPY --from mirror.gcr.io/astral/uv.
+- fix(docker): pull uv from mirror.gcr.io instead of ghcr (#1879)
+
+Avoid GHCR auth failures during local builds by using the GCR mirror
+of Docker Hub's official astral/uv image.
+
+
+
 ## [0.3.0] - 2026-05-21
 
 ### Changed
