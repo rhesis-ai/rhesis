@@ -113,6 +113,13 @@ def clean_application_env(monkeypatch):
 
 
 @pytest.fixture
+def minimal_application_env(clean_application_env, monkeypatch):
+    """ApplicationSettings fields that have no default and are required for load."""
+    monkeypatch.setenv("API_BASE_URL", "https://api.example.com")
+    yield
+
+
+@pytest.fixture
 def clean_auth_env(monkeypatch):
     for env_var in AUTH_ENV_VARS:
         monkeypatch.delenv(env_var, raising=False)
@@ -621,8 +628,14 @@ def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, mo
 
 
 @pytest.mark.unit
-def test_application_settings_defaults(clean_application_env):
-    """All fields use their declared defaults when no env vars are set."""
+def test_application_settings_requires_api_base_url(clean_application_env):
+    with pytest.raises(ValidationError):
+        ApplicationSettings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_application_settings_defaults(minimal_application_env):
+    """Optional fields use their declared defaults when only required vars are set."""
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is False
@@ -631,7 +644,7 @@ def test_application_settings_defaults(clean_application_env):
     assert settings.google_cloud_project is None
     assert settings.cloud_run_service is None
     assert settings.cloud_run_revision is None
-    assert settings.api_base_url == "http://localhost:8080"
+    assert settings.api_base_url == "https://api.example.com"
     # Default posture is non-production (dev-only affordances are on by
     # default, matching utils/git_utils.should_show_git_info).
     assert settings.is_production is False
@@ -674,7 +687,7 @@ def test_application_settings_loads_existing_environment_variables(
     ],
 )
 def test_application_settings_is_production(
-    clean_application_env, monkeypatch, backend_env, expected_is_production
+    minimal_application_env, monkeypatch, backend_env, expected_is_production
 ):
     """is_production is driven exclusively by BACKEND_ENV."""
     if backend_env:
@@ -688,7 +701,7 @@ def test_application_settings_is_production(
 
 @pytest.mark.unit
 def test_get_application_settings_cache_clear_allows_env_overrides(
-    clean_application_env, monkeypatch
+    minimal_application_env, monkeypatch
 ):
     assert get_application_settings().is_development is True
 
@@ -709,9 +722,9 @@ def test_application_settings_api_base_url_validation(clean_application_env, mon
 
 @pytest.mark.unit
 def test_get_application_settings_api_base_url_cache_clear(
-    clean_application_env, monkeypatch
+    minimal_application_env, monkeypatch
 ):
-    assert get_application_settings().api_base_url == "http://localhost:8080"
+    assert get_application_settings().api_base_url == "https://api.example.com"
 
     monkeypatch.setenv("API_BASE_URL", "https://cached-api.example.com")
     get_application_settings.cache_clear()
@@ -730,25 +743,23 @@ class TestLoopbackCorsRegex:
     """
 
     @pytest.fixture(autouse=True)
-    def _frontend_url(self, clean_frontend_env, monkeypatch):
+    def _frontend_url(self, clean_frontend_env, minimal_application_env, monkeypatch):
         monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
 
-    def test_returns_none_in_production(self, clean_application_env, monkeypatch):
+    def test_returns_none_in_production(self, monkeypatch):
         monkeypatch.setenv("BACKEND_ENV", "production")
         get_application_settings.cache_clear()
 
         assert get_frontend_settings().loopback_cors_regex is None
 
-    def test_returns_regex_when_only_environment_is_production(
-        self, clean_application_env, monkeypatch
-    ):
+    def test_returns_regex_when_only_environment_is_production(self, monkeypatch):
         """ENVIRONMENT=production alone no longer gates; only BACKEND_ENV drives is_production."""
         monkeypatch.setenv("BACKEND_ENV", "development")
         get_application_settings.cache_clear()
 
         assert get_frontend_settings().loopback_cors_regex is not None
 
-    def test_returns_regex_in_development(self, clean_application_env, monkeypatch):
+    def test_returns_regex_in_development(self, monkeypatch):
         monkeypatch.setenv("BACKEND_ENV", "development")
         get_application_settings.cache_clear()
 
@@ -762,7 +773,7 @@ class TestLoopbackCorsRegex:
         assert compiled.match("http://[::1]:5000")
         assert compiled.match("http://localhost")  # default port
 
-    def test_regex_rejects_lookalikes(self, clean_application_env, monkeypatch):
+    def test_regex_rejects_lookalikes(self, monkeypatch):
         """The regex must not match localhost-themed lookalike origins."""
         monkeypatch.setenv("BACKEND_ENV", "development")
         get_application_settings.cache_clear()
