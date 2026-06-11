@@ -185,7 +185,7 @@ export default function TraceDrawer({
     setSelectedSpan(null);
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory(sessionToken, projectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
@@ -215,7 +215,7 @@ export default function TraceDrawer({
     if (!traceId || !projectId) return;
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory(sessionToken, projectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
@@ -361,12 +361,12 @@ export default function TraceDrawer({
   // Fetch experiment info from test run attributes
   useEffect(() => {
     const fetchExperimentInfo = async () => {
-      if (!trace?.test_run?.id || !sessionToken) {
+      if (!trace?.test_run?.id || !sessionToken || !projectId) {
         setExperimentInfo(null);
         return;
       }
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory(sessionToken, projectId);
         const testRunsClient = clientFactory.getTestRunsClient();
         const testRun = await testRunsClient.getTestRun(trace.test_run.id);
         if (testRun?.experiment_id) {
@@ -386,7 +386,7 @@ export default function TraceDrawer({
       }
     };
     fetchExperimentInfo();
-  }, [trace?.test_run?.id, sessionToken]);
+  }, [trace?.test_run?.id, sessionToken, projectId]);
 
   // Add keyboard shortcut for ESC key
   useEffect(() => {
