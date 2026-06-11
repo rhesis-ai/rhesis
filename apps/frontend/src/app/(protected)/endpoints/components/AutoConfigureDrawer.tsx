@@ -2,10 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Drawer,
   Button,
   Typography,
   Box,
@@ -18,14 +15,19 @@ import {
   Stepper,
   Step,
   StepLabel,
+  Stack,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import { AutoFixHighIcon, CloseIcon, RefreshIcon } from '@/components/icons';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
 import { autoConfigureEndpoint } from '@/actions/endpoints/auto-configure';
+import { BACKDROP_COLORS } from '@/styles/theme';
+import {
+  drawerFooterCancelButtonSx,
+  drawerFooterSaveButtonSx,
+} from '@/components/common/drawerFormFieldSx';
 
-// Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
@@ -50,10 +52,6 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 
 const STEPS = ['Provide Input', 'Review Mappings'];
 
-/**
- * Detect likely API keys/tokens in user input.
- * Environment-variable references ($VAR, ${VAR}) are excluded.
- */
 const SECRET_PATTERNS = [
   /sk-proj-[A-Za-z0-9_-]{20,}/,
   /sk-ant-[A-Za-z0-9_-]{20,}/,
@@ -63,17 +61,15 @@ const SECRET_PATTERNS = [
   /Bearer\s+[A-Za-z0-9._-]{20,}/,
 ];
 
-/** Environment-variable placeholder pattern. */
 const ENV_VAR_RE = /\$\{?\w+\}?/g;
 
 function containsApiKey(text: string): boolean {
   if (!text) return false;
-  // Strip env-var references so they don't trigger false positives
   const stripped = text.replace(ENV_VAR_RE, '');
   return SECRET_PATTERNS.some(pattern => pattern.test(stripped));
 }
 
-interface AutoConfigureModalProps {
+interface AutoConfigureDrawerProps {
   open: boolean;
   onClose: () => void;
   onApply: (result: AutoConfigureResult) => void;
@@ -82,14 +78,14 @@ interface AutoConfigureModalProps {
   method: string;
 }
 
-export default function AutoConfigureModal({
+export default function AutoConfigureDrawer({
   open,
   onClose,
   onApply,
   url,
   authToken,
   method,
-}: AutoConfigureModalProps) {
+}: AutoConfigureDrawerProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
 
@@ -134,22 +130,24 @@ export default function AutoConfigureModal({
     }
   };
 
-  const handleClose = () => {
+  const resetState = () => {
     setActiveStep(0);
     setResult(null);
     setError(null);
+    setInputText('');
     setShowProbeResponse(false);
     setShowReasoning(false);
+  };
+
+  const handleClose = () => {
+    resetState();
     onClose();
   };
 
   const handleApply = () => {
     if (result) {
       onApply(result);
-      setActiveStep(0);
-      setResult(null);
-      setError(null);
-      setInputText('');
+      resetState();
     }
   };
 
@@ -184,8 +182,6 @@ export default function AutoConfigureModal({
     overflow: 'hidden',
   };
 
-  // Monaco expects fontSize as a plain number in pixels.
-  // Convert theme rem value (e.g. "0.875rem") to px using the root font size.
   const htmlFontSize = theme.typography.htmlFontSize ?? 16;
   const rawSize = theme.typography.body2.fontSize;
   const editorFontSize =
@@ -211,36 +207,82 @@ export default function AutoConfigureModal({
   };
 
   return (
-    <Dialog
+    <Drawer
+      anchor="right"
       open={open}
       onClose={handleClose}
-      fullWidth
-      maxWidth="md"
-      aria-labelledby="auto-configure-dialog-title"
+      variant="temporary"
+      ModalProps={{
+        keepMounted: true,
+        sx: { zIndex: theme => theme.zIndex.modal + 1 },
+      }}
+      PaperProps={{
+        sx: {
+          width: { xs: '100%', sm: '75%' },
+          display: 'flex',
+          flexDirection: 'column',
+          p: '30px',
+          gap: 0,
+          boxSizing: 'border-box',
+        },
+      }}
+      sx={{
+        zIndex: theme => theme.zIndex.modal + 1,
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.create,
+        },
+      }}
+      aria-labelledby="auto-configure-drawer-title"
     >
-      <DialogTitle
-        id="auto-configure-dialog-title"
-        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-      >
-        <AutoFixHighIcon />
-        Auto-configure Endpoint
-        <Box sx={{ flexGrow: 1 }} />
-        <IconButton onClick={handleClose} size="small" aria-label="close">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
+      <Box sx={{ flexShrink: 0, mb: '24px' }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+        >
+          <Typography
+            id="auto-configure-drawer-title"
+            sx={{
+              fontSize: 23,
+              fontWeight: 700,
+              lineHeight: '27.6px',
+              color: t => t.palette.greyscale.title,
+            }}
+          >
+            Auto-configure endpoint
+          </Typography>
+          <IconButton
+            onClick={handleClose}
+            size="small"
+            aria-label="Close drawer"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Stack>
+      </Box>
 
-      <DialogContent dividers>
-        {/* Stepper */}
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ py: 2, mb: 2 }}>
+      <Box sx={{ flexShrink: 0, mb: '24px' }}>
+        <Stepper activeStep={activeStep} alternativeLabel>
           {STEPS.map(label => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
             </Step>
           ))}
         </Stepper>
+      </Box>
 
-        {/* Step 1: Provide Input */}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          pt: '10px',
+          pb: '16px',
+        }}
+      >
         {activeStep === 0 && (
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -274,7 +316,6 @@ export default function AutoConfigureModal({
               />
             </Box>
 
-            {/* API key warning */}
             {hasApiKey && (
               <Alert severity="warning" sx={{ mt: 2 }}>
                 <Typography variant="body2">
@@ -286,13 +327,11 @@ export default function AutoConfigureModal({
               </Alert>
             )}
 
-            {/* Probe toggle */}
             <FormControlLabel
               control={
                 <Switch
                   checked={probe}
                   onChange={e => setProbe(e.target.checked)}
-                  size="small"
                 />
               }
               label={
@@ -300,10 +339,14 @@ export default function AutoConfigureModal({
                   Send a test request to verify the configuration
                 </Typography>
               }
-              sx={{ mt: 2 }}
+              sx={{
+                mt: 2,
+                ml: 0,
+                alignItems: 'center',
+                gap: 1,
+              }}
             />
 
-            {/* Error display (stays on step 1) */}
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
@@ -316,10 +359,8 @@ export default function AutoConfigureModal({
           </Box>
         )}
 
-        {/* Step 2: Review Mappings */}
         {activeStep === 1 && result && (
           <Box>
-            {/* Status and confidence */}
             <Box
               sx={{
                 display: 'flex',
@@ -342,7 +383,6 @@ export default function AutoConfigureModal({
               )}
             </Box>
 
-            {/* Warnings */}
             {result.warnings && result.warnings.length > 0 && (
               <Alert severity="warning" sx={{ mb: 2 }}>
                 <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
@@ -356,20 +396,18 @@ export default function AutoConfigureModal({
               </Alert>
             )}
 
-            {/* Probe error */}
             {result.probe_error && !result.probe_success && (
               <Alert severity="info" sx={{ mb: 2 }}>
                 <Typography variant="body2">
                   Probe error: {result.probe_error}
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  The mapping may need manual adjustments. Use &quot;Test
-                  Connection&quot; to debug.
+                  The mapping may need manual adjustments. Use &quot;Connection
+                  Test&quot; to debug.
                 </Typography>
               </Alert>
             )}
 
-            {/* Reasoning (collapsible) */}
             {result.reasoning && (
               <Box sx={{ mb: 2 }}>
                 <Button
@@ -391,7 +429,6 @@ export default function AutoConfigureModal({
               </Box>
             )}
 
-            {/* Generated request mapping */}
             {result.request_mapping && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -409,7 +446,6 @@ export default function AutoConfigureModal({
               </Box>
             )}
 
-            {/* Generated response mapping */}
             {result.response_mapping && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -427,7 +463,6 @@ export default function AutoConfigureModal({
               </Box>
             )}
 
-            {/* Generated headers */}
             {result.request_headers && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -445,7 +480,6 @@ export default function AutoConfigureModal({
               </Box>
             )}
 
-            {/* Probe response (collapsible) */}
             {result.probe_response && (
               <Box>
                 <Button
@@ -472,72 +506,68 @@ export default function AutoConfigureModal({
             )}
           </Box>
         )}
-      </DialogContent>
+      </Box>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Box sx={{ flexGrow: 1 }} />
-        {activeStep === 0 && (
-          <>
-            {loading ? (
+      <Box sx={{ flexShrink: 0, pt: '16px' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          {activeStep === 0 && (
+            <>
+              {loading ? (
+                <Button
+                  variant="contained"
+                  loading
+                  loadingPosition="start"
+                  startIcon={<AutoFixHighIcon />}
+                  sx={drawerFooterSaveButtonSx}
+                >
+                  Analyzing…
+                </Button>
+              ) : error ? (
+                <Button
+                  variant="contained"
+                  onClick={handleAutoConfigure}
+                  disabled={!inputText.trim() || hasApiKey}
+                  startIcon={<RefreshIcon />}
+                  sx={drawerFooterSaveButtonSx}
+                >
+                  Retry
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  onClick={handleAutoConfigure}
+                  disabled={!inputText.trim() || hasApiKey}
+                  startIcon={<AutoFixHighIcon />}
+                  sx={drawerFooterSaveButtonSx}
+                >
+                  Auto-configure
+                </Button>
+              )}
+            </>
+          )}
+          {activeStep === 1 && result && (
+            <>
+              <Button
+                variant="outlined"
+                onClick={handleBack}
+                sx={drawerFooterCancelButtonSx}
+              >
+                Back
+              </Button>
               <Button
                 variant="contained"
-                loading
-                loadingPosition="start"
-                startIcon={<AutoFixHighIcon />}
+                onClick={handleApply}
+                disabled={!result.request_mapping && !result.response_mapping}
+                sx={drawerFooterSaveButtonSx}
               >
-                Analyzing…
+                {result.status === 'partial'
+                  ? 'Apply anyway'
+                  : 'Apply to endpoint'}
               </Button>
-            ) : error ? (
-              <Button
-                variant="contained"
-                onClick={handleAutoConfigure}
-                disabled={!inputText.trim() || hasApiKey}
-                startIcon={<RefreshIcon />}
-              >
-                Retry
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleAutoConfigure}
-                disabled={!inputText.trim() || hasApiKey}
-                startIcon={<AutoFixHighIcon />}
-              >
-                Auto-configure
-              </Button>
-            )}
-          </>
-        )}
-        {activeStep === 1 && result && (
-          <>
-            <Button variant="outlined" onClick={handleBack}>
-              Back
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                handleBack();
-                // Small delay so user sees step 1 before re-running
-                setTimeout(handleAutoConfigure, 100);
-              }}
-              disabled={!inputText.trim()}
-              startIcon={<RefreshIcon />}
-            >
-              Retry
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleApply}
-              disabled={!result.request_mapping && !result.response_mapping}
-            >
-              {result.status === 'partial'
-                ? 'Apply Anyway'
-                : 'Apply to Endpoint'}
-            </Button>
-          </>
-        )}
-      </DialogActions>
-    </Dialog>
+            </>
+          )}
+        </Box>
+      </Box>
+    </Drawer>
   );
 }

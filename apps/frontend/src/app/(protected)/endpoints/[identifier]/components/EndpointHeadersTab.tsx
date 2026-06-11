@@ -1,12 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Box } from '@mui/material';
+import { useMemo, useState } from 'react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import EditableSection from '@/components/common/EditableSection';
-import FormSectionDivider from '@/components/common/FormSectionDivider';
+import EndpointHeadersFields from '../../components/EndpointHeadersFields';
 import { useEndpointDetailContext } from './EndpointDetailContext';
-import JsonMonacoField from './JsonMonacoField';
+
+interface HeadersDraft {
+  auth_token: string;
+  request_headers: string;
+}
 
 function parseStringRecord(
   value: string,
@@ -39,10 +42,15 @@ export default function EndpointHeadersTab() {
   const { endpoint, editorTheme, editorWrapperStyle, saveFields } =
     useEndpointDetailContext();
   const notifications = useNotifications();
+  const [showAuthToken, setShowAuthToken] = useState(false);
+  const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
   const isSdk = endpoint.connection_type === 'SDK';
 
-  const headersInitial = useMemo(
-    () => JSON.stringify(endpoint.request_headers || {}, null, 2),
+  const headersInitial = useMemo<HeadersDraft>(
+    () => ({
+      auth_token: '',
+      request_headers: JSON.stringify(endpoint.request_headers || {}, null, 2),
+    }),
     [endpoint.request_headers]
   );
 
@@ -54,29 +62,57 @@ export default function EndpointHeadersTab() {
 
   return (
     <EditableSection
-      title="Request headers"
+      title="Authentication & headers"
       initialValue={headersInitial}
+      isDirty={(draft, initial) =>
+        draft.request_headers !== initial.request_headers ||
+        draft.auth_token.trim() !== ''
+      }
       onSave={async draft => {
-        const parsed = parseStringRecord(draft, 'Request headers', notifyError);
-        await saveFields({ request_headers: parsed });
+        const parsed = parseStringRecord(
+          draft.request_headers,
+          'Request headers',
+          notifyError
+        );
+        const payload: {
+          request_headers: Record<string, string>;
+          auth_token?: string;
+        } = { request_headers: parsed };
+        if (draft.auth_token.trim()) {
+          payload.auth_token = draft.auth_token;
+        }
+        await saveFields(payload);
       }}
     >
       {({ draft, setDraft, isEditing }) => (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          <FormSectionDivider
-            headline="Custom headers"
-            descriptiveText="Authorization and Content-Type are provided automatically. Example: { &quot;x-api-key&quot;: &quot;{{ auth_token }}&quot; }"
-          />
-          <JsonMonacoField
-            editorKey="request-headers"
-            height="200px"
-            theme={editorTheme}
-            wrapperSx={editorWrapperStyle}
-            readOnly={!isEditing}
-            value={draft}
-            onChange={setDraft}
-          />
-        </Box>
+        <EndpointHeadersFields
+          authToken={draft.auth_token}
+          requestHeaders={draft.request_headers}
+          onAuthTokenChange={value =>
+            setDraft(prev => ({ ...prev, auth_token: value }))
+          }
+          onRequestHeadersChange={value =>
+            setDraft(prev => ({ ...prev, request_headers: value }))
+          }
+          showAuthToken={showAuthToken}
+          onToggleAuthToken={() => setShowAuthToken(v => !v)}
+          editorTheme={editorTheme}
+          isEditing={isEditing}
+          hasExistingToken={Boolean(endpoint.id)}
+          tokenFieldFocused={tokenFieldFocused}
+          onTokenFocus={() => {
+            setTokenFieldFocused(true);
+            if (draft.auth_token === '') {
+              setDraft(prev => ({ ...prev, auth_token: '' }));
+            }
+          }}
+          onTokenBlur={() => {
+            if (draft.auth_token === '') {
+              setTokenFieldFocused(false);
+            }
+          }}
+          editorWrapperStyle={editorWrapperStyle}
+        />
       )}
     </EditableSection>
   );

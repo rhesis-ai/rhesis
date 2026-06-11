@@ -18,8 +18,8 @@ test.describe('Endpoints — CRUD @crud', () => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
-    await page.goto('/endpoints/new');
-    await expect(page).toHaveURL(/\/endpoints\/new$/);
+    await page.goto('/endpoints?create=1');
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
 
     // Verify page loaded without errors
     await expect(page.locator('body')).not.toContainText(
@@ -50,8 +50,8 @@ test.describe('Endpoints — CRUD @crud', () => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
-    await page.goto('/endpoints/new');
-    await expect(page).toHaveURL(/\/endpoints\/new$/);
+    await page.goto('/endpoints?create=1');
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
 
     // Fill required text fields
     await page.locator('input[name="name"]').fill(UNIQUE_NAME);

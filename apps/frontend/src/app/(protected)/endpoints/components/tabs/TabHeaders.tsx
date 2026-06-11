@@ -1,23 +1,10 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  TextField,
-  IconButton,
-  InputAdornment,
-  Chip,
-} from '@mui/material';
+import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
-import FormSectionDivider from '@/components/common/FormSectionDivider';
-import HeadersEditor from '../HeadersEditor';
-import { variableChipSx } from '../endpoint-styles';
-import {
-  LockIcon,
-  VisibilityIcon,
-  VisibilityOffIcon,
-} from '@/components/icons';
+import EndpointHeadersFields from '../EndpointHeadersFields';
 import type { FormData } from '../EndpointForm';
 
 interface TabHeadersProps {
@@ -42,64 +29,15 @@ export default function TabHeaders({
         title="Authentication & headers"
         subtitle="Configure the API token and any custom headers Rhesis should send with each request."
       >
-        <TextField
-          fullWidth
-          label="API Token (optional)"
-          type={showAuthToken ? 'text' : 'password'}
-          value={formData.auth_token}
-          onChange={e => onChange('auth_token', e.target.value)}
-          placeholder="sk-..."
-          sx={{ mb: 3 }}
-          helperText={
-            <Box
-              component="span"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                flexWrap: 'wrap',
-              }}
-            >
-              Stored as
-              <Chip
-                label="{{ auth_token }}"
-                size="small"
-                sx={{
-                  ...variableChipSx,
-                  height: 18,
-                  '& .MuiChip-label': { px: 0.75 },
-                }}
-              />
-              in the editor below.
-            </Box>
-          }
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <LockIcon color="action" />
-              </InputAdornment>
-            ),
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={onToggleAuthToken} edge="end">
-                  {showAuthToken ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <Box sx={{ mt: 1, mb: 2 }}>
-          <FormSectionDivider
-            headline="Custom headers"
-            descriptiveText="Add headers Rhesis should include on every request."
-          />
-        </Box>
-        <HeadersEditor
+        <EndpointHeadersFields
           authToken={formData.auth_token}
-          customHeaders={formData.request_headers}
-          onChange={v => onChange('request_headers', v)}
+          requestHeaders={formData.request_headers}
+          onAuthTokenChange={v => onChange('auth_token', v)}
+          onRequestHeadersChange={v => onChange('request_headers', v)}
+          showAuthToken={showAuthToken}
+          onToggleAuthToken={onToggleAuthToken}
           editorTheme={editorTheme}
+          isEditing
         />
       </SectionCard>
     </Box>

@@ -22,10 +22,7 @@ import { PlayArrowIcon, CheckIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { alpha, type Theme } from '@mui/material/styles';
-import {
-  insertableVariableChipSx,
-  testPreviewSx,
-} from './endpoint-styles';
+import { insertableVariableChipSx, testPreviewSx } from './endpoint-styles';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

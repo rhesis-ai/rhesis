@@ -38,9 +38,15 @@ export const TAB_KEYS = [
   'overview',
   'connection',
   'headers',
-  'mappings',
+  'mapping',
+  'connection-test',
 ] as const;
 export type EndpointTabKey = (typeof TAB_KEYS)[number];
+
+/** @deprecated Old tab URLs — `mappings` was the former combined test tab */
+export const LEGACY_TAB_MAP: Record<string, EndpointTabKey> = {
+  mappings: 'connection-test',
+};
 
 const ICON_MAP: Record<string, React.ComponentType> = {
   SmartToy: SmartToyIcon,

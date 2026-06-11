@@ -94,7 +94,13 @@ export default function EndpointTestWorkbench({
               size="small"
               variant="text"
               onClick={() => setCurlExpanded(v => !v)}
-              endIcon={curlExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+              endIcon={
+                curlExpanded ? (
+                  <KeyboardArrowUpIcon />
+                ) : (
+                  <KeyboardArrowDownIcon />
+                )
+              }
               sx={{ mb: 1, color: 'text.secondary', textTransform: 'none' }}
             >
               cURL command
@@ -106,7 +112,10 @@ export default function EndpointTestWorkbench({
             </Collapse>
           </Box>
           <ViewField label="Request body template">
-            <Box component="pre" sx={{ ...testPreviewSx, p: 0, minHeight: 'unset' }}>
+            <Box
+              component="pre"
+              sx={{ ...testPreviewSx, p: 0, minHeight: 'unset' }}
+            >
               <TemplatePreview template={requestTemplate || '{}'} />
             </Box>
           </ViewField>
@@ -222,9 +231,17 @@ export default function EndpointTestWorkbench({
                   variant="text"
                   onClick={() => setRawExpanded(v => !v)}
                   endIcon={
-                    rawExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />
+                    rawExpanded ? (
+                      <KeyboardArrowUpIcon />
+                    ) : (
+                      <KeyboardArrowDownIcon />
+                    )
                   }
-                  sx={{ ml: 'auto', color: 'text.secondary', textTransform: 'none' }}
+                  sx={{
+                    ml: 'auto',
+                    color: 'text.secondary',
+                    textTransform: 'none',
+                  }}
                 >
                   Raw response
                 </Button>
@@ -280,7 +297,10 @@ export default function EndpointTestWorkbench({
                 return (
                   <Grid
                     key={varName}
-                    size={{ xs: 12, md: Object.keys(responseMapping).length > 1 ? 6 : 12 }}
+                    size={{
+                      xs: 12,
+                      md: Object.keys(responseMapping).length > 1 ? 6 : 12,
+                    }}
                   >
                     <ViewField
                       label={`{{ ${varName} }}`}
@@ -297,9 +317,7 @@ export default function EndpointTestWorkbench({
         </Box>
       </Box>
 
-      {error && (
-        <Alert severity="error">{error}</Alert>
-      )}
+      {error && <Alert severity="error">{error}</Alert>}
     </Box>
   );
 }

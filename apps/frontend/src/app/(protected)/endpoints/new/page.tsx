@@ -1,21 +1,15 @@
 'use client';
 
-import { PageLayout } from '@/components/layout/PageLayout';
-import EndpointForm from '../components/EndpointForm';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
+/** Deep-link entry: opens the create drawer on the endpoints list. */
 export default function NewEndpointPage() {
-  const breadcrumbs = [
-    { label: 'Endpoints', href: '/endpoints' },
-    { label: 'Create New Endpoint' },
-  ];
+  const router = useRouter();
 
-  return (
-    <PageLayout
-      title="Create New Endpoint"
-      breadcrumbs={breadcrumbs}
-      fullHeight
-    >
-      <EndpointForm />
-    </PageLayout>
-  );
+  useEffect(() => {
+    router.replace('/endpoints?create=1');
+  }, [router]);
+
+  return null;
 }

@@ -100,13 +100,19 @@ export default function TabBody({
         actions={
           <IconButton
             aria-label={
-              manualExpanded ? 'Collapse manual mapping' : 'Expand manual mapping'
+              manualExpanded
+                ? 'Collapse manual mapping'
+                : 'Expand manual mapping'
             }
             onClick={() => setManualExpanded(e => !e)}
             size="small"
             sx={{ color: 'primary.main' }}
           >
-            {manualExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+            {manualExpanded ? (
+              <KeyboardArrowUpIcon />
+            ) : (
+              <KeyboardArrowDownIcon />
+            )}
           </IconButton>
         }
       >

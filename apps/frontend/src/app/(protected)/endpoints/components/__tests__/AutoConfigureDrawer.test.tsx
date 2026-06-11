@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import AutoConfigureModal from '../AutoConfigureModal';
+import AutoConfigureDrawer from '../AutoConfigureDrawer';
 
 // Mock Monaco Editor
 jest.mock('@monaco-editor/react', () => {
@@ -68,7 +68,7 @@ const _FAILED_RESULT = {
   probe_attempts: 0,
 };
 
-describe('AutoConfigureModal', () => {
+describe('AutoConfigureDrawer', () => {
   const defaultProps = {
     open: true,
     onClose: jest.fn(),
@@ -82,17 +82,17 @@ describe('AutoConfigureModal', () => {
     jest.clearAllMocks();
   });
 
-  it('renders modal when open=true', () => {
-    render(<AutoConfigureModal {...defaultProps} />);
+  it('renders drawer when open=true', () => {
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
-    expect(screen.getByText('Auto-configure Endpoint')).toBeInTheDocument();
+    expect(screen.getByText('Auto-configure endpoint')).toBeInTheDocument();
     expect(
       screen.getByText(/paste anything about your endpoint/i)
     ).toBeInTheDocument();
   });
 
   it('does not render when open=false', () => {
-    render(<AutoConfigureModal {...defaultProps} open={false} />);
+    render(<AutoConfigureDrawer {...defaultProps} open={false} />);
 
     expect(
       screen.queryByText('Auto-configure Endpoint')
@@ -100,7 +100,7 @@ describe('AutoConfigureModal', () => {
   });
 
   it('shows paste area with helper text', () => {
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     expect(
       screen.getByText(/paste a curl command, python code/i)
@@ -108,7 +108,7 @@ describe('AutoConfigureModal', () => {
   });
 
   it('auto-configure button is disabled when text area is empty', () => {
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const button = screen.getByRole('button', { name: /auto-configure/i });
     expect(button).toBeDisabled();
@@ -116,7 +116,7 @@ describe('AutoConfigureModal', () => {
 
   it('auto-configure button is enabled when text is entered', async () => {
     const user = userEvent.setup();
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     const textArea = editors[0];
@@ -133,7 +133,7 @@ describe('AutoConfigureModal', () => {
       data: SUCCESS_RESULT,
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'curl -X POST https://api.example.com');
@@ -159,7 +159,7 @@ describe('AutoConfigureModal', () => {
       data: SUCCESS_RESULT,
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'some code');
@@ -180,7 +180,7 @@ describe('AutoConfigureModal', () => {
       data: PARTIAL_RESULT,
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'some code');
@@ -200,7 +200,7 @@ describe('AutoConfigureModal', () => {
       error: 'Auto-configure failed',
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'garbled text');
@@ -218,7 +218,7 @@ describe('AutoConfigureModal', () => {
       data: PARTIAL_RESULT,
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'some code');
@@ -238,7 +238,7 @@ describe('AutoConfigureModal', () => {
       data: SUCCESS_RESULT,
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'some code');
@@ -256,11 +256,11 @@ describe('AutoConfigureModal', () => {
     expect(defaultProps.onApply).toHaveBeenCalledWith(SUCCESS_RESULT);
   });
 
-  it('calls onClose when Cancel is clicked', async () => {
+  it('calls onClose when the header close button is clicked', async () => {
     const user = userEvent.setup();
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    await user.click(screen.getByRole('button', { name: /close drawer/i }));
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -271,7 +271,7 @@ describe('AutoConfigureModal', () => {
       error: 'Failed',
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'my curl command');
@@ -292,7 +292,7 @@ describe('AutoConfigureModal', () => {
       error: 'Failed',
     });
 
-    render(<AutoConfigureModal {...defaultProps} />);
+    render(<AutoConfigureDrawer {...defaultProps} />);
 
     const editors = screen.getAllByTestId('mock-editor');
     await user.type(editors[0], 'some code');

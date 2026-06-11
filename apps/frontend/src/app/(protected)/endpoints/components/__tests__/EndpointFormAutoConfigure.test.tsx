@@ -82,8 +82,8 @@ jest.mock('@/actions/endpoints/auto-configure', () => ({
   autoConfigureEndpoint: jest.fn(),
 }));
 
-jest.mock('../AutoConfigureModal', () => {
-  const MockModal = ({
+jest.mock('../AutoConfigureDrawer', () => {
+  const MockDrawer = ({
     open,
     onClose,
     onApply,
@@ -93,8 +93,8 @@ jest.mock('../AutoConfigureModal', () => {
     onApply: (result: Record<string, unknown>) => void;
   }) =>
     open ? (
-      <div data-testid="auto-configure-modal">
-        <button onClick={onClose}>Close Modal</button>
+      <div data-testid="auto-configure-drawer">
+        <button onClick={onClose}>Close Drawer</button>
         <button
           onClick={() =>
             onApply({
@@ -111,7 +111,7 @@ jest.mock('../AutoConfigureModal', () => {
         </button>
       </div>
     ) : null;
-  return { __esModule: true, default: MockModal };
+  return { __esModule: true, default: MockDrawer };
 });
 
 import EndpointForm from '../EndpointForm';
@@ -138,14 +138,14 @@ describe('EndpointForm — Body step auto-configure', () => {
     ).toBeInTheDocument();
   });
 
-  it('clicking auto-configure opens the modal', async () => {
+  it('clicking auto-configure opens the drawer', async () => {
     const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
     await navigateToBodyStep(user);
 
     await user.click(screen.getByRole('button', { name: /auto mapping/i }));
 
-    expect(screen.getByTestId('auto-configure-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('auto-configure-drawer')).toBeInTheDocument();
   });
 
   it('auth token field is in the headers tab', async () => {
@@ -156,7 +156,7 @@ describe('EndpointForm — Body step auto-configure', () => {
       expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
     );
 
-    // On the Basics tab there is no auth token field
+    // On the Overview tab there is no auth token field
     expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
 
     // Click the Headers tab
