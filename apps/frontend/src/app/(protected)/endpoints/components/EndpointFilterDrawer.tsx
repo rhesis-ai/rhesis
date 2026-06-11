@@ -11,21 +11,17 @@ import {
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { Status } from '@/utils/api-client/interfaces/status';
-import { readActiveProjectId } from '@/utils/active-project';
 
 export interface EndpointFilters {
   connectionType: string;
   environment: string;
-  projectId: string;
   status: string;
 }
 
 export const EMPTY_ENDPOINT_FILTERS: EndpointFilters = {
   connectionType: '',
   environment: '',
-  projectId: '',
   status: '',
 };
 
@@ -39,7 +35,7 @@ export function countActiveEndpointFilters(f: EndpointFilters): number {
 
 const CONNECTION_TYPE_OPTIONS = [
   { label: 'REST', value: 'REST' },
-  { label: 'WebSocket', value: 'WEBSOCKET' },
+  { label: 'WebSocket', value: 'WebSocket' },
   { label: 'gRPC', value: 'GRPC' },
   { label: 'SDK', value: 'SDK' },
 ] as const;
@@ -64,8 +60,6 @@ interface EndpointFilterDrawerProps {
   onClose: () => void;
   filters: EndpointFilters;
   onApply: (filters: EndpointFilters) => void;
-  /** Hide project filter when the grid is already scoped to a project */
-  hideProjectFilter?: boolean;
 }
 
 export default function EndpointFilterDrawer({
@@ -73,7 +67,6 @@ export default function EndpointFilterDrawer({
   onClose,
   filters,
   onApply,
-  hideProjectFilter = false,
 }: EndpointFilterDrawerProps) {
   const { data: session } = useSession();
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
@@ -83,7 +76,6 @@ export default function EndpointFilterDrawer({
     onApply,
     onClose
   );
-  const [projects, setProjects] = React.useState<Project[]>([]);
   const [statuses, setStatuses] = React.useState<Status[]>([]);
   const [loadingOptions, setLoadingOptions] = React.useState(false);
 
@@ -95,44 +87,17 @@ export default function EndpointFilterDrawer({
       setLoadingOptions(true);
       try {
         const factory = new ApiClientFactory(sessionToken);
-        const [projectsResponse, statusesResponse] = await Promise.all([
-          hideProjectFilter
-            ? Promise.resolve(null)
-            : factory.getProjectsClient().getProjects(),
-          factory.getStatusClient().getStatuses({
-            entity_type: 'General',
-            sort_by: 'name',
-            sort_order: 'asc',
-          }),
-        ]);
-
-        if (!hideProjectFilter && projectsResponse) {
-          const projectsArray = Array.isArray(projectsResponse)
-            ? projectsResponse
-            : projectsResponse?.data || [];
-          const filtered = projectsArray.filter(
-            (p: Project) => p?.id && p?.name
-          );
-          setProjects(filtered);
-
-          // Pre-select active project when no project filter is already set
-          if (!draft.projectId) {
-            const activeId = readActiveProjectId();
-            if (
-              activeId &&
-              filtered.some((p: Project) => String(p.id) === activeId)
-            ) {
-              setDraft(prev => ({ ...prev, projectId: activeId }));
-            }
-          }
-        }
+        const statusesResponse = await factory.getStatusClient().getStatuses({
+          entity_type: 'General',
+          sort_by: 'name',
+          sort_order: 'asc',
+        });
 
         const uniqueStatuses = statusesResponse.filter(
           (s, i, arr) => s?.name && arr.findIndex(x => x.name === s.name) === i
         );
         setStatuses(uniqueStatuses);
       } catch {
-        if (!hideProjectFilter) setProjects([]);
         setStatuses([]);
       } finally {
         setLoadingOptions(false);
@@ -140,7 +105,7 @@ export default function EndpointFilterDrawer({
     };
 
     loadOptions();
-  }, [open, session?.session_token, hideProjectFilter]);
+  }, [open, session?.session_token]);
 
   return (
     <FilterDrawerShell
@@ -190,32 +155,6 @@ export default function EndpointFilterDrawer({
           ))}
         </Box>
       </FilterSection>
-
-      {!hideProjectFilter && (
-        <FilterSection title="Project">
-          <FormControl fullWidth size="small" disabled={loadingOptions}>
-            <InputLabel id="endpoint-filter-project-label">Project</InputLabel>
-            <Select
-              labelId="endpoint-filter-project-label"
-              label="Project"
-              value={draft.projectId}
-              onChange={e =>
-                setDraft(prev => ({ ...prev, projectId: e.target.value }))
-              }
-              sx={selectSx}
-            >
-              <MenuItem value="">
-                <em>All projects</em>
-              </MenuItem>
-              {projects.map(project => (
-                <MenuItem key={project.id} value={project.id}>
-                  {project.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </FilterSection>
-      )}
 
       <FilterSection title="Status">
         <FormControl fullWidth size="small" disabled={loadingOptions}>

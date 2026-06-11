@@ -49,8 +49,6 @@ export interface AdminNavItem {
   feature?: FeatureName;
   /** Sort order. Lower numbers render earlier. */
   order?: number;
-  /** Whether the item requires superuser. Default false. */
-  requireSuperuser?: boolean;
 }
 
 const _items: AdminNavItem[] = [];

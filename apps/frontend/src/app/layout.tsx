@@ -107,7 +107,6 @@ async function getNavigationItems(
       segment: 'metrics',
       title: 'Metrics',
       icon: <AutoGraphIcon key="metrics-icon" />,
-      requireSuperuser: true,
     },
     // GENERATE section — creation and exploration tools
     {
@@ -191,7 +190,6 @@ async function getNavigationItems(
       segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon key="models-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',

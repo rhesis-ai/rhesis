@@ -45,6 +45,7 @@ export default function EndpointCreateDrawer({
           ref={formRef}
           projectId={projectId}
           hideActionBar
+          hideProjectSelect
           onCancel={onClose}
           onCreated={handleCreated}
           onSubmitStateChange={setSubmitState}
