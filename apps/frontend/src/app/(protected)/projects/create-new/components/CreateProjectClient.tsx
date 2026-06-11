@@ -20,7 +20,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { writeActiveProjectId } from '@/utils/active-project';
-import { UUID } from 'crypto';
+import type { UUID } from 'crypto';
 
 interface FormData {
   projectName: string;

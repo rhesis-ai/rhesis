@@ -15,7 +15,7 @@ import {
   readActiveProjectId,
   writeActiveProjectId,
 } from '@/utils/active-project';
-import { UUID } from 'crypto';
+import type { UUID } from 'crypto';
 import { Project } from '@/utils/api-client/interfaces/project';
 
 interface ActiveProjectContextValue {

@@ -7,7 +7,19 @@ import { Source } from '@/utils/api-client/interfaces/source';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
-import { UUID } from 'crypto';
+import type { UUID } from 'crypto';
+
+function normalizeTagName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function tagNamesMatch(a: string, b: string): boolean {
+  return normalizeTagName(a) === normalizeTagName(b);
+}
+
+function isTagInList(name: string, list: string[]): boolean {
+  return list.some(entry => tagNamesMatch(entry, name));
+}
 
 interface TagsDraft {
   tagNames: string[];
@@ -36,11 +48,11 @@ export default function SourceTagsCard({
     const currentNames = initialTagNames;
     const newNames = draft.tagNames;
 
-    const tagsToRemove = currentNames.filter(n => !newNames.includes(n));
-    const tagsToAdd = newNames.filter(n => !currentNames.includes(n));
+    const tagsToRemove = currentNames.filter(n => !isTagInList(n, newNames));
+    const tagsToAdd = newNames.filter(n => !isTagInList(n, currentNames));
 
     for (const name of tagsToRemove) {
-      const tag = source.tags?.find((t: Tag) => t.name === name);
+      const tag = source.tags?.find((t: Tag) => tagNamesMatch(t.name, name));
       if (tag) {
         await tagsClient.removeTagFromEntity(
           EntityType.SOURCE,
@@ -79,8 +91,8 @@ export default function SourceTagsCard({
       initialValue={initialDraft}
       onSave={handleSave}
       isDirty={(draft, initial) =>
-        JSON.stringify(draft.tagNames.slice().sort()) !==
-        JSON.stringify(initial.tagNames.slice().sort())
+        JSON.stringify(draft.tagNames.map(normalizeTagName).slice().sort()) !==
+        JSON.stringify(initial.tagNames.map(normalizeTagName).slice().sort())
       }
     >
       {({ draft, setDraft, isEditing }) => (
