@@ -29,7 +29,35 @@ Demonstrates:
 
 **Use Case**: When you want to see telemetry in a real API server context.
 
-### 3. LangChain Auto-Instrumentation
+### 3. CrewAI Multi-Agent
+**File**: `crewai_example.py`
+
+Demonstrates (see [issue #1166](https://github.com/rhesis-ai/rhesis/issues/1166)):
+- Multiple agents: **planner**, **researcher**, **writer**
+- Task delegation and sequential orchestration (CrewAI `Task` + `context`)
+- Nested trace hierarchy (pipeline → per-agent spans via `@observe` → LLM children)
+- Agent-to-agent handoff visibility (`ai.agent.handoff` via `@observe`)
+- LLM call telemetry (tokens, cost, latency) via `auto_instrument()`
+- OpenAI or Gemini (set `CREWAI_MODEL` and the matching API key in `.env`)
+
+**Use Case**: Debug CrewAI multi-agent workflows with per-agent spans, handoffs, and LLM cost/latency in Rhesis.
+
+```bash
+uv run --extra crewai crewai_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 4. LangGraph Multi-Node Workflow
+**File**: `langgraph_example.py`
+
+Demonstrates:
+- Multi-node LangGraph workflow with automatic tracing
+- Token counts and cost attributes per LLM call
+- Provider-agnostic instrumentation via LangChain callbacks
+
+**Use Case**: When you orchestrate agents with LangGraph state machines.
+
+### 5. LangChain Auto-Instrumentation
 **File**: `langchain_example.py`
 
 Demonstrates:
@@ -66,6 +94,9 @@ uv sync
 
 # Install with LangChain support
 uv sync --extra langchain
+
+# Install with CrewAI support
+uv sync --extra crewai
 ```
 
 ## Prerequisites - Start the Backend
@@ -129,6 +160,12 @@ uv run --extra fastapi fastapi_example.py
 
 # LangChain example (auto-instrumentation)
 uv run --extra langchain langchain_example.py
+
+# CrewAI multi-agent example
+uv run --extra crewai crewai_example.py
+
+# LangGraph workflow example
+uv run --extra langgraph langgraph_example.py
 ```
 
 **How it works**: `uv run` automatically:
