@@ -11,7 +11,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useRouter } from 'next/navigation';
-import TestSetTestsGrid from './TestSetTestsGrid';
 import AssignTestsDrawer from './AssignTestsDrawer';
 import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -27,14 +26,6 @@ const paperSx = {
   borderRadius: BORDER_RADIUS.md,
   border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   boxShadow: ELEVATION.xs,
-};
-
-const gridCardSx = {
-  width: '100%',
-  borderRadius: BORDER_RADIUS.md,
-  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
-  boxShadow: ELEVATION.xs,
-  overflow: 'hidden',
 };
 
 interface TestSetLinkedTestsSectionProps {
@@ -212,47 +203,34 @@ export default function TestSetLinkedTestsSection({
         </Paper>
       ) : (
         <>
-          <Paper elevation={0} sx={gridCardSx}>
-            <Box
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 2,
+            }}
+          >
+            <Typography
               sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                px: '30px',
-                pt: '30px',
-                pb: '30px',
+                fontWeight: 600,
+                fontSize: 20,
+                lineHeight: '24px',
+                color: 'primary.main',
               }}
             >
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  fontSize: 20,
-                  lineHeight: '24px',
-                  color: 'primary.main',
-                }}
-              >
-                Tests ({totalCount})
-              </Typography>
-              {assignButton}
-            </Box>
-
-            <TestSetTestsGrid
-              key={refreshKey}
-              testSetId={testSetId}
-              sessionToken={sessionToken}
-              testSetType={testSetType}
-              onRefresh={handleRefresh}
-              onTotalCountChange={setTotalCount}
-            />
-          </Paper>
-
-          <Box sx={{ mt: 3 }}>
-            <EmbeddingTestsPanel
-              testSetId={testSetId}
-              sessionToken={sessionToken}
-              testSetType={testSetType}
-            />
+              Tests ({totalCount})
+            </Typography>
+            {assignButton}
           </Box>
+
+          <EmbeddingTestsPanel
+            key={refreshKey}
+            testSetId={testSetId}
+            sessionToken={sessionToken}
+            testSetType={testSetType}
+            onTotalCountChange={setTotalCount}
+          />
         </>
       )}
 
