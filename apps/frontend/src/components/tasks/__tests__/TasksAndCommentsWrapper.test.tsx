@@ -32,7 +32,24 @@ jest.mock('../TaskCreationDrawer', () => ({
 }));
 
 jest.mock('../TasksSection', () => ({
-  TasksSection: () => <div data-testid="tasks-section" />,
+  TasksSection: ({
+    onCreateTask,
+    onDeleteTask,
+    refreshKey,
+  }: {
+    onCreateTask: (data: Record<string, unknown>) => Promise<void>;
+    onDeleteTask: (id: string) => Promise<void>;
+    refreshKey?: number;
+  }) => (
+    <div data-testid="tasks-section" data-refresh-key={refreshKey ?? 0}>
+      <button type="button" onClick={() => onCreateTask({ title: 'New Task' })}>
+        create
+      </button>
+      <button type="button" onClick={() => onDeleteTask('task-1')}>
+        delete
+      </button>
+    </div>
+  ),
 }));
 
 jest.mock('@/components/comments/CommentsWrapper', () => ({
@@ -59,6 +76,39 @@ describe('TasksAndCommentsWrapper', () => {
     render(<TasksAndCommentsWrapper {...DEFAULT_PROPS} />);
     expect(screen.getByTestId('tasks-section')).toBeInTheDocument();
     expect(screen.getByTestId('comments-wrapper')).toBeInTheDocument();
+  });
+
+  it('bumps TasksSection refreshKey after creating a task', async () => {
+    const user = userEvent.setup();
+    mockCreateTask.mockResolvedValue({ id: 'task-1' });
+
+    render(<TasksAndCommentsWrapper {...DEFAULT_PROPS} />);
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-key',
+      '0'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'create' }));
+
+    expect(mockCreateTask).toHaveBeenCalledWith({ title: 'New Task' });
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-key',
+      '1'
+    );
+  });
+
+  it('bumps TasksSection refreshKey after deleting a task', async () => {
+    const user = userEvent.setup();
+    mockDeleteTask.mockResolvedValue(true);
+
+    render(<TasksAndCommentsWrapper {...DEFAULT_PROPS} />);
+    await user.click(screen.getByRole('button', { name: 'delete' }));
+
+    expect(mockDeleteTask).toHaveBeenCalledWith('task-1');
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-key',
+      '1'
+    );
   });
 
   it('calls parent onCountsChange when CommentsWrapper triggers it', async () => {

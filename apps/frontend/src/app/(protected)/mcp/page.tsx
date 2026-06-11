@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import GridToolbar, {
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
@@ -224,7 +224,7 @@ export default function MCPSPage() {
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveMCPFilters(filters)}
         activeFilterCount={countActiveMCPFilters(filters)}
-        sx={directoryToolbarSx}
+        {...directoryToolbarProps}
       />
 
       {loading ? (

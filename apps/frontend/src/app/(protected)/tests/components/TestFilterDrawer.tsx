@@ -170,7 +170,7 @@ export default function TestFilterDrawer({
       <Autocomplete
         freeSolo
         options={options}
-        value={draft[field]}
+        value={draft[field] || null}
         loading={loadingOptions}
         onChange={(_, value) =>
           setDraft(prev => ({ ...prev, [field]: value || '' }))

@@ -206,27 +206,13 @@ export default function EndpointsGrid({
       setTotalCount(response.pagination.totalCount);
       setError(null);
     } catch {
-      const hasActiveFilters =
-        hasActiveEndpointFilters(drawerFilters) || searchQuery.trim() !== '';
-      if (hasActiveFilters) {
-        setEndpoints([]);
-        setTotalCount(0);
-        setError(null);
-      } else {
-        setError('Failed to load endpoints');
-        setEndpoints([]);
-      }
+      setError('Failed to load endpoints');
+      setEndpoints([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [
-    sessionToken,
-    paginationModel,
-    filterModel,
-    projectId,
-    drawerFilters,
-    searchQuery,
-  ]);
+  }, [sessionToken, paginationModel, filterModel, projectId]);
 
   useEffect(() => {
     fetchEndpoints();
@@ -456,12 +442,13 @@ export default function EndpointsGrid({
     [searchQuery, hasActiveDrawerFilters, activeFilterCount]
   );
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
   return (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <Box sx={{ position: 'relative' }}>
         <BaseDataGrid
           rows={endpoints}

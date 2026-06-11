@@ -145,6 +145,26 @@ export default function TabBasics({
           />
         )}
 
+        {hideProjectSelect && !loadingProjects && !formData.project_id && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                component="a"
+                href="/projects"
+              >
+                Select project
+              </Button>
+            }
+          >
+            No active project selected. Choose a project before creating an
+            endpoint.
+          </Alert>
+        )}
+
         <TextField
           fullWidth
           required

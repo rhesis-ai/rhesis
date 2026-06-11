@@ -67,6 +67,22 @@ describe('TabBasics', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a warning when hideProjectSelect is true but no project is resolved', () => {
+    render(
+      <TabBasics
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+        hideProjectSelect
+      />
+    );
+    expect(screen.getByText(/no active project selected/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /select project/i })
+    ).toHaveAttribute('href', '/projects');
+  });
+
   it('disables the project dropdown while projects are loading', () => {
     render(
       <TabBasics
