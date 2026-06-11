@@ -36,12 +36,10 @@ interface MappingDraft {
 
 function mappingFromEndpoint(endpoint: {
   request_mapping?: Record<string, unknown>;
-  response_mapping?: Record<string, string>;
+  response_mapping?: Record<string, unknown>;
 }): MappingDraft {
   return {
-    reqBody: parseBodyMapping(
-      (endpoint.request_mapping ?? {}) as Record<string, unknown>
-    ),
+    reqBody: parseBodyMapping(endpoint.request_mapping ?? {}),
     resBody: JSON.stringify(endpoint.response_mapping ?? {}, null, 2),
   };
 }
@@ -62,7 +60,8 @@ export default function EndpointMappingTab() {
 
   const mappingInitial = useMemo(
     () => mappingFromEndpoint(endpoint),
-    [endpoint.request_mapping, endpoint.response_mapping]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [endpoint.request_mapping, endpoint.response_mapping] // intentional: only re-derive when mappings change, not on every endpoint field update
   );
 
   if (endpoint.connection_type === 'SDK') {
@@ -229,6 +228,7 @@ export default function EndpointMappingTab() {
                   href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
                   target="_blank"
                   rel="noopener"
+                  onClick={e => e.stopPropagation()}
                 >
                   See examples ↗
                 </Link>
@@ -241,9 +241,8 @@ export default function EndpointMappingTab() {
                     ? 'Collapse manual mapping'
                     : 'Expand manual mapping'
                 }
-                onClick={() => setManualExpanded(e => !e)}
                 size="small"
-                sx={{ color: 'primary.main' }}
+                sx={{ color: 'primary.main', pointerEvents: 'none' }}
               >
                 {manualExpanded ? (
                   <KeyboardArrowUpIcon />
@@ -252,6 +251,7 @@ export default function EndpointMappingTab() {
                 )}
               </IconButton>
             }
+            onHeaderClick={() => setManualExpanded(e => !e)}
           >
             <Collapse in={manualExpanded}>
               {isEditing ? (

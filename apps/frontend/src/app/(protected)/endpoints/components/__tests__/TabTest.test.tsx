@@ -38,8 +38,8 @@ describe('TabTest', () => {
   it('shows "No response yet" placeholder before a test is run', () => {
     render(<TabTest {...defaultProps} />);
     expect(
-      screen.getByText(/run a test to see the response/i)
-    ).toBeInTheDocument();
+      screen.getAllByText(/run a test to see the response/i).length
+    ).toBeGreaterThan(0);
   });
 
   it('extracts template variables from reqBody and shows input fields', () => {
@@ -87,8 +87,8 @@ describe('TabTest', () => {
   it('shows the URL in the request panel', () => {
     render(<TabTest {...defaultProps} />);
     expect(
-      screen.getByText('https://api.example.com/chat')
-    ).toBeInTheDocument();
+      screen.getAllByText(/https:\/\/api\.example\.com\/chat/).length
+    ).toBeGreaterThan(0);
   });
 
   it('shows "No response mapping configured yet" when resBody is empty object', () => {

@@ -19,8 +19,8 @@ export const insertableVariableChipSx = {
   '&:hover': {
     bgcolor: (t: Theme) =>
       t.palette.mode === 'light'
-        ? alpha(t.palette.greyscale?.body ?? '#2a2e36', 0.08)
-        : alpha(t.palette.greyscale?.body ?? '#c9d1d9', 0.12),
+        ? alpha(t.palette.greyscale.body, 0.08)
+        : alpha(t.palette.greyscale.body, 0.12),
   },
 };
 

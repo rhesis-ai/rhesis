@@ -2,7 +2,7 @@
 
 import { Fragment } from 'react';
 import { Box } from '@mui/material';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import { variableChipSx } from './endpoint-styles';
 
 // ── Output variables ──────────────────────────────────────────────────────────

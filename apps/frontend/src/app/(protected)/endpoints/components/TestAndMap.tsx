@@ -10,7 +10,6 @@ import React, {
 import {
   Box,
   Typography,
-  Chip,
   Popover,
   List,
   ListItemButton,
@@ -18,11 +17,12 @@ import {
   Link,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
-import { PlayArrowIcon, CheckIcon } from '@/components/icons';
+import { PlayArrowIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { alpha, type Theme } from '@mui/material/styles';
-import { insertableVariableChipSx, testPreviewSx } from './endpoint-styles';
+import { testPreviewSx } from './endpoint-styles';
+import VariableChip from './VariableChip';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -117,24 +117,6 @@ const OUTPUT_VARIABLES = [
       'Tool or function calls made during response generation. Available to metrics that evaluate tool use.',
   },
 ];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getAtPath(obj: unknown, path: string): unknown {
-  if (!path) return obj;
-  const parts: string[] = [];
-  const re = /([^.[]+)|\[(\d+)\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(path)) !== null) {
-    parts.push(m[1] ?? m[2]);
-  }
-  let cur: unknown = obj;
-  for (const p of parts) {
-    if (cur == null || typeof cur !== 'object') return undefined;
-    cur = (cur as Record<string, unknown>)[p];
-  }
-  return cur;
-}
 
 // ── Response JSON tree ────────────────────────────────────────────────────────
 
@@ -457,15 +439,6 @@ export default function TestAndMap({
     return r.raw_response != null ? r.raw_response : parsedResponse;
   }, [parsedResponse]);
 
-  const mappedValues = useMemo(() => {
-    if (!mappingTarget) return {};
-    const out: Record<string, unknown> = {};
-    for (const [path, varName] of Object.entries(pathToVar)) {
-      out[varName] = getAtPath(mappingTarget, path);
-    }
-    return out;
-  }, [mappingTarget, pathToVar]);
-
   const mappedVarNames = new Set(Object.values(pathToVar));
 
   const mappedPaths = useMemo(() => {
@@ -514,30 +487,7 @@ export default function TestAndMap({
             flexWrap: 'wrap',
           }}
         >
-          <Chip
-            label={
-              isMapped ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <span>{v.label}</span>
-                  <CheckIcon sx={{ fontSize: 11 }} />
-                </Box>
-              ) : (
-                v.label
-              )
-            }
-            size="small"
-            sx={{
-              ...insertableVariableChipSx,
-              ...(isMapped && {
-                bgcolor: (t: Theme) =>
-                  t.palette.mode === 'light'
-                    ? alpha(t.palette.success.main, 0.08)
-                    : alpha(t.palette.success.main, 0.18),
-                color: 'success.main',
-                borderColor: 'success.light',
-              }),
-            }}
-          />
+          <VariableChip label={v.label} isActive={isMapped} />
           {isMapped && jsonPath && (
             <Typography
               variant="caption"

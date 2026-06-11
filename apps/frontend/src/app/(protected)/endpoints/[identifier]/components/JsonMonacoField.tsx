@@ -57,7 +57,7 @@ interface JsonMonacoFieldProps {
   theme: string;
   value: string;
   readOnly?: boolean;
-  wrapperSx: object;
+  wrapperSx?: object;
   onChange?: (value: string) => void;
 }
 
@@ -67,7 +67,7 @@ export default function JsonMonacoField({
   theme,
   value,
   readOnly = false,
-  wrapperSx,
+  wrapperSx = {},
   onChange,
 }: JsonMonacoFieldProps) {
   const muiTheme = useTheme();

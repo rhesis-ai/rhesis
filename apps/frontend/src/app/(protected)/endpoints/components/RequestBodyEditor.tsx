@@ -3,7 +3,6 @@
 import React, { useRef, useEffect } from 'react';
 import {
   Box,
-  Chip,
   Menu,
   MenuItem,
   Typography,
@@ -12,7 +11,8 @@ import {
 import dynamic from 'next/dynamic';
 import type { OnMount, BeforeMount } from '@monaco-editor/react';
 import { useTheme } from '@mui/material/styles';
-import { editorContainerSx, insertableVariableChipSx } from './endpoint-styles';
+import { editorContainerSx } from './endpoint-styles';
+import VariableChip from './VariableChip';
 
 // Injected once — colors {{ ... }} template tokens inline inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -236,8 +236,14 @@ export default function RequestBodyEditor({
     }
   };
 
-  const chipLabel = (name: string) =>
+  const chipDisplayLabel = (name: string) =>
     name === '{{ files }}' || name === '{{ messages }}' ? `${name} ▾` : name;
+
+  const isVarUsed = (name: string): boolean => {
+    const base = name.match(/\{\{\s*([\w]+)/)?.[1];
+    if (!base) return false;
+    return new RegExp(`\\{\\{\\s*${base}\\b`).test(value);
+  };
 
   const editor = (
     <Box
@@ -281,7 +287,6 @@ export default function RequestBodyEditor({
     const { groupLabel, description, docsUrl } = variable;
     return (
       <Box
-        // eslint-disable-next-line react/no-array-index-key
         key={i}
         sx={{
           display: 'flex',
@@ -302,12 +307,12 @@ export default function RequestBodyEditor({
         )}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {names.map(name => (
-            <Chip
+            <VariableChip
               key={name}
-              label={chipLabel(name)}
-              size="small"
+              label={chipDisplayLabel(name)}
+              isActive={isVarUsed(name)}
               onClick={e => handleChipClick(name, e)}
-              sx={{ ...insertableVariableChipSx, alignSelf: 'flex-start' }}
+              alignSelf="flex-start"
             />
           ))}
         </Box>
@@ -378,15 +383,12 @@ export default function RequestBodyEditor({
               )}
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {names.map(name => (
-                  <Chip
+                  <VariableChip
                     key={name}
-                    label={chipLabel(name)}
-                    size="small"
+                    label={chipDisplayLabel(name)}
+                    isActive={isVarUsed(name)}
                     onClick={e => handleChipClick(name, e)}
-                    sx={{
-                      ...insertableVariableChipSx,
-                      alignSelf: 'flex-start',
-                    }}
+                    alignSelf="flex-start"
                   />
                 ))}
               </Box>
@@ -438,13 +440,12 @@ export default function RequestBodyEditor({
         {variables.flatMap((variable, i) =>
           (variable.chips ?? (variable.name ? [variable.name] : [])).map(
             name => (
-              <Chip
+              <VariableChip
                 // eslint-disable-next-line react/no-array-index-key
                 key={`${i}-${name}`}
-                label={chipLabel(name)}
-                size="small"
+                label={chipDisplayLabel(name)}
+                isActive={isVarUsed(name)}
                 onClick={e => handleChipClick(name, e)}
-                sx={insertableVariableChipSx}
               />
             )
           )

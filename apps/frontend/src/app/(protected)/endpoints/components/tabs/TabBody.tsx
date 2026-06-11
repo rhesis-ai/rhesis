@@ -92,6 +92,7 @@ export default function TabBody({
               href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
               target="_blank"
               rel="noopener"
+              onClick={e => e.stopPropagation()}
             >
               See examples ↗
             </Link>
@@ -104,9 +105,8 @@ export default function TabBody({
                 ? 'Collapse manual mapping'
                 : 'Expand manual mapping'
             }
-            onClick={() => setManualExpanded(e => !e)}
             size="small"
-            sx={{ color: 'primary.main' }}
+            sx={{ color: 'primary.main', pointerEvents: 'none' }}
           >
             {manualExpanded ? (
               <KeyboardArrowUpIcon />
@@ -115,6 +115,7 @@ export default function TabBody({
             )}
           </IconButton>
         }
+        onHeaderClick={() => setManualExpanded(e => !e)}
       >
         <Collapse in={manualExpanded}>
           <TestAndMap
