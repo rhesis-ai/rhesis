@@ -25,7 +25,7 @@ function createE2ESessionToken(): string {
       email: E2E_USER.email,
       name: E2E_USER.name,
       picture: null,
-      is_superuser: true,
+      is_superuser: false,
       is_email_verified: true,
       organization_id: E2E_USER.organization_id,
     },

@@ -53,7 +53,6 @@ import type { NavigationItem } from '@/types/navigation';
 // ── helper ────────────────────────────────────────────────────────────────
 function setupMocks({
   navigation = [] as NavigationItem[],
-  isSuperuser = false,
   pathname = '/insights',
 } = {}) {
   (usePathname as jest.Mock).mockReturnValue(pathname);
@@ -62,7 +61,6 @@ function setupMocks({
       user: {
         name: 'Test User',
         email: 'test@example.com',
-        is_superuser: isSuperuser,
       },
     },
   });
@@ -100,39 +98,17 @@ describe('Sidebar', () => {
     expect(screen.getByText('Tests')).toBeInTheDocument();
   });
 
-  // ── Fix 3 regression: requireSuperuser filtering ───────────────────────
-  describe('requireSuperuser filtering', () => {
+  it('shows all nav items regardless of user role', () => {
     const navigation: NavigationItem[] = [
       { kind: 'page', segment: 'insights', title: 'Insights' },
-      {
-        kind: 'page',
-        segment: 'metrics',
-        title: 'Metrics',
-        requireSuperuser: true,
-      },
-      {
-        kind: 'page',
-        segment: 'models',
-        title: 'Models',
-        requireSuperuser: true,
-      },
+      { kind: 'page', segment: 'metrics', title: 'Metrics' },
+      { kind: 'page', segment: 'models', title: 'Models' },
     ];
-
-    it('hides requireSuperuser items for non-superusers', () => {
-      setupMocks({ navigation, isSuperuser: false });
-      render(<Sidebar />);
-      expect(screen.getByText('Insights')).toBeInTheDocument();
-      expect(screen.queryByText('Metrics')).not.toBeInTheDocument();
-      expect(screen.queryByText('Models')).not.toBeInTheDocument();
-    });
-
-    it('shows requireSuperuser items for superusers', () => {
-      setupMocks({ navigation, isSuperuser: true });
-      render(<Sidebar />);
-      expect(screen.getByText('Insights')).toBeInTheDocument();
-      expect(screen.getByText('Metrics')).toBeInTheDocument();
-      expect(screen.getByText('Models')).toBeInTheDocument();
-    });
+    setupMocks({ navigation });
+    render(<Sidebar />);
+    expect(screen.getByText('Insights')).toBeInTheDocument();
+    expect(screen.getByText('Metrics')).toBeInTheDocument();
+    expect(screen.getByText('Models')).toBeInTheDocument();
   });
 
   // ── Fix 1 regression: full path accumulation ───────────────────────────
