@@ -10,7 +10,6 @@ export interface NavigationPageItem {
   icon?: React.ReactNode;
   action?: React.ReactNode;
   children?: NavigationPageItem[];
-  requireSuperuser?: boolean;
 }
 
 export interface NavigationHeaderItem {
@@ -30,7 +29,6 @@ export interface NavigationLinkItem {
   href: string;
   icon?: React.ReactNode;
   external?: boolean;
-  requireSuperuser?: boolean;
 }
 
 export interface NavigationActionItem {
@@ -38,7 +36,6 @@ export interface NavigationActionItem {
   title: string;
   icon?: React.ReactNode;
   action: string; // Action identifier to handle in the UI
-  requireSuperuser?: boolean;
 }
 
 export type NavigationItem =

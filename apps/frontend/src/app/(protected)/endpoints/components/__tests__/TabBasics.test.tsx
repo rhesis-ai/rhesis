@@ -51,6 +51,22 @@ describe('TabBasics', () => {
     ).toBeInTheDocument();
   });
 
+  it('hides the project dropdown when hideProjectSelect is true', () => {
+    render(
+      <TabBasics
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+        hideProjectSelect
+      />
+    );
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: /endpoint name/i })
+    ).toBeInTheDocument();
+  });
+
   it('disables the project dropdown while projects are loading', () => {
     render(
       <TabBasics

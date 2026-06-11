@@ -3,7 +3,6 @@ import { BasePage } from './BasePage';
 
 /**
  * Page Object for the Metrics page (/metrics).
- * Only accessible to superusers.
  */
 export class MetricsPage extends BasePage {
   readonly dataGrid = this.page.locator('[role="grid"]');
@@ -21,10 +20,7 @@ export class MetricsPage extends BasePage {
     await this.expectNoErrors();
   }
 
-  /**
-   * Returns true when the page renders metric cards or any main content.
-   * The page may redirect to /dashboard for non-superusers.
-   */
+  /** Returns true when the page renders metric cards or any main content. */
   async expectContentOrRedirect(): Promise<boolean> {
     await this.page.waitForLoadState('networkidle');
     const url = this.page.url();

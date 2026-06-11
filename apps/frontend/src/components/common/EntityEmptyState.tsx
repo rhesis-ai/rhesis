@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
+import type { SvgIconProps } from '@mui/material/SvgIcon';
 import AddIcon from '@mui/icons-material/Add';
-import type { SvgIconComponent } from '@mui/icons-material';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 export interface EntityEmptyStateProps {
-  /** MUI SvgIcon component class (not an element). */
-  icon: SvgIconComponent;
+  /** SvgIcon component class (not an element). */
+  icon: React.ComponentType<SvgIconProps>;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -113,7 +113,7 @@ export default function EntityEmptyState({
 
       {actionLabel && onAction && (
         <Button
-          variant="contained"
+          variant={card ? 'outlined' : 'contained'}
           startIcon={resolvedShowAddIcon ? <AddIcon /> : undefined}
           onClick={onAction}
           disabled={actionDisabled}
@@ -127,6 +127,10 @@ export default function EntityEmptyState({
                   textTransform: 'none',
                   px: '20px',
                   py: '12px',
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                  },
                 }
               : { mt: 1, fontWeight: 700 }
           }

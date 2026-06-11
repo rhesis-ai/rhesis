@@ -34,7 +34,6 @@ import {
   type StandaloneGroup,
   type SectionGroup,
   type FooterLinksGroup,
-  filterNavItems,
   groupNavItems,
   collapsedNavGroupSx,
   COLLAPSED_NAV_ITEM_SIZE,
@@ -101,9 +100,7 @@ export function Sidebar() {
   const [supportOpen, setSupportOpen] = useState(false);
 
   const orgName = branding?.title ?? 'Rhesis AI';
-  const isSuperuser = user?.is_superuser === true;
-  const filteredNavigation = filterNavItems(navigation, isSuperuser);
-  const groups = groupNavItems(filteredNavigation);
+  const groups = groupNavItems(navigation);
 
   const mainGroups = groups.filter(g => g.type !== 'footer-links') as (
     | StandaloneGroup

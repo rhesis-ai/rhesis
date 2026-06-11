@@ -33,7 +33,6 @@ export interface ExtendedUser {
   name?: string | null;
   email?: string | null;
   image?: string | null;
-  is_superuser?: boolean;
 }
 
 // ── Active-path helper ────────────────────────────────────────────────────────
@@ -41,29 +40,6 @@ export interface ExtendedUser {
 export function isActive(pathname: string | null, fullPath: string): boolean {
   if (!pathname) return false;
   return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
-}
-
-// ── Navigation filtering ──────────────────────────────────────────────────────
-
-export function filterNavItems(
-  items: NavigationItem[],
-  isSuperuser: boolean
-): NavigationItem[] {
-  return items.reduce<NavigationItem[]>((acc, item) => {
-    const needsSuperuser =
-      'requireSuperuser' in item &&
-      (item as { requireSuperuser?: boolean }).requireSuperuser;
-    if (needsSuperuser && !isSuperuser) return acc;
-    if (item.kind === 'page' && item.children && item.children.length > 0) {
-      acc.push({
-        ...item,
-        children: filterNavItems(item.children, isSuperuser),
-      } as NavigationPageItem);
-    } else {
-      acc.push(item);
-    }
-    return acc;
-  }, []);
 }
 
 // ── Navigation grouping ───────────────────────────────────────────────────────
