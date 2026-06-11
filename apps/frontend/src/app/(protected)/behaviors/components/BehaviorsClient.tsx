@@ -8,7 +8,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import GridToolbar, {
   ToolbarPillTabs,
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
@@ -551,7 +551,7 @@ export default function BehaviorsClient({
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
         activeFilterCount={countActiveBehaviorFilters(drawerFilters)}
-        sx={directoryToolbarSx}
+        {...directoryToolbarProps}
         middleContent={
           <ToolbarPillTabs
             tabs={metricOptions}

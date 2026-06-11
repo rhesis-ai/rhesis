@@ -11,6 +11,11 @@ export interface SearchPillProps {
   onChange: (value: string) => void;
   placeholder?: string;
   width?: number | string;
+  /**
+   * `embedded` — toolbar inside a grid card (surface2 on paper bg).
+   * `standalone` — directory pages on the page background (needs raised surface).
+   */
+  variant?: 'embedded' | 'standalone';
 }
 
 /**
@@ -22,8 +27,10 @@ export function SearchPill({
   onChange,
   placeholder = 'Search…',
   width = 288,
+  variant = 'embedded',
 }: SearchPillProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const isStandalone = variant === 'standalone';
 
   return (
     <Box
@@ -31,7 +38,13 @@ export function SearchPill({
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        bgcolor: theme => theme.palette.greyscale.surface2,
+        bgcolor: theme =>
+          isStandalone
+            ? theme.palette.background.paper
+            : theme.palette.greyscale.surface2,
+        border: isStandalone ? '1px solid' : 'none',
+        borderColor: theme =>
+          isStandalone ? theme.palette.greyscale.border : 'transparent',
         borderRadius: '30px', // Intentional: elongated search pill shape
         height: 38,
         pl: '16px',
@@ -48,8 +61,12 @@ export function SearchPill({
         sx={{
           flex: 1,
           fontSize: 14,
+          color: theme => theme.palette.greyscale.body,
           '& input::placeholder': {
-            color: theme => theme.palette.greyscale.border,
+            color: theme =>
+              isStandalone
+                ? theme.palette.greyscale.subtitle
+                : theme.palette.greyscale.border,
             opacity: 1,
           },
         }}

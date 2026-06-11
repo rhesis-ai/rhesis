@@ -21,7 +21,7 @@ export default function NoProjectAccess() {
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const handleRefresh = async () => {
-    await refresh();
+    await refresh({ listOnly: false });
     setSwitcherOpen(true);
   };
 

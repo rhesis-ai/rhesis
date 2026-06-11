@@ -456,12 +456,13 @@ export default function EndpointsGrid({
     [searchQuery, hasActiveDrawerFilters, activeFilterCount]
   );
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
   return (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <Box sx={{ position: 'relative' }}>
         <BaseDataGrid
           rows={endpoints}

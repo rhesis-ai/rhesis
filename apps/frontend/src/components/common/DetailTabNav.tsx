@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 export interface DetailTabNavItem {
   key: string;
@@ -15,6 +16,11 @@ export interface DetailTabNavProps {
   activeIndex: number;
   onChange: (index: number) => void;
   'aria-label'?: string;
+  /** Horizontal space between tabs. Default 50px (full-width detail pages). */
+  tabGap?: string | number;
+  /** Keep tabs on one row with horizontal scroll when they overflow. */
+  scrollable?: boolean;
+  sx?: SxProps<Theme>;
 }
 
 /**
@@ -27,6 +33,9 @@ export function DetailTabNav({
   activeIndex,
   onChange,
   'aria-label': ariaLabel = 'Detail page tabs',
+  tabGap = '50px',
+  scrollable = false,
+  sx,
 }: DetailTabNavProps) {
   const tabRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -49,12 +58,23 @@ export function DetailTabNav({
     <Box
       role="tablist"
       aria-label={ariaLabel}
-      sx={{
-        display: 'flex',
-        gap: '50px',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
-      }}
+      sx={[
+        {
+          display: 'flex',
+          gap: tabGap,
+          alignItems: 'flex-start',
+          flexWrap: scrollable ? 'nowrap' : 'wrap',
+          ...(scrollable
+            ? {
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                pb: '2px',
+                scrollbarWidth: 'thin',
+              }
+            : {}),
+        },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
     >
       {tabs.map((tab, index) => {
         const selected = activeIndex === index;
@@ -85,6 +105,7 @@ export function DetailTabNav({
               cursor: 'pointer',
               outline: 'none',
               minWidth: 0,
+              flexShrink: scrollable ? 0 : 1,
               '&:focus-visible': {
                 outline: '2px solid',
                 outlineColor: 'primary.main',

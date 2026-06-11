@@ -13,6 +13,397 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-11
+
+### Changed
+
+- Fix: metric evaluation failures for single-turn tests (#1923)
+
+* fix(backend): resolve metric evaluation failures for single-turn tests
+
+- Add metric_scope to metric_model_to_config common_fields so scope-based
+  filters are no longer a no-op (root cause of conversational metrics
+  running against single-turn tests)
+- Filter out Multi-Turn-only metrics in both batch and non-batch
+  single-turn evaluation paths
+- Guard against None conversation_history in conversational metric base
+  classes (native, deepeval, conversational_judge) with clear error messages
+- Pass project_id in collect_results task headers so the ORM scope filter
+  does not apply WHERE project_id IS NULL, causing test runs to be unfound
+- Add Jinja2 defaults for numeric variables in test execution summary
+  email template to handle task failure before summary data is returned
+- Extract context from output dict in batch single-turn evaluation
+
+* test(backend): add regression tests for metric_scope and task header propagation
+
+- test_metric_model_to_config: assert metric_scope survives the ORM model
+  to MetricConfig conversion so a missing field in common_fields is caught
+- test_results_collection: assert project_id (and other tenant fields) are
+  forwarded in collect_results task headers so a missing header causes an
+  immediate test failure
+
+* test(backend): fix broken test and cover three additional execution seams
+
+- Update test_conversation_history_none_not_passed: conversation_history=None
+  IS now forwarded to metrics so their validator fires with a clear message
+  instead of a confusing isinstance TypeError
+- Add test_a_evaluate_params_preferred_over_evaluate: verifies the primary
+  path in _get_metric_signature uses a_evaluate when it has named params
+- Add test_a_evaluate_fallback_to_evaluate_when_varargs_only: verifies the
+  fallback to evaluate when a_evaluate is bare *args/**kwargs
+- Add Multi-Turn scope filter tests to TestEvaluateSingleTurnMetrics:
+  multi-turn-only metrics excluded, single-turn and mixed kept
+- Add early return in evaluate_single_turn_metrics when all metrics are
+  filtered out, consistent with the batch path behaviour
+- Fix test_alias_works_correctly: was passing empty metrics list but
+  asserting evaluator return value; now uses a non-empty list
+
+* style(backend): apply ruff format to metric_config.py
+
+* fix(backend): harden multi-turn scope filter and add dict/string guards
+
+- Extract _is_multi_turn_only() helper (dict-aware, guards bare string scope)
+- Replace partial None-history filter in _evaluate_multi_turn_metrics with
+  early return — empty conversation has nothing to evaluate in multi-turn context
+- Use shared helper in both batch and non-batch single-turn filter paths
+- Add regression tests: dict metrics, bare string scope, _is_multi_turn_only unit tests
+
+* fix(backend): remove unused _is_multi_turn_only import in batch evaluation
+- refactor(connector): remove local backend execution and introduce EndpointContext (#1844)
+
+* refactor: remove local backend execution in favour of sdk connector
+
+Eliminates the concept of in-process @endpoint registration on the
+backend.  All invocations now go through the standard SDK connector
+(WebSocket/RPC); a separate Rhesis application hosted elsewhere
+exposes architect and MCP functions as sdk endpoints if needed.
+
+Changes:
+- Delete local_function_registry.py and telemetry/local_invocation.py
+- Remove local-registry short-circuit branch from SdkEndpointInvoker
+- Rename services/architect/endpoint_operations.py → runner.py;
+  expose run_architect_turn(message, organization_id, user_id, ...)
+- Rename services/mcp/endpoint_operations.py → operations.py;
+  search_mcp/extract_mcp/query_mcp now take (db, org_id, user_id)
+- Strip @endpoint decorators and register_local calls from both
+- Update routers/services.py to call mcp helpers directly
+- Remove _validate_backend_local_mappings from endpoint validation
+- Remove ensure_local_functions_registered() from main.py lifespan
+- Remove __endpoint_name__ attribute from sdk endpoint decorator
+- Move conversation_telemetry_context into tasks/architect.py as
+  a private helper; keep multi-turn trace_id stitching intact
+- Update all tests to match new signatures and module paths
+
+* fix: restore @endpoint decorators on architect and mcp functions
+
+The previous refactor correctly removed the local_function_registry
+(in-process shortcut) but also removed the @endpoint decorators,
+which broke the SDK connector mechanism entirely. Without @endpoint,
+no process can register these functions with a connector, making
+remote invocation via Playground and test runs impossible.
+
+Restore the decorators so the connector can announce the functions
+over WebSocket. The local registry stays deleted -- all invocations
+go through the standard WebSocket/RPC path.
+
+* feat(connector): introduce EndpointContext for typed tenant injection
+
+Replaces scattered organization_id/user_id/db parameters on @endpoint-
+decorated backend functions with a single EndpointContext dataclass that
+the SDK connector injects automatically based on type annotation.
+
+Key changes:
+- sdk/context.py: new EndpointContext dataclass with get_db() factory
+- executor: inject EndpointContext by type annotation, never from wire
+  inputs (security: blocks tenant-identity fabrication via wire data)
+- connector manager: stores org/user from the authenticated `connected`
+  message and builds EndpointContext for each test execution
+- @endpoint decorator: auto-excludes EndpointContext params from the
+  registered function schema
+- runner.py / operations.py: accept ctx: EndpointContext instead of
+  separate identity + db params
+- connector router: /trigger now requires auth and validates project
+  ownership; test_result messages are bound to the dispatching connection
+  to prevent cross-connection result injection
+- validation: functions requiring runtime-specific inputs (e.g. tool_id)
+  are marked Active instead of Error during async validation
+- all callers pass _db_factory explicitly for traceability
+
+Closes security gaps:
+- EndpointContext cannot be constructed from wire inputs (executor)
+- /connector/trigger was unauthenticated (router)
+- test_result not bound to sending connection (server-side manager)
+
+* style(sdk): apply ruff formatting to connector and endpoint modules
+
+* fix(connector): address PR review - bind before send, clear stale entries, local-only trigger check, extract_mcp tool_id mapping
+
+- Bind pending_test_connections before await send_json to prevent fast
+  test_result replies from bypassing the connection mismatch check
+- Roll back binding on send failure to avoid stale entries
+- Clear pending_test_connections immediately after resolving a test_result
+  in handle_message, covering fire-and-forget call paths
+- Use has_local_route() in /connector/trigger instead of is_connected()
+  so a cross-instance connection no longer causes a misleading 500
+- Add tool_id to extract_mcp request_mapping (required at runtime)
+- Update tests to reflect has_local_route() mock
+
+* fix(endpoint): preserve user-customized request mapping fields on SDK re-registration
+
+Track the raw @endpoint decorator mapping in endpoint_metadata["sdk_decorator_mapping"].
+On re-registration, a field is treated as user-edited (and preserved) when its DB value
+differs from the last recorded SDK decorator value. Fields that still match the last SDK
+value are treated as unchanged and let the new decorator value take effect, covering
+legitimate decorator updates.
+
+Fixes the case where a manually hardcoded tool_id (or any other decorator field) was
+silently overwritten by the next SDK reconnection.
+
+* refactor(endpoint): use template syntax to detect user-bound fields, drop sdk_decorator_mapping
+
+Replace the sdk_decorator_mapping metadata approach with a simpler rule:
+if a request_mapping field's DB value is a Jinja2 template it is still a
+dynamic test input and the decorator can update it. If the value is a
+concrete literal the user has explicitly bound it and it is preserved on
+every re-registration regardless of the decorator.
+
+This generalises the protection to any field, not just tool_id, with no
+extra metadata plumbing.
+
+* fix(routers): add missing response_model to single-item GET endpoints
+
+Nine routers were missing response_model on GET /{id}, causing the raw
+ORM object to be returned instead of the serialized schema. This meant
+related fields (tags, status details, type info) were absent from
+single-item responses while present in list responses.
+
+Fixes TestBehaviorTags failing tests (tags missing from GET /behaviors/{id}).
+
+* fix(settings): add env_file and extra=ignore to DatabaseSettings
+
+* fix(backend): map legacy SQLALCHEMY_DB_* env vars in start.sh, revert env_file in settings
+
+Settings classes should not know about .env file paths — that is a
+startup concern. Revert the env_file addition to DatabaseSettings.
+
+Instead, add a backwards-compatibility shim in start.sh's load_env_file()
+that maps the old SQLALCHEMY_DB_* variable names to the current DB_* /
+APP_DB_* names after sourcing .env. Existing local .env files created
+before the settings refactor continue to work without any manual edits.
+- Remove services/mcp package in favor of agents/mcp (#1841)
+
+* refactor(sdk): remove services/mcp in favour of agents/mcp
+
+Delete the duplicate services/mcp package and its tests; update backend and test imports to use rhesis.sdk.agents.mcp
+
+* test(agents/mcp): migrate unit tests from services/mcp
+
+* fix(sdk-tests): correct imports
+- fix(agents): use a_generate to avoid blocking event loop in batch execution (#1837)
+
+Replace asyncio.to_thread(model.generate) with model.a_generate() in
+BaseAgent._get_llm_action. generate() is just run_sync(a_generate()),
+so calling a_generate() directly is cleaner and keeps the event loop
+fully responsive — preventing frozen backends when the architect
+endpoint is invoked from the batch test runner.
+
+Update all affected test mocks from Mock(return_value=...) on generate
+to AsyncMock(return_value=...) on a_generate.
+- Fix Architect agent observability: coherent multi-turn traces and conversation view (#1833)
+
+* feat(agents): unify tracing and invocation context
+
+Two large threads land together because they share the same call
+sites in the architect/MCP stack:
+
+Semantic tracing aligned with the langchain integration
+-------------------------------------------------------
+- TracingHandler now opens ai.agent.invoke (replacing the legacy
+  function.mcp_agent_run) and stamps ai.operation.type / ai.agent.name
+  / ai.model.name plus ai.agent.input/output events. Same shape the
+  langchain integration produces, so single-agent and multi-agent
+  traces render uniformly in the viewer.
+- agent_name is threaded through get_agent_event_handlers; architect,
+  mcp-search, mcp-extract, mcp-query, mcp-auth-test and mcp-jira-issue
+  each carry their identity on the span.
+- ToolExecutor.execute_tool emits ai.tool.invoke via a new shared
+  _tool_tracing helper; ArchitectAgent internal tools (save_plan,
+  await_task) use the same helper so MCP and internal tools share one
+  span shape.
+- BaseAgent._get_llm_action emits ai.llm.invoke per iteration with
+  provider/model metadata, ai.prompt/ai.completion events, and proper
+  exception capture (provider_error vs transport_error).
+- Add observe.agent(name, **extra) convenience decorator mirroring
+  observe.tool / observe.llm.
+- ArchitectAgent.chat_async always emits on_agent_end (success and
+  failure paths) so the agent span closes; without this the span
+  stayed open, child iteration spans appeared as top-level "turns",
+  and the OTEL context token leaked into surrounding scopes.
+- TracingHandler._close now marks the span ERROR when result.success
+  is False even without an exception (was silently UNSET).
+
+Invocation context refactor
+---------------------------
+- Introduce LocalInvocationContext (organization_id, user_id, db,
+  endpoint_id) as the single parameter passed by SdkEndpointInvoker
+  to every backend-resident @endpoint function.
+- search_mcp / extract_mcp / query_mcp / architect endpoints rewritten
+  to accept ctx in place of separate db/organization_id/user_id args.
+- ensure_local_functions_registered is invoked from the FastAPI
+  lifespan so the SDK connector advertises a complete local-function
+  manifest at startup instead of discovering endpoints lazily.
+- Lifespan switched to AsyncExitStack so MCP StreamableHTTPSessionManager
+  is entered and exited within a single async-with frame, fixing
+  anyio's "cancel scope exited from a different task" error on SIGINT.
+
+Supporting changes
+------------------
+- Extract ArchitectAgent dump_state / restore_state into a typed
+  schema (sdk/.../architect/state.py) so Celery boundaries no longer
+  reach into private agent attributes.
+- tasks/architect.py shrinks dramatically; orchestration responsibilities
+  move to apps/backend/.../services/architect/ (endpoint_operations,
+  event_handler, attachments).
+
+Tests
+-----
+- SDK: tool/LLM tracing (test_tool_tracing.py), agent-span semantics
+  (test_tracing_handler.py), observe.agent decorator, architect
+  lifecycle event emission.
+- Backend: SdkEndpointInvoker context wiring, architect task path,
+  test_mcp_service.py updated to pass LocalInvocationContext.
+
+* fix(backend): multi-turn trace coherence and conversation output
+
+- Extract shared conversation_telemetry_context helper so both
+  SdkEndpointInvoker and architect_chat_task bind the same SDK
+  ContextVars (conversation_id, trace_id, mapped_input) around
+  each architect turn.
+- Stamp conversation_trace_id on ArchitectSession.agent_state in
+  persist_state so subsequent Celery turns can reuse the root
+  trace_id, producing one coherent trace per session instead of
+  one trace per turn.
+- Park rhesis.conversation.output in architect_chat_task via
+  register_pending_output so the telemetry ingest pipeline can
+  stamp the bot response on the root span — mirrors what
+  SdkEndpointInvoker does automatically. Without this the
+  Conversation view showed only user messages and marked every
+  turn as Failed.
+
+* fix(sdk): remove duplicate llm and tool spans
+
+TracingHandler.on_llm_start/on_llm_end opened a second ai.llm.invoke
+span alongside the inline span in BaseAgent._get_llm_action. The
+wrong-order context.detach() from the handler's span corrupted the
+OTel context stack, causing subsequent ai.tool.invoke spans to appear
+nested inside the LLM span instead of as siblings.
+
+Fix: remove the LLM lifecycle hooks from TracingHandler entirely.
+The inline span in _get_llm_action is now the single canonical source
+(it carries richer attributes: SpanKind.CLIENT, model provider, prompt/
+completion events, and classified error types).
+
+Also remove the inline tool_invoke_span wrappers from ToolExecutor,
+_execute_save_plan, and _execute_await_task — TracingHandler
+on_tool_start/on_tool_end already fires for every execute_tool call
+via BaseAgent._execute_tools, making the inline spans redundant and
+producing duplicate nested ai.tool.invoke pairs.
+
+Update test_tool_tracing: ToolExecutor and internal-tool tests now
+assert functional behaviour only; LLM span tests are unchanged.
+
+* fix(tests): sort imports in test_architect_chat_task
+
+* style(sdk): ruff format architect agent
+
+* style(backend): ruff format endpoint_operations, sdk_invoker, architect task
+
+* fix(sdk): honour tracing-disabled guard in LLM span emission
+- refactor(agents): replace ObservableMCPAgent with TracingHandler (#1823)
+
+ObservableMCPAgent added OpenTelemetry spans by subclassing MCPAgent and
+reimplementing _get_llm_action and _execute_tools from scratch. This caused
+silent drift from BaseAgent: error-dict handling, ValidationError paths,
+tool duration tracking and event emissions were all lost when observability
+was enabled.
+
+Replace it with TracingHandler, a plain AgentEventHandler that opens and
+closes OTel spans in response to the events BaseAgent already fires
+(on_llm_start/end, on_tool_start/end, on_iteration_start/end, etc.).
+No agent methods are overridden; all BaseAgent logic runs untouched.
+
+- Add sdk/src/rhesis/sdk/agents/tracing.py (TracingHandler)
+- Delete both observable_agent.py copies (agents/mcp/ and services/mcp/)
+- Replace _get_agent_class() in the backend with get_agent_event_handlers()
+- Wire TracingHandler into all MCP agent construction sites
+- Update tests to patch MCPAgent directly instead of _get_agent_class
+- Fix system_prompt stripping and use SDK for multi-turn conversations (#1819)
+
+* fix(backend): only strip system_prompt for stateless endpoints
+
+The _strip_meta_keys method unconditionally removed system_prompt from
+all rendered request bodies. This was introduced for stateless (OpenAI-
+style {{ messages }}) endpoints where the system_prompt is injected into
+the messages array server-side. However, it also stripped system_prompt
+from REST and WebSocket endpoints that legitimately accept it as a
+request field, causing those endpoints to silently ignore the configured
+system prompt.
+
+Scope the stripping to stateless endpoints only by checking
+ConversationTracker.detect_stateless_mode before removing meta keys.
+
+* fix(backend): use structured messages for LLM conversation
+
+The chatbot was concatenating system prompt, conversation history, and
+the current user message into a single flat string, then sending it as
+one "user" message to the LLM. This meant the model couldn't properly
+distinguish roles or track turn boundaries in multi-turn conversations.
+
+Switch to structured messages (system/user/assistant roles) by:
+- Replacing _build_conversation_prompt with _build_messages that returns
+  a proper messages list
+- Calling litellm.acompletion directly with the messages array instead
+  of model.a_generate which only accepts a single prompt string
+- Updating _extract_response_content to handle the acompletion response
+
+* feat(sdk): add messages support to LiteLLM a_generate
+
+Allow LiteLLM.a_generate to accept a pre-built messages array via
+kwargs for multi-turn conversations. When provided, the prompt and
+system_prompt parameters are ignored and the messages array is passed
+directly to litellm.acompletion.
+
+Update the chatbot to use self.model.a_generate(messages=...) instead
+of calling litellm.acompletion directly, removing manual credential
+forwarding and letting the SDK handle provider-specific configuration.
+
+* feat(sdk): add messages parameter to LiteLLM.a_generate for multi-turn conversations
+
+Add an optional `messages` parameter to `LiteLLM.a_generate()` that
+accepts a pre-built list of message dicts. When provided, the messages
+are forwarded directly to litellm, bypassing the prompt/system_prompt
+construction. This enables proper multi-turn conversation support
+through the SDK model layer.
+
+Update the chatbot to use `self.model.a_generate(messages=...)` instead
+of importing and calling `litellm.acompletion` directly. The SDK model
+handles all provider-specific auth (API keys, Vertex AI credentials)
+internally, eliminating the need for manual credential forwarding.
+- Merge pull request #1792 from rhesis-ai/release/v0.8.0
+
+Release: platform: v0.7.1 -> v0.8.0, backend: v0.7.1 -> v0.8.0, frontend: v0.7.1 -> v0.8.0, sdk: v0.7.1 -> v0.8.0, polyphemus: v0.2.9 -> v0.3.0
+- feat(sdk): add OWASPSynthesizer for OWASP LLM Top 10 red-teaming (#1785)
+
+* feat(sdk): add OWASPSynthesizer for OWASP LLM Top 10 red-teaming
+
+* fix(sdk): fixed formatting
+
+---------
+
+Co-authored-by: Alexey <alexey@rhesis.ai>
+
+
+
 ## [0.8.0] - 2026-05-21
 
 ### Added

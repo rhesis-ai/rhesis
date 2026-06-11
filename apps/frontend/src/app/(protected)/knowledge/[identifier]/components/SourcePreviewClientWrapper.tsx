@@ -28,13 +28,14 @@ import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import type { UUID } from 'crypto';
 import {
   formatFileSize,
   formatDate,
   getFileExtension,
   truncateFilename,
 } from '@/constants/knowledge';
-import SourceTags from './SourceTags';
+import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface SourcePreviewClientWrapperProps {
@@ -685,17 +686,14 @@ export default function SourcePreviewClientWrapper({
               </Box>
             </>
           )}
-
-          {/* Tags - always visible at bottom */}
-          <InfoRow label="Tags">
-            <SourceTags
-              onUpdate={handleTagsUpdate}
-              sessionToken={sessionToken}
-              source={localSource}
-              disableEdition={isEditing === 'general'}
-            />
-          </InfoRow>
         </Paper>
+
+        <SourceTagsCard
+          sessionToken={sessionToken}
+          source={localSource}
+          userId={currentUserId ? (currentUserId as UUID) : undefined}
+          onUpdate={handleTagsUpdate}
+        />
 
         {/* Extracted Content Section */}
         {content && (

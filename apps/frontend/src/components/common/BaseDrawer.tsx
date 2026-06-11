@@ -38,6 +38,8 @@ export interface BaseDrawerProps {
   width?: number | string;
   showHeader?: boolean;
   anchor?: 'left' | 'right';
+  /** `form` — scrollable stacked sections; `fill` — full-height workspace (traces, test results). */
+  contentLayout?: 'form' | 'fill';
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -84,8 +86,10 @@ export default function BaseDrawer({
   width = DRAWER_WIDTH,
   showHeader = true,
   anchor = 'right',
+  contentLayout = 'form',
 }: BaseDrawerProps) {
   const hasFooter = !!(closeButtonText || onSave || onDelete || error);
+  const isFillLayout = contentLayout === 'fill';
 
   return (
     <Drawer
@@ -136,11 +140,11 @@ export default function BaseDrawer({
         sx={{
           flex: 1,
           minHeight: 0,
-          overflowY: 'auto',
+          overflowY: isFillLayout ? 'hidden' : 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '40px',
-          pt: '10px',
+          gap: isFillLayout ? 0 : '40px',
+          pt: isFillLayout ? 0 : '10px',
         }}
       >
         {children}

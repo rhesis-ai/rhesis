@@ -76,8 +76,26 @@ export default function TracesClientWrapper({
         </FabGroup>
       }
     >
-      <Box sx={{ mt: 2, mb: 2 }}>
-        {!showEmptyHint && (
+      <Box sx={{ mt: 2, mb: 2, position: 'relative' }}>
+        {/*
+         * Keep TracesClient mounted so a completed fetch can clear the empty hint.
+         * Unmounting on the first empty response trapped the page even when later
+         * requests returned traces (visible in Network but not in the UI).
+         */}
+        <Box
+          sx={
+            showEmptyHint
+              ? {
+                  position: 'absolute',
+                  width: '100%',
+                  height: 0,
+                  overflow: 'hidden',
+                  visibility: 'hidden',
+                  pointerEvents: 'none',
+                }
+              : {}
+          }
+        >
           <Paper
             sx={{
               width: '100%',
@@ -99,7 +117,7 @@ export default function TracesClientWrapper({
               onUnfilteredEmpty={handleUnfilteredEmpty}
             />
           </Paper>
-        )}
+        </Box>
         {showEmptyHint && (
           <EntityEmptyState
             card

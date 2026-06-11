@@ -13,6 +13,383 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-11
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.9.0**
+- **Frontend 0.9.0**
+- **SDK 0.9.0**
+- **Polyphemus 0.4.0**
+
+### Summary of Changes
+
+**Backend v0.9.0:**
+Key changes include: Fix: remove event trigger from RLS migration requiring superuser (#1941)
+
+* fix: remove event trigger from RLS migration requiring superuser (#1940)
+
+CNPG reserves superuser for postgres only — rhesis-admin cannot create
+event triggers. The auto-RLS trigger will be installed via CNPG
+postInitApplicationSQLRefs instead (see #1940).
+
+* fix(test): skip PythonPypi garak test when HF dataset unavailable, Add endpoint creation wizard and interactive test-and-map UI (#1915)
+
+* feat(frontend): add creation wizard and interactive test-and-map UI
+
+- Multi-step creation wizard (Basics → Headers → Body) with auto-configure
+- RequestBodyEditor: Monaco editor with clickable variable chips
+- TestAndMap: shared component for creation wizard and detail test tab
+  - Detects {{ var }} placeholders and renders input rows dynamically
+  - File upload input for files/image variables (raw base64 encoding)
+  - Click-to-map on response JSON keys → saves to response_mapping
+  - Collapsible request preview showing actual rendered request
+
+* refactor(frontend): replace stepper with tabs in endpoint creation form
+
+* fix(backend): improve invoker tracking and templating filters
+
+* refactor(frontend): allow ReactNode subtitle in SectionCard
+
+* refactor(frontend): replace stepper with tabs in endpoint creation form
+
+* feat(frontend): update endpoint detail tabs with test and mapping improvements
+
+* refactor(frontend): extract shared endpoint styles and fix border-radius bug
+
+* feat(frontend): improve mapping instructions
+
+* fix(frontend): replace hardcoded colors with theme-aware values
+
+* refactor(frontend): remove dead endpoint mapping components
+
+* fix(frontend): update EndpointFormAutoConfigure tests for tab-based UI
+
+* test(frontend): add unit tests for endpoint form tab components
+
+* fix(frontend): colors and Typescript fix in test
+
+* fix: restore accidentily deleted _inject_context_headers
+
+* fix: render tab-based EndpointForm instead of drawer
+
+* fix: resolve four endpoint mapping and tab bugs
+
+- parse __body__ string back to JSON after Jinja render so it is sent
+  as a JSON object rather than a quoted string literal
+- re-add $. prefix when rebuilding resBody from parseResMapping so
+  backend treats values as JSONPath expressions
+- initialise and sync TestAndMap pathToVar from responseMapping prop
+  so existing mappings pre-populate on load and after auto-configure
+- wire EndpointHeadersTab at index 2 in EndpointDetailTabs; remove
+  orphaned EndpointMappingsTab that was incorrectly occupying that slot
+
+* fix(frontend): hide api token from request preview
+
+* fix(tests): fix e2e tests with current /endpoints/new page
+
+* feat(frontend): align endpoint detail and setup with Figma
+
+Restructure endpoint detail overview into Figma-style section cards,
+share the test workbench across create and detail flows, and update
+endpoint setup tabs to match the design system layout.
+
+* feat(endpoints): drawer create flow and detail mapping tab
+
+Replace full-page endpoint creation with a 75% drawer and nested
+auto-configure drawer. Add Mapping tab on detail with create parity,
+shared headers fields, and overview/project edit improvements.
+
+* feat(endpoints): improve mapping UX, layout, and fix pre-existing issues
+
+* fix(frontend): tests
+
+---------
+
+Co-authored-by: Nicolai Bohn <nicolaibohn@MacBook-Pro-144.local>
+Co-authored-by: Nicolai Bohn <nicolai@rhesis.ai>....
+
+**Frontend v0.9.0:**
+Key changes include: Add endpoint creation wizard and interactive test-and-map UI (#1915)
+
+* feat(frontend): add creation wizard and interactive test-and-map UI
+
+- Multi-step creation wizard (Basics → Headers → Body) with auto-configure
+- RequestBodyEditor: Monaco editor with clickable variable chips
+- TestAndMap: shared component for creation wizard and detail test tab
+  - Detects {{ var }} placeholders and renders input rows dynamically
+  - File upload input for files/image variables (raw base64 encoding)
+  - Click-to-map on response JSON keys → saves to response_mapping
+  - Collapsible request preview showing actual rendered request
+
+* refactor(frontend): replace stepper with tabs in endpoint creation form
+
+* fix(backend): improve invoker tracking and templating filters
+
+* refactor(frontend): allow ReactNode subtitle in SectionCard
+
+* refactor(frontend): replace stepper with tabs in endpoint creation form
+
+* feat(frontend): update endpoint detail tabs with test and mapping improvements
+
+* refactor(frontend): extract shared endpoint styles and fix border-radius bug
+
+* feat(frontend): improve mapping instructions
+
+* fix(frontend): replace hardcoded colors with theme-aware values
+
+* refactor(frontend): remove dead endpoint mapping components
+
+* fix(frontend): update EndpointFormAutoConfigure tests for tab-based UI
+
+* test(frontend): add unit tests for endpoint form tab components
+
+* fix(frontend): colors and Typescript fix in test
+
+* fix: restore accidentily deleted _inject_context_headers
+
+* fix: render tab-based EndpointForm instead of drawer
+
+* fix: resolve four endpoint mapping and tab bugs
+
+- parse __body__ string back to JSON after Jinja render so it is sent
+  as a JSON object rather than a quoted string literal
+- re-add $. prefix when rebuilding resBody from parseResMapping so
+  backend treats values as JSONPath expressions
+- initialise and sync TestAndMap pathToVar from responseMapping prop
+  so existing mappings pre-populate on load and after auto-configure
+- wire EndpointHeadersTab at index 2 in EndpointDetailTabs; remove
+  orphaned EndpointMappingsTab that was incorrectly occupying that slot
+
+* fix(frontend): hide api token from request preview
+
+* fix(tests): fix e2e tests with current /endpoints/new page
+
+* feat(frontend): align endpoint detail and setup with Figma
+
+Restructure endpoint detail overview into Figma-style section cards,
+share the test workbench across create and detail flows, and update
+endpoint setup tabs to match the design system layout.
+
+* feat(endpoints): drawer create flow and detail mapping tab
+
+Replace full-page endpoint creation with a 75% drawer and nested
+auto-configure drawer. Add Mapping tab on detail with create parity,
+shared headers fields, and overview/project edit improvements.
+
+* feat(endpoints): improve mapping UX, layout, and fix pre-existing issues
+
+* fix(frontend): tests
+
+---------
+
+Co-authored-by: Nicolai Bohn <nicolaibohn@MacBook-Pro-144.local>
+Co-authored-by: Nicolai Bohn <nicolai@rhesis.ai>, Use drawers and detail tab nav on org settings (#1927)
+
+* fix(frontend): use drawers and detail tab nav on org settings
+
+Replace centered modals with right-side drawers for API client creation,
+secret reveal, and experiment/metric pickers. Align organization settings
+tabs with the standard DetailTabNav detail-page layout.
+
+* fix(frontend): correct parameter box radius in experiments drawer
+
+* fix(frontend): split org SSO/API tabs and polish API empty state
+
+Separate SSO and API into dedicated settings tabs, add Figma-aligned
+empty state for API clients, and avoid double borders via SectionEmptyState inset.....
+
+**SDK v0.9.0:**
+Key changes include: Fix: metric evaluation failures for single-turn tests (#1923)
+
+* fix(backend): resolve metric evaluation failures for single-turn tests
+
+- Add metric_scope to metric_model_to_config common_fields so scope-based
+  filters are no longer a no-op (root cause of conversational metrics
+  running against single-turn tests)
+- Filter out Multi-Turn-only metrics in both batch and non-batch
+  single-turn evaluation paths
+- Guard against None conversation_history in conversational metric base
+  classes (native, deepeval, conversational_judge) with clear error messages
+- Pass project_id in collect_results task headers so the ORM scope filter
+  does not apply WHERE project_id IS NULL, causing test runs to be unfound
+- Add Jinja2 defaults for numeric variables in test execution summary
+  email template to handle task failure before summary data is returned
+- Extract context from output dict in batch single-turn evaluation
+
+* test(backend): add regression tests for metric_scope and task header propagation
+
+- test_metric_model_to_config: assert metric_scope survives the ORM model
+  to MetricConfig conversion so a missing field in common_fields is caught
+- test_results_collection: assert project_id (and other tenant fields) are
+  forwarded in collect_results task headers so a missing header causes an
+  immediate test failure
+
+* test(backend): fix broken test and cover three additional execution seams
+
+- Update test_conversation_history_none_not_passed: conversation_history=None
+  IS now forwarded to metrics so their validator fires with a clear message
+  instead of a confusing isinstance TypeError
+- Add test_a_evaluate_params_preferred_over_evaluate: verifies the primary
+  path in _get_metric_signature uses a_evaluate when it has named params
+- Add test_a_evaluate_fallback_to_evaluate_when_varargs_only: verifies the
+  fallback to evaluate when a_evaluate is bare *args/**kwargs
+- Add Multi-Turn scope filter tests to TestEvaluateSingleTurnMetrics:
+  multi-turn-only metrics excluded, single-turn and mixed kept
+- Add early return in evaluate_single_turn_metrics when all metrics are
+  filtered out, consistent with the batch path behaviour
+- Fix test_alias_works_correctly: was passing empty metrics list but
+  asserting evaluator return value; now uses a non-empty list
+
+* style(backend): apply ruff format to metric_config.py
+
+* fix(backend): harden multi-turn scope filter and add dict/string guards
+
+- Extract _is_multi_turn_only() helper (dict-aware, guards bare string scope)
+- Replace partial None-history filter in _evaluate_multi_turn_metrics with
+  early return — empty conversation has nothing to evaluate in multi-turn context
+- Use shared helper in both batch and non-batch single-turn filter paths
+- Add regression tests: dict metrics, bare string scope, _is_multi_turn_only unit tests
+
+* fix(backend): remove unused _is_multi_turn_only import in batch evaluation, refactor(connector): remove local backend execution and introduce EndpointContext (#1844)
+
+* refactor: remove local backend execution in favour of sdk connector
+
+Eliminates the concept of in-process @endpoint registration on the
+backend.  All invocations now go through the standard SDK connector
+(WebSocket/RPC); a separate Rhesis application hosted elsewhere
+exposes architect and MCP functions as sdk endpoints if needed.
+
+Changes:
+- Delete local_function_registry.py and telemetry/local_invocation.py
+- Remove local-registry short-circuit branch from SdkEndpointInvoker
+- Rename services/architect/endpoint_operations.py → runner.py;
+  expose run_architect_turn(message, organization_id, user_id, ...)
+- Rename services/mcp/endpoint_operations.py → operations.py;
+  search_mcp/extract_mcp/query_mcp now take (db, org_id, user_id)
+- Strip @endpoint decorators and register_local calls from both
+- Update routers/services.py to call mcp helpers directly
+- Remove _validate_backend_local_mappings from endpoint validation
+- Remove ensure_local_functions_registered() from main.py lifespan
+- Remove __endpoint_name__ attribute from sdk endpoint decorator
+- Move conversation_telemetry_context into tasks/architect.py as
+  a private helper; keep multi-turn trace_id stitching intact
+- Update all tests to match new signatures and module paths
+
+* fix: restore @endpoint decorators on architect and mcp functions
+
+The previous refactor correctly removed the local_function_registry
+(in-process shortcut) but also removed the @endpoint decorators,
+which broke the SDK connector mechanism entirely. Without @endpoint,
+no process can register these functions with a connector, making
+remote invocation via Playground and test runs impossible.
+
+Restore the decorators so the connector can announce the functions
+over WebSocket. The local registry stays deleted -- all invocations
+go through the standard WebSocket/RPC path.
+
+* feat(connector): introduce EndpointContext for typed tenant injection
+
+Replaces scattered organization_id/user_id/db parameters on @endpoint-
+decorated backend functions with a single EndpointContext dataclass that
+the SDK connector injects automatically based on type annotation.
+
+Key changes:
+- sdk/context.py: new EndpointContext dataclass with get_db() factory
+- executor: inject EndpointContext by type annotation, never from wire
+  inputs (security: blocks tenant-identity fabrication via wire data)
+- connector manager: stores org/user from the authenticated `connected`
+  message and builds EndpointContext for each test execution
+- @endpoint decorator: auto-excludes EndpointContext params from the
+  registered function schema
+- runner.py / operations.py: accept ctx: EndpointContext instead of
+  separate identity + db params
+- connector router: /trigger now requires auth and validates project
+  ownership; test_result messages are bound to the dispatching connection
+  to prevent cross-connection result injection
+- validation: functions requiring runtime-specific inputs (e.g. tool_id)
+  are marked Active instead of Error during async validation
+- all callers pass _db_factory explicitly for traceability
+
+Closes security gaps:
+- EndpointContext cannot be constructed from wire inputs (executor)
+- /connector/trigger was unauthenticated (router)
+- test_result not bound to sending connection (server-side manager)
+
+* style(sdk): apply ruff formatting to connector and endpoint modules
+
+* fix(connector): address PR review - bind before send, clear stale entries, local-only trigger check, extract_mcp tool_id mapping
+
+- Bind pending_test_connections before await send_json to prevent fast
+  test_result replies from bypassing the connection mismatch check
+- Roll back binding on send failure to avoid stale entries
+- Clear pending_test_connections immediately after resolving a test_result
+  in handle_message, covering fire-and-forget call paths
+- Use has_local_route() in /connector/trigger instead of is_connected()
+  so a cross-instance connection no longer causes a misleading 500
+- Add tool_id to extract_mcp request_mapping (required at runtime)
+- Update tests to reflect has_local_route() mock
+
+* fix(endpoint): preserve user-customized request mapping fields on SDK re-registration
+
+Track the raw @endpoint decorator mapping in endpoint_metadata["sdk_decorator_mapping"].
+On re-registration, a field is treated as user-edited (and preserved) when its DB value
+differs from the last recorded SDK decorator value. Fields that still match the last SDK
+value are treated as unchanged and let the new decorator value take effect, covering
+legitimate decorator updates.
+
+Fixes the case where a manually hardcoded tool_id (or any other decorator field) was
+silently overwritten by the next SDK reconnection.
+
+* refactor(endpoint): use template syntax to detect user-bound fields, drop sdk_decorator_mapping
+
+Replace the sdk_decorator_mapping metadata approach with a simpler rule:
+if a request_mapping field's DB value is a Jinja2 template it is still a
+dynamic test input and the decorator can update it. If the value is a
+concrete literal the user has explicitly bound it and it is preserved on
+every re-registration regardless of the decorator.
+
+This generalises the protection to any field, not just tool_id, with no
+extra metadata plumbing.
+
+* fix(routers): add missing response_model to single-item GET endpoints
+
+Nine routers were missing response_model on GET /{id}, causing the raw
+ORM object to be returned instead of the serialized schema. This meant
+related fields (tags, status details, type info) were absent from
+single-item responses while present in list responses.
+
+Fixes TestBehaviorTags failing tests (tags missing from GET /behaviors/{id}).
+
+* fix(settings): add env_file and extra=ignore to DatabaseSettings
+
+* fix(backend): map legacy SQLALCHEMY_DB_* env vars in start.sh, revert env_file in settings
+
+Settings classes should not know about .env file paths — that is a
+startup concern. Revert the env_file addition to DatabaseSettings.
+
+Instead, add a backwards-compatibility shim in start.sh's load_env_file()
+that maps the old SQLALCHEMY_DB_* variable names to the current DB_* /
+APP_DB_* names after sourcing .env. Existing local .env files created
+before the settings refactor continue to work without any manual edits.....
+
+**Polyphemus v0.4.0:**
+Key changes include: build(docker): pin uv to 0.11.19 in service images (#1882)
+
+Avoid :latest drift and align chatbot/telemetry-processor with COPY --from mirror.gcr.io/astral/uv., fix(docker): pull uv from mirror.gcr.io instead of ghcr (#1879)
+
+Avoid GHCR auth failures during local builds by using the GCR mirror
+of Docker Hub's official astral/uv image..
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.8.0] - 2026-05-21
 
 ### Platform Release

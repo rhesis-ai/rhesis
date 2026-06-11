@@ -1712,11 +1712,15 @@ function TestsList({
                   display: 'flex',
                   alignItems: 'center',
                 }}
+                onClick={e => e.stopPropagation()}
               >
                 {onEditTest && (
                   <IconButton
                     size="small"
-                    onClick={() => onEditTest(params.row)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onEditTest(params.row);
+                    }}
                     sx={{ color: 'text.secondary' }}
                   >
                     <EditIcon fontSize="small" />
@@ -1725,7 +1729,10 @@ function TestsList({
                 {onDeleteTest && (
                   <IconButton
                     size="small"
-                    onClick={() => onDeleteTest(params.row)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDeleteTest(params.row);
+                    }}
                     sx={{
                       color: 'text.secondary',
                       '&:hover': {
@@ -2775,6 +2782,11 @@ export default function ExplorerDetail({
     setTests(prev => prev.filter(t => t.id !== removedTest.id));
     setDeleteConfirmOpen(false);
     setDeletingTest(null);
+
+    if (testDetailDrawerTest?.id === removedTest.id) {
+      setTestDetailDrawerOpen(false);
+      setTestDetailDrawerTest(null);
+    }
 
     // Fire API call in background
     const clientFactory = new ApiClientFactory(sessionToken);

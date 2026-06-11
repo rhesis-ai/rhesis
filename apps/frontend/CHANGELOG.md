@@ -7,6 +7,2341 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-11
+
+### Changed
+
+- Add endpoint creation wizard and interactive test-and-map UI (#1915)
+
+* feat(frontend): add creation wizard and interactive test-and-map UI
+
+- Multi-step creation wizard (Basics → Headers → Body) with auto-configure
+- RequestBodyEditor: Monaco editor with clickable variable chips
+- TestAndMap: shared component for creation wizard and detail test tab
+  - Detects {{ var }} placeholders and renders input rows dynamically
+  - File upload input for files/image variables (raw base64 encoding)
+  - Click-to-map on response JSON keys → saves to response_mapping
+  - Collapsible request preview showing actual rendered request
+
+* refactor(frontend): replace stepper with tabs in endpoint creation form
+
+* fix(backend): improve invoker tracking and templating filters
+
+* refactor(frontend): allow ReactNode subtitle in SectionCard
+
+* refactor(frontend): replace stepper with tabs in endpoint creation form
+
+* feat(frontend): update endpoint detail tabs with test and mapping improvements
+
+* refactor(frontend): extract shared endpoint styles and fix border-radius bug
+
+* feat(frontend): improve mapping instructions
+
+* fix(frontend): replace hardcoded colors with theme-aware values
+
+* refactor(frontend): remove dead endpoint mapping components
+
+* fix(frontend): update EndpointFormAutoConfigure tests for tab-based UI
+
+* test(frontend): add unit tests for endpoint form tab components
+
+* fix(frontend): colors and Typescript fix in test
+
+* fix: restore accidentily deleted \_inject_context_headers
+
+* fix: render tab-based EndpointForm instead of drawer
+
+* fix: resolve four endpoint mapping and tab bugs
+
+- parse **body** string back to JSON after Jinja render so it is sent
+  as a JSON object rather than a quoted string literal
+- re-add $. prefix when rebuilding resBody from parseResMapping so
+  backend treats values as JSONPath expressions
+- initialise and sync TestAndMap pathToVar from responseMapping prop
+  so existing mappings pre-populate on load and after auto-configure
+- wire EndpointHeadersTab at index 2 in EndpointDetailTabs; remove
+  orphaned EndpointMappingsTab that was incorrectly occupying that slot
+
+* fix(frontend): hide api token from request preview
+
+* fix(tests): fix e2e tests with current /endpoints/new page
+
+* feat(frontend): align endpoint detail and setup with Figma
+
+Restructure endpoint detail overview into Figma-style section cards,
+share the test workbench across create and detail flows, and update
+endpoint setup tabs to match the design system layout.
+
+- feat(endpoints): drawer create flow and detail mapping tab
+
+Replace full-page endpoint creation with a 75% drawer and nested
+auto-configure drawer. Add Mapping tab on detail with create parity,
+shared headers fields, and overview/project edit improvements.
+
+- feat(endpoints): improve mapping UX, layout, and fix pre-existing issues
+
+- fix(frontend): tests
+
+---
+
+Co-authored-by: Nicolai Bohn <nicolaibohn@MacBook-Pro-144.local>
+Co-authored-by: Nicolai Bohn <nicolai@rhesis.ai>
+
+- Use drawers and detail tab nav on org settings (#1927)
+
+* fix(frontend): use drawers and detail tab nav on org settings
+
+Replace centered modals with right-side drawers for API client creation,
+secret reveal, and experiment/metric pickers. Align organization settings
+tabs with the standard DetailTabNav detail-page layout.
+
+- fix(frontend): correct parameter box radius in experiments drawer
+
+- fix(frontend): split org SSO/API tabs and polish API empty state
+
+Separate SSO and API into dedicated settings tabs, add Figma-aligned
+empty state for API clients, and avoid double borders via SectionEmptyState inset.
+
+- Fix frontend UI polish across tests and detail views (#1926)
+
+* fix(frontend): polish UI across tests and detail views
+
+Replace test assign modal with a paginated drawer aligned to /tests,
+fix experiment/metrics/architect/explorer/task/MCP UI issues, and remove
+behavior status from cards.
+
+- feat: add activity filters and count sorting on test grids
+
+Add tags/comments/tasks presence filters to test grid drawers, enable
+server-side sorting by activity counts, and hide empty column menus.
+
+- fix: address PR review for filters, tags sort, and assign drawer
+
+Use theme spacing in filter drawer inputs, exclude soft-deleted tag links
+from tags_count sorting, and load full linked test IDs in AssignTestsDrawer.
+
+- fix(frontend): prevent hiding actions column in overview grids
+
+Set hideable false on row actions columns and keep actions visible when
+grid column state is restored from persistence.
+
+- fix(frontend): replace hardcoded styles in experiment and MCP drawer
+
+Use theme tokens for border radius, typography, and success/error colors
+to satisfy the hardcoded styles CI check.
+
+- Align task detail page with Figma design (#1925)
+
+* style(frontend): align task detail page with Figma
+
+Refactor task detail to use PageLayout, metadata strip, tab navigation,
+and editable section cards consistent with other entity detail pages.
+
+- style(frontend): polish task detail header actions
+
+Use FAB for Jira issue creation, remove duplicate creator field from
+the details card, and clarify the disabled Jira setup tooltip.
+
+- fix(frontend): resolve task detail type-check errors
+
+Fix TaskMetadata import, session token narrowing, assignee user types,
+and updateTask return type compatibility for CI type-check.
+
+- fix(frontend): address task detail PR review feedback
+
+Treat cleared assignee as unassigned, guard linked entity type lookup,
+restore generateCopyName JSDoc, and document retry UX intent.
+
+- Persist default project on switch (#1924)
+
+* fix(frontend): persist default project on switch
+
+Save the selected project to user settings when switching so
+logout and re-login restores the last active project.
+
+- fix(frontend): cast project id to UUID for settings
+
+String(project.id) widens to string, which fails the UUID type
+expected by default_project in user settings.
+
+- Fix mocked frontend E2E tests for UI updates (#1920)
+
+* test(frontend): fix mocked e2e for ui updates
+
+Add a no-docker Playwright path with local auth seeding, mock backend,
+and updated page objects so @mocked tests pass after recent UI changes.
+
+- ci(frontend): fix e2e browser install hang in actions
+
+Cache Playwright chromium, drop firefox install, and fail fast on install
+timeouts so CI reaches test execution instead of cancelling at 30 minutes.
+
+- fix(frontend): address e2e pr review feedback
+
+Use absolute URLs and baseURL in seed-auth, fix Playwright version
+shell quoting in CI, replace Buffer with atob in Edge middleware, and
+align CONTRIBUTING with test-e2e-ci.
+
+- fix(e2e): set FRONTEND_URL in frontend test compose
+
+Backend startup requires FRONTEND_URL after settings refactor; E2E
+docker stack was missing it and the container exited before tests ran.
+
+- fix(e2e): remove duplicate FRONTEND_URL in compose file
+
+Main already added FRONTEND_URL via #1922; the PR merge commit had
+both entries and docker compose failed to parse the YAML.
+
+- fix(e2e): stabilize CI runs against live backend
+
+Exclude @mocked specs from CI, build the Docker backend once per workflow,
+and update CRUD/navigation selectors for the current UI.
+
+- fix(ci): load docker image into daemon before save
+
+Buildx left the backend image out of the local store, so docker save
+produced an empty artifact and all E2E shards failed on docker load.
+
+- fix(ci): pin explicit tag for E2E backend image artifact
+
+Compose does not list built images until containers exist; save/load
+now uses rhesis-frontend-e2e-backend:ci from the compose file.
+
+- fix(ci): load E2E backend image from repo root path
+
+The artifact downloads to the workspace root while the load step runs
+from apps/frontend.
+
+- fix(e2e): align CRUD tests with current UI patterns
+
+Use EntityCard selectors for behaviors, drawer-based flows for tokens
+and knowledge, row-action deletes for grids, valid UUIDs for missing
+resource pages, and traces empty-state copy.
+
+- fix(e2e): target BaseDrawer by text not heading role
+
+BaseDrawer titles are Typography paragraphs, so CRUD tests now wait
+on open/closed drawer state instead of getByRole('heading').
+
+- fix(e2e): address Peqy review on auth seeding and CI artifacts
+
+Mock projects/mine and user settings during auth seeding, hard-gate
+local JWT verification to non-production, use 127.0.0.1 for mock
+backend URLs, and keep the Docker image artifact under apps/frontend.
+
+- fix(e2e): resolve TypeScript errors in E2E test files
+
+Add missing Locator import, openDrawer import, and use the title
+parameter in the tasks CRUD helper.
+
+- fix(e2e): stabilize CRUD tests for current UI flows
+
+Pass project scope on behavior detail SSR, target DataGrid row delete
+buttons, wait for create/upload API responses, and adjust drawer
+assertions for token display and behavior detail edits.
+
+- fix(e2e): resolve strict mode and row-action delete selectors
+
+Target drawer title typography only, scope behavior edit to main,
+and click the last row-actions button for grid deletes.
+
+- fix(e2e): force-click grid delete and simplify task create wait
+
+Row-actions stay CSS-hidden until hover; use force click instead of
+visibility assert. Wait for drawer close after task create rather than
+matching POST response URL.
+
+- test(e2e): skip flaky CRUD tests pending fixes
+
+Temporarily disable knowledge delete, task create, and test-set
+delete tests that fail consistently in CI until row-actions and
+task drawer issues are resolved.
+
+- test(e2e): skip task status change and row-action delete
+
+Both tests depend on createTaskViaDrawer and grid row-actions,
+which are still flaky in CI.
+
+- Fix failing frontend unit tests (#1918)
+
+* test(frontend): fix failing unit test suite
+
+Wrap RTL renders with lightTheme and update tests for UI/API drift
+so all 1601 frontend unit tests pass again.
+
+- fix(frontend): resolve test RTL alias for type-check
+
+Map @testing-library/react-original in tsconfig and remove stale
+AllTheProvidersProps export so tsc passes in CI.
+
+- test(frontend): fix Sidebar Switch project assertion
+
+Query the org menu menuitem role to avoid matching the mounted
+ProjectSwitcherDrawer title after main's org menu changes.
+
+- fix(frontend): use themed render from test-utils re-exports
+
+Remove customRender that imported react-original and overrode the
+themed render from the Jest moduleNameMapper.
+
+- Align project trace metrics grid and reorganize org menu (#1914)
+
+* feat(frontend): align project trace metrics grid
+
+Match the environments grid layout in project settings with search
+toolbar, section-card bleed, and name/type/actions columns.
+
+- feat(frontend): move projects into org menu
+
+Add Org Settings, Team, and Projects to the project-name menu with a
+divider before Switch project, and remove Projects from Define nav.
+
+- Fix: testing day UI/UX batch fixes (#1842)
+
+* feat(frontend): apply testing-day UI/UX batch fixes
+
+- B2: remove requireSuperuser gate from MCP nav item
+- A1: fix onboarding InviteTeamStep field/button alignment
+- D1: make MCP tool cards clickable; open edit drawer on click
+- E2: rename 'Linked entities' to context-specific labels
+- E3: fix dark-mode white Paper/Card elevation on test detail page
+- F1-F3: restructure test run detail into Results/Configuration/Logs tabs
+- F4: add 'Completed' column to test runs grid
+- F5: add single-turn vs multi-turn filter buttons to test runs toolbar
+- H1: make links in user Architect bubbles visible
+- H2: increase thinking animation dot size
+- H4: reset loading state when WebSocket disconnects mid-response
+- H6: use info border color for Architect confirmation prompts
+- H7: constrain architect sidebar height so chat list scrolls independently
+- I1: tighten BaseDataGrid column alignment and ellipsis for header titles
+
+* feat(frontend): C-series endpoint page fixes
+
+- C1: replace old EndpointForm on /endpoints/new with new-UI creation
+  form using SectionCard layout (matching [identifier] detail page style)
+- C3: remove forced auth token requirement when testing in EndpointForm
+- C7: normalize URL before save in EndpointConnectionTab (auto-adds
+  https:// when protocol is omitted); update placeholder/helper text
+- C8: add InfoIcon tooltip + description text to Request mapping and
+  Response mapping sections in EndpointMappingsTab
+
+Also extend EndpointCreate type and createEndpoint action to accept
+optional auth_token write-only field.
+
+- fix(frontend): use MUI Grid v2 size prop in EndpointCreateForm
+
+- refactor(frontend): replace /endpoints/new page with a create drawer
+
+Endpoint creation is now a BaseDrawer triggered from the FAB and empty-state
+button on the endpoints list page. /endpoints/new redirects to /endpoints.
+EndpointCreateForm (standalone page form) is kept but unused.
+
+- fix(frontend): default empty auth_token for endpoint test request
+
+Satisfies EndpointTestRequest typing after making auth optional in the
+test UI (C3).
+
+- fix(frontend): address peqy review on PR 1842
+
+* Redirect /endpoints/new to ?create=1 and auto-open create drawer
+* Scope BaseDataGrid ellipsis to Typography cells only
+* Use flex stretch for Architect sidebar height (H7)
+* Add aria-labels to mapping help icons
+* Remove unused EndpointCreateForm; update e2e for drawer flow
+* fix(frontend): skip project fetch during onboarding (#1908)
+
+- fix(frontend): skip project fetch during onboarding
+
+Prevent 403 "User is not associated with an organization" errors
+by skipping the ActiveProjectProvider fetch when on the /onboarding
+page. The provider will resume fetching projects once the user
+completes onboarding and navigates away from the page.
+
+- fix(backend): bind RLS scope for project-scoped operations during onboarding
+
+Endpoints and test runs are project-scoped and protected by the fail-closed
+project_isolation RLS policy. During onboarding with no active project,
+these operations need explicit scope binding to the target project.
+
+Changes:
+
+- Bind session to endpoint's project when creating endpoints during load_initial_data
+- Bind session per-project when fetching endpoints in execute_initial_test_runs
+- Bind session to endpoint's project when executing initial test runs
+
+This fixes RLS policy violations during onboarding that would prevent
+endpoints and test runs from being created.
+
+- chore: update package-lock.json
+
+- fix(frontend): address stale closure and route matching issues
+
+* Add pathname to fetchProjects useCallback deps to prevent stale closure bug
+* Use pathname.startsWith('/onboarding') for precise route matching instead of includes()
+* Set loading to false when skipping fetch during onboarding to prevent perpetual loading state
+* Simplify useEffect deps to just [fetchProjects] since it now includes pathname
+
+Fixes peqy review comments.
+
+- fix(backend): fetch all endpoints during onboarding, not just first 10
+
+The crud.get_endpoints call was using the default limit of 10. If an
+organization has more than 10 endpoints per project, onboarding would
+silently miss executing tests against those endpoints. Changed to use
+limit=1000 to ensure all endpoints are included in initial test runs.
+
+- fix(backend): paginate endpoint fetching during onboarding
+
+Fetch all endpoints per project using pagination (100 per page)
+instead of relying on default limit of 10. This ensures onboarding
+executes tests against all endpoints regardless of count.
+
+Implements pagination with skip/limit to safely handle organizations
+with more than 10 endpoints per project.
+
+- refactor(backend): use reset_session_context instead of bind_scope_to_session("")
+
+Replace all instances of binding scope with empty project_id using
+reset_session_context(), which is the proper function for resetting
+session context after scope-dependent operations.
+
+Also consolidate imports to top of file instead of inline imports
+to improve code cleanliness.
+
+- fix(backend): use set_session_variables for temporary project scope in onboarding
+
+bind_scope_to_session activates both RLS GUCs and the ORM auto-filter
+listener via db.info['_scope']. When used for temporary project-scoped
+windows in load_initial_data and execute_initial_test_runs, the \_scope
+key persisted after the finally block restored empty GUCs, causing all
+subsequent queries on the session to be filtered to that org — breaking
+cross-org tests.
+
+set_session_variables sets only the GUCs (satisfying project_isolation
+RLS policy) without touching db.info['_scope'], so the ORM auto-filter
+stays dormant and there is no scope leakage after the window closes.
+
+- refactor(backend): introduce temporary_project_scope context manager
+
+Replaces bare set_session_variables try/finally blocks with an explicit
+context manager that makes the intent clear at the call site. Also
+updates docstrings on bind_scope_to_session and set_session_variables to
+spell out when each should be used:
+
+- bind_scope_to_session: long-lived tenant sessions (Celery, WebSocket)
+  — activates both RLS GUCs and ORM auto-filter/auto-stamp for the
+  session's full lifetime
+- temporary_project_scope: short-lived project-scope windows inside a
+  request — sets only RLS GUCs, leaves \_scope unset so the ORM
+  auto-filter stays dormant and does not leak into subsequent queries
+
+* docs: add scope-function decision guide to database.py and CLAUDE.md
+
+Adds a quick-reference comment block in database.py above the three
+scope functions, and restructures the CLAUDE.md section with a decision
+table. Both address the same question: given a new call site, which
+function should I reach for?
+
+The key rule is now explicit in both places: bind_scope_to_session is
+for long-lived sessions (Celery, WebSocket); temporary_project_scope
+is for short project windows inside a request; set_session_variables
+is for explicit GUC re-apply after a mid-request commit. Misusing
+bind_scope_to_session in a request context silently leaks the ORM
+auto-filter — now documented with the failure mode named.
+
+- fix(backend): temporary_project_scope must save/restore db.info['_scope']
+
+The previous implementation only set RLS GUCs, leaving db.info['_scope']
+unchanged. In a normal FastAPI request session (where get_db_with_tenant_variables
+has already set \_scope), this caused two problems:
+
+1. ORM auto-filter still read the original \_scope (no project), so queries
+   inside the block could return no rows even with correct GUCs set.
+2. Any db.commit() inside the block triggered after_begin, which re-applies
+   GUCs from \_scope — overwriting the temporary project GUC mid-block.
+
+Fix: save db.info['_scope'] before entering the block, override with a
+temporary RequestScope carrying the target project, then restore the
+original \_scope (and GUCs) on exit. Both ORM and RLS layers are now
+consistent for the duration of the block and across internal commits.
+
+- test(tests): pass mock request to get_providers unit tests
+
+get_providers on main now requires a Request for quick_start;
+direct unit calls in test_sso_slug_resolution were missing it.
+
+- Simplify frontend start.sh to dev-only with Turbopack (#1910)
+
+* chore(frontend): simplify start.sh to dev-only with turbopack
+
+Remove unused production/staging paths from start.sh and use
+npm run dev:turbo for ./rh dev frontend local development.
+
+- chore(frontend): update README and start.sh for dev server clarity
+
+Clarify development server commands in README.md to emphasize the use of `npm run dev:turbo`. Remove unnecessary port logging in start.sh to streamline server configuration output.
+
+- Align project detail page with Figma design system (#1909)
+
+* feat(frontend): align project detail with figma
+
+Restructure the project detail page into tabbed sections with
+Figma-aligned drawers, linked-data grids, empty states, and
+simplified parameter editing flows.
+
+- fix(frontend): replace hardcoded spacing in drawer and grid
+
+Use theme.spacing() for drawer field padding and DataGrid column
+insets so the hardcoded-styles CI check passes on changed files.
+
+- fix(frontend): address peqy review on project detail
+
+Return boolean from project/schema saves, keep drawers open on failure,
+and allow saving new parameters before edits.
+
+- fix(frontend): align legacy edit drawer save return type
+
+* Inject frontend runtime config from server env vars (#1906)
+
+- refactor(frontend): inject runtime config from server env vars
+
+Replace NEXT*PUBLIC*\* build-time placeholders and the Docker entrypoint
+sed script with server-side API_BASE_URL/QUICK_START exposed via window.**ENV**.
+
+- chore(frontend): remove NEXT_PUBLIC_API_BASE_URL from environment types
+
+This change updates the environment type definitions by removing the NEXT_PUBLIC_API_BASE_URL variable, reflecting the recent shift to server-side configuration for API base URLs.
+
+- refactor(frontend): remove quickStart from environment configuration
+
+This update removes the quickStart variable from the environment setup in jest.setup.js, layout.tsx, and related test files, reflecting a shift to managing Quick Start status through the backend. Documentation has also been updated to align with this change.
+
+- refactor(frontend): remove trailing whitespace in environment type definitions
+
+* refactor(auth): use backend quick start status (#1898)
+
+Expose Quick Start status from the auth providers endpoint so the frontend no longer duplicates environment and hostname checks.
+
+- Align support drawer to Figma design system (#1905)
+
+* style(frontend): align support drawer spacing and typography to Figma
+
+- Remove border-top dividers between sections; use 40px gap instead
+- Section title/description gap tightened to 20px (matches Figma FormSectionDivider spacing)
+- FilterDrawerShell title: 22px → 23px / line-height 27.6px (exact Figma H5/Bold values)
+
+* feat(frontend): use NEXT_PUBLIC_SUPPORT_EMAIL env var for support mailto link
+
+Replaces the hardcoded hello@rhesis.ai address in SupportDrawer with
+process.env.NEXT_PUBLIC_SUPPORT_EMAIL (fallback: hello@rhesis.ai).
+
+Also documents WELCOME_FROM_EMAIL and the new NEXT_PUBLIC_SUPPORT_EMAIL
+in .env.example alongside the other email settings, noting they should
+share the same address.
+
+- Fix sidebar: left-align project name and remove email from user info (#1903)
+
+* fix(sidebar): left-align project name to match org name
+
+MUI ButtonBase inherits text-align: center; the org name Typography
+already overrides this with textAlign: 'left' but the project name
+Typography was missing the same override, causing it to render centered.
+
+- fix(sidebar): remove email from user info in navbar
+
+* Add support drawer to sidebar (#1902)
+
+- feat(frontend): add support drawer to sidebar
+
+Replace the external Support link with a right-anchored drawer
+containing Docs, Email Support, and Community sections. Adds a
+custom DiscordIcon, extends NavLinkItem to handle action items,
+and fixes outlined primary button contrast in dark mode.
+
+- fix(frontend): address PR review comments on support drawer
+
+* Add type="button" to action nav item to prevent accidental
+  form submissions
+* Add aria-label with "(opens in a new tab)" to CommunityLink
+  rows for screen reader accessibility
+* Align /tokens page to Figma design system (#1901)
+
+- style(frontend): align tokens page to Figma overview layout
+
+* migrate TokensGrid to unified-card pattern (toolbarSlot, no inner
+  Paper) with Columns / Density / Export controls in the toolbar
+* wrap grid in design-system Paper card (BORDER_RADIUS.md, ELEVATION.xs)
+* switch both EntityEmptyState usages to card variant so empty state
+  matches Figma node 1435:45062
+* update TokensGrid test (loading spinner moved into BaseDataGrid)
+
+- style(frontend): convert token display modal to drawer
+
+* replace Dialog with BaseDrawer (title + CelebrationIcon)
+* style info note as Figma blue alert (node 1299:16000) with
+  InfoOutlinedIcon, #e5f2ff background, and primary.main text
+
+- fix(frontend): address PR review comments on tokens page
+
+* replace hard-coded '#e5f2ff' with alpha(primary.main, 0.1) so the
+  info alert adapts to dark mode / theme variations
+* fix fontWeight 'medium' → 500 in the token name cell (invalid CSS
+  string value was silently ignored by browsers)
+* convert refreshedToken inline Dialog to TokenDisplay drawer for
+  consistency with the new-token flow; add optional title prop to
+  TokenDisplay (defaults to 'Your New API Token')
+* style(frontend): align invite drawer with Figma design system (#1900)
+
+Refactor TeamInviteForm to use shared drawer primitives:
+
+- Export drawerSectionSx/drawerFieldsSx/drawerOutlineButtonSx from
+  drawerFormFieldSx.ts to mirror RunDrawer's Figma-spec layout
+- Replace compact Stack with two FormSectionDivider sections:
+  "Team members" and "Project access"
+- Upgrade email fields from size=small to full 56px drawerOutlinedFieldSx
+- Make "Add Another Email" full-width outlined with drawerOutlineButtonSx
+- Fold intro copy into section subtitles; remove standalone Typography
+  from TeamInviteDrawer
+- Convert model provider selection and connection flows to multi-step drawer (#1895)
+
+* feat(frontend): convert add-model modal flows to multi-step drawer
+
+Replace ProviderSelectionDialog + ConnectionDialog (both MUI Dialogs)
+with a single multi-step BaseDrawer (ModelConnectionDrawer):
+
+- Step 1 (select): provider list panel, cancel only
+- Step 2 (configure): connection form with Back button in create flow
+- Edit flow (model card click): opens directly at configure step
+
+New components:
+
+- ProviderSelectionPanel: content-only provider list
+- ConnectionForm: extracted form body, exposes submit() via ref,
+  lifts loading/canSave state to parent drawer
+- ModelConnectionDrawer: multi-step BaseDrawer orchestrating both steps
+
+Remove old ConnectionDialog, models/ProviderSelectionDialog, and
+common/ProviderSelectionDialog.
+
+- fix(frontend): replace top-left back button with footer back button
+
+In the create flow configure step, rename the footer "Cancel" button
+to "Back" and wire it to return to provider selection. Remove the
+redundant top-left Back button. Edit mode keeps "Cancel" which closes
+the drawer fully.
+
+- style(frontend): align model connection form with Figma drawer design
+
+* Replace Typography section headers with FormSectionDivider (18px bold
+  black + caption subtitle)
+* Apply drawerOutlinedFieldSx (56px outlined fields) to all TextField
+  and Autocomplete inputs
+* Stack each section in gap:40px column; fields inside in gap:30px column
+* Replace FormControlLabel+stacked toggle rows with RunDrawer pattern:
+  borderTop separator, 16px body text + Switch inline
+* Remove Divider; test result/notice alerts moved inside their section
+
+- style(frontend): remove provider icon from drawer heading
+
+- style(frontend): replace test result alerts with Figma-spec styled boxes
+
+* Error: bg #fadbde, text #de3355, ErrorOutline icon, 18px bold title + 16px message
+* Success: bg #d0f5ec, text #0080af, CheckCircleOutline icon, same layout
+* Technical details expansion preserved with styled disclosure
+
+- fix(frontend): normalise non-MUI SVG icons to 20px in EntityCard icon box
+
+Simple Icons (SiAnthropic, SiGoogle, etc.) are not MUI SvgIcon elements
+so the existing '& .MuiSvgIcon-root: fontSize 20' rule did not reach them,
+causing them to render at 24px (natural SVG size) while MUI icons and
+explicit Image icons rendered at 20px. Add a complementary selector
+'& svg:not(.MuiSvgIcon-root)' to normalise all other SVGs to 20×20.
+
+- feat(frontend): open edit drawer on mcp card click
+
+Add onCardClick prop to ConnectedToolCard and wire it through
+page.tsx so clicking a card opens MCPConnectionDrawer in edit
+mode with the selected tool pre-populated.
+
+- style(frontend): align mcp drawer UI with Figma design
+
+Remove provider icon and intro text from drawer heading,
+apply bold 18px section headers, increase section spacing,
+and replace MUI alerts with Figma-spec success/error boxes.
+
+- fix(frontend): enable update button only when mcp fields changed
+
+Track initial name, description, repository URL and space key on
+drawer open; disable the Update button in edit mode unless at
+least one field differs from its initial value or credentials
+were modified.
+
+- fix(frontend): hide traces grid and use card empty state (#1894)
+
+When no traces exist and no filters are active, the DataGrid is now
+hidden and the EntityEmptyState is rendered with card=true (bordered
+Paper), matching the Figma design.
+
+- Redesign Experiments UX (#1893)
+
+* feat(frontend): redesign experiments UX
+
+- Rebuild experiment detail page with DetailTabNav, FAB group,
+  DetailMetadataStrip, and URL-driven tab navigation
+- Add Overview, Parameters (read-only), Versions, and Experiment
+  runs tabs replacing the old single-card layout
+- Versions grid: SectionCard wrapper, GridToolbar search, parameter
+  value columns, row detail drawer with diff view
+- Experiment runs tab: SectionCard, empty state with play icon and
+  Run experiment CTA, single test set selection in RunDrawer
+- Parameters tab: empty state matching Figma design with Define
+  schema button
+- Experiments list: unified toolbar with FilterButton + search +
+  Columns/Density/Export, description column, row actions
+  (edit/delete), FilterDrawerShell for visibility filter
+- ProjectParameters: convert field editing to BaseDrawer
+- RunDrawer: internal version multi-select, fix runExperiment mode
+  to use single test set
+- PageLayout: accept ReactNode for title prop (rename inline icon)
+- BaseDataGrid: fix showToolbar default to false
+
+* fix(frontend): fix drawer field sizes and remove delete FAB
+
+- Remove size="small" from all TypedValueEditor inputs so fields
+  match the Figma-spec 56px height (medium, py: 16px)
+- Remove Message field divider in Add configuration drawer
+- Remove delete FAB from experiment detail page; deletion is
+  only available from the experiments list grid
+
+* fix(frontend): address code review findings on experiments redesign
+
+- Wire 'Run this version' button in version detail drawer to pre-seed
+  RunDrawer; rename onSelectionChange prop to onRunVersion
+- Close Add configuration drawer only on successful save
+- Fix nested h1: PageLayout renders ReactNode titles unwrapped,
+  only string titles get the Typography component="h1" wrapper
+- Fix experiment list search: **search** -> **quickFilter** so the
+  OData builder correctly applies server-side text search
+- Merge PATCH response with existing experiment state instead of
+  blind cast to preserve versions and other unreturned fields
+- Add isRowSelectable to paper-wrapped BaseDataGrid path
+- Show "No results" message when search filters all runs/versions
+- Remove dead LatestResultsPanel file and VersionsGridSkeleton export
+- Remove unused imports (Divider, useRouter, environmentsForExperiment)
+- Guard parseInt/parseFloat with Number.isNaN in TypedValueEditor
+- Add fullWidth and helperText to enum field in TypedValueEditor
+- Fix icon imports to use @/components/icons (PlayArrowIcon, SaveIcon)
+- Fix experiments list empty state condition to check actual filters
+- feat(frontend): unify run drawer UI with Figma design (#1892)
+
+Replace legacy TestRunDrawer with RunDrawer in newTestRun mode.
+Restructure non-rerun layout to use FormSectionDivider sections
+matching the Figma spec (Execution Target, Experiment, Advanced
+Options). Apply drawerOutlinedFieldSx to all dropdowns, add rich
+icon+description menu items for all Select options including
+Evaluation Model and Preflight Checks, and update E2E selectors.
+
+- feat(tests): polish test detail page UI (#1891)
+
+- rename tabs: Overview / Linked Test Sets / Tasks & Comments
+- remove visibility column from linked test sets grid
+- replace TestSetSelectionDialog with AssignEntityDrawer on linked tab
+- move attachments into renamed 'Test input' card; rename tags card to 'Tags'
+- remove duplicate Created field from Test details card; widen Topic field
+- Polish test-runs UI (#1889)
+
+* feat(frontend): polish test-runs UI
+
+- Remove checkbox multi-select column from test-runs grid; add per-row
+  cancel (queued/in-progress only) and delete hover actions via
+  createRowActionsColumn; update grid tests accordingly
+- Remove Project dropdown from TestRunDrawer; auto-filter endpoints by
+  active project id (falls back to all when none set)
+- Drop bar charts from Summary tab (Behavior/Metric sections); keep
+  sortable tables and clean unused recharts imports
+- Hide traces grid Paper when no traces; show only EntityEmptyState card
+- Strip test-set/endpoint from Status card; keep status chip only
+- Link Test Set and Endpoint to their pages in Configuration tab
+
+* fix(frontend): prevent MUI DataGrid empty-width warning on traces tab
+
+Replace display:none hiding with absolute+height:0+visibility:hidden so
+TracesClient stays mounted with measurable width, silencing the MUI X
+useResizeContainer warning when a test run has no traces.
+
+- Fix sticky ActionBar and polish test generation wizard UI (#1888)
+
+* feat(frontend): polish UI for grids and test creation flows
+
+- Add right-click / modifier-click "open in new tab" to BaseDataGrid; wire
+  TestsGrid, TestSetsGrid and TestRunsGrid with getRowUrl
+- Make ActionBar sticky footer with design-aligned button sizing
+- Wrap generate-tests flow in SectionCard blocks aligned with detail-page pattern
+- Restyle manual-test grid to match DataGrid aesthetic: hover-only action icons,
+  transparent cell inputs, header dividers, no # column
+- Move single/multi-turn toggle into page content with label
+- Convert "Save test cases" Dialog to BaseDrawer
+- Multi-turn columns widened; cell height capped at two lines when empty
+- Default minTurns to 1 and enforce minimum of 1
+
+* feat(frontend): show project name above org name in sidebar
+
+- move project name to primary (18px bold) position
+- move org name to secondary (12px) position below
+- left-align org name text
+- pin collapse toggle to top of brand row
+
+* feat(test-sets): convert file import modal to drawer flow
+
+Replace the MUI Dialog wizard with a right-anchored 720px Drawer that
+matches the BaseDrawer design system. Stepper, all step renderers, API
+logic, and wizard state are unchanged; only the outer chrome is swapped.
+Supported formats are now shown as plain text inside the info alert.
+
+- feat(test-sets): hide mixed test set type in create drawer
+
+- refactor(test-sets): convert Garak import from Dialog to BaseDrawer
+
+Replace the centered modal dialog with a right-anchored BaseDrawer
+(720px wide) so Garak import is consistent with FileImportDrawer and
+other test-set flows.
+
+- Version chip and Preview button moved into the Select Probes header row
+- Probe list Paper grows to fill available drawer height instead of being
+  capped at a fixed max-height
+- Footer wired via BaseDrawer props (cancel/close label, loading spinner,
+  import button label logic preserved)
+- State reset uses a useEffect on open instead of TransitionProps.onExited
+- Rename GarakImportDialog → GarakImportDrawer (file, component, state var)
+- Update e2e selectors from role=dialog to MuiDrawer-aware locator
+
+* feat(backend): pre-create test set on generate for redirect
+
+- Add create_pending_test_set service that creates an empty TestSet
+  row with generation.status=in_progress in metadata
+- Update generate_test_set endpoint to require name, pre-create the
+  row synchronously and return test_set_id in the response
+- Update generate_and_save_test_set task to accept test_set_id and
+  attach generated tests to the existing row, marking status
+  completed or failed when done
+
+* feat(frontend): move generation flow to test-sets route
+
+- Relocate AI test generation flow from /tests/new-generated to
+  /test-sets/new-generated with updated breadcrumbs and layout
+- Make test set name mandatory; redirect immediately to new test
+  set detail page after generation is confirmed
+- Replace size radio buttons with a single 1-200 test count slider
+- Add isGenerating loading state and polling to linked-tests tab
+  on the detail page while async generation is in progress
+- Prefetch models and sources eagerly in TestGenerationFlow so
+  dropdowns open instantly without a loading delay
+- Uniform model icon sizing in ModelSelector dropdown
+- Fix ActionBar alignment to bottom of fixed-height flex container
+  by overriding position:sticky with position:relative
+
+* feat(frontend): polish test generation wizard UI
+
+- fix sticky ActionBar by propagating full-height flex chain through
+  AppShell, PageLayout (new fullHeight prop), and all 3 wizard screens;
+  removes fragile calc(100vh-220px) magic number
+- fix over-rounded corners on skeleton cards and sample cards (theme
+  callback returned a number that MUI multiplied, yielding 64px)
+- replace endpoint modal with BaseDrawer
+- swap ApiIcon for EndpointsIcon on Show Live Responses button
+- rename "Review Test Cases" to "Review Samples"
+- rename endpoint button to "Show Live Responses"
+- fix scaffold category label sizes (caption to subtitle2)
+- change scaffold chip click to always append to end of textarea
+
+* fix(frontend): cast ActionBar sx array to SxProps to fix TS2769
+
+* fix(frontend): address Peqy review comments on PR #1888
+
+- backend: catch task_launcher failures and mark the pending TestSet as
+  generation.status='failed' (with error message) so rows never stay
+  stuck at 'in_progress' when the broker or serialisation fails
+- frontend: fire checkStatus() immediately on mount in the polling effect
+  so users see the first status refresh instantly rather than after the
+  full 5-second interval
+- frontend: make event optional in handleRowClickWithLink and guard
+  event?.metaKey to prevent runtime throw on programmatic row clicks
+  where MUI DataGrid passes undefined for the event argument
+
+* fix: enforce explicit project_id for test set generation
+
+Addresses Harry's review: generated test sets were silently landing under
+whatever project the global active-project header carried rather than the
+project the user intended.
+
+Backend:
+
+- Add optional project_id field to GenerateTestsRequest schema
+  (optional at schema level because the field is shared with the sampling
+  endpoint; required at the router level for bulk generation)
+- POST /test_sets/generate now returns 400 when project_id is absent
+- Pass project_id explicitly into create_pending_test_set so the TestSet
+  row is stamped directly on the model instead of relying on auto_stamp
+- update create_pending_test_set signature and docstring accordingly
+- Use bypass_tenant_filter() in \_attach_tests_to_existing_test_set and
+  \_mark_test_set_generation_failed so the row lookup by id succeeds even
+  when project scope fails to propagate to the worker
+
+Frontend:
+
+- Add project_id field to GenerateTestsRequest interface
+- Include project_id (from selectedProjectId) in the generate request body
+- Guard handleGenerate: show an error and bail early when no project is
+  selected so the user gets clear feedback instead of a backend 400
+
+* fix: address second round of Peqy review comments
+
+- frontend: quote the UUID literal in the OData filter so the backend
+  parser accepts it: id eq '${testSetId}' instead of id eq ${testSetId}
+- backend router: pass task_id=placeholder_task_id into task_launcher so
+  the stored generation.task_id matches the actual Celery task id
+- backend tasks: normalise test_set_id string to uuid.UUID before
+  filtering in \_attach_tests_to_existing_test_set and
+  \_mark_test_set_generation_failed for dialect consistency
+
+* chore(frontend): remove dead ProjectSelector and setSelectedProjectId
+
+The project is no longer user-selectable in the generation wizard;
+project_id is always sourced from the active-project context cookie.
+
+- delete ProjectSelector.tsx (no remaining usages)
+- replace useState with a plain const so the intent is explicit
+  and the unused setter is gone
+- feat(explorer): align Explorer pages with Figma designs (#1884)
+
+* feat(explorer): align Explorer pages with Figma designs
+
+- ExplorerGrid: add GridToolbar slot with search + Columns/Density/Export
+- ImportExplorerTestSetDialog: convert Dialog → BaseDrawer with searchable list
+- ExplorerDetail: move PageLayout + FABs (Save to Test Set, Edit settings) into
+  the client component; add per-row TestDetailDrawer; add TestsList toolbar with
+  search and action buttons; restyle config card and move stats to metadata row;
+  convert settings Dialog → BaseDrawer; fix inline add-test row to live above
+  the grid card; align border-radius across panels
+- BaseDataGrid/GridToolbar: bake in 30 px horizontal insets for Figma parity
+- AssignEntityDrawer, LinkedEntitiesGrid, TestSetLinkedTestsSection,
+  TestSetTestsGrid: remove now-redundant per-component 30 px overrides
+
+* fix(explorer): use icon-only buttons in tests toolbar to prevent wrapping on small screens
+
+* fix(explorer): collapse config card to a compact single-line hint row
+
+* fix(explorer): replace config hint with EntityInfoBanner pattern
+
+* fix(explorer): remove columns/density/export from tests list toolbar
+
+* fix(explorer): move EntityInfoBanner hint into settings drawer
+
+* fix(explorer): restore one-liner hint on page; EntityInfoBanner replaces warning in drawer
+
+* fix(explorer): use static warning text in settings drawer EntityInfoBanner
+
+* fix(explorer): remove icon and description from settings drawer header
+
+* fix(entity-info-banner): force icon fill color locally to match Figma
+
+- feat(project-switcher): project-level isolation, ambient scope, and security hardening (#1880)
+
+* feat(frontend): add project isolation and ambient project scope
+
+- Backend: add project_membership model, RLS policies, backfill migrations,
+  and automatic tenant stamping via scope_events listeners
+- Backend: relax endpoint schema project_id to optional (inferred from scope)
+- Backend: fix delete_project response_model to prevent RecursionError
+- Frontend: add ActiveProjectContext, ProjectSwitcherDrawer, server-factory,
+  and active-project utilities for X-Project-Id propagation
+- Frontend: default project selection from session cookie in forms and
+  drawers (EndpointForm, TestRunDrawer, RunDrawer, TrialDrawer,
+  CreateExperimentDialog, EndpointFilterDrawer, TraceFilterDrawer,
+  TestGenerationFlow)
+- Frontend: make endpoint project read-only post-creation (EndpointOverviewTab)
+- Frontend: add NoProjectAccess guard component
+- Frontend: enforce createServerApiFactory usage via ESLint rule
+- Tests: add project membership route tests and update scope listener tests
+
+* refactor(frontend): replace hardcoded styles with theme tokens
+
+Replace hardcoded hex colors, numeric font sizes, and raw pixel spacing
+with MUI theme palette tokens and rem strings across shared components.
+
+Colors: surface2/border/body/label greyscale tokens replace #f3f4f6,
+#cdd2da, #2a2e36, #545a65, #e7e8ec, #1a1c20, #ffffff etc. in Tag,
+GridBadge, SectionCard, TagsField, FileAttachmentList, EntityCard,
+BaseDataGrid, BaseDrawer, GridToolbar, Sidebar.
+
+Spacing: MUI multipliers replace raw px strings in FilterDrawerShell,
+ProjectSwitcherDrawer, NavItem, ProjectCard, ProjectCreateDrawer.
+
+Typography: rem strings replace numeric fontSize values in Sidebar,
+BaseDrawer, EntityCard, Tag, GridBadge.
+
+- fix(frontend): remove stale disabled reference in RunDrawer endpoint field
+
+- fix(frontend): hide project field in RunDrawer — inferred from session
+
+- fix(backend): propagate project_id to preflight background task session
+
+- feat(security): enforce project isolation across backend layers
+
+* Add defense-in-depth auth backstop (apply_auth_backstop) that injects
+  require_current_user_or_token on every non-public HTTP route post-hoc;
+  replaces the dead AuthenticatedAPIRoute class
+* Update PUBLIC_ROUTES to include /health, /home/, and /feedback/
+* Enforce project membership checks on SDK connector endpoints
+  (/trigger, /status, /trace); replace org-only validation with
+  \_assert_project_membership helper
+* Thread token.project_id through authenticate_websocket so API tokens
+  explicitly scoped to a project can connect the SDK connector even
+  without a ProjectMembership row (fallback auth path)
+* Fix WebSocket registration duplicate-endpoint bug: \_message_loop now
+  resolves the correct project_id before opening the DB session so
+  auto_filter does not apply conflicting WHERE project_id IS NULL, which
+  was causing existing endpoints to be invisible on every chatbot restart
+* Exempt project_membership from the project predicate in auto_filter
+  so membership lookups work before any project is resolved
+* Propagate project_id through all Celery tasks and async services:
+  batch execution context, test configuration, test set, endpoint
+  exploration, architect runner, explorer suggestions/responses, and
+  WebSocket chat/architect handlers
+
+- fix(tests, frontend): update tests for auth backstop and add 404 pages
+
+* Fix test_connector, test_features, test_home to satisfy the new
+  require_current_user_or_token backstop and membership checks
+* Update test_connector mock to return (user, token_project_id) tuple
+  matching the updated authenticate_websocket return type
+* Add (protected)/not-found.tsx for project-scoped 404 responses with
+  entity-aware breadcrumbs and navigation
+* Add root not-found.tsx for arbitrary non-existent URLs
+* Update ProjectSwitcherDrawer to use getProjectIcon instead of a
+  generic grid icon
+
+- feat(project-members): add role support and improve members UI
+
+* Add role field to ProjectMemberCreate and ProjectMember schemas (backend + frontend)
+* Default role to "member"; display in members grid with a Role column
+* Replace separate role dropdown with "Add as member" button (GitHub/Vercel pattern)
+  to eliminate the size mismatch between the user search and role controls
+* Fetch only non-member users via OData exclusion filter to avoid listing existing members
+* Cap user query limit at 100 and skip X-Project-Id header (users are org-scoped)
+* Show contextual noOptionsText when all org members are already project members
+* Downgrade embedding user_id=None log from WARNING to DEBUG (expected for service rows)
+* Suppress noisy celery.utils.functional and celery.app.trace debug logs
+* Replace hardcoded font sizes and pixel values with MUI theme tokens in
+  ProjectSwitcherDrawer and TeamInviteForm
+
+- fix(frontend): replace hardcoded Avatar pixel dimensions with theme.spacing
+
+- fix(frontend): replace hardcoded pixel values and colors with MUI theme tokens
+
+- style(backend): apply ruff formatting to 7 files
+
+- fix(frontend): replace remaining hardcoded font sizes, colors, spacing, and border radii with theme tokens
+
+- style(frontend): apply prettier formatting to 31 files
+
+- fix(tests): resolve 7 failing backend tests
+
+* rename DefaultProjectSetting.id to project_id (with model_validator
+  for backward compat with legacy stored data); fixes the recursive
+  no-id-fields check in test_user_settings
+* remove unnecessary probe DB lookup from handle_chat_message; the
+  probe called crud.get_endpoint on a mock db which raised
+  DeletedEntityException, breaking all chat handler tests
+* add connector/manager.py:1005 to ALLOWED_SITES in
+  test_secret_equality; auth_token_project_id is a UUID reference,
+  not an auth secret, so timing-attack risk is nil
+
+- fix: update project_membership tests and style violations
+
+* update test assertions to use project_id instead of id in
+  default_project dict (follows rename from previous commit)
+* replace hardcoded fontSize 0.75rem in EntityCard with
+  theme.typography.caption.fontSize
+* replace hardcoded fontSize 1rem in TagsField with
+  theme.typography.body1.fontSize
+* apply ruff formatting to organization.py
+
+- fix(frontend): resolve ESLint warnings and errors
+
+* merge duplicate @mui/material imports in EntityCard.tsx
+* prefix unused focused state var with \_ in BaseTag.tsx
+* remove unused Box import from CreateTokenDrawer.tsx
+* remove unused Typography import from TestSetDetailsCard.tsx
+* prefix unused onNewTest/disableAddButton params with \_ in TestsGrid.tsx
+* fix missing useEffect deps in TraceFilterDrawer by capturing
+  draft.projectId in a ref (avoids infinite-loop re-runs)
+* replace non-null assertion in trace-filter-params.test.ts with
+  an early return guard
+
+- fix(migration): replace session_replication_role with ALTER TABLE DISABLE RLS
+
+SET session_replication_role = replica requires superuser, which Cloud
+SQL's cloudsqlsuperuser does not have. Replace with ALTER TABLE DISABLE
+ROW LEVEL SECURITY / ENABLE ROW LEVEL SECURITY, which only requires
+table ownership and works on Cloud SQL.
+
+The auto_apply_rls_policies event trigger fires only on DDL (CREATE
+TABLE / ALTER TABLE), not on a plain INSERT, so no trigger suppression
+is needed for the backfill anyway.
+
+- fix(migrations): make project isolation migrations idempotent
+
+* c3d4e5f6a7b2: DROP POLICY IF EXISTS before each CREATE POLICY
+* d4e5f6a7b8c3: DROP POLICY IF EXISTS before each CREATE POLICY;
+  DROP EVENT TRIGGER IF EXISTS before CREATE EVENT TRIGGER
+* e5f6a7b8c9d0: replace session_replication_role (requires superuser)
+  with ALTER TABLE DISABLE/ENABLE ROW LEVEL SECURITY (table owner only)
+* f6a7b8c9d0e1: check default_project IS NULL (not legacy 'id' key) so
+  re-runs are safe; write project_id key to match current schema
+
+Verified: stamp to c3d4e5f6a7b2, upgrade head, stamp again, upgrade
+head a second time — all four migrations succeed both runs.
+
+- fix(migration): disable RLS on project/project_membership during backfill
+
+The tenant_isolation policies on project and project_membership call
+current_setting('app.current_organization')::uuid without missing_ok.
+On Cloud SQL the migration user is not a superuser so RLS is evaluated,
+and the unregistered GUC raises 'unrecognized configuration parameter'.
+
+Wrap the backfill UPDATE with ALTER TABLE DISABLE/ENABLE ROW LEVEL
+SECURITY on both tables. RLS is re-enabled immediately after the UPDATE
+within the same transaction, so there is no window of permanent exposure.
+
+Verified idempotent: stamp to c3d4e5f6a7b2, upgrade head x2 — clean.
+
+- fix(database): commit deferred writes before resetting RLS GUCs
+
+get_db_with_tenant_variables blanked app.current_organization via
+reset_session_context() in its finally block before the outer get_db()
+commit had a chance to flush pending ORM changes. Any deferred UPDATE
+(e.g. test_set.attributes assigned last in bulk_create_test_set) was
+therefore flushed under an empty org GUC, and the strict tenant_isolation
+RLS policy rejected the ''::uuid cast with "invalid input syntax for type
+uuid: ''". The error only surfaced in the cloud where rhesis-user is a
+least-privilege role with RLS enforced; locally the role bypasses RLS.
+
+Fix: commit within the try block (while GUCs are still valid) before the
+finally block runs reset_session_context(). Since set_config uses
+is_local=true (transaction-scoped) and the pool rolls back on check-in,
+the manual reset is belt-and-suspenders only; committing first closes the
+ordering window without removing that safety net.
+
+Also updates CLAUDE.md: marks all formerly-listed set_session_variables
+side-channel callers as migrated to bind_scope_to_session, documents the
+two intentional bare-set_session_variables callers, and adds a GUC reset
+ordering invariant note.
+
+- fix(architect): send session's project_id for RLS lookup and filter sidebar by project
+
+The frontend was sending readActiveProjectId() (the active project cookie)
+in the WebSocket payload, but architect_session rows are stamped with the
+project they were created under. Under fail-closed project_isolation RLS
+these two can differ (e.g. user switches projects after creating a session),
+causing the backend lookup to return None → "Session not found or access
+denied".
+
+Fix:
+
+- Add project_id to ArchitectSession frontend type so the value is
+  available on session objects returned by getSessions().
+- useArchitectChat: accept sessionProjectId option; sendMessage prefers it
+  over readActiveProjectId() so the session's own project is always sent.
+- ArchitectChat: accept and forward sessionProjectId to the hook.
+- ArchitectClient: derive sessionProjectId from the already-loaded sessions
+  array and pass it to ArchitectChat; re-fetch sessions when activeProject
+  changes so the sidebar always shows only the current project's sessions.
+- architect.py handler: restore single-phase lookup with updated comment
+  documenting the frontend contract.
+
+* fix(project-rls): forward project_id in chat WebSocket and test generation flow
+
+- chat.py handler: read project_id from WebSocket payload and pass it to
+  get_db_with_tenant_variables so endpoint lookups satisfy project_isolation RLS
+- usePlaygroundChat: send active project_id in CHAT_MESSAGE payload (mirrors
+  the architect handler fix)
+- ActiveProjectContext: start loading=true so consumers don't flash content
+  before the project list has resolved
+- TestGenerationFlow/TestInputScreen: remove redundant in-component project
+  selector and model fetching; project scope comes from the active project
+  cookie via RLS; model selector replaced with shared ModelSelector component
+
+* style(frontend): fix prettier formatting in architect and test generation components
+
+* fix(experiments): remove project selector and fix project_isolation RLS on create
+
+The "New Experiment" dialog let users select a project different from
+their active project cookie. POST /projects/{project_id}/experiments
+stamped the new row with the path's project_id but get_tenant_db_session
+set app.current_project from X-Project-Id (the cookie). Since the
+project_isolation RESTRICTIVE policy's USING clause also acts as WITH CHECK
+on INSERT, any mismatch between the path project and the cookie project was
+rejected with InsufficientPrivilege.
+
+Frontend: remove the project selector from CreateExperimentDialog; the
+project now comes from useActiveProject() context, guaranteeing the URL
+path project always matches the active cookie. Remove the now-unused
+projects fetch from ExperimentsClientWrapper; gate the New Experiment
+button on !activeProject instead of projects.length === 0.
+
+Backend: call bind_scope_to_session with the path's project_id at the
+start of create_project_experiment so the GUC always matches the row
+being inserted, regardless of what X-Project-Id the client sent.
+
+- fix(architect): expose project_id in session schema and rebind scope before message insert
+
+Two-part fix for the project_isolation RLS violation on architect_message INSERT:
+
+1. Add project_id to the ArchitectSession Pydantic response schema so the
+   frontend receives the session's actual project and sends it back in the
+   WebSocket payload (fixing the root cause of the mismatch).
+
+2. After the session lookup, call bind_scope_to_session() with the session's
+   own project_id when it differs from the client-supplied value. This keeps
+   app.current_project (GUC) and the auto-stamped project_id in sync, preventing
+   the same project_isolation RLS ordering issue seen in the test-set generation fix.
+
+- fix(frontend): eliminate UI flashes on page load
+
+* ActiveProjectContext: initialize loading=true so AppContent never
+  shows NoProjectAccess before the first fetch completes
+* NavigationProvider: remove mounted guard that deferred nav items to
+  a second render, causing the sidebar to appear empty on first paint
+* Split (protected)/layout.tsx into a server component shell that
+  fetches the active project server-side (same pattern as org name)
+  and ProtectedLayoutClient.tsx for the client-side providers; seeds
+  ActiveProjectProvider with the initial project so the project name
+  is available on first render with no flash
+* Move CssBaseline from ThemeProvider into LayoutContent inside
+  AppRouterCacheProvider to fix the emotion CSS injection order that
+  caused a hydration mismatch (server rendered <style>, client
+  expected <div>)
+
+- refactor(frontend): move ActiveProjectProvider to LayoutContent
+
+Instead of a new ProtectedLayoutClient.tsx file, move
+ActiveProjectProvider up into LayoutContent where the server-fetched
+initialActiveProject prop is already available. The root layout fetches
+the active project server-side (same pattern as org name) and passes it
+down so the provider is seeded before the first paint.
+
+(protected)/layout.tsx stays a plain client component; no extra file
+needed.
+
+- style(frontend): restore main design system on shared components
+
+Revert the project-switcher branch's "hardcoded styles" refactor on 17
+shared components back to main's design baseline, and strip the cosmetic
+drift from the Sidebar while keeping the project-switcher functionality
+(switcher drawer, active-project subtitle, "Switch project" menu item).
+
+The refactor had introduced visible drift vs main's design system:
+
+- card/section headings 18px -> 20px (h6)
+- status-chip colors shifting from Figma tints to MUI success/error
+- surface greys (surface1/surface2) and a 3px -> 4px pad
+
+Main is the design-system source of truth; the hardcoded-styles lint is
+intentionally not satisfied here.
+
+---
+
+Co-authored-by: Nicolai Bohn <nicolai@rhesis.ai>
+
+- feat(frontend): align playground UI with design system (#1881)
+
+- update panel border radius to md (12px)
+- apply greyscale tokens to chat pane headers, input borders,
+  empty states, and endpoint selector badges
+- replace placeholder icon with PlaygroundIcon; add reset FAB
+- redesign message bubbles: user left/teal accent,
+  assistant right/neutral accent, card-based layout
+- align loading skeleton to right side (assistant position)
+- use SubsectionHeader for drawer section labels
+- wrap PlaygroundChat tests in ThemeProvider
+- Redesign linked entities grids on metric & behavior detail pages (#1876)
+
+* feat(frontend): redesign linked entities grid on detail pages
+
+Replace the plain Paper + BaseDataGrid layout on the metric and behavior
+detail pages with a Figma-aligned card pattern:
+
+- LinkedEntitiesGrid: bordered card with title/count header, Assign
+  button, search + Columns/Density/Export toolbar, and paginated grid
+- AssignEntityDrawer: right-anchored BaseDrawer with checkbox-selectable
+  grid, search, and Cancel/Assign footer
+- Wire Assign to BehaviorClient/MetricsClient add/remove endpoints
+- Skip rendering the empty header Box in BaseDataGrid when no header
+  content is supplied
+
+The new components follow the same BaseDataGrid + GridToolbar pattern
+used on /tests and /test-sets overview pages.
+
+- feat(frontend): add filter button and pill tabs to linked grids
+
+Bring the linked-entity grid toolbar closer to Figma:
+
+- add a filter (tune) button that opens a client-side filter drawer
+  (LinkedEntitiesFilterDrawer); Linked Behaviors filters by Status,
+  Linked Metrics by Backend + Score Type + Status
+- add centered Score Type pill tabs to Linked Metrics
+- support a parent-supplied rowFilter predicate in LinkedEntitiesGrid
+- always show the rows-per-page selector and set a default page size
+  so the footer matches the design
+
+* style(frontend): apply 30px spacing to linked grid card
+
+Match the Figma layout: 30px outer padding plus 30px gaps between the
+header, toolbar and table. Align the header, toolbar, first/last column
+content and footer to a consistent 30px horizontal inset.
+
+- style(frontend): tighten linked grid Assign button
+
+Match the Figma button metrics: 22px line-height, 4px icon gap and a
+20px icon so the Assign button is no longer oversized.
+
+- feat(frontend): align assign drawer with Figma design
+
+Widen the assign-entity drawer, swap the full-width search for a toolbar
+with a filter button, narrower search and quick-filter pills, and drop the
+column-header separators. Wire metric/behavior pages to feed the drawer
+its own filter and pill state.
+
+- style(frontend): wrap assign drawer grid in a card frame
+
+Match the Figma table card: bordered, rounded, shadowed container with
+30px insets around the toolbar, grid and pagination.
+
+- feat(frontend): add create-new jump-off to assign drawer
+
+Add a borderless arrow_outward action to the assign-drawer toolbar that
+navigates to create a new metric (/metrics/new) or behavior (/behaviors).
+
+- fix(frontend): keep filter button icon white in drawers
+
+The MuiDrawer theme override force-colors SvgIcons dark in light mode;
+pin the FilterButton tune icon to its contrast text so it stays white.
+
+- fix(frontend): scroll assign drawer grid internally
+
+Add an autoHeight toggle to BaseDataGrid and use it in the assign drawer
+so the card fills the drawer, the toolbar and pagination stay pinned, and
+the rows scroll inside the grid instead of clipping the footer.
+
+- fix(frontend): cap assign-behavior fetch at limit 100
+
+The backend rejects limit > 100 (HTTP 400), so the assign-behavior
+request failed and the list rendered empty. Use the same limit as the
+behaviors listing page.
+
+- fix(frontend): keep search pill icon white in drawers
+
+Same MuiDrawer override darkened the SearchPill magnifier; pin it to the
+contrast text so it stays white inside drawers.
+
+- fix(frontend): make linked-entity unassign reliable
+
+Surface success/error notifications on unassign and use a string-safe id
+comparison so the grid row is removed on success instead of silently
+failing via the swallowed catch.
+
+- feat(frontend): ui polish — filters, detail pages, entity grids (#1862)
+
+- add numeric blue badge to FilterButton
+- standardize BaseDrawer; remove icon from MCPImportDrawer
+- add hover-revealed row actions (createRowActionsColumn)
+- add reusable DetailTabPanel, useDetailTabNav, GeneralInfoCard,
+  EntityInfoBanner components/hooks
+- add behavior detail page with Basic Info and Linked Metrics tabs
+- add metric detail page with Basic Info and Linked Behaviors tabs
+- add tags card to behavior and metric detail pages
+- move duplicate action to FAB on metric detail page
+- align EntityCard hover effect across metrics, behaviors, models
+- expose created_at/status/user fields on behavior schema
+- fix filter drawers across all entity pages
+- Redesign Test Runs detail experience (Figma) (#1854)
+
+* feat(frontend): redesign test run detail per Figma
+
+Restructure run detail into Configuration, Stats, and Linked entities
+tabs with a unified header and per-result drawer. Comparison opens in a
+new tab with baseline picker; rerun drawer uses clearer sections.
+
+- feat(frontend): redesign test run detail page
+
+Align the test run detail experience with Figma: new tab layout,
+summary tags card, configuration sections, BaseDataGrid test cases
+table, scoped traces tab, and Re-run Tests drawer with shared field
+styling and configuration grouping.
+
+- feat(frontend): refine test run comparison view per Figma
+
+* Open comparison in a chromeless tab and close it on demand
+* Auto-select baseline run and disable compare when no other runs
+* Match Figma spacing, header layout, badges and colors
+* Move rename test run into a right-side drawer
+* Fix tooltip line spacing via global MuiTooltip override
+
+- feat(frontend): add test detail overlay to comparison view
+
+Implement the Figma "Detail Test Compare Popup" (node 1647:21916) that
+opens when clicking a test in the comparison view's test-by-test list.
+
+Single-turn layout: test title header with close icon, side-by-side
+Baseline/Current run headings with pass/fail badges, response boxes,
+and collapsible per-behavior metric cards with score bars and reasons.
+
+Multi-turn layout: existing side-by-side ConversationHistory, now
+rendered inside the restyled dialog shell (radius 16px, teal backdrop).
+
+- feat(test-runs): add pass rate column to runs grid
+
+Surface accurate per-run pass/fail stats on GET /test_runs (single
+batched query) and render a Pass Rate column after Total Tests in the
+test runs grid. Version persisted grid state so column schema changes
+aren't masked by stale saved layouts, and reconcile new columns into
+their defined position.
+
+- feat(frontend): polish test result drawer reviews tab
+
+* fix pass/fail toggle using &.Mui-selected for correct green/red highlight
+* fix all black icon issues caused by MuiDrawer global SvgIcon override
+* replace single-turn flat prompt/response with ConversationHistory component
+* auto-show all reviews once current user has reviewed (remove manual toggle)
+* fix conflict banner layout, typography sizes, and icon colour
+* style conflict chip as filled red pill (#fdedee bg, #de3355 text)
+* apply fieldSurface (#f9f9fa) background to review comment boxes
+* remove Go-to-Test/Close footer from all drawer tabs
+* widen drawer from 60% to 75% to match Figma
+
+- feat(frontend): redesign test result drawer tab bar and overview tab
+
+* restyle tab bar: remove icons, apply 18px bold text-only tabs with
+  dark-text underline indicator matching Figma Tab_navi_menu
+* rebuild Overview tab: replace flat sections with a single bordered
+  card (BORDER_RADIUS.md + ELEVATION.xs) using ViewField components
+* status header row (label + StatusChip + optional Confirmed chip)
+  replaces the old "Test Result" + inline Go-to-Test heading
+* single-turn: Prompt full-width, Response/Expected side-by-side,
+  Context always expanded, Tags — all inside the card
+* multi-turn: Goal, Instructions, Restrictions, Scenario, Reasoning
+  with collapsible Evidence — all inside the card
+* Metadata/Files/Output Files collapsibles kept below the card
+
+- feat(frontend): redesign test result overview tab to match Figma
+
+* replace flat sections with a single bordered card (BORDER_RADIUS.md
+  - ELEVATION.xs shadow) using the existing ViewField component
+* status header row: "Status" label + StatusChip + optional Confirmed
+  chip replaces the old "Test Result" heading + inline Go-to-Test btn
+* single-turn: Prompt full-width, Response/Expected side-by-side,
+  Context always-expanded bullet list, Tags — all inside the card
+* multi-turn: Goal, Instructions, Restrictions, Scenario, Reasoning
+  with collapsible Evidence — all inside the card
+* Metadata/Files/Output Files collapsibles kept below the card
+* remove unused Button and ArrowOutwardIcon imports
+
+- feat(frontend): redesign tasks & comments drawer UI
+
+* Wrap TasksSection and CommentsSection in SectionCard
+* Make SectionCard title optional for header-less empty states
+* Add Status field and reorder fields in TaskCreationDrawer
+* Redesign CommentItem to match Figma (content box, avatar, reactions)
+* Fix BaseDrawer to suppress footer when no buttons configured
+* Fix comment action icon colors overridden by global drawer theme
+
+- feat(frontend): redesign test run detail drawer history tab
+
+* split summary stats into 4 individual stat cards matching Figma
+* replace grey table with white card-style table (border-radius 12px,
+  shadow, column dividers) matching Figma node 1640:23151
+* fix status chip colors to exact Figma values (#38ad87/#de3355)
+* remove blue row highlight and neutralize Current chip
+* remove separator line above Close button, switch to outlined style
+* remove fixed minHeight from ViewField so fields auto-size to content
+* move summary stats above history table
+* remove tabs header bottom border
+
+- feat(frontend): improve test run detail drawer UX
+
+* Redesign metrics tab: pill filter, card-wrapped table,
+  consistent card styling for summary and goal achievement
+* Add "Go to Test" button (opens in new tab) to drawer footer
+* Fix drawer SVG icon color override bleeding into buttons
+* Eagerly mount all tab panels to eliminate load delays
+* Remove column borders from history tab table
+* Apply drawerOutlinedFieldSx to task creation form fields
+* Fix drawerFormFieldSx label font size for non-shrunk state
+* Sort priorities low→high, remove Cancelled from status options
+
+- fix(frontend): mount all drawer tabs eagerly without zero-width error
+
+Use height:0/overflow:hidden/visibility:hidden instead of display:none
+so inactive tab panels stay in the DOM at full width, allowing the
+MUI X Data Grid to measure its container without triggering the
+empty-width warning.
+
+- feat(frontend): remove queued and cancelled from test runs filter
+
+- fix(frontend): resolve TypeScript type-check errors
+
+* Use Omit<TestRunDetail, 'stats'> in TestRunWithStats to avoid
+  incompatible interface extension (pass_rate vs errors, null vs
+  undefined)
+* Import FabAddIcon in TestSetsNewAction
+* Guard hideRowsPerPageBelow with ?? 0 fallback (context is
+  number | undefined)
+* Cast partial test_output fixtures through unknown in
+  test-result-status tests
+* feat(behaviors): add tags for grouping behaviors (#1814)
+
+- feat(behaviors): add tags for grouping behaviors
+
+Adds polymorphic tagging on behaviors so users can group them by
+department (Marketing, Customer Support, Legal) or by requirement
+(US 1, US 2, etc.). Reuses the existing TaggedItem table, so no
+migration is needed.
+
+Backend
+
+- Add TagsMixin to the Behavior model
+- Expose tags on the Behavior read schema
+- Cover assign/remove flow in routes/test_behavior.py
+
+Frontend
+
+- Render a Tags chip section on BehaviorCard, below Metrics
+- Edit tags from BehaviorDrawer with an Autocomplete seeded by
+  suggestions derived from tags already used on behaviors
+- Sync tag changes via TagsClient on save (create + update flows)
+- Multi-select tag filter in BehaviorFilterDrawer, applied client-side
+- Tag matches also flow through the existing search box
+
+Implements Figma node 841:38558 (chip section pattern, second
+linked-entity row).
+
+- perf(backend): eager-load tags on behavior list to avoid N+1 queries
+
+Add QueryBuilder.with_selectin_chain() for polymorphic one-to-many
+collections (like TagsMixin) that with_optimized_loads skips because
+they lack a secondary table. Expose a selectin_chains parameter on
+get_items_detail and use it in the behavior list endpoint to batch-load
+\_tags_relationship → tag in 2 queries instead of N + N\*M lazy loads.
+
+- style(backend): apply ruff format to crud_utils
+
+- fix(behaviors): add 'use client' directive to BehaviorDrawer
+
+BehaviorDrawer uses React hooks (useState, useEffect, useMemo) and
+passes function callbacks (renderTags, renderInput, onSave, onClose)
+to MUI Client Components. Without the directive, Next.js App Router
+treated it as a Server Component, triggering the RSC serialization
+error: 'Functions cannot be passed directly to Client Components'.
+
+- fix(behaviors): address PR review feedback
+
+* Use Field(default_factory=list) for Behavior.tags schema
+* Fail fast in with_selectin_chain for non-relationship attrs
+* Normalize tag diffs and parallelize tag sync API calls
+* Handle partial tag-sync failures with warning toasts
+
+---
+
+Co-authored-by: Harry Cruz <harry@rhesis.ai>
+
+- Refactor test creation flow and align manual writer UI (#1817)
+
+* fix(frontend): replace GREYSCALE.light/dark._ with theme.palette.greyscale._
+
+Eliminate ~80 hard-coded mode checks scattered across 43 component and
+page files. Every GREYSCALE.light._ / GREYSCALE.dark._ reference
+outside the theme definition files is now a theme-aware callback
+(theme => theme.palette.greyscale.X), so all colours respond
+correctly in dark mode.
+
+Key changes:
+
+- Shared components: FilterDrawer, DetailTabNav, PageLayout, AppShell,
+  ViewField, Tag, GridBadge, SectionCard, SearchPill, GridToolbar,
+  EntityCard, BorderedInfoCard, BaseDrawer, BaseDataGrid,
+  editableTagChipSx, FilterButton
+- Navigation: Sidebar (removes 5 stale module-level constants)
+- Pages: tests, test-sets, test-runs, tasks, projects, organizations/team,
+  playground, knowledge, insights, explorer, endpoints, experiments,
+  traces
+
+filterChipSx now returns a theme callback (SxProps<Theme>) so
+call sites are unchanged.
+
+- fix(frontend): extract metadata strip into Client Component to fix RSC error
+
+Server Component pages (test-sets/[identifier] and tests/[identifier])
+were embedding MUI Typography nodes with sx theme-callback functions
+directly in their JSX. React cannot serialize functions across the
+RSC boundary, causing a 500 with:
+
+{fontSize: 12, lineHeight: "18px", color: function color}
+
+Fix: extract the 'created by / created on' strip into
+DetailMetadataStrip ('use client'), which accepts plain string data
+and applies theme.palette.greyscale.\* colours internally.
+
+- fix(frontend): proxy auth/providers through Next.js to avoid CORS on localhost
+
+The backend CORS policy only whitelists the configured FRONTEND_URL origin.
+When running the frontend on localhost against a remote backend
+(e.g. dev-api.rhesis.ai), the browser blocks the direct cross-origin
+fetch to /auth/providers.
+
+Fix:
+
+- Add /api/auth-config → backendUrl/auth/providers rewrite in
+  next.config.mjs (placed before the NextAuth exclusion so it resolves)
+- Update AuthForm.tsx to call /api/auth-config (same-origin) instead of
+  calling the backend URL directly
+
+* fix(frontend): keyboard accessibility for Sidebar interactive elements and EntityCard
+
+- Sidebar: convert all clickable Box elements to ButtonBase / MenuItem
+  - Section header (collapsible group) → ButtonBase with tabIndex / disableRipple
+  - Org logo (collapsed) → ButtonBase with aria-label + aria-haspopup
+  - Org brand block (expanded) → ButtonBase with aria-label + aria-haspopup
+  - Org menu rows (Settings, Team) → MenuItem for correct role=menuitem semantics
+  - User avatar block → ButtonBase with aria-label + aria-haspopup
+  - User menu rows (Dark Mode, Sign Out) → MenuItem
+- EntityCard: Box → ButtonBase component=div when onClick provided
+  - Uses component=div to avoid button-in-button HTML violation while
+    gaining Enter/Space keyboard activation and focus management
+  - tabIndex=-1 + disableRipple when no onClick (purely decorative)
+
+* fix(frontend): replace silent catch blocks with console.error logging
+
+Silent catch {} hides runtime errors making bugs invisible in production.
+Replace all empty catch bodies with explicit console.error calls so
+failures surface in browser DevTools and log aggregation.
+
+Files updated:
+
+- utils/task-lookup.ts: status and priority fetch failures
+- utils/session.ts: logout token extraction failure
+- components/tasks/TasksSection.tsx: delete task and row navigation
+- projects/create-new/page.tsx: organization ID fetch
+- projects/[identifier]/edit-drawer.tsx: users fetch
+- projects/components/ProjectEditDrawer.tsx: users fetch
+- projects/components/ProjectCreateDrawer.tsx: users fetch
+- projects/components/ProjectsClientWrapper.tsx: project delete
+- models/page.tsx: user settings refresh
+- tasks/[identifier]/page.tsx: linked entity navigation
+- tokens/components/CreateTokenModal.tsx: token creation
+
+* refactor(frontend): extract useFilterDrawerDraft hook from filter drawers
+
+Every filter drawer duplicated the same 3-line draft pattern:
+useState, useEffect on open, handleReset, handleApply.
+
+Add useFilterDrawerDraft<T>(open, committed, empty, onApply, onClose)
+to FilterDrawer.tsx and migrate all 10 filter drawers to use it:
+BehaviorFilterDrawer, EndpointFilterDrawer, SourceFilterDrawer,
+MCPFilterDrawer, MetricFilterDrawer, TeamFilterDrawer,
+ProjectFilterDrawer, TaskFilterDrawer, TokenFilterDrawer,
+TraceFilterDrawer.
+
+- refactor(frontend): decompose 957-line Sidebar.tsx into focused modules
+
+Extract four sub-modules so each file has a single responsibility:
+
+- sidebar-utils.ts: isActive, filterNavItems, groupNavItems, NavGroup
+  types, and shared sizing constants (COLLAPSED_NAV_ITEM_SIZE, etc.)
+- NavItem.tsx: page navigation item (link + active highlight + tooltip)
+- NavLinkItem.tsx: external footer link item
+- NavSection.tsx: collapsible section header + item list
+
+Sidebar.tsx is now 580 lines (was 957), acting as the orchestrator
+that assembles the brand header, org/user menus, and nav groups.
+
+- refactor(frontend): polish — ViewField sx type, BreadcrumbItem cleanup, BadgeChip removal
+
+* Delete BadgeChip.tsx: shim had no callers; GridBadge is the canonical import
+* ViewField: change inputSx from React.CSSProperties to SxProps<Theme> so
+  callers can pass theme callbacks
+* BreadcrumbItem: drop deprecated Toolpad-compat aliases (title, path);
+  enforce label (required) and href (optional); migrate all 15 call-sites
+  across endpoints, error, explorer, knowledge, metrics, organizations,
+  projects, tasks, test-runs, test-sets, tests pages
+* FilterSection: Box onClick → ButtonBase for keyboard accessibility
+
+- fix(frontend): batch UI polish across directory pages
+
+* Use body text color for project card icons; chip badges for active/inactive filter
+* Metrics: behavior filter dropdown, FAB menu for LLM judge and code evaluation
+* Tests: remove grey toolbar, autocomplete filters, dual FABs for manual/AI creation
+* Test sets: autocomplete filters, remove short description from create drawer
+* Remove datagrid toolbar bottom border globally; drop traces refresh button
+* Models: add filter drawer; MCP/tokens: use drawers instead of modals
+* Route dev API calls through Next.js proxy to fix auth provider CORS
+
+- fix(frontend): remove selection column from tasks grid
+
+The checkbox column had no remaining UX entry point now that bulk
+delete lives only on the task detail page. Drop the column and the
+unreachable bulk-delete UI it gated (selection bar, DeleteModal,
+related handlers and state).
+
+- feat(traces): show conversation input column on traces grid
+
+Surface `rhesis.conversation.input` from the root span as a new
+default "Input" column on the traces overview. Add a
+`conversation_input` field to the TraceSummary schema and populate
+it from `trace.attributes` in both list endpoints (telemetry and
+test-run). The column renders an ellipsised value with full text
+on hover, and falls back to a muted dash when the attribute is
+absent (operation traces, non-root spans, non-SDK ingests).
+
+- refactor(frontend): remove test type modal, embed type selector
+
+Remove the test type selection modal from both AI-generated and manual
+test creation flows. Replace with an inline ToggleButtonGroup selector
+on each page, resetting the form/grid on type change. Align
+ManualTestWriter UI with PageLayout, FAB actions, and the standard
+bordered Paper grid pattern used across overview pages.
+
+- fix(frontend): resolve BACKEND_URL at runtime for /api/auth-config (#1821)
+
+* fix(frontend): resolve BACKEND_URL at runtime for /api/auth-config
+
+Replace the build-time `next.config.mjs` rewrite for `/api/auth-config`
+with a per-request Next.js Route Handler. Rewrite `destination` strings
+are baked into `.next/routes-manifest.json` at `docker build` time, and
+`BACKEND_URL` is not passed as a `--build-arg` in `frontend.yml`, so the
+manifest froze to `http://backend:8080/auth/providers` regardless of the
+Cloud Run runtime env. That produced `getaddrinfo EAI_AGAIN backend`
+from the frontend revision and the "Failed to load authentication
+options" error on dev-app.rhesis.ai after PR #1815.
+
+The new Route Handler runs per request, calls `getServerBackendUrl()`,
+and preserves the `?org=` query param. Same image now works across
+local, dev, stg and prd without rebuilds.
+
+Also add a `console.warn` in `rewrites()` when `BACKEND_URL` is empty
+or points at the bare `backend` host so the same regression shows up
+in build logs next time instead of only at runtime.
+
+- refactor(frontend): centralize backend proxy for runtime BACKEND_URL
+
+Replace the build-time next.config.mjs rewrites with a single
+runtime proxy utility (backend-proxy.ts) and a catch-all Route
+Handler ([...path]/route.ts). All /api/\* requests now resolve
+BACKEND_URL per request via getServerBackendUrl(), so one Docker
+image works across all environments without build args.
+
+- Add src/utils/backend-proxy.ts with timeout, header forwarding,
+  redirect passthrough, and structured error responses
+- Add src/app/api/[...path]/route.ts as catch-all proxy for any
+  /api/\* path without a specific handler
+- Simplify auth-config/route.ts to use the shared proxy
+- Remove all /api/\* rewrites from next.config.mjs
+- Fix proxy.ts to use getServerBackendUrl() instead of raw
+  process.env.BACKEND_URL for consistent localhost resolution
+
+* style(frontend): fix prettier formatting in backend-proxy
+
+---
+
+Co-authored-by: Harry Cruz <harry@rhesis.ai>
+
+- fix(knowledge): prevent mcp tool selection from closing drawer (#1825)
+- Fix: UI revamp follow-ups from PR #1780 review (#1815)
+
+* fix(frontend): replace GREYSCALE.light/dark._ with theme.palette.greyscale._
+
+Eliminate ~80 hard-coded mode checks scattered across 43 component and
+page files. Every GREYSCALE.light._ / GREYSCALE.dark._ reference
+outside the theme definition files is now a theme-aware callback
+(theme => theme.palette.greyscale.X), so all colours respond
+correctly in dark mode.
+
+Key changes:
+
+- Shared components: FilterDrawer, DetailTabNav, PageLayout, AppShell,
+  ViewField, Tag, GridBadge, SectionCard, SearchPill, GridToolbar,
+  EntityCard, BorderedInfoCard, BaseDrawer, BaseDataGrid,
+  editableTagChipSx, FilterButton
+- Navigation: Sidebar (removes 5 stale module-level constants)
+- Pages: tests, test-sets, test-runs, tasks, projects, organizations/team,
+  playground, knowledge, insights, explorer, endpoints, experiments,
+  traces
+
+filterChipSx now returns a theme callback (SxProps<Theme>) so
+call sites are unchanged.
+
+- fix(frontend): extract metadata strip into Client Component to fix RSC error
+
+Server Component pages (test-sets/[identifier] and tests/[identifier])
+were embedding MUI Typography nodes with sx theme-callback functions
+directly in their JSX. React cannot serialize functions across the
+RSC boundary, causing a 500 with:
+
+{fontSize: 12, lineHeight: "18px", color: function color}
+
+Fix: extract the 'created by / created on' strip into
+DetailMetadataStrip ('use client'), which accepts plain string data
+and applies theme.palette.greyscale.\* colours internally.
+
+- fix(frontend): proxy auth/providers through Next.js to avoid CORS on localhost
+
+The backend CORS policy only whitelists the configured FRONTEND_URL origin.
+When running the frontend on localhost against a remote backend
+(e.g. dev-api.rhesis.ai), the browser blocks the direct cross-origin
+fetch to /auth/providers.
+
+Fix:
+
+- Add /api/auth-config → backendUrl/auth/providers rewrite in
+  next.config.mjs (placed before the NextAuth exclusion so it resolves)
+- Update AuthForm.tsx to call /api/auth-config (same-origin) instead of
+  calling the backend URL directly
+
+* fix(frontend): keyboard accessibility for Sidebar interactive elements and EntityCard
+
+- Sidebar: convert all clickable Box elements to ButtonBase / MenuItem
+  - Section header (collapsible group) → ButtonBase with tabIndex / disableRipple
+  - Org logo (collapsed) → ButtonBase with aria-label + aria-haspopup
+  - Org brand block (expanded) → ButtonBase with aria-label + aria-haspopup
+  - Org menu rows (Settings, Team) → MenuItem for correct role=menuitem semantics
+  - User avatar block → ButtonBase with aria-label + aria-haspopup
+  - User menu rows (Dark Mode, Sign Out) → MenuItem
+- EntityCard: Box → ButtonBase component=div when onClick provided
+  - Uses component=div to avoid button-in-button HTML violation while
+    gaining Enter/Space keyboard activation and focus management
+  - tabIndex=-1 + disableRipple when no onClick (purely decorative)
+
+* fix(frontend): replace silent catch blocks with console.error logging
+
+Silent catch {} hides runtime errors making bugs invisible in production.
+Replace all empty catch bodies with explicit console.error calls so
+failures surface in browser DevTools and log aggregation.
+
+Files updated:
+
+- utils/task-lookup.ts: status and priority fetch failures
+- utils/session.ts: logout token extraction failure
+- components/tasks/TasksSection.tsx: delete task and row navigation
+- projects/create-new/page.tsx: organization ID fetch
+- projects/[identifier]/edit-drawer.tsx: users fetch
+- projects/components/ProjectEditDrawer.tsx: users fetch
+- projects/components/ProjectCreateDrawer.tsx: users fetch
+- projects/components/ProjectsClientWrapper.tsx: project delete
+- models/page.tsx: user settings refresh
+- tasks/[identifier]/page.tsx: linked entity navigation
+- tokens/components/CreateTokenModal.tsx: token creation
+
+* refactor(frontend): extract useFilterDrawerDraft hook from filter drawers
+
+Every filter drawer duplicated the same 3-line draft pattern:
+useState, useEffect on open, handleReset, handleApply.
+
+Add useFilterDrawerDraft<T>(open, committed, empty, onApply, onClose)
+to FilterDrawer.tsx and migrate all 10 filter drawers to use it:
+BehaviorFilterDrawer, EndpointFilterDrawer, SourceFilterDrawer,
+MCPFilterDrawer, MetricFilterDrawer, TeamFilterDrawer,
+ProjectFilterDrawer, TaskFilterDrawer, TokenFilterDrawer,
+TraceFilterDrawer.
+
+- refactor(frontend): decompose 957-line Sidebar.tsx into focused modules
+
+Extract four sub-modules so each file has a single responsibility:
+
+- sidebar-utils.ts: isActive, filterNavItems, groupNavItems, NavGroup
+  types, and shared sizing constants (COLLAPSED_NAV_ITEM_SIZE, etc.)
+- NavItem.tsx: page navigation item (link + active highlight + tooltip)
+- NavLinkItem.tsx: external footer link item
+- NavSection.tsx: collapsible section header + item list
+
+Sidebar.tsx is now 580 lines (was 957), acting as the orchestrator
+that assembles the brand header, org/user menus, and nav groups.
+
+- refactor(frontend): polish — ViewField sx type, BreadcrumbItem cleanup, BadgeChip removal
+
+* Delete BadgeChip.tsx: shim had no callers; GridBadge is the canonical import
+* ViewField: change inputSx from React.CSSProperties to SxProps<Theme> so
+  callers can pass theme callbacks
+* BreadcrumbItem: drop deprecated Toolpad-compat aliases (title, path);
+  enforce label (required) and href (optional); migrate all 15 call-sites
+  across endpoints, error, explorer, knowledge, metrics, organizations,
+  projects, tasks, test-runs, test-sets, tests pages
+* FilterSection: Box onClick → ButtonBase for keyboard accessibility
+* feat(frontend): UI revamp — Figma-aligned design system, layout and pages (#1780)
+
+- feat(frontend): extend theme with Figma design tokens and icons
+
+- feat(frontend): replace Toolpad layout with custom AppShell and Sidebar
+
+- feat(frontend): redesign shared components to match Figma
+
+- feat(frontend): redesign projects list with Figma card grid and drawers
+
+- feat(frontend): redesign behaviors and metrics card grids
+
+- feat(frontend): migrate all pages to new PageLayout and design system
+
+- feat(frontend): redesign tests page with Figma-aligned grid
+
+* Add reusable SearchPill component, used on projects and tests pages
+* Add TestFilterDrawer with type, status, behavior, category, topic filters
+* Add FigmaPaginationFooter with custom Figma-aligned pagination controls
+* Add SortOnlyColumnMenu to disable column filter/hide, keep sort only
+* Fix primary blue to #0080AF from Figma node 841:38327
+* Align DataGrid borders, header bg, row hover, and card frame to Figma
+* Disable checkboxSelection on tests grid
+
+- fix(frontend): fix sidebar collapse icon and layout issues
+
+* Replace stroke-based SVG with exact filled path from Figma node 841:38433
+* Restructure collapsed sidebar: toggle above logo to prevent overlap
+* Move toggle button into document flow; remove absolute positioning
+* Fix white frame by adding matching bgcolor to AppShell nav wrapper
+* Replace hardcoded hex/px values in BaseDataGrid with theme tokens
+* Update check-hardcoded-styles to reflect Figma design ground truth:
+  new primary palette (#0080AF), ELEVATION shadows, GREYSCALE tokens,
+  BORDER_RADIUS suggestions, allow borderRadius:0 and % values
+
+- feat(frontend): add empty state to tests page when no tests exist
+
+Show a Figma-aligned empty state with a Create test CTA in place of the grid when the user has not created any tests yet.
+
+- fix(frontend): mount CssBaseline to remove body margin frame
+
+CssBaseline was imported as \_CssBaseline and never mounted, so the
+browser's default body { margin: 8px } left a visible gray strip
+around the entire viewport regardless of the app's container colors.
+Mounting CssBaseline normalizes the body and lets the app fill the
+viewport edge-to-edge, so the sidebar surface meets the main content
+surface cleanly.
+
+Also drops a now-stale comment on AppShell's nav background and
+replaces two hardcoded styles in TestsEmptyState (borderRadius '12px'
+and fontSize '1.125rem') with the BORDER_RADIUS.md and theme.typography
+tokens so the file passes the hardcoded-styles pre-commit hook.
+
+- fix(frontend): align UI revamp pages to Figma spec
+
+* fix badge chips on tests grid: filled grey pill, no border
+* add page descriptions to tests, projects, behaviors pages
+* fix PageLayout spacing: header gap 40px, breadcrumb gap 20px, title→description 0px
+* fix Fab color: rest at primary.main, darken on hover (was inverted)
+* replace ad-hoc IconButton FABs with shared Fab component on projects/behaviors
+* add BehaviorFilterDrawer and wire filter button on behaviors page
+
+- feat(behaviors): simplify card to show only delete icon via EntityCard
+
+Remove add-metric, edit, duplicate and view-metrics icon buttons from
+BehaviorCard. Delete is now delegated to EntityCard's built-in onDelete
+prop so the icon is consistent with ProjectCard and all other entity cards.
+
+- feat(frontend): add missing icons from Figma icon set
+
+- feat(frontend): revamp metrics page UI to match behaviors
+
+* align metrics page header with behaviors: PageLayout description,
+  Fab for new metric, SearchPill + TuneIcon toolbar, pill filter tabs
+* replace card overlay icons (edit, +, copy) with delete-only via
+  EntityCard onDelete, matching BehaviorCard pattern
+* replace advanced filters Popover with MetricFilterDrawer (same
+  structure as TestFilterDrawer): collapsible sections, chip toggles,
+  draft state, apply/reset footer
+* change behavior filter from id-array to name text-search
+
+- feat(models): align /models layout with metrics and behaviors
+
+* Rewrite ModelCard on top of shared EntityCard (30px padding, 18px/700
+  title, chip sections, top-right actions)
+* Replace two-section language/embedding split with a single filterable
+  grid driven by All/Language/Embedding pill tabs and a search pill
+* Add top-right FAB that opens a Language/Embedding menu before
+  ProviderSelectionDialog; remove inline AddModelCard tiles
+* Move page description into PageLayout description prop
+* Add optional borderColor and footer props to EntityCard (backwards-
+  compatible) for model-specific validation border and Polyphemus UI
+
+- feat(models): align /models layout with metrics and behaviors
+
+* Rewrite ModelCard on top of shared EntityCard (30px padding, 18px/700
+  title, chip sections, top-right actions)
+* Replace two-section language/embedding split with a single filterable
+  grid driven by All/Language/Embedding pill tabs and a search pill
+* Add top-right FAB that opens a Language/Embedding menu before
+  ProviderSelectionDialog; remove inline AddModelCard tiles
+* Move page description into PageLayout description prop
+* Add optional borderColor and footer props to EntityCard (backwards-
+  compatible) for model-specific validation border and Polyphemus UI
+* Disable hardcoded-styles pre-commit check on this branch
+
+- feat(mcp): align /mcp layout with models, metrics, and behaviors
+
+* Rewrite ConnectedToolCard on top of EntityCard; delete AddToolCard
+* Add top-right FAB that opens MCPProviderSelectionDialog directly
+* Move page description into PageLayout description prop
+* Add SearchPill toolbar for filtering by name, description, or provider
+* Replace inline AddToolCard tile with FAB entry point
+* Simplify onDelete signature to (tool: Tool) => void
+
+- feat(mcp): remove edit button and add filter drawer with provider filter
+
+* Strip edit icon and onEdit prop from ConnectedToolCard
+* Create MCPFilterDrawer with a Provider chip-filter section using the
+  shared FilterDrawerShell/FilterSection primitives
+* Add TuneIcon filter button to the toolbar (highlights when filters active)
+* Filter drawer derives available provider options from loaded tools
+* Provider filter composable with search query
+
+- feat(frontend): redesign test detail page with tabbed layout
+
+* Add tabbed layout (Basic Information, Linked Entities, Tasks)
+* Add three independently editable Paper cards per tab
+  (TestMetadataCard, TestTechnicalCard, TestFormElementsCard)
+* Add EditableSection reusable component with Cancel/Save in toolbar
+* Add ViewField read-only component using greyscale design tokens
+* Add LinkedTestSetsSection with BaseDataGrid and assign action
+* Add GET /tests/{test_id}/test_sets backend endpoint with pagination
+* Add FAB buttons for delete, duplicate, and run test actions
+* Redesign comments, tasks, file attachments, and dropzone
+* Add metadata strip (created by/on) to page header
+* Add Sometype Mono font for technical fields
+* Add theme-constants.ts for server-safe design tokens
+* Extend palette.greyscale with label token in MUI augmentation
+
+- feat(tokens): align api tokens page with shared list-page layout
+
+* Adopt PageLayout + FAB + toolbar (filter button, search pill, status
+  pills) used across projects/behaviors/metrics
+* Add TokenFilterDrawer with Status and Usage sections
+* Replace Expires column Chip with Figma Badge style (flat grey pill,
+  body text) per node 776:28220 of file RCN0J2AjA0UlStdPpdjUCu
+* Slim TokensGrid by moving create action and empty state to parent
+
+- feat(frontend): align multi-turn test config form with Figma design
+
+Refactor MultiTurnConfigFields to integrate with the parent EditableSection's
+single Edit/Save flow instead of per-field edit/remove buttons. View mode now
+uses ViewField (label + flat #f9f9fa box + helper below) and edit mode uses
+matching TextField inputs, mirroring the Figma "Textfield Multiple entries"
+pattern. Turn slider is always visible, blends with the rest of the form
+(label above in greyscale.subtitle, helper below), and writes only to the
+parent draft so saves go through one API call. Removes dead TestDetailData
+component and its test, which were no longer reachable.
+
+- chore(frontend): remove internal figma audit doc from PR
+
+Removes the Figma audit notes (which referenced an internal Figma file
+key and URL) from the UI revamp PR. Repo is public so the audit was
+moved out of source control.
+
+- feat(frontend): revamp test-set detail page with tabbed layout
+
+Replace flat layout with three-tab interface (Basic Information,
+Linked Tests, Tasks) matching the test detail page pattern.
+
+- Add TestSetDetailTabs for URL-persisted tab navigation
+- Add TestSetHeaderActions with Delete, Download CSV, Execute FABs
+  and conditional Garak Sync button
+- Add TestSetDetailsCard combining editable fields and composition
+  (behaviors, topics, categories, sources) with grey badge chips
+- Add TestSetTagsMetricsCard with metrics-first layout and tag input
+- Add TestSetLinkedTestsSection with TestSelectionDialog for test
+  assignment
+- Add TestSetFilterDrawer for test-sets list filtering
+- Revamp test-sets list page with client component, FABs, and
+  EntityEmptyState
+- Align TestSetDrawer, TestSetsGrid, TestToTestSet and
+  ProjectsClientWrapper with shared DeleteModal and theme tokens
+- Remove TestSetDetailCharts, TestSetDetailsSection,
+  TestSetWorkflowSection, CodeBlock and related tests
+- Add shared EntityEmptyState and FilterDrawer components
+
+* feat(frontend): revamp test-runs overview page
+
+Update test-runs page to match the new UI layout with unified
+toolbar, filter drawer, and updated grid column styling.
+
+- refactor(frontend): extract BadgeChip as shared grid component
+
+Move greyscale badge chip styling into a reusable BadgeChip
+component and replace all inline Chip usages in TestsGrid,
+TestSetsGrid, TestSetTestsGrid, and LinkedTestSetsSection.
+
+- feat(frontend): standardize drawer form fields
+
+Replace placeholder-based inputs with MUI TextField label prop,
+remove local sx overrides, and use FormControl + InputLabel for
+the Select in TestSetDrawer. Remove debug useEffect from TestRunDrawer.
+
+- feat(frontend): show single-line value in model selector
+
+Render icon + name on one line in the closed Select state and
+move the selected model description into the helper text below.
+
+- fix(frontend): align autocomplete field height via theme override
+
+MUI Autocomplete defaults to ~44px while TextField/Select are ~56px.
+The InputLabel transform is calibrated for 56px, causing labels to
+sit below centre in shorter Autocomplete fields. Setting inputRoot
+minHeight to 56px in the theme resolves the misalignment globally.
+
+- fix(frontend): match tag chip shape and padding to Figma design
+
+Switch chips from outlined to filled variant for the grey surface
+background. Override the global 999px border-radius to 4px, and
+adjust label padding and delete icon size to match Figma spec.
+
+- feat(frontend): update filter drawer layout and sections
+
+Make FilterSection collapsible with chevron toggle, update button
+layout to right-aligned, and align field sizes to standard MUI height.
+
+- fix(frontend): use plain close icon and enforce chip dimensions
+
+Replace CancelIcon (circle X) with CloseIcon to match Figma close_small.
+Add !important to height, border-radius, and padding overrides to beat
+MUI theme's chip root styles (borderRadius:999, paddingTop/Bottom:6px).
+
+- fix(frontend): always shrink tags field label to top border
+
+The label was falling to the centered placeholder position when the
+field was empty and unfocused. Force shrink:true so the label sits
+on the border edge at all times, matching the Figma design.
+
+- feat(frontend): reorganize sidebar navigation
+
+Group Dashboard and Architect with tighter spacing, restructure
+nav into Define/Generate/Improve/Develop sections, rename Insights
+and Test Set labels, add Models under Develop, and remove beta badges.
+
+- feat(frontend): add Figma sidebar icons with 24x24 viewport
+
+Replace MUI nav icons with custom SVGs from Figma, scaled to 20x20
+and centered in 24x24 via shared navIconViewport helper.
+
+- feat(frontend): merge dashboard into insights at /insights
+
+Combine Dashboard KPIs, recent runs, and activity into the Insights
+Overview tab with existing filters and analytics tabs. Add /insights
+route, redirect /dashboard and /test-results, remove Dashboard nav,
+and keep post-login landing on /architect.
+
+- fix(frontend): move insights nav under improve above test runs
+
+- fix(frontend): remove header icons from behavior and metric cards
+
+- fix(frontend): align entity cards with Figma chip and status layout
+
+Reserve three description lines on all entity cards, replace project
+tags with a Status section, and style active/inactive status as Figma
+chips with green or red tint.
+
+- feat(frontend): align knowledge page with tests layout
+
+Match Tests/Test Sets page shell with PageLayout description,
+header FABs, EntityEmptyState, and themed grid card. Move upload,
+MCP import, and filtering into drawers with a unified grid toolbar.
+
+- feat(frontend): enable datagrid resize and refresh traces layout
+
+Enable column resize by default in BaseDataGrid and use fixed-width
+columns on tests, test sets, test runs, tasks, and traces grids so
+tables scroll horizontally. Refactor traces filtering into a drawer
+with a unified toolbar, and add full-bleed layout support for
+architect and playground routes.
+
+- feat(frontend): align tasks overview with tests layout
+
+Replace stat cards and dedicated create page with unified toolbar,
+filter drawer, and create drawer matching test sets patterns.
+
+- feat(frontend): align endpoints overview with tests
+
+Match list page shell, empty state, and grid styling to tests/test
+sets. Add filter drawer with OData search, fix active-filter badge
+on the filter button, and deactivate the endpoint onboarding tour.
+
+- feat(frontend): add shared FilterButton with active dot
+
+Extract filter trigger into FilterButton and use it across list
+pages so the active-filter indicator sits on the button consistently.
+
+- feat(frontend): align explorer overview with tests layout
+
+Use PageLayout header FABs, EntityEmptyState, and themed Paper so
+the explorer list matches tests and test sets.
+
+- fix(frontend): improve dark mode contrast for detail UI
+
+Align read-only fields, editable sections, user menu, and grid
+pagination with Figma dark tokens so text stays readable.
+
+- feat(frontend): add sidebar org menu popover
+
+Replace the org brand link with a user-style popover for Settings
+and Team. Remove the chevron and allow two more characters before
+truncating the organization name.
+
+- feat(frontend): add FabGroup with 20px Figma spacing
+
+Introduce FabGroup for page-header FAB rows and consolidate shared
+Fab styling. Migrate overview and detail pages to use consistent
+20px gaps per design tokens.
+
+- feat(frontend): revamp org settings and team pages
+
+Align organization settings and team with the tests overview design:
+tabbed settings, editable sections, team filter drawer, invite FAB
+drawer, server-side OData filters, and combined name/avatar column.
+
+- feat(frontend): align test set linked entities tab
+
+Match Figma layout with card, toolbar filter/search, and tab
+styling; remove multi-select column from linked tests grid.
+
+- feat(frontend): revamp endpoint detail page
+
+Split endpoint detail into tabbed views with per-card edit, Figma-aligned
+header and tabs, delete FAB on the right, and shared DetailTabNav/SectionCard
+components. Fix Monaco editor border radius on mapping fields.
+
+- refactor(frontend): remove model card edit icons
+
+Open the connection dialog on card click instead of a pencil icon.
+Keep delete and Polyphemus access actions unchanged.
+
+- feat(frontend): rename Develop nav section to CONNECT
+
+Rename the collapsible navigation header for endpoints, models, MCP,
+and API tokens from Develop to CONNECT.
+
+- feat(frontend): add official MCP icon for nav and knowledge
+
+Replace terminal/cloud placeholders with ModelContextProtocolIcon
+drawn at 20x20 on a 24x24 canvas for sidebar and Knowledge FAB.
+
+- feat(frontend): rename API Tokens nav label to API
+
+- fix(frontend): use plural Test Sets in sidebar nav
+
+Align list-page nav label with plural convention used elsewhere.
+
+- feat(frontend): split tag and badge components per Figma
+
+Add GridBadge for pill metadata labels and Tag for rectangular user
+tags. Use 12px badges in grids and 14px on detail pages. Keep BaseTag
+for editable tag fields only.
+
+- fix(frontend): polish collapsed sidebar navigation
+
+Show CONNECT icons when collapsed, hide footer links, tighten group
+spacing, and center 40×40 nav hit targets with symmetric padding.
+
+- fix(frontend): apply px units on grid badge font sizes
+
+Unitless fontSize values in sx were ignored in DataGrid cells, so
+badges inherited 14px body text instead of 12px grid typography.
+
+- refactor(frontend): consolidate filter drawers and grid toolbars
+
+Use FilterDrawerShell across remaining filter drawers, add shared
+GridToolbar/ToolbarPillTabs for data grids and behaviors directory,
+remove dead TestsEmptyState, and align theme tokens on detail cards.
+
+- refactor(frontend): extract shared provider selection dialog
+
+Move dialog shell and list UI to common/ProviderSelectionDialog; models
+and MCP pages keep thin wrappers with domain-specific sorting and chips.
+
+- refactor(frontend): finish component consolidation pass
+
+Add directory GridToolbar on metrics, models, MCP, and tokens pages;
+shared SubsectionHeader, BorderedInfoCard, and ViewField children;
+align auth flows with AuthPageShell; fix metrics filter types.
+
+- refactor(frontend): use drawer-only panels for MCP import
+
+Rename MCP import flows to MCPImportPanel and MCPToolSelectorPanel,
+remove unused Dialog shells, and route knowledge import through BaseDrawer.
+
+- test(frontend): update metrics e2e comment for PageLayout FAB
+
+- fix(frontend): use multi-field trace search param after merge
+
+- fix(frontend): post-merge experiments, icons, and insights hydration
+
+* Migrate experiments pages from Toolpad PageContainer to PageLayout
+* Remove duplicate icon exports that broke the build
+* Stabilize TestRunPerformance layout for SSR when limit is fixed
+
+- refactor(frontend): finish consolidation polish and cleanup
+
+Migrate projects directory toolbar to GridToolbar, refactor SDK
+connection panel to ViewField/BaseTable, fix SectionCard and header
+typing, remove unused layout Toolbar, and align trace filter tests.
+
+- feat(frontend): add experiments page header fab
+
+Move new experiment creation to PageLayout FAB actions to match other Improve section pages.
+
+- refactor(frontend): unify empty states and remove SearchAndFilterBar
+
+Use EntityEmptyState on projects and behaviors list pages, delete
+deprecated SearchAndFilterBar and its tests, and drop unused projects
+empty-state CSS module.
+
+- fix(frontend): resolve type-check errors on revamp branch
+
+Restore endpoint and team OData helpers, fix Behaviors auth empty
+state, EndpointDetail provider props, TestRuns duplicate handler,
+trace metric ids, and BaseDataGrid GridToolbarProps import.
+
+- chore(frontend): sync package-lock.json for Node 24 CI
+
+Regenerate lockfile with npm 11 on Node 24 so npm ci succeeds in
+lint, unit, and E2E workflows. E2E spec fixes tracked separately.
+
+- fix(frontend): use RunDrawer for test set execute action
+
+Replace missing ExecuteTestSetDrawer import so type-check passes in CI.
+
+- fix(tests): persist test–test_set link in db_test_set_with_tests
+
+Insert into test_test_set association table; viewonly relationship
+append does not write rows and broke GET /tests/{id}/test_sets tests.
+
+- fix(backend): improve security and functionality in get_test_sets_for_test
+
+* Fix RLS vulnerability by filtering association table by organization_id
+* Add OData filtering support for consistency with similar endpoints
+* Update router endpoint to accept filter parameter
+
+This addresses a security issue where association table joins were not
+properly tenant-scoped and adds feature parity with get_test_set_tests.
+
+- style(backend): format crud.py for ruff CI
+
+Add trailing comma in get_test_sets_for_test filter so ruff format --check passes.
+
+- ci: retrigger checks
+
+- ci: ensure lint workflow runs on PR synchronize
+
+Explicit pull_request event types so required lint check is reported
+after force-push or empty commits when GitHub skips default events.
+
+---
+
+Co-authored-by: Harry Cruz <harry@rhesis.ai>
+
 ## [0.8.0] - 2026-05-21
 
 ### Added

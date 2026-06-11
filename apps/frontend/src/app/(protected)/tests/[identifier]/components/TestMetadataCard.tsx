@@ -181,11 +181,22 @@ export default function TestMetadataCard({
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <ViewField
-              label="Type"
-              value={test.test_type?.type_value ?? ''}
-              helperText="Infotext"
-            />
+            {isEditing ? (
+              <TextField
+                fullWidth
+                label="Type"
+                value={test.test_type?.type_value ?? ''}
+                variant="outlined"
+                helperText="Infotext"
+                disabled
+              />
+            ) : (
+              <ViewField
+                label="Type"
+                value={test.test_type?.type_value ?? ''}
+                helperText="Infotext"
+              />
+            )}
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 6 }}>
