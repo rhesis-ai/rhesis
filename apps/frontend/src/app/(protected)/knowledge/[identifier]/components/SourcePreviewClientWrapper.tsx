@@ -28,6 +28,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import type { UUID } from 'crypto';
 import {
   formatFileSize,
   formatDate,
@@ -690,6 +691,7 @@ export default function SourcePreviewClientWrapper({
         <SourceTagsCard
           sessionToken={sessionToken}
           source={localSource}
+          userId={currentUserId ? (currentUserId as UUID) : undefined}
           onUpdate={handleTagsUpdate}
         />
 

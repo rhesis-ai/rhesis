@@ -5,7 +5,7 @@ import EditableSection from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { EntityType, Tag } from '@/utils/api-client/interfaces/tag';
+import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { UUID } from 'crypto';
 
@@ -16,12 +16,14 @@ interface TagsDraft {
 interface SourceTagsCardProps {
   sessionToken: string;
   source: Source;
+  userId?: UUID;
   onUpdate?: () => void;
 }
 
 export default function SourceTagsCard({
   sessionToken,
   source,
+  userId,
   onUpdate,
 }: SourceTagsCardProps) {
   const notifications = useNotifications();
@@ -48,12 +50,20 @@ export default function SourceTagsCard({
       }
     }
 
+    const organizationId =
+      source.owner?.organization_id ?? source.user?.organization_id;
+
     for (const name of tagsToAdd) {
-      await tagsClient.assignTagToEntity(EntityType.SOURCE, source.id as UUID, {
+      const tagPayload: TagCreate = {
         name,
-        organization_id: source.organization_id,
-        user_id: source.user_id,
-      });
+        ...(organizationId && { organization_id: organizationId }),
+        ...(userId && { user_id: userId }),
+      };
+      await tagsClient.assignTagToEntity(
+        EntityType.SOURCE,
+        source.id as UUID,
+        tagPayload
+      );
     }
 
     notifications.show('Tags updated', {

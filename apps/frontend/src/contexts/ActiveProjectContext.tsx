@@ -28,7 +28,7 @@ interface ActiveProjectContextValue {
   /** Switch to a different project (or clear by passing null). */
   setActiveProject: (project: Project | null) => void;
   /** Reload the member-project list from the API. */
-  refresh: () => Promise<void>;
+  refresh: (options?: { listOnly?: boolean }) => Promise<void>;
 }
 
 const ActiveProjectContext = createContext<ActiveProjectContextValue>({
@@ -71,7 +71,13 @@ export function ActiveProjectProvider({
         if (options?.listOnly) {
           // Keep the current selection when it still exists; drop it if removed.
           setActiveProjectState(prev => {
-            if (!prev) return null;
+            if (!prev) {
+              if (data.length === 1) {
+                writeActiveProjectId(String(data[0].id));
+                return data[0];
+              }
+              return null;
+            }
             const stillMember =
               data.find(p => String(p.id) === String(prev.id)) ?? null;
             if (stillMember) return stillMember;
@@ -171,6 +177,12 @@ export function ActiveProjectProvider({
     [session?.session_token]
   );
 
+  const refresh = useCallback(
+    (options?: { listOnly?: boolean }) =>
+      fetchProjects({ listOnly: options?.listOnly ?? true }),
+    [fetchProjects]
+  );
+
   return (
     <ActiveProjectContext.Provider
       value={{
@@ -178,7 +190,7 @@ export function ActiveProjectProvider({
         activeProject,
         loading,
         setActiveProject,
-        refresh: () => fetchProjects({ listOnly: true }),
+        refresh,
       }}
     >
       {children}

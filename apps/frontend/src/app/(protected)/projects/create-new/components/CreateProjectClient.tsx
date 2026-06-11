@@ -19,6 +19,7 @@ import FinishStep from './FinishStep';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { writeActiveProjectId } from '@/utils/active-project';
 import { UUID } from 'crypto';
 
 interface FormData {
@@ -107,8 +108,9 @@ export default function CreateProjectClient({
       };
 
       try {
-        await projectsClient.createProject(projectData);
-        await refreshActiveProjects();
+        const created = await projectsClient.createProject(projectData);
+        writeActiveProjectId(String(created.id));
+        await refreshActiveProjects({ listOnly: false });
 
         // Navigate to the projects page
         router.push('/projects');
