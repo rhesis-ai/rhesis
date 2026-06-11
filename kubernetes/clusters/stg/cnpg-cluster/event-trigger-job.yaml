@@ -1,0 +1,65 @@
+# One-time Job to create the auto_rls_on_ddl event trigger.
+#
+# WHY THIS EXISTS:
+#   PostgreSQL requires superuser to CREATE EVENT TRIGGER. CNPG never grants
+#   superuser to application roles (rhesis-admin), so the Alembic migration
+#   skips the trigger creation and only creates the function. This Job uses
+#   the CNPG-managed superuser secret (rhesis-stg-superuser) to install the
+#   trigger after the migration has run.
+#
+# The trigger fires on CREATE TABLE / ALTER TABLE and automatically applies
+# tenant_isolation and project_isolation RLS policies to any new table that
+# has organization_id or project_id columns.
+#
+# ArgoCD hook annotations:
+#   PostSync  — runs after all resources are synced (migration must finish first)
+#   HookDeletePolicy: HookSucceeded — Job is cleaned up on success
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-auto-rls-event-trigger
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: psql
+          image: ghcr.io/cloudnative-pg/postgresql:17.4-1
+          command:
+            - psql
+            - -h
+            - rhesis-stg-rw.rhesis.svc.cluster.local
+            - -U
+            - postgres
+            - -d
+            - rhesis-stg-db
+            - -v
+            - ON_ERROR_STOP=1
+            - -c
+            - |
+              DROP EVENT TRIGGER IF EXISTS auto_rls_on_ddl;
+              CREATE EVENT TRIGGER auto_rls_on_ddl
+                  ON ddl_command_end
+                  WHEN TAG IN ('CREATE TABLE', 'ALTER TABLE')
+                  EXECUTE FUNCTION public.auto_apply_rls_policies();
+              \echo 'auto_rls_on_ddl event trigger created successfully'
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  # CNPG automatically creates this secret for the postgres
+                  # superuser. Format: {cluster-name}-superuser
+                  name: rhesis-stg-superuser
+                  key: password
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi

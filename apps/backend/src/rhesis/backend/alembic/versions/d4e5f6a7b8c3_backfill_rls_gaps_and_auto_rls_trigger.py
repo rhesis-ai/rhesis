@@ -203,17 +203,51 @@ def upgrade() -> None:
         op.execute(_PROJECT_POLICY.format(table=table))
 
     # 3. Install the event trigger so future tables get policies automatically.
-    #    CREATE OR REPLACE handles re-runs for the function. DROP IF EXISTS makes
-    #    the event trigger itself idempotent too.
+    #    CREATE OR REPLACE handles re-runs for the function. The event trigger
+    #    itself requires superuser (PostgreSQL restriction). On managed databases
+    #    like CNPG the migration user is not a superuser, so we skip the trigger
+    #    there and log a notice — the backfill above is the critical part.
     op.execute(_EVENT_TRIGGER_FUNCTION)
     op.execute("DROP EVENT TRIGGER IF EXISTS auto_rls_on_ddl")
-    op.execute(_EVENT_TRIGGER)
+    op.execute(
+        """
+DO $$
+BEGIN
+    IF (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
+        CREATE EVENT TRIGGER auto_rls_on_ddl
+            ON ddl_command_end
+            WHEN TAG IN ('CREATE TABLE', 'ALTER TABLE')
+            EXECUTE FUNCTION public.auto_apply_rls_policies();
+        RAISE NOTICE 'auto_rls_on_ddl event trigger created';
+    ELSE
+        RAISE NOTICE
+            'Skipping auto_rls_on_ddl event trigger: % is not a superuser. '
+            'Apply RLS policies manually on new tables or re-run as superuser.',
+            current_user;
+    END IF;
+END $$;
+"""
+    )
 
 
 def downgrade() -> None:
-    # Drop event trigger and function
-    op.execute("DROP EVENT TRIGGER IF EXISTS auto_rls_on_ddl")
-    op.execute("DROP FUNCTION IF EXISTS public.auto_apply_rls_policies()")
+    # Drop event trigger and function — both require superuser; skip gracefully
+    # on managed databases (e.g. CNPG) where the migration user is not superuser.
+    op.execute(
+        """
+DO $$
+BEGIN
+    IF (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
+        DROP EVENT TRIGGER IF EXISTS auto_rls_on_ddl;
+        DROP FUNCTION IF EXISTS public.auto_apply_rls_policies();
+    ELSE
+        RAISE NOTICE
+            'Skipping event trigger/function drop: % is not a superuser.',
+            current_user;
+    END IF;
+END $$;
+"""
+    )
 
     # Drop backfilled project_isolation policies
     for table in reversed(_NEED_PROJECT_ISOLATION):
