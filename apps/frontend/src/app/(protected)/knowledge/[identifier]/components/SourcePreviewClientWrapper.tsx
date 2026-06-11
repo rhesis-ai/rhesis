@@ -34,7 +34,7 @@ import {
   getFileExtension,
   truncateFilename,
 } from '@/constants/knowledge';
-import SourceTags from './SourceTags';
+import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface SourcePreviewClientWrapperProps {
@@ -685,17 +685,13 @@ export default function SourcePreviewClientWrapper({
               </Box>
             </>
           )}
-
-          {/* Tags - always visible at bottom */}
-          <InfoRow label="Tags">
-            <SourceTags
-              onUpdate={handleTagsUpdate}
-              sessionToken={sessionToken}
-              source={localSource}
-              disableEdition={isEditing === 'general'}
-            />
-          </InfoRow>
         </Paper>
+
+        <SourceTagsCard
+          sessionToken={sessionToken}
+          source={localSource}
+          onUpdate={handleTagsUpdate}
+        />
 
         {/* Extracted Content Section */}
         {content && (

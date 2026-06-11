@@ -52,15 +52,15 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 interface BehaviorDetailTabsProps {
   behavior: BehaviorWithMetrics;
   sessionToken: string;
+  onUpdated: (updated: BehaviorWithMetrics) => void;
 }
 
 export default function BehaviorDetailTabs({
-  behavior: initialBehavior,
+  behavior,
   sessionToken,
+  onUpdated,
 }: BehaviorDetailTabsProps) {
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
-  const [behavior, setBehavior] =
-    useState<BehaviorWithMetrics>(initialBehavior);
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
@@ -82,7 +82,7 @@ export default function BehaviorDetailTabs({
         <BehaviorBasicInfo
           behavior={behavior}
           sessionToken={sessionToken}
-          onUpdated={setBehavior}
+          onUpdated={onUpdated}
         />
       </DetailTabPanel>
 

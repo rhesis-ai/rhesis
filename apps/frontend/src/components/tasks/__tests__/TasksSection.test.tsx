@@ -101,6 +101,25 @@ describe('TasksSection - Infinite Loading Fix', () => {
     });
   });
 
+  it('should refetch when refreshKey changes', async () => {
+    mockTasksClient.getTasks.mockResolvedValue({
+      data: [],
+      totalCount: 0,
+    });
+
+    const { rerender } = render(<TasksSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(<TasksSection {...defaultProps} refreshKey={1} />);
+
+    await waitFor(() => {
+      expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('should refetch when entity changes', async () => {
     mockTasksClient.getTasks.mockResolvedValue({
       data: [],

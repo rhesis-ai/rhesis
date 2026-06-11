@@ -2,8 +2,6 @@
 
 import React from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import { SxProps, Theme } from '@mui/material/styles';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
@@ -70,52 +68,12 @@ export function ToolbarPillTabs({
   onChange,
 }: ToolbarPillTabsProps) {
   return (
-    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      <ButtonGroup
-        variant="outlined"
-        size="small"
-        sx={{
-          '& .MuiButtonGroup-grouped': {
-            borderRadius: 0,
-            '&:first-of-type': {
-              borderTopLeftRadius: BORDER_RADIUS.pill,
-              borderBottomLeftRadius: BORDER_RADIUS.pill,
-            },
-            '&:last-of-type': {
-              borderTopRightRadius: BORDER_RADIUS.pill,
-              borderBottomRightRadius: BORDER_RADIUS.pill,
-            },
-            borderColor: theme => theme.palette.greyscale.border,
-          },
-        }}
-      >
-        {tabs.map(tab => (
-          <Button
-            key={tab.value}
-            onClick={() => onChange(tab.value)}
-            sx={{
-              px: 2,
-              py: 0.5,
-              fontWeight: activeValue === tab.value ? 600 : 400,
-              bgcolor:
-                activeValue === tab.value ? 'primary.dark' : 'transparent',
-              color:
-                activeValue === tab.value
-                  ? 'primary.contrastText'
-                  : theme => theme.palette.greyscale.body,
-              '&:hover': {
-                bgcolor:
-                  activeValue === tab.value
-                    ? 'primary.dark'
-                    : theme => theme.palette.greyscale.surface1,
-              },
-            }}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </ButtonGroup>
-    </Box>
+    <PrimarySegmentedPills
+      tabs={tabs}
+      mode="single"
+      activeValue={activeValue}
+      onSingleChange={onChange}
+    />
   );
 }
 
