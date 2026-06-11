@@ -4,10 +4,8 @@ import { useState, useMemo } from 'react';
 import { LoadingButton } from '@mui/lab';
 import { PlayArrowIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
-import { useEndpointDetailContext } from './EndpointDetailContext';
-import { invokeEndpoint } from '@/actions/endpoints';
-import EndpointTestWorkbench from '../../components/EndpointTestWorkbench';
-import { responseMappingToPathToVar } from '../../components/JsonPreview';
+import EndpointTestWorkbench from '../EndpointTestWorkbench';
+import { responseMappingToPathToVar } from '../JsonPreview';
 
 function extractVars(template: string): string[] {
   const vars = new Set<string>();
@@ -91,59 +89,88 @@ function buildCurl(
   return lines.join(' \\\n');
 }
 
-export default function EndpointTestTab() {
-  const { endpoint } = useEndpointDetailContext();
+interface TestResult {
+  success: boolean;
+  response?: Record<string, unknown>;
+  error?: string;
+}
 
-  const requestTemplate = useMemo(
-    () => JSON.stringify(endpoint.request_mapping ?? {}, null, 2),
-    [endpoint.request_mapping]
-  );
-  const responseMapping = useMemo(
-    () => (endpoint.response_mapping ?? {}) as Record<string, string>,
-    [endpoint.response_mapping]
-  );
+interface TabTestProps {
+  url: string;
+  method: string;
+  reqBody: string;
+  resBody: string;
+  requestHeaders?: string;
+  authToken?: string;
+  testResult: TestResult | null;
+  isTestingEndpoint: boolean;
+  onRunTest: (inputData: Record<string, unknown>) => void;
+}
+
+export default function TabTest({
+  url,
+  method,
+  reqBody,
+  resBody,
+  requestHeaders,
+  testResult,
+  isTestingEndpoint,
+  onRunTest,
+}: TabTestProps) {
+  const responseMapping = useMemo<Record<string, string>>(() => {
+    try {
+      return JSON.parse(resBody);
+    } catch {
+      return {};
+    }
+  }, [resBody]);
+
+  const inputVars = useMemo(() => extractVars(reqBody), [reqBody]);
   const pathToVar = useMemo(
     () => responseMappingToPathToVar(responseMapping),
     [responseMapping]
   );
 
-  const inputVars = useMemo(
-    () => extractVars(requestTemplate),
-    [requestTemplate]
-  );
-
   const [varValues, setVarValues] = useState<Record<string, string>>({});
   const [fileValues, setFileValues] = useState<Record<string, File[]>>({});
-  const [rawResponse, setRawResponse] = useState<unknown>(null);
-  const [statusCode, setStatusCode] = useState<string>('');
-  const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const resolvedHeaders = useMemo<Record<string, string>>(() => {
-    const h = (endpoint.request_headers ?? {}) as Record<string, string>;
+    let h: Record<string, string> = {};
+    try {
+      h = JSON.parse(requestHeaders || '{}');
+    } catch {
+      /* */
+    }
     return Object.fromEntries(
       Object.entries(h).map(([k, v]) => [
         k,
         v.replace(/\{\{\s*auth_token\s*\}\}/g, '[hidden]'),
       ])
     );
-  }, [endpoint]);
+  }, [requestHeaders]);
 
   const curlText = useMemo(() => {
-    const substituted = substituteVars(requestTemplate || '{}', varValues);
+    const substituted = substituteVars(reqBody || '{}', varValues);
     return buildCurl(
-      endpoint.method || 'POST',
-      endpoint.url || '—',
+      method || 'POST',
+      url || '—',
       resolvedHeaders,
       substituted
     );
-  }, [
-    endpoint.method,
-    endpoint.url,
-    resolvedHeaders,
-    requestTemplate,
-    varValues,
-  ]);
+  }, [method, url, resolvedHeaders, reqBody, varValues]);
+
+  const rawResponse = useMemo(() => {
+    if (!testResult?.response) return null;
+    const r = testResult.response;
+    return r.raw_response ?? r;
+  }, [testResult]);
+
+  const statusCode = useMemo(() => {
+    if (!testResult) return '';
+    const r = testResult.response;
+    if (r?.status_code) return String(r.status_code);
+    return testResult.success ? '200' : 'error';
+  }, [testResult]);
 
   const mappedValues = useMemo(() => {
     if (!rawResponse) return {} as Record<string, unknown>;
@@ -155,58 +182,36 @@ export default function EndpointTestTab() {
   }, [rawResponse, pathToVar]);
 
   const handleTest = async () => {
-    setIsTestingEndpoint(true);
-    setRawResponse(null);
-    setError(null);
-    setStatusCode('');
-    try {
-      const inputData: Record<string, unknown> = { ...varValues };
-      for (const [k, files] of Object.entries(fileValues)) {
-        if (!files.length) continue;
-        inputData[k] = await Promise.all(
-          files.map(
-            f =>
-              new Promise<{ name: string; content_type: string; data: string }>(
-                (resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const uri = reader.result as string;
-                    resolve({
-                      name: f.name,
-                      content_type: f.type,
-                      data: uri.split(',')[1] ?? uri,
-                    });
-                  };
-                  reader.onerror = reject;
-                  reader.readAsDataURL(f);
-                }
-              )
-          )
-        );
-      }
-      const result = await invokeEndpoint(endpoint.id, inputData);
-      const data = result.data as Record<string, unknown>;
-      const raw = data?.raw_response ?? data;
-      setRawResponse(raw);
-      setStatusCode(
-        String(data?.status_code ?? (result.success ? '200' : 'error'))
+    const inputData: Record<string, unknown> = { ...varValues };
+    for (const [k, files] of Object.entries(fileValues)) {
+      if (!files.length) continue;
+      inputData[k] = await Promise.all(
+        files.map(
+          f =>
+            new Promise<{ name: string; content_type: string; data: string }>(
+              (resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const uri = reader.result as string;
+                  resolve({
+                    name: f.name,
+                    content_type: f.type,
+                    data: uri.split(',')[1] ?? uri,
+                  });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(f);
+              }
+            )
+        )
       );
-      if (responseMapping.conversation_id) {
-        const convId = applyJsonPath(raw, responseMapping.conversation_id);
-        if (typeof convId === 'string') {
-          setVarValues(prev => ({ ...prev, conversation_id: convId }));
-        }
-      }
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsTestingEndpoint(false);
     }
+    onRunTest(inputData);
   };
 
   return (
     <SectionCard
-      title="Connection Test"
+      title="Test"
       subtitle="Fire a live request and see exactly what your API returns and how Rhesis maps it."
       actions={
         <LoadingButton
@@ -221,9 +226,9 @@ export default function EndpointTestTab() {
       }
     >
       <EndpointTestWorkbench
-        method={endpoint.method || 'POST'}
-        url={endpoint.url || ''}
-        requestTemplate={requestTemplate}
+        method={method}
+        url={url}
+        requestTemplate={reqBody}
         responseMapping={responseMapping}
         pathToVar={pathToVar}
         inputVars={inputVars}
@@ -236,7 +241,7 @@ export default function EndpointTestTab() {
         statusCode={statusCode}
         mappedValues={mappedValues}
         isTestingEndpoint={isTestingEndpoint}
-        error={error}
+        error={testResult?.error}
       />
     </SectionCard>
   );

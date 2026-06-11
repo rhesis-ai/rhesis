@@ -48,10 +48,10 @@ export class EndpointDetailPage extends BasePage {
   /** Assert overview tab content is visible. */
   async expectBasicInfoVisible() {
     await this.waitForEndpointLoaded();
-    const identity = this.page.getByText(/identity/i).first();
+    const overview = this.page.getByText(/endpoint details/i).first();
     const mainContent = this.page.locator('main, [role="main"]').first();
-    const hasIdentity = await identity.isVisible().catch(() => false);
+    const hasOverview = await overview.isVisible().catch(() => false);
     const hasMain = await mainContent.isVisible().catch(() => false);
-    expect(hasIdentity || hasMain).toBeTruthy();
+    expect(hasOverview || hasMain).toBeTruthy();
   }
 }
