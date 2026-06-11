@@ -147,7 +147,7 @@ export default function EndpointMappingTab() {
         request_mapping: bodyToRequestMapping(reqBody),
         response_mapping: responseMapping,
         auth_type: 'bearer_token',
-        auth_token: endpoint.auth_token || '',
+        auth_token: '',
         input_data: inputData,
         endpoint_path: endpoint.endpoint_path || undefined,
         response_format: (endpoint.response_format || 'json') as
