@@ -2,13 +2,16 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
-  management: "Managing Endpoints",
-  "auto-configure": "Auto-Configure",
-  "single-turn": "Single-Turn Endpoints",
-  "multi-turn-conversations": "Multi-Turn Conversations",
+  "creating-endpoints": "Creating Endpoints",
+  "request-mapping": "Request Mapping",
+  "response-mapping": "Response Mapping",
+  "mapping-examples": "Examples",
+  management: "Management",
   "sdk-endpoints": "SDK Endpoints",
-  "mapping-examples": "Mapping Examples",
-  "default-chatbot": "Default Insurance Chatbot",
+
+  // Hidden — content absorbed into the pages above
+  "auto-configure": { display: "hidden" },
+  "multi-turn-conversations": { display: "hidden" },
 };
 
 export default meta;
