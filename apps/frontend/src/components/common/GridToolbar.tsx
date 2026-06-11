@@ -20,6 +20,8 @@ export interface GridToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   searchWidth?: number;
+  /** Use `standalone` on directory pages where the toolbar sits on the page bg. */
+  searchVariant?: 'embedded' | 'standalone';
   onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
   /** Number of active filters to display on the filter button badge */
@@ -37,6 +39,12 @@ export const directoryToolbarSx: SxProps<Theme> = {
   borderBottom: 'none',
   minHeight: 'auto',
 };
+
+/** Spread on directory toolbars: layout + raised search pill for page-bg contrast. */
+export const directoryToolbarProps = {
+  sx: directoryToolbarSx,
+  searchVariant: 'standalone',
+} as const satisfies Pick<GridToolbarProps, 'sx' | 'searchVariant'>;
 
 export interface PrimarySegmentedPillsProps {
   tabs: ToolbarPillTab[];
@@ -244,6 +252,7 @@ export function GridToolbar({
   onSearchChange,
   searchPlaceholder = 'Search…',
   searchWidth = 240,
+  searchVariant = 'embedded',
   onFilterClick,
   hasActiveFilters = false,
   activeFilterCount,
@@ -277,6 +286,7 @@ export function GridToolbar({
         onChange={onSearchChange}
         placeholder={searchPlaceholder}
         width={searchWidth}
+        variant={searchVariant}
       />
       {middleContent}
       {!middleContent && <Box sx={{ flex: 1 }} />}

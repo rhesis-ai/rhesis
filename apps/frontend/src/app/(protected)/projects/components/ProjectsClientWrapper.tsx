@@ -21,13 +21,14 @@ import ProjectFilterDrawer, {
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -60,6 +61,7 @@ export default function ProjectsClientWrapper({
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
   const { markStepComplete, progress, activeTour } = useOnboarding();
+  const { refresh: refreshActiveProjects } = useActiveProject();
   const isOnProjectTour = activeTour === 'project';
   const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
 
@@ -94,9 +96,9 @@ export default function ProjectsClientWrapper({
       const factory = new ApiClientFactory(sessionToken);
       const client = factory.getProjectsClient();
       await client.createProject(payload);
-      await fetchProjects();
+      await Promise.all([fetchProjects(), refreshActiveProjects()]);
     },
-    [sessionToken, fetchProjects]
+    [sessionToken, fetchProjects, refreshActiveProjects]
   );
 
   const confirmDelete = useCallback(async () => {
@@ -106,12 +108,13 @@ export default function ProjectsClientWrapper({
       const client = factory.getProjectsClient();
       await client.deleteProject(deleteTarget.id);
       setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
+      await refreshActiveProjects();
     } catch (error) {
       console.error('Failed to delete project:', error);
     } finally {
       setDeleteTarget(null);
     }
-  }, [deleteTarget, sessionToken]);
+  }, [deleteTarget, sessionToken, refreshActiveProjects]);
 
   // Mark onboarding step complete when projects are loaded
   useEffect(() => {
@@ -220,7 +223,7 @@ export default function ProjectsClientWrapper({
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveProjectFilters(activeFilters)}
         activeFilterCount={countActiveProjectFilters(activeFilters)}
-        sx={directoryToolbarSx}
+        {...directoryToolbarProps}
         middleContent={
           <ToolbarPillTabs
             tabs={statusOptions}

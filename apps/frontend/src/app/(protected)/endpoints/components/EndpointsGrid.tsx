@@ -206,27 +206,13 @@ export default function EndpointsGrid({
       setTotalCount(response.pagination.totalCount);
       setError(null);
     } catch {
-      const hasActiveFilters =
-        hasActiveEndpointFilters(drawerFilters) || searchQuery.trim() !== '';
-      if (hasActiveFilters) {
-        setEndpoints([]);
-        setTotalCount(0);
-        setError(null);
-      } else {
-        setError('Failed to load endpoints');
-        setEndpoints([]);
-      }
+      setError('Failed to load endpoints');
+      setEndpoints([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [
-    sessionToken,
-    paginationModel,
-    filterModel,
-    projectId,
-    drawerFilters,
-    searchQuery,
-  ]);
+  }, [sessionToken, paginationModel, filterModel, projectId]);
 
   useEffect(() => {
     fetchEndpoints();

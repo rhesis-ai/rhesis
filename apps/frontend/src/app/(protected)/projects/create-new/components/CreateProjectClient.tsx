@@ -18,6 +18,7 @@ import ProjectDetailsStep from './ProjectDetailsStep';
 import FinishStep from './FinishStep';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { UUID } from 'crypto';
 
 interface FormData {
@@ -46,6 +47,7 @@ export default function CreateProjectClient({
 }: CreateProjectClientProps) {
   const router = useRouter();
   const theme = useTheme();
+  const { refresh: refreshActiveProjects } = useActiveProject();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -105,7 +107,8 @@ export default function CreateProjectClient({
       };
 
       try {
-        const _project = await projectsClient.createProject(projectData);
+        await projectsClient.createProject(projectData);
+        await refreshActiveProjects();
 
         // Navigate to the projects page
         router.push('/projects');

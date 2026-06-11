@@ -54,63 +54,79 @@ export function ActiveProjectProvider({
   );
   const [loading, setLoading] = useState(true);
 
-  const fetchProjects = useCallback(async () => {
-    if (!session?.session_token) return;
-    if (pathname.startsWith('/onboarding')) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const factory = new ApiClientFactory(session.session_token);
-      const projectsClient = factory.getProjectsClient();
-      const data = await projectsClient.getMyProjects();
-      setProjects(data);
+  const fetchProjects = useCallback(
+    async (options?: { listOnly?: boolean }) => {
+      if (!session?.session_token) return;
+      if (pathname.startsWith('/onboarding')) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const factory = new ApiClientFactory(session.session_token);
+        const projectsClient = factory.getProjectsClient();
+        const data = await projectsClient.getMyProjects();
+        setProjects(data);
 
-      // Selection precedence: cookie > user default_project > single project > none.
-
-      // 1. Restore the cookie-persisted active project if it is still in the list.
-      const stored = readActiveProjectId();
-      if (stored) {
-        const found = data.find(p => String(p.id) === stored) ?? null;
-        if (found) {
-          setActiveProjectState(found);
+        if (options?.listOnly) {
+          // Keep the current selection when it still exists; drop it if removed.
+          setActiveProjectState(prev => {
+            if (!prev) return null;
+            const stillMember =
+              data.find(p => String(p.id) === String(prev.id)) ?? null;
+            if (stillMember) return stillMember;
+            clearActiveProjectId();
+            return null;
+          });
           return;
         }
-        clearActiveProjectId();
-      }
 
-      // 2. Fall back to the user's configured default project.
-      let defaultId: string | null = null;
-      try {
-        const settings = await factory.getUsersClient().getUserSettings();
-        defaultId = settings?.default_project?.project_id
-          ? String(settings.default_project.project_id)
+        // Selection precedence: cookie > user default_project > single project > none.
+
+        // 1. Restore the cookie-persisted active project if it is still in the list.
+        const stored = readActiveProjectId();
+        if (stored) {
+          const found = data.find(p => String(p.id) === stored) ?? null;
+          if (found) {
+            setActiveProjectState(found);
+            return;
+          }
+          clearActiveProjectId();
+        }
+
+        // 2. Fall back to the user's configured default project.
+        let defaultId: string | null = null;
+        try {
+          const settings = await factory.getUsersClient().getUserSettings();
+          defaultId = settings?.default_project?.project_id
+            ? String(settings.default_project.project_id)
+            : null;
+        } catch {
+          // ignore — fall through to single-project auto-select
+        }
+        const defaultProject = defaultId
+          ? (data.find(p => String(p.id) === defaultId) ?? null)
           : null;
-      } catch {
-        // ignore — fall through to single-project auto-select
-      }
-      const defaultProject = defaultId
-        ? (data.find(p => String(p.id) === defaultId) ?? null)
-        : null;
 
-      if (defaultProject) {
-        writeActiveProjectId(String(defaultProject.id));
-        setActiveProjectState(defaultProject);
-      } else if (data.length === 1) {
-        // 3. Auto-select when the user only belongs to one project.
-        writeActiveProjectId(String(data[0].id));
-        setActiveProjectState(data[0]);
-      } else {
-        // 4. Nothing selected.
-        setActiveProjectState(null);
+        if (defaultProject) {
+          writeActiveProjectId(String(defaultProject.id));
+          setActiveProjectState(defaultProject);
+        } else if (data.length === 1) {
+          // 3. Auto-select when the user only belongs to one project.
+          writeActiveProjectId(String(data[0].id));
+          setActiveProjectState(data[0]);
+        } else {
+          // 4. Nothing selected.
+          setActiveProjectState(null);
+        }
+      } catch {
+        // silently ignore — the switcher will show an empty list
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      // silently ignore — the switcher will show an empty list
-    } finally {
-      setLoading(false);
-    }
-  }, [session?.session_token, pathname]);
+    },
+    [session?.session_token, pathname]
+  );
 
   useEffect(() => {
     fetchProjects();
@@ -162,7 +178,7 @@ export function ActiveProjectProvider({
         activeProject,
         loading,
         setActiveProject,
-        refresh: fetchProjects,
+        refresh: () => fetchProjects({ listOnly: true }),
       }}
     >
       {children}
