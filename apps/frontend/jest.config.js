@@ -58,7 +58,7 @@ const customJestConfig = {
     '<rootDir>/out/',
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|msw|@mswjs))',
+    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|@auth|msw|@mswjs))',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testMatch: [
