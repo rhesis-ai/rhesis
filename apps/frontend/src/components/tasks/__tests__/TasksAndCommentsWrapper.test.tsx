@@ -35,6 +35,10 @@ jest.mock('../TasksSection', () => ({
   TasksSection: () => <div data-testid="tasks-section" />,
 }));
 
+jest.mock('../TaskCreationDrawer', () => ({
+  TaskCreationDrawer: () => null,
+}));
+
 jest.mock('@/components/comments/CommentsWrapper', () => ({
   __esModule: true,
   default: ({ onCountsChange }: { onCountsChange?: () => void }) => (

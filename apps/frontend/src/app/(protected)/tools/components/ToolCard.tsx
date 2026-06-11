@@ -3,7 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 import { Tool } from '@/utils/api-client/interfaces/tool';
-import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
+import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
 
 interface ConnectedToolCardProps {
   tool: Tool;
@@ -19,7 +19,7 @@ export function ConnectedToolCard({
 }: ConnectedToolCardProps) {
   const theme = useTheme();
   const providerName = tool.tool_provider_type?.type_value || 'Unknown';
-  const providerIcon = MCP_PROVIDER_ICONS[providerName] ?? (
+  const providerIcon = TOOL_PROVIDER_ICONS[providerName] ?? (
     <SmartToyIcon sx={{ fontSize: theme.iconSizes?.medium }} />
   );
 

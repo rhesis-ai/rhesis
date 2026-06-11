@@ -129,7 +129,7 @@ export { default as TracesIcon } from './TracesIcon';
 export { default as EndpointsIcon } from './EndpointsIcon';
 export { default as PlaygroundIcon } from './PlaygroundIcon';
 export { default as KnowledgeIcon } from './KnowledgeIcon';
-export { default as ModelContextProtocolIcon } from './ModelContextProtocolIcon';
+export { default as BuildIcon } from '@mui/icons-material/BuildOutlined';
 export { default as BehaviorsIcon } from './BehaviorsIcon';
 export { default as DarkModeIcon } from '@mui/icons-material/DarkModeOutlined';
 export { default as ExitToAppIcon } from '@mui/icons-material/ExitToAppOutlined';

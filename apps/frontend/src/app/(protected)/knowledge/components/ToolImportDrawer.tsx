@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import TerminalIcon from '@mui/icons-material/Terminal';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
-import MCPToolSelectorPanel from './MCPToolSelectorPanel';
-import MCPImportPanel from './MCPImportPanel';
+import ToolSelectorPanel from './ToolSelectorPanel';
+import ToolImportPanel from './ToolImportPanel';
 
-interface MCPImportDrawerProps {
+interface ToolImportDrawerProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -15,12 +17,12 @@ interface MCPImportDrawerProps {
 
 type Step = 'select' | 'import';
 
-export default function MCPImportDrawer({
+export default function ToolImportDrawer({
   open,
   onClose,
   onSuccess,
   sessionToken,
-}: MCPImportDrawerProps) {
+}: ToolImportDrawerProps) {
   const [step, setStep] = useState<Step>('select');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
 
@@ -60,11 +62,12 @@ export default function MCPImportDrawer({
       <BaseDrawer
         open={open}
         onClose={handleClose}
-        title="Select MCP Tool"
+        title="Select Tool"
+        titleIcon={<TerminalIcon color="primary" />}
         closeButtonText="Cancel"
         width={900}
       >
-        <MCPToolSelectorPanel
+        <ToolSelectorPanel
           open={open}
           onClose={handleClose}
           onSelectTool={handleSelectTool}
@@ -78,12 +81,13 @@ export default function MCPImportDrawer({
     <BaseDrawer
       open={open}
       onClose={handleClose}
-      title="Import from MCP"
+      title="Import from Tool"
+      titleIcon={<CloudDownloadIcon color="primary" />}
       width={900}
       closeButtonText="Cancel"
       showHeader={true}
     >
-      <MCPImportPanel
+      <ToolImportPanel
         open={open}
         onClose={handleClose}
         onBack={handleBack}

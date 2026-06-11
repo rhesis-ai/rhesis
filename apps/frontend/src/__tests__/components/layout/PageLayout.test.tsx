@@ -1,11 +1,17 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import lightTheme from '@/styles/theme';
 import { PageLayout } from '@/components/layout/PageLayout';
+
+function renderWithTheme(ui: React.ReactElement) {
+  return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
+}
 
 describe('PageLayout', () => {
   it('renders without crashing', () => {
-    const { container } = render(
+    const { container } = renderWithTheme(
       <PageLayout>
         <div>Content</div>
       </PageLayout>
@@ -14,7 +20,7 @@ describe('PageLayout', () => {
   });
 
   it('renders the title when provided', () => {
-    render(
+    renderWithTheme(
       <PageLayout title="Test Page">
         <div>Content</div>
       </PageLayout>
@@ -25,7 +31,7 @@ describe('PageLayout', () => {
   });
 
   it('renders the description when provided', () => {
-    render(
+    renderWithTheme(
       <PageLayout title="Test Page" description="A description of the page">
         <div>Content</div>
       </PageLayout>
@@ -34,7 +40,7 @@ describe('PageLayout', () => {
   });
 
   it('renders children', () => {
-    render(
+    renderWithTheme(
       <PageLayout>
         <div data-testid="child-content">Child Content</div>
       </PageLayout>
@@ -43,7 +49,7 @@ describe('PageLayout', () => {
   });
 
   it('renders the actions slot when provided', () => {
-    render(
+    renderWithTheme(
       <PageLayout
         title="Test Page"
         actions={<button data-testid="action-btn">Create</button>}
@@ -55,7 +61,7 @@ describe('PageLayout', () => {
   });
 
   it('renders breadcrumbs when provided', () => {
-    render(
+    renderWithTheme(
       <PageLayout
         breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Tests' }]}
       >
@@ -70,7 +76,7 @@ describe('PageLayout', () => {
   });
 
   it('renders breadcrumb links with correct href', () => {
-    render(
+    renderWithTheme(
       <PageLayout
         breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Tests' }]}
       >
@@ -82,7 +88,7 @@ describe('PageLayout', () => {
   });
 
   it('does not render a header when no title, description, breadcrumbs or actions are given', () => {
-    render(
+    renderWithTheme(
       <PageLayout>
         <div data-testid="only-child">Only Child</div>
       </PageLayout>

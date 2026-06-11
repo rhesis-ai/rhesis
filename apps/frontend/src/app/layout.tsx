@@ -10,7 +10,6 @@ import '../styles/fonts.css';
 // pulled into the client bundle via consumers like the organization
 // settings page, so registry state is populated wherever it is read.
 import '../ee_bootstrap';
-import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import {
   ScienceIcon,
   BiotechIcon,
@@ -30,6 +29,7 @@ import {
   PlaygroundIcon,
   AccountTreeIcon,
   EngineeringIcon,
+  BuildIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -195,9 +195,10 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'mcp',
-      title: 'MCP',
-      icon: <ModelContextProtocolIcon key="mcp-icon" />,
+      segment: 'tools',
+      title: 'Tools',
+      icon: <BuildIcon key="tool-icon" />,
+      requireSuperuser: true,
     },
     {
       kind: 'page',
