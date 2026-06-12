@@ -1,6 +1,14 @@
 name: "[Build & Deploy] Worker (K8s)"
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/worker/**'
+      - 'apps/backend/**'
+      - 'sdk/**'
+      - 'penelope/**'
+      - '.github/workflows/worker-k8s.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -49,7 +57,7 @@ jobs:
       - name: Validate environment parameter
         uses: ./.github/actions/validate-environment
         with:
-          environment: ${{ inputs.environment || github.event.inputs.environment }}
+          environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
 
   gate:
     needs: validate-inputs
@@ -71,7 +79,7 @@ jobs:
       dockerfile: apps/backend/Dockerfile
       context: .
       target: worker
-      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       tag: ${{ inputs.tag || github.event.inputs.tag }}
     secrets: inherit
 
@@ -81,10 +89,10 @@ jobs:
     # parent workflow (e.g. deploy-all-k8s) passes deploy: false. github.event_name
     # is NOT used here: it inherits the caller's event (workflow_dispatch) inside a
     # reusable workflow, so it cannot distinguish a direct run from a called one.
-    if: inputs.deploy
+    if: inputs.deploy || github.event_name == 'push'
     uses: ./.github/workflows/k8s-deploy.yml
     with:
-      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       tag: ${{ needs.build.outputs.tag }}
       service: workers
     secrets: inherit
