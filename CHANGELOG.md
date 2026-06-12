@@ -13,6 +13,122 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.10.0**
+
+### Summary of Changes
+
+**Backend v0.10.0:**
+Key changes include: Release: platform: v0.8.0 -> v0.9.0, backend: v0.8.0 -> v0.9.0, frontend: v0.8.0 -> v0.9.0, sdk: v0.8.0 -> v0.9.0, polyphemus: v0.3.0 -> v0.4.0 (#1942)
+
+* Prepare release
+
+* Fix endpoints grid hotfix and show Metrics/Models nav for all users (#1946)
+
+* fix(frontend): endpoints hotfix and open nav for all users
+
+Remove endpoint grid multi-select, project filter, and create-drawer
+project picker; show empty grid on filter miss and Figma empty state.
+Drop superuser gating so Metrics and Models appear for all users (#1943).
+
+* fix(frontend): widen EntityEmptyState icon type for custom icons
+
+Allow React.ComponentType<SvgIconProps> so EndpointsIcon passes tsc.
+
+* fix: bind tenant scope in enrich_trace_async celery task (#1949)
+
+enrich_trace_async opened a SessionLocal() without calling
+bind_scope_to_session, unlike sibling tasks (post_ingest_link,
+evaluate_turn/conversation_trace_metrics). With project-wide RLS
+enabled, blank GUCs cause ''::uuid cast errors during enrichment.
+
+Closes #1944
+
+* Fix v0.9.0 hotfix: search contrast, PR 1946 review, project switcher (#1951)
+
+* fix(frontend): v0.9.0 hotfix for search contrast and PR 1946
+
+Raise directory-page search pills for dark-mode contrast, address
+post-merge PR 1946 review items, and refresh the project switcher
+after create/delete.
+
+* fix(frontend): follow-up v0.9.0 UI fixes
+
+Refresh trace tasks after create, fix explorer delete propagation,
+align knowledge tags and filter drawers, and update behavior detail title on save.
+
+* fix(frontend): remove duplicate tests grid on test set linked tab
+
+Keep only the embedding panel with list and cluster views.
+
+* fix(frontend): address lint and peqy review feedback
+
+Fix Source tag types, stabilize project refresh, and show endpoint errors above the grid.
+
+* fix(frontend): address follow-up peqy review comments
+
+Use type-only UUID imports, normalize source tag diffs, and resolve project selection on NoProjectAccess refresh.
+
+* Fix traces page empty state and project-scoped fetch race (#1952)
+
+* fix(frontend): resolve traces page empty state race
+
+Wait for active project before fetching traces and keep TracesClient
+mounted so successful responses update the UI after an initial empty fetch.
+
+* fix(frontend): align trace drawer with design system
+
+Match the drawer shell to Figma: fill layout, metadata pills, section
+card split pane, DetailTabNav tabs at 85% width, and tighter tab spacing.
+Also add breathing room between tasks and comments sections.
+
+---------
+
+Co-authored-by: Nicolai Bohn <nicolai@rhesis.ai>
+
+* Fix 'Event loop is closed' in sequential test execution (#1953)
+
+* fix(rest-invoker): recreate http client when event loop changes
+
+* fix: old client cleanup
+
+* fix(endpoints): pass auth token in mapping tab test request (#1954)
+
+* fix(traces): pass project scope in TraceDrawer API calls
+
+Set X-Project-Id via ApiClientFactory so trace fetches succeed on
+deep links before the active-project cookie is available.
+
+* Revert "fix(endpoints): pass auth token in mapping tab test request (#1954)"
+
+This reverts commit 992dee15adfb6b61a8fb811404884ea8f8502b4f.
+
+---------
+
+Co-authored-by: rheo-app[bot] <237771051+rheo-app[bot]@users.noreply.github.com>
+Co-authored-by: Nicolai Bohn (Rhesis AI) <168477896+nicolai-rhesis@users.noreply.github.com>
+Co-authored-by: Harry Cruz <harry@rhesis.ai>
+Co-authored-by: Arkadiusz Kwasigroch (Rhesis AI) <51204632+akwasigroch@users.noreply.github.com>
+Co-authored-by: Nicolai Bohn <nicolai@rhesis.ai>
+Co-authored-by: EmanueleDeRossi1 <95505710+EmanueleDeRossi1@users.noreply.github.com>
+Co-authored-by: Arkadiusz Kwasigroch <arkadiusz.kwasigroch@rhesis.ai>, fix: bind tenant scope in enrich_trace_async celery task (#1949)
+
+enrich_trace_async opened a SessionLocal() without calling
+bind_scope_to_session, unlike sibling tasks (post_ingest_link,
+evaluate_turn/conversation_trace_metrics). With project-wide RLS
+enabled, blank GUCs cause ''::uuid cast errors during enrichment.
+
+Closes #1944....
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Platform Release
