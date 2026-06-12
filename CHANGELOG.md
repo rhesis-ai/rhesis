@@ -13,6 +13,23 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.10.0**
+
+### Summary of Changes
+
+**Backend v0.10.0:**
+_BASE_URL (#1933)* -> Backend fix. Uses `API_BASE_URL
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Platform Release
