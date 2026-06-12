@@ -11,8 +11,12 @@ dependencies = [
     "pydantic>=2.11.7",
     "python-dotenv>=1.2.2",
     "redis>=5.0.0",
-    "streamlit>=1.41.1",
     "rhesis-sdk",
+]
+
+[dependency-groups]
+dev = [
+    "streamlit>=1.41.1",
 ]
 
 [tool.uv]
