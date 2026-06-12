@@ -3,6 +3,7 @@ Utilities for the Rhesis release tool including logging, colors, and prerequisit
 """
 
 import json
+import os
 import subprocess
 import urllib.error
 import urllib.request
@@ -113,7 +114,7 @@ def check_prerequisites(repo_root: Path, gemini_api_key: Optional[str] = None) -
     return True, api_key
 
 
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 
 
 def call_gemini_api(api_key: str, prompt: str, max_tokens: int = 2048) -> Optional[str]:
