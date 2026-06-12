@@ -81,14 +81,15 @@ jobs:
 
   deploy:
     needs: build
-    # Run on a direct manual dispatch (deploy defaults to true) and skip when a
-    # parent workflow (e.g. deploy-all-k8s) passes deploy: false. github.event_name
-    # is NOT used here: it inherits the caller's event (workflow_dispatch) inside a
-    # reusable workflow, so it cannot distinguish a direct run from a called one.
+    # Auto-deploy on a direct push to main (CI to dev) or when a caller sets
+    # deploy: true. The main-ref guard matters: on a release push (release/*)
+    # deploy-all-k8s calls this with deploy: false, but github.event_name is
+    # inherited as 'push', so without the ref check the per-service deploy would
+    # fire and race the centralized k8s-deploy.
     if: |
       always() &&
       needs.build.result == 'success' &&
-      (github.event_name == 'push' || inputs.deploy)
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.deploy)
     uses: ./.github/workflows/k8s-deploy.yml
     with:
       environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
