@@ -22,13 +22,6 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import {
-  SmartToyIcon,
-  DevicesIcon,
-  WebIcon,
-  StorageIcon,
-  CodeIcon,
-} from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -44,55 +37,7 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-
-const ICON_MAP: Record<string, React.ComponentType> = {
-  SmartToy: SmartToyIcon,
-  Devices: DevicesIcon,
-  Web: WebIcon,
-  Storage: StorageIcon,
-  Code: CodeIcon,
-  DataObject: DataObjectIcon,
-  Cloud: CloudIcon,
-  Analytics: AnalyticsIcon,
-  ShoppingCart: ShoppingCartIcon,
-  Terminal: TerminalIcon,
-  VideogameAsset: VideogameAssetIcon,
-  Chat: ChatIcon,
-  Psychology: PsychologyIcon,
-  Dashboard: DashboardIcon,
-  Search: SearchIcon,
-  AutoFixHigh: AutoFixHighIcon,
-  PhoneIphone: PhoneIphoneIcon,
-  School: SchoolIcon,
-  Science: ScienceIcon,
-  AccountTree: AccountTreeIcon,
-};
-
-const getProjectIcon = (project: Project | undefined) => {
-  if (!project) {
-    return <SmartToyIcon />;
-  }
-  if (project.icon && ICON_MAP[project.icon]) {
-    const IconComponent = ICON_MAP[project.icon];
-    return <IconComponent />;
-  }
-  return <SmartToyIcon />;
-};
+import { getProjectIcon } from './endpoint-icon-utils';
 
 interface EndpointsGridProps {
   sessionToken?: string;
