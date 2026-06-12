@@ -1,14 +1,21 @@
-# Hint: Build this image with an expanded build context from repo root
-# `docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .`
+# syntax=docker/dockerfile:1
+#
+# Multi-stage build for the chatbot service. Repository root is the build context.
+#
+#   docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .
+#
+# For a clean build: add --no-cache --pull as needed.
 
-# Single stage build for simplicity
-# IMPORTANT: The python version must match the version in the .python-version file.
-FROM mirror.gcr.io/library/python:3.12-slim
+# =============================================================================
+# build: Python builder with uv and all build dependencies
+# =============================================================================
+FROM mirror.gcr.io/library/python:3.12-slim AS build
 COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
-WORKDIR /app
+# Match monorepo layout so [tool.uv.sources] path deps resolve without rewriting.
+WORKDIR /app/apps/chatbot
 
-# Install OS-level dependencies with retry logic
+# Install OS-level build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     --allow-unauthenticated \
@@ -20,61 +27,65 @@ RUN apt-get update && \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only the dependency files for chatbot
+# Copy dependency files first for better layer caching
 COPY apps/chatbot/pyproject.toml apps/chatbot/uv.lock ./
 
-# Compile bytecode to improve performance   
-ENV UV_COMPILE_BYTECODE=1 
-# Use only system Python provided by the base image. It speeds up the build process and limit 
-# the size of the image.
-ENV UV_NO_MANAGED_PYTHON=1
-# Add the virtual environment to the PATH. It activates the virtual environment allowing to
-# call python from the command line.
-ENV PATH="/app/.venv/bin:$PATH"
-
-# SDK and rhesis meta-package (SDK depends on rhesis[telemetry]) — same layout as backend
+# SDK and rhesis meta-package (SDK depends on rhesis[telemetry])
 COPY sdk /app/sdk/
 COPY packages/rhesis /app/packages/rhesis/
 
-# Fix paths in pyproject.toml to point to the correct locations in Docker (see apps/backend/Dockerfile)
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml && \
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_NO_MANAGED_PYTHON=1 \
+    UV_LINK_MODE=copy
+
+# Install dependencies with cache mount for faster rebuilds
+RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
 
-# Now copy the rest of your source (scripts, modules, etc.)
-COPY apps/chatbot /app/
+RUN uv pip uninstall torch
 
-# Re-apply path patch: COPY restores repo pyproject.toml (../../sdk).
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
+# Copy the rest of the chatbot source
+COPY apps/chatbot ./
 
-# Remove build dependencies after installing Python packages
-RUN apt-get purge -y build-essential \
-    && apt-get autoremove -y \
+# =============================================================================
+# runtime: Slim production image with only runtime dependencies
+# =============================================================================
+FROM mirror.gcr.io/library/python:3.12-slim AS runtime
+
+WORKDIR /app/apps/chatbot
+
+# Install only runtime OS dependencies (curl for healthcheck)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user and remove .env files
-RUN adduser --disabled-password --gecos '' rhesis-user \
-    && find /app -name ".env" -type f -delete \
-    && chown -R rhesis-user /app
+# Create non-root user
+RUN adduser --disabled-password --gecos '' rhesis-user
 
-# Switch to the non-root user
+# Copy all built artifacts from build stage
+COPY --from=build --chown=rhesis-user:rhesis-user /app /app
+
+# Remove any .env files that might have been copied
+RUN find /app -name ".env" -type f -delete
+
 USER rhesis-user
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
+    PYTHONPATH=/app/apps/chatbot \
+    PATH="/app/apps/chatbot/.venv/bin:$PATH" \
     PORT=8080 \
     WORKERS=4
 
-# Expose port
 EXPOSE 8080
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Command to run the FastAPI application with Gunicorn
-# Workers can be overridden via WORKERS environment variable
 CMD sh -c "gunicorn --workers ${WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --timeout 120 --graceful-timeout 30 client:app"
