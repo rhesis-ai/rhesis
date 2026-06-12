@@ -46,13 +46,13 @@ function maskHeaders(headers: Record<string, string>): Record<string, string> {
 
 function cleanUnresolved(val: unknown): unknown {
   if (Array.isArray(val)) {
-    return val.map(cleanUnresolved).filter(v => v !== null && v !== '');
+    return val.map(cleanUnresolved).filter(v => v !== null);
   }
   if (val && typeof val === 'object') {
     return Object.fromEntries(
       Object.entries(val as Record<string, unknown>)
         .map(([k, v]) => [k, cleanUnresolved(v)])
-        .filter(([, v]) => v !== null && v !== '')
+        .filter(([, v]) => v !== null)
     );
   }
   return val;
@@ -72,15 +72,15 @@ function substituteVars(
       return values[base] !== undefined ? JSON.stringify(values[base]) : 'null';
     }
   );
-  // Unquoted template vars: {{ ... }} → value or ""
+  // Unquoted template vars: {{ ... }} → value or null (so JSON stays valid)
   result = result.replace(
     /\{\{\s*([\w.]+)(?:\s*\|[^}]*)?\s*\}\}/g,
     (_match, name) => {
       const base = name.split('.')[0];
-      return values[base] !== undefined ? String(values[base]) : '';
+      return values[base] !== undefined ? String(values[base]) : 'null';
     }
   );
-  // Remove nulls and empty strings left by unresolved vars
+  // Remove nulls left by unresolved vars
   try {
     return JSON.stringify(cleanUnresolved(JSON.parse(result)), null, 2);
   } catch {
