@@ -12,7 +12,8 @@ from .utils import call_gemini_api, info, success, warn
 
 
 def generate_changelog_with_llm(api_key: str, component: str, version: str,
-                               commits: List[Dict[str, str]], last_tag: Optional[str]) -> Optional[str]:
+                               commits: List[Dict[str, str]], last_tag: Optional[str],
+                               max_tokens: int = 2048) -> Optional[str]:
     """Generate changelog using Gemini API"""
     if not api_key:
         warn(f"No Gemini API key available. Skipping LLM changelog generation for {component}")
@@ -35,7 +36,7 @@ Do NOT include the version header line (## [version] - date) - only return the c
 
 Return ONLY the changelog content without any additional text or explanations."""
 
-    return call_gemini_api(api_key, prompt, max_tokens=2048)
+    return call_gemini_api(api_key, prompt, max_tokens=max_tokens)
 
 
 def generate_component_summary_with_llm(api_key: str, component: str, version: str,
