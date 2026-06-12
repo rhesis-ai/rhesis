@@ -48,6 +48,8 @@ on:
 jobs:
   validate-inputs:
     runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.deploy_flag.outputs.should_deploy }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -56,6 +58,15 @@ jobs:
         uses: ./.github/actions/validate-environment
         with:
           environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+      - name: Set deploy flag
+        id: deploy_flag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ inputs.deploy }}" == "true" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          fi
 
   gate:
     needs: validate-inputs
@@ -81,12 +92,8 @@ jobs:
     secrets: inherit
 
   deploy:
-    needs: build
-    # Run on a direct manual dispatch (deploy defaults to true) and skip when a
-    # parent workflow (e.g. deploy-all-k8s) passes deploy: false. github.event_name
-    # is NOT used here: it inherits the caller's event (workflow_dispatch) inside a
-    # reusable workflow, so it cannot distinguish a direct run from a called one.
-    if: github.event_name == 'push' || inputs.deploy
+    needs: [build, validate-inputs]
+    if: needs.validate-inputs.outputs.should_deploy == 'true'
     uses: ./.github/workflows/k8s-deploy.yml
     with:
       environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
