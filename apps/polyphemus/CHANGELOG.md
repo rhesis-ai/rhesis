@@ -10,173 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-06-11
 
 ### Changed
+-   Pinned the `uv` dependency to version `0.11.19` in Docker service images for enhanced build consistency and stability.
 
-- build(docker): pin uv to 0.11.19 in service images (#1882)
-
-Avoid :latest drift and align chatbot/telemetry-processor with COPY --from mirror.gcr.io/astral/uv.
-- fix(docker): pull uv from mirror.gcr.io instead of ghcr (#1879)
-
-Avoid GHCR auth failures during local builds by using the GCR mirror
-of Docker Hub's official astral/uv image.
-
-
+### Fixed
+-   Resolved an issue with Docker builds by updating the source for pulling the `uv` dependency from `ghcr` to `mirror.gcr.io`, ensuring more reliable dependency resolution.
 
 ## [0.3.0] - 2026-05-21
 
-### Changed
+### Added
+- Injected an adversarial system primer on every request to enhance system robustness and testing capabilities.
 
-- chore(deps): fix security vulnerabilities across all projects (#1791)
-
-Bump direct and transitive dependencies to resolve 56 Dependabot
-alerts (12 HIGH, 44 MEDIUM) across Python and npm ecosystems.
-- 1727 differing results using polyphemus between sdk and platform (#1773)
-
-* refactor(polyphemus): harden adversarial primer to ban harmless outputs
-
-* fix(polyphemus): inject primer before schema instructions, not after
-
-* feature(polyphemus): "harmful" mode for synthesizer
-
-* fix(polyphemus): restored missing system prompt case
-
----------
-
-Co-authored-by: Alexey <alexey@rhesis.ai>
-- feat(polyphemus): inject adversarial system primer on every request (#1752)
-
-Co-authored-by: Alexey <alexey@rhesis.ai>
-- chore(deps): patch Dependabot security advisories across the monorepo (#1747)
-
-* chore(deps): patch Dependabot security advisories across the monorepo
-
-Resolves ~145 of 156 open Dependabot alerts by bumping direct
-dependencies, adding/updating uv constraint-dependencies, and adding npm
-overrides for vulnerable transitive packages. Lockfiles regenerated
-across all 9 Python projects (sdk, packages/rhesis, apps/backend,
-apps/chatbot, apps/polyphemus, apps/telemetry-processor, penelope,
-examples/telemetry, agents/research-assistant) and both npm projects
-(apps/frontend, docs/src). npm audit reports 0 vulnerabilities in both
-JS projects.
-
-Direct dependency bumps:
-  - python-multipart >= 0.0.27 (backend)
-  - cryptography >= 46.0.7 (sdk, backend)
-  - langchain-core >= 1.2.28 (sdk, penelope, research-assistant, examples)
-  - notebook >= 7.5.6 (penelope)
-  - transformers >= 5.0.0rc3 (sdk huggingface extra)
-  - next ^16.2.3 + nodemailer ^8.0.5 (frontend)
-  - next ^15.5.15 (docs)
-
-Transitive constraints / npm overrides bumped or added:
-  - gitpython, mako, mistune, jupyterlab, jupyter-server, nbconvert,
-    lxml, langchain-{openai,text-splitters}, langsmith, litellm, pytest
-  - dompurify, lodash, lodash-es, postcss, fast-xml-parser, protobufjs,
-    uuid, handlebars, picomatch, yaml, flatted, @xmldom/xmldom,
-    brace-expansion
-
-Added exclude-newer-package = false for jupyter-server, mistune, and
-notebook (sdk, backend, penelope) to allow uv to pick up the May 3-4
-security patches that the 1-week cutoff would otherwise filter out.
-
-Remaining alerts (no fix applied):
-  - fastmcp 3 CVEs: blocked by mcp-atlassian pinning fastmcp<2.15.0
-  - lupa, ragas, diskcache: no upstream patch available yet
-
-* chore(sdk): tighten transformers spec to >=5.0.0 (no pre-releases)
-
-Address review feedback: `transformers>=5.0.0rc3` permits pre-releases
-because the specifier itself includes an rc segment. Stable 5.0.0 is
-already published and the lockfile resolves to 5.5.4, so requiring
-stable 5.x is the right intent.
-- chore(dependencies): update package versions and add new dependencies (#1688)
-
-- Updated `cryptography` from 46.0.5 to 46.0.7 and `pillow` from 12.1.1 to 12.2.0 in `pyproject.toml`.
-- Added `aiohttp` (>=3.13.5) and `langchain-openai` (>=1.1.14) to constraint dependencies.
-- Updated `python-dotenv` to 1.2.2 and `pydantic` to 2.13.0 in override dependencies across multiple projects.
-- Adjusted `click` version from 8.2.1 to 8.1.8 in several projects for compatibility.
-- Updated `exclude-newer` timestamps in `uv.lock` files to reflect new dependency versions.
-- build(dev): remove rust from polyphemus dockerfile (#1687)
-- refactor(backend): split deps into core and [all] extras (#1686)
-
-* refactor(backend): split deps into core and [all] extras
-
-Slim down the migrate image and decouple Polyphemus from the heavy
-ML stack by separating core deps from optional ones.
-
-- Core: web stack (fastapi/uvicorn/slowapi), workers (celery/redis),
-  OpenTelemetry, FastAPI utils, and migration prerequisites.
-- [all] extra: rhesis-sdk, rhesis-penelope, garak, mirascope,
-  huggingface_hub, google-genai, gcsfs, sendgrid, mcp-atlassian.
-- Inline garak metric definitions in the c2d3e4f5a6b7 migration so
-  alembic upgrade head no longer imports rhesis-sdk.
-- Move ScoreType / ThresholdOperator into a local metric_types module
-  so models and schemas don't pull rhesis-sdk into the import graph.
-- Add build-core and migrate stages to apps/backend/Dockerfile;
-  build-backend syncs with --extra all --extra cpu.
-- CI now builds and pushes ${IMAGE_NAME}-migrate alongside the
-  regular backend image; the migrate Cloud Run job uses the slim one.
-- Drop the torch uninstall hack from apps/polyphemus/Dockerfile and
-  declare slowapi explicitly in apps/polyphemus/pyproject.toml.
-
-* refactor(backend): drop unused sdk/penelope from polyphemus image
-
-Now that polyphemus depends on rhesis-backend core only (no [all]
-extra), rhesis-sdk and rhesis-penelope no longer appear in
-apps/polyphemus/uv.lock. Stop shipping their source trees in the
-container and remove the corresponding dead [tool.uv.sources] /
-override-dependencies entries.
-
-- Builder: copy only sdk/pyproject.toml (still needed by
-  packages/rhesis [tool.hatch.version] for version reading at wheel
-  build time); drop full sdk/ and penelope/ COPYs and the seds that
-  patched their now-removed source paths.
-- Runtime: drop /app/sdk, /app/penelope, and /app/packages/rhesis
-  copies. Only /app/.venv (with the built rhesis wheel), /app/src
-  (polyphemus), and /app/apps/backend (editable rhesis-backend) are
-  needed at runtime.
-- pyproject: remove dead [tool.uv.sources.rhesis-sdk],
-  [tool.uv.sources.rhesis-penelope], and the datasets override that
-  was there to reconcile garak vs rhesis-sdk (neither is in the
-  polyphemus dependency tree any more).
-
-* chore: formating
-
-* fix(Dockerfile): update paths in pyproject.toml for uv compatibility
-
-Revised the paths in the Dockerfile to ensure that all [tool.uv.sources] entries point to valid locations. This change addresses the need for uv to resolve paths correctly, as rhesis-sdk and rhesis-penelope are not installed in the current context. Updated the sed commands to reflect the new paths for sdk and penelope.
-
-* chore(ci): remove disk cleanup step from polyphemus workflow
-
-Eliminated the disk space cleanup step in the GitHub Actions workflow for the Polyphemus project. This change simplifies the workflow by removing unnecessary commands that were previously used to free up disk space on the runner.
-- fix(polyphemus): log batch item failures instead of silently swallowing them (#1628)
-
-Co-authored-by: Alexey <alexey@rhesis.ai>
-- Fix vulnerable dependencies flagged by pip-audit (#1627)
-
-* fix(deps): update vulnerable packages flagged by pip-audit
-
-Upgrade transitive and direct dependencies with known CVEs:
-- aiohttp 3.13.3 -> 3.13.5
-- cryptography 46.0.5 -> 46.0.6
-- langchain-core 1.2.14/1.2.17 -> 1.2.24
-- nltk 3.9.3 -> 3.9.4
-- pygments 2.19.2 -> 2.20.0
-- requests 2.32.5 -> 2.33.1
-- pdfminer-six 20250506 -> 20260107
-- jaraco-context 6.0.1 -> 6.1.2
-- streamlit 1.51.0 -> 1.56.0
-
-Also adds exclude-newer = "1 week" to all pyproject.toml files,
-the pip-audit aggregate script, and relaxes cryptography/litellm
-lower bounds.
-
-Skipped: fastmcp (major bump), diskcache/lupa (no fix available).
-
-* chore(deps): update cryptography dependency to version 46.0.5 across multiple projects
-
-This commit updates the cryptography package version from 46.0.0 to 46.0.5 in the pyproject.toml and uv.lock files for the research assistant, backend, and sdk applications. Additionally, it adjusts the exclude-newer timestamps in the uv.lock files to reflect the new versioning.
-
-
+### Fixed
+- Resolved an issue causing inconsistent results when using Polyphemus between the SDK and platform environments.
+- Addressed various security vulnerabilities by patching dependencies across the monorepo.
 
 ## [0.2.9] - 2026-04-09
 
