@@ -89,7 +89,10 @@ jobs:
     # parent workflow (e.g. deploy-all-k8s) passes deploy: false. github.event_name
     # is NOT used here: it inherits the caller's event (workflow_dispatch) inside a
     # reusable workflow, so it cannot distinguish a direct run from a called one.
-    if: github.event_name == 'push' || inputs.deploy
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      (github.event_name == 'push' || inputs.deploy)
     uses: ./.github/workflows/k8s-deploy.yml
     with:
       environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
