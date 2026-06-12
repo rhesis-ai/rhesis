@@ -44,27 +44,48 @@ function maskHeaders(headers: Record<string, string>): Record<string, string> {
   );
 }
 
+function cleanUnresolved(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(cleanUnresolved).filter(v => v !== null && v !== '');
+  }
+  if (val && typeof val === 'object') {
+    return Object.fromEntries(
+      Object.entries(val as Record<string, unknown>)
+        .map(([k, v]) => [k, cleanUnresolved(v)])
+        .filter(([, v]) => v !== null && v !== '')
+    );
+  }
+  return val;
+}
+
 function substituteVars(
   template: string,
   values: Record<string, string>
 ): string {
+  // Quoted template vars: "{{ ... }}" → value or null (so JSON stays valid)
   let result = template.replace(
     /"(\{\{\s*[\w.]+(?:\s*\|[^}]*)?\s*\}\})"/g,
     match => {
       const nameMatch = match.match(/\{\{\s*([\w.]+)/);
-      if (!nameMatch) return match;
+      if (!nameMatch) return 'null';
       const base = nameMatch[1].split('.')[0];
-      return values[base] !== undefined ? JSON.stringify(values[base]) : match;
+      return values[base] !== undefined ? JSON.stringify(values[base]) : 'null';
     }
   );
+  // Unquoted template vars: {{ ... }} → value or ""
   result = result.replace(
     /\{\{\s*([\w.]+)(?:\s*\|[^}]*)?\s*\}\}/g,
     (_match, name) => {
       const base = name.split('.')[0];
-      return values[base] !== undefined ? String(values[base]) : _match;
+      return values[base] !== undefined ? String(values[base]) : '';
     }
   );
-  return result;
+  // Remove nulls and empty strings left by unresolved vars
+  try {
+    return JSON.stringify(cleanUnresolved(JSON.parse(result)), null, 2);
+  } catch {
+    return result;
+  }
 }
 
 function buildCurl(
