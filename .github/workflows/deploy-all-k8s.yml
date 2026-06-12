@@ -17,9 +17,20 @@ on:
         required: false
         default: ''
         type: string
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to build and push to'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
-  group: k8s-deploy-all-${{ github.event.inputs.environment }}
+  group: k8s-deploy-all-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:

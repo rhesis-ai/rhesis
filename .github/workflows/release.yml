@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy-all-to-staging:
-    uses: ./.github/workflows/deploy_all.yml
+    uses: ./.github/workflows/deploy-all-k8s.yml
     with:
       environment: stg
     secrets: inherit
