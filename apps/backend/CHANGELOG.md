@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-12
+
+### Changed
+- Updated OAuth callbacks to use `API_BASE_URL` instead of `RHESIS_BASE_URL` to better support hybrid self-hosted configurations. (#1933)
+- Streamlined configuration settings by making `API_BASE_URL` a required setting in `ApplicationSettings` without a default value. (#1933)
+
+### Fixed
+- Resolved a Row Level Security (RLS) issue in the `enrich_trace_async` Celery task by properly binding the tenant scope to the session, preventing UUID casting errors during trace enrichment. (#1949)
+- Fixed "Event loop is closed" errors during sequential test execution by recreating the HTTP client in `rest-invoker` when the event loop changes. (#1953)
+- Fixed release tooling changelog generation by upgrading the underlying model to `gemini-3.5-flash` and increasing token limits to prevent truncation. (#1962)
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Added
