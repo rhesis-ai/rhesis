@@ -248,17 +248,13 @@ async def test_endpoint_mapping(
     frontend test unsaved mapping edits without the auth token ever reaching the browser.
     """
     organization_id, user_id = tenant_context
-    endpoint = db.query(models.Endpoint).filter(
-        models.Endpoint.id == endpoint_id
-    ).first()
+    endpoint = crud.get_endpoint(
+        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    )
     if not endpoint:
         raise HTTPException(status_code=404, detail="Endpoint not found")
 
-    response_format = (
-        test_request.response_format.value
-        if test_request.response_format
-        else None
-    )
+    response_format = test_request.response_format.value if test_request.response_format else None
 
     return await endpoint_service.test_endpoint_mapping(
         db=db,
