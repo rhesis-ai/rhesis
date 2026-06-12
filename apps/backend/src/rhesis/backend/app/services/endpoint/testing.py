@@ -131,3 +131,79 @@ async def test_endpoint(
     except Exception as exc:
         logger.error("Exception testing endpoint: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+async def test_endpoint_mapping(
+    db: Session,
+    endpoint: Endpoint,
+    request_mapping: dict,
+    response_mapping: dict,
+    input_data: dict,
+    organization_id: str = None,
+    user_id: str = None,
+    response_format: str = None,
+) -> Dict[str, Any]:
+    """Invoke a stored endpoint with draft request/response mappings.
+
+    Uses the endpoint's stored URL, method, headers, and auth credentials, but
+    substitutes the caller-supplied draft mappings instead of the saved ones.
+    This lets the frontend test unsaved mapping changes without exposing the
+    stored auth token to the browser.
+    """
+    temp_endpoint = Endpoint(
+        name=endpoint.name,
+        connection_type=endpoint.connection_type,
+        url=endpoint.url,
+        method=endpoint.method,
+        endpoint_path=endpoint.endpoint_path,
+        request_headers=endpoint.request_headers,
+        query_params=endpoint.query_params,
+        request_mapping=request_mapping,
+        response_mapping=response_mapping,
+        response_format=response_format or endpoint.response_format,
+        auth_type=endpoint.auth_type,
+        auth_token=endpoint.auth_token,
+        client_id=endpoint.client_id,
+        client_secret=endpoint.client_secret,
+        token_url=endpoint.token_url,
+        scopes=endpoint.scopes,
+        audience=endpoint.audience,
+        extra_payload=endpoint.extra_payload,
+        last_token=endpoint.last_token,
+        last_token_expires_at=endpoint.last_token_expires_at,
+        environment=endpoint.environment,
+        config_source=endpoint.config_source,
+        disable_tracing=True,
+    )
+
+    try:
+        enriched_input_data = input_data.copy()
+        if organization_id:
+            enriched_input_data["organization_id"] = organization_id
+        if user_id:
+            enriched_input_data["user_id"] = user_id
+
+        if (
+            ConversationTracker.detect_stateless_mode(temp_endpoint)
+            and "messages" not in enriched_input_data
+        ):
+            messages: list = []
+            system_prompt = ConversationTracker.extract_system_prompt(temp_endpoint)
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            user_input = enriched_input_data.get("input", "")
+            if user_input:
+                messages.append({"role": "user", "content": user_input})
+            enriched_input_data["messages"] = messages
+            enriched_input_data.pop("conversation_id", None)
+
+        context = InvocationContext(db=db, endpoint=temp_endpoint, input_data=enriched_input_data)
+        result = await create_invoker(context).invoke()
+        logger.debug("Endpoint mapping test completed")
+        return result
+    except ValueError as exc:
+        logger.error("ValueError testing endpoint mapping: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error("Exception testing endpoint mapping: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
