@@ -15,7 +15,11 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.endpoint import AutoConfigureRequest, AutoConfigureResult
+from rhesis.backend.app.schemas.endpoint import (
+    AutoConfigureRequest,
+    AutoConfigureResult,
+    EndpointMappingTestRequest,
+)
 from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreEndpointResponse
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
@@ -227,6 +231,41 @@ def get_endpoint_schema(endpoint_service: EndpointService = Depends(get_endpoint
 
 
 # --- Routes with path parameters must come AFTER static routes ---
+
+
+@router.post("/{endpoint_id}/test")
+async def test_endpoint_mapping(
+    endpoint_id: uuid.UUID,
+    test_request: EndpointMappingTestRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    endpoint_service: EndpointService = Depends(get_endpoint_service),
+):
+    """Test draft mappings against a stored endpoint using its stored credentials.
+
+    Fetches the endpoint from the database (including its auth token) and invokes it
+    with the provided request/response mapping overrides and input data. This lets the
+    frontend test unsaved mapping edits without the auth token ever reaching the browser.
+    """
+    organization_id, user_id = tenant_context
+    endpoint = crud.get_endpoint(
+        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    )
+    if not endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
+    response_format = test_request.response_format.value if test_request.response_format else None
+
+    return await endpoint_service.test_endpoint_mapping(
+        db=db,
+        endpoint=endpoint,
+        request_mapping=test_request.request_mapping,
+        response_mapping=test_request.response_mapping,
+        input_data=test_request.input_data,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        response_format=response_format,
+    )
 
 
 @router.get("/{endpoint_id}", response_model=EndpointDetailSchema)
