@@ -27,6 +27,7 @@ from .files import (
     inject_file_content_into_input,
 )
 from .testing import test_endpoint as _test_endpoint
+from .testing import test_endpoint_mapping as _test_endpoint_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -415,6 +416,29 @@ class EndpointService:
             test_config=test_config,
             organization_id=organization_id,
             user_id=user_id,
+        )
+
+    async def test_endpoint_mapping(
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        request_mapping: Dict[str, Any],
+        response_mapping: Dict[str, Any],
+        input_data: Dict[str, Any],
+        organization_id: str = None,
+        user_id: str = None,
+        response_format: str = None,
+    ) -> Dict[str, Any]:
+        """Test draft mappings against a stored endpoint using its stored credentials."""
+        return await _test_endpoint_mapping(
+            db=db,
+            endpoint=endpoint,
+            request_mapping=request_mapping,
+            response_mapping=response_mapping,
+            input_data=input_data,
+            organization_id=organization_id,
+            user_id=user_id,
+            response_format=response_format,
         )
 
     async def sync_sdk_endpoints(

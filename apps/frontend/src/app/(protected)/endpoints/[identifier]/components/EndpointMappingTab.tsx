@@ -9,7 +9,6 @@ import {
   Link,
   Typography,
 } from '@mui/material';
-import { useSession } from 'next-auth/react';
 import {
   AutoFixHighIcon,
   KeyboardArrowDownIcon,
@@ -18,8 +17,8 @@ import {
 import EditableSection from '@/components/common/EditableSection';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
+import { testEndpointMapping } from '@/actions/endpoints';
 import TestAndMap from '../../components/TestAndMap';
 import AutoConfigureDrawer from '../../components/AutoConfigureDrawer';
 import {
@@ -46,7 +45,6 @@ function mappingFromEndpoint(endpoint: {
 
 export default function EndpointMappingTab() {
   const { endpoint, saveFields } = useEndpointDetailContext();
-  const { data: session } = useSession();
   const notifications = useNotifications();
   const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
   const [manualExpanded, setManualExpanded] = useState(true);
@@ -117,46 +115,22 @@ export default function EndpointMappingTab() {
     setIsTestingEndpoint(true);
     setTestResult(null);
     try {
-      if (!endpoint.url) {
-        throw new Error('Endpoint URL is required');
-      }
-      if (!session?.session_token) {
-        throw new Error('Session token not available');
-      }
-
-      const requestHeaders = (endpoint.request_headers ?? {}) as Record<
-        string,
-        string
-      >;
-
       let responseMapping: Record<string, string> = {};
       try {
         responseMapping = JSON.parse(resBody);
       } catch {
         throw new Error('Invalid response mapping JSON');
       }
-
-      const client = new ApiClientFactory(
-        session.session_token
-      ).getEndpointsClient();
-      const result = await client.testEndpoint({
-        connection_type: 'REST',
-        url: endpoint.url,
-        method: endpoint.method || 'POST',
-        request_headers: requestHeaders,
-        request_mapping: bodyToRequestMapping(reqBody),
-        response_mapping: responseMapping,
-        auth_type: 'bearer_token',
-        auth_token: '',
-        input_data: inputData,
-        endpoint_path: endpoint.endpoint_path || undefined,
-        response_format: (endpoint.response_format || 'json') as
-          | 'json'
-          | 'xml'
-          | 'text',
-      });
-
-      const r = result as Record<string, unknown>;
+      const result = await testEndpointMapping(
+        endpoint.id,
+        inputData,
+        bodyToRequestMapping(reqBody) as Record<string, unknown>,
+        responseMapping
+      );
+      if (!result.success) {
+        throw new Error(result.error ?? 'Test failed');
+      }
+      const r = result.data as Record<string, unknown>;
       const success = r.success !== false && !r.error;
       setTestResult({ success: Boolean(success), response: r });
     } catch (err) {
