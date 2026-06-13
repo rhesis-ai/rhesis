@@ -57,7 +57,26 @@ Demonstrates:
 
 **Use Case**: When you orchestrate agents with LangGraph state machines.
 
-### 5. LangChain Auto-Instrumentation
+### 5. LlamaIndex RAG
+**File**: `llamaindex_example.py`
+
+Demonstrates (see [issue #1828](https://github.com/rhesis-ai/rhesis/issues/1828)):
+- In-memory **RAG** pipeline: index → **retrieve** → **synthesize**
+- **Manual instrumentation** via `@observe`:
+  - `ai.agent.invoke` — `llamaindex_rag_pipeline`
+  - `ai.retrieval` — chunk lookup (`llamaindex` backend, top-k)
+  - `ai.llm.invoke` — answer synthesis
+- OpenAI or Gemini via `LLAMAINDEX_PROVIDER` and matching API key in `.env`
+- `auto_instrument()` does not yet wrap LlamaIndex; [#1083](https://github.com/rhesis-ai/rhesis/issues/1083) tracks full auto-instrumentation
+
+**Use Case**: Debug RAG pipelines with visible retrieval and synthesis spans in Rhesis.
+
+```bash
+uv run --extra llamaindex llamaindex_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 6. LangChain Auto-Instrumentation
 **File**: `langchain_example.py`
 
 Demonstrates:
@@ -95,6 +114,9 @@ uv sync
 # Install with LangChain support
 uv sync --extra langchain
 
+# Install with LlamaIndex RAG support
+uv sync --extra llamaindex
+
 # Install with CrewAI support
 uv sync --extra crewai
 ```
@@ -122,8 +144,11 @@ Set your environment variables:
 export RHESIS_API_KEY="your-api-key"
 export RHESIS_PROJECT_ID="your-project-id"
 
-# Required for LangChain example: Google Gemini API key
+# LangChain / LlamaIndex (gemini): Google API key
 export GOOGLE_API_KEY="your-gemini-api-key"
+
+# LlamaIndex with OpenAI (default LLAMAINDEX_PROVIDER=openai)
+export OPENAI_API_KEY="your-openai-api-key"
 ```
 
 **Important**: 
@@ -157,6 +182,9 @@ uv run --extra fastapi fastapi_example.py
 # Then test with:
 # curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \
 #   -d '{"input": "What is the weather like?", "session_id": "test-123"}'
+
+# LlamaIndex RAG example (manual @observe)
+uv run --extra llamaindex llamaindex_example.py
 
 # LangChain example (auto-instrumentation)
 uv run --extra langchain langchain_example.py
