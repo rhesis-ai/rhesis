@@ -511,7 +511,7 @@ class TestSDKEndpointSync:
         service = EndpointService()
 
         # First sync - create 2 endpoints
-        await service.sync_sdk_endpoints(
+        first_result = await service.sync_sdk_endpoints(
             db=test_db,
             project_id=sdk_project_context["project_id"],
             environment=sdk_project_context["environment"],
@@ -519,6 +519,12 @@ class TestSDKEndpointSync:
             organization_id=sdk_project_context["organization_id"],
             user_id=sdk_project_context["user_id"],
         )
+        # Verify first sync succeeded before proceeding
+        assert first_result["created"] == 2, f"First sync failed: {first_result}"
+        assert len(first_result["errors"]) == 0, f"First sync errors: {first_result['errors']}"
+
+        # Force fresh DB reads to avoid identity-map cache between two commits
+        test_db.expire_all()
 
         # Second sync - only keep one function
         reduced_functions = [sample_functions_data[0]]  # Only calculate_sum

@@ -1,10 +1,12 @@
-import { type Page } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
+import projectsFixture from '../fixtures/projects.json';
 
 /**
  * Helper class for intercepting backend API calls in E2E tests.
  *
- * The Rhesis frontend calls http://localhost:8080/api/v1/* via native fetch.
- * Playwright's page.route() intercepts these before they leave the browser,
+ * The Rhesis frontend calls the backend at `{API_BASE_URL}/resources` (and
+ * optionally via `/api/v1/...` in local mock-server runs). Playwright's
+ * page.route() intercepts these before they leave the browser.
  * allowing tests to run deterministically without a live backend.
  *
  * List endpoints return a flat JSON array; the total count is carried in
@@ -28,7 +30,72 @@ export class MockApiHelper {
    */
   private listRoutePattern(apiPath: string): RegExp {
     const escaped = apiPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`/api/v1${escaped}(\\?|$)`);
+    // Optional /api/v1 prefix for mock-backend; live backend uses bare paths.
+    return new RegExp(`(/api/v1)?${escaped}(\\?|$)`);
+  }
+
+  private jsonListResponse(
+    data: Record<string, unknown>[],
+    totalCount?: number
+  ) {
+    return {
+      status: 200 as const,
+      contentType: 'application/json',
+      headers: {
+        'x-total-count': String(totalCount ?? data.length),
+        'access-control-expose-headers': 'x-total-count',
+      },
+      body: JSON.stringify(data),
+    };
+  }
+
+  /**
+   * Mock member projects used by ActiveProjectContext (layout project gate).
+   * Must return at least one project so protected pages render past NoProjectAccess.
+   */
+  async mockMyProjects(
+    data: Record<string, unknown>[] = projectsFixture as Record<
+      string,
+      unknown
+    >[]
+  ) {
+    await this.page.route('**/projects/mine**', route =>
+      route.fulfill(this.jsonListResponse(data))
+    );
+  }
+
+  /** Mock user settings fetch used when resolving the active project. */
+  async mockUserSettings() {
+    await this.page.route('**/users/settings**', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ui: { theme: 'light' },
+          models: {},
+          notifications: {},
+          default_project: { project_id: projectsFixture[0]?.id ?? null },
+        }),
+      })
+    );
+  }
+
+  /** Standard layout mocks — call before navigating to any protected page. */
+  async mockLayoutPrerequisites(
+    projects: Record<string, unknown>[] = projectsFixture as Record<
+      string,
+      unknown
+    >[]
+  ) {
+    await this.mockMyProjects(projects);
+    await this.mockUserSettings();
+  }
+
+  /** Wait until ActiveProjectContext has loaded member projects. */
+  async waitForProjectGate(timeout = 15_000) {
+    await expect(this.page.getByText('No project access')).not.toBeVisible({
+      timeout,
+    });
   }
 
   /**
@@ -42,15 +109,7 @@ export class MockApiHelper {
     totalCount?: number
   ) {
     await this.page.route(this.listRoutePattern(apiPath), route =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: {
-          'x-total-count': String(totalCount ?? data.length),
-          'access-control-expose-headers': 'x-total-count',
-        },
-        body: JSON.stringify(data),
-      })
+      route.fulfill(this.jsonListResponse(data, totalCount))
     );
   }
 
@@ -74,12 +133,15 @@ export class MockApiHelper {
    * Uses an exact path match to avoid colliding with list endpoint wildcards.
    */
   async mockDetail(apiPath: string, id: string, data: Record<string, unknown>) {
-    await this.page.route(`**/api/v1${apiPath}/${id}`, route =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(data),
-      })
+    const escaped = apiPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await this.page.route(
+      new RegExp(`(/api/v1)?${escaped}/${id}(\\?|$)`),
+      route =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(data),
+        })
     );
   }
 
@@ -92,4 +154,10 @@ export class MockApiHelper {
       await this.mockList(path, data);
     }
   }
+}
+
+/** Assert a MUI DataGrid (or ARIA grid) is visible. */
+export async function expectDataGridVisible(page: Page) {
+  const grid = page.locator('.MuiDataGrid-root, [role="grid"]').first();
+  await expect(grid).toBeVisible({ timeout: 15_000 });
 }

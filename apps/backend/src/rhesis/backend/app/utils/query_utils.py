@@ -120,6 +120,45 @@ class QueryBuilder:
         self._maybe_warn_load_count()
         return self
 
+    def with_selectin_chain(self, *chain: str) -> "QueryBuilder":
+        """Eager-load a chain of relationships with nested ``selectinload``.
+
+        Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
+        ``with_optimized_loads`` skips because they have no ``secondary`` table.
+        Each element resolves against the target model of the previous step, so
+        the full chain is batched into exactly two SELECT IN queries instead of
+        N + N*M lazy loads.
+
+        Example::
+
+            .with_selectin_chain("_tags_relationship", "tag")
+            # → selectinload(Model._tags_relationship).selectinload(TaggedItem.tag)
+        """
+        if not chain:
+            return self
+        current_model: type = self.model
+        load = None
+        for rel_name in chain:
+            attr = getattr(current_model, rel_name, None)
+            if attr is None:
+                raise ValueError(
+                    f"with_selectin_chain: {current_model.__name__!r} has no "
+                    f"relationship named {rel_name!r}"
+                )
+            load = selectinload(attr) if load is None else load.selectinload(attr)
+            rel_prop = inspect(current_model).relationships.get(rel_name)
+            if rel_prop is None:
+                raise ValueError(
+                    f"with_selectin_chain: {current_model.__name__!r}.{rel_name!r} "
+                    f"is not a relationship"
+                )
+            current_model = rel_prop.mapper.class_
+        if load is not None:
+            self.query = self.query.options(load)
+            self._selectin_count += 1
+            self._maybe_warn_load_count()
+        return self
+
     def _maybe_warn_load_count(self) -> None:
         total = self._joined_count + self._selectin_count
         if total >= _MAX_EAGER_LOADS_WARN:
@@ -223,6 +262,35 @@ class QueryBuilder:
                     )
         return self
 
+    def with_project_filter(self, project_id: Optional[str] = None) -> "QueryBuilder":
+        """
+        Filter query by project_id, allowing NULL rows to pass through.
+
+        When ``project_id`` is provided the filter applied is::
+
+            model.project_id = :pid OR model.project_id IS NULL
+
+        NULL rows represent org-wide entities created before project containers
+        were introduced.  They are intentionally visible inside every project's
+        view.  Pass ``project_id=None`` (or omit the argument) to skip the
+        filter entirely.
+
+        The ambient auto-filter listener in ``scope_events.py`` applies the
+        same predicate automatically for most request paths.  Use this method
+        only when you need an explicit, call-site-visible project filter —
+        e.g. in admin paths that operate outside the normal request scope.
+        """
+        if project_id and has_project_id(self.model):
+            from sqlalchemy import or_
+
+            self.query = self.query.filter(
+                or_(
+                    self.model.project_id == project_id,
+                    self.model.project_id.is_(None),
+                )
+            )
+        return self
+
     def with_visibility_filter(self) -> "QueryBuilder":
         """Apply visibility filter if the model supports it"""
         # Note: Visibility filtering is now handled through direct parameter passing
@@ -299,7 +367,19 @@ class QueryBuilder:
 
     def _apply_sorting(self):
         """Apply sorting if configured"""
-        if self._sort_by:
+        from rhesis.backend.app.utils.count_sort import (
+            apply_virtual_count_sort,
+            is_virtual_count_sort,
+        )
+
+        if self._sort_by and is_virtual_count_sort(self._sort_by):
+            self.query = apply_virtual_count_sort(
+                self.query,
+                self.model,
+                self._sort_by,
+                self._sort_order,
+            )
+        elif self._sort_by:
             order_column = getattr(self.model, self._sort_by)
             if self._sort_order == "desc":
                 self.query = self.query.order_by(desc(order_column))
@@ -356,6 +436,11 @@ class QueryBuilder:
 def has_organization_id(model: Type[T]) -> bool:
     """Check if model has organization_id column"""
     return hasattr(model, "organization_id") or "organization_id" in inspect(model).columns.keys()
+
+
+def has_project_id(model: Type[T]) -> bool:
+    """Check if model has project_id column."""
+    return hasattr(model, "project_id") or "project_id" in inspect(model).columns.keys()
 
 
 def has_visibility(model: Type[T]) -> bool:

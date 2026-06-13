@@ -25,14 +25,37 @@ jest.mock('@/components/common/EntityCard', () => ({
     title,
     description,
     onDelete,
+    chipSections,
   }: {
     title: string;
     description: string;
     onDelete?: () => void;
+    chipSections?: Array<{
+      label?: string;
+      chips: Array<{ key: string; label: string }>;
+      emptyText?: string;
+    }>;
   }) => (
     <div data-testid="entity-card">
       <h3>{title}</h3>
       <p>{description}</p>
+      {chipSections?.map((section, idx) => (
+        <div
+          key={section.label ?? `section-${idx}`}
+          data-testid={`chip-section-${(section.label ?? `section-${idx}`).toLowerCase()}`}
+        >
+          {section.label && <h4>{section.label}</h4>}
+          {section.chips.length > 0 ? (
+            section.chips.map(chip => (
+              <span key={chip.key} data-testid={`chip-${chip.key}`}>
+                {chip.label}
+              </span>
+            ))
+          ) : (
+            <span data-testid="chip-empty">{section.emptyText}</span>
+          )}
+        </div>
+      ))}
       {onDelete && (
         <button aria-label="delete behavior" onClick={onDelete}>
           delete
@@ -161,6 +184,47 @@ describe('BehaviorCard', () => {
 
     await user.click(screen.getByRole('button', { name: /cancel-delete/i }));
     expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument();
+  });
+
+  it('renders a Tags section with each tag chip when tags are present', () => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      behavior: makeBehavior({
+        tags: [
+          { id: 't1', name: 'Marketing' },
+          { id: 't2', name: 'US 1' },
+        ],
+      }),
+    });
+
+    const section = screen.getByTestId('chip-section-tags');
+    expect(section).toBeInTheDocument();
+    expect(section).toHaveTextContent('Marketing');
+    expect(section).toHaveTextContent('US 1');
+  });
+
+  it('renders Tags section empty text when behavior has no tags', () => {
+    renderCard();
+    const section = screen.getByTestId('chip-section-tags');
+    expect(section).toBeInTheDocument();
+    expect(section).toHaveTextContent('No tags assigned');
+  });
+
+  it('caps visible tag chips at 5 and shows a +N more pill', () => {
+    const manyTags = Array.from({ length: 7 }, (_, i) => ({
+      id: `t${i + 1}`,
+      name: `Tag ${i + 1}`,
+    }));
+    renderCard({
+      ...DEFAULT_PROPS,
+      behavior: makeBehavior({ tags: manyTags }),
+    });
+
+    const section = screen.getByTestId('chip-section-tags');
+    expect(section).toHaveTextContent('Tag 1');
+    expect(section).toHaveTextContent('Tag 5');
+    expect(section).not.toHaveTextContent('Tag 6');
+    expect(section).toHaveTextContent('+2 more');
   });
 
   it('does not render edit, duplicate, view metrics or add metric icons', () => {

@@ -121,7 +121,7 @@ export default function BaseTag({
   ...textFieldProps
 }: BaseTagProps) {
   const [inputValue, setInputValue] = useState<string>('');
-  const [focused, setFocused] = useState<boolean>(false);
+  const [_focused, setFocused] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [localTags, setLocalTags] = useState<string[]>(value);
   const inputRef = useRef<HTMLInputElement>(null);

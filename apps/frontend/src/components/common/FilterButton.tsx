@@ -12,21 +12,27 @@ export interface FilterButtonProps extends Omit<
 > {
   /** When true, shows an active-filter indicator on the button */
   hasActiveFilters?: boolean;
+  /** Number of active filters to display on the badge (overrides plain dot when > 0) */
+  activeFilterCount?: number;
   tooltip?: string;
 }
 
 /**
  * Standard filter control for list toolbars and filter drawers.
- * Teal square button with tune icon; optional dot at top-right when filters apply.
+ * Teal square button with tune icon; shows a numeric count badge when filters are active.
  */
 export function FilterButton({
   hasActiveFilters = false,
+  activeFilterCount,
   tooltip = 'Filters',
   'aria-label': ariaLabel = 'Filters',
   size = 'small',
   sx,
   ...props
 }: FilterButtonProps) {
+  const count = activeFilterCount ?? 0;
+  const showBadge = count > 0 || hasActiveFilters;
+
   const button = (
     <IconButton
       size={size}
@@ -40,28 +46,41 @@ export function FilterButton({
         height: 36,
         flexShrink: 0,
         '&:hover': { bgcolor: 'primary.dark' },
+        // The MuiDrawer theme override force-colors `.MuiSvgIcon-root` dark in
+        // light mode; keep this button's icon on its (white) contrast text.
+        '& .MuiSvgIcon-root': { color: 'primary.contrastText' },
         ...sx,
       }}
       {...props}
     >
       <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-      {hasActiveFilters && (
+      {showBadge && (
         <Box
           component="span"
-          aria-hidden
+          aria-label={count > 0 ? `${count} active filters` : 'Active filters'}
           sx={{
             position: 'absolute',
-            top: 4,
-            right: 4,
-            width: 8,
-            height: 8,
+            top: -6,
+            right: -6,
+            minWidth: 18,
+            height: 18,
+            px: count > 9 ? '4px' : 0,
             borderRadius: '50%',
-            bgcolor: 'warning.light',
-            border: '2px solid',
-            borderColor: 'primary.main',
+            bgcolor: 'background.paper',
+            color: 'primary.main',
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             pointerEvents: 'none',
+            border: '1.5px solid',
+            borderColor: 'primary.main',
           }}
-        />
+        >
+          {count > 0 ? count : null}
+        </Box>
       )}
     </IconButton>
   );

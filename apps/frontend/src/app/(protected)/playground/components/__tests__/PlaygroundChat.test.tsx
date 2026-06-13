@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import lightTheme from '@/styles/theme';
 import PlaygroundChat from '../PlaygroundChat';
 
 // jsdom does not implement scrollIntoView — save and restore to avoid leaking into other suites
@@ -90,7 +92,11 @@ function renderChat(
   props: Partial<React.ComponentProps<typeof PlaygroundChat>> = {}
 ) {
   const defaults = { endpointId: 'endpoint-1', projectId: 'project-1' };
-  return render(<PlaygroundChat {...defaults} {...props} />);
+  return render(
+    <ThemeProvider theme={lightTheme}>
+      <PlaygroundChat {...defaults} {...props} />
+    </ThemeProvider>
+  );
 }
 
 beforeEach(() => {

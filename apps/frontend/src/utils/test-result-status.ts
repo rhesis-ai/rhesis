@@ -265,3 +265,65 @@ export function isPassedStatusName(statusName: string): boolean {
     name.includes('completed')
   );
 }
+
+function isGoalMetricName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    lower.includes('goal') &&
+    (lower.includes('achievement') || lower.includes('evaluation'))
+  );
+}
+
+/**
+ * Summary text for the Evaluation column in test run result tables.
+ * Prefers goal evaluation / metric reasons over raw model output.
+ */
+export function getTestEvaluationSummary(test: TestResultDetail): string {
+  const metrics = test.test_metrics?.metrics ?? {};
+  const goalEvaluation = test.test_output?.goal_evaluation;
+
+  const goalReason = goalEvaluation?.reason?.trim();
+  if (goalReason) {
+    return goalReason;
+  }
+
+  const goalMetric = Object.entries(metrics).find(([name]) =>
+    isGoalMetricName(name)
+  )?.[1];
+  const goalMetricReason = goalMetric?.reason?.trim();
+  if (goalMetricReason) {
+    return goalMetricReason;
+  }
+
+  const criteriaReasons =
+    goalEvaluation?.criteria_evaluations
+      ?.map(criterion => criterion.reasoning?.trim())
+      .filter(Boolean) ?? [];
+  if (criteriaReasons.length > 0) {
+    return criteriaReasons.join(' · ');
+  }
+
+  const failedMetricReasons = Object.values(metrics)
+    .filter(metric => !metric.is_successful)
+    .map(metric => metric.reason?.trim())
+    .filter(Boolean);
+  if (failedMetricReasons.length > 0) {
+    return failedMetricReasons.join(' · ');
+  }
+
+  const metricReasons = Object.values(metrics)
+    .map(metric => metric.reason?.trim())
+    .filter(Boolean);
+  if (metricReasons.length > 0) {
+    return metricReasons.join(' · ');
+  }
+
+  const evidence = goalEvaluation?.evidence
+    ?.map(item => item.trim())
+    .filter(Boolean);
+  if (evidence && evidence.length > 0) {
+    return evidence.join(' · ');
+  }
+
+  return '';
+}

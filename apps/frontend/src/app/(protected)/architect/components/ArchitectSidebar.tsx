@@ -59,7 +59,8 @@ export default function ArchitectSidebar({
       <Box
         sx={{
           width: 48,
-          minHeight: '100%',
+          alignSelf: 'stretch',
+          minHeight: 0,
           flexShrink: 0,
           borderRight: 1,
           borderColor: 'divider',
@@ -69,6 +70,7 @@ export default function ArchitectSidebar({
           bgcolor: 'background.paper',
           py: 1,
           gap: 0.5,
+          overflow: 'hidden',
         }}
       >
         <Tooltip title="Expand sidebar" placement="right">
@@ -89,13 +91,15 @@ export default function ArchitectSidebar({
     <Box
       sx={{
         width: 280,
-        minHeight: '100%',
+        alignSelf: 'stretch',
+        minHeight: 0,
         flexShrink: 0,
         borderRight: 1,
         borderColor: 'divider',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.paper',
+        overflow: 'hidden',
       }}
     >
       <Box

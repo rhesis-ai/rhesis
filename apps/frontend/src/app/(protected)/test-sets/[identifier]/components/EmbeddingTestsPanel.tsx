@@ -71,12 +71,14 @@ interface EmbeddingTestsPanelProps {
   testSetId: string;
   sessionToken: string;
   testSetType?: string;
+  onTotalCountChange?: (count: number) => void;
 }
 
 export default function EmbeddingTestsPanel({
   testSetId,
   sessionToken,
   testSetType,
+  onTotalCountChange,
 }: EmbeddingTestsPanelProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -303,6 +305,7 @@ export default function EmbeddingTestsPanel({
             sessionToken={sessionToken}
             testSetType={testSetType}
             embedded
+            onTotalCountChange={onTotalCountChange}
           />
         </Box>
       )}

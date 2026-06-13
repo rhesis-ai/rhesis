@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class Tag(Base, OrganizationAndUserMixin):
+class Tag(Base, ProjectMixin, OrganizationAndUserMixin):
     """
     This is the Tag table
 
@@ -34,7 +34,7 @@ class Tag(Base, OrganizationAndUserMixin):
     tagged_items = relationship("TaggedItem", back_populates="tag")
 
 
-class TaggedItem(Base, OrganizationAndUserMixin):
+class TaggedItem(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "tagged_item"
 
     tag_id = Column(GUID, ForeignKey("tag.id"), nullable=False)

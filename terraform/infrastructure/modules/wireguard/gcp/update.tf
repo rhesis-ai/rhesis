@@ -69,20 +69,38 @@ resource "terraform_data" "wireguard_config_update" {
         --tunnel-through-iap \
         --command="sudo rm -f /tmp/wg0.b64" 2>/dev/null || true
 
-      # Copy base64-encoded config to server
-      gcloud_retry gcloud compute scp "$tmpfile" wireguard-server:/tmp/wg0.b64 \
-        --zone="$ZONE" --project="$PROJECT" \
-        --tunnel-through-iap
+      # Copy base64-encoded config to server via SSH stdin pipe.
+      # gcloud compute scp crashes on some gcloud/Python versions with
+      # TypeError: quote_from_bytes() expected bytes — use ssh+stdin instead.
+      for scp_attempt in $(seq 1 10); do
+        if cat "$tmpfile" | gcloud compute ssh wireguard-server \
+          --zone="$ZONE" --project="$PROJECT" \
+          --tunnel-through-iap \
+          --command="cat > /tmp/wg0.b64"; then
+          break
+        fi
+        if [ "$scp_attempt" = "10" ]; then
+          echo "ERROR: config upload failed after 10 attempts"
+          exit 1
+        fi
+        echo "SSH upload failed (attempt $scp_attempt/10), retrying in 10s..."
+        sleep 10
+      done
 
-      # Decode config, set permissions, reload WireGuard
+      # Decode config, set permissions, reload WireGuard.
+      # Run wg-quick down BEFORE overwriting the config so PostDown fires against
+      # the OLD rules (removing them cleanly). Then write new config and bring up.
+      # Using "systemctl restart" after overwriting causes PostDown to run with the
+      # NEW config — old iptables rules are never removed and accumulate on updates.
       gcloud_retry gcloud compute ssh wireguard-server \
         --zone="$ZONE" --project="$PROJECT" \
         --tunnel-through-iap \
         --command="sudo bash -c '\
+          wg-quick down wg0 || true && \
           base64 -d /tmp/wg0.b64 > /etc/wireguard/wg0.conf && \
           chmod 600 /etc/wireguard/wg0.conf && \
           rm /tmp/wg0.b64 && \
-          systemctl restart wg-quick@wg0 && \
+          wg-quick up wg0 && \
           echo \"WireGuard config updated and reloaded successfully\"'"
     EOT
   }

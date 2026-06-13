@@ -505,7 +505,6 @@ export default function TestRunHeader({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  mb: 2,
                 }}
               >
                 <Typography
@@ -537,118 +536,6 @@ export default function TestRunHeader({
                   sx={{ fontWeight: 600 }}
                 />
               </Box>
-
-              {testRun.test_configuration?.test_set?.id ? (
-                <Link
-                  href={`/test-sets/${testRun.test_configuration.test_set.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      '&:hover': {
-                        '& .test-set-name': {
-                          color: theme.palette.primary.main,
-                          textDecoration: 'underline',
-                        },
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle1"
-                      className="test-set-name"
-                      sx={{
-                        transition: 'color 0.2s',
-                        color: 'text.secondary',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {testRun.test_configuration.test_set.name ||
-                        'Unknown Test Set'}
-                    </Typography>
-                    <OpenInNewIcon
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.disabled',
-                      }}
-                    />
-                  </Box>
-                </Link>
-              ) : (
-                <Typography
-                  variant="subtitle1"
-                  color="text.secondary"
-                  fontWeight={500}
-                >
-                  {testRun.test_configuration?.test_set?.name ||
-                    'Unknown Test Set'}
-                </Typography>
-              )}
-
-              {testRun.test_configuration?.endpoint?.id ? (
-                <Link
-                  href={`/endpoints/${testRun.test_configuration.endpoint.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      mt: 1,
-                      '&:hover': {
-                        '& .endpoint-name': {
-                          color: theme.palette.primary.main,
-                          textDecoration: 'underline',
-                        },
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      className="endpoint-name"
-                      sx={{
-                        transition: 'color 0.2s',
-                        color: 'text.secondary',
-                        fontWeight: 200,
-                      }}
-                    >
-                      Endpoint:{' '}
-                      {testRun.test_configuration?.endpoint?.name ||
-                        (typeof testRun.attributes?.environment === 'string'
-                          ? testRun.attributes.environment
-                          : null) ||
-                        'development'}
-                    </Typography>
-                    <OpenInNewIcon
-                      sx={{
-                        fontSize: 12,
-                        color: 'text.disabled',
-                      }}
-                    />
-                  </Box>
-                </Link>
-              ) : (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  fontWeight={500}
-                  sx={{ display: 'block', mt: 1 }}
-                >
-                  Endpoint:{' '}
-                  {testRun.test_configuration?.endpoint?.name ||
-                    (typeof testRun.attributes?.environment === 'string'
-                      ? testRun.attributes.environment
-                      : null) ||
-                    'development'}
-                </Typography>
-              )}
             </CardContent>
           </Card>
         </Grid>

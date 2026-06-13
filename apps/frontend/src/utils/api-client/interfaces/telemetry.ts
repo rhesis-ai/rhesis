@@ -114,6 +114,7 @@ export interface TraceSummary {
   project_id: string;
   environment: string;
   conversation_id?: string;
+  conversation_input?: string;
   start_time: string;
   duration_ms: number;
   span_count: number;

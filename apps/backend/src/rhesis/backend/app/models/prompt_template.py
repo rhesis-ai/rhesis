@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin, TagsMixin
+from .mixins import OrganizationMixin, ProjectMixin, TagsMixin
 
 
-class PromptTemplate(Base, TagsMixin, OrganizationMixin):
+class PromptTemplate(Base, ProjectMixin, TagsMixin, OrganizationMixin):
     __tablename__ = "prompt_template"
     content = Column(Text, nullable=False)
     category_id = Column(GUID(), ForeignKey("category.id"))

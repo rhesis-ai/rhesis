@@ -1,0 +1,17 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# DeepEval
+
+[DeepEval](https://github.com/confident-ai/deepeval) provides single-turn and conversational metrics for RAG, agents, toxicity, bias, and PII checks. Rhesis exposes them in the platform and SDK — no separate CLI.
+
+<CodeBlock filename="deepeval_example.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+
+metric = DeepEvalAnswerRelevancy(threshold=0.7)
+result = metric.evaluate(
+    input="What is photosynthesis?",
+    output="Photosynthesis is how plants convert light into energy.",
+)`}
+</CodeBlock>
+
+See the full metric list: [SDK — DeepEval metrics](/sdk/metrics/single-turn#deepeval-metrics) · [Conversational metrics](/sdk/metrics/conversational#deepeval-metrics)

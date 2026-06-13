@@ -255,7 +255,7 @@ def verify_test_environment() -> bool:
     Returns:
         bool: True if environment is properly configured
     """
-    required_env_vars = ["SQLALCHEMY_DATABASE_URL"]
+    required_env_vars = ["DB_HOST", "DB_NAME", "APP_DB_USER", "APP_DB_PASS"]
 
     missing_vars = []
     for var in required_env_vars:

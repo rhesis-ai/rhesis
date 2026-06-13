@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 // Side-effect import: registers EE features into core's extension
@@ -13,7 +14,6 @@ import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import {
   ScienceIcon,
   BiotechIcon,
-  AppsIcon,
   VpnKeyIcon,
   TestRunsIcon,
   AssessmentIcon,
@@ -34,12 +34,14 @@ import {
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
-import { ApiClientFactory } from '../utils/api-client/client-factory';
+import { createServerApiFactory } from '../utils/api-client/server-factory';
+import { getServerActiveProjectId } from '../utils/server-active-project';
 import {
   type NavigationItem,
   type BrandingProps,
   type AuthenticationProps,
 } from '../types/navigation';
+import { type Project } from '../utils/api-client/interfaces/project';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 
@@ -58,7 +60,7 @@ async function getNavigationItems(
   // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
     try {
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = await createServerApiFactory(session.session_token);
       const organizationsClient = clientFactory.getOrganizationsClient();
       const organization = await organizationsClient.getOrganization(
         session.user.organization_id
@@ -90,12 +92,6 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'projects',
-      title: 'Projects',
-      icon: <AppsIcon key="projects-icon" />,
-    },
-    {
-      kind: 'page',
       segment: 'knowledge',
       title: 'Knowledge',
       icon: <KnowledgeIcon key="knowledge-icon" />,
@@ -111,7 +107,6 @@ async function getNavigationItems(
       segment: 'metrics',
       title: 'Metrics',
       icon: <AutoGraphIcon key="metrics-icon" />,
-      requireSuperuser: true,
     },
     // GENERATE section — creation and exploration tools
     {
@@ -195,14 +190,12 @@ async function getNavigationItems(
       segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon key="models-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',
       segment: 'mcp',
       title: 'MCP',
       icon: <ModelContextProtocolIcon key="mcp-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',
@@ -223,11 +216,10 @@ async function getNavigationItems(
       external: true,
     },
     {
-      kind: 'link',
+      kind: 'action',
       title: 'Support',
-      href: 'https://github.com/rhesis-ai/rhesis/discussions',
+      action: 'support',
       icon: <ForumIcon key="support-icon" />,
-      external: true,
     },
   ];
 
@@ -252,6 +244,8 @@ const AUTHENTICATION: AuthenticationProps = {
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
+  const themeCookie = (await cookies()).get('theme-mode')?.value;
+  const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
 
   // Get navigation with dynamic organization name
   const { items: navigation, organizationName } =
@@ -262,40 +256,45 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     logo: <ThemeAwareLogo />,
     homeUrl: '/architect',
   };
+  const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
+    apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
+  }).replace(/</g, '\\u003c')};`;
+
+  // Fetch the active project server-side so the sidebar can render the
+  // project name on first paint without a flash.
+  let initialActiveProject: Project | null = null;
+  const projectId = await getServerActiveProjectId();
+  if (projectId && session?.session_token) {
+    try {
+      const factory = await createServerApiFactory(session.session_token);
+      initialActiveProject = await factory
+        .getProjectsClient()
+        .getProject(projectId);
+    } catch {
+      // Ignore — client will fetch on mount
+    }
+  }
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var THEME_MODE_KEY = 'theme-mode';
-                  var storedMode = localStorage.getItem(THEME_MODE_KEY);
-                  var mode;
-
-                  if (storedMode) {
-                    mode = storedMode;
-                  } else {
-                    var darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                    mode = darkModeQuery.matches ? 'dark' : 'light';
-                  }
-
-                  document.documentElement.setAttribute('data-theme-mode', mode);
-                } catch (e) {}
-              })();
-            `,
+            __html: runtimeEnvScript,
           }}
         />
       </head>
       <body suppressHydrationWarning>
-        <ThemeContextProvider disableTransitionOnChange>
+        <ThemeContextProvider
+          disableTransitionOnChange
+          initialMode={initialThemeMode}
+        >
           <LayoutContent
             session={session}
             navigation={navigation}
             branding={branding}
             authentication={AUTHENTICATION}
+            initialActiveProject={initialActiveProject}
           >
             {props.children}
           </LayoutContent>

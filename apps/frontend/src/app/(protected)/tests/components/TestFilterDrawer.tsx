@@ -1,16 +1,27 @@
 'use client';
 
 import * as React from 'react';
-import { Box, TextField } from '@mui/material';
+import { Autocomplete, Box, TextField } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
-import { BORDER_RADIUS } from '@/styles/theme';
+import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { TEST_TYPES } from '@/constants/test-types';
+import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import {
+  EMPTY_ACTIVITY_PRESENCE_FILTERS,
+  countActivePresenceFilters,
+  hasActivePresenceFilters,
+  type ActivityPresenceFilters,
+} from '@/components/common/presence-filter';
 
 export interface TestFilters {
-  /** test_type/type_value equals: 'single_turn' | 'multi_turn' | '' */
+  /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
   testType: string;
   /** status/name contains */
   status: string;
@@ -20,6 +31,9 @@ export interface TestFilters {
   category: string;
   /** topic/name contains */
   topic: string;
+  tags: ActivityPresenceFilters['tags'];
+  comments: ActivityPresenceFilters['comments'];
+  tasks: ActivityPresenceFilters['tasks'];
 }
 
 export const EMPTY_TEST_FILTERS: TestFilters = {
@@ -28,31 +42,43 @@ export const EMPTY_TEST_FILTERS: TestFilters = {
   behavior: '',
   category: '',
   topic: '',
+  ...EMPTY_ACTIVITY_PRESENCE_FILTERS,
 };
 
 export function hasActiveTestFilters(f: TestFilters): boolean {
-  return Object.values(f).some(v => v !== '');
+  return (
+    f.testType !== '' ||
+    f.status !== '' ||
+    f.behavior !== '' ||
+    f.category !== '' ||
+    f.topic !== '' ||
+    hasActivePresenceFilters(f)
+  );
+}
+
+export function countActiveTestFilters(f: TestFilters): number {
+  return (
+    (f.testType !== '' ? 1 : 0) +
+    (f.status !== '' ? 1 : 0) +
+    (f.behavior !== '' ? 1 : 0) +
+    (f.category !== '' ? 1 : 0) +
+    (f.topic !== '' ? 1 : 0) +
+    countActivePresenceFilters(f)
+  );
 }
 
 const TEST_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ] as const;
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
-  },
-};
+const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: TestFilters;
+  sessionToken?: string;
   onApply: (filters: TestFilters) => void;
 }
 
@@ -60,13 +86,69 @@ export default function TestFilterDrawer({
   open,
   onClose,
   filters,
+  sessionToken,
   onApply,
 }: TestFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestFilters>(filters);
+  const [statusOptions, setStatusOptions] = React.useState<string[]>([]);
+  const [behaviorOptions, setBehaviorOptions] = React.useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = React.useState<string[]>([]);
+  const [topicOptions, setTopicOptions] = React.useState<string[]>([]);
+  const [loadingOptions, setLoadingOptions] = React.useState(false);
 
   React.useEffect(() => {
     if (open) setDraft(filters);
   }, [open, filters]);
+
+  React.useEffect(() => {
+    if (!open || !sessionToken) return;
+
+    const loadOptions = async () => {
+      setLoadingOptions(true);
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const [statusesData, behaviorsData, categoriesData, topicsData] =
+          await Promise.all([
+            apiFactory.getStatusClient().getStatuses({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: ENTITY_TYPES.test,
+            }),
+            apiFactory.getBehaviorClient().getBehaviors({
+              sort_by: 'name',
+              sort_order: 'asc',
+            }),
+            apiFactory.getCategoryClient().getCategories({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: 'Test',
+            }),
+            apiFactory.getTopicClient().getTopics({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: 'Test',
+            }),
+          ]);
+
+        setStatusOptions(
+          filterUniqueValidOptions(statusesData).map(s => s.name)
+        );
+        setBehaviorOptions(
+          filterUniqueValidOptions(behaviorsData).map(b => b.name)
+        );
+        setCategoryOptions(
+          filterUniqueValidOptions(categoriesData).map(c => c.name)
+        );
+        setTopicOptions(filterUniqueValidOptions(topicsData).map(t => t.name));
+      } catch {
+        // Keep empty options on failure
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+
+    loadOptions();
+  }, [open, sessionToken]);
 
   const handleReset = () => setDraft(EMPTY_TEST_FILTERS);
 
@@ -74,6 +156,34 @@ export default function TestFilterDrawer({
     onApply(draft);
     onClose();
   };
+
+  const renderAutocomplete = (
+    title: string,
+    field: keyof Pick<
+      TestFilters,
+      'status' | 'behavior' | 'category' | 'topic'
+    >,
+    options: string[],
+    placeholder: string
+  ) => (
+    <FilterSection title={title}>
+      <Autocomplete
+        freeSolo
+        options={options}
+        value={draft[field] || null}
+        loading={loadingOptions}
+        onChange={(_, value) =>
+          setDraft(prev => ({ ...prev, [field]: value || '' }))
+        }
+        onInputChange={(_, value) =>
+          setDraft(prev => ({ ...prev, [field]: value }))
+        }
+        renderInput={params => (
+          <TextField {...params} placeholder={placeholder} sx={textFieldSx} />
+        )}
+      />
+    </FilterSection>
+  );
 
   return (
     <FilterDrawerShell
@@ -88,6 +198,7 @@ export default function TestFilterDrawer({
             <Box
               key={opt.value}
               component="button"
+              type="button"
               onClick={() =>
                 setDraft(prev => ({
                   ...prev,
@@ -102,51 +213,36 @@ export default function TestFilterDrawer({
         </Box>
       </FilterSection>
 
-      <FilterSection title="Status">
-        <TextField
-          fullWidth
-          placeholder="e.g. Active, Draft…"
-          value={draft.status}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, status: e.target.value }))
-          }
-          sx={textFieldSx}
-        />
-      </FilterSection>
+      {renderAutocomplete('Status', 'status', statusOptions, 'Select status…')}
+      {renderAutocomplete(
+        'Behavior',
+        'behavior',
+        behaviorOptions,
+        'Select behavior…'
+      )}
+      {renderAutocomplete(
+        'Category',
+        'category',
+        categoryOptions,
+        'Select category…'
+      )}
+      {renderAutocomplete('Topic', 'topic', topicOptions, 'Select topic…')}
 
-      <FilterSection title="Behavior">
-        <TextField
-          fullWidth
-          placeholder="Filter by behavior name…"
-          value={draft.behavior}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, behavior: e.target.value }))
-          }
-          sx={textFieldSx}
-        />
-      </FilterSection>
-
-      <FilterSection title="Category">
-        <TextField
-          fullWidth
-          placeholder="Filter by category name…"
-          value={draft.category}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, category: e.target.value }))
-          }
-          sx={textFieldSx}
-        />
-      </FilterSection>
-
-      <FilterSection title="Topic">
-        <TextField
-          fullWidth
-          placeholder="Filter by topic name…"
-          value={draft.topic}
-          onChange={e => setDraft(prev => ({ ...prev, topic: e.target.value }))}
-          sx={textFieldSx}
-        />
-      </FilterSection>
+      <ActivityPresenceFiltersSection
+        values={{
+          tags: draft.tags,
+          comments: draft.comments,
+          tasks: draft.tasks,
+        }}
+        onChange={next =>
+          setDraft(prev => ({
+            ...prev,
+            tags: next.tags,
+            comments: next.comments,
+            tasks: next.tasks,
+          }))
+        }
+      />
     </FilterDrawerShell>
   );
 }

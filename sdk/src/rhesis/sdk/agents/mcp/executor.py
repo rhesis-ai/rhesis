@@ -31,91 +31,91 @@ class ToolExecutor:
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
         """Execute a tool and return its result.
 
+        The ``ai.tool.invoke`` span is emitted by the ``TracingHandler``
+        event handler (``on_tool_start`` / ``on_tool_end``) that surrounds
+        every ``execute_tool`` call in ``BaseAgent._execute_tools``.
+        Keeping a single span source avoids duplicate child spans for all
+        tool types (local, MCP, internal).
+
         Raises:
             MCPConnectionError: If connection to MCP server fails
             MCPApplicationError: If tool returns fatal error
         """
         try:
-            logger.info(f"Executing tool: {tool_call.tool_name}")
-            logger.info(f"Arguments: {tool_call.arguments}")
-
-            result = await self.mcp_client.call_tool(tool_call.tool_name, tool_call.arguments)
-            content = self._extract_content(result)
-
-            if hasattr(result, "isError") and result.isError:
-                logger.warning(f"Tool {tool_call.tool_name} returned transport error: {content}")
-                return ToolResult(
-                    tool_name=tool_call.tool_name,
-                    success=False,
-                    content="",
-                    error=content,
-                )
-
-            error_info = self._parse_application_error(content)
-            if error_info:
-                status_code, detail = error_info
-                is_fatal = status_code in {401, 403} or status_code >= 500
-                if is_fatal:
-                    logger.warning(
-                        f"Tool {tool_call.tool_name} returned fatal error ({status_code}): {detail}"
-                    )
-                    raise MCPApplicationError(status_code=status_code, detail=detail)
-                else:
-                    logger.warning(
-                        f"Tool {tool_call.tool_name} returned "
-                        f"recoverable error "
-                        f"({status_code}): {detail}"
-                    )
-                    return ToolResult(
-                        tool_name=tool_call.tool_name,
-                        success=False,
-                        error=f"Status {status_code}: {detail}",
-                    )
-
-            logger.info(
-                f"Tool {tool_call.tool_name} executed "
-                f"successfully, returned {len(content)} characters"
-            )
-            return ToolResult(
-                tool_name=tool_call.tool_name,
-                success=True,
-                content=content,
-            )
-
+            return await self._execute_tool_inner(tool_call)
         except MCPApplicationError:
             raise
-
-        except (TimeoutError, ConnectionError, OSError) as e:
-            error_msg = str(e)
-            logger.error(f"Connection error executing tool {tool_call.tool_name}: {error_msg}")
+        except (TimeoutError, ConnectionError, OSError) as exc:
             raise MCPConnectionError(
-                f"Failed to connect to MCP server: {error_msg}",
-                original_error=e,
-            ) from e
-
-        except RuntimeError as e:
-            error_msg = str(e).lower()
+                f"Failed to connect to MCP server: {exc}",
+                original_error=exc,
+            ) from exc
+        except RuntimeError as exc:
+            error_msg = str(exc).lower()
             if "not connected" in error_msg or "connection" in error_msg:
-                logger.error(f"Connection error: {error_msg}")
+                logger.error(f"Connection error: {exc}")
                 raise MCPConnectionError(
-                    f"Connection error: {str(e)}",
-                    original_error=e,
-                ) from e
-            logger.warning(f"Tool {tool_call.tool_name} runtime error: {str(e)}")
+                    f"Connection error: {exc}",
+                    original_error=exc,
+                ) from exc
+            logger.warning(f"Tool {tool_call.tool_name} runtime error: {exc}")
             return ToolResult(
                 tool_name=tool_call.tool_name,
                 success=False,
-                error=str(e),
+                error=str(exc),
+            )
+        except Exception as exc:
+            logger.warning(f"Tool {tool_call.tool_name} failed with unexpected error: {exc}")
+            return ToolResult(
+                tool_name=tool_call.tool_name,
+                success=False,
+                error=str(exc),
             )
 
-        except Exception as e:
-            error_msg = str(e)
-            logger.warning(f"Tool {tool_call.tool_name} failed with unexpected error: {error_msg}")
+    async def _execute_tool_inner(self, tool_call: ToolCall) -> ToolResult:
+        """Core MCP invocation -- returns a ToolResult or raises a
+        connection/application error for the span wrapper to translate."""
+        logger.info(f"Executing tool: {tool_call.tool_name}")
+        logger.info(f"Arguments: {tool_call.arguments}")
+
+        result = await self.mcp_client.call_tool(tool_call.tool_name, tool_call.arguments)
+        content = self._extract_content(result)
+
+        if hasattr(result, "isError") and result.isError:
+            logger.warning(f"Tool {tool_call.tool_name} returned transport error: {content}")
             return ToolResult(
                 tool_name=tool_call.tool_name,
                 success=False,
-                error=error_msg,
+                content="",
+                error=content,
             )
+
+        error_info = self._parse_application_error(content)
+        if error_info:
+            status_code, detail = error_info
+            is_fatal = status_code in {401, 403} or status_code >= 500
+            if is_fatal:
+                logger.warning(
+                    f"Tool {tool_call.tool_name} returned fatal error ({status_code}): {detail}"
+                )
+                raise MCPApplicationError(status_code=status_code, detail=detail)
+            logger.warning(
+                f"Tool {tool_call.tool_name} returned recoverable error ({status_code}): {detail}"
+            )
+            return ToolResult(
+                tool_name=tool_call.tool_name,
+                success=False,
+                error=f"Status {status_code}: {detail}",
+            )
+
+        logger.info(
+            f"Tool {tool_call.tool_name} executed successfully, returned {len(content)} characters"
+        )
+        return ToolResult(
+            tool_name=tool_call.tool_name,
+            success=True,
+            content=content,
+        )
 
     def _parse_application_error(self, content: str) -> Optional[Tuple[int, str]]:
         """Parse application error from content."""

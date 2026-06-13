@@ -21,8 +21,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import type { TestRunSummaryItem } from '@/utils/api-client/interfaces/test-results';
 
-// Extended interface to include stats
-interface TestRunWithStats extends TestRunDetail {
+interface TestRunWithStats extends Omit<TestRunDetail, 'stats'> {
   stats?: {
     total: number;
     passed: number;

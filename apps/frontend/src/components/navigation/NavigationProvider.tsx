@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { type NavigationContextProps } from '../../types/navigation';
 import { NavigationItemsContext } from '@/contexts/NavigationItemsContext';
 
@@ -13,18 +13,12 @@ export function NavigationProvider({
   children,
   branding,
 }: NavigationProviderProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const contextValue = useMemo(
     () => ({
-      navigation: mounted ? navigation : [],
+      navigation,
       branding: branding ?? null,
     }),
-    [mounted, navigation, branding]
+    [navigation, branding]
   );
 
   return (

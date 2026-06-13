@@ -18,6 +18,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from rhesis.backend.app.database import Base
 
 
+_DB_COMPONENT_VARS = ("DB_DRIVER", "DB_HOST", "DB_PORT", "DB_NAME", "APP_DB_USER", "APP_DB_PASS")
+
+
 @contextmanager
 def setup_test_environment(
     test_db_url: Optional[str] = None, env_vars: Optional[dict] = None
@@ -26,7 +29,10 @@ def setup_test_environment(
     Context manager for setting up a clean test environment.
 
     Args:
-        test_db_url: Optional custom test database URL
+        test_db_url: Optional database URL to parse into component env vars.
+            The URL is parsed into DB_DRIVER, DB_HOST, DB_PORT, DB_NAME,
+            APP_DB_USER, APP_DB_PASS so that DatabaseSettings can build the
+            connection URL from components.
         env_vars: Optional dictionary of environment variables to set
 
     Usage:
@@ -34,16 +40,33 @@ def setup_test_environment(
             # Your test code here
             pass
     """
-    # Store original environment variables
-    original_env = {}
+    from urllib.parse import urlparse, unquote
+
+    original_env: dict[str, Optional[str]] = {}
 
     try:
-        # Set database URL if provided
         if test_db_url:
-            original_env["SQLALCHEMY_DATABASE_URL"] = os.environ.get("SQLALCHEMY_DATABASE_URL")
-            os.environ["SQLALCHEMY_DATABASE_URL"] = test_db_url
+            parsed = urlparse(test_db_url)
+            # Extract host and optional Unix-socket path (passed via ?host= query param)
+            host = parsed.hostname or ""
+            if not host and parsed.path and "?" in test_db_url:
+                qs = test_db_url.split("?", 1)[1]
+                for part in qs.split("&"):
+                    if part.startswith("host="):
+                        host = unquote(part[5:])
+                        break
+            component_vars = {
+                "DB_DRIVER": parsed.scheme or "postgresql",
+                "DB_HOST": host,
+                "DB_PORT": str(parsed.port or 5432),
+                "DB_NAME": (parsed.path or "").lstrip("/").split("?")[0],
+                "APP_DB_USER": unquote(parsed.username or ""),
+                "APP_DB_PASS": unquote(parsed.password or ""),
+            }
+            for key, value in component_vars.items():
+                original_env[key] = os.environ.get(key)
+                os.environ[key] = value
 
-        # Set additional environment variables if provided
         if env_vars:
             for key, value in env_vars.items():
                 original_env[key] = os.environ.get(key)
@@ -52,13 +75,10 @@ def setup_test_environment(
         yield
 
     finally:
-        # Restore original environment variables
         for key, original_value in original_env.items():
             if original_value is None:
-                # Remove the key if it wasn't set originally
                 os.environ.pop(key, None)
             else:
-                # Restore the original value
                 os.environ[key] = original_value
 
 
@@ -107,13 +127,11 @@ def verify_test_database_isolation() -> bool:
     Returns:
         bool: True if isolation is working correctly
     """
-    # Check that we're using a configured test database URL
-    database_url = os.getenv("SQLALCHEMY_DATABASE_URL")
-    if not database_url:
+    db_name = os.getenv("DB_NAME", "")
+    if not db_name:
         return False
 
-    # Ensure test URL contains 'test' (PostgreSQL requirement)
-    if "test" not in database_url.lower():
+    if "test" not in db_name.lower():
         return False
 
     return True
@@ -177,14 +195,15 @@ def assert_test_database_used():
     Assert that we're using the test database.
     Raises AssertionError if not using test database.
     """
-    from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL
+    from rhesis.backend.app.database import DATABASE_URL
 
-    configured_url = os.getenv("SQLALCHEMY_DATABASE_URL")
-    assert configured_url, "SQLALCHEMY_DATABASE_URL must be set"
+    db_name = os.getenv("DB_NAME", "")
+    assert db_name, "DB_NAME must be set"
 
-    assert SQLALCHEMY_DATABASE_URL == configured_url, (
-        f"Expected to use configured database {configured_url}, but using {SQLALCHEMY_DATABASE_URL}"
+    assert "test" in db_name.lower(), (
+        f"Expected a test database (DB_NAME containing 'test'), but DB_NAME={db_name!r}"
     )
+    assert DATABASE_URL, "DATABASE_URL must be non-empty"
 
 
 def get_test_database_stats() -> dict:
@@ -194,13 +213,12 @@ def get_test_database_stats() -> dict:
     Returns:
         dict: Database configuration statistics
     """
-    from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL
+    from rhesis.backend.app.database import DATABASE_URL
 
     return {
-        "configured_db_url": os.getenv("SQLALCHEMY_DATABASE_URL"),
-        "actual_db_url": SQLALCHEMY_DATABASE_URL,
-        "is_postgres": "postgresql" in SQLALCHEMY_DATABASE_URL.lower(),
-        "is_cloud_sql": "/cloudsql/" in SQLALCHEMY_DATABASE_URL
-        or "/tmp/cloudsql/" in SQLALCHEMY_DATABASE_URL,
+        "configured_db_url": DATABASE_URL,
+        "actual_db_url": DATABASE_URL,
+        "is_postgres": "postgresql" in DATABASE_URL.lower(),
+        "is_cloud_sql": "/cloudsql/" in DATABASE_URL or "/tmp/cloudsql/" in DATABASE_URL,
         "isolation_verified": verify_test_database_isolation(),
     }

@@ -14,7 +14,7 @@ describe('validateEnv', () => {
   });
 
   it('does not throw when all required env vars are present', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080';
+    process.env.API_BASE_URL = 'http://localhost:8080';
     process.env.AUTH_SECRET = 'secret';
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
@@ -22,17 +22,17 @@ describe('validateEnv', () => {
     expect(() => validateEnv()).not.toThrow();
   });
 
-  it('throws when NEXT_PUBLIC_API_BASE_URL is missing', () => {
-    delete (process.env as MutableEnv).NEXT_PUBLIC_API_BASE_URL;
+  it('throws when API_BASE_URL is missing', () => {
+    delete (process.env as MutableEnv).API_BASE_URL;
     process.env.AUTH_SECRET = 'secret';
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
 
-    expect(() => validateEnv()).toThrow('NEXT_PUBLIC_API_BASE_URL');
+    expect(() => validateEnv()).toThrow('API_BASE_URL');
   });
 
   it('throws when AUTH_SECRET is missing', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080';
+    process.env.API_BASE_URL = 'http://localhost:8080';
     delete (process.env as MutableEnv).AUTH_SECRET;
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
@@ -41,7 +41,7 @@ describe('validateEnv', () => {
   });
 
   it('throws when GOOGLE_CLIENT_ID is missing', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080';
+    process.env.API_BASE_URL = 'http://localhost:8080';
     process.env.AUTH_SECRET = 'secret';
     delete (process.env as MutableEnv).GOOGLE_CLIENT_ID;
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
@@ -50,7 +50,7 @@ describe('validateEnv', () => {
   });
 
   it('throws when GOOGLE_CLIENT_SECRET is missing', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080';
+    process.env.API_BASE_URL = 'http://localhost:8080';
     process.env.AUTH_SECRET = 'secret';
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     delete (process.env as MutableEnv).GOOGLE_CLIENT_SECRET;
@@ -59,11 +59,11 @@ describe('validateEnv', () => {
   });
 
   it('treats empty string as missing', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = '';
+    process.env.API_BASE_URL = '';
     process.env.AUTH_SECRET = 'secret';
     process.env.GOOGLE_CLIENT_ID = 'client-id';
     process.env.GOOGLE_CLIENT_SECRET = 'client-secret';
 
-    expect(() => validateEnv()).toThrow('NEXT_PUBLIC_API_BASE_URL');
+    expect(() => validateEnv()).toThrow('API_BASE_URL');
   });
 });

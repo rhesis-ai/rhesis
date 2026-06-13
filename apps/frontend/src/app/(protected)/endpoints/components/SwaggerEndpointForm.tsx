@@ -30,6 +30,7 @@ import { useSession } from 'next-auth/react';
 import { auth } from '@/auth';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { readActiveProjectId } from '@/utils/active-project';
 
 // Import icons for project icon rendering
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -114,12 +115,13 @@ export default function SwaggerEndpointForm() {
     project_id: '',
   });
 
-  // Set project_id from URL parameter if provided
+  // Set project_id from URL parameter, then fall back to active project cookie
   useEffect(() => {
-    if (projectIdFromUrl) {
+    const resolved = projectIdFromUrl || readActiveProjectId() || '';
+    if (resolved) {
       setFormData(prev => ({
         ...prev,
-        project_id: projectIdFromUrl,
+        project_id: resolved,
       }));
     }
   }, [projectIdFromUrl]);
@@ -190,11 +192,6 @@ export default function SwaggerEndpointForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!formData.project_id) {
-      setError('Please select a project');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -332,89 +329,62 @@ export default function SwaggerEndpointForm() {
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={12}>
-                  {projects.length === 0 && !loadingProjects ? (
-                    <Alert
-                      severity="warning"
-                      action={
-                        <Button
-                          color="inherit"
-                          size="small"
-                          component="a"
-                          href="/projects/create-new"
-                        >
-                          Create Project
-                        </Button>
-                      }
+                  <FormControl fullWidth>
+                    <InputLabel id="project-select-label">
+                      Project (optional — defaults to active project)
+                    </InputLabel>
+                    <Select
+                      labelId="project-select-label"
+                      id="project-select"
+                      value={formData.project_id}
+                      onChange={e => handleChange('project_id', e.target.value)}
+                      label="Project (optional — defaults to active project)"
+                      disabled={loadingProjects}
+                      renderValue={selected => {
+                        const selectedProject = projects.find(
+                          p => p.id === selected
+                        );
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {selectedProject && (
+                              <Box
+                                sx={{
+                                  mr: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                {getProjectIcon(selectedProject)}
+                              </Box>
+                            )}
+                            {selectedProject?.name || 'Active project'}
+                          </Box>
+                        );
+                      }}
                     >
-                      No projects available. Please create a project first.
-                    </Alert>
-                  ) : (
-                    <FormControl
-                      fullWidth
-                      required
-                      error={Boolean(error && !formData.project_id)}
-                    >
-                      <InputLabel id="project-select-label">
-                        Select Project
-                      </InputLabel>
-                      <Select
-                        labelId="project-select-label"
-                        id="project-select"
-                        value={formData.project_id}
-                        onChange={e =>
-                          handleChange('project_id', e.target.value)
-                        }
-                        label="Select Project"
-                        disabled={loadingProjects}
-                        required
-                        renderValue={selected => {
-                          const selectedProject = projects.find(
-                            p => p.id === selected
-                          );
-                          return (
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {selectedProject && (
-                                <Box
-                                  sx={{
-                                    mr: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                  }}
-                                >
-                                  {getProjectIcon(selectedProject)}
-                                </Box>
-                              )}
-                              {selectedProject?.name || 'No project selected'}
-                            </Box>
-                          );
-                        }}
-                      >
-                        {loadingProjects ? (
-                          <MenuItem disabled value={formData.project_id || ''}>
-                            <CircularProgress size={20} sx={{ mr: 1 }} />
-                            Loading projects...
+                      {loadingProjects ? (
+                        <MenuItem disabled value={formData.project_id || ''}>
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                          Loading projects...
+                        </MenuItem>
+                      ) : (
+                        projects.map(project => (
+                          <MenuItem key={project.id} value={project.id}>
+                            <ListItemIcon>
+                              {getProjectIcon(project)}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={project.name}
+                              secondary={project.description}
+                            />
                           </MenuItem>
-                        ) : (
-                          projects.map(project => (
-                            <MenuItem key={project.id} value={project.id}>
-                              <ListItemIcon>
-                                {getProjectIcon(project)}
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={project.name}
-                                secondary={project.description}
-                              />
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                      {error && !formData.project_id && (
-                        <FormHelperText error>
-                          A project is required
-                        </FormHelperText>
+                        ))
                       )}
-                    </FormControl>
-                  )}
+                    </Select>
+                    <FormHelperText>
+                      Leave unset to use the currently active project
+                    </FormHelperText>
+                  </FormControl>
                 </Grid>
               </Grid>
             </Grid>

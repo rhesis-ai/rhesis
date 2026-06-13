@@ -6,10 +6,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin
+from .mixins import OrganizationMixin, ProjectMixin, UserOwnedMixin
 
 
-class ArchitectSession(Base, OrganizationMixin):
+class ArchitectSession(Base, ProjectMixin, OrganizationMixin):
     """A conversation session with the Architect agent."""
 
     __tablename__ = "architect_session"
@@ -31,8 +31,15 @@ class ArchitectSession(Base, OrganizationMixin):
     organization = relationship("Organization")
 
 
-class ArchitectMessage(Base):
-    """A single message within an Architect session."""
+class ArchitectMessage(Base, OrganizationMixin, UserOwnedMixin):
+    """A single message within an Architect session.
+
+    Carries organization_id and user_id (inherited from the parent session) so
+    that the permissive ``tenant_isolation`` RLS policy applies. Without an
+    organization_id column the table would only have the RESTRICTIVE
+    ``project_isolation`` policy, which on its own denies every INSERT/SELECT for
+    non-superuser roles (restrictive policies can narrow but never grant access).
+    """
 
     __tablename__ = "architect_message"
 
@@ -45,6 +52,10 @@ class ArchitectMessage(Base):
     content = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSONB, nullable=True)
     attachments = Column(JSONB, nullable=True)
+
+    # project_id without FK — inherits project context from its parent session.
+    # Stored for RLS uniformity; not a full ProjectMixin (no relationship).
+    project_id = Column(GUID(), nullable=True, index=True)
 
     # Relationships
     session = relationship("ArchitectSession", back_populates="messages")

@@ -52,6 +52,7 @@ export { default as ViewListIcon } from '@mui/icons-material/ViewListOutlined';
 export { default as AttachFileIcon } from '@mui/icons-material/AttachFileOutlined';
 export { default as AddIcon } from '@mui/icons-material/AddOutlined';
 export { default as DeleteIcon } from '@mui/icons-material/DeleteOutlined';
+export { default as LinkOffIcon } from '@mui/icons-material/LinkOffOutlined';
 export { default as CheckIcon } from '@mui/icons-material/CheckOutlined';
 export { default as CheckCircleIcon } from '@mui/icons-material/CheckCircleOutlined';
 export { default as AddTaskIcon } from '@mui/icons-material/AddTaskOutlined';
@@ -109,6 +110,8 @@ export { default as CircleIcon } from '@mui/icons-material/CircleOutlined';
 export { default as EngineeringIcon } from '@mui/icons-material/EngineeringOutlined';
 
 export { default as ForumIcon } from '@mui/icons-material/ForumOutlined';
+export { default as DiscordIcon } from './DiscordIcon';
+export { default as EmailOutlinedIcon } from '@mui/icons-material/EmailOutlined';
 
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';

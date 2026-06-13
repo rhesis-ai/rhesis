@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -105,7 +104,7 @@ export default function ExplorerClient() {
               onClick={() => setImportDialogOpen(true)}
             />
             <Fab
-              icon={<AddIcon />}
+              icon={<FabAddIcon />}
               tooltip="New session"
               onClick={() => setCreateDialogOpen(true)}
             />

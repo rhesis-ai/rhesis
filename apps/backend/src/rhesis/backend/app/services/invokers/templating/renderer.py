@@ -126,7 +126,12 @@ class TemplateRenderer:
         elif isinstance(template_data, list):
             result = []
             for item in template_data:
-                result.append(self._render_recursive(item, render_context))
+                rendered_item = self._render_recursive(item, render_context)
+                # Spread rendered lists into the parent array
+                if isinstance(item, str) and isinstance(rendered_item, list):
+                    result.extend(rendered_item)
+                else:
+                    result.append(rendered_item)
             return result
         else:
             # For other types (int, float, bool, None, etc.), return as-is

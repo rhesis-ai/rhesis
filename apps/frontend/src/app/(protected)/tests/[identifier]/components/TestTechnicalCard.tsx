@@ -2,12 +2,15 @@
 
 import * as React from 'react';
 import Grid from '@mui/material/Grid';
-import { TextField, Typography } from '@mui/material';
+import { Box, TextField, Typography } from '@mui/material';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
+import FileAttachmentList from '@/components/common/FileAttachmentList';
+import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useFiles } from '@/hooks/useFiles';
 import { isMultiTurnTest } from '@/constants/test-types';
 import {
   MultiTurnTestConfig,
@@ -36,6 +39,84 @@ interface TestTechnicalCardProps {
   sessionToken: string;
   test: TestDetail;
   onUpdate?: () => void;
+}
+
+function AttachmentsBlock({
+  test,
+  sessionToken,
+}: {
+  test: TestDetail;
+  sessionToken: string;
+}) {
+  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [isUploading, setIsUploading] = React.useState(false);
+
+  const {
+    files: attachedFiles,
+    isLoading: filesLoading,
+    totalSizeBytes: existingFilesSize,
+    uploadFiles: uploadFilesToServer,
+    deleteFile: deleteAttachedFile,
+  } = useFiles({
+    entityId: test.id,
+    entityType: 'Test',
+    sessionToken,
+  });
+
+  const handleFilesSelect = React.useCallback(
+    async (files: File[]) => {
+      setPendingFiles([]);
+      setIsUploading(true);
+      try {
+        await uploadFilesToServer(files);
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [uploadFilesToServer]
+  );
+
+  return (
+    <Box>
+      <Typography
+        sx={{
+          fontSize: 18,
+          fontWeight: 700,
+          lineHeight: '25px',
+          color: 'text.primary',
+          mb: '2px',
+        }}
+      >
+        Attachments
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: 12,
+          lineHeight: '18px',
+          color: 'text.secondary',
+          display: 'block',
+          mb: 2,
+        }}
+      >
+        Images, PDFs or audio files attached to this test
+      </Typography>
+      <FileAttachmentList
+        files={attachedFiles}
+        sessionToken={sessionToken}
+        isLoading={filesLoading}
+        onDelete={deleteAttachedFile}
+      />
+      <MultiFileUpload
+        selectedFiles={pendingFiles}
+        onFilesSelect={handleFilesSelect}
+        onFileRemove={idx =>
+          setPendingFiles(prev => prev.filter((_, i) => i !== idx))
+        }
+        existingFilesSize={existingFilesSize}
+        disabled={isUploading}
+      />
+    </Box>
+  );
 }
 
 export default function TestTechnicalCard({
@@ -119,16 +200,19 @@ export default function TestTechnicalCard({
 
     return (
       <EditableSection
-        title="Prompts"
+        title="Test input"
         initialValue={initialMultiTurnDraft}
         onSave={handleMultiTurnSave}
       >
         {({ draft, setDraft, isEditing }) => (
-          <MultiTurnConfigFields
-            draft={draft}
-            setDraft={setDraft}
-            isEditing={isEditing}
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <MultiTurnConfigFields
+              draft={draft}
+              setDraft={setDraft}
+              isEditing={isEditing}
+            />
+            <AttachmentsBlock test={test} sessionToken={sessionToken} />
+          </Box>
         )}
       </EditableSection>
     );
@@ -136,7 +220,7 @@ export default function TestTechnicalCard({
 
   return (
     <EditableSection
-      title="Prompts"
+      title="Test input"
       initialValue={initialDraft}
       onSave={handleSave}
     >
@@ -240,6 +324,10 @@ export default function TestTechnicalCard({
               </Grid>
             </Grid>
           )}
+
+          <Grid size={12}>
+            <AttachmentsBlock test={test} sessionToken={sessionToken} />
+          </Grid>
         </Grid>
       )}
     </EditableSection>

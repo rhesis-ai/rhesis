@@ -6,7 +6,6 @@ including user registration and login.
 """
 
 import logging
-import os
 from typing import Optional
 
 from fastapi import HTTPException, Request, status
@@ -15,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.password_policy import validate_password
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.utils.encryption import hash_password, verify_password
 from rhesis.backend.app.utils.redact import redact_email
 
@@ -56,8 +56,7 @@ class EmailProvider(AuthProvider):
 
         Returns True by default unless explicitly disabled.
         """
-        enabled = os.getenv("AUTH_EMAIL_PASSWORD_ENABLED", "true").lower()
-        return enabled in ("true", "1", "yes")
+        return get_auth_settings().email_password_enabled
 
     @property
     def is_oauth(self) -> bool:
@@ -71,8 +70,7 @@ class EmailProvider(AuthProvider):
 
         Can be disabled for invite-only deployments.
         """
-        enabled = os.getenv("AUTH_REGISTRATION_ENABLED", "true").lower()
-        return enabled in ("true", "1", "yes")
+        return get_auth_settings().registration_enabled
 
     async def authenticate(
         self,

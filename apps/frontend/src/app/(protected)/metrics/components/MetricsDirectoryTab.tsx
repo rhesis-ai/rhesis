@@ -1,15 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import AddIcon from '@mui/icons-material/Add';
 import TablePagination from '@mui/material/TablePagination';
 import GridToolbar, {
   PrimarySegmentedPills,
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -17,9 +15,10 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
 import MetricFilterDrawer from './MetricFilterDrawer';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import MetricCard from './MetricCard';
-import MetricTypeDialog from './MetricTypeDialog';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import {
   MetricDetail,
@@ -107,13 +106,15 @@ export default function MetricsDirectoryTab({
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
-  const theme = useTheme();
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
   const [selectedMetric, setSelectedMetric] =
     React.useState<MetricDetail | null>(null);
-  const [createMetricOpen, setCreateMetricOpen] = React.useState(false);
+  const [fabAnchorEl, setFabAnchorEl] = React.useState<null | HTMLElement>(
+    null
+  );
+  const fabMenuOpen = Boolean(fabAnchorEl);
   const [deleteMetricDialogOpen, setDeleteMetricDialogOpen] =
     React.useState(false);
   const [metricToDeleteCompletely, setMetricToDeleteCompletely] =
@@ -206,8 +207,8 @@ export default function MetricsDirectoryTab({
         .map(b => b.name || '');
       const behaviorMatch =
         behaviorFilter.trim() === '' ||
-        metricBehaviorNames.some(name =>
-          name.toLowerCase().includes(behaviorFilter.toLowerCase())
+        metricBehaviorNames.some(
+          name => name.toLowerCase() === behaviorFilter.toLowerCase()
         );
 
       return (
@@ -489,11 +490,39 @@ export default function MetricsDirectoryTab({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create metric"
             aria-label="Create metric"
-            onClick={() => setCreateMetricOpen(true)}
+            onClick={e => setFabAnchorEl(e.currentTarget)}
           />
+          <Menu
+            anchorEl={fabAnchorEl}
+            open={fabMenuOpen}
+            onClose={() => setFabAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem
+              onClick={() => {
+                setFabAnchorEl(null);
+                router.push('/metrics/new?type=custom-prompt');
+              }}
+            >
+              LLM judge
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setFabAnchorEl(null);
+                window.open(
+                  'https://docs.rhesis.ai/docs/metrics/code-metrics',
+                  '_blank',
+                  'noopener,noreferrer'
+                );
+              }}
+            >
+              Code Evaluation
+            </MenuItem>
+          </Menu>
         </FabGroup>
       }
     >
@@ -503,7 +532,8 @@ export default function MetricsDirectoryTab({
         searchPlaceholder="Search metrics..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={activeAdvancedFilterCount > 0}
-        sx={directoryToolbarSx}
+        activeFilterCount={activeAdvancedFilterCount}
+        {...directoryToolbarProps}
         middleContent={
           <PrimarySegmentedPills
             mode="multi"
@@ -536,6 +566,7 @@ export default function MetricsDirectoryTab({
           type: filterOptions.type,
           scoreType: filterOptions.scoreType,
           metricScope: filterOptions.metricScope,
+          behavior: filterOptions.behavior,
         }}
         onApply={drawerFilters => {
           setFilters(prev => ({
@@ -577,58 +608,42 @@ export default function MetricsDirectoryTab({
               b => b.name || 'Unnamed Behavior'
             );
 
+            const isCustomMetric =
+              metric.backend_type?.type_value?.toLowerCase() === 'custom';
+
             return (
-              <Box
+              <MetricCard
                 key={metric.id}
-                sx={{
-                  position: 'relative',
-                  ...(assignMode && {
-                    cursor: 'pointer',
-                    transition: theme.transitions.create(
-                      ['transform', 'box-shadow'],
-                      {
-                        duration: theme.transitions.duration.short,
-                      }
-                    ),
-                    '&:hover': {
-                      transform: `translateY(-${theme.spacing(0.5)})`,
-                    },
-                    '&:active': {
-                      transform: `translateY(-${theme.spacing(0.25)})`,
-                    },
-                  }),
-                }}
+                type={
+                  isValidMetricType(metric.metric_type?.type_value)
+                    ? metric.metric_type.type_value
+                    : undefined
+                }
+                title={metric.name}
+                description={metric.description}
+                backend={metric.backend_type?.type_value}
+                metricType={metric.metric_type?.type_value}
+                scoreType={metric.score_type}
+                metricScope={metric.metric_scope}
+                usedIn={behaviorNames}
+                showUsage={true}
                 onClick={
                   assignMode
                     ? () => {
                         setSelectedMetric(metric);
                         setAssignDialogOpen(true);
                       }
+                    : isCustomMetric
+                      ? () => router.push(`/metrics/${metric.id}`)
+                      : undefined
+                }
+                onDelete={
+                  assignedBehaviors.length === 0 &&
+                  metric.backend_type?.type_value?.toLowerCase() === 'custom'
+                    ? () => handleDeleteMetric(metric.id, metric.name)
                     : undefined
                 }
-              >
-                <MetricCard
-                  type={
-                    isValidMetricType(metric.metric_type?.type_value)
-                      ? metric.metric_type.type_value
-                      : undefined
-                  }
-                  title={metric.name}
-                  description={metric.description}
-                  backend={metric.backend_type?.type_value}
-                  metricType={metric.metric_type?.type_value}
-                  scoreType={metric.score_type}
-                  metricScope={metric.metric_scope}
-                  usedIn={behaviorNames}
-                  showUsage={true}
-                  onDelete={
-                    assignedBehaviors.length === 0 &&
-                    metric.backend_type?.type_value?.toLowerCase() === 'custom'
-                      ? () => handleDeleteMetric(metric.id, metric.name)
-                      : undefined
-                  }
-                />
-              </Box>
+              />
             );
           })}
       </Box>
@@ -668,10 +683,6 @@ export default function MetricsDirectoryTab({
         excludeBehaviorIds={(selectedMetric?.behaviors || [])
           .filter(b => typeof b !== 'string' && b.id)
           .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))}
-      />
-      <MetricTypeDialog
-        open={createMetricOpen}
-        onClose={() => setCreateMetricOpen(false)}
       />
     </PageLayout>
   );

@@ -112,7 +112,8 @@ function LastTestRunCard({
 
   return (
     <Card
-      elevation={1}
+      elevation={0}
+      variant="outlined"
       sx={{
         height: '100%',
         display: 'flex',
@@ -391,7 +392,8 @@ function SinglePointChart({
 
   return (
     <Card
-      elevation={1}
+      elevation={0}
+      variant="outlined"
       sx={{
         height: '100%',
         display: 'flex',

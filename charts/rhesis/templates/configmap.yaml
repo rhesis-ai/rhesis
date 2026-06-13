@@ -9,11 +9,11 @@ data:
   # -------------------------------------------------------------------------
   # Database — host/name/user resolved from subchart or externalDatabase
   # -------------------------------------------------------------------------
-  SQLALCHEMY_DB_HOST: {{ include "rhesis.postgresql.host" . | quote }}
-  SQLALCHEMY_DB_DRIVER: {{ .Values.config.dbDriver | quote }}
-  SQLALCHEMY_DB_PORT: {{ .Values.config.dbPort | quote }}
-  SQLALCHEMY_DB_NAME: {{ .Values.config.dbName | quote }}
-  SQLALCHEMY_DB_USER: {{ .Values.config.dbUser | quote }}
+  DB_HOST: {{ include "rhesis.postgresql.host" . | quote }}
+  DB_DRIVER: {{ .Values.config.dbDriver | quote }}
+  DB_PORT: {{ .Values.config.dbPort | quote }}
+  DB_NAME: {{ .Values.config.dbName | quote }}
+  APP_DB_USER: {{ .Values.config.dbUser | quote }}
 
   # -------------------------------------------------------------------------
   # Redis / Valkey — host resolved from subchart or externalValkey
@@ -33,13 +33,14 @@ data:
   # -------------------------------------------------------------------------
   # Frontend / Auth0
   # -------------------------------------------------------------------------
-  NEXT_PUBLIC_API_BASE_URL: {{ .Values.config.nextPublicApiBaseUrl | quote }}
+  API_BASE_URL: {{ .Values.config.apiBaseUrl | quote }}
   NEXT_PUBLIC_APP_URL: {{ .Values.config.nextPublicAppUrl | quote }}
   NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
   NEXTAUTH_URL: {{ .Values.config.nextauthUrl | quote }}
   NEXT_PUBLIC_AUTH0_CLIENT_ID: {{ .Values.config.nextPublicAuth0ClientId | quote }}
   NEXT_PUBLIC_AUTH0_DOMAIN: {{ .Values.config.nextPublicAuth0Domain | quote }}
   NEXT_PUBLIC_QUICK_START: {{ .Values.config.nextPublicQuickStart | quote }}
+  NEXT_PUBLIC_SUPPORT_EMAIL: {{ .Values.config.nextPublicSupportEmail | quote }}
 
   # -------------------------------------------------------------------------
   # Backend

@@ -2,7 +2,7 @@
 
 from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.services.mcp.config import _get_mcp_client_from_params, _get_mcp_tool_config
-from rhesis.backend.app.services.mcp.endpoint_operations import extract_mcp, query_mcp, search_mcp
+from rhesis.backend.app.services.mcp.operations import extract_mcp, query_mcp, search_mcp
 from rhesis.backend.app.services.mcp.exceptions import handle_mcp_exception
 from rhesis.backend.app.services.mcp.templates import jinja_env
 from rhesis.backend.app.services.mcp.workflows import (

@@ -13,6 +13,7 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -20,6 +21,11 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
+import {
+  appendPresenceFilterItems,
+  stripPresenceFilterItems,
+} from '@/components/common/presence-filter';
+import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Box, Tooltip, Typography, Avatar, Alert, Chip } from '@mui/material';
@@ -39,7 +45,12 @@ import TestSetFilterDrawer, {
   type TestSetFilters,
   EMPTY_TEST_SET_FILTERS,
   hasActiveTestSetFilters,
+  countActiveTestSetFilters,
 } from './TestSetFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import { TEST_TYPES } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
 
@@ -58,6 +69,7 @@ interface TestSetsToolbarState {
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
@@ -67,6 +79,7 @@ const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 const PILL_TABS = [
@@ -83,6 +96,7 @@ function TestSetsUnifiedToolbar() {
     setTypeFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TestSetsToolbarContext);
 
   return (
@@ -92,6 +106,7 @@ function TestSetsUnifiedToolbar() {
       searchPlaceholder="Search test sets…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       middleContent={
         <ToolbarPillTabs
           tabs={PILL_TABS}
@@ -168,12 +183,14 @@ export default function TestSetsGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
 
   // ── Drawer / dialog state (only what stays in the grid) ─────────────────────
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] = useState<TestSetFilters>(
     EMPTY_TEST_SET_FILTERS
@@ -190,12 +207,13 @@ export default function TestSetsGrid({
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const filterString = combineTestSetFiltersToOData(filterModel);
+      const { sort_by, sort_order } = gridSortToApiParams(sortModel);
 
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc' as const,
+        sort_by,
+        sort_order,
         ...(filterString && { $filter: filterString }),
       };
 
@@ -209,7 +227,7 @@ export default function TestSetsGrid({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel, filterModel]);
+  }, [sessionToken, paginationModel, filterModel, sortModel]);
 
   useEffect(() => {
     fetchTestSets();
@@ -269,8 +287,8 @@ export default function TestSetsGrid({
   useEffect(() => {
     const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
     setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      const otherItems = stripPresenceFilterItems(
+        prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
       );
       const drawerItems: typeof prev.items = [];
       if (drawerFilters.testSetType) {
@@ -301,7 +319,14 @@ export default function TestSetsGrid({
           value: drawerFilters.tag,
         });
       }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
+      return {
+        ...prev,
+        items: appendPresenceFilterItems([...otherItems, ...drawerItems], {
+          tags: drawerFilters.tags,
+          comments: drawerFilters.comments,
+          tasks: drawerFilters.tasks,
+        }),
+      };
     });
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
@@ -317,6 +342,11 @@ export default function TestSetsGrid({
 
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
@@ -343,7 +373,10 @@ export default function TestSetsGrid({
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (selectedRows.length === 0) return;
+    const idsToDelete = pendingDeleteId
+      ? [pendingDeleteId]
+      : (selectedRows as string[]);
+    if (idsToDelete.length === 0) return;
 
     try {
       setIsDeleting(true);
@@ -351,14 +384,15 @@ export default function TestSetsGrid({
       const testSetsClient = clientFactory.getTestSetsClient();
 
       await Promise.all(
-        selectedRows.map(id => testSetsClient.deleteTestSet(id as string))
+        idsToDelete.map(id => testSetsClient.deleteTestSet(id))
       );
 
       notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}`,
+        `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'test set' : 'test sets'}`,
         { severity: 'success', autoHideDuration: 4000 }
       );
 
+      setPendingDeleteId(null);
       setSelectedRows([]);
       fetchTestSets();
       onRefresh?.();
@@ -371,11 +405,31 @@ export default function TestSetsGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [selectedRows, sessionToken, notifications, fetchTestSets, onRefresh]);
+  }, [
+    pendingDeleteId,
+    selectedRows,
+    sessionToken,
+    notifications,
+    fetchTestSets,
+    onRefresh,
+  ]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   }, []);
+
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleRowEditAction = useCallback(
+    (id: string) => {
+      router.push(`/test-sets/${id}`);
+    },
+    [router]
+  );
 
   // ── Action buttons (selection-only) ─────────────────────────────────────────
 
@@ -419,8 +473,12 @@ export default function TestSetsGrid({
     [testSets]
   );
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const columns: GridColDef[] = useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => handleRowEditAction(id),
+      onDelete: id => handleRowDeleteAction(id),
+    });
+    return [
       {
         field: 'name',
         headerName: 'Name',
@@ -519,8 +577,9 @@ export default function TestSetsGrid({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.comments ?? 0,
         renderCell: params => {
           const count = params.row.counts?.comments || 0;
           if (count === 0) return null;
@@ -538,8 +597,9 @@ export default function TestSetsGrid({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.tasks ?? 0,
         renderCell: params => {
           const count = params.row.counts?.tasks || 0;
           if (count === 0) return null;
@@ -588,13 +648,10 @@ export default function TestSetsGrid({
         width: 180,
         minWidth: 140,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: true,
         valueGetter: (_, row) =>
-          row.tags
-            ?.filter((tag: Tag) => tag?.name)
-            .map((tag: Tag) => tag.name)
-            .join(', ') ?? '',
+          row.tags?.filter((tag: Tag) => tag?.id && tag?.name).length ?? 0,
         renderCell: params => {
           const testSet = params.row;
           if (!testSet.tags || testSet.tags.length === 0) return null;
@@ -632,9 +689,9 @@ export default function TestSetsGrid({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [handleRowEditAction, handleRowDeleteAction]);
 
   return (
     <TestSetsToolbarContext.Provider
@@ -645,6 +702,7 @@ export default function TestSetsGrid({
         setTypeFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
+        activeFilterCount: countActiveTestSetFilters(drawerFilters),
       }}
     >
       {error && (
@@ -678,19 +736,19 @@ export default function TestSetsGrid({
         getRowId={row => row.id}
         showToolbar={true}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/test-sets/${row.id}`}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         serverSideFiltering={true}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         toolbarSlot={TestSetsUnifiedToolbar}
         disablePaperWrapper={true}
         persistState
@@ -701,6 +759,7 @@ export default function TestSetsGrid({
             },
           },
         }}
+        sx={rowActionsHoverSx}
       />
 
       {/* Test Run Drawer */}
@@ -719,8 +778,12 @@ export default function TestSetsGrid({
             onClose={handleDeleteCancel}
             onConfirm={handleDeleteConfirm}
             isLoading={isDeleting}
-            title="Delete Test Sets"
-            message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+            title={pendingDeleteId ? 'Delete Test Set' : 'Delete Test Sets'}
+            message={
+              pendingDeleteId
+                ? 'Are you sure you want to delete this test set? Related data will not be deleted.'
+                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+            }
             itemType="test sets"
           />
         </>
@@ -731,6 +794,7 @@ export default function TestSetsGrid({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           if (f.testSetType) setTypeFilter(f.testSetType);

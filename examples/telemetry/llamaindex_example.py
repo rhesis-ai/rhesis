@@ -33,11 +33,11 @@ from dotenv import load_dotenv
 from llama_index.core import Document, Settings, VectorStoreIndex, get_response_synthesizer
 from llama_index.core.schema import NodeWithScore
 from opentelemetry import trace
+from rhesis.telemetry.schemas import AIOperationType
 
 from rhesis.sdk import RhesisClient, observe
 from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents, create_llm_attributes
-from rhesis.telemetry.schemas import AIOperationType
+from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():
@@ -136,27 +136,32 @@ def retrieve_nodes(index: VectorStoreIndex, question: str) -> list[NodeWithScore
     nodes = retriever.retrieve(question)
     span = trace.get_current_span()
     if span.is_recording():
-        span.set_attribute(AIEvents.RETRIEVAL_QUERY, question[:500])
+        span.add_event(
+            AIEvents.RETRIEVAL_QUERY,
+            {
+                "query": question[:500],
+                AIAttributes.RETRIEVAL_QUERY_TYPE: "text",
+            },
+        )
         span.set_attribute("retrieval.node_count", len(nodes))
     return nodes
 
 
-@observe(
-    span_name=AIOperationType.LLM_INVOKE,
-    **create_llm_attributes(provider="llamaindex", model_name="synthesis"),
-)
-def synthesize_answer(question: str, nodes: list[NodeWithScore]) -> str:
+@observe(span_name=AIOperationType.LLM_INVOKE)
+def synthesize_answer(
+    question: str,
+    nodes: list[NodeWithScore],
+    llm_provider: str,
+    model_name: str,
+) -> str:
     """Generate a final answer from retrieved nodes."""
     synthesizer = get_response_synthesizer()
     response = synthesizer.synthesize(question, nodes=nodes)
     text = str(response)
     span = trace.get_current_span()
     if span.is_recording():
-        llm = Settings.llm
-        span.set_attribute(AIAttributes.MODEL_PROVIDER, type(llm).__name__)
-        model = getattr(llm, "model", None)
-        if model is not None:
-            span.set_attribute(AIAttributes.MODEL_NAME, str(model))
+        span.set_attribute(AIAttributes.MODEL_PROVIDER, llm_provider)
+        span.set_attribute(AIAttributes.MODEL_NAME, model_name)
     return text
 
 
@@ -164,7 +169,12 @@ def synthesize_answer(question: str, nodes: list[NodeWithScore]) -> str:
     span_name=AIOperationType.AGENT_INVOKE,
     **{AIAttributes.AGENT_NAME: "llamaindex_rag_pipeline"},
 )
-def run_rag_pipeline(index: VectorStoreIndex, question: str) -> str:
+def run_rag_pipeline(
+    index: VectorStoreIndex,
+    question: str,
+    llm_provider: str,
+    model_name: str,
+) -> str:
     """
     Retrieve context then synthesize an answer.
 
@@ -174,7 +184,7 @@ def run_rag_pipeline(index: VectorStoreIndex, question: str) -> str:
         └─ ai.llm.invoke (answer synthesis)
     """
     nodes = retrieve_nodes(index, question)
-    return synthesize_answer(question, nodes)
+    return synthesize_answer(question, nodes, llm_provider, model_name)
 
 
 def main() -> None:
@@ -200,7 +210,7 @@ def main() -> None:
     question = "Why is observability important for RAG applications?"
     print(f"📍 Question: {question}\n")
 
-    answer = run_rag_pipeline(index, question)
+    answer = run_rag_pipeline(index, question, llm_provider, model_name)
 
     print("\n" + "=" * 70)
     print("✅ RAG pipeline complete!")

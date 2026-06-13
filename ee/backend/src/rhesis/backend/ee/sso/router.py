@@ -11,7 +11,6 @@ Contains:
 
 import hashlib
 import logging
-import os
 import secrets
 from base64 import urlsafe_b64encode
 from typing import List, Optional
@@ -26,7 +25,10 @@ from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_frontend_settings,
+)
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -34,7 +36,7 @@ from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
 from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 from rhesis.backend.ee.sso.encryption import sso_decrypt, sso_encrypt
-from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError, is_dev_environment
+from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError
 from rhesis.backend.ee.sso.oidc import (
     OIDCProvider,
     verify_signed_state,
@@ -85,7 +87,7 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
             try:
                 config_data["client_secret"] = sso_decrypt(config_data["client_secret"])
             except Exception:
-                if is_dev_environment():
+                if get_application_settings().is_development:
                     logger.warning(
                         "SSO client_secret decryption failed for org %s; "
                         "allowing plaintext fallback in local/test",
@@ -162,12 +164,12 @@ def _get_sso_callback_url(request: Request) -> str:
     """Build the SSO callback URL."""
     from rhesis.backend.app.routers.auth import is_running_locally
 
-    rhesis_base_url = os.getenv("RHESIS_BASE_URL", "")
+    api_base_url = get_application_settings().api_base_url
 
-    if is_running_locally() and not rhesis_base_url:
+    if is_running_locally() and not api_base_url:
         base_url = str(request.base_url).rstrip("/")
-    elif rhesis_base_url:
-        base_url = rhesis_base_url.rstrip("/")
+    elif api_base_url:
+        base_url = api_base_url.rstrip("/")
     else:
         base_url = str(request.base_url).rstrip("/")
 

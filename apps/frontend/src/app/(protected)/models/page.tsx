@@ -4,12 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -19,11 +18,15 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
-import {
-  ProviderSelectionDialog,
-  ConnectionDialog,
-  ConnectedModelCard,
-} from './components';
+import { ConnectedModelCard } from './components';
+import { ModelConnectionDrawer } from './components/ModelConnectionDrawer';
+import ModelFilterDrawer, {
+  EMPTY_MODEL_FILTERS,
+  hasActiveModelFilters,
+  countActiveModelFilters,
+  type ModelFilters,
+} from './components/ModelFilterDrawer';
+import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
 import type { ValidationStatus } from './types';
 
@@ -41,11 +44,7 @@ export default function ModelsPage() {
   const [modelValidationStatus, setModelValidationStatus] = useState<
     Map<string, ValidationStatus>
   >(new Map());
-  const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
-    null
-  );
-  const [providerSelectionOpen, setProviderSelectionOpen] = useState(false);
-  const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
+  const [addModelDrawerOpen, setAddModelDrawerOpen] = useState(false);
   const [modelToEdit, setModelToEdit] = useState<Model | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
@@ -59,6 +58,10 @@ export default function ModelsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [modelTypeFilter, setModelTypeFilter] =
     useState<ModelTypeFilter>('all');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<ModelFilters>(EMPTY_MODEL_FILTERS);
+  const [statusOptions, setStatusOptions] = useState<string[]>([]);
 
   // FAB menu anchor
   const [fabAnchorEl, setFabAnchorEl] = useState<null | HTMLElement>(null);
@@ -109,6 +112,19 @@ export default function ModelsPage() {
         } catch {
           // show empty state
         }
+
+        try {
+          const statuses = await apiFactory.getStatusClient().getStatuses({
+            sort_by: 'name',
+            sort_order: 'asc',
+            entity_type: 'Model',
+          });
+          setStatusOptions(
+            filterUniqueValidOptions(statuses).map(status => status.name)
+          );
+        } catch {
+          // continue without status filter options
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to load providers'
@@ -132,19 +148,15 @@ export default function ModelsPage() {
   const handleAddLanguageModel = () => {
     handleFabMenuClose();
     setSelectedModelType('language');
-    setProviderSelectionOpen(true);
+    setModelToEdit(null);
+    setAddModelDrawerOpen(true);
   };
 
   const handleAddEmbeddingModel = () => {
     handleFabMenuClose();
     setSelectedModelType('embedding');
-    setProviderSelectionOpen(true);
-  };
-
-  const handleProviderSelect = (provider: TypeLookup) => {
-    setSelectedProvider(provider);
-    setProviderSelectionOpen(false);
-    setConnectionDialogOpen(true);
+    setModelToEdit(null);
+    setAddModelDrawerOpen(true);
   };
 
   const refreshUserSettings = async () => {
@@ -269,9 +281,8 @@ export default function ModelsPage() {
 
   const handleCardClick = (model: Model) => {
     setModelToEdit(model);
-    setSelectedProvider(model.provider_type || null);
     setSelectedModelType(model.model_type || 'language');
-    setConnectionDialogOpen(true);
+    setAddModelDrawerOpen(true);
   };
 
   const handleUpdate = async (modelId: UUID, updates: Partial<ModelCreate>) => {
@@ -342,7 +353,16 @@ export default function ModelsPage() {
       model.description?.toLowerCase().includes(q) ||
       model.model_name?.toLowerCase().includes(q);
 
-    return typeMatch && searchMatch;
+    const providerMatch =
+      drawerFilters.providers.length === 0 ||
+      (model.provider_type?.type_value &&
+        drawerFilters.providers.includes(model.provider_type.type_value));
+
+    const statusMatch =
+      drawerFilters.status === '' ||
+      model.status?.name?.toLowerCase() === drawerFilters.status.toLowerCase();
+
+    return typeMatch && searchMatch && providerMatch && statusMatch;
   });
 
   return (
@@ -353,7 +373,7 @@ export default function ModelsPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Add model"
             aria-label="Add model"
             onClick={handleFabClick}
@@ -383,7 +403,10 @@ export default function ModelsPage() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search models..."
-        sx={directoryToolbarSx}
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveModelFilters(drawerFilters)}
+        activeFilterCount={countActiveModelFilters(drawerFilters)}
+        {...directoryToolbarProps}
         middleContent={
           <ToolbarPillTabs
             tabs={typeFilterOptions}
@@ -432,28 +455,28 @@ export default function ModelsPage() {
         </Box>
       )}
 
-      <ProviderSelectionDialog
-        open={providerSelectionOpen}
-        onClose={() => setProviderSelectionOpen(false)}
-        onSelectProvider={handleProviderSelect}
-        providers={providerTypes}
-        modelType={selectedModelType}
+      <ModelFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        providerOptions={providerTypes}
+        statusOptions={statusOptions}
+        onApply={setDrawerFilters}
       />
 
-      <ConnectionDialog
-        open={connectionDialogOpen}
-        provider={selectedProvider}
-        model={modelToEdit}
-        mode={modelToEdit ? 'edit' : 'create'}
-        modelType={selectedModelType}
-        userSettings={userSettings}
+      <ModelConnectionDrawer
+        open={addModelDrawerOpen}
         onClose={() => {
-          setConnectionDialogOpen(false);
+          setAddModelDrawerOpen(false);
           setTimeout(() => {
-            setSelectedProvider(null);
             setModelToEdit(null);
           }, 200);
         }}
+        providers={providerTypes}
+        modelType={selectedModelType}
+        model={modelToEdit}
+        mode={modelToEdit ? 'edit' : 'create'}
+        userSettings={userSettings}
         onConnect={handleConnect}
         onUpdate={handleUpdate}
         onUserSettingsUpdate={refreshUserSettings}

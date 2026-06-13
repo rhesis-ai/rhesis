@@ -111,7 +111,7 @@ When you run `./rh start`, the `.env.docker.local` file is automatically created
 **Auto-Generated Keys:**
 - Database encryption key (using Python cryptography.fernet)
 - Local authentication bypass flag:
-  - `QUICK_START=true` (single source of truth — enables backend auto-login and is propagated to the frontend at container start)
+  - `QUICK_START=true` (enables backend auto-login; the frontend reads Quick Start status from the backend at runtime)
 
 **You can add (optional):**
 - Rhesis API key (for test generation)
@@ -310,7 +310,7 @@ echo "QUICK_START=true" >> .env.docker.local
 ./rh restart`}
 </CodeBlock>
 
-**Note:** The `./rh start` command automatically sets `QUICK_START=true`, which is the single source of truth — the frontend container picks up the same value at startup. If you change this after containers already exist, recreate the frontend with a local image build: `./rh restart --build` (or `./rh start --build` after `./rh delete`).
+**Note:** The `./rh start` command automatically sets `QUICK_START=true` on the backend. The frontend discovers Quick Start mode from `GET /auth/providers` (`quick_start`). If you change `QUICK_START` after containers already exist, restart the stack: `./rh restart`.
 
 ## Next Steps
 

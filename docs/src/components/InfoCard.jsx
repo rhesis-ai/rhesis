@@ -42,7 +42,7 @@ export const InfoCard = ({
   const styles = {
     card: {
       textAlign: 'center',
-      padding: '1.5rem',
+      padding: '0.875rem',
       border: '1px solid',
       borderColor: 'var(--border-color, #e5e7eb)',
       borderRadius: '0.75rem',
@@ -59,7 +59,7 @@ export const InfoCard = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      margin: '0 auto 0.75rem auto',
+      margin: '0 auto 0.5rem auto',
     },
     icon: {
       color: 'var(--accent-color, #FD6E12)',
@@ -70,7 +70,7 @@ export const InfoCard = ({
       fontWeight: '600',
       fontFamily: 'Sora, sans-serif',
       color: 'var(--text-primary, #3D3D3D)',
-      margin: '0 0 0.75rem 0',
+      margin: '0 0 0.4rem 0',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -85,7 +85,7 @@ export const InfoCard = ({
       color: 'var(--text-secondary, #6B7280)',
       lineHeight: '1.6',
       fontFamily: 'Be Vietnam Pro, sans-serif',
-      margin: hasLink ? '0 0 1rem 0' : '0',
+      margin: hasLink ? '0 0 0.6rem 0' : '0',
     },
     link: {
       color: '#2AA1CE',
@@ -129,6 +129,7 @@ export const InfoCard = ({
         rel={external ? 'noopener noreferrer' : undefined}
         style={{
           ...styles.card,
+          display: 'block',
           position: 'relative',
           textDecoration: 'none',
           color: 'inherit',

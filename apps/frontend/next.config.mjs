@@ -43,6 +43,10 @@ const nextConfig = {
   // Standalone mode for minimizing container size
   output: 'standalone',
 
+  // Isolated build dir for Playwright (E2E_NO_DOCKER) so a second dev server
+  // can run alongside the normal dev server on port 3000.
+  ...(process.env.E2E_NO_DOCKER === '1' ? { distDir: '.next-e2e' } : {}),
+
   // Compiler optimizations
   compiler: {
     // Remove console.log in production only
@@ -190,6 +194,17 @@ const nextConfig = {
         version: `dev-${Date.now()}`,
         // Shorter cache duration
         maxAge: 1000 * 60 * 5, // 5 minutes instead of default
+      };
+
+      // The filesystem cache emits "PackFileCacheStrategy: Serializing big
+      // strings" notices at webpack's infrastructure log level. They are a
+      // harmless dev-only performance hint (not an error), so raise the
+      // infrastructure log level to silence the noise while still surfacing
+      // real errors. ignoreWarnings does not apply here — these are
+      // infrastructure logs, not compilation warnings.
+      config.infrastructureLogging = {
+        ...config.infrastructureLogging,
+        level: 'error',
       };
 
       // Reduce worker threads to prevent memory issues

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.constants import TestResultStatus
-from rhesis.backend.app.database import SessionLocal, set_session_variables
+from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.celery.core import app
 
@@ -227,7 +227,7 @@ def evaluate_turn_trace_metrics(
     db: Session = SessionLocal()
 
     try:
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(db, organization_id, "", project_id)
 
         prepared = _prepare_evaluation(db, trace_id, project_id, organization_id)
         if prepared is None:
@@ -354,7 +354,7 @@ def evaluate_conversation_trace_metrics(
     db: Session = SessionLocal()
 
     try:
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(db, organization_id, "", project_id)
 
         prepared = _prepare_evaluation(db, trace_id, project_id, organization_id)
         if prepared is None:

@@ -8,8 +8,8 @@ import { TestSetsPage } from '../pages/TestSetsPage';
  * test cases appear in the grid).
  * Tagged @new-feature for separate CI execution against staging.
  */
-test.describe('Garak v0.14 — import probe dialog @new-feature', () => {
-  test('can open the Import from Garak dialog', async ({ page }) => {
+test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
+  test('can open the Import from Garak drawer', async ({ page }) => {
     const testSetsPage = new TestSetsPage(page);
     await testSetsPage.goto();
     await testSetsPage.expectLoaded();
@@ -29,23 +29,23 @@ test.describe('Garak v0.14 — import probe dialog @new-feature', () => {
 
     await garakBtn.click();
 
-    // The Garak Import Dialog should open
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
+    // The Garak Import Drawer should open (MUI Drawer does not use role="dialog")
+    const drawer = page.locator('.MuiDrawer-root .MuiDrawer-paper').last();
+    const drawerVisible = await drawer
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(true, 'Garak Import Dialog did not open — skipping');
+    if (!drawerVisible) {
+      test.skip(true, 'Garak Import Drawer did not open — skipping');
       return;
     }
 
-    await expect(dialog).toBeVisible();
+    await expect(drawer).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
   });
 
-  test('Garak dialog lists probe modules from v0.14', async ({ page }) => {
+  test('Garak drawer lists probe modules from v0.14', async ({ page }) => {
     const testSetsPage = new TestSetsPage(page);
     await testSetsPage.goto();
     await testSetsPage.expectLoaded();
@@ -64,20 +64,20 @@ test.describe('Garak v0.14 — import probe dialog @new-feature', () => {
 
     await garakBtn.click();
 
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
+    const drawer = page.locator('.MuiDrawer-root .MuiDrawer-paper').last();
+    const drawerVisible = await drawer
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(true, 'Garak Import Dialog did not open — skipping');
+    if (!drawerVisible) {
+      test.skip(true, 'Garak Import Drawer did not open — skipping');
       return;
     }
 
-    // Wait for probes to load (the dialog makes an API call to list probe modules)
+    // Wait for probes to load (the drawer makes an API call to list probe modules)
     await page.waitForLoadState('networkidle');
 
     // At least one probe/category should be listed
-    const probeItems = dialog.locator(
+    const probeItems = drawer.locator(
       '[role="checkbox"], [role="listitem"], .MuiListItem-root, [role="treeitem"]'
     );
     const probeCount = await probeItems.count();
@@ -88,7 +88,7 @@ test.describe('Garak v0.14 — import probe dialog @new-feature', () => {
       const probeCountRetry = await probeItems.count();
       expect(
         probeCountRetry,
-        'Expected at least one Garak probe to be listed in the dialog'
+        'Expected at least one Garak probe to be listed in the drawer'
       ).toBeGreaterThan(0);
     } else {
       expect(probeCount).toBeGreaterThan(0);
@@ -98,7 +98,7 @@ test.describe('Garak v0.14 — import probe dialog @new-feature', () => {
       'Internal Server Error'
     );
 
-    // Close dialog
+    // Close drawer
     await page.keyboard.press('Escape');
   });
 
@@ -128,52 +128,52 @@ test.describe('Garak v0.14 — import probe dialog @new-feature', () => {
 
     await garakBtn.click();
 
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
+    const drawer = page.locator('.MuiDrawer-root .MuiDrawer-paper').last();
+    const drawerVisible = await drawer
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(true, 'Garak dialog did not open — skipping');
+    if (!drawerVisible) {
+      test.skip(true, 'Garak drawer did not open — skipping');
       return;
     }
 
     await page.waitForLoadState('networkidle');
 
     // Select the first available probe checkbox
-    const firstProbe = dialog.locator('input[type="checkbox"]').first();
+    const firstProbe = drawer.locator('input[type="checkbox"]').first();
     const hasProbe = await firstProbe
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
     if (!hasProbe) {
       test.skip(
         true,
-        'No probe checkboxes found in dialog — skipping import test'
+        'No probe checkboxes found in drawer — skipping import test'
       );
       return;
     }
     await firstProbe.click();
 
     // Enter a name for the new test set (if a name field exists)
-    const nameInput = dialog.getByRole('textbox', { name: /name/i }).first();
+    const nameInput = drawer.getByRole('textbox', { name: /name/i }).first();
     if (await nameInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await nameInput.fill(UNIQUE_SET_NAME);
     }
 
     // Click Import / Confirm
-    const importBtn = dialog
+    const importBtn = drawer
       .getByRole('button', { name: /import|create|confirm/i })
       .first();
     const hasImport = await importBtn
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (!hasImport) {
-      test.skip(true, 'Import button not found in Garak dialog — skipping');
+      test.skip(true, 'Import button not found in Garak drawer — skipping');
       return;
     }
     await importBtn.click();
 
-    // Wait for dialog to close and grid to update
-    await dialog.waitFor({ state: 'hidden', timeout: 30_000 });
+    // Wait for drawer to close and grid to update
+    await drawer.waitFor({ state: 'hidden', timeout: 30_000 });
     await page.waitForLoadState('networkidle');
 
     // A new test set should be visible in the grid

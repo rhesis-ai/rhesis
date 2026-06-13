@@ -4,10 +4,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationMixin
+from .mixins import OrganizationMixin, ProjectMixin
 
 
-class TestConfiguration(Base, OrganizationMixin):
+class TestConfiguration(Base, ProjectMixin, OrganizationMixin):
     __tablename__ = "test_configuration"
     endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False, index=True)
     category_id = Column(GUID(), ForeignKey("category.id"))

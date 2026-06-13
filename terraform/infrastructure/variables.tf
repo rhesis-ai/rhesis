@@ -55,8 +55,11 @@ variable "wireguard_peers" {
 # Names must match STORAGE_SERVICE_URI and CNPG backup settings in GitHub/Secret Manager.
 variable "gcs" {
   description = <<-EOT
-    GCS file-storage buckets for each environment. CNPG backup buckets are set only for stg and prd;
-    dev does not get a backup bucket (Bitnami PostgreSQL in dev, CNPG in stg/prd).
+    GCS file-storage buckets for each environment when applying the root stack (single project).
+    Per-env applies (terraform/infrastructure/envs/{dev,stg,prd}) create buckets in each env's
+    GCP project instead — see file_storage_bucket_name in each env's variables.tf.
+    CNPG backup buckets are set only for stg and prd; dev does not get a backup bucket
+    (Bitnami PostgreSQL in dev, CNPG in stg/prd).
   EOT
   type = object({
     dev = object({

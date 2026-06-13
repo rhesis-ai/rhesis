@@ -10,10 +10,7 @@ import jwt
 from fastapi import HTTPException, status
 from jwt import PyJWTError as JWTError
 
-from rhesis.backend.app.auth.constants import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    ALGORITHM,
-)
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.redact import redact_email
 
@@ -34,14 +31,24 @@ RHESIS_TOKEN_AUDIENCE = os.getenv("RHESIS_TOKEN_AUDIENCE", "rhesis-api")
 
 
 def get_secret_key() -> str:
-    """Get JWT secret key from environment"""
-    secret_key = os.getenv("JWT_SECRET_KEY")
+    """Get JWT secret key from application settings."""
+    secret_key = get_auth_settings().jwt_secret_key
     if not secret_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="JWT_SECRET_KEY not configured",
         )
     return secret_key
+
+
+def get_jwt_algorithm() -> str:
+    """Get JWT signing algorithm from application settings."""
+    return get_auth_settings().jwt_algorithm
+
+
+def get_access_token_expire_minutes() -> int:
+    """Get session access token lifetime from application settings."""
+    return get_auth_settings().jwt_access_token_expire_minutes
 
 
 def create_session_token(
@@ -101,7 +108,7 @@ def create_session_token(
         # programmer error here instead of at the first request.
         raise ValueError("epoch is required whenever azp is set")
 
-    expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expires_delta = timedelta(minutes=get_access_token_expire_minutes())
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
 
@@ -146,7 +153,7 @@ def create_session_token(
         # alone would produce a token that looks bound but isn't.
         raise ValueError("scope/jti/epoch require azp to be set")
 
-    encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=get_jwt_algorithm())
     return encoded_jwt
 
 
@@ -175,10 +182,10 @@ def create_service_delegation_token(
         },
     }
 
-    return jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
+    return jwt.encode(to_encode, get_secret_key(), algorithm=get_jwt_algorithm())
 
 
-def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:
+def verify_jwt_token(token: str, secret_key: str, algorithm: str | None = None) -> Dict[str, Any]:
     """Verify and decode a Rhesis-minted JWT.
 
     Returns the decoded payload on success; raises :class:`JWTError`
@@ -186,7 +193,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
     every failure mode.
 
     The ``algorithms=[algorithm]`` allowlist is explicit and pinned to
-    :data:`ALGORITHM` (HS256). Letting PyJWT derive the algorithm from
+    the configured JWT algorithm. Letting PyJWT derive the algorithm from
     the token header would re-introduce the canonical "alg=none" /
     HS-vs-RS confusion class; the allowlist guarantees we only accept
     HS256-signed tokens with our own secret. This is regression-tested
@@ -212,6 +219,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
     UI / SSO tokens carry no ``azp`` and skip all three checks, which
     keeps their payload byte-identical to the pre-extension shape.
     """
+    algorithm = algorithm or get_jwt_algorithm()
     try:
         # PyJWT's built-in ``verify_aud`` requires us to pass the
         # expected audience; we verify it manually below only when
@@ -331,7 +339,7 @@ def _create_email_flow_token(
     if extra_claims:
         payload.update(extra_claims)
 
-    return jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
+    return jwt.encode(payload, get_secret_key(), algorithm=get_jwt_algorithm())
 
 
 def create_email_verification_token(user_id: str, email: str) -> str:
@@ -384,7 +392,7 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
         payload = jwt.decode(
             token,
             get_secret_key(),
-            algorithms=[ALGORITHM],
+            algorithms=[get_jwt_algorithm()],
             options={
                 "verify_exp": True,
                 "verify_iat": True,
@@ -434,7 +442,7 @@ def create_auth_code(
     }
     if refresh_token:
         payload["refresh_token"] = refresh_token
-    return jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
+    return jwt.encode(payload, get_secret_key(), algorithm=get_jwt_algorithm())
 
 
 async def verify_auth_code(code: str) -> Dict[str, str]:
@@ -447,7 +455,7 @@ async def verify_auth_code(code: str) -> Dict[str, str]:
     Raises HTTPException(400) if the code is invalid, expired, or already used.
     """
     try:
-        payload = jwt.decode(code, get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(code, get_secret_key(), algorithms=[get_jwt_algorithm()])
     except JWTError as e:
         logger.warning(f"Auth code verification failed: {e}")
         raise HTTPException(
