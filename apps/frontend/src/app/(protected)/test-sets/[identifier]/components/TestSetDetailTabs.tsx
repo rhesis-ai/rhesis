@@ -3,44 +3,21 @@
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
 import DetailTabNav from '@/components/common/DetailTabNav';
-import { useRouter, useSearchParams } from 'next/navigation';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
+import { useDetailTabNav } from '@/hooks/useDetailTabNav';
+import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
 import TestSetLinkedTestsSection from './TestSetLinkedTestsSection';
-import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 
 const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
-type TabKey = (typeof TAB_KEYS)[number];
-
-function tabIndexFromKey(key: string | null): number {
-  const idx = TAB_KEYS.indexOf(key as TabKey);
-  return idx >= 0 ? idx : 0;
-}
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`test-set-detail-tabpanel-${index}`}
-      aria-labelledby={`test-set-detail-tab-${index}`}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
 
 interface TestSetDetailTabsProps {
   testSet: TestSet;
   testCount: number;
+  isGenerating?: boolean;
   sessionToken: string;
   currentUserId: string;
   currentUserName: string;
@@ -50,25 +27,14 @@ interface TestSetDetailTabsProps {
 export default function TestSetDetailTabs({
   testSet,
   testCount,
+  isGenerating = false,
   sessionToken,
   currentUserId,
   currentUserName,
   currentUserPicture,
 }: TestSetDetailTabsProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const activeTab = tabIndexFromKey(searchParams.get('tab'));
-
-  const handleTabChange = useCallback(
-    (newValue: number) => {
-      const key = TAB_KEYS[newValue];
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', key);
-      router.push(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
@@ -76,7 +42,7 @@ export default function TestSetDetailTabs({
       key === 'basic'
         ? 'Basic Information'
         : key === 'linked'
-          ? 'Linked entities'
+          ? 'Tests'
           : 'Tasks',
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,
@@ -95,8 +61,7 @@ export default function TestSetDetailTabs({
         aria-label="Test set detail tabs"
       />
 
-      {/* Basic Information */}
-      <TabPanel value={activeTab} index={0}>
+      <DetailTabPanel value={activeTab} index={0} prefix="test-set-detail">
         <TestSetDetailsCard
           sessionToken={sessionToken}
           testSet={testSet}
@@ -107,27 +72,19 @@ export default function TestSetDetailTabs({
           testSet={testSet}
           onUpdate={handleUpdate}
         />
-      </TabPanel>
+      </DetailTabPanel>
 
-      {/* Linked entities */}
-      <TabPanel value={activeTab} index={1}>
+      <DetailTabPanel value={activeTab} index={1} prefix="test-set-detail">
         <TestSetLinkedTestsSection
           testSetId={testSet.id as string}
           sessionToken={sessionToken}
           testSetType={testSet.test_set_type?.type_value}
           testCount={testCount}
+          isGenerating={isGenerating}
         />
-        <Box sx={{ mt: 3 }}>
-          <EmbeddingTestsPanel
-            testSetId={testSet.id as string}
-            sessionToken={sessionToken}
-            testSetType={testSet.test_set_type?.type_value}
-          />
-        </Box>
-      </TabPanel>
+      </DetailTabPanel>
 
-      {/* Tasks */}
-      <TabPanel value={activeTab} index={2}>
+      <DetailTabPanel value={activeTab} index={2} prefix="test-set-detail">
         <TasksAndCommentsWrapper
           entityType="TestSet"
           entityId={testSet.id as string}
@@ -136,7 +93,7 @@ export default function TestSetDetailTabs({
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}
         />
-      </TabPanel>
+      </DetailTabPanel>
     </Box>
   );
 }

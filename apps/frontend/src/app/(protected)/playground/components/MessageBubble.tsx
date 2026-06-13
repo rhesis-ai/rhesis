@@ -22,6 +22,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface MessageBubbleProps {
   /** The chat message to display */
@@ -35,8 +36,9 @@ interface MessageBubbleProps {
 /**
  * MessageBubble Component
  *
- * Displays a single chat message in a bubble format.
- * User messages appear on the right, assistant messages on the left.
+ * User messages are left-aligned with a teal left-border accent.
+ * Assistant messages are right-aligned with a neutral right-border accent,
+ * mirroring the Penelope/Target layout used in ConversationHistory.
  */
 export default function MessageBubble({
   message,
@@ -59,12 +61,8 @@ export default function MessageBubble({
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const handleDownloadFile = (
     filename: string,
@@ -82,18 +80,19 @@ export default function MessageBubble({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: isUser ? 'flex-end' : 'flex-start',
-        mb: 2,
+        // user → left edge; assistant → right edge
+        alignItems: isUser ? 'flex-start' : 'flex-end',
+        mb: 2.5,
       }}
     >
-      {/* Message Content */}
+      {/* Row: avatar + card (reversed for assistant so avatar stays outside) */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: 1,
-          maxWidth: '80%',
-          flexDirection: isUser ? 'row-reverse' : 'row',
+          flexDirection: isUser ? 'row' : 'row-reverse',
+          gap: 1.5,
+          maxWidth: '85%',
         }}
       >
         {/* Avatar */}
@@ -109,13 +108,14 @@ export default function MessageBubble({
               ? 'primary.main'
               : message.isError
                 ? 'error.light'
-                : 'action.hover',
+                : theme => theme.palette.greyscale.surface2,
             color: isUser
               ? 'primary.contrastText'
               : message.isError
                 ? 'error.contrastText'
-                : 'text.secondary',
+                : theme => theme.palette.greyscale.body,
             flexShrink: 0,
+            mt: 0.25,
           }}
         >
           {isUser ? (
@@ -127,7 +127,7 @@ export default function MessageBubble({
           )}
         </Box>
 
-        {/* Bubble */}
+        {/* Card — user gets teal left accent, assistant gets neutral right accent */}
         <Tooltip
           title={hasTrace ? 'Click to view trace details' : ''}
           placement="top"
@@ -142,19 +142,25 @@ export default function MessageBubble({
             }
             sx={{
               p: 2,
-              borderRadius: theme => theme.shape.borderRadius * 0.5,
-              bgcolor: isUser
-                ? 'primary.main'
-                : message.isError
-                  ? 'error.light'
-                  : 'action.hover',
-              color: isUser
-                ? 'primary.contrastText'
-                : message.isError
-                  ? 'error.contrastText'
-                  : 'text.primary',
-              borderTopRightRadius: isUser ? 0 : 2,
-              borderTopLeftRadius: isUser ? 2 : 0,
+              borderRadius: BORDER_RADIUS.sm,
+              bgcolor: message.isError
+                ? 'error.light'
+                : isUser
+                  ? 'background.paper'
+                  : theme => theme.palette.greyscale.surface1,
+              color: message.isError
+                ? 'error.contrastText'
+                : theme => theme.palette.greyscale.body,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
+              ...(isUser
+                ? {
+                    borderLeft: theme =>
+                      `3px solid ${message.isError ? theme.palette.error.main : theme.palette.primary.main}`,
+                  }
+                : {
+                    borderRight: theme =>
+                      `3px solid ${message.isError ? theme.palette.error.main : theme.palette.greyscale.border}`,
+                  }),
               ...(hasTrace && {
                 cursor: 'pointer',
                 transition: theme =>
@@ -162,111 +168,29 @@ export default function MessageBubble({
                     duration: theme.transitions.duration.short,
                   }),
                 '&:hover': {
-                  bgcolor: 'action.selected',
+                  bgcolor: theme => theme.palette.greyscale.surface2,
                   boxShadow: 1,
                 },
               }),
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                {isUser ? (
-                  // User messages: plain text with pre-wrap
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {message.content}
-                  </Typography>
-                ) : (
-                  // Assistant messages: render markdown with same variant as user text
-                  <MarkdownContent content={message.content} variant="body2" />
-                )}
-              </Box>
-
-              {/* Action icons */}
-              <Box
+            {/* Message text */}
+            {isUser ? (
+              <Typography
+                variant="body2"
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  flexShrink: 0,
-                  ml: 1,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  color: theme => theme.palette.greyscale.body,
                 }}
               >
-                {/* Create single-turn test button (user messages only) */}
-                {isUser && (
-                  <Tooltip title="Create single-turn test from this message">
-                    <IconButton
-                      size="small"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onCreateSingleTurnTest?.(message.id);
-                      }}
-                      sx={{
-                        p: 0.5,
-                        color: 'primary.contrastText',
-                        opacity: 0.7,
-                        '&:hover': {
-                          opacity: 1,
-                          bgcolor: 'primary.dark',
-                        },
-                      }}
-                    >
-                      <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
+                {message.content}
+              </Typography>
+            ) : (
+              <MarkdownContent content={message.content} variant="body2" />
+            )}
 
-                {/* Copy button (assistant messages only) */}
-                {!isUser && (
-                  <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
-                    <IconButton
-                      size="small"
-                      onClick={handleCopy}
-                      sx={{
-                        p: 0.5,
-                        color: 'action.active',
-                        opacity: 0.7,
-                        '&:hover': {
-                          opacity: 1,
-                          bgcolor: 'action.hover',
-                        },
-                      }}
-                    >
-                      {copied ? (
-                        <CheckIcon sx={{ fontSize: 16 }} />
-                      ) : (
-                        <ContentCopyIcon sx={{ fontSize: 16 }} />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                )}
-
-                {/* Trace Icon indicator (for assistant messages with traces) */}
-                {hasTrace && (
-                  <Tooltip title="View trace">
-                    <TimelineIcon
-                      sx={{
-                        fontSize: 18,
-                        color: 'action.active',
-                      }}
-                    />
-                  </Tooltip>
-                )}
-              </Box>
-            </Box>
-
-            {/* User message: show attached file names (clickable for download) */}
+            {/* User: attached file chips */}
             {isUser && message.files && message.files.length > 0 && (
               <Box
                 sx={{
@@ -292,20 +216,12 @@ export default function MessageBubble({
                         file.data
                       );
                     }}
-                    sx={{
-                      color: 'primary.contrastText',
-                      borderColor: 'primary.contrastText',
-                      '& .MuiChip-icon': {
-                        color: 'primary.contrastText',
-                      },
-                      opacity: 0.85,
-                    }}
                   />
                 ))}
               </Box>
             )}
 
-            {/* Assistant message: show output files */}
+            {/* Assistant: output files */}
             {!isUser &&
               message.outputFiles &&
               message.outputFiles.length > 0 && (
@@ -343,7 +259,9 @@ export default function MessageBubble({
                         </Tooltip>
                         <Typography
                           variant="caption"
-                          color="text.secondary"
+                          sx={{
+                            color: theme => theme.palette.greyscale.subtitle,
+                          }}
                           display="block"
                         >
                           {file.filename}
@@ -371,17 +289,87 @@ export default function MessageBubble({
                   )}
                 </Box>
               )}
+
+            {/* Action icons — bottom-right of card */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                gap: 0.5,
+                mt: 1,
+              }}
+            >
+              {/* Create single-turn test (user messages) */}
+              {isUser && (
+                <Tooltip title="Create single-turn test from this message">
+                  <IconButton
+                    size="small"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onCreateSingleTurnTest?.(message.id);
+                    }}
+                    sx={{
+                      p: 0.5,
+                      color: theme => theme.palette.greyscale.label,
+                      '&:hover': {
+                        color: 'primary.main',
+                        bgcolor: theme => theme.palette.background.light1,
+                      },
+                    }}
+                  >
+                    <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {/* Copy (assistant messages) */}
+              {!isUser && !message.isError && (
+                <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
+                  <IconButton
+                    size="small"
+                    onClick={handleCopy}
+                    sx={{
+                      p: 0.5,
+                      color: theme => theme.palette.greyscale.label,
+                      '&:hover': {
+                        color: 'primary.main',
+                        bgcolor: theme => theme.palette.greyscale.surface2,
+                      },
+                    }}
+                  >
+                    {copied ? (
+                      <CheckIcon sx={{ fontSize: 16 }} />
+                    ) : (
+                      <ContentCopyIcon sx={{ fontSize: 16 }} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {/* Trace link (assistant messages with trace) */}
+              {hasTrace && (
+                <Tooltip title="View trace">
+                  <TimelineIcon
+                    sx={{
+                      fontSize: 18,
+                      color: theme => theme.palette.greyscale.label,
+                    }}
+                  />
+                </Tooltip>
+              )}
+            </Box>
           </Paper>
         </Tooltip>
       </Box>
 
-      {/* Timestamp */}
+      {/* Timestamp — stays under the card on the correct side */}
       <Typography
         variant="caption"
-        color="text.disabled"
         sx={{
           mt: 0.5,
-          mx: 5,
+          ...(isUser ? { ml: 5.5 } : { mr: 5.5 }),
+          color: theme => theme.palette.greyscale.subtitle,
         }}
       >
         {formatTime(message.timestamp)}
@@ -391,35 +379,36 @@ export default function MessageBubble({
 }
 
 /**
- * Loading skeleton for message bubble.
+ * Loading skeleton for the assistant's pending response (right-aligned).
  */
 export function MessageBubbleSkeleton() {
   return (
     <Box
       sx={{
         display: 'flex',
+        justifyContent: 'flex-end',
         alignItems: 'flex-start',
-        gap: 1,
-        mb: 2,
+        gap: 1.5,
+        mb: 2.5,
       }}
     >
-      <Skeleton
-        variant="circular"
-        sx={{
-          width: theme => theme.spacing(4),
-          height: theme => theme.spacing(4),
-        }}
-      />
       <Box sx={{ flex: 1, maxWidth: '60%' }}>
         <Skeleton
           variant="rounded"
           sx={{
             height: theme => theme.spacing(7.5),
-            borderRadius: theme => theme.shape.borderRadius * 0.5,
-            borderTopLeftRadius: 0,
+            borderRadius: BORDER_RADIUS.sm,
           }}
         />
       </Box>
+      <Skeleton
+        variant="circular"
+        sx={{
+          width: theme => theme.spacing(4),
+          height: theme => theme.spacing(4),
+          flexShrink: 0,
+        }}
+      />
     </Box>
   );
 }

@@ -80,6 +80,7 @@ from .parameters import (
     validate_values_against_schema,
 )
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
+from .project_membership import ProjectMember, ProjectMemberCreate, ProjectMemberUser
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
 from .prompt_template import (
     PromptTemplate,
@@ -346,6 +347,9 @@ __all__ = [
     "ProjectBase",
     "ProjectCreate",
     "ProjectUpdate",
+    "ProjectMember",
+    "ProjectMemberCreate",
+    "ProjectMemberUser",
     # Parameter management
     "ParameterType",
     "ParameterValue",

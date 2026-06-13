@@ -1,4 +1,4 @@
-"""Services: document extraction and MCP. Heavy modules load on first access."""
+"""Services: document extraction and related utilities. Heavy modules load on first access."""
 
 from __future__ import annotations
 
@@ -7,16 +7,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from rhesis.sdk.services.extractor import DocumentExtractor
-    from rhesis.sdk.services.mcp.agent import MCPAgent
-    from rhesis.sdk.services.mcp.client import MCPClient, MCPClientFactory
-    from rhesis.sdk.services.mcp.executor import ToolExecutor
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "DocumentExtractor": ("rhesis.sdk.services.extractor", "DocumentExtractor"),
-    "MCPAgent": ("rhesis.sdk.services.mcp.agent", "MCPAgent"),
-    "MCPClient": ("rhesis.sdk.services.mcp.client", "MCPClient"),
-    "MCPClientFactory": ("rhesis.sdk.services.mcp.client", "MCPClientFactory"),
-    "ToolExecutor": ("rhesis.sdk.services.mcp.executor", "ToolExecutor"),
 }
 
 
@@ -35,8 +28,4 @@ def __dir__() -> list[str]:
 
 __all__ = [
     "DocumentExtractor",
-    "MCPAgent",
-    "MCPClient",
-    "MCPClientFactory",
-    "ToolExecutor",
 ]

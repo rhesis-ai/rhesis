@@ -32,7 +32,7 @@ test.describe('Traces @sanity', () => {
     await page.goto('/traces');
     await page.waitForLoadState('networkidle');
 
-    const emptyState = page.getByText(/no traces found/i);
+    const emptyState = page.getByText(/no traces (found|yet)/i);
     const traceTable = page.locator('table, [role="grid"]');
     const authRequired = page.getByText(/authentication required/i);
 

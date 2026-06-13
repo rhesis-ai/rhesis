@@ -246,7 +246,7 @@ class TestTaskTransactionManagement:
         # Create a mock task with tenant context
         class MockTask(BaseTask):
             def get_tenant_context(self):
-                return test_org_id, authenticated_user_id
+                return test_org_id, authenticated_user_id, None
 
         mock_task = MockTask()
 
@@ -283,7 +283,7 @@ class TestTaskTransactionManagement:
 
         class MockTask(BaseTask):
             def get_tenant_context(self):
-                return test_org_id, authenticated_user_id
+                return test_org_id, authenticated_user_id, None
 
         mock_task = MockTask()
 

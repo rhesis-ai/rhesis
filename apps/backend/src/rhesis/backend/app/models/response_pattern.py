@@ -7,10 +7,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class ResponsePattern(Base, OrganizationAndUserMixin):
+class ResponsePattern(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "response_pattern"
     text = Column(Text, nullable=False)
     response_pattern_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

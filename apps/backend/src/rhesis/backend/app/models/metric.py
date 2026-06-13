@@ -11,6 +11,7 @@ from .mixins import (
     CommentsMixin,
     CountsMixin,
     OrganizationMixin,
+    ProjectMixin,
     TagsMixin,
     TasksMixin,
     UserOwnedMixin,
@@ -30,6 +31,7 @@ behavior_metric_association = Table(
 class Metric(
     Base,
     ActivityTrackableMixin,
+    ProjectMixin,
     TagsMixin,
     UserOwnedMixin,
     OrganizationMixin,

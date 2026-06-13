@@ -49,12 +49,16 @@ class TestStorageServiceInitialization(StorageServiceTestMixin, BaseStorageServi
         """Test initialization without GCS configuration (local storage)."""
         with patch.dict(
             os.environ,
-            {"BACKEND_ENV": "local", "LOCAL_STORAGE_PATH": "/tmp/test-storage"},
+            {
+                "BACKEND_ENV": "local",
+                "LOCAL_STORAGE_PATH": "/tmp/test-storage",
+                "STORAGE_SERVICE_URI": "file:///tmp/test-storage",
+            },
             clear=True,
         ):
             storage_service = StorageService()
 
-            assert storage_service.storage_uri is None
+            assert storage_service.storage_uri == "file:///tmp/test-storage"
             assert storage_service.service_account_key is None
             assert storage_service.storage_path == "/tmp/test-storage"
             assert storage_service.use_cloud_storage is False
@@ -284,7 +288,11 @@ class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTes
         """Test file path generation with special characters."""
         with patch.dict(
             os.environ,
-            {"BACKEND_ENV": "local", "LOCAL_STORAGE_PATH": "/tmp/test"},
+            {
+                "BACKEND_ENV": "local",
+                "LOCAL_STORAGE_PATH": "/tmp/test",
+                "STORAGE_SERVICE_URI": "file:///tmp/test",
+            },
             clear=True,
         ):
             storage_service = StorageService()
@@ -305,7 +313,11 @@ class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTes
         """Test file path generation with unicode characters."""
         with patch.dict(
             os.environ,
-            {"BACKEND_ENV": "local", "LOCAL_STORAGE_PATH": "/tmp/test"},
+            {
+                "BACKEND_ENV": "local",
+                "LOCAL_STORAGE_PATH": "/tmp/test",
+                "STORAGE_SERVICE_URI": "file:///tmp/test",
+            },
             clear=True,
         ):
             storage_service = StorageService()
@@ -326,7 +338,11 @@ class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTes
         """Test file path generation with very long names."""
         with patch.dict(
             os.environ,
-            {"BACKEND_ENV": "local", "LOCAL_STORAGE_PATH": "/tmp/test"},
+            {
+                "BACKEND_ENV": "local",
+                "LOCAL_STORAGE_PATH": "/tmp/test",
+                "STORAGE_SERVICE_URI": "file:///tmp/test",
+            },
             clear=True,
         ):
             storage_service = StorageService()

@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-05-15T15:17:48.752252Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6501,7 +6501,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.8.0"
+version = "0.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6548,6 +6548,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "redis" },
     { name = "rhesis" },
+    { name = "sendgrid" },
     { name = "slowapi" },
     { name = "sqlalchemy" },
     { name = "tenacity" },
@@ -6657,6 +6658,7 @@ requires-dist = [
     { name = "rhesis-backend-ee", marker = "extra == 'ee'", editable = "../../ee/backend" },
     { name = "rhesis-penelope", marker = "extra == 'all'", editable = "../../penelope" },
     { name = "rhesis-sdk", marker = "extra == 'all'", editable = "../../sdk" },
+    { name = "sendgrid", specifier = ">=6.12.5" },
     { name = "sendgrid", marker = "extra == 'all'", specifier = ">=6.12.5" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "sqlalchemy" },
@@ -6753,7 +6755,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.8.0"
+version = "0.9.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

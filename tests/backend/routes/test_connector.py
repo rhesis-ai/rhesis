@@ -15,6 +15,13 @@ import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
+# A valid, stable project UUID used across trigger tests.
+_TEST_PROJECT_ID = str(uuid.uuid4())
+
+# Path to the membership guard so tests can bypass it when they are
+# exercising connection-manager behaviour rather than authorization.
+_MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_membership"
+
 
 @pytest.mark.integration
 class TestConnectorWebSocket:
@@ -41,7 +48,8 @@ class TestConnectorWebSocket:
             mock_user.id = uuid.uuid4()
             mock_user.organization_id = uuid.uuid4()
             mock_user.email = "test@example.com"
-            mock_auth.return_value = mock_user
+            # authenticate_websocket now returns (user, token_project_id)
+            mock_auth.return_value = (mock_user, None)
             yield mock_auth
 
     @pytest.fixture
@@ -75,14 +83,17 @@ class TestConnectorHTTPEndpoints:
 
     def test_trigger_test_success(self, authenticated_client: TestClient):
         """Test successful test trigger"""
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
-            mock_mgr.is_connected = AsyncMock(return_value=True)
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
+            mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=True)
 
             response = authenticated_client.post(
                 "/connector/trigger",
                 json={
-                    "project_id": "test-project",
+                    "project_id": _TEST_PROJECT_ID,
                     "environment": "development",
                     "function_name": "test_func",
                     "inputs": {"param": "value"},
@@ -98,13 +109,16 @@ class TestConnectorHTTPEndpoints:
 
     def test_trigger_test_not_connected(self, authenticated_client: TestClient):
         """Test test trigger when project not connected"""
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
-            mock_mgr.is_connected = AsyncMock(return_value=False)
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
+            mock_mgr.has_local_route = Mock(return_value=False)
 
             response = authenticated_client.post(
                 "/connector/trigger",
                 json={
-                    "project_id": "not-connected",
+                    "project_id": _TEST_PROJECT_ID,
                     "environment": "development",
                     "function_name": "test_func",
                     "inputs": {},
@@ -117,14 +131,17 @@ class TestConnectorHTTPEndpoints:
 
     def test_trigger_test_send_failure(self, authenticated_client: TestClient):
         """Test test trigger when sending fails"""
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
-            mock_mgr.is_connected = AsyncMock(return_value=True)
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
+            mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=False)
 
             response = authenticated_client.post(
                 "/connector/trigger",
                 json={
-                    "project_id": "test-project",
+                    "project_id": _TEST_PROJECT_ID,
                     "environment": "development",
                     "function_name": "test_func",
                     "inputs": {},
@@ -134,6 +151,40 @@ class TestConnectorHTTPEndpoints:
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
             data = response.json()
             assert "failed" in data["detail"].lower()
+
+    def test_trigger_test_project_not_a_member(self, authenticated_client: TestClient):
+        """Test trigger when the user is not a member of the requested project.
+
+        The authenticated test user has no membership for this random project,
+        so the membership guard denies access with 403 (matching the project
+        isolation model used elsewhere).
+        """
+        response = authenticated_client.post(
+            "/connector/trigger",
+            json={
+                "project_id": _TEST_PROJECT_ID,
+                "environment": "development",
+                "function_name": "test_func",
+                "inputs": {},
+            },
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "not a member" in response.json()["detail"].lower()
+
+    def test_trigger_test_invalid_project_id(self, authenticated_client: TestClient):
+        """Test trigger with a non-UUID project_id returns 400"""
+        response = authenticated_client.post(
+            "/connector/trigger",
+            json={
+                "project_id": "not-a-uuid",
+                "environment": "development",
+                "function_name": "test_func",
+                "inputs": {},
+            },
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_get_status_success(self, authenticated_client: TestClient):
         """Test getting connection status"""
@@ -153,7 +204,10 @@ class TestConnectorHTTPEndpoints:
             ],
         )
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get(
@@ -179,7 +233,10 @@ class TestConnectorHTTPEndpoints:
             functions=[],
         )
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get("/connector/status/test-project")
@@ -202,7 +259,8 @@ class TestConnectorHTTPEndpoints:
             "timestamp": 1704067200.0,  # Unix timestamp
         }
 
-        response = authenticated_client.post("/connector/trace", json=trace_data)
+        with patch(_MEMBERSHIP_GUARD):
+            response = authenticated_client.post("/connector/trace", json=trace_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -222,7 +280,8 @@ class TestConnectorHTTPEndpoints:
             "timestamp": 1704067200.0,  # Unix timestamp
         }
 
-        response = authenticated_client.post("/connector/trace", json=trace_data)
+        with patch(_MEMBERSHIP_GUARD):
+            response = authenticated_client.post("/connector/trace", json=trace_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -242,7 +301,8 @@ class TestConnectorHTTPEndpoints:
             "timestamp": 1704067200.0,  # Unix timestamp
         }
 
-        response = authenticated_client.post("/connector/trace", json=trace_data)
+        with patch(_MEMBERSHIP_GUARD):
+            response = authenticated_client.post("/connector/trace", json=trace_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -257,12 +317,15 @@ class TestConnectorIntegration:
         """Test complete flow: check status, trigger test, check status again"""
         from rhesis.backend.app.services.connector.schemas import ConnectionStatus
 
-        project_id = "integration-test-project"
+        project_id = _TEST_PROJECT_ID
         environment = "development"
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             # Initially not connected
-            mock_mgr.is_connected = AsyncMock(return_value=False)
+            mock_mgr.has_local_route = Mock(return_value=False)
             mock_mgr.get_connection_status = Mock(
                 return_value=ConnectionStatus(
                     project_id=project_id,
@@ -279,7 +342,7 @@ class TestConnectorIntegration:
             assert response.status_code == status.HTTP_200_OK
             assert response.json()["connected"] is False
 
-            # Try to trigger test (should fail - not connected)
+            # Try to trigger test (should fail - project found but not connected)
             response = authenticated_client.post(
                 "/connector/trigger",
                 json={
@@ -292,7 +355,7 @@ class TestConnectorIntegration:
             assert response.status_code == status.HTTP_404_NOT_FOUND
 
             # Simulate connection
-            mock_mgr.is_connected = AsyncMock(return_value=True)
+            mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.get_connection_status = Mock(
                 return_value=ConnectionStatus(
                     project_id=project_id,
@@ -333,7 +396,7 @@ class TestConnectorEdgeCases:
         response = authenticated_client.post(
             "/connector/trigger",
             json={
-                "project_id": "test-project",
+                "project_id": _TEST_PROJECT_ID,
                 # Missing environment, function_name, inputs
             },
         )
@@ -363,7 +426,10 @@ class TestConnectorEdgeCases:
             functions=[],
         )
 
-        with patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr:
+        with (
+            patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
+            patch(_MEMBERSHIP_GUARD),
+        ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get("/connector/status/nonexistent")

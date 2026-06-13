@@ -9,11 +9,10 @@ import {
   EndpointEditData,
 } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { createEndpoint, invokeEndpoint } from '@/actions/endpoints';
+import { createEndpoint } from '@/actions/endpoints';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { DEFAULT_TEST_INPUT } from './endpoint-detail-shared';
 import { patchEndpointFields } from './endpointPatch';
 
 export function useEndpointDetail(initialEndpoint: Endpoint) {
@@ -24,9 +23,6 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
 
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
   const [isDuplicating, setIsDuplicating] = useState(false);
-  const [testResponse, setTestResponse] = useState('');
-  const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
-  const [testInput, setTestInput] = useState(DEFAULT_TEST_INPUT);
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
 
@@ -149,35 +145,6 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     }
   }, [endpoint, notifications, router]);
 
-  const runTest = useCallback(async () => {
-    setIsTestingEndpoint(true);
-    try {
-      let inputData;
-      try {
-        inputData = JSON.parse(testInput);
-      } catch {
-        throw new Error('Invalid JSON input data');
-      }
-
-      const result = await invokeEndpoint(endpoint.id, inputData);
-      if (result.success) {
-        setTestResponse(JSON.stringify(result.data, null, 2));
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      setTestResponse(
-        JSON.stringify(
-          { success: false, error: (error as Error).message },
-          null,
-          2
-        )
-      );
-    } finally {
-      setIsTestingEndpoint(false);
-    }
-  }, [endpoint.id, testInput]);
-
   return {
     endpoint,
     projects,
@@ -185,13 +152,8 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     isDuplicating,
     editorTheme,
     editorWrapperStyle,
-    testInput,
-    setTestInput,
-    testResponse,
-    isTestingEndpoint,
     saveFields,
     duplicateEndpoint,
-    runTest,
   };
 }
 

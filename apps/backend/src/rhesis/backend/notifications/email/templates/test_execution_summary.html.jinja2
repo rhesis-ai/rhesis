@@ -26,6 +26,10 @@
         <p>Your test configuration execution has finished.</p>
     </div>
 
+    {%- set execution_errors = execution_errors | default(0) %}
+    {%- set tests_failed = tests_failed | default(0) %}
+    {%- set tests_passed = tests_passed | default(0) %}
+    {%- set total_tests = total_tests | default(0) %}
     <div style="background: {% if tests_failed == 0 and execution_errors == 0 %}#d4edda{% else %}#f8d7da{% endif %}; border: 2px solid {% if tests_failed == 0 and execution_errors == 0 %}#28a745{% else %}#dc3545{% endif %}; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
         <h3 style="color: {% if tests_failed == 0 and execution_errors == 0 %}#155724{% else %}#721c24{% endif %}; margin-top: 0; margin-bottom: 10px;">Test Results</h3>
         <div style="font-size: 36px; font-weight: bold; margin: 10px 0;">

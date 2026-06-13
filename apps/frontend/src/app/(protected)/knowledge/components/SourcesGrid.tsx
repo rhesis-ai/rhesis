@@ -10,7 +10,6 @@ import React, {
 import {
   GridColDef,
   GridRowParams,
-  GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
   GridSortModel,
@@ -21,9 +20,13 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { Box, Typography, Chip } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import GridBadge from '@/components/common/GridBadge';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -39,6 +42,7 @@ import SourceFilterDrawer, {
   type SourceFilters,
   EMPTY_SOURCE_FILTERS,
   hasActiveSourceFilters,
+  countActiveSourceFilters,
 } from './SourceFilterDrawer';
 
 interface SourcesGridProps {
@@ -52,6 +56,8 @@ interface SourcesToolbarState {
   setSearchQuery: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
+  onDeleteSource: (id: string) => void;
 }
 
 const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
@@ -59,6 +65,8 @@ const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
   setSearchQuery: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
+  onDeleteSource: () => {},
 });
 
 function SourcesUnifiedToolbar() {
@@ -67,6 +75,7 @@ function SourcesUnifiedToolbar() {
     setSearchQuery,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(SourcesToolbarContext);
 
   return (
@@ -76,6 +85,7 @@ function SourcesUnifiedToolbar() {
       searchPlaceholder="Search sources…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
       rightContent={
         <>
           <GridToolbarColumnsButton />
@@ -96,7 +106,7 @@ export default function SourcesGrid({
   const notifications = useNotifications();
 
   // Component state
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -245,14 +255,6 @@ export default function SourcesGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
-  // Handle selection change
-  const handleSelectionChange = useCallback(
-    (newSelection: GridRowSelectionModel) => {
-      setSelectedRows(newSelection);
-    },
-    []
-  );
-
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -262,38 +264,33 @@ export default function SourcesGrid({
     [router]
   );
 
-  const handleDeleteSources = useCallback(() => {
+  const handleDeleteSource = useCallback((id: string) => {
+    setPendingDeleteId(id);
     setDeleteModalOpen(true);
   }, []);
 
   const handleDeleteConfirm = async () => {
-    if (selectedRows.length === 0) return;
+    if (!pendingDeleteId) return;
 
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Delete all selected sources
-      await Promise.all(
-        selectedRows.map(id =>
-          sourcesClient.deleteSource(
-            String(id) as `${string}-${string}-${string}-${string}-${string}`
-          )
-        )
+      await sourcesClient.deleteSource(
+        pendingDeleteId as `${string}-${string}-${string}-${string}-${string}`
       );
 
-      // Show success notification
-      notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}`,
-        { severity: 'success', autoHideDuration: 4000 }
-      );
+      notifications.show('Successfully deleted source', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
 
-      setSelectedRows([]);
+      setPendingDeleteId(null);
       fetchSources();
       onRefresh?.();
     } catch {
-      notifications.show('Failed to delete sources', {
+      notifications.show('Failed to delete source', {
         severity: 'error',
         autoHideDuration: 4000,
       });
@@ -305,21 +302,8 @@ export default function SourcesGrid({
 
   const handleDeleteCancel = () => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   };
-
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: 'Delete Sources',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: handleDeleteSources,
-      },
-    ];
-  }, [selectedRows.length, handleDeleteSources]);
 
   const toolbarContextValue = useMemo(
     () => ({
@@ -327,18 +311,24 @@ export default function SourcesGrid({
       setSearchQuery,
       openFilterDrawer: () => setFilterDrawerOpen(true),
       hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
+      activeFilterCount: countActiveSourceFilters(drawerFilters),
+      onDeleteSource: handleDeleteSource,
     }),
-    [searchQuery, drawerFilters]
+    [searchQuery, drawerFilters, handleDeleteSource]
   );
 
   // Column definitions
-  const columns: GridColDef[] = React.useMemo(
-    () => [
+  const columns: GridColDef[] = React.useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => router.push(`/knowledge/${id}`),
+      onDelete: id => handleDeleteSource(id),
+    });
+    return [
       {
         field: 'title',
         headerName: 'Title',
-        flex: 2,
-        minWidth: 150,
+        width: 220,
+        minWidth: 160,
         renderCell: params => {
           const source = params.row as Source;
           return (
@@ -358,7 +348,7 @@ export default function SourcesGrid({
       {
         field: 'description',
         headerName: 'Description',
-        flex: 3,
+        width: 300,
         minWidth: 200,
         renderCell: params => {
           const source = params.row as Source;
@@ -383,62 +373,39 @@ export default function SourcesGrid({
       {
         field: 'file_type',
         headerName: 'Type',
-        flex: 0.6,
-        minWidth: 70,
+        width: 100,
+        minWidth: 80,
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
 
-          // Check if source_type exists in metadata (MCP imports like Notion, Slack, etc.)
+          // MCP imports like Notion, Slack, etc.
           if (metadata.source_type) {
-            return (
-              <Chip
-                label={metadata.source_type}
-                size="small"
-                variant="outlined"
-                className={styles.fileTypeChip}
-              />
-            );
+            return <GridBadge label={metadata.source_type} />;
           }
 
-          // Check if this is a Tool source type (API imports with provider)
+          // Tool source type (API imports with provider)
           if (source.source_type?.type_value === 'Tool' && metadata.provider) {
-            // Capitalize the provider name (e.g., "notion" -> "Notion")
             const providerName =
               metadata.provider.charAt(0).toUpperCase() +
               metadata.provider.slice(1);
-            return (
-              <Chip
-                label={providerName}
-                size="small"
-                variant="outlined"
-                className={styles.fileTypeChip}
-              />
-            );
+            return <GridBadge label={providerName} />;
           }
 
           // Fall back to file extension for document sources
           const fileExtension = getFileExtension(metadata.original_filename);
 
-          // Return null if file extension is unknown
           if (fileExtension === 'unknown') {
             return null;
           }
 
-          return (
-            <Chip
-              label={fileExtension.toUpperCase()}
-              size="small"
-              variant="outlined"
-              className={styles.fileTypeChip}
-            />
-          );
+          return <GridBadge label={fileExtension.toUpperCase()} />;
         },
       },
       {
         field: 'file_size',
         headerName: 'Size',
-        flex: 0.6,
+        width: 80,
         minWidth: 70,
         type: 'number',
         renderCell: params => {
@@ -456,7 +423,7 @@ export default function SourcesGrid({
       {
         field: 'created_at',
         headerName: 'Uploaded',
-        flex: 0.8,
+        width: 110,
         minWidth: 95,
         filterable: false,
         renderCell: params => {
@@ -475,7 +442,7 @@ export default function SourcesGrid({
       {
         field: 'user.name',
         headerName: 'Added by',
-        flex: 1,
+        width: 140,
         minWidth: 110,
         sortable: false,
         renderCell: params => {
@@ -509,7 +476,7 @@ export default function SourcesGrid({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        flex: 0.8,
+        width: 100,
         minWidth: 95,
         sortable: false,
         filterable: false,
@@ -528,7 +495,7 @@ export default function SourcesGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        flex: 1.5,
+        width: 160,
         minWidth: 140,
         sortable: false,
         renderCell: params => {
@@ -566,9 +533,9 @@ export default function SourcesGrid({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [router, handleDeleteSource]);
 
   if (error) {
     return (
@@ -585,14 +552,6 @@ export default function SourcesGrid({
 
   return (
     <SourcesToolbarContext.Provider value={toolbarContextValue}>
-      {selectedRows.length > 0 && (
-        <Box className={styles.selectionInfo}>
-          <Typography variant="subtitle1" className={styles.selectionText}>
-            {selectedRows.length} sources selected
-          </Typography>
-        </Box>
-      )}
-
       <BaseDataGrid
         columns={columns}
         rows={sources}
@@ -605,11 +564,6 @@ export default function SourcesGrid({
         onFilterModelChange={handleFilterModelChange}
         sortModel={sortModel}
         onSortModelChange={handleSortModelChange}
-        actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         serverSidePagination={true}
         serverSideFiltering={true}
         sortingMode="server"
@@ -619,6 +573,7 @@ export default function SourcesGrid({
         onRowClick={handleRowClick}
         toolbarSlot={SourcesUnifiedToolbar}
         persistState
+        sx={rowActionsHoverSx}
       />
 
       <DeleteModal
@@ -626,9 +581,9 @@ export default function SourcesGrid({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
-        title="Delete Sources"
-        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}? This action cannot be undone.`}
-        itemType="sources"
+        title="Delete Source"
+        message="Are you sure you want to delete this source? This action cannot be undone."
+        itemType="source"
       />
 
       <SourceFilterDrawer

@@ -1,0 +1,35 @@
+# Installs the Actions Runner Controller (ARC) scale-set controller via OCI Helm chart.
+# This controller manages RunnerScaleSets across the cluster.
+#
+# Sync wave -1: must be applied before the ExternalSecret (wave 2) and RunnerScaleSet
+# Application (wave 3) so CRDs are available when those resources are reconciled.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    # The ARC CRDs are ~1 MB; the apiserver fills in schema/conversion defaults
+    # that client-side diff reports as perpetual drift (OutOfSync forever).
+    # Server-side diff compares against the apiserver's merge result instead.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: arc-runners
+  source:
+    repoURL: ghcr.io/actions/actions-runner-controller-charts
+    chart: gha-runner-scale-set-controller
+    targetRevision: 0.9.3
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-systems
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # ARC CRDs (e.g. autoscalingrunnersets) exceed the 262144-byte annotation
+      # limit of client-side apply's last-applied-configuration. Server-side
+      # apply avoids writing that annotation.
+      - ServerSideApply=true

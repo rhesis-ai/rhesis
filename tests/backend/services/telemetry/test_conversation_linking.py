@@ -90,6 +90,7 @@ class TestApplyPendingConversationLinks:
 
         mock_span = Mock()
         mock_span.trace_id = "trace-1"
+        mock_span.project_id = "proj-1"
 
         mock_db = Mock()
         with (
@@ -99,20 +100,22 @@ class TestApplyPendingConversationLinks:
                 return_value=1,
             ) as mock_update,
             patch(
-                "rhesis.backend.app.database.set_session_variables",
-            ) as mock_set_vars,
+                "rhesis.backend.app.database.bind_scope_to_session",
+            ) as mock_bind_scope,
         ):
             total = apply_pending_conversation_links(mock_db, [mock_span])
 
         assert total == 1
         mock_update.assert_called_once_with(mock_db, "trace-1", "conv-1", "org-1")
-        mock_set_vars.assert_called_once_with(mock_db, "org-1", "")
+        # Project is threaded through so the UPDATE stays project-scoped under RLS.
+        mock_bind_scope.assert_called_once_with(mock_db, "org-1", "", "proj-1")
 
     def test_removes_entry_after_application(self):
         register_pending_conversation_link("trace-1", "conv-1", "org-1")
 
         mock_span = Mock()
         mock_span.trace_id = "trace-1"
+        mock_span.project_id = "proj-1"
         mock_db = Mock()
 
         with (
@@ -122,7 +125,7 @@ class TestApplyPendingConversationLinks:
                 return_value=1,
             ),
             patch(
-                "rhesis.backend.app.database.set_session_variables",
+                "rhesis.backend.app.database.bind_scope_to_session",
             ),
         ):
             apply_pending_conversation_links(mock_db, [mock_span])
@@ -156,8 +159,10 @@ class TestApplyPendingConversationLinks:
 
         span_a = Mock()
         span_a.trace_id = "trace-1"
+        span_a.project_id = "proj-1"
         span_b = Mock()
         span_b.trace_id = "trace-1"
+        span_b.project_id = "proj-1"
 
         mock_db = Mock()
         with (
@@ -167,7 +172,7 @@ class TestApplyPendingConversationLinks:
                 return_value=2,
             ) as mock_update,
             patch(
-                "rhesis.backend.app.database.set_session_variables",
+                "rhesis.backend.app.database.bind_scope_to_session",
             ),
         ):
             total = apply_pending_conversation_links(mock_db, [span_a, span_b])

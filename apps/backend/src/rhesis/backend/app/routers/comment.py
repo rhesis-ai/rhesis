@@ -108,7 +108,7 @@ def read_comments(
     return comments
 
 
-@router.get("/{comment_id}")
+@router.get("/{comment_id}", response_model=CommentDetailSchema)
 def read_comment(
     comment_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

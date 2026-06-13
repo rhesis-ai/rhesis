@@ -35,7 +35,9 @@ async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional
             SingleTurnOutput,
         )
 
-        with get_db_with_tenant_variables(ctx.organization_id, ctx.user_id or "") as db:
+        with get_db_with_tenant_variables(
+            ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
+        ) as db:
             return SingleTurnOutput._load_input_files(db, test_id, ctx.organization_id)
 
     try:

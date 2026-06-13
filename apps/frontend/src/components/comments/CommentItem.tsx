@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -9,14 +9,12 @@ import {
   Button,
   TextField,
   Tooltip,
-  useTheme,
-  Chip,
+  type Theme,
 } from '@mui/material';
 import {
   EditIcon,
   DeleteIcon,
   EmojiIcon,
-  AssignmentIcon,
   AddTaskIcon,
 } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -25,8 +23,6 @@ import { Comment } from '@/types/comments';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
-import { useTasks } from '@/hooks/useTasks';
-import { Task } from '@/utils/api-client/interfaces/task';
 
 interface CommentItemProps {
   comment: Comment;
@@ -35,8 +31,8 @@ interface CommentItemProps {
   onReact: (commentId: string, emoji: string) => Promise<void>;
   onCreateTask?: (commentId: string) => void;
   currentUserId: string;
-  entityType?: string; // Add entityType to determine if Create Task button should show
-  isHighlighted?: boolean; // Add highlighting prop
+  entityType?: string;
+  isHighlighted?: boolean;
 }
 
 export function CommentItem({
@@ -49,41 +45,17 @@ export function CommentItem({
   entityType,
   isHighlighted = false,
 }: CommentItemProps) {
-  const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(comment.content);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emojiAnchorEl, setEmojiAnchorEl] = useState<HTMLElement | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [associatedTasks, setAssociatedTasks] = useState<Task[]>([]);
-  const [_isLoadingTasks, setIsLoadingTasks] = useState(false);
-
-  const { fetchTasksByCommentId } = useTasks({ autoFetch: false });
 
   const isOwner = comment.user_id === currentUserId;
-  const canEdit = isOwner;
-  const canDelete = isOwner;
-
-  // Fetch associated tasks when component mounts
-  useEffect(() => {
-    const loadAssociatedTasks = async () => {
-      setIsLoadingTasks(true);
-      try {
-        const tasks = await fetchTasksByCommentId(comment.id);
-        setAssociatedTasks(tasks);
-      } catch (_error) {
-      } finally {
-        setIsLoadingTasks(false);
-      }
-    };
-
-    loadAssociatedTasks();
-  }, [comment.id, fetchTasksByCommentId]);
 
   const handleSaveEdit = async () => {
     if (!editText.trim()) return;
-
     setIsSubmitting(true);
     try {
       await onEdit(comment.id, editText.trim());
@@ -99,10 +71,6 @@ export function CommentItem({
     setIsEditing(false);
   };
 
-  const handleDeleteClick = () => {
-    setShowDeleteModal(true);
-  };
-
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
@@ -114,41 +82,27 @@ export function CommentItem({
     }
   };
 
-  const handleCancelDelete = () => {
-    setShowDeleteModal(false);
-  };
-
   const handleEmojiClick = (emojiData: { emoji: string }) => {
     onReact(comment.id, emojiData.emoji);
     setEmojiAnchorEl(null);
   };
 
-  const openEmojiPicker = (event: React.MouseEvent<HTMLElement>) => {
-    setEmojiAnchorEl(event.currentTarget);
-  };
-
-  const closeEmojiPicker = () => {
-    setEmojiAnchorEl(null);
-  };
-
   const formatDate = (dateString: string) => {
-    // Backend sends timestamps without timezone info, so we need to treat them as UTC
-    // Add 'Z' suffix to ensure UTC parsing
     const date = new Date(dateString + 'Z');
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    // If less than 24 hours, use relative time
+    const diffInHours =
+      (new Date().getTime() - date.getTime()) / (1000 * 60 * 60);
     if (diffInHours < 24) {
       return formatDistanceToNow(date, { addSuffix: true }).toUpperCase();
-    } else {
-      // If more than 24 hours, use absolute date
-      return format(date, 'dd MMM yyyy HH:mm').toUpperCase();
     }
+    return format(date, 'dd MMM yyyy HH:mm').toUpperCase();
   };
 
-  // Get task count for this comment (placeholder - would need API call in real implementation)
-  const taskCount: number = 0; // TODO: Implement API call to get task count by comment ID
+  const actionIconSx = {
+    p: 0,
+    '& .MuiSvgIcon-root': {
+      color: (theme: Theme) => `${theme.palette.primary.main} !important`,
+    },
+  };
 
   return (
     <>
@@ -156,339 +110,215 @@ export function CommentItem({
         id={`comment-${comment.id}`}
         sx={{
           display: 'flex',
-          gap: 2,
-          mb: 3,
-          alignItems: 'flex-start',
-          // Highlighting styles
+          flexDirection: 'column',
+          gap: '10px',
           ...(isHighlighted && {
-            backgroundColor: 'primary.light',
-            border: '2px solid',
-            borderColor: 'primary.main',
-            borderRadius: theme.shape.borderRadius,
-            p: 2,
-            mb: 3,
+            outline: theme => `2px solid ${theme.palette.primary.main}`,
+            borderRadius: 1,
+            p: 1,
           }),
         }}
       >
-        {/* User Avatar */}
-        <UserAvatar
-          userName={comment.user?.name}
-          userPicture={comment.user?.picture}
-          size={32}
-        />
+        {/* ── Header row ── */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <UserAvatar
+            userName={comment.user?.name}
+            userPicture={comment.user?.picture}
+            sx={{ width: 32, height: 32, flexShrink: 0 }}
+          />
 
-        {/* Comment Content */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {/* Header with user info and action buttons */}
-          <Box
+          <Typography
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              mb: 1,
+              fontWeight: 700,
+              fontSize: 14,
+              lineHeight: '22px',
+              color: 'text.primary',
+              whiteSpace: 'nowrap',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                sx={{ lineHeight: 1.2 }}
-              >
-                {comment.user?.name || 'UNKNOWN USER'}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{
-                  lineHeight: 1.2,
-                  fontSize: theme.typography.chartLabel.fontSize,
-                }}
-              >
-                {formatDate(comment.created_at)}
-              </Typography>
-            </Box>
+            {comment.user?.name || 'Unknown User'}
+          </Typography>
 
-            {/* Action Buttons and Task Counter */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {/* Task Counter */}
-              {taskCount > 0 && (
-                <Tooltip
-                  title={`${taskCount} task${taskCount === 1 ? '' : 's'} created from this comment`}
-                >
-                  <Chip
-                    icon={<AddTaskIcon />}
-                    label={taskCount}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    sx={{
-                      height: 24,
-                      fontSize: theme.typography.caption.fontSize,
-                      '& .MuiChip-icon': {
-                        fontSize: theme.typography.helperText.fontSize,
-                      },
-                    }}
-                  />
-                </Tooltip>
-              )}
-
-              {/* Create Task Button */}
-              {onCreateTask && entityType !== 'Task' && (
-                <Tooltip title="Create Task from Comment">
-                  <IconButton
-                    size="small"
-                    onClick={() => onCreateTask(comment.id)}
-                    sx={{
-                      color: 'text.secondary',
-                      '&:hover': { color: 'warning.main' },
-                    }}
-                  >
-                    <AssignmentIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              {/* Edit/Delete Icons (only for comment owner) */}
-              {canEdit && (
-                <Tooltip title="Edit comment">
-                  <IconButton
-                    size="small"
-                    onClick={() => setIsEditing(true)}
-                    sx={{
-                      color: 'text.secondary',
-                      '&:hover': { color: 'primary.main' },
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              {canDelete && (
-                <Tooltip title="Delete comment">
-                  <IconButton
-                    size="small"
-                    onClick={handleDeleteClick}
-                    sx={{
-                      color: 'text.secondary',
-                      '&:hover': { color: 'error.main' },
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          </Box>
-
-          {/* Gray card wrapping comment body, reactions, and associated tasks */}
-          <Box
+          <Typography
             sx={{
-              bgcolor: 'background.default',
-              borderRadius: 1,
-              p: 2,
-              mt: 1,
+              flex: 1,
+              fontSize: 12,
+              lineHeight: '18px',
+              letterSpacing: '0.48px',
+              textTransform: 'uppercase',
+              color: 'text.secondary',
             }}
           >
-            {isEditing ? (
-              <Box>
-                <TextField
-                  value={editText}
-                  onChange={e => setEditText(e.target.value)}
-                  multiline
-                  rows={3}
-                  fullWidth
-                  variant="outlined"
+            {formatDate(comment.created_at)}
+          </Typography>
+
+          {/* Action icons */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {onCreateTask && entityType !== 'Task' && (
+              <Tooltip title="Create task from comment">
+                <IconButton
                   size="small"
-                  sx={{ mb: 1 }}
-                />
-                <Box
-                  sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}
+                  onClick={() => onCreateTask(comment.id)}
+                  sx={actionIconSx}
                 >
-                  <Button
-                    size="small"
-                    onClick={handleCancelEdit}
-                    sx={{ textTransform: 'none', borderRadius: '16px' }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={handleSaveEdit}
-                    disabled={isSubmitting || !editText.trim()}
-                    sx={{ textTransform: 'none', borderRadius: '16px' }}
-                  >
-                    {isSubmitting ? 'Saving...' : 'Save'}
-                  </Button>
-                </Box>
-              </Box>
-            ) : (
-              <Typography
-                variant="body2"
-                sx={{
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                  color: 'text.primary',
-                }}
-              >
-                {comment.content}
-              </Typography>
+                  <AddTaskIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
             )}
-
-            {/* Emoji Picker Button and Reactions */}
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}
-            >
-              {Object.keys(comment.emojis || {}).length > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {Object.entries(comment.emojis).map(([emoji, reactions]) => {
-                    const hasReacted = reactions.some(
-                      reaction => reaction.user_id === currentUserId
-                    );
-                    const reactionCount = reactions.length;
-                    const tooltipText = createReactionTooltipText(
-                      reactions,
-                      emoji
-                    );
-
-                    return (
-                      <Tooltip
-                        key={emoji}
-                        title={tooltipText}
-                        arrow
-                        placement="top"
-                      >
-                        <Box
-                          onClick={() => onReact(comment.id, emoji)}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            bgcolor: 'background.paper',
-                            color: 'text.primary',
-                            border: '1px solid',
-                            borderColor: hasReacted
-                              ? 'primary.main'
-                              : 'divider',
-                            borderRadius: theme => theme.shape.borderRadius * 4,
-                            px: 1.5,
-                            py: 0.75,
-                            cursor: 'pointer',
-                            '&:hover': {
-                              bgcolor: 'action.hover',
-                              borderColor: hasReacted
-                                ? 'primary.main'
-                                : 'text.primary',
-                            },
-                          }}
-                        >
-                          <Typography variant="subtitle1">{emoji}</Typography>
-                          <Typography variant="body2" fontWeight={600}>
-                            {reactionCount}
-                          </Typography>
-                        </Box>
-                      </Tooltip>
-                    );
-                  })}
-                </Box>
-              )}
-
-              <IconButton
-                size="small"
-                onClick={openEmojiPicker}
-                sx={{
-                  color: 'text.secondary',
-                  '&:hover': { color: 'primary.main' },
-                }}
-              >
-                <EmojiIcon fontSize="small" />
-              </IconButton>
-            </Box>
-
-            {/* Associated Tasks */}
-            {associatedTasks.length > 0 && (
-              <Box
-                sx={{
-                  mt: 2,
-                  pt: 2,
-                  borderTop: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mb: 1, display: 'block' }}
+            {isOwner && (
+              <Tooltip title="Edit comment">
+                <IconButton
+                  size="small"
+                  onClick={() => setIsEditing(true)}
+                  sx={actionIconSx}
                 >
-                  Associated Tasks:
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {associatedTasks.map(task => (
-                    <Box
-                      key={task.id}
-                      onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        bgcolor: 'background.paper',
-                        color: 'text.primary',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: theme.shape.borderRadius,
-                        px: 1.5,
-                        py: 0.75,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                          borderColor: 'text.primary',
-                        },
-                      }}
-                    >
-                      <AddTaskIcon
-                        sx={{ fontSize: '1rem', color: 'text.secondary' }}
-                      />
-                      <Typography
-                        variant="body2"
-                        fontWeight={600}
-                        sx={{
-                          color: 'text.primary',
-                          fontSize: theme.typography.caption.fontSize,
-                        }}
-                      >
-                        {task.title}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
+                  <EditIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {isOwner && (
+              <Tooltip title="Delete comment">
+                <IconButton
+                  size="small"
+                  onClick={() => setShowDeleteModal(true)}
+                  sx={actionIconSx}
+                >
+                  <DeleteIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
             )}
           </Box>
         </Box>
 
-        {/* Emoji Picker Popover */}
-        <Popover
-          open={Boolean(emojiAnchorEl)}
-          anchorEl={emojiAnchorEl}
-          onClose={closeEmojiPicker}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
+        {/* ── Content box ── */}
+        <Box
+          sx={{
+            bgcolor: '#f9f9fa',
+            borderRadius: '4px',
+            p: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
           }}
         >
-          <EmojiPicker onEmojiClick={handleEmojiClick} />
-        </Popover>
+          {isEditing ? (
+            <Box>
+              <TextField
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                multiline
+                rows={3}
+                fullWidth
+                variant="outlined"
+                size="small"
+                sx={{ mb: 1 }}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button size="small" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleSaveEdit}
+                  disabled={isSubmitting || !editText.trim()}
+                >
+                  {isSubmitting ? 'Saving…' : 'Save'}
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <Typography
+              sx={{
+                fontSize: 16,
+                lineHeight: '24px',
+                color: 'text.secondary',
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {comment.content}
+            </Typography>
+          )}
+
+          {/* Reactions + emoji trigger */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {Object.entries(comment.emojis || {}).map(([emoji, reactions]) => {
+              const hasReacted = reactions.some(
+                r => r.user_id === currentUserId
+              );
+              return (
+                <Tooltip
+                  key={emoji}
+                  title={createReactionTooltipText(reactions, emoji)}
+                  arrow
+                  placement="top"
+                >
+                  <Box
+                    onClick={() => onReact(comment.id, emoji)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      border: '1px solid',
+                      borderColor: hasReacted ? 'primary.main' : '#b6bdc9',
+                      borderRadius: '999px',
+                      px: '10px',
+                      py: '2px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      '&:hover': { borderColor: 'text.primary' },
+                    }}
+                  >
+                    <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
+                      {emoji}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 14,
+                        lineHeight: '22px',
+                        color: '#2a2e36',
+                      }}
+                    >
+                      {reactions.length}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              );
+            })}
+
+            <Tooltip title="Add reaction">
+              <IconButton
+                size="small"
+                onClick={e => setEmojiAnchorEl(e.currentTarget)}
+                sx={actionIconSx}
+              >
+                <EmojiIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
       </Box>
 
-      {/* Delete Confirmation Modal */}
+      <Popover
+        open={Boolean(emojiAnchorEl)}
+        anchorEl={emojiAnchorEl}
+        onClose={() => setEmojiAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <EmojiPicker onEmojiClick={handleEmojiClick} />
+      </Popover>
+
       <DeleteModal
         open={showDeleteModal}
-        onClose={handleCancelDelete}
+        onClose={() => setShowDeleteModal(false)}
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
         itemType="comment"

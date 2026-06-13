@@ -21,6 +21,10 @@ export function hasActiveMCPFilters(f: MCPFilters): boolean {
   return f.providers.length > 0;
 }
 
+export function countActiveMCPFilters(f: MCPFilters): number {
+  return f.providers.length;
+}
+
 interface MCPFilterDrawerProps {
   open: boolean;
   onClose: () => void;

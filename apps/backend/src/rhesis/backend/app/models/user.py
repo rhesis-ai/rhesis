@@ -121,6 +121,9 @@ class User(Base):
         "Task", foreign_keys="[Task.assignee_id]", back_populates="assignee"
     )
 
+    # Project membership relationships
+    project_memberships = relationship("ProjectMembership", back_populates="user")
+
     # Comment relationships
     comments = relationship("Comment", back_populates="user")
 

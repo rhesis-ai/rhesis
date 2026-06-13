@@ -13,6 +13,7 @@ import uuid
 from typing import Optional, Sequence, Union
 
 from alembic import op
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 # Import models and utilities
@@ -95,8 +96,6 @@ def upgrade() -> None:
 
     try:
         # Use raw SQL to avoid ORM model column set changing across migrations
-        from sqlalchemy import text
-
         org_rows = (
             op.get_bind().execute(text("SELECT id, owner_id, user_id FROM organization")).fetchall()
         )
@@ -116,17 +115,20 @@ def upgrade() -> None:
                 skipped_count += 1
                 continue
 
-            # Check if a protected Rhesis model already exists
-            existing_model = (
-                session.query(models.Model)
-                .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
-                .filter(
-                    models.Model.organization_id == org_id,
-                    models.TypeLookup.type_value == "rhesis",
-                    models.Model.is_protected,
-                )
-                .first()
-            )
+            # Check if a protected Rhesis model already exists.
+            # Raw SQL avoids selecting columns (e.g. project_id) that may not
+            # exist yet at this point in the migration chain.
+            existing_model = session.execute(
+                text(
+                    "SELECT 1 FROM model m "
+                    "JOIN type_lookup t ON m.provider_type_id = t.id "
+                    "WHERE m.organization_id = :org_id "
+                    "AND t.type_value = 'rhesis' "
+                    "AND m.is_protected = TRUE "
+                    "LIMIT 1"
+                ),
+                {"org_id": str(org_id)},
+            ).fetchone()
 
             if existing_model:
                 print(f"  ⏭ Skipping org {organization_id}: Rhesis model already exists")
@@ -223,37 +225,40 @@ def downgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        # Find protected Rhesis models to delete
-        models_to_delete = (
-            session.query(models.Model)
-            .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
-            .filter(
-                models.Model.is_protected,
-                models.Model.name == "Rhesis Default",
-                models.TypeLookup.type_value == "rhesis",
+        # Raw SQL avoids selecting columns (e.g. project_id) that may not exist
+        # yet at this point in the migration chain.
+        rows = session.execute(
+            text(
+                "SELECT m.id, m.organization_id FROM model m "
+                "JOIN type_lookup t ON m.provider_type_id = t.id "
+                "WHERE m.is_protected = TRUE AND m.name = 'Rhesis Default' "
+                "AND t.type_value = 'rhesis'"
             )
-            .all()
-        )
+        ).fetchall()
 
-        deleted_count = len(models_to_delete)
+        deleted_count = len(rows)
         users_updated = 0
 
-        # Clean up user settings that reference these models
-        for model in models_to_delete:
-            model_id_str = str(model.id)
+        # Clean up user settings that reference these models.
+        # User model has no project_id so the ORM query here is safe.
+        for row in rows:
+            model_id_str = str(row[0])
+            org_id = str(row[1])
 
-            # Clear settings for users pointing to this model
             users_updated += _update_user_model_settings(
                 session=session,
-                organization_id=model.organization_id,
-                model_type="both",  # Check both generation and evaluation
-                condition_fn=lambda mid, target=model_id_str: mid == target,  # Update if matches
-                new_model_id=None,  # Clear the setting
+                organization_id=org_id,
+                model_type="both",
+                condition_fn=lambda mid, target=model_id_str: mid == target,
+                new_model_id=None,
             )
 
-        # Delete each model individually
-        for model in models_to_delete:
-            session.delete(model)
+        if rows:
+            model_ids = [str(row[0]) for row in rows]
+            session.execute(
+                text("DELETE FROM model WHERE id = ANY(:ids::uuid[])"),
+                {"ids": model_ids},
+            )
 
         session.commit()
         print(

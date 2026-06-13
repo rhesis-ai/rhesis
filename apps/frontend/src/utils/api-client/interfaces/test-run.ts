@@ -49,4 +49,10 @@ export interface TestRunDetail extends TestRun {
     comments: number;
     tasks: number;
   };
+  stats?: {
+    total: number;
+    passed: number;
+    failed: number;
+    errors: number;
+  };
 }

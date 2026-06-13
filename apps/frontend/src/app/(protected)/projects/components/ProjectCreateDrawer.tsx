@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { User } from '@/utils/api-client/interfaces/user';
 import { UsersClient } from '@/utils/api-client/users-client';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
@@ -153,9 +154,7 @@ export default function ProjectCreateDrawer({
       error={error}
     >
       {/* 2-column row: Owner | Project Icon */}
-      <Box
-        sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}
-      >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3.75 }}>
         <FormControl variant="outlined" fullWidth>
           <InputLabel>Owner</InputLabel>
           <Select
@@ -231,6 +230,7 @@ export default function ProjectCreateDrawer({
         value={formData.name}
         onChange={handleText('name')}
         autoFocus
+        sx={drawerOutlinedFieldSx}
       />
 
       {/* Full-width: Description */}

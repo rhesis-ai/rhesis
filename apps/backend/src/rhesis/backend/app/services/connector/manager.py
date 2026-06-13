@@ -90,6 +90,10 @@ class ConnectionManager:
         self._metric_results: Dict[str, Dict[str, Any]] = {}
         # Events for instant notification when results arrive
         self._result_events: Dict[str, asyncio.Event] = {}
+        # Maps test_run_id → connection_id that the request was dispatched to.
+        # Used to reject test_result messages from connections that did not
+        # receive the matching execute_test message (prevents result injection).
+        self._pending_test_connections: Dict[str, str] = {}
 
         # Cancelled/timed-out run tracking (prevents storing late results)
         self._cancelled_tests: OrderedDict = OrderedDict()
@@ -395,13 +399,21 @@ class ConnectionManager:
     ) -> bool:
         """Send test execution request to SDK via project:env routing.
 
+        Records the dispatching connection so that a matching test_result
+        message is only accepted from that same connection.
+
         Returns:
             True if message sent successfully, False otherwise.
         """
-        websocket = self._resolve_websocket(project_id, environment)
-        if not websocket:
-            key = self.get_connection_key(project_id, environment)
+        key = self.get_connection_key(project_id, environment)
+        conn_id = self._project_routing.get(key)
+        if not conn_id:
             logger.debug(f"No local WebSocket for {key} - may be on another instance")
+            return False
+
+        websocket = self._connections.get(conn_id)
+        if not websocket:
+            logger.debug(f"Connection {conn_id} resolved but no WebSocket for {key}")
             return False
 
         message = ExecuteTestMessage(
@@ -411,13 +423,16 @@ class ConnectionManager:
             **(execute_extras or {}),
         )
 
+        # Bind before sending so a fast test_result reply can never slip
+        # through before the mismatch-check has the expected connection recorded.
+        self._pending_test_connections[test_run_id] = conn_id
         try:
             await websocket.send_json(message.model_dump())
-            key = self.get_connection_key(project_id, environment)
             logger.info(f"Sent test request to {key}: {function_name}")
             return True
         except Exception as e:
-            key = self.get_connection_key(project_id, environment)
+            # Roll back the binding — the message was never delivered.
+            self._pending_test_connections.pop(test_run_id, None)
             logger.error(f"Error sending test request to {key}: {e}")
             return False
 
@@ -680,6 +695,9 @@ class ConnectionManager:
         # Mark as cancelled to prevent late results from being stored
         self._cancelled_tests[test_run_id] = True
 
+        # Release the pending-connection binding so the dict doesn't grow unboundedly.
+        self._pending_test_connections.pop(test_run_id, None)
+
         # Remove any existing result
         if test_run_id in self._test_results:
             del self._test_results[test_run_id]
@@ -894,6 +912,23 @@ class ConnectionManager:
         elif message_type == "test_result":
             test_run_id = message.get("test_run_id")
             if test_run_id:
+                expected_conn = self._pending_test_connections.get(test_run_id)
+                if expected_conn is not None and expected_conn != connection_id:
+                    # A different connection is claiming the result of a test
+                    # that was dispatched to another SDK.  Reject silently but
+                    # log loudly for audit purposes.
+                    logger.warning(
+                        "test_result rejected: connection mismatch "
+                        "(test_run_id=%s, expected=%s, got=%s)",
+                        test_run_id,
+                        expected_conn,
+                        connection_id,
+                    )
+                    return None
+                # Release the binding immediately so the dict stays bounded
+                # even when cleanup_test_result() is never called (e.g.
+                # fire-and-forget callers of send_test_request).
+                self._pending_test_connections.pop(test_run_id, None)
                 self._resolve_test_result(test_run_id, message)
 
             await message_handler.handle_test_result_message(
@@ -946,23 +981,51 @@ class ConnectionManager:
         if db and auth_org_id and auth_user_id:
             from uuid import UUID
 
-            from rhesis.backend.app import crud
+            from rhesis.backend.app.models.project import Project
+            from rhesis.backend.app.models.project_membership import ProjectMembership
 
             try:
                 project_uuid = UUID(project_id)
-            except ValueError:
-                logger.error(f"Invalid project_id format: {project_id}")
+                auth_user_uuid = UUID(auth_user_id)
+                auth_org_uuid = UUID(auth_org_id)
+            except ValueError as exc:
+                logger.error(f"Invalid UUID format in register: {exc}")
                 return False
 
-            project = crud.get_project(db, project_uuid, auth_org_id, auth_user_id)
-            if not project:
-                logger.error(
-                    f"Project {project_id} not found or not accessible for org {auth_org_id}"
-                )
+            project = db.query(Project).filter_by(id=project_uuid).first()
+            if project is None:
+                logger.error(f"Project {project_id} not found (org {auth_org_id})")
                 return False
+
+            # Authorization: membership check (primary) OR token-scoped access
+            # (fallback for API tokens that were explicitly scoped to this project
+            # — e.g. tokens created before the membership backfill migration ran,
+            # or service-account tokens where the owner has no membership row).
+            auth_token_project_id = context.token_project_id
+            token_scoped = auth_token_project_id is not None and auth_token_project_id == project_id
+
+            if not token_scoped:
+                membership = (
+                    db.query(ProjectMembership)
+                    .filter_by(
+                        project_id=project_uuid,
+                        user_id=auth_user_uuid,
+                        organization_id=auth_org_uuid,
+                    )
+                    .first()
+                )
+                if not membership:
+                    logger.error(
+                        f"Project {project_id} access denied: user {auth_user_id} "
+                        f"is not a member and token is not scoped to this project "
+                        f"(org {auth_org_id})"
+                    )
+                    return False
 
             logger.info(
-                f"Project authorized: {project.name} ({project_id}) for connection {connection_id}"
+                f"Project authorized: {project.name} ({project_id}) for connection "
+                f"{connection_id} "
+                f"(via {'token scope' if token_scoped else 'membership'})"
             )
 
         # Populate routing table
@@ -1124,6 +1187,9 @@ class ConnectionManager:
         if request_type == "execute_metric":
             await self._forward_metric_to_sdk(request_id, key, websocket, name, inputs)
         else:
+            # Bind before forwarding so the result validator can check the
+            # connection even if the reply arrives before _forward_to_sdk returns.
+            self._pending_test_connections[request_id] = routed_conn_id
             extras = _extract_execute_test_message_extras(request)
             await self._forward_to_sdk(
                 request_id, key, websocket, name, inputs, execute_extras=extras

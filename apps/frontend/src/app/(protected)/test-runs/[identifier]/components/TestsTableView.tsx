@@ -1,23 +1,25 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+} from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Box,
   Typography,
-  Chip,
   IconButton,
   Tooltip,
-  TablePagination,
   useTheme,
   alpha,
 } from '@mui/material';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowParams,
+} from '@mui/x-data-grid';
 import CloseIcon from '@mui/icons-material/Close';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
@@ -27,6 +29,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
+import BaseDataGrid from '@/components/common/BaseDataGrid';
+import GridBadge from '@/components/common/GridBadge';
 import {
   TestResultDetail,
   REVIEW_TARGET_TYPES,
@@ -34,10 +38,14 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
+import { findStatusByCategory } from '@/utils/test-result-status';
 import {
-  findStatusByCategory,
-  isPassedStatusName,
-} from '@/utils/test-result-status';
+  getEvaluationContent,
+  getFailedMetricNames,
+  getGoalContent,
+  getTestResultDisplayStatus,
+  truncateText,
+} from './test-run-results-grid-utils';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -56,11 +64,12 @@ interface TestsTableViewProps {
   currentUserName: string;
   currentUserPicture?: string;
   initialSelectedTestId?: string;
-  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
-  /** Source of metrics used in this test run */
   metricsSource?: string;
+  /** When true, grid renders inside a parent card without its own Paper shell */
+  embedded?: boolean;
 }
 
 export default function TestsTableView({
@@ -79,16 +88,18 @@ export default function TestsTableView({
   project,
   projectName,
   metricsSource,
+  embedded = false,
 }: TestsTableViewProps) {
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
   const theme = useTheme();
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 25,
+  });
   const [selectedTest, setSelectedTest] = useState<TestResultDetail | null>(
     null
   );
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [initialTab, setInitialTab] = useState<number>(0);
   const [overruleDrawerOpen, setOverruleDrawerOpen] = useState(false);
@@ -98,69 +109,60 @@ export default function TestsTableView({
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
   const [isConfirmingReview, setIsConfirmingReview] = useState(false);
   const isConfirmingRef = useRef(false);
-
-  // Local state to track immediate test updates before parent prop updates
   const [localTestUpdates, setLocalTestUpdates] = useState<
     Record<string, TestResultDetail>
   >({});
 
-  // Merge local updates with tests prop for immediate UI updates
-  const mergedTests = React.useMemo(() => {
+  const mergedTests = useMemo(() => {
     if (Object.keys(localTestUpdates).length === 0) {
       return tests;
     }
-    const merged = tests.map(test => {
-      const updated = localTestUpdates[test.id];
-      return updated || test;
-    });
-    return merged;
+    return tests.map(test => localTestUpdates[test.id] || test);
   }, [tests, localTestUpdates]);
 
-  // Clear local updates when tests prop changes AND includes our local updates
-  React.useEffect(() => {
-    if (Object.keys(localTestUpdates).length > 0) {
-      // Check if any of our local updates are now in the tests prop
-      const allUpdatesIncluded = Object.keys(localTestUpdates).every(testId => {
-        const propTest = tests.find(t => t.id === testId);
-        const localTest = localTestUpdates[testId];
-        // Check if the prop test has the same last_review as our local update
-        return (
-          propTest?.last_review?.review_id === localTest?.last_review?.review_id
-        );
-      });
+  useEffect(() => {
+    if (Object.keys(localTestUpdates).length === 0) return;
 
-      if (allUpdatesIncluded) {
-        setLocalTestUpdates({});
-      }
-    }
-  }, [tests, localTestUpdates]);
-
-  // Handle initial selection when initialSelectedTestId is provided
-  React.useEffect(() => {
-    if (
-      initialSelectedTestId &&
-      mergedTests.length > 0 &&
-      !hasInitialSelection
-    ) {
-      const testIndex = mergedTests.findIndex(
-        t => t.id === initialSelectedTestId
+    const allUpdatesIncluded = Object.keys(localTestUpdates).every(testId => {
+      const propTest = tests.find(t => t.id === testId);
+      const localTest = localTestUpdates[testId];
+      return (
+        propTest?.last_review?.review_id === localTest?.last_review?.review_id
       );
-      if (testIndex !== -1) {
-        // Calculate which page the test is on
-        const testPage = Math.floor(testIndex / rowsPerPage);
-        const rowIndexInPage = testIndex % rowsPerPage;
+    });
 
-        setPage(testPage);
-        setSelectedTest(mergedTests[testIndex]);
-        setSelectedRowIndex(rowIndexInPage);
-        setDrawerOpen(true);
-        setHasInitialSelection(true);
-      }
+    if (allUpdatesIncluded) {
+      setLocalTestUpdates({});
     }
-  }, [initialSelectedTestId, mergedTests, rowsPerPage, hasInitialSelection]);
+  }, [tests, localTestUpdates]);
 
-  // Sync selectedTest with tests array when tests are updated (e.g., after review changes)
-  React.useEffect(() => {
+  useEffect(() => {
+    if (
+      !initialSelectedTestId ||
+      mergedTests.length === 0 ||
+      hasInitialSelection
+    ) {
+      return;
+    }
+
+    const testIndex = mergedTests.findIndex(
+      t => t.id === initialSelectedTestId
+    );
+    if (testIndex === -1) return;
+
+    const page = Math.floor(testIndex / paginationModel.pageSize);
+    setPaginationModel(prev => ({ ...prev, page }));
+    setSelectedTest(mergedTests[testIndex]);
+    setDrawerOpen(true);
+    setHasInitialSelection(true);
+  }, [
+    initialSelectedTestId,
+    mergedTests,
+    paginationModel.pageSize,
+    hasInitialSelection,
+  ]);
+
+  useEffect(() => {
     setSelectedTest(prev => {
       if (!prev) return prev;
       const updated = mergedTests.find(t => t.id === prev.id);
@@ -168,48 +170,24 @@ export default function TestsTableView({
     });
   }, [mergedTests]);
 
-  // Reset to page 0 only when the current page is out of range for the (filtered) tests list.
-  // This avoids overriding the deep-link page set by the initialSelectedTestId effect on mount.
-  React.useEffect(() => {
-    const maxPage = Math.max(0, Math.ceil(tests.length / rowsPerPage) - 1);
-    if (page > maxPage) {
-      setPage(0);
+  useEffect(() => {
+    const maxPage = Math.max(
+      0,
+      Math.ceil(mergedTests.length / paginationModel.pageSize) - 1
+    );
+    if (paginationModel.page > maxPage) {
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
     }
-  }, [tests.length, page, rowsPerPage]);
-
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleRowClick = (
-    test: TestResultDetail,
-    index: number,
-    tabIndex: number = 0
-  ) => {
-    setSelectedTest(test);
-    setSelectedRowIndex(index);
-    setInitialTab(tabIndex);
-    setDrawerOpen(true);
-  };
+  }, [mergedTests.length, paginationModel.page, paginationModel.pageSize]);
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
   };
 
-  // Handle test result updates from the drawer (e.g., when reviews are added/deleted)
   const handleTestResultUpdateInDrawer = (updatedTest: TestResultDetail) => {
-    // Update local selected test state if it's the same test
     if (selectedTest && selectedTest.id === updatedTest.id) {
       setSelectedTest(updatedTest);
     }
-    // Propagate to parent component to update the tests array
     onTestResultUpdate(updatedTest);
   };
 
@@ -224,12 +202,9 @@ export default function TestsTableView({
 
   const handleOverruleSave = async (testId: string) => {
     try {
-      // Fetch the updated test result from the backend
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const updatedTest = await testResultsClient.getTestResult(testId);
-
-      // Update the test in the parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
       console.error('Failed to save overrule judgement:', error);
@@ -241,8 +216,6 @@ export default function TestsTableView({
     test: TestResultDetail
   ) => {
     event.stopPropagation();
-
-    // Atomic check-and-set to prevent duplicate submissions
     if (isConfirmingRef.current) return;
     isConfirmingRef.current = true;
 
@@ -252,14 +225,10 @@ export default function TestsTableView({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
-
-      // Get available statuses for TestResult
       const statuses = await statusClient.getStatuses({
         entity_type: 'TestResult',
       });
 
-      // Determine the current automated status
-      // Use test_metrics for all test types when available
       const metrics = test.test_metrics?.metrics || {};
       const metricValues = Object.values(metrics);
       const totalMetrics = metricValues.length;
@@ -268,22 +237,16 @@ export default function TestsTableView({
         const passedMetrics = metricValues.filter(m => m.is_successful).length;
         automatedPassed = passedMetrics === totalMetrics;
       } else if (isMultiTurn && test.test_output?.goal_evaluation) {
-        // Fallback for multi-turn without test_metrics
         automatedPassed =
           test.test_output.goal_evaluation.all_criteria_met || false;
       }
 
-      // Find appropriate status ID using centralized utility
       const targetStatus = findStatusByCategory(
         statuses,
         automatedPassed ? 'passed' : 'failed'
       );
+      if (!targetStatus) return;
 
-      if (!targetStatus) {
-        return;
-      }
-
-      // Create a review that matches the automated result
       await testResultsClient.createReview(
         test.id,
         targetStatus.id,
@@ -291,40 +254,29 @@ export default function TestsTableView({
         { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
       );
 
-      // Poll for the updated test result with exponential backoff
-      // Use a timestamp to ensure we only use the most recent response
-      const _requestTimestamp = Date.now();
       let updatedTest: TestResultDetail | null = null;
-      const delays = [100, 200, 400, 800]; // Exponential backoff delays
+      const delays = [100, 200, 400, 800];
 
       for (const delay of delays) {
         await new Promise(resolve => setTimeout(resolve, delay));
         const fetchedTest = await testResultsClient.getTestResult(test.id);
-
-        // Check if last_review property is now present
         if (fetchedTest.last_review) {
           updatedTest = fetchedTest;
           break;
         }
       }
 
-      // Final fetch to get the most recent state
-      // This ensures we get the latest data regardless of previous poll results
-      const finalTest = await testResultsClient.getTestResult(test.id);
-      updatedTest = finalTest;
+      updatedTest = await testResultsClient.getTestResult(test.id);
 
-      // IMMEDIATELY update local state for instant UI feedback
       setLocalTestUpdates(prev => ({
         ...prev,
         [updatedTest.id]: updatedTest,
       }));
 
-      // Update local selected test if this is the currently selected test
       if (selectedTest && selectedTest.id === test.id) {
         setSelectedTest(updatedTest);
       }
 
-      // Propagate to parent component
       onTestResultUpdate(updatedTest);
     } catch (error) {
       console.error('Failed to confirm review:', error);
@@ -334,697 +286,399 @@ export default function TestsTableView({
     }
   };
 
-  // Calculate test result status (considering reviews from backend)
-  const getTestStatus = (test: TestResultDetail) => {
-    // For multi-turn tests, use test_metrics when available, fall back to goal_evaluation
-    if (isMultiTurn && test.test_output?.goal_evaluation) {
-      const allMetrics = test.test_metrics?.metrics || {};
-      const allMetricValues = Object.values(allMetrics);
-      const hasTestMetrics = allMetricValues.length > 0;
+  const openTestDrawer = useCallback((test: TestResultDetail, tabIndex = 0) => {
+    setSelectedTest(test);
+    setInitialTab(tabIndex);
+    setDrawerOpen(true);
+  }, []);
 
-      // Determine pass/fail from all metrics when available
-      const allCriteriaMet = hasTestMetrics
-        ? allMetricValues.every(m => m.is_successful)
-        : test.test_output.goal_evaluation.all_criteria_met;
+  const columns = useMemo<GridColDef<TestResultDetail>[]>(() => {
+    const cellTextSx = {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      display: '-webkit-box',
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: 'vertical' as const,
+    };
 
-      const totalCriteria = hasTestMetrics
-        ? allMetricValues.length
-        : test.test_output.goal_evaluation.criteria_evaluations?.length || 0;
-      const metCriteria = hasTestMetrics
-        ? allMetricValues.filter(m => m.is_successful).length
-        : test.test_output.goal_evaluation.criteria_evaluations?.filter(
-            c => c.met
-          )?.length || 0;
-
-      const originalPassed = allCriteriaMet === true;
-      const lastReview = test.last_review;
-
-      // Check for human review FIRST (reviews override automated results)
-      if (lastReview && lastReview.status?.name) {
-        const reviewPassed = isPassedStatusName(lastReview.status.name);
-
-        // Calculate conflict ourselves (don't trust backend's matches_review)
-        // A conflict exists if the review decision differs from the automated decision
-        const hasConflict = reviewPassed !== originalPassed;
-
-        const result = {
-          passed: reviewPassed,
-          label: reviewPassed ? 'Passed' : 'Failed',
-          count: `${metCriteria}/${totalCriteria}`,
-          isOverruled: true,
-          hasConflict,
-          automatedPassed: originalPassed,
-          hasExecutionError: false,
-          reviewData: {
-            reviewer: lastReview.user?.name || 'Unknown',
-            comments: lastReview.comments,
-            updated_at: lastReview.updated_at,
-            newStatus: reviewPassed ? 'passed' : 'failed',
-          },
-        };
-
-        return result;
-      }
-
-      // No review, check for execution errors/failures
-      const hasExecutionError = test.test_output.status === 'error';
-      const hasExecutionFailure = test.test_output.status === 'failure';
-
-      if (hasExecutionError) {
-        return {
-          passed: false,
-          label: 'Error',
-          count: `${metCriteria}/${totalCriteria}`,
-          isOverruled: false,
-          hasConflict: false,
-          hasExecutionError: true,
-        };
-      }
-
-      if (hasExecutionFailure) {
-        return {
-          passed: false,
-          label: 'Failed',
-          count: `${metCriteria}/${totalCriteria}`,
-          isOverruled: false,
-          hasConflict: false,
-          hasExecutionError: false,
-        };
-      }
-
-      return {
-        passed: originalPassed,
-        label: originalPassed ? 'Passed' : 'Failed',
-        count: `${metCriteria}/${totalCriteria}`,
-        isOverruled: false,
-        hasConflict: false,
-        automatedPassed: originalPassed,
-        hasExecutionError: false,
-      };
-    }
-
-    // For single-turn tests, use metrics (original logic)
-    const metrics = test.test_metrics?.metrics || {};
-    const metricValues = Object.values(metrics);
-    const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-
-    // Check for execution error (no metrics or empty metrics)
-    const hasExecutionError = !test.test_metrics || totalMetrics === 0;
-
-    if (hasExecutionError) {
-      return {
-        passed: false,
-        label: 'Error',
-        count: '0/0',
-        isOverruled: false,
-        hasConflict: false,
-        hasExecutionError: true,
-      };
-    }
-
-    const originalPassed = passedMetrics === totalMetrics;
-    const lastReview = test.last_review;
-
-    // If there's a review, use the review status
-    if (lastReview && lastReview.status?.name) {
-      const reviewPassed = isPassedStatusName(lastReview.status.name);
-
-      // Calculate conflict ourselves (don't trust backend's matches_review)
-      // A conflict exists if the review decision differs from the automated decision
-      const hasConflict = reviewPassed !== originalPassed;
-
-      return {
-        passed: reviewPassed,
-        label: reviewPassed ? 'Passed' : 'Failed',
-        count: `${passedMetrics}/${totalMetrics}`,
-        isOverruled: true,
-        hasConflict,
-        automatedPassed: originalPassed, // Keep original automated result
-        hasExecutionError: false,
-        reviewData: {
-          reviewer: lastReview.user?.name || 'Unknown',
-          comments: lastReview.comments,
-          updated_at: lastReview.updated_at,
-          newStatus: reviewPassed ? 'passed' : 'failed',
+    return [
+      {
+        field: 'goal',
+        headerName: isMultiTurn ? 'Goal' : 'Prompt',
+        flex: 1,
+        minWidth: 240,
+        sortable: false,
+        disableColumnMenu: true,
+        valueGetter: (_, row) => getGoalContent(row, prompts, isMultiTurn),
+        renderCell: params => (
+          <Tooltip title={String(params.value ?? '')} enterDelay={500}>
+            <Typography variant="body2" sx={cellTextSx}>
+              {truncateText(String(params.value ?? ''), 150)}
+            </Typography>
+          </Tooltip>
+        ),
+      },
+      {
+        field: 'result',
+        headerName: 'Result',
+        width: 110,
+        sortable: false,
+        disableColumnMenu: true,
+        align: 'center',
+        headerAlign: 'center',
+        valueGetter: (_, row) =>
+          getTestResultDisplayStatus(row, isMultiTurn).label,
+        renderCell: params => {
+          const status = getTestResultDisplayStatus(params.row, isMultiTurn);
+          return (
+            <GridBadge
+              label={status.label}
+              sx={{
+                bgcolor: status.hasExecutionError
+                  ? alpha(theme.palette.warning.main, 0.12)
+                  : status.passed
+                    ? alpha(theme.palette.success.main, 0.12)
+                    : alpha(theme.palette.error.main, 0.12),
+                color: status.hasExecutionError
+                  ? 'warning.dark'
+                  : status.passed
+                    ? 'success.dark'
+                    : 'error.dark',
+              }}
+            />
+          );
         },
-      };
-    }
+      },
+      {
+        field: 'evaluation',
+        headerName: 'Evaluation',
+        flex: 1,
+        minWidth: 260,
+        sortable: false,
+        disableColumnMenu: true,
+        valueGetter: (_, row) => getEvaluationContent(row),
+        renderCell: params => (
+          <Tooltip title={String(params.value ?? '')} enterDelay={500}>
+            <Typography variant="body2" sx={cellTextSx}>
+              {truncateText(String(params.value ?? ''), 150)}
+            </Typography>
+          </Tooltip>
+        ),
+      },
+      {
+        field: 'review',
+        headerName: 'Review',
+        width: 120,
+        sortable: false,
+        disableColumnMenu: true,
+        align: 'center',
+        headerAlign: 'center',
+        renderHeader: () => (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
+              width: '100%',
+            }}
+          >
+            Review
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+              <SmartToyOutlinedIcon sx={{ fontSize: 16 }} />
+              <Typography variant="caption" color="text.secondary">
+                /
+              </Typography>
+              <PersonOutlineIcon sx={{ fontSize: 16 }} />
+            </Box>
+          </Box>
+        ),
+        renderCell: params => {
+          const test = params.row;
+          const status = getTestResultDisplayStatus(test, isMultiTurn);
+          const failedMetrics = getFailedMetricNames(test);
 
-    return {
-      passed: originalPassed,
-      label: originalPassed ? 'Passed' : 'Failed',
-      count: `${passedMetrics}/${totalMetrics}`,
-      isOverruled: false,
-      hasConflict: false,
-      automatedPassed: originalPassed, // Same as passed when no review
-      hasExecutionError: false,
-    };
-  };
-
-  // Get failed metrics names
-  const getFailedMetrics = (test: TestResultDetail): string[] => {
-    const metrics = test.test_metrics?.metrics || {};
-    return Object.entries(metrics)
-      .filter(([_, metric]) => !metric.is_successful)
-      .map(([name]) => name);
-  };
-
-  // Paginated tests
-  const paginatedTests = useMemo(() => {
-    return mergedTests.slice(
-      page * rowsPerPage,
-      page * rowsPerPage + rowsPerPage
-    );
-  }, [mergedTests, page, rowsPerPage]);
-
-  // Keyboard navigation
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle if drawer is not open
-      if (drawerOpen || overruleDrawerOpen) return;
-      if (paginatedTests.length === 0) return;
-
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        const newIndex =
-          selectedRowIndex === null
-            ? 0
-            : Math.min(selectedRowIndex + 1, paginatedTests.length - 1);
-        setSelectedRowIndex(newIndex);
-        setSelectedTest(paginatedTests[newIndex]);
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        const newIndex =
-          selectedRowIndex === null
-            ? paginatedTests.length - 1
-            : Math.max(selectedRowIndex - 1, 0);
-        setSelectedRowIndex(newIndex);
-        setSelectedTest(paginatedTests[newIndex]);
-      } else if (event.key === 'Enter') {
-        if (selectedRowIndex !== null && paginatedTests[selectedRowIndex]) {
-          event.preventDefault();
-          setDrawerOpen(true);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [paginatedTests, selectedRowIndex, drawerOpen, overruleDrawerOpen]);
-
-  // Reset selected row when page changes
-  React.useEffect(() => {
-    setSelectedRowIndex(null);
-    setSelectedTest(null);
-  }, [page]);
-
-  // Truncate text helper
-  const truncateText = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-  };
-
-  return (
-    <Box>
-      <TableContainer
-        component={Paper}
-        elevation={2}
-        sx={{
-          maxHeight: 'calc(100vh - 250px)',
-          minHeight: 800,
-        }}
-      >
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  backgroundColor: theme.palette.background.paper,
-                  fontWeight: 600,
-                  width: '22%',
-                }}
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1.5,
+                width: '100%',
+              }}
+            >
+              <Tooltip
+                title={
+                  status.hasExecutionError
+                    ? 'Execution Error: Test could not be executed'
+                    : `Automated: ${
+                        status.automatedPassed ? 'Passed' : 'Failed'
+                      } (${status.count})${
+                        failedMetrics.length > 0
+                          ? ` - Failed: ${failedMetrics.join(', ')}`
+                          : ''
+                      }`
+                }
               >
-                {isMultiTurn ? 'Goal' : 'Prompt'}
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: theme.palette.background.paper,
-                  fontWeight: 600,
-                  width: '10%',
-                  textAlign: 'center',
-                }}
-              >
-                Result
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: theme.palette.background.paper,
-                  fontWeight: 600,
-                  width: '30%',
-                }}
-              >
-                {isMultiTurn ? 'Evaluation Reasoning' : 'Response'}
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: theme.palette.background.paper,
-                  fontWeight: 600,
-                  width: '13%',
-                  textAlign: 'center',
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 0.5,
-                  }}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {status.hasExecutionError ? (
+                    <ErrorOutlineIcon
+                      sx={{ fontSize: 20, color: 'warning.main' }}
+                    />
+                  ) : status.automatedPassed ? (
+                    <CheckIcon
+                      sx={{
+                        fontSize: 20,
+                        color: status.hasConflict
+                          ? 'warning.main'
+                          : 'success.main',
+                      }}
+                    />
+                  ) : (
+                    <CloseIcon
+                      sx={{
+                        fontSize: 20,
+                        color: status.hasConflict
+                          ? 'warning.main'
+                          : 'error.main',
+                      }}
+                    />
+                  )}
+                </Box>
+              </Tooltip>
+
+              {status.isOverruled ? (
+                <Tooltip
+                  title={
+                    status.reviewData
+                      ? `Human review by ${status.reviewData.reviewer}: ${
+                          status.reviewData.newStatus === 'passed'
+                            ? 'Passed'
+                            : 'Failed'
+                        } - ${status.reviewData.comments}`
+                      : 'Manually reviewed'
+                  }
                 >
-                  Review
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {status.reviewData?.newStatus === 'passed' ? (
+                      <CheckIcon
+                        sx={{
+                          fontSize: 20,
+                          color: status.hasConflict
+                            ? 'warning.main'
+                            : 'success.main',
+                        }}
+                      />
+                    ) : (
+                      <CloseIcon
+                        sx={{
+                          fontSize: 20,
+                          color: status.hasConflict
+                            ? 'warning.main'
+                            : 'error.main',
+                        }}
+                      />
+                    )}
+                  </Box>
+                </Tooltip>
+              ) : (
+                <Tooltip title="No manual review yet">
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CircleOutlinedIcon
+                      sx={{
+                        fontSize: 20,
+                        color: 'action.disabled',
+                        opacity: 0.3,
+                      }}
+                    />
+                  </Box>
+                </Tooltip>
+              )}
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'activity',
+        headerName: 'Activity',
+        width: 100,
+        sortable: false,
+        disableColumnMenu: true,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: params => {
+          const test = params.row;
+
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%',
+              }}
+            >
+              {test.counts && test.counts.comments > 0 && (
+                <Tooltip
+                  title={`${test.counts.comments} comment(s) - Click to view`}
+                >
                   <Box
+                    onClick={e => {
+                      e.stopPropagation();
+                      openTestDrawer(test, 4);
+                    }}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 0.25,
-                      ml: 0.5,
+                      gap: 0.5,
+                      cursor: 'pointer',
+                      px: 0.5,
+                      borderRadius: 1,
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    <SmartToyOutlinedIcon
-                      fontSize="small"
-                      sx={{ fontSize: 16 }}
+                    <CommentOutlinedIcon
+                      sx={{ fontSize: 18, color: 'action.active' }}
                     />
                     <Typography variant="caption" color="text.secondary">
-                      /
+                      {test.counts.comments}
                     </Typography>
-                    <PersonOutlineIcon fontSize="small" sx={{ fontSize: 16 }} />
                   </Box>
-                </Box>
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: theme.palette.background.paper,
-                  fontWeight: 600,
-                  width: '12%',
-                  textAlign: 'center',
-                }}
-              >
-                Activity
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: theme.palette.background.paper,
-                  fontWeight: 600,
-                  width: '13%',
-                  textAlign: 'center',
-                }}
-              >
-                Actions
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">
-                    Loading tests...
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : paginatedTests.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                  <Typography color="text.secondary">
-                    No tests to display
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedTests.map((test, index) => {
-                const status = getTestStatus(test);
-                const failedMetrics = getFailedMetrics(test);
+                </Tooltip>
+              )}
 
-                // Get prompt/goal content based on test type
-                const promptContent = isMultiTurn
-                  ? test.test_output?.test_configuration?.goal || 'N/A'
-                  : test.prompt_id && prompts[test.prompt_id]
-                    ? prompts[test.prompt_id].content
-                    : test.test?.prompt?.content || 'N/A';
-
-                // Get response/evaluation content based on test type
-                const responseContent = isMultiTurn
-                  ? test.test_output?.goal_evaluation?.reason || 'N/A'
-                  : test.test_output?.output || 'N/A';
-
-                const isRowSelected = selectedRowIndex === index;
-
-                return (
-                  <TableRow
-                    key={test.id}
-                    hover
-                    onClick={() => handleRowClick(test, index)}
+              {test.counts && test.counts.tasks > 0 && (
+                <Tooltip title={`${test.counts.tasks} task(s) - Click to view`}>
+                  <Box
+                    onClick={e => {
+                      e.stopPropagation();
+                      openTestDrawer(test, 4);
+                    }}
                     sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
                       cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: alpha(
-                          theme.palette.primary.main,
-                          0.04
-                        ),
-                      },
-                      ...(isRowSelected && {
-                        backgroundColor: alpha(
-                          theme.palette.primary.main,
-                          0.08
-                        ),
-                        outline: `2px solid ${theme.palette.primary.main}`,
-                        outlineOffset: '-2px',
-                      }),
+                      px: 0.5,
+                      borderRadius: 1,
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    {/* Prompt Column */}
-                    <TableCell>
-                      <Tooltip title={promptContent} enterDelay={500}>
-                        <Typography variant="body2">
-                          {truncateText(promptContent, 150)}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
+                    <TaskAltOutlinedIcon
+                      sx={{ fontSize: 18, color: 'action.active' }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {test.counts.tasks}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              )}
 
-                    {/* Result Column */}
-                    <TableCell align="center">
-                      <Chip
-                        label={status.label}
-                        size="small"
-                        sx={{
-                          backgroundColor: status.hasExecutionError
-                            ? alpha(theme.palette.warning.main, 0.1)
-                            : status.passed
-                              ? alpha(theme.palette.success.main, 0.1)
-                              : alpha(theme.palette.error.main, 0.1),
-                          color: status.hasExecutionError
-                            ? 'warning.main'
-                            : status.passed
-                              ? 'success.main'
-                              : 'error.main',
-                          fontWeight: 600,
-                          minWidth: 70,
-                        }}
-                      />
-                    </TableCell>
+              {(!test.counts ||
+                (test.counts.comments === 0 && test.counts.tasks === 0)) && (
+                <Typography variant="caption" color="text.disabled">
+                  —
+                </Typography>
+              )}
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'actions',
+        headerName: '',
+        width: 96,
+        sortable: false,
+        disableColumnMenu: true,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: params => {
+          const test = params.row;
 
-                    {/* Response Column */}
-                    <TableCell>
-                      <Tooltip title={responseContent} enterDelay={500}>
-                        <Typography variant="body2" color="text.secondary">
-                          {truncateText(responseContent, 150)}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
+          return (
+            <Box
+              className="test-row-actions"
+              sx={{
+                display: 'flex',
+                gap: '10px',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%',
+              }}
+            >
+              {!test.last_review && (
+                <Tooltip title="Confirm Review">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={e => handleConfirmReview(e, test)}
+                      disabled={isConfirmingReview}
+                      sx={{
+                        p: 0.5,
+                        color: 'primary.main',
+                        '&:hover': {
+                          bgcolor: alpha(theme.palette.primary.main, 0.08),
+                        },
+                      }}
+                    >
+                      <CheckIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
 
-                    {/* Review Column */}
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 1.5,
-                        }}
-                      >
-                        {/* Machine Evaluation Icon */}
-                        <Tooltip
-                          title={
-                            status.hasExecutionError
-                              ? 'Execution Error: Test could not be executed'
-                              : `Automated: ${
-                                  status.automatedPassed ? 'Passed' : 'Failed'
-                                } (${status.count})${
-                                  failedMetrics.length > 0
-                                    ? ` - Failed: ${failedMetrics.join(', ')}`
-                                    : ''
-                                }`
-                          }
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {status.hasExecutionError ? (
-                              <ErrorOutlineIcon
-                                sx={{
-                                  fontSize: 20,
-                                  color: 'warning.main',
-                                }}
-                              />
-                            ) : status.automatedPassed ? (
-                              <CheckIcon
-                                sx={{
-                                  fontSize: 20,
-                                  color: status.hasConflict
-                                    ? 'warning.main'
-                                    : 'success.main',
-                                }}
-                              />
-                            ) : (
-                              <CloseIcon
-                                sx={{
-                                  fontSize: 20,
-                                  color: status.hasConflict
-                                    ? 'warning.main'
-                                    : 'error.main',
-                                }}
-                              />
-                            )}
-                          </Box>
-                        </Tooltip>
+              <Tooltip title="Provide Review">
+                <IconButton
+                  size="small"
+                  onClick={e => handleOverruleJudgement(e, test)}
+                  sx={{
+                    p: 0.5,
+                    color: 'primary.main',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                >
+                  <RateReviewOutlinedIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          );
+        },
+      },
+    ];
+  }, [isMultiTurn, prompts, theme, isConfirmingReview, openTestDrawer]);
 
-                        {/* Human Review Icon */}
-                        {status.isOverruled ? (
-                          <Tooltip
-                            title={
-                              'reviewData' in status && status.reviewData
-                                ? `Human review by ${status.reviewData.reviewer}: ${
-                                    status.reviewData.newStatus === 'passed'
-                                      ? 'Passed'
-                                      : 'Failed'
-                                  } - ${status.reviewData.comments}`
-                                : 'Manually reviewed'
-                            }
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {'reviewData' in status &&
-                              status.reviewData?.newStatus === 'passed' ? (
-                                <CheckIcon
-                                  sx={{
-                                    fontSize: 20,
-                                    color: status.hasConflict
-                                      ? 'warning.main'
-                                      : 'success.main',
-                                  }}
-                                />
-                              ) : (
-                                <CloseIcon
-                                  sx={{
-                                    fontSize: 20,
-                                    color: status.hasConflict
-                                      ? 'warning.main'
-                                      : 'error.main',
-                                  }}
-                                />
-                              )}
-                            </Box>
-                          </Tooltip>
-                        ) : (
-                          <Tooltip title="No manual review yet">
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <CircleOutlinedIcon
-                                sx={{
-                                  fontSize: 20,
-                                  color: 'action.disabled',
-                                  opacity: 0.3,
-                                }}
-                              />
-                            </Box>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
+  return (
+    <Box sx={{ width: '100%', minWidth: 0 }}>
+      <BaseDataGrid
+        rows={mergedTests}
+        columns={columns}
+        loading={loading}
+        getRowId={row => row.id}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        pageSizeOptions={[10, 25, 50, 100]}
+        onRowClick={(params: GridRowParams<TestResultDetail>) => {
+          openTestDrawer(params.row);
+        }}
+        disablePaperWrapper={embedded}
+        showToolbar={false}
+        sx={{
+          '& .test-row-actions': {
+            opacity: 0,
+            pointerEvents: 'none',
+            transition: 'opacity 0.15s ease',
+          },
+          '& .MuiDataGrid-row:hover .test-row-actions': {
+            opacity: 1,
+            pointerEvents: 'auto',
+          },
+        }}
+      />
 
-                    {/* Activity Column */}
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 1,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        {/* Comments Count */}
-                        {test.counts && test.counts.comments > 0 && (
-                          <Tooltip
-                            title={`${test.counts.comments} comment(s) - Click to view`}
-                          >
-                            <Box
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleRowClick(test, index, 4); // Tab index 4 is Tasks & Comments
-                              }}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                cursor: 'pointer',
-                                padding: theme.spacing(0.25, 0.5),
-                                borderRadius: theme.shape.borderRadius / 8,
-                                '&:hover': {
-                                  backgroundColor: theme.palette.action.hover,
-                                },
-                              }}
-                            >
-                              <CommentOutlinedIcon
-                                sx={{ fontSize: 18, color: 'action.active' }}
-                              />
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {test.counts.comments}
-                              </Typography>
-                            </Box>
-                          </Tooltip>
-                        )}
-
-                        {/* Tasks Count */}
-                        {test.counts && test.counts.tasks > 0 && (
-                          <Tooltip
-                            title={`${test.counts.tasks} task(s) - Click to view`}
-                          >
-                            <Box
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleRowClick(test, index, 4); // Tab index 4 is Tasks & Comments
-                              }}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                cursor: 'pointer',
-                                padding: theme.spacing(0.25, 0.5),
-                                borderRadius: theme.shape.borderRadius / 8,
-                                '&:hover': {
-                                  backgroundColor: theme.palette.action.hover,
-                                },
-                              }}
-                            >
-                              <TaskAltOutlinedIcon
-                                sx={{ fontSize: 18, color: 'action.active' }}
-                              />
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {test.counts.tasks}
-                              </Typography>
-                            </Box>
-                          </Tooltip>
-                        )}
-
-                        {/* Show dash if no activity */}
-                        {(!test.counts ||
-                          (test.counts.comments === 0 &&
-                            test.counts.tasks === 0)) && (
-                          <Typography variant="caption" color="text.disabled">
-                            —
-                          </Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-
-                    {/* Actions Column */}
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 0.5,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        {/* Show Confirm Review button only if not already reviewed */}
-                        {!test.last_review && (
-                          <Tooltip title="Confirm Review">
-                            <span>
-                              <IconButton
-                                size="small"
-                                onClick={e => handleConfirmReview(e, test)}
-                                disabled={isConfirmingReview}
-                                sx={{
-                                  '&:hover': {
-                                    backgroundColor: alpha(
-                                      theme.palette.success.main,
-                                      0.1
-                                    ),
-                                  },
-                                  '&:disabled': {
-                                    color: 'action.disabled',
-                                  },
-                                }}
-                              >
-                                <CheckIcon
-                                  sx={{ fontSize: 18, color: 'action.active' }}
-                                />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        )}
-
-                        <Tooltip title="Provide Review">
-                          <IconButton
-                            size="small"
-                            onClick={e => handleOverruleJudgement(e, test)}
-                            sx={{
-                              '&:hover': {
-                                backgroundColor: alpha(
-                                  theme.palette.primary.main,
-                                  0.1
-                                ),
-                              },
-                            }}
-                          >
-                            <RateReviewOutlinedIcon
-                              sx={{ fontSize: 18, color: 'action.active' }}
-                            />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Pagination */}
-      <Paper elevation={2}>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={mergedTests.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          sx={{
-            borderTop: 1,
-            borderColor: 'divider',
-            backgroundColor: theme.palette.background.paper,
-          }}
-        />
-      </Paper>
-
-      {/* Test Result Drawer */}
       <TestResultDrawer
         open={drawerOpen}
         onClose={handleCloseDrawer}
@@ -1045,7 +699,6 @@ export default function TestsTableView({
         metricsSource={metricsSource}
       />
 
-      {/* Review Judgement Drawer */}
       <ReviewJudgementDrawer
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}

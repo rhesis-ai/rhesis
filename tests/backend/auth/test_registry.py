@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_auth_settings
+
 
 class TestProviderRegistry:
     """Tests for the ProviderRegistry class."""
@@ -17,7 +19,12 @@ class TestProviderRegistry:
         """Reset registry before each test."""
         from rhesis.backend.app.auth.providers.registry import ProviderRegistry
 
+        get_auth_settings.cache_clear()
         ProviderRegistry.reset()
+
+    def teardown_method(self):
+        """Clear cached auth settings after environment-patching tests."""
+        get_auth_settings.cache_clear()
 
     @pytest.mark.unit
     def test_registry_initializes_providers(self):

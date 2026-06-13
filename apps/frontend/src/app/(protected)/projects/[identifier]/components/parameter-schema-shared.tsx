@@ -4,9 +4,7 @@ import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
-  Button,
   FormControl,
-  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
@@ -18,17 +16,20 @@ import {
 } from '@mui/material';
 import {
   AddIcon,
-  CancelIcon,
   CategoryIcon,
   LockIcon,
   NotesIcon,
   NumbersIcon,
-  SaveIcon,
   SmartToyIcon,
   TextFieldsIcon,
   ToggleOnIcon,
   TuneIcon,
 } from '@/components/icons';
+import SectionEmptyState from '@/components/common/SectionEmptyState';
+import {
+  drawerFieldsSx,
+  drawerOutlinedFieldSx,
+} from '@/components/common/drawerFormFieldSx';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ParameterField,
@@ -265,23 +266,33 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
     });
   }, []);
 
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    try {
-      const payload: ParameterSchema = { fields: stripKeys(draft) };
-      const client = apiFactory.getParametersClient();
-      const saved = await client.putSchema(projectId, payload);
-      setServerSchema(saved);
-      setDraft(saved.fields.map(field => ({ ...field, _key: stableKey('f') })));
-      notifications.show('Parameter schema saved', { severity: 'success' });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to save parameter schema';
-      notifications.show(message, { severity: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  }, [apiFactory, draft, notifications, projectId]);
+  const handleSave = useCallback(
+    async (fieldsOverride?: FieldRowState[]) => {
+      const fieldsToSave = fieldsOverride ?? draft;
+      setSaving(true);
+      try {
+        const payload: ParameterSchema = { fields: stripKeys(fieldsToSave) };
+        const client = apiFactory.getParametersClient();
+        const saved = await client.putSchema(projectId, payload);
+        setServerSchema(saved);
+        setDraft(
+          saved.fields.map(field => ({ ...field, _key: stableKey('f') }))
+        );
+        notifications.show('Parameter schema saved', { severity: 'success' });
+        return true;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Failed to save parameter schema';
+        notifications.show(message, { severity: 'error' });
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [apiFactory, draft, notifications, projectId]
+  );
 
   const handleRevert = useCallback(() => {
     if (!serverSchema) return;
@@ -306,83 +317,24 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
   };
 }
 
-interface SaveBarProps {
-  isDirty: boolean;
-  saving: boolean;
-  onSave: () => void;
-  onRevert: () => void;
-}
-
-export function ParametersSaveBar({
-  isDirty,
-  saving,
-  onSave,
-  onRevert,
-}: SaveBarProps) {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        gap: 1,
-      }}
-    >
-      {isDirty && (
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<CancelIcon />}
-          onClick={onRevert}
-          disabled={saving}
-        >
-          Discard
-        </Button>
-      )}
-      <Button
-        variant="contained"
-        startIcon={<SaveIcon />}
-        onClick={onSave}
-        disabled={!isDirty || saving}
-      >
-        {saving ? 'Saving...' : 'Save Changes'}
-      </Button>
-    </Box>
-  );
-}
-
 interface EmptyStateProps {
   onAdd: () => void;
+  showAddButton?: boolean;
 }
 
-export function ParametersEmptyState({ onAdd }: EmptyStateProps) {
+export function ParametersEmptyState({
+  onAdd,
+  showAddButton = true,
+}: EmptyStateProps) {
   return (
-    <Box
-      sx={{
-        py: 4,
-        px: 2,
-        border: '1px dashed',
-        borderColor: 'divider',
-        borderRadius: theme => theme.shape.borderRadius,
-        textAlign: 'center',
-        bgcolor: 'background.default',
-      }}
-    >
-      <TuneIcon
-        sx={{
-          fontSize: theme => theme.typography.h3.fontSize,
-          color: 'text.disabled',
-          mb: 1,
-          opacity: 0.5,
-        }}
-      />
-      <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-        No parameter slots yet. Add a field to start defining the project&apos;s
-        parameter schema.
-      </Typography>
-      <Button variant="outlined" startIcon={<AddIcon />} onClick={onAdd}>
-        Add field
-      </Button>
-    </Box>
+    <SectionEmptyState
+      icon={TuneIcon}
+      title="No parameter slots yet"
+      description="Add a parameter to start defining the project's parameter schema."
+      actionLabel={showAddButton ? 'Add Parameter' : undefined}
+      onAction={showAddButton ? onAdd : undefined}
+      showAddIcon={showAddButton}
+    />
   );
 }
 
@@ -404,26 +356,32 @@ export function FieldEditor({
   onTypeChange,
 }: FieldEditorProps) {
   return (
-    <Stack spacing={2}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        alignItems={{ xs: 'stretch', md: 'center' }}
+    <Stack spacing={0} sx={drawerFieldsSx}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 220px' },
+          gap: '30px',
+        }}
       >
         <TextField
           label="Name"
           value={field.name}
           onChange={e => onChange({ name: e.target.value })}
-          size="small"
           fullWidth
           placeholder="snake_case identifier"
+          sx={drawerOutlinedFieldSx}
         />
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Type</InputLabel>
+        <FormControl
+          fullWidth
+          sx={{ ...drawerOutlinedFieldSx, minWidth: { md: 220 } }}
+        >
+          <InputLabel shrink>Type</InputLabel>
           <Select
             label="Type"
             value={field.type}
             onChange={e => onTypeChange(e.target.value as ParameterType)}
+            notched
           >
             {TYPE_OPTIONS.map(opt => (
               <MenuItem key={opt.value} value={opt.value}>
@@ -432,26 +390,39 @@ export function FieldEditor({
             ))}
           </Select>
         </FormControl>
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={!!field.required}
-              onChange={e => onChange({ required: e.target.checked })}
-            />
-          }
-          label="Required"
+      </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderTop: theme => `1px solid ${theme.palette.greyscale.border}`,
+          pt: '20px',
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: 16,
+            lineHeight: '24px',
+            color: theme => theme.palette.greyscale.title,
+          }}
+        >
+          Required
+        </Typography>
+        <Switch
+          checked={!!field.required}
+          onChange={e => onChange({ required: e.target.checked })}
         />
-      </Stack>
+      </Box>
 
       <TextField
         label="Description"
         value={field.description ?? ''}
         onChange={e => onChange({ description: e.target.value })}
-        size="small"
         fullWidth
         multiline
-        minRows={1}
+        minRows={2}
+        sx={drawerOutlinedFieldSx}
       />
 
       {field.type === 'enum' && (
@@ -466,9 +437,9 @@ export function FieldEditor({
                 .filter(Boolean),
             })
           }
-          size="small"
           fullWidth
           helperText="The closed set of values this enum accepts"
+          sx={drawerOutlinedFieldSx}
         />
       )}
 
@@ -500,10 +471,10 @@ export function DefaultValueEditor({
           label="Default"
           value={current}
           onChange={e => setDefault({ type: 'text', value: e.target.value })}
-          size="small"
           fullWidth
           multiline
           minRows={2}
+          sx={drawerOutlinedFieldSx}
         />
       );
     }
@@ -517,8 +488,8 @@ export function DefaultValueEditor({
           label="Default"
           value={current}
           onChange={e => setDefault({ type: 'string', value: e.target.value })}
-          size="small"
           fullWidth
+          sx={drawerOutlinedFieldSx}
         />
       );
     }
@@ -538,8 +509,9 @@ export function DefaultValueEditor({
               v === '' ? null : { type: 'integer', value: parseInt(v, 10) }
             );
           }}
-          size="small"
+          fullWidth
           inputProps={{ step: 1, lang: 'en-US' }}
+          sx={drawerOutlinedFieldSx}
         />
       );
     }
@@ -559,8 +531,9 @@ export function DefaultValueEditor({
               v === '' ? null : { type: 'number', value: parseFloat(v) }
             );
           }}
-          size="small"
+          fullWidth
           inputProps={{ step: 'any', lang: 'en-US' }}
+          sx={drawerOutlinedFieldSx}
         />
       );
     }
@@ -570,26 +543,29 @@ export function DefaultValueEditor({
           ? field.default.value
           : false;
       return (
-        <FormControlLabel
-          control={
-            <Switch
-              checked={current}
-              onChange={e =>
-                setDefault({ type: 'boolean', value: e.target.checked })
-              }
-            />
-          }
-          label={
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" color="text.secondary">
-                Default
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {current ? 'True' : 'False'}
-              </Typography>
-            </Stack>
-          }
-        />
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 16,
+              lineHeight: '24px',
+              color: theme => theme.palette.greyscale.title,
+            }}
+          >
+            Default ({current ? 'True' : 'False'})
+          </Typography>
+          <Switch
+            checked={current}
+            onChange={e =>
+              setDefault({ type: 'boolean', value: e.target.checked })
+            }
+          />
+        </Box>
       );
     }
     case 'enum': {
@@ -599,7 +575,7 @@ export function DefaultValueEditor({
           ? field.default.value
           : '';
       return (
-        <FormControl size="small" sx={{ minWidth: 220 }}>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
           <InputLabel>Default</InputLabel>
           <Select
             label="Default"
@@ -634,9 +610,9 @@ export function DefaultValueEditor({
             const v = e.target.value.trim();
             setDefault(v ? { type: 'model_ref', value: v } : null);
           }}
-          size="small"
           fullWidth
           helperText="UUID of a Model row"
+          sx={drawerOutlinedFieldSx}
         />
       );
     }
@@ -653,9 +629,9 @@ export function DefaultValueEditor({
             const v = e.target.value.trim();
             setDefault(v ? { type: 'secret_ref', value: v } : null);
           }}
-          size="small"
           fullWidth
           helperText="UUID of a secret record"
+          sx={drawerOutlinedFieldSx}
         />
       );
     }

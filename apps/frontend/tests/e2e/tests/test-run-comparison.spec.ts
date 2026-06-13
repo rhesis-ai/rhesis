@@ -28,8 +28,9 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     await runsPage.expectDetailPageLoaded();
     await page.waitForLoadState('networkidle');
 
-    // Look for the "Compare" button
-    const compareBtn = page.getByRole('button', { name: /compare/i }).first();
+    const compareBtn = page
+      .getByRole('button', { name: /compare runs/i })
+      .first();
     const hasCompare = await compareBtn
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
@@ -38,12 +39,15 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       return;
     }
 
-    await compareBtn.click();
-    await page.waitForLoadState('networkidle');
-
-    await expect(page.locator('body')).not.toContainText(
+    const [comparePage] = await Promise.all([
+      page.context().waitForEvent('page'),
+      compareBtn.click(),
+    ]);
+    await comparePage.waitForLoadState('domcontentloaded');
+    await expect(comparePage.locator('body')).not.toContainText(
       'Internal Server Error'
     );
+    await comparePage.close();
   });
 
   test('can select a baseline from the comparison dropdown', async ({
@@ -68,7 +72,9 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     await runsPage.expectDetailPageLoaded();
     await page.waitForLoadState('networkidle');
 
-    const compareBtn = page.getByRole('button', { name: /compare/i }).first();
+    const compareBtn = page
+      .getByRole('button', { name: /compare runs/i })
+      .first();
     const hasCompare = await compareBtn
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
@@ -76,44 +82,31 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       test.skip(true, '"Compare" button not found — skipping');
       return;
     }
-    await compareBtn.click();
-    await page.waitForLoadState('networkidle');
 
-    // A baseline dropdown should appear
-    const baselineSelect = page
-      .getByRole('combobox', { name: /baseline|compare/i })
-      .or(page.locator('[aria-haspopup="listbox"]'))
+    const [comparePage] = await Promise.all([
+      page.context().waitForEvent('page'),
+      compareBtn.click(),
+    ]);
+    await comparePage.waitForLoadState('domcontentloaded');
+
+    const baselineCard = comparePage.getByText(/select a baseline run/i);
+    const baselinePicker = comparePage
+      .locator('[class*="MuiCardActionArea"]')
       .first();
-    const hasSelect = await baselineSelect
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!hasSelect) {
-      test.skip(
-        true,
-        'Baseline dropdown not found after clicking Compare — skipping'
-      );
+    const hasPicker =
+      (await baselineCard.isVisible({ timeout: 8_000 }).catch(() => false)) &&
+      (await baselinePicker.isVisible({ timeout: 3_000 }).catch(() => false));
+    if (!hasPicker) {
+      await comparePage.close();
+      test.skip(true, 'Baseline picker not found — skipping');
       return;
     }
-
-    await baselineSelect.click();
-    const firstOption = page.getByRole('option').first();
-    const hasOption = await firstOption
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!hasOption) {
-      await page.keyboard.press('Escape');
-      test.skip(
-        true,
-        'No baseline options available — need at least 2 test runs'
-      );
-      return;
-    }
-    await firstOption.click();
-
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('body')).not.toContainText(
+    await baselinePicker.click();
+    await comparePage.waitForLoadState('networkidle');
+    await expect(comparePage.locator('body')).not.toContainText(
       'Internal Server Error'
     );
+    await comparePage.close();
   });
 
   test('comparison mode shows Improved, Regressed, and Unchanged stat cards', async ({
@@ -138,39 +131,36 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     await runsPage.expectDetailPageLoaded();
     await page.waitForLoadState('networkidle');
 
-    const compareBtn = page.getByRole('button', { name: /compare/i }).first();
+    const compareBtn = page
+      .getByRole('button', { name: /compare runs/i })
+      .first();
     if (!(await compareBtn.isVisible({ timeout: 10_000 }).catch(() => false))) {
       test.skip(true, '"Compare" button not found — skipping');
       return;
     }
-    await compareBtn.click();
 
-    // Select a baseline
-    const baselineSelect = page
-      .getByRole('combobox', { name: /baseline|compare/i })
-      .or(page.locator('[aria-haspopup="listbox"]'))
+    const [comparePage] = await Promise.all([
+      page.context().waitForEvent('page'),
+      compareBtn.click(),
+    ]);
+    await comparePage.waitForLoadState('domcontentloaded');
+
+    const baselinePicker = comparePage
+      .locator('[class*="MuiCardActionArea"]')
       .first();
-    if (await baselineSelect.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await baselineSelect.click();
-      const firstOption = page.getByRole('option').first();
-      if (await firstOption.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await firstOption.click();
-      } else {
-        await page.keyboard.press('Escape');
-        test.skip(
-          true,
-          'No baseline runs available — skipping stat cards test'
-        );
-        return;
-      }
+    if (
+      !(await baselinePicker.isVisible({ timeout: 8_000 }).catch(() => false))
+    ) {
+      await comparePage.close();
+      test.skip(true, 'No baseline runs available — skipping stat cards test');
+      return;
     }
+    await baselinePicker.click();
+    await comparePage.waitForLoadState('networkidle');
 
-    await page.waitForLoadState('networkidle');
-
-    // The comparison stat cards (Improved / Regressed / Unchanged) should appear
-    const improved = page.getByText(/improved/i).first();
-    const regressed = page.getByText(/regressed/i).first();
-    const unchanged = page.getByText(/unchanged/i).first();
+    const improved = comparePage.getByText(/improved/i).first();
+    const regressed = comparePage.getByText(/regressed/i).first();
+    const unchanged = comparePage.getByText(/unchanged/i).first();
 
     const hasImproved = await improved
       .isVisible({ timeout: 10_000 })
@@ -209,45 +199,47 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     await runsPage.clickFirstRow();
     await runsPage.expectDetailPageLoaded();
 
-    const compareBtn = page.getByRole('button', { name: /compare/i }).first();
+    const compareBtn = page
+      .getByRole('button', { name: /compare runs/i })
+      .first();
     if (!(await compareBtn.isVisible({ timeout: 10_000 }).catch(() => false))) {
       test.skip(true, '"Compare" button not found — skipping');
       return;
     }
-    await compareBtn.click();
 
-    const baselineSelect = page
-      .getByRole('combobox', { name: /baseline|compare/i })
-      .or(page.locator('[aria-haspopup="listbox"]'))
+    const [comparePage] = await Promise.all([
+      page.context().waitForEvent('page'),
+      compareBtn.click(),
+    ]);
+    await comparePage.waitForLoadState('domcontentloaded');
+
+    const baselinePicker = comparePage
+      .locator('[class*="MuiCardActionArea"]')
       .first();
-    if (await baselineSelect.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await baselineSelect.click();
-      const opt = page.getByRole('option').first();
-      if (await opt.isVisible({ timeout: 5_000 }).catch(() => false))
-        await opt.click();
-      else {
-        await page.keyboard.press('Escape');
-        test.skip(true, 'No baseline runs — skipping');
-        return;
-      }
+    if (
+      !(await baselinePicker.isVisible({ timeout: 8_000 }).catch(() => false))
+    ) {
+      test.skip(true, 'No baseline runs — skipping');
+      return;
     }
+    await baselinePicker.click();
+    await comparePage.waitForLoadState('networkidle');
 
-    await page.waitForLoadState('networkidle');
-
-    // Click "Improved" filter button if present
-    const improvedBtn = page.getByRole('button', { name: /improved/i }).first();
+    const improvedBtn = comparePage
+      .getByRole('button', { name: /improved/i })
+      .first();
     if (await improvedBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await improvedBtn.click();
-      await page.waitForLoadState('networkidle');
-      await expect(page.locator('body')).not.toContainText(
+      await comparePage.waitForLoadState('networkidle');
+      await expect(comparePage.locator('body')).not.toContainText(
         'Internal Server Error'
       );
     }
 
-    // Click "All" to reset
-    const allBtn = page.getByRole('button', { name: /^all$/i }).first();
+    const allBtn = comparePage.getByRole('button', { name: /^all$/i }).first();
     if (await allBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await allBtn.click();
     }
+    await comparePage.close();
   });
 });

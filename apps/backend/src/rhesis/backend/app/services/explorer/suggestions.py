@@ -392,9 +392,13 @@ async def suggestion_pipeline_stream(
       - ``{"type": "eval_summary", "evaluated": int, "total": int}``
       - ``{"type": "done"}``
     """
-    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.database import _SCOPE_KEY, get_db_with_tenant_variables
     from rhesis.backend.app.dependencies import get_endpoint_service
     from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
+
+    # Propagate the active project scope to inner sessions spawned for async parallel work.
+    _outer_scope = db.info.get(_SCOPE_KEY)
+    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
 
     pipeline_t0 = time.monotonic()
 
@@ -529,7 +533,7 @@ async def suggestion_pipeline_stream(
         logger.info("[%s] idx=%02d output_start", _ts(), index)
         async with output_semaphore:
             try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
                     raw = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,
@@ -704,6 +708,7 @@ async def invoke_endpoint_for_suggestions_stream(
       - {"type": "summary", "generated": int, "total": int}
     """
     from rhesis.backend.app.database import (
+        _SCOPE_KEY,
         get_db_with_tenant_variables,
     )
     from rhesis.backend.app.dependencies import get_endpoint_service
@@ -711,13 +716,16 @@ async def invoke_endpoint_for_suggestions_stream(
         process_endpoint_result,
     )
 
+    _outer_scope = db.info.get(_SCOPE_KEY)
+    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
+
     svc = get_endpoint_service()
     semaphore = asyncio.Semaphore(10)
 
     async def _invoke_one(index: int, input_text: str) -> tuple:
         async with semaphore:
             try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
                     result = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,

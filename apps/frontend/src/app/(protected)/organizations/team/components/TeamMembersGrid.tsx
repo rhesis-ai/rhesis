@@ -24,6 +24,7 @@ import {
   combineTeamFiltersToOData,
   EMPTY_TEAM_FILTERS,
   hasActiveTeamFilters,
+  countActiveTeamFilters,
   type TeamFilters,
 } from '@/utils/odata-filter';
 import TeamFilterDrawer from './TeamFilterDrawer';
@@ -33,6 +34,7 @@ interface TeamToolbarState {
   setSearchQuery: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TeamToolbarContext = React.createContext<TeamToolbarState>({
@@ -40,6 +42,7 @@ const TeamToolbarContext = React.createContext<TeamToolbarState>({
   setSearchQuery: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 function TeamUnifiedToolbar() {
@@ -48,6 +51,7 @@ function TeamUnifiedToolbar() {
     setSearchQuery,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TeamToolbarContext);
 
   return (
@@ -57,10 +61,7 @@ function TeamUnifiedToolbar() {
       searchPlaceholder="Search team members…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
-      sx={{
-        borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
-        bgcolor: theme => theme.palette.greyscale.surface1,
-      }}
+      activeFilterCount={activeFilterCount}
       rightContent={
         <>
           <GridToolbarColumnsButton />
@@ -325,6 +326,7 @@ export default function TeamMembersGrid({
         setSearchQuery,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTeamFilters(drawerFilters),
+        activeFilterCount: countActiveTeamFilters(drawerFilters),
       }}
     >
       {error && (

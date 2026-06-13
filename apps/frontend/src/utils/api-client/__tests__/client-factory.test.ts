@@ -34,6 +34,7 @@ jest.mock('../test-results-client');
 
 describe('ApiClientFactory', () => {
   const mockSessionToken = 'mock-session-token';
+  const clientArgs = [mockSessionToken, undefined, undefined] as const;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,9 +56,9 @@ describe('ApiClientFactory', () => {
       factory.getProjectsClient();
       factory.getTestRunsClient();
 
-      expect(TestsClient).toHaveBeenCalledWith(mockSessionToken);
-      expect(ProjectsClient).toHaveBeenCalledWith(mockSessionToken);
-      expect(TestRunsClient).toHaveBeenCalledWith(mockSessionToken);
+      expect(TestsClient).toHaveBeenCalledWith(...clientArgs);
+      expect(ProjectsClient).toHaveBeenCalledWith(...clientArgs);
+      expect(TestRunsClient).toHaveBeenCalledWith(...clientArgs);
     });
 
     it('creates singleton instances for cached clients', () => {
@@ -65,7 +66,7 @@ describe('ApiClientFactory', () => {
 
       // First call
       const metricsClient1 = factory.getMetricsClient();
-      expect(MetricsClient).toHaveBeenCalledWith(mockSessionToken);
+      expect(MetricsClient).toHaveBeenCalledWith(...clientArgs);
       expect(MetricsClient).toHaveBeenCalledTimes(1);
 
       // Second call should return the same instance (singleton behavior)
@@ -96,11 +97,11 @@ describe('ApiClientFactory', () => {
       factory.getCommentsClient();
       factory.getTasksClient();
 
-      expect(MetricsClient).toHaveBeenCalledWith(mockSessionToken);
-      expect(ModelsClient).toHaveBeenCalledWith(mockSessionToken);
-      expect(TagsClient).toHaveBeenCalledWith(mockSessionToken);
-      expect(CommentsClient).toHaveBeenCalledWith(mockSessionToken);
-      expect(TasksClient).toHaveBeenCalledWith(mockSessionToken);
+      expect(MetricsClient).toHaveBeenCalledWith(...clientArgs);
+      expect(ModelsClient).toHaveBeenCalledWith(...clientArgs);
+      expect(TagsClient).toHaveBeenCalledWith(...clientArgs);
+      expect(CommentsClient).toHaveBeenCalledWith(...clientArgs);
+      expect(TasksClient).toHaveBeenCalledWith(...clientArgs);
     });
 
     it('handles multiple factory instances with different tokens', () => {
@@ -113,8 +114,8 @@ describe('ApiClientFactory', () => {
       factory1.getTestsClient();
       factory2.getTestsClient();
 
-      expect(TestsClient).toHaveBeenCalledWith(token1);
-      expect(TestsClient).toHaveBeenCalledWith(token2);
+      expect(TestsClient).toHaveBeenCalledWith(token1, undefined, undefined);
+      expect(TestsClient).toHaveBeenCalledWith(token2, undefined, undefined);
       expect(TestsClient).toHaveBeenCalledTimes(2);
     });
   });

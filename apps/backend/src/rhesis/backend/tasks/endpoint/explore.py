@@ -75,7 +75,7 @@ def run_exploration_task(
             marks the task ``FAILURE`` and ``get_job_status`` surfaces the
             error.
     """
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     task_id = self.request.id or ""
 
@@ -132,7 +132,7 @@ def run_exploration_task(
         extra={"endpoint_id": endpoint_id, "strategy": strategy, "org_id": org_id},
     )
 
-    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
         user = crud.get_user(db, user_id=user_id)
         if user is None:
             raise RuntimeError(f"User {user_id} not found")
@@ -147,7 +147,7 @@ def run_exploration_task(
 
     start = time.monotonic()
 
-    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
         target_factory = make_target_factory(org_id=org_id, user_id=user_id, db=db)
 
         tool = ExploreEndpointTool(

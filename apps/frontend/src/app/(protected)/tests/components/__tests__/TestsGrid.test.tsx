@@ -82,6 +82,8 @@ jest.mock('@/components/common/BaseDataGrid', () => {
     rowSelectionModel?: unknown[];
   }) {
     if (loading) return <div data-testid="grid-loading">Loading…</div>;
+    const enableSelection =
+      checkboxSelection ?? Boolean(onRowSelectionModelChange);
     return (
       <div data-testid="base-data-grid">
         {actionButtons?.map(btn => (
@@ -101,7 +103,7 @@ jest.mock('@/components/common/BaseDataGrid', () => {
             data-testid={`row-${row.id}`}
             onClick={() => onRowClick?.({ id: row.id, row })}
           >
-            {checkboxSelection && (
+            {enableSelection && (
               <input
                 type="checkbox"
                 aria-label={`select-${row.id}`}
@@ -201,12 +203,12 @@ describe('TestsTable', () => {
     expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
   });
 
-  it('renders "Add Tests" action button', async () => {
+  it('does not show "Add Tests" in the grid (moved to page header FAB)', async () => {
     render(<TestsTable sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
     );
-    expect(screen.getByTestId('action-Add Tests')).toBeInTheDocument();
+    expect(screen.queryByTestId('action-Add Tests')).not.toBeInTheDocument();
   });
 
   it('renders rows after data loads', async () => {
@@ -332,13 +334,5 @@ describe('TestsTable', () => {
         expect.objectContaining({ severity: 'error' })
       )
     );
-  });
-
-  it('disables "Add Tests" button when disableAddButton=true', async () => {
-    render(<TestsTable sessionToken="tok" disableAddButton />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
-    expect(screen.getByTestId('action-Add Tests')).toBeDisabled();
   });
 });

@@ -443,11 +443,17 @@ def apply_pending_conversation_links(
     if not matched:
         return 0
 
-    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.database import bind_scope_to_session
+
+    # Derive the project per trace from the stored spans so project RLS / filtering
+    # applies to the UPDATE (traces are project-scoped).
+    project_by_trace = {
+        span.trace_id: str(span.project_id) for span in stored_spans if span.project_id is not None
+    }
 
     total = 0
     for trace_id, conversation_id, organization_id in matched:
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(db, organization_id, "", project_by_trace.get(trace_id, ""))
 
         count = crud.update_conversation_id_for_trace(
             db, trace_id, conversation_id, organization_id
@@ -592,7 +598,7 @@ def apply_pending_files(
         return 0
 
     from rhesis.backend.app import schemas
-    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.database import bind_scope_to_session
 
     total = 0
     for span in stored_spans:
@@ -607,7 +613,12 @@ def apply_pending_files(
         files_json, organization_id = entry
         files = json.loads(files_json)
 
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(
+            db,
+            organization_id,
+            "",
+            str(span.project_id) if span.project_id is not None else "",
+        )
 
         for idx, file_data in enumerate(files):
             if not isinstance(file_data, dict):

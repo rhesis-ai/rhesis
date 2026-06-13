@@ -6,17 +6,17 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from dotenv import load_dotenv
+from rhesis.backend.app.config.settings import get_application_settings, get_logging_settings
 
-if os.environ.get("ENVIRONMENT") != "test":
-    load_dotenv(override=True)
+application_settings = get_application_settings()
+logging_settings = get_logging_settings()
 
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
-LOG_DIR = os.environ.get("LOG_DIR", "logs")
-ENVIRONMENT = os.environ.get("ENVIRONMENT") or os.environ.get("ENV", "production")
+LOG_LEVEL = logging_settings.log_level
+LOG_DIR = logging_settings.log_dir
+ENVIRONMENT = application_settings.backend_env
+IS_GOOGLE_CLOUD = application_settings.is_google_cloud
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
-BACKEND_URL = os.environ.get("BACKEND_URL", "localhost:8080")
 
 
 _SENSITIVE_PATTERNS = [
@@ -236,7 +236,7 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    if "rhesis.ai" in BACKEND_URL:
+    if IS_GOOGLE_CLOUD:
         json_console_handler = logging.StreamHandler(stream=sys.stdout)
         json_console_handler.setLevel(LOG_LEVEL)
         json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
@@ -261,3 +261,11 @@ def set_logger():
         logger = logging.getLogger(name)
         logger.handlers.clear()
         logger.propagate = True
+
+    # Suppress verbose Celery-internal loggers that emit misleading task-signature
+    # dumps and other low-signal debug chatter at the DEBUG level.
+    for name in (
+        "celery.utils.functional",
+        "celery.app.trace",
+    ):
+        logging.getLogger(name).setLevel(logging.WARNING)

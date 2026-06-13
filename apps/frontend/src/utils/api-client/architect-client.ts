@@ -9,6 +9,7 @@ export interface ArchitectSession {
   agent_state?: Record<string, unknown>;
   user_id?: string;
   organization_id?: string;
+  project_id?: string;
   created_at?: string;
   updated_at?: string;
 }

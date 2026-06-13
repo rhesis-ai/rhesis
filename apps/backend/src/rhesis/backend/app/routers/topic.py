@@ -84,7 +84,7 @@ def read_topics(
     return results
 
 
-@router.get("/{topic_id}")
+@router.get("/{topic_id}", response_model=TopicDetailSchema)
 def read_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

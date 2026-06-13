@@ -6,10 +6,10 @@ from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class Tool(Base, OrganizationAndUserMixin):
+class Tool(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "tool"
 
     # Basic information

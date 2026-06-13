@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
 
 /**
  * Shared helpers for CRUD-style E2E tests.
@@ -15,6 +15,67 @@ export async function selectGridRowByText(page: Page, text: string) {
   const row = page.locator('[role="row"]', { hasText: text });
   await row.locator('input[type="checkbox"]').click();
 }
+
+/**
+ * Delete a grid row via the hover-revealed row-actions delete icon.
+ * Grids use createRowActionsColumn — delete is the trailing icon button.
+ */
+export async function deleteGridRowByText(page: Page, text: string) {
+  const row = page
+    .locator('.MuiDataGrid-row')
+    .filter({ hasText: text })
+    .first();
+  await row.scrollIntoViewIfNeeded();
+  await row.hover();
+  // Row-actions stay visibility:hidden until row:hover — force-click delete icon.
+  const deleteBtn = row.locator('.row-actions button').last();
+  await deleteBtn.click({ force: true });
+}
+
+/** Wait until a data grid row containing the given text is visible. */
+export async function expectGridRowVisible(page: Page, text: string) {
+  const row = page
+    .locator('.MuiDataGrid-row')
+    .filter({ hasText: text })
+    .first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+}
+
+/** Locator for the currently open MUI drawer (BaseDrawer titles are plain Typography). */
+export function openDrawer(page: Page) {
+  return page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
+}
+
+/** Wait until the open drawer shows the expected title text. */
+export async function expectOpenDrawerTitle(
+  page: Page,
+  title: string | RegExp,
+  timeout = 10_000
+) {
+  const drawer = openDrawer(page);
+  await drawer.waitFor({ state: 'visible', timeout });
+  // BaseDrawer title is Typography — avoid matching the footer save button.
+  await expect(
+    drawer.getByRole('paragraph').filter({ hasText: title }).first()
+  ).toBeVisible({ timeout });
+}
+
+/** Wait until no drawer is open. */
+export async function waitForDrawerClosed(page: Page, timeout = 15_000) {
+  await openDrawer(page).waitFor({ state: 'hidden', timeout });
+}
+
+/** Wait until a drawer heading is no longer visible (BaseDrawer uses role=presentation). */
+export async function waitForDrawerHeadingHidden(
+  page: Page,
+  title: string | RegExp,
+  timeout = 15_000
+) {
+  await waitForDrawerClosed(page, timeout);
+}
+
+/** UUID that is valid but unlikely to exist in Quick Start seed data. */
+export const NON_EXISTENT_UUID = '00000000-0000-0000-0000-000000000099';
 
 /**
  * Confirm a MUI deletion dialog by clicking the primary destructive button.
