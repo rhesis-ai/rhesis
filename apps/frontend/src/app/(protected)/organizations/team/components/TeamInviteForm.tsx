@@ -2,20 +2,39 @@
 
 import * as React from 'react';
 import {
+  Avatar,
   Box,
+  Chip,
+  InputAdornment,
   TextField,
   Button,
   IconButton,
   CircularProgress,
-  Stack,
+  List,
+  ListItemButton,
+  Tooltip,
+  Typography,
 } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import SearchIcon from '@mui/icons-material/Search';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import { getProjectIcon } from '@/components/common/ProjectIcons';
+import {
+  drawerFieldsSx,
+  drawerOutlinedFieldSx,
+  drawerOutlineButtonSx,
+  drawerSectionSx,
+} from '@/components/common/drawerFormFieldSx';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Project } from '@/utils/api-client/interfaces/project';
 import { UUID } from 'crypto';
 
 interface InviteItem {
@@ -51,6 +70,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
   ) {
     const { data: session } = useSession();
     const notifications = useNotifications();
+    const { projects: availableProjects } = useActiveProject();
 
     const [formData, setFormData] = useState<FormData>({
       invites: [createInvite()],
@@ -59,6 +79,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const [errors, setErrors] = useState<{
       [key: string]: { hasError: boolean; message: string };
     }>({});
+    const [selectedProjects, setSelectedProjects] = useState<Project[]>([]);
+    const [projectSearch, setProjectSearch] = useState('');
 
     useEffect(() => {
       onSubmittingChange?.(isSubmitting);
@@ -226,7 +248,26 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
           }
         });
 
-        await Promise.all(createUserPromises);
+        const createdUsers = await Promise.all(createUserPromises);
+
+        // Enroll successfully created users into the selected projects.
+        if (selectedProjects.length > 0) {
+          const projectsClient = clientFactory.getProjectsClient();
+          const enrollPromises = createdUsers.flatMap((user, idx) => {
+            if (!user || !invitationResults[idx]?.success) return [];
+            return selectedProjects.map(project =>
+              projectsClient
+                .addProjectMember(String(project.id), {
+                  user_id: String(user.id),
+                })
+                .catch(() => {
+                  // enrollment failure is non-fatal — user is still invited
+                })
+            );
+          });
+          await Promise.all(enrollPromises);
+        }
+
         const successCount = invitationResults.filter(
           result => result.success
         ).length;
@@ -318,6 +359,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         if (successCount > 0) {
           setFormData({ invites: [createInvite()] });
           setErrors({});
+          setSelectedProjects([]);
+          setProjectSearch('');
 
           if (onInvitesSent) {
             const successfulEmails = invitationResults
@@ -376,15 +419,25 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     };
 
     return (
-      <Box component="form" ref={ref} onSubmit={handleSubmit}>
-        <Stack spacing={2} sx={{ mb: embedded ? 0 : 3 }}>
-          {formData.invites.map((invite, index) => {
-            return (
+      <Box
+        component="form"
+        ref={ref}
+        onSubmit={handleSubmit}
+        sx={drawerSectionSx}
+      >
+        {/* Section A: Team members */}
+        <Box sx={drawerSectionSx}>
+          <FormSectionDivider
+            headline="Team members"
+            descriptiveText={`Invite up to ${MAX_TEAM_MEMBERS} colleagues to join your organization. Members without a project assigned see a no-access screen until an admin adds them.`}
+          />
+          <Box sx={drawerFieldsSx}>
+            {formData.invites.map((invite, index) => (
               <Box
                 key={invite.id}
                 display="flex"
                 alignItems="flex-start"
-                gap={2}
+                gap={1.5}
               >
                 <TextField
                   fullWidth
@@ -396,36 +449,233 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   helperText={errors[invite.id]?.message || ''}
                   placeholder="colleague@company.com"
                   variant="outlined"
-                  size="small"
+                  sx={drawerOutlinedFieldSx}
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
                 {formData.invites.length > 1 && (
                   <IconButton
                     onClick={() => removeEmailField(invite)}
                     color="error"
-                    size="small"
+                    sx={{ mt: '8px' }}
                   >
                     <DeleteIcon />
                   </IconButton>
                 )}
               </Box>
-            );
-          })}
+            ))}
 
-          <Box display="flex" justifyContent="flex-start">
             <Button
               startIcon={<AddIcon />}
               onClick={addEmailField}
               variant="outlined"
-              size="small"
+              fullWidth
               disabled={formData.invites.length >= MAX_TEAM_MEMBERS}
+              sx={drawerOutlineButtonSx}
             >
               {formData.invites.length >= MAX_TEAM_MEMBERS
                 ? `Maximum ${MAX_TEAM_MEMBERS} invites reached`
                 : 'Add Another Email'}
             </Button>
           </Box>
-        </Stack>
+        </Box>
+
+        {/* Section B: Project access */}
+        <Box sx={drawerSectionSx}>
+          <FormSectionDivider
+            headline="Project access"
+            descriptiveText="Invited users will only have access to the projects you select. Leave empty to invite without any project access — an admin can add them later."
+          />
+          <Box>
+            {availableProjects.length === 0 ? (
+              <Typography variant="body2" color="text.disabled">
+                No projects available
+              </Typography>
+            ) : (
+              <>
+                <TextField
+                  value={projectSearch}
+                  onChange={e => setProjectSearch(e.target.value)}
+                  placeholder="Search projects…"
+                  fullWidth
+                  sx={{ ...drawerOutlinedFieldSx, mb: 1 }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon
+                            fontSize="small"
+                            sx={{ color: 'text.secondary' }}
+                          />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <List
+                  disablePadding
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: theme => theme.spacing(0.5),
+                  }}
+                >
+                  {availableProjects
+                    .filter(p =>
+                      p.name.toLowerCase().includes(projectSearch.toLowerCase())
+                    )
+                    .map(project => {
+                      const isSelected = selectedProjects.some(
+                        p => String(p.id) === String(project.id)
+                      );
+                      return (
+                        <ListItemButton
+                          key={String(project.id)}
+                          selected={isSelected}
+                          onClick={() =>
+                            setSelectedProjects(prev =>
+                              isSelected
+                                ? prev.filter(
+                                    p => String(p.id) !== String(project.id)
+                                  )
+                                : [...prev, project]
+                            )
+                          }
+                          sx={{
+                            borderRadius: '12px',
+                            px: 1.5,
+                            py: 1.25,
+                            gap: theme => theme.spacing(1.5),
+                            border: theme =>
+                              isSelected
+                                ? `2px solid ${theme.palette.primary.main}`
+                                : `2px solid transparent`,
+                            '&.Mui-selected': {
+                              bgcolor: theme =>
+                                theme.palette.mode === 'light'
+                                  ? 'primary.50'
+                                  : 'primary.900',
+                            },
+                            '&.Mui-selected:hover': {
+                              bgcolor: theme =>
+                                theme.palette.mode === 'light'
+                                  ? 'primary.100'
+                                  : 'primary.800',
+                            },
+                          }}
+                        >
+                          <Avatar
+                            sx={{
+                              width: theme => theme.spacing(4),
+                              height: theme => theme.spacing(4),
+                              bgcolor: 'primary.main',
+                              flexShrink: 0,
+                              fontSize: theme =>
+                                theme.typography.body2.fontSize,
+                              fontWeight: theme =>
+                                theme.typography.fontWeightBold,
+                              '& svg': { fontSize: theme => theme.spacing(2) },
+                            }}
+                          >
+                            {getProjectIcon(project)}
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: theme =>
+                                  isSelected
+                                    ? theme.typography.fontWeightBold
+                                    : theme.typography.fontWeightRegular,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {project.name}
+                            </Typography>
+                            {project.description && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{
+                                  display: 'block',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {project.description}
+                              </Typography>
+                            )}
+                          </Box>
+                          {isSelected && (
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: theme => theme.spacing(0.75),
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Chip
+                                label="Member"
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                sx={{
+                                  height: theme => theme.spacing(2.5),
+                                  fontSize: theme =>
+                                    theme.typography.caption.fontSize,
+                                }}
+                              />
+                              <CheckIcon
+                                fontSize="small"
+                                sx={{ color: 'primary.main' }}
+                              />
+                            </Box>
+                          )}
+                        </ListItemButton>
+                      );
+                    })}
+                </List>
+                {projectSearch &&
+                  !availableProjects.some(p =>
+                    p.name.toLowerCase().includes(projectSearch.toLowerCase())
+                  ) && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ textAlign: 'center', pt: 1 }}
+                    >
+                      No projects match your search.
+                    </Typography>
+                  )}
+              </>
+            )}
+
+            {/* Role note — static "Member" until RBAC lands */}
+            {availableProjects.length > 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme => theme.spacing(0.5),
+                  mt: 1,
+                }}
+              >
+                <Tooltip title="Role-based access control is coming soon. All invited members receive the Member role for now.">
+                  <InfoOutlinedIcon
+                    fontSize="small"
+                    sx={{ color: 'text.disabled' }}
+                  />
+                </Tooltip>
+                <Typography variant="caption" color="text.disabled">
+                  Selected projects will be granted the Member role
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
 
         {!embedded && (
           <Box display="flex" justifyContent="flex-end">

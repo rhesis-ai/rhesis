@@ -119,7 +119,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
                     flexDirection: 'column',
                     overflow: 'hidden',
                   }
-                : { p: 4 }),
+                : { p: 4, display: 'flex', flexDirection: 'column' }),
             }}
           >
             {children}

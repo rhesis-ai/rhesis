@@ -2,28 +2,16 @@ import { test, expect } from '@playwright/test';
 import { MetricsPage } from '../pages/MetricsPage';
 
 /**
- * Metrics page tests — superuser only.
+ * Metrics page tests.
  *
  * Covers: A4.1 (page loads, both Language and Embedding sections),
  * A4.2 (search filter, backend filter buttons: All / Custom / DeepEval etc.).
- *
- * If the current session user is not a superuser the page redirects to /dashboard,
- * in which case all tests gracefully skip.
  */
 test.describe('Metrics page — load and filters @interaction', () => {
   test('metrics page loads without error', async ({ page }) => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    const isOnMetrics = page.url().includes('/metrics');
-    if (!isOnMetrics) {
-      test.skip(
-        true,
-        'Redirected away from /metrics — user is not a superuser, skipping'
-      );
-      return;
-    }
 
     await metricsPage.expectLoaded();
     await expect(page.locator('body')).not.toContainText(
@@ -38,11 +26,6 @@ test.describe('Metrics page — load and filters @interaction', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping metrics content test');
-      return;
-    }
 
     await metricsPage.expectLoaded();
 
@@ -66,11 +49,6 @@ test.describe('Metrics page — load and filters @interaction', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping search filter test');
-      return;
-    }
 
     await metricsPage.expectLoaded();
 
@@ -104,11 +82,6 @@ test.describe('Metrics page — load and filters @interaction', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping backend filter test');
-      return;
-    }
 
     await metricsPage.expectLoaded();
 
@@ -144,11 +117,6 @@ test.describe('Metrics page — load and filters @interaction', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping filters popover test');
-      return;
-    }
 
     await metricsPage.expectLoaded();
 

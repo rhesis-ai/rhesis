@@ -1,49 +1,56 @@
 'use client';
 
 import React, { useCallback, useMemo } from 'react';
-import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { SectionCard } from '@/components/common/SectionCard';
+import DetailTabNav from '@/components/common/DetailTabNav';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { getOrgSettingsSections } from '@/lib/extension-registries';
 import OrganizationDetailsForm from './OrganizationDetailsForm';
 import ContactInformationForm from './ContactInformationForm';
 import DangerZone from './DangerZone';
 
-const TAB_KEYS = ['information', 'sso-api', 'danger'] as const;
-type TabKey = (typeof TAB_KEYS)[number];
+const TAB_KEYS = ['information', 'sso', 'api', 'danger'] as const;
+type OrgSettingsTabKey = (typeof TAB_KEYS)[number];
 
-const SSO_API_SECTION_IDS = new Set(['sso', 'api-clients']);
+const LEGACY_TAB_MAP: Record<string, OrgSettingsTabKey> = {
+  'sso-api': 'sso',
+};
 
-function tabIndexFromKey(key: string | null): number {
-  const idx = TAB_KEYS.indexOf(key as TabKey);
-  return idx >= 0 ? idx : 0;
-}
+const TAB_SECTION_IDS: Record<'sso' | 'api', Set<string>> = {
+  sso: new Set(['sso']),
+  api: new Set(['api-clients']),
+};
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`org-settings-tabpanel-${index}`}
-      aria-labelledby={`org-settings-tab-${index}`}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+const TAB_UNAVAILABLE_COPY: Record<'sso' | 'api', string> = {
+  sso: 'SSO settings are not available for this installation.',
+  api: 'API client settings are not available for this installation.',
+};
 
 interface OrganizationSettingsTabsProps {
   organization: Organization;
   sessionToken: string;
   onUpdate: () => void;
 }
+
+function normalizeTabParam(param: string | null): OrgSettingsTabKey {
+  if (param && param in LEGACY_TAB_MAP) {
+    return LEGACY_TAB_MAP[param];
+  }
+  if (param && TAB_KEYS.includes(param as OrgSettingsTabKey)) {
+    return param as OrgSettingsTabKey;
+  }
+  return 'information';
+}
+
+const TAB_LABELS: Record<OrgSettingsTabKey, string> = {
+  information: 'Information',
+  sso: 'SSO',
+  api: 'API',
+  danger: 'Danger zone',
+};
 
 export default function OrganizationSettingsTabs({
   organization,
@@ -53,18 +60,14 @@ export default function OrganizationSettingsTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = tabIndexFromKey(searchParams.get('tab'));
-
-  const extensionSections = useMemo(() => getOrgSettingsSections(), []);
-  const ssoApiSections = useMemo(
-    () =>
-      extensionSections.filter(section => SSO_API_SECTION_IDS.has(section.id)),
-    [extensionSections]
-  );
+  const activeTab = (() => {
+    const key = normalizeTabParam(searchParams.get('tab'));
+    return TAB_KEYS.indexOf(key);
+  })();
 
   const handleTabChange = useCallback(
-    (_event: React.SyntheticEvent, newValue: number) => {
-      const key = TAB_KEYS[newValue];
+    (newIndex: number) => {
+      const key = TAB_KEYS[newIndex];
       const params = new URLSearchParams(searchParams.toString());
       params.set('tab', key);
       router.push(`?${params.toString()}`, { scroll: false });
@@ -72,33 +75,50 @@ export default function OrganizationSettingsTabs({
     [router, searchParams]
   );
 
-  return (
-    <Box>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          aria-label="organization settings tabs"
-        >
-          <Tab
-            label="Information"
-            id="org-settings-tab-0"
-            aria-controls="org-settings-tabpanel-0"
-          />
-          <Tab
-            label="SSO & API"
-            id="org-settings-tab-1"
-            aria-controls="org-settings-tabpanel-1"
-          />
-          <Tab
-            label="Danger zone"
-            id="org-settings-tab-2"
-            aria-controls="org-settings-tabpanel-2"
-          />
-        </Tabs>
-      </Box>
+  const extensionSections = useMemo(() => getOrgSettingsSections(), []);
 
-      <TabPanel value={activeTab} index={0}>
+  const sectionsForTab = (tab: 'sso' | 'api') =>
+    extensionSections.filter(section => TAB_SECTION_IDS[tab].has(section.id));
+
+  const renderExtensionTab = (tab: 'sso' | 'api') => {
+    const sections = sectionsForTab(tab);
+    if (sections.length === 0) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          {TAB_UNAVAILABLE_COPY[tab]}
+        </Typography>
+      );
+    }
+    return sections.map(section => {
+      const Section = section.component;
+      if (section.id === 'api-clients') {
+        return <Section key={section.id} />;
+      }
+      return (
+        <SectionCard key={section.id} title={section.title}>
+          <Section />
+        </SectionCard>
+      );
+    });
+  };
+
+  const navTabs = TAB_KEYS.map((key, index) => ({
+    key,
+    label: TAB_LABELS[key],
+    id: `org-settings-tab-${index}`,
+    'aria-controls': `org-settings-tabpanel-${index}`,
+  }));
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <DetailTabNav
+        tabs={navTabs}
+        activeIndex={activeTab}
+        onChange={handleTabChange}
+        aria-label="Organization settings sections"
+      />
+
+      <DetailTabPanel value={activeTab} index={0} prefix="org-settings">
         <OrganizationDetailsForm
           organization={organization}
           sessionToken={sessionToken}
@@ -109,30 +129,21 @@ export default function OrganizationSettingsTabs({
           sessionToken={sessionToken}
           onUpdate={onUpdate}
         />
-      </TabPanel>
+      </DetailTabPanel>
 
-      <TabPanel value={activeTab} index={1}>
-        {ssoApiSections.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            SSO and API client settings are not available for this installation.
-          </Typography>
-        ) : (
-          ssoApiSections.map(section => {
-            const Section = section.component;
-            return (
-              <SectionCard key={section.id} title={section.title}>
-                <Section />
-              </SectionCard>
-            );
-          })
-        )}
-      </TabPanel>
+      <DetailTabPanel value={activeTab} index={1} prefix="org-settings">
+        {renderExtensionTab('sso')}
+      </DetailTabPanel>
 
-      <TabPanel value={activeTab} index={2}>
+      <DetailTabPanel value={activeTab} index={2} prefix="org-settings">
+        {renderExtensionTab('api')}
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={3} prefix="org-settings">
         <SectionCard title="Danger Zone" variant="danger">
           <DangerZone organization={organization} sessionToken={sessionToken} />
         </SectionCard>
-      </TabPanel>
+      </DetailTabPanel>
     </Box>
   );
 }

@@ -95,6 +95,12 @@ class UserSettingsManager:
         """Access onboarding progress."""
         return OnboardingProgressAccessor(self._data.get("onboarding", {}))
 
+    @property
+    def default_project(self) -> Optional[dict]:
+        """The user's default project as a {"id", "name"} dict, or None."""
+        value = self._data.get("default_project")
+        return value if value and value.get("id") else None
+
     def update(self, updates: dict) -> dict:
         """
         Deep merge updates into settings.

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
 import { Alert, Paper } from '@mui/material';
 import styles from '@/styles/Knowledge.module.css';
@@ -33,7 +33,7 @@ export default async function SourcePreviewPage({
       );
     }
 
-    const apiFactory = new ApiClientFactory(session.session_token);
+    const apiFactory = await createServerApiFactory(session.session_token);
     const sourcesClient = apiFactory.getSourcesClient();
 
     // Await params before using its properties (Next.js 15 requirement)

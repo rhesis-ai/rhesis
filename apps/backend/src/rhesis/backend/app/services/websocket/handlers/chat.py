@@ -70,6 +70,7 @@ async def handle_chat_message(
     # Extract required fields
     endpoint_id = payload.get("endpoint_id")
     user_message = payload.get("message")
+    client_project_id = payload.get("project_id") or ""
 
     if not endpoint_id:
         await _send_chat_error(manager, conn_id, correlation_id, "Missing endpoint_id in payload")
@@ -87,8 +88,9 @@ async def handle_chat_message(
     )
 
     try:
-        # Get database session with tenant variables for RLS policies
-        with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as db:
+        with get_db_with_tenant_variables(
+            str(user.organization_id), str(user.id), client_project_id
+        ) as db:
             # Create endpoint service and invoke
             endpoint_service = EndpointService()
 

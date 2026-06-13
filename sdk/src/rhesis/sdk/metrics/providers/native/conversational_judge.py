@@ -340,6 +340,11 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         Raises:
             ValueError: If validation fails
         """
+        if conversation_history is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires conversation_history to evaluate. "
+                "No conversation history was provided."
+            )
         if not isinstance(conversation_history, ConversationHistory):
             raise ValueError("conversation_history must be a ConversationHistory instance")
 

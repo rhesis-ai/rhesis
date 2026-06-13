@@ -1,6 +1,23 @@
 import { TestRunsClient } from '@/utils/api-client/test-runs-client';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
+/** Prefer execution start time; fall back to record timestamps. */
+export function getTestRunDisplayTimestamp(
+  testRun: Pick<TestRunDetail, 'created_at' | 'updated_at' | 'attributes'>
+): string | undefined {
+  const startedAt = testRun.attributes?.started_at;
+  if (typeof startedAt === 'string' && startedAt) {
+    return startedAt;
+  }
+  if (testRun.created_at) {
+    return testRun.created_at;
+  }
+  if (testRun.updated_at) {
+    return testRun.updated_at;
+  }
+  return undefined;
+}
+
 interface PollForTestRunOptions {
   /** Maximum number of polling attempts (default: 10) */
   maxAttempts?: number;

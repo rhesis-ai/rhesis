@@ -44,7 +44,12 @@ For production deployments, ensure these environment variables are configured:
 
 <CodeBlock filename=".env.production" language="bash">
 {`# Database
-SQLALCHEMY_DATABASE_URL=postgresql://user:password@host:port/database
+DB_HOST=your-db-host
+DB_PORT=5432
+DB_NAME=your-db-name
+APP_DB_USER=your-app-user
+APP_DB_PASS=your-app-password
+# Optional: set ADMIN_DB_USER/ADMIN_DB_PASS for a separate migration role
 
 # Authentication
 JWT_SECRET_KEY=your-jwt-secret-key
@@ -95,7 +100,7 @@ Deploy to Google Cloud Run:
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars "SQLALCHEMY_DB_HOST=/cloudsql/project-id:region:instance"`}
+  --set-env-vars "DB_HOST=/cloudsql/project-id:region:instance"`}
 </CodeBlock>
 
 3. Set up Cloud SQL connection:

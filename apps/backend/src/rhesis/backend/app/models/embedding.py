@@ -18,7 +18,7 @@ from sqlalchemy.orm import relationship
 from .base import Base
 from .enums import EmbeddingOrigin
 from .guid import GUID
-from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin
+from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMixin
 
 
 class EmbeddingConfig:
@@ -51,7 +51,7 @@ class EmbeddingConfig:
             )
 
 
-class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
+class Embedding(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "embedding"
 
     # Polymorphic entity reference (Test, Source, etc.)

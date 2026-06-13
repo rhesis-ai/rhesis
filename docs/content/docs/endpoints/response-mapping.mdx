@@ -1,0 +1,112 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Response Mapping
+
+Response mappings tell Rhesis how to extract [platform variables](/docs/endpoints#platform-managed-variables) from your API's response. Each field is evaluated independently using JSONPath, Jinja2, or both.
+
+## JSONPath Expressions
+
+Expressions starting with `$` are evaluated as JSONPath against the response body:
+
+<CodeBlock filename="jsonpath-response.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "model_used": "$.model",
+  "tokens": "$.usage.total_tokens"
+}`}
+</CodeBlock>
+
+Common patterns:
+
+| Pattern | Description |
+|---|---|
+| `$.field` | Top-level field |
+| `$.nested.field` | Nested field |
+| `$.array[0].field` | Field from first array element |
+| `$.data[*].text` | `text` field from all array elements |
+
+## Jinja2 with `jsonpath()`
+
+For conditional logic or fallback values, wrap expressions in Jinja2:
+
+<CodeBlock filename="jinja2-response.json" language="json">
+  {`{
+  "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
+  "conversation_id": "$.conversation_id"
+}`}
+</CodeBlock>
+
+Returns the first non-empty value. Pure JSONPath expressions (starting with `$`) work without any Jinja2 wrapping.
+
+## Mixing Approaches
+
+Each field is evaluated independently — you can mix JSONPath and Jinja2 in the same mapping:
+
+<CodeBlock filename="mixed-response.json" language="json">
+  {`{
+  "output": "$.response.text",
+  "context": "{{ jsonpath('$.sources') or jsonpath('$.references') }}",
+  "metadata": "{{ {'model': jsonpath('$.model_info.name'), 'latency_ms': jsonpath('$.timing.total_ms')} }}"
+}`}
+</CodeBlock>
+
+## Platform-Managed Fields
+
+<Callout type="info">
+  `output` must always be mapped. Without it, Rhesis cannot evaluate responses against metrics.
+</Callout>
+
+**Actively used by Rhesis:**
+- `output` — main response text, used for metric evaluation
+- `context` — additional context, used by context-dependent metrics
+- Conversation tracking fields (`conversation_id`, `session_id`, `thread_id`, etc.) — used for [multi-turn conversation](/docs/endpoints/request-mapping#multi-turn-conversations) management
+
+**Stored and available to metrics:**
+- `metadata` — stored with the test result, available to [custom metrics](/docs/metrics#using-metadata-in-evaluation)
+- `tool_calls` — stored with the test result, available to metrics that evaluate tool use
+
+Custom fields beyond these are passed through and stored but not actively used by the platform.
+
+## Complete Example
+
+**Request headers:**
+
+<CodeBlock filename="example-headers.json" language="json">
+  {`{
+  "Authorization": "Bearer {{ auth_token }}",
+  "Content-Type": "application/json"
+}`}
+</CodeBlock>
+
+**Request body template:**
+
+<CodeBlock filename="example-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": 0.7,
+  "max_tokens": 1024
+}`}
+</CodeBlock>
+
+**Response mapping:**
+
+<CodeBlock filename="example-response.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
+}`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - Browse [Examples](/docs/endpoints/mapping-examples) for provider-specific configurations
+  - See [Request Mapping](/docs/endpoints/request-mapping) for template syntax and filters
+</Callout>

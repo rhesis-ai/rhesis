@@ -1,14 +1,18 @@
 'use client';
 
 import * as React from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
-import Autocomplete from '@mui/material/Autocomplete';
-import TextField from '@mui/material/TextField';
-import CircularProgress from '@mui/material/CircularProgress';
+import {
+  Box,
+  TextField,
+  List,
+  ListItemButton,
+  ListItemText,
+  InputAdornment,
+  CircularProgress,
+  Typography,
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import BaseDrawer from '@/components/common/BaseDrawer';
 import type { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -38,25 +42,15 @@ export default function ImportExplorerTestSetDialog({
   const [selectedTestSet, setSelectedTestSet] = React.useState<TestSet | null>(
     null
   );
-  const [inputValue, setInputValue] = React.useState<string>('');
+  const [searchValue, setSearchValue] = React.useState('');
   const [isSearching, setIsSearching] = React.useState(false);
   const notifications = useNotifications();
   const searchTimeoutRef = React.useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
 
-  const createSearchFilter = React.useCallback(
-    (search: string): string | undefined => {
-      if (!search || search.trim() === '') {
-        return undefined;
-      }
-      return `contains(tolower(name), tolower('${search.replace(/'/g, "''")}'))`;
-    },
-    []
-  );
-
   const fetchTestSets = React.useCallback(
-    async (searchValue: string, isInitialLoad = false) => {
+    async (search: string, isInitialLoad = false) => {
       if (!open) return;
 
       if (isInitialLoad) {
@@ -69,7 +63,6 @@ export default function ImportExplorerTestSetDialog({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testSetsClient = clientFactory.getTestSetsClient();
 
-        const searchFilter = createSearchFilter(searchValue);
         const queryParams: {
           sort_by: string;
           sort_order: 'asc' | 'desc';
@@ -81,14 +74,14 @@ export default function ImportExplorerTestSetDialog({
           limit: 100,
         };
 
-        if (searchFilter) {
-          queryParams.$filter = searchFilter;
+        if (search.trim()) {
+          const escaped = search.trim().replace(/'/g, "''");
+          queryParams.$filter = `contains(tolower(name), tolower('${escaped}'))`;
         }
 
         const response = await testSetsClient.getTestSets(queryParams);
-        const filtered = response.data.filter(ts => !isExplorerTestSet(ts));
-        setTestSets(filtered);
-      } catch (_error) {
+        setTestSets(response.data.filter(ts => !isExplorerTestSet(ts)));
+      } catch {
         notifications.show('Failed to load test sets', {
           severity: 'error',
           autoHideDuration: 6000,
@@ -101,27 +94,42 @@ export default function ImportExplorerTestSetDialog({
         }
       }
     },
-    [sessionToken, open, notifications, createSearchFilter]
+    [sessionToken, open, notifications]
   );
 
   React.useEffect(() => {
     if (open) {
-      setInputValue('');
+      setSearchValue('');
       setSelectedTestSet(null);
       setSubmitting(false);
       void fetchTestSets('', true);
     }
   }, [open, fetchTestSets]);
 
-  const handleClose = () => {
-    if (submitting) {
-      return;
-    }
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchValue(value);
     setSelectedTestSet(null);
-    setInputValue('');
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+
+    if (!value.trim()) {
+      void fetchTestSets('', false);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      void fetchTestSets(value, false);
+    }, 400);
+  };
+
+  const handleClose = () => {
+    if (submitting) return;
+    setSelectedTestSet(null);
+    setSearchValue('');
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     onClose();
   };
 
@@ -149,96 +157,86 @@ export default function ImportExplorerTestSetDialog({
   };
 
   return (
-    <Dialog
+    <BaseDrawer
       open={open}
       onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '100%',
-          maxWidth: '500px',
-          m: 0,
-        },
-      }}
+      title="Load test set"
+      onSave={() => void handleConfirm()}
+      saveButtonText="Load"
+      saveDisabled={!selectedTestSet}
+      loading={submitting}
+      anchor="right"
     >
-      <DialogTitle>Load Test Set</DialogTitle>
-      <DialogContent>
-        <Autocomplete
-          options={testSets}
-          getOptionLabel={option => option.name}
-          loading={loading}
-          value={selectedTestSet}
-          inputValue={inputValue}
-          onChange={(_, newValue) => {
-            setSelectedTestSet(newValue);
+      {/* Search — separate child so it gets the 30 px side padding from the drawer paper */}
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search test sets…"
+        value={searchValue}
+        onChange={handleSearchChange}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              {loading || isSearching ? (
+                <CircularProgress size={16} />
+              ) : (
+                <SearchIcon fontSize="small" />
+              )}
+            </InputAdornment>
+          ),
+        }}
+      />
+
+      {/* Results — separate child so the 40 px BaseDrawer gap sits between search and list */}
+      {loading ? (
+        <Box />
+      ) : testSets.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          {searchValue.trim()
+            ? 'No test sets match your search.'
+            : 'No test sets available.'}
+        </Typography>
+      ) : (
+        <List
+          disablePadding
+          sx={{
+            border: theme => `1px solid ${theme.palette.divider}`,
+            borderRadius: 1,
+            overflow: 'hidden',
           }}
-          onInputChange={(_, newInputValue, reason) => {
-            setInputValue(newInputValue);
-
-            if (searchTimeoutRef.current) {
-              clearTimeout(searchTimeoutRef.current);
-            }
-
-            if (newInputValue === '' || reason === 'reset') {
-              void fetchTestSets('', false);
-              return;
-            }
-
-            if (newInputValue.length < 2) {
-              return;
-            }
-
-            searchTimeoutRef.current = setTimeout(() => {
-              void fetchTestSets(newInputValue, false);
-            }, 500);
-          }}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-          filterOptions={x => x}
-          renderOption={(props, option) => (
-            <li {...props} key={String(option.id)}>
-              {option.name}
-            </li>
-          )}
-          renderInput={params => (
-            <TextField
-              {...params}
-              label="Search test sets"
-              placeholder="Type to search…"
-              variant="outlined"
-              margin="normal"
-              fullWidth
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: (
-                  <React.Fragment>
-                    {loading || isSearching ? (
-                      <CircularProgress color="inherit" size={20} />
-                    ) : null}
-                    {params.InputProps.endAdornment}
-                  </React.Fragment>
-                ),
-              }}
-            />
-          )}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => void handleConfirm()}
-          variant="contained"
-          disabled={!selectedTestSet || submitting}
         >
-          {submitting ? 'Loading…' : 'Load'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+          {testSets.map((ts, idx) => (
+            <ListItemButton
+              key={String(ts.id)}
+              selected={selectedTestSet?.id === ts.id}
+              onClick={() => setSelectedTestSet(ts)}
+              divider={idx < testSets.length - 1}
+              sx={{
+                '&.Mui-selected': {
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                },
+              }}
+            >
+              <ListItemText
+                primary={ts.name}
+                secondary={ts.description ?? undefined}
+                secondaryTypographyProps={{
+                  noWrap: true,
+                  sx: {
+                    color:
+                      selectedTestSet?.id === ts.id
+                        ? 'primary.contrastText'
+                        : 'text.secondary',
+                    opacity: 0.8,
+                  },
+                }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      )}
+    </BaseDrawer>
   );
 }

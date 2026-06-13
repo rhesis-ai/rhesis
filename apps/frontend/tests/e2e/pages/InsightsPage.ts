@@ -31,7 +31,33 @@ export class InsightsPage extends BasePage {
     expect(bodyText.trim().length).toBeGreaterThan(20);
   }
 
+  /** Expand a collapsible sidebar section (e.g. CONNECT for Endpoints). */
+  async expandSidebarSection(sectionTitle: string) {
+    const header = this.page
+      .locator('nav')
+      .getByText(sectionTitle, { exact: true });
+    await header.waitFor({ state: 'visible', timeout: 10_000 });
+    await header.click();
+  }
+
+  /** Projects moved to the organisation menu — not a primary sidebar link. */
+  async navigateToProjectsViaOrgMenu() {
+    await this.page
+      .getByRole('button', { name: /open organisation menu/i })
+      .click();
+    await this.page.getByRole('menuitem', { name: 'Projects' }).click();
+  }
+
   async navigateTo(itemText: string) {
+    if (itemText === 'Projects') {
+      await this.navigateToProjectsViaOrgMenu();
+      return;
+    }
+
+    if (itemText === 'Endpoints') {
+      await this.expandSidebarSection('CONNECT');
+    }
+
     const navItem = this.page
       .locator('nav')
       .getByRole('link', { name: itemText });

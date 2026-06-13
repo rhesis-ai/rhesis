@@ -9,7 +9,13 @@ import {
   Stack,
   CircularProgress,
 } from '@mui/material';
-import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
+import { BACKDROP_COLORS } from '@/styles/theme';
+import {
+  drawerFooterCancelButtonSx,
+  drawerFooterDeleteButtonSx,
+  drawerFooterSaveButtonSx,
+  DRAWER_WIDTH,
+} from '@/components/common/drawerFormFieldSx';
 
 export interface BaseDrawerProps {
   open: boolean;
@@ -26,9 +32,14 @@ export interface BaseDrawerProps {
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
   closeButtonText?: string;
+  onDelete?: () => void;
+  deleteButtonText?: string;
+  deleteDisabled?: boolean;
   width?: number | string;
   showHeader?: boolean;
   anchor?: 'left' | 'right';
+  /** `form` — scrollable stacked sections; `fill` — full-height workspace (traces, test results). */
+  contentLayout?: 'form' | 'fill';
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -69,10 +80,17 @@ export default function BaseDrawer({
   saveButtonText = 'Save Changes',
   saveDataTour,
   closeButtonText = 'Cancel',
-  width = 578,
+  onDelete,
+  deleteButtonText = 'Delete',
+  deleteDisabled = false,
+  width = DRAWER_WIDTH,
   showHeader = true,
   anchor = 'right',
+  contentLayout = 'form',
 }: BaseDrawerProps) {
+  const hasFooter = !!(closeButtonText || onSave || onDelete || error);
+  const isFillLayout = contentLayout === 'fill';
+
   return (
     <Drawer
       anchor={anchor}
@@ -121,72 +139,68 @@ export default function BaseDrawer({
       <Box
         sx={{
           flex: 1,
-          overflowY: 'auto',
+          minHeight: 0,
+          overflowY: isFillLayout ? 'hidden' : 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '40px',
-          pt: '10px',
+          gap: isFillLayout ? 0 : '40px',
+          pt: isFillLayout ? 0 : '10px',
         }}
       >
         {children}
       </Box>
 
-      {/* Bottom toolbar — right-aligned Cancel + Save, no border */}
-      <Box sx={{ flexShrink: 0 }}>
-        {error && (
-          <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
-            {error}
-          </Typography>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          {closeButtonText && (
-            <Button
-              variant="outlined"
-              onClick={onClose}
-              disabled={loading}
-              sx={{
-                borderWidth: 2,
-                borderColor: 'primary.main',
-                color: 'primary.main',
-                fontWeight: 700,
-                fontSize: 14,
-                borderRadius: BORDER_RADIUS.sm,
-                px: '16px',
-                py: '8px',
-                '&:hover': { borderWidth: 2 },
-              }}
-            >
-              {closeButtonText}
-            </Button>
+      {/* Bottom toolbar — only rendered when there is something to show */}
+      {hasFooter && (
+        <Box sx={{ flexShrink: 0 }}>
+          {error && (
+            <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
+              {error}
+            </Typography>
           )}
-          {onSave && (
-            <Button
-              variant="contained"
-              onClick={onSave}
-              disabled={loading || saveDisabled}
-              {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
-              startIcon={
-                loading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : undefined
-              }
-              sx={{
-                borderRadius: BORDER_RADIUS.sm,
-                px: '16px',
-                py: '8px',
-                fontWeight: 700,
-                fontSize: 14,
-                '&.Mui-disabled': {
-                  bgcolor: theme => theme.palette.greyscale.border,
-                  color: '#fff',
-                },
-              }}
-            >
-              {loading ? 'Executing...' : saveButtonText}
-            </Button>
-          )}
+          <Box
+            sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
+          >
+            {closeButtonText && (
+              <Button
+                variant="outlined"
+                onClick={onClose}
+                disabled={loading}
+                sx={drawerFooterCancelButtonSx}
+              >
+                {closeButtonText}
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={onDelete}
+                disabled={loading || deleteDisabled}
+                sx={drawerFooterDeleteButtonSx}
+              >
+                {deleteButtonText}
+              </Button>
+            )}
+            {onSave && (
+              <Button
+                variant="contained"
+                onClick={onSave}
+                disabled={loading || saveDisabled}
+                {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : undefined
+                }
+                sx={drawerFooterSaveButtonSx}
+              >
+                {loading ? 'Executing...' : saveButtonText}
+              </Button>
+            )}
+          </Box>
         </Box>
-      </Box>
+      )}
     </Drawer>
   );
 }

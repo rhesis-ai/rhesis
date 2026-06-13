@@ -453,7 +453,6 @@ export default function TestDetailPanel({
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
-            elevation={0}
             additionalMetadata={{ test_run_id: testRunId }}
           />
         </TabPanel>

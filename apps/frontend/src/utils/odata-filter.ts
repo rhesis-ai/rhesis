@@ -113,6 +113,34 @@ function convertTagsFilterToOData(item: GridFilterItem): string {
   }
 }
 
+function convertRelationshipPresenceFilterToOData(
+  relationship: string,
+  operator: string
+): string {
+  switch (operator) {
+    case 'isEmpty':
+      return `not ${relationship}/any()`;
+    case 'isNotEmpty':
+      return `${relationship}/any()`;
+    default:
+      return '';
+  }
+}
+
+function isPresenceOperator(operator: string | undefined): boolean {
+  return operator === 'isEmpty' || operator === 'isNotEmpty';
+}
+
+function shouldSkipFilterItem(
+  field: string | undefined,
+  operator: string | undefined,
+  value: unknown
+): boolean {
+  if (!field || !operator) return true;
+  if (isPresenceOperator(operator)) return false;
+  return value === undefined || value === null || value === '';
+}
+
 /**
  * Converts a MUI DataGrid filter item to an OData filter expression
  * Optimized for Tests filtering with simple navigation patterns
@@ -120,19 +148,17 @@ function convertTagsFilterToOData(item: GridFilterItem): string {
 function convertFilterItemToOData(item: GridFilterItem): string {
   const { field, operator, value } = item;
 
-  if (
-    !field ||
-    !operator ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
+  if (shouldSkipFilterItem(field, operator, value)) {
     return '';
   }
 
   // Special handling for tags field - use the relationship path
   if (field === 'tags') {
     return convertTagsFilterToOData(item);
+  }
+
+  if (field === 'comments' || field === 'tasks') {
+    return convertRelationshipPresenceFilterToOData(field, operator);
   }
 
   // Convert dot notation to OData relationship syntax
@@ -853,18 +879,16 @@ export function combineTestRunFiltersToOData(
 function convertTestSetFilterItemToOData(item: GridFilterItem): string {
   const { field, operator, value } = item;
 
-  if (
-    !field ||
-    !operator ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
+  if (shouldSkipFilterItem(field, operator, value)) {
     return '';
   }
 
   if (field === 'tags') {
     return convertTagsFilterToOData(item);
+  }
+
+  if (field === 'comments' || field === 'tasks') {
+    return convertRelationshipPresenceFilterToOData(field, operator);
   }
 
   // Map grid column fields to backend OData paths
@@ -1310,6 +1334,15 @@ export function hasActiveTeamFilters(f: TeamFilters): boolean {
     f.accountStatus !== null ||
     f.email.trim() !== '' ||
     f.name.trim() !== ''
+  );
+}
+
+export function countActiveTeamFilters(f: TeamFilters): number {
+  return (
+    (f.memberStatus !== '' ? 1 : 0) +
+    (f.accountStatus !== null ? 1 : 0) +
+    (f.email.trim() !== '' ? 1 : 0) +
+    (f.name.trim() !== '' ? 1 : 0)
   );
 }
 

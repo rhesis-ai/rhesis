@@ -279,8 +279,14 @@ class TestConversationalParams:
         assert "conversation_history" not in kwargs
         assert kwargs == {"input": "test", "output": "response"}
 
-    def test_conversation_history_none_not_passed(self):
-        """When conversation_history is None, it is not passed even if accepted."""
+    def test_conversation_history_none_is_passed_when_accepted(self):
+        """conversation_history=None IS forwarded when the metric accepts it.
+
+        The metric's own validator (e.g. _validate_evaluate_inputs) is
+        responsible for raising a clear error on None input. Suppressing
+        None here produced a confusing 'must be a ConversationHistory
+        instance' TypeError instead.
+        """
         mock_metric = MagicMock()
 
         def evaluate_conv(conversation_history=None, goal=None):
@@ -297,8 +303,73 @@ class TestConversationalParams:
             conversation_history=None,
         )
 
-        assert "conversation_history" not in kwargs
+        assert "conversation_history" in kwargs
+        assert kwargs["conversation_history"] is None
         assert kwargs["goal"] == "goal text"
+
+    def test_a_evaluate_params_preferred_over_evaluate(self):
+        """build_metric_evaluate_params uses a_evaluate signature when it has named params.
+
+        This is the primary path: async metrics expose their real signature on
+        a_evaluate, not on the base-class evaluate(*args, **kwargs) fallback.
+        """
+        mock_metric = MagicMock()
+
+        # a_evaluate has different params than evaluate — only input + conversation_history
+        def a_evaluate_impl(input, conversation_history, goal=None):
+            return MetricResult(score=0.8)
+
+        # evaluate has input + output — should NOT be used
+        def evaluate_impl(input, output):
+            return MetricResult(score=0.9)
+
+        mock_metric.a_evaluate = a_evaluate_impl
+        mock_metric.evaluate = evaluate_impl
+
+        history = ConversationHistory.from_messages(
+            [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
+        )
+
+        kwargs = build_metric_evaluate_params(
+            mock_metric,
+            input_text="goal",
+            output_text="text",
+            expected_output="",
+            context=[],
+            conversation_history=history,
+        )
+
+        # a_evaluate signature: input, conversation_history, goal
+        assert "input" in kwargs
+        assert "conversation_history" in kwargs
+        assert kwargs["conversation_history"] is history
+        # output is NOT in a_evaluate — must not appear
+        assert "output" not in kwargs
+
+    def test_a_evaluate_fallback_to_evaluate_when_varargs_only(self):
+        """Falls back to evaluate signature when a_evaluate is bare *args/**kwargs."""
+        mock_metric = MagicMock()
+
+        # a_evaluate only has *args/**kwargs — the base-class default
+        def a_evaluate_varargs(*args, **kwargs):
+            pass
+
+        def evaluate_impl(input, output):
+            return MetricResult(score=0.9)
+
+        mock_metric.a_evaluate = a_evaluate_varargs
+        mock_metric.evaluate = evaluate_impl
+
+        kwargs = build_metric_evaluate_params(
+            mock_metric,
+            input_text="test",
+            output_text="response",
+            expected_output="",
+            context=[],
+        )
+
+        # Falls back to evaluate: input + output
+        assert kwargs == {"input": "test", "output": "response"}
 
 
 class TestIntrospectionCompleteness:

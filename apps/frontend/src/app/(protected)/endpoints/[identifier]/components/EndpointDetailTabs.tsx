@@ -2,52 +2,50 @@
 
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
-import DetailTabNav from '@/components/common/DetailTabNav';
 import { useRouter, useSearchParams } from 'next/navigation';
+import DetailTabNav from '@/components/common/DetailTabNav';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
 import {
   TAB_KEYS,
-  tabIndexFromKey,
+  LEGACY_TAB_MAP,
   type EndpointTabKey,
 } from './endpoint-detail-shared';
 import EndpointOverviewTab from './EndpointOverviewTab';
 import EndpointConnectionTab from './EndpointConnectionTab';
-import EndpointMappingsTab from './EndpointMappingsTab';
+import EndpointHeadersTab from './EndpointHeadersTab';
+import EndpointMappingTab from './EndpointMappingTab';
 import EndpointTestTab from './EndpointTestTab';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`endpoint-detail-tabpanel-${index}`}
-      aria-labelledby={`endpoint-detail-tab-${index}`}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
 
 const TAB_LABELS: Record<EndpointTabKey, string> = {
   overview: 'Overview',
   connection: 'Connection',
-  mappings: 'Mappings',
-  test: 'Test',
+  headers: 'Headers',
+  mapping: 'Mapping',
+  'connection-test': 'Connection Test',
 };
+
+function normalizeTabParam(param: string | null): EndpointTabKey {
+  if (param && param in LEGACY_TAB_MAP) {
+    return LEGACY_TAB_MAP[param];
+  }
+  if (param && TAB_KEYS.includes(param as EndpointTabKey)) {
+    return param as EndpointTabKey;
+  }
+  return 'overview';
+}
 
 export default function EndpointDetailTabs() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = tabIndexFromKey(searchParams.get('tab'));
+
+  const activeTab = (() => {
+    const key = normalizeTabParam(searchParams.get('tab'));
+    return TAB_KEYS.indexOf(key);
+  })();
 
   const handleTabChange = useCallback(
-    (newValue: number) => {
-      const key = TAB_KEYS[newValue];
+    (newIndex: number) => {
+      const key = TAB_KEYS[newIndex];
       const params = new URLSearchParams(searchParams.toString());
       params.set('tab', key);
       router.push(`?${params.toString()}`, { scroll: false });
@@ -71,18 +69,21 @@ export default function EndpointDetailTabs() {
         aria-label="Endpoint detail tabs"
       />
 
-      <TabPanel value={activeTab} index={0}>
+      <DetailTabPanel value={activeTab} index={0} prefix="endpoint-detail">
         <EndpointOverviewTab />
-      </TabPanel>
-      <TabPanel value={activeTab} index={1}>
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={1} prefix="endpoint-detail">
         <EndpointConnectionTab />
-      </TabPanel>
-      <TabPanel value={activeTab} index={2}>
-        <EndpointMappingsTab />
-      </TabPanel>
-      <TabPanel value={activeTab} index={3}>
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={2} prefix="endpoint-detail">
+        <EndpointHeadersTab />
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={3} prefix="endpoint-detail">
+        <EndpointMappingTab />
+      </DetailTabPanel>
+      <DetailTabPanel value={activeTab} index={4} prefix="endpoint-detail">
         <EndpointTestTab />
-      </TabPanel>
+      </DetailTabPanel>
     </Box>
   );
 }

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { BehaviorsPage } from '../pages/BehaviorsPage';
-import { confirmDeleteDialog } from '../helpers/CrudHelper';
+import { confirmDeleteDialog, openDrawer } from '../helpers/CrudHelper';
 
 /**
  * CRUD interaction tests for Behaviors.
@@ -82,9 +82,10 @@ test.describe('Behaviors — CRUD @crud', () => {
       .waitFor({ state: 'hidden', timeout: 15_000 });
     await page.waitForLoadState('networkidle');
 
-    // The updated name should appear on the card
-    const updated = await behaviorsPage.cardIsVisible(UPDATED_NAME);
-    expect(updated).toBeTruthy();
+    // Updated name appears on the detail page after save
+    await expect(page.getByText(UPDATED_NAME).first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('can delete a behavior via the delete icon', async ({ page }) => {
@@ -140,39 +141,29 @@ test.describe('Behaviors — CRUD @crud', () => {
     // --- Assign metric: click the "+" icon on the card ---
     await behaviorsPage.clickAddMetricOnCard(UNIQUE_NAME);
 
-    // The Select Metrics dialog should open
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(
-        true,
-        'Select Metrics dialog did not open — skipping metric assignment'
-      );
-      return;
-    }
+    // Assign Metric drawer opens from the Linked Metrics tab
+    await expect(openDrawer(page).getByText(/^assign metric$/i)).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Pick the first available metric in the list
-    const firstMetricOption = dialog
-      .locator('[role="checkbox"], input[type="checkbox"]')
-      .first();
-    const hasMetric = await firstMetricOption
+    const drawer = page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
+
+    // Pick the first available metric row in the assign drawer grid
+    const metricRow = drawer.locator('[role="row"]').nth(1);
+    const hasMetric = await metricRow
       .isVisible({ timeout: 8_000 })
       .catch(() => false);
     if (!hasMetric) {
       test.skip(
         true,
-        'No metrics available in dialog — skipping metric assignment'
+        'No metrics available in assign drawer — skipping metric assignment'
       );
       return;
     }
-    await firstMetricOption.click();
+    await metricRow.locator('input[type="checkbox"]').click();
 
-    // Close/confirm the dialog
-    const saveBtn = dialog
-      .getByRole('button', { name: /save|done|confirm|close/i })
-      .first();
+    // Confirm assignment
+    const saveBtn = drawer.getByRole('button', { name: /^assign$/i }).first();
     const hasSave = await saveBtn
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
@@ -181,8 +172,9 @@ test.describe('Behaviors — CRUD @crud', () => {
 
     await page.waitForLoadState('networkidle');
 
-    // The behavior card should still be visible (no crash)
-    const visible = await behaviorsPage.cardIsVisible(UNIQUE_NAME);
-    expect(visible).toBeTruthy();
+    // Behavior detail page should still show the behavior name
+    await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

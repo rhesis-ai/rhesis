@@ -25,33 +25,48 @@ interface ActionButton {
 interface ActionBarProps {
   leftButton?: ActionButton;
   rightButton?: ActionButton;
+  /** Override styles on the container — use e.g. `sx={{ position: 'relative' }}`
+   *  in fixed-height flex layouts where sticky should not escape the container. */
+  sx?: SxProps<Theme>;
 }
 
 /**
  * ActionBar Component
  * Reusable bottom action bar with optional left and right buttons
  */
-export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
+export default function ActionBar({
+  leftButton,
+  rightButton,
+  sx,
+}: ActionBarProps) {
   return (
     <Box
-      sx={{
-        borderTop: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        p: 2,
-        display: 'flex',
-        justifyContent:
-          leftButton && rightButton
-            ? 'space-between'
-            : rightButton
-              ? 'flex-end'
-              : 'flex-start',
-      }}
+      sx={
+        [
+          {
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10,
+            borderTop: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            px: 3,
+            py: 2,
+            display: 'flex',
+            justifyContent:
+              leftButton && rightButton
+                ? 'space-between'
+                : rightButton
+                  ? 'flex-end'
+                  : 'flex-start',
+          },
+          ...(sx ? [sx] : []),
+        ] as SxProps<Theme>
+      }
     >
       {leftButton && (
         <Button
           variant={leftButton.variant || 'outlined'}
-          size="large"
           onClick={leftButton.onClick}
           disabled={leftButton.disabled}
           startIcon={leftButton.startIcon}
@@ -73,7 +88,6 @@ export default function ActionBar({ leftButton, rightButton }: ActionBarProps) {
       {rightButton && (
         <Button
           variant={rightButton.variant || 'contained'}
-          size="large"
           onClick={rightButton.onClick}
           disabled={rightButton.disabled}
           startIcon={rightButton.startIcon}

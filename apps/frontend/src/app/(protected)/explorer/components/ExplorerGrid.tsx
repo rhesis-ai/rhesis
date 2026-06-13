@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useContext } from 'react';
 import {
   GridColDef,
   GridPaginationModel,
   GridRowParams,
   GridRowSelectionModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import GridToolbar from '@/components/common/GridToolbar';
 import { useRouter } from 'next/navigation';
 import { Box, Typography } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
@@ -24,6 +28,35 @@ interface ExplorerGridProps {
   onRefresh?: () => void;
 }
 
+interface ExplorerToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+}
+
+const ExplorerToolbarContext = React.createContext<ExplorerToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+});
+
+function ExplorerUnifiedToolbar() {
+  const { searchQuery, setSearchQuery } = useContext(ExplorerToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search sessions…"
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
+
 export default function ExplorerGrid({
   sessionToken,
   refreshKey = 0,
@@ -31,8 +64,10 @@ export default function ExplorerGrid({
 }: ExplorerGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const [allRows, setAllRows] = useState<ExplorerTestSet[]>([]);
   const [rows, setRows] = useState<ExplorerTestSet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -51,11 +86,11 @@ export default function ExplorerGrid({
         const client = new ApiClientFactory(sessionToken).getExplorerClient();
         const sessions = await client.getExplorerTestSets();
         if (!cancelled) {
-          setRows(sessions);
+          setAllRows(sessions);
         }
       } catch {
         if (!cancelled) {
-          setRows([]);
+          setAllRows([]);
         }
       } finally {
         if (!cancelled) {
@@ -69,6 +104,22 @@ export default function ExplorerGrid({
       cancelled = true;
     };
   }, [sessionToken, refreshKey]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setRows(allRows);
+      return;
+    }
+    const q = searchQuery.toLowerCase();
+    setRows(
+      allRows.filter(
+        r =>
+          r.name?.toLowerCase().includes(q) ||
+          (r.description ?? '').toLowerCase().includes(q)
+      )
+    );
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery, allRows]);
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -188,7 +239,7 @@ export default function ExplorerGrid({
       );
 
       const removed = new Set(selectedRows.map(String));
-      setRows(prev => prev.filter(r => !removed.has(String(r.id))));
+      setAllRows(prev => prev.filter(r => !removed.has(String(r.id))));
       setSelectedRows([]);
       onRefresh?.();
     } catch {
@@ -243,36 +294,39 @@ export default function ExplorerGrid({
   };
 
   return (
-    <Box>
-      <BaseDataGrid
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        getRowId={row => row.id}
-        showToolbar={true}
-        actionButtons={getActionButtons()}
-        onRowClick={handleRowClick}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        serverSidePagination={false}
-        totalRows={rows.length}
-        pageSizeOptions={[10, 25, 50]}
-        disablePaperWrapper={true}
-        persistState
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={setSelectedRows}
-        rowSelectionModel={selectedRows}
-      />
-      <DeleteModal
-        open={deleteModalOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        isLoading={isDeleting}
-        title="Delete explorer sessions"
-        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
-        itemType="explorer sessions"
-      />
-    </Box>
+    <ExplorerToolbarContext.Provider value={{ searchQuery, setSearchQuery }}>
+      <Box>
+        <BaseDataGrid
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          getRowId={row => row.id}
+          showToolbar={true}
+          toolbarSlot={ExplorerUnifiedToolbar}
+          actionButtons={getActionButtons()}
+          onRowClick={handleRowClick}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          serverSidePagination={false}
+          totalRows={rows.length}
+          pageSizeOptions={[10, 25, 50]}
+          disablePaperWrapper={true}
+          persistState
+          checkboxSelection
+          disableRowSelectionOnClick
+          onRowSelectionModelChange={setSelectedRows}
+          rowSelectionModel={selectedRows}
+        />
+        <DeleteModal
+          open={deleteModalOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          isLoading={isDeleting}
+          title="Delete explorer sessions"
+          message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
+          itemType="explorer sessions"
+        />
+      </Box>
+    </ExplorerToolbarContext.Provider>
   );
 }

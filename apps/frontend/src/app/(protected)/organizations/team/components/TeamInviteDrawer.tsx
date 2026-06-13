@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { Typography } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TeamInviteForm from './TeamInviteForm';
 
@@ -43,10 +42,6 @@ export default function TeamInviteDrawer({
       loading={isSubmitting}
       saveDisabled={disableDuringTour}
     >
-      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-        Send invitations to colleagues to join your organization. You can invite
-        up to 10 members at once.
-      </Typography>
       <TeamInviteForm
         ref={formRef}
         embedded

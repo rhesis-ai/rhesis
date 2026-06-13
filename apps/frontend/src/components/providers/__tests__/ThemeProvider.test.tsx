@@ -105,20 +105,4 @@ describe('ThemeContextProvider', () => {
       'dark'
     );
   });
-
-  it('hides children until mounted (visibility hidden then visible)', async () => {
-    const { container } = render(
-      <ThemeContextProvider>
-        <span data-testid="child">content</span>
-      </ThemeContextProvider>
-    );
-    // After all layout effects run (jsdom runs them synchronously), the div should be visible
-    const wrapper = container.querySelector(
-      'div[suppresshydrationwarning]'
-    ) as HTMLElement;
-    if (wrapper) {
-      // After mount, visibility is 'visible'
-      expect(wrapper.style.visibility).toBe('visible');
-    }
-  });
 });

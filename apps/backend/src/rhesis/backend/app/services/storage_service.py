@@ -1,6 +1,8 @@
 import asyncio
 import base64
+import datetime
 import hashlib
+import importlib
 import json
 import logging
 import os
@@ -10,6 +12,8 @@ from urllib.parse import urlparse
 
 import fsspec
 from google.oauth2 import service_account
+
+from rhesis.backend.app.config.settings import get_storage_settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +33,10 @@ class StorageService:
     """
 
     def __init__(self):
-        self.storage_uri = os.getenv("STORAGE_SERVICE_URI")
-        self.service_account_key = os.getenv("STORAGE_SERVICE_ACCOUNT_KEY")
-        self.storage_path = os.getenv("LOCAL_STORAGE_PATH", "/tmp/rhesis-files")
+        settings = get_storage_settings()
+        self.storage_uri = settings.service_uri
+        self.service_account_key = settings.service_account_key
+        self.storage_path = settings.local_storage_path
 
         self._protocol, self._bucket_or_root = self._parse_uri(self.storage_uri)
         self._credentials = None  # populated for gcs protocol
@@ -355,10 +360,10 @@ class StorageService:
         response_disposition: Optional[str],
     ) -> str:
         """Generate a GCS V4 signed URL using the service-account JSON key."""
-        import datetime
+        if not self.service_account_key:
+            raise NotSupportedError("GCS presigned URLs require STORAGE_SERVICE_ACCOUNT_KEY")
 
-        from google.cloud import storage as gcs_storage
-
+        gcs_storage = importlib.import_module("google.cloud.storage")
         clean_b64 = (
             self.service_account_key.strip().replace("\n", "").replace("\r", "").replace(" ", "")
         )

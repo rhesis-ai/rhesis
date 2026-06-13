@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/arc
+  - arc-external-secret.yaml
+  - arc-runner-set-application.yaml

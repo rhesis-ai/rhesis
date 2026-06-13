@@ -1,18 +1,22 @@
 """Tests for SSRF-safe HTTP client."""
 
-import os
-from unittest.mock import patch
-
 import pytest
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.ee.sso.http_client import (
     SSRFError,
     _pin_url_to_ip,
-    _resolve_and_validate,
     validate_endpoint_origin,
     validate_jwks_uri_origin,
     validate_url_safety,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_application_settings_cache():
+    get_application_settings.cache_clear()
+    yield
+    get_application_settings.cache_clear()
 
 
 class TestValidateUrlSafety:
@@ -30,22 +34,30 @@ class TestValidateUrlSafety:
         with pytest.raises(SSRFError, match="Blocked hostname"):
             validate_url_safety("https://metadata.google.internal/path")
 
-    @patch.dict(os.environ, {"ENVIRONMENT": "production"})
-    def test_localhost_blocked_in_production(self):
+    def test_localhost_blocked_in_production(self, monkeypatch):
+        monkeypatch.setenv("BACKEND_ENV", "production")
+        get_application_settings.cache_clear()
+
         with pytest.raises(SSRFError):
             validate_url_safety("https://127.0.0.1/path")
 
-    @patch.dict(os.environ, {"ENVIRONMENT": "production"})
-    def test_localhost_name_blocked_in_production(self):
+    def test_localhost_name_blocked_in_production(self, monkeypatch):
+        monkeypatch.setenv("BACKEND_ENV", "production")
+        get_application_settings.cache_clear()
+
         with pytest.raises(SSRFError):
             validate_url_safety("https://localhost/path")
 
-    @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    def test_localhost_allowed_in_dev(self):
+    def test_localhost_allowed_in_dev(self, monkeypatch):
+        monkeypatch.setenv("BACKEND_ENV", "development")
+        get_application_settings.cache_clear()
+
         validate_url_safety("http://localhost:8180/realms/dev")
 
-    @patch.dict(os.environ, {"ENVIRONMENT": "local"})
-    def test_localhost_ip_allowed_in_local(self):
+    def test_localhost_ip_allowed_in_local(self, monkeypatch):
+        monkeypatch.setenv("BACKEND_ENV", "local")
+        get_application_settings.cache_clear()
+
         validate_url_safety("http://127.0.0.1:8180/realms/dev")
 
     def test_private_10_blocked(self):

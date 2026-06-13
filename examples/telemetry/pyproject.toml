@@ -26,6 +26,9 @@ langgraph = [
 pydantic-ai = [
     "pydantic-ai>=1.31.0",
 ]
+crewai = [
+    "crewai[google-genai]>=0.108.0",
+]
 
 [tool.uv]
 exclude-newer = "1 week"

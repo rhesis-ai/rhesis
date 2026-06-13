@@ -52,45 +52,30 @@ jest.mock('@/utils/api-client/client-factory', () => ({
 // toolbarSlot is not rendered here: MUI DataGrid toolbar slots require the
 // real DataGrid context and cannot be exercised in a shallow unit test.
 
-type ActionButton = {
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-};
-
 jest.mock('@/components/common/BaseDataGrid', () => {
   return function MockBaseDataGrid({
     rows,
     loading,
-    actionButtons,
+    columns,
     onRowClick,
-    checkboxSelection,
-    onRowSelectionModelChange,
-    rowSelectionModel,
   }: {
     rows: Array<Record<string, unknown>>;
     loading?: boolean;
-    actionButtons?: ActionButton[];
+    columns?: Array<{
+      field: string;
+      renderCell?: (params: {
+        id: unknown;
+        row: Record<string, unknown>;
+      }) => React.ReactNode;
+    }>;
     onRowClick?: (p: { id: unknown; row: Record<string, unknown> }) => void;
-    checkboxSelection?: boolean;
-    onRowSelectionModelChange?: (sel: unknown[]) => void;
-    rowSelectionModel?: unknown[];
     toolbarSlot?: unknown;
     showToolbar?: boolean;
   }) {
     if (loading) return <div data-testid="grid-loading">Loading…</div>;
+    const actionsCol = columns?.find(c => c.field === 'actions');
     return (
       <div data-testid="base-data-grid">
-        {actionButtons?.map(btn => (
-          <button
-            key={btn.label}
-            onClick={btn.onClick}
-            disabled={btn.disabled}
-            data-testid={`action-${btn.label}`}
-          >
-            {btn.label}
-          </button>
-        ))}
         {rows.map(row => (
           <div
             key={String(row.id)}
@@ -98,23 +83,7 @@ jest.mock('@/components/common/BaseDataGrid', () => {
             data-testid={`row-${row.id}`}
             onClick={() => onRowClick?.({ id: row.id, row })}
           >
-            {checkboxSelection && (
-              <input
-                type="checkbox"
-                aria-label={`select-${row.id}`}
-                checked={((rowSelectionModel as unknown[]) ?? []).includes(
-                  row.id
-                )}
-                onChange={e => {
-                  const prev = (rowSelectionModel as unknown[]) ?? [];
-                  onRowSelectionModelChange?.(
-                    e.target.checked
-                      ? [...prev, row.id]
-                      : prev.filter(id => id !== row.id)
-                  );
-                }}
-              />
-            )}
+            {actionsCol?.renderCell?.({ id: row.id, row })}
           </div>
         ))}
       </div>
@@ -130,6 +99,7 @@ jest.mock('../TestRunFilterDrawer', () => ({
     open ? <div data-testid="test-run-filter-drawer" /> : null,
   EMPTY_TEST_RUN_FILTERS: { testSet: '', executor: '', tag: '' },
   hasActiveTestRunFilters: () => false,
+  countActiveTestRunFilters: () => 0,
 }));
 
 jest.mock('@/components/common/DeleteModal', () => ({
@@ -156,10 +126,14 @@ jest.mock('@/components/common/DeleteModal', () => ({
 
 // ---- Fixtures ----
 
-const makeTestRun = (id: string, name = 'Test Run') => ({
+const makeTestRun = (
+  id: string,
+  name = 'Test Run',
+  statusName = 'Completed'
+) => ({
   id,
   name,
-  status: { id: 's1', name: 'Completed' },
+  status: { id: 's1', name: statusName },
   test_configuration: {
     test_set: { name: 'Set A', test_set_type: { type_value: 'evaluation' } },
     endpoint: { project_id: null },
@@ -236,7 +210,41 @@ describe('TestRunsGrid', () => {
     expect(mockPush).toHaveBeenCalledWith('/test-runs/r-99');
   });
 
-  it('shows "Delete Test Runs" button when rows are selected', async () => {
+  it('renders a delete action button in the row actions column', async () => {
+    mockGetTestRuns.mockResolvedValue(
+      makePaginatedResponse([makeTestRun('r-1')])
+    );
+    render(<TestRunsGrid sessionToken="tok" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
+    );
+    // The row-actions column renders a Delete icon button
+    expect(screen.getByLabelText('Delete')).toBeInTheDocument();
+  });
+
+  it('does not render a cancel action for completed runs', async () => {
+    mockGetTestRuns.mockResolvedValue(
+      makePaginatedResponse([makeTestRun('r-1', 'Test Run', 'Completed')])
+    );
+    render(<TestRunsGrid sessionToken="tok" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
+    );
+    expect(screen.queryByLabelText('Cancel')).not.toBeInTheDocument();
+  });
+
+  it('renders a cancel action for queued runs', async () => {
+    mockGetTestRuns.mockResolvedValue(
+      makePaginatedResponse([makeTestRun('r-1', 'Test Run', 'queued')])
+    );
+    render(<TestRunsGrid sessionToken="tok" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
+    );
+    expect(screen.getByLabelText('Cancel')).toBeInTheDocument();
+  });
+
+  it('opens delete modal on clicking the row delete button', async () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
@@ -245,36 +253,7 @@ describe('TestRunsGrid', () => {
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-r-1'));
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Runs')).toBeInTheDocument()
-    );
-  });
-
-  it('hides "Delete Test Runs" button when nothing is selected', async () => {
-    render(<TestRunsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
-    expect(
-      screen.queryByTestId('action-Delete Test Runs')
-    ).not.toBeInTheDocument();
-  });
-
-  it('opens delete modal on clicking "Delete Test Runs"', async () => {
-    mockGetTestRuns.mockResolvedValue(
-      makePaginatedResponse([makeTestRun('r-1')])
-    );
-    render(<TestRunsGrid sessionToken="tok" />);
-    await waitFor(() =>
-      expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
-    );
-
-    await userEvent.click(screen.getByLabelText('select-r-1'));
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Runs')).toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-Delete Test Runs'));
+    await userEvent.click(screen.getByLabelText('Delete'));
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
 
@@ -288,11 +267,7 @@ describe('TestRunsGrid', () => {
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-r-1'));
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Runs')).toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-Delete Test Runs'));
+    await userEvent.click(screen.getByLabelText('Delete'));
     await userEvent.click(
       screen.getByRole('button', { name: /confirm delete/i })
     );
@@ -316,11 +291,7 @@ describe('TestRunsGrid', () => {
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-r-1'));
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Test Runs')).toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-Delete Test Runs'));
+    await userEvent.click(screen.getByLabelText('Delete'));
     await userEvent.click(
       screen.getByRole('button', { name: /confirm delete/i })
     );

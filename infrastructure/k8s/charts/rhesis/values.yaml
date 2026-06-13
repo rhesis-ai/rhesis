@@ -53,9 +53,9 @@ database:
     auth:
       existingSecret: "rhesis-secrets"
       secretKeys:
-        password: "SQLALCHEMY_DB_PASS"
-        database: "SQLALCHEMY_DB_NAME"
-        username: "SQLALCHEMY_DB_USER"
+        password: "APP_DB_PASS"
+        database: "DB_NAME"
+        username: "APP_DB_USER"
 
 # Redis configuration
 redis:

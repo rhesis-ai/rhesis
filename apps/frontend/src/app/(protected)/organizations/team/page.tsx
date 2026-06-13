@@ -5,9 +5,8 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TeamInviteDrawer from './components/TeamInviteDrawer';
 import TeamMembersGrid from './components/TeamMembersGrid';
@@ -57,7 +56,7 @@ export default function TeamPage() {
         actions={
           <FabGroup>
             <Fab
-              icon={<AddIcon />}
+              icon={<FabAddIcon />}
               tooltip="Invite team members"
               onClick={() => setInviteDrawerOpen(true)}
               disabled={isOnInviteTour}

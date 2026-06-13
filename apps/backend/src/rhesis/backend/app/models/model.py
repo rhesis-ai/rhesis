@@ -11,6 +11,7 @@ from .mixins import (
     CommentsMixin,
     CountsMixin,
     OrganizationAndUserMixin,
+    ProjectMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -19,6 +20,7 @@ from .mixins import (
 class Model(
     Base,
     ActivityTrackableMixin,
+    ProjectMixin,
     OrganizationAndUserMixin,
     TagsMixin,
     CommentsMixin,

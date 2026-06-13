@@ -10,7 +10,7 @@ import os
 import pytest
 from sqlalchemy import text
 
-from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL, get_database_url
+from rhesis.backend.app.database import DATABASE_URL, get_database_url
 from tests.backend.db.utils import (
     DatabaseTestDataManager as TestDataManager,
 )
@@ -23,14 +23,13 @@ from tests.backend.db.utils import (
 
 @pytest.mark.unit
 def test_database_url_configuration():
-    """🗄️ Test that database URL configuration uses SQLALCHEMY_DATABASE_URL."""
+    """Test that the database URL is built from component env vars."""
     url = get_database_url()
-    configured_url = os.getenv("SQLALCHEMY_DATABASE_URL")
-    assert configured_url, "SQLALCHEMY_DATABASE_URL must be set for testing"
-    assert url == configured_url
+    assert url, "get_database_url() must return a non-empty URL"
+    assert url.startswith("postgresql://"), f"Expected postgresql:// URL, got: {url}"
 
-    # Verify the global SQLALCHEMY_DATABASE_URL is using the configured database
-    assert SQLALCHEMY_DATABASE_URL == configured_url
+    # Verify the module-level constant matches what get_database_url() returns
+    assert DATABASE_URL == url
 
 
 @pytest.mark.integration
@@ -69,28 +68,27 @@ def test_test_data_manager(test_db):
 
 @pytest.mark.unit
 def test_environment_context_manager():
-    """🌍 Test the test_environment context manager."""
-    # Test with custom environment variables
+    """Test the test_environment context manager."""
     with setup_test_environment(env_vars={"TEST_VAR": "test_value"}):
         assert os.getenv("TEST_VAR") == "test_value"
-        assert os.getenv("SQLALCHEMY_DATABASE_URL")
+        assert os.getenv("DB_HOST")
 
-    # Verify cleanup
     assert os.getenv("TEST_VAR") is None
 
 
 @pytest.mark.unit
 def test_different_database_urls():
-    """🔄 Test database URL switching with different PostgreSQL configurations."""
-    # Test PostgreSQL configuration
+    """Test database URL switching with different PostgreSQL configurations."""
     postgres_url = "postgresql://test_user:test_pass@localhost:5432/test_db"
     with setup_test_environment(test_db_url=postgres_url):
-        assert os.getenv("SQLALCHEMY_DATABASE_URL") == postgres_url
+        assert os.getenv("DB_HOST") == "localhost"
+        assert os.getenv("DB_NAME") == "test_db"
+        assert os.getenv("APP_DB_USER") == "test_user"
 
-    # Test Cloud SQL Unix socket configuration
     cloudsql_url = "postgresql://user:pass@/test_db?host=/tmp/cloudsql/project:region:instance"
     with setup_test_environment(test_db_url=cloudsql_url):
-        assert os.getenv("SQLALCHEMY_DATABASE_URL") == cloudsql_url
+        assert os.getenv("DB_HOST") == "/tmp/cloudsql/project:region:instance"
+        assert os.getenv("DB_NAME") == "test_db"
 
 
 @pytest.mark.integration
@@ -124,7 +122,7 @@ def test_database_stats():
     for key in required_keys:
         assert key in stats, f"Missing key: {key}"
 
-    assert stats["configured_db_url"]
+    assert stats["actual_db_url"]
     assert stats["isolation_verified"] is True
 
 

@@ -15,6 +15,7 @@ import { PlatformFeatures } from './components/PlatformFeatures'
 import { AdvancedCapabilities } from './components/AdvancedCapabilities'
 import { YouTubeEmbed } from './components/YouTubeEmbed'
 import { ChatExchange, ChatUser, ChatArchitect, EngineeringIcon } from './components/ChatExchange'
+import { PlatformStructureMap } from './components/PlatformStructureMap'
 // Get the default MDX components
 const themeComponents = getThemeComponents()
 
@@ -46,5 +47,6 @@ export function useMDXComponents(components) {
     ChatUser,
     ChatArchitect,
     EngineeringIcon,
+    PlatformStructureMap,
   }
 }

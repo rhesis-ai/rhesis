@@ -99,7 +99,7 @@ def build_agent(model: str) -> Agent[None, ObservabilityBrief]:
         tool_type="function",
     ),
 )
-def lookup_observability_snippet(topic: str) -> str:
+def _lookup_observability_snippet(topic: str) -> str:
     """Return a canned observability fact (simulates a retrieval/tool backend)."""
     snippets = {
         "latency": "P95 latency per agent step helps isolate slow handoffs in multi-agent flows.",
@@ -114,11 +114,11 @@ def register_tools(agent: Agent[None, ObservabilityBrief]) -> None:
     """Register tools on the agent; implementations use @observe for tool spans."""
 
     @agent.tool
-    def lookup_observability_snippet_tool(
+    def lookup_observability_snippet(
         ctx: RunContext[None], topic: str
     ) -> str:
         """Fetch a short observability fact for the given topic."""
-        return lookup_observability_snippet(topic)
+        return _lookup_observability_snippet(topic)
 
 
 @observe(

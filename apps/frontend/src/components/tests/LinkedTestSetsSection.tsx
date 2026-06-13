@@ -1,18 +1,21 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import GridBadge from '@/components/common/GridBadge';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowModel,
+} from '@mui/x-data-grid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
-import TestSetSelectionDialog from '@/app/(protected)/tests/components/TestSetSelectionDialog';
 import { formatDate } from '@/utils/date';
 
 interface LinkedTestSetsSectionProps {
@@ -33,7 +36,11 @@ export default function LinkedTestSetsSection({
     page: 0,
     pageSize: 10,
   });
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+
+  // Assign drawer state
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [available, setAvailable] = useState<TestSet[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   const fetchLinkedTestSets = useCallback(async () => {
     if (!testId || !sessionToken) return;
@@ -68,27 +75,65 @@ export default function LinkedTestSetsSection({
     fetchLinkedTestSets();
   }, [fetchLinkedTestSets]);
 
-  const handleAssign = async (testSet: TestSet) => {
+  const handleAssignClick = useCallback(async () => {
+    setLoadingAvailable(true);
+    setAssignOpen(true);
     try {
       const testSetsClient = new TestSetsClient(sessionToken);
-      await testSetsClient.associateTestsWithTestSet(testSet.id, [testId]);
-      showNotification(`Assigned to "${testSet.name}"`, {
-        severity: 'success',
-        autoHideDuration: 4000,
+      const response = await testSetsClient.getTestSets({
+        limit: 500,
+        sort_by: 'name',
+        sort_order: 'asc',
       });
-      setAssignDialogOpen(false);
-      await fetchLinkedTestSets();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : '';
-      if (msg.includes('already associated')) {
-        showNotification('Test is already assigned to this test set', {
-          severity: 'warning',
+      setAvailable(response.data);
+    } catch {
+      setAvailable([]);
+    } finally {
+      setLoadingAvailable(false);
+    }
+  }, [sessionToken]);
+
+  const linkedIds = useMemo(
+    () => new Set(testSets.map(ts => String(ts.id))),
+    [testSets]
+  );
+
+  const availableFiltered = useMemo<GridRowModel[]>(
+    () => available.filter(ts => !linkedIds.has(String(ts.id))),
+    [available, linkedIds]
+  );
+
+  const handleAssign = useCallback(
+    async (selectedIds: string[]) => {
+      const testSetsClient = new TestSetsClient(sessionToken);
+      const errors: string[] = [];
+      await Promise.all(
+        selectedIds.map(async id => {
+          try {
+            await testSetsClient.associateTestsWithTestSet(id, [testId]);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : '';
+            if (!msg.includes('already associated')) {
+              errors.push(id);
+            }
+          }
+        })
+      );
+      if (errors.length > 0) {
+        showNotification('Failed to assign to some test sets', {
+          severity: 'error',
         });
       } else {
-        showNotification('Failed to assign to test set', { severity: 'error' });
+        showNotification(
+          `Assigned to ${selectedIds.length} test set${selectedIds.length !== 1 ? 's' : ''}`,
+          { severity: 'success', autoHideDuration: 4000 }
+        );
       }
-    }
-  };
+      setAssignOpen(false);
+      await fetchLinkedTestSets();
+    },
+    [sessionToken, testId, showNotification, fetchLinkedTestSets]
+  );
 
   const columns: GridColDef[] = [
     {
@@ -133,14 +178,6 @@ export default function LinkedTestSetsSection({
       ),
     },
     {
-      field: 'visibility',
-      headerName: 'Visibility',
-      width: 120,
-      renderCell: params => (
-        <GridBadge label={params.value ?? 'organization'} />
-      ),
-    },
-    {
       field: '__actions',
       headerName: '',
       width: 80,
@@ -149,12 +186,20 @@ export default function LinkedTestSetsSection({
     },
   ];
 
+  const drawerColumns: GridColDef[] = [
+    { field: 'name', headerName: 'Name', flex: 1, minWidth: 160 },
+    { field: 'description', headerName: 'Description', flex: 2, minWidth: 200 },
+  ];
+
   const isEmpty = !loading && testSets.length === 0;
 
   return (
     <>
       {isEmpty ? (
-        <Paper elevation={1} sx={{ p: 3 }}>
+        <Paper
+          elevation={0}
+          sx={{ p: 3, border: 1, borderColor: 'divider', borderRadius: 2 }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -170,7 +215,7 @@ export default function LinkedTestSetsSection({
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
             >
-              No assigned entity yet
+              No test sets assigned yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Assign this test to a test set to group related cases together.
@@ -178,14 +223,17 @@ export default function LinkedTestSetsSection({
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setAssignDialogOpen(true)}
+              onClick={handleAssignClick}
             >
-              Assign entity
+              Assign to test set
             </Button>
           </Box>
         </Paper>
       ) : (
-        <Paper elevation={1} sx={{ p: 3 }}>
+        <Paper
+          elevation={0}
+          sx={{ p: 3, border: 1, borderColor: 'divider', borderRadius: 2 }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -198,12 +246,12 @@ export default function LinkedTestSetsSection({
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
             >
-              Linked entities ({totalCount})
+              Linked Test Sets ({totalCount})
             </Typography>
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
-              onClick={() => setAssignDialogOpen(true)}
+              onClick={handleAssignClick}
             >
               Assign
             </Button>
@@ -226,11 +274,16 @@ export default function LinkedTestSetsSection({
         </Paper>
       )}
 
-      <TestSetSelectionDialog
-        open={assignDialogOpen}
-        onClose={() => setAssignDialogOpen(false)}
-        onSelect={handleAssign}
-        sessionToken={sessionToken}
+      <AssignEntityDrawer
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        title="Assign Test Set"
+        rows={availableFiltered}
+        columns={drawerColumns}
+        loading={loadingAvailable}
+        getRowId={row => String(row.id)}
+        onAssign={handleAssign}
+        searchPlaceholder="Search test sets…"
       />
     </>
   );

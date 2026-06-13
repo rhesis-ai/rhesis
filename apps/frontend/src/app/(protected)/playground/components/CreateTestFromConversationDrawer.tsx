@@ -10,6 +10,7 @@ import {
   CircularProgress,
   Divider,
 } from '@mui/material';
+import SubsectionHeader from '@/components/common/SubsectionHeader';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
@@ -282,9 +283,7 @@ export default function CreateTestFromConversationDrawer({
       ) : (
         <Stack spacing={3}>
           {/* Test details section */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Test Details
-          </Typography>
+          <SubsectionHeader headline="Test Details" />
 
           <BaseFreesoloAutocomplete
             options={behaviors}
@@ -313,9 +312,7 @@ export default function CreateTestFromConversationDrawer({
           <Divider />
 
           {/* Content section */}
-          <Typography variant="subtitle2" color="text.secondary">
-            Content
-          </Typography>
+          <SubsectionHeader headline="Content" />
 
           {testType === TEST_TYPES.SINGLE_TURN ? (
             <>

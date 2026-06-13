@@ -375,6 +375,7 @@ async def explore_endpoint_route(
     task_result = task_launcher(
         run_exploration_task,
         current_user=current_user,
+        db=db,
         endpoint_id=str(endpoint_id),
         strategy=request.strategy,
         goal=request.goal,

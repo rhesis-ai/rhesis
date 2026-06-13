@@ -1,11 +1,198 @@
-name: "[Deploy] Terraform Infrastructure"
-
+name: Terraform Infrastructure [Deploy]
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [dev, stg, prd, admin]
+        default: dev
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options: [plan, apply]
+        default: plan
+      wireguard_envs:
+        description: 'Admin project only: enabled environments (JSON array, e.g. ["dev"] or ["dev","stg"])'
+        required: false
+        type: string
+        default: '["dev"]'
+
+  push:
+    branches: [main, 'v*']
+    paths: ['terraform/infrastructure/**']
+
+  pull_request:
+    branches: [main, 'v*']
+    paths: ['terraform/infrastructure/**']
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  TF_VERSION: '1.11.4'
+  TF_STATE_BUCKET: 'rhesis-platform-admin-tfstate'
 
 jobs:
-  run:
+  plan:
+    name: Plan / ${{ inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
+    outputs:
+      target_env: ${{ steps.ctx.outputs.target_env }}
+
     steps:
-      - run: echo "deploy infrastructure"
+      - uses: actions/checkout@v4
+
+      - name: Resolve context
+        id: ctx
+        env:
+          TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
+          TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
+          TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
+          TF_PROJECT_ID_WIREGUARD: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
+          TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
+          TF_SA_STG: ${{ secrets.TF_SA_STG }}
+          TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
+          TF_SA_WIREGUARD: ${{ secrets.TF_SA_WIREGUARD }}
+        run: |
+          ENV="${{ inputs.environment || 'dev' }}"
+          # "admin" is the UI label for the wireguard environment
+          [[ "$ENV" == "admin" ]] && ENV="wireguard"
+          echo "target_env=$ENV" >> $GITHUB_OUTPUT
+          case "$ENV" in
+            dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
+            stg)       echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
+            prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+            wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_WIREGUARD" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ steps.ctx.outputs.service_account }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Init
+        working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
+        run: terraform init -input=false -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
+
+      - name: Plan
+        working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
+        run: terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
+        env:
+          TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
+          TF_VAR_region: ${{ secrets.TF_REGION }}
+          TF_VAR_enabled_environments: ${{ inputs.environment == 'admin' && inputs.wireguard_envs || '[]' }}
+          TF_VAR_wireguard_peers: ${{ inputs.environment == 'admin' && secrets.TF_WG_PEERS || '[]' }}
+
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync(
+              'terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/plan.txt',
+              'utf8'
+            );
+            const body = raw.length > 65000 ? raw.slice(0, 65000) + '\n...(truncated)' : raw;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `<details><summary>Terraform Plan — <code>${{ steps.ctx.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
+            });
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tfplan-${{ steps.ctx.outputs.target_env }}
+          path: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/tfplan
+          retention-days: 1
+
+  apply:
+    name: Apply / ${{ needs.plan.outputs.target_env }}
+    needs: plan
+    runs-on: ubuntu-latest
+    # Required reviewers are enforced via GitHub Environment protection rules in repo settings.
+    # Configure "Required reviewers" on the following Environments:
+    #   dev       → at least 1 reviewer (auto-applies on push to main; gate prevents unreviewed infra changes)
+    #   stg       → at least 1 reviewer
+    #   prd       → at least 1 reviewer
+    #   wireguard → at least 1 reviewer (shown as "admin" in UI; VPN server; loss = all envs lose connectivity)
+    #
+    # WireGuard VM deletion protection is enabled in Terraform (wireguard_deletion_protection = true).
+    # If Terraform needs to RECREATE the VM (rare), a human must first manually disable deletion
+    # protection via gcloud, get it reviewed, then re-enable after apply:
+    #   gcloud compute instances update wireguard-server \
+    #     --no-deletion-protection --zone=**-***-a \
+    #     --project=rhesis-p*******
+    environment: ${{ needs.plan.outputs.target_env }}
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve context
+        id: ctx
+        env:
+          TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
+          TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
+          TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
+          TF_PROJECT_ID_WIREGUARD: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
+          TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
+          TF_SA_STG: ${{ secrets.TF_SA_STG }}
+          TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
+          TF_SA_WIREGUARD: ${{ secrets.TF_SA_WIREGUARD }}
+        run: |
+          ENV="${{ needs.plan.outputs.target_env }}"
+          case "$ENV" in
+            dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
+            stg)       echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
+            prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+            wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_WIREGUARD" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ steps.ctx.outputs.service_account }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan-${{ needs.plan.outputs.target_env }}
+          path: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+
+      - name: Init
+        working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+        run: terraform init -input=false -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
+
+      - name: Apply
+        working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+        run: terraform apply -input=false tfplan
+        env:
+          TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
+          TF_VAR_region: ${{ secrets.TF_REGION }}
+          TF_VAR_enabled_environments: ${{ needs.plan.outputs.target_env == 'wireguard' && inputs.wireguard_envs || '[]' }}
+          TF_VAR_wireguard_peers: ${{ needs.plan.outputs.target_env == 'wireguard' && secrets.TF_WG_PEERS || '[]' }}

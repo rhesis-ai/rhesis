@@ -150,6 +150,7 @@ async def _publish_failure_complete(correlation_id: str, message: str) -> None:
 async def _run_preflight_background(
     organization_id: str,
     user_id: str,
+    project_id: str,
     request: PreflightCheckRequest,
     correlation_id: str,
     test_sets: list[tuple[uuid.UUID, str, bool]],
@@ -158,7 +159,7 @@ async def _run_preflight_background(
     from rhesis.backend.app.database import get_db_with_tenant_variables
 
     try:
-        with get_db_with_tenant_variables(organization_id, user_id) as db:
+        with get_db_with_tenant_variables(organization_id, user_id, project_id) as db:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 logger.error(f"Preflight background task: user {user_id} not found")
@@ -244,10 +245,20 @@ async def run_preflight(
     ts_strs = [(str(tid), name, mt) for tid, name, mt in test_sets]
     checks = _determine_applicable_checks(request.scoring_target, ts_strs)
 
+    # Propagate the active project scope so the background session can find
+    # endpoints (auto_filter adds WHERE project_id IS NULL when unset).
+    from rhesis.backend.app.database import _SCOPE_KEY
+
+    active_scope = db.info.get(_SCOPE_KEY)
+    active_project_id = (
+        str(active_scope.project_id) if active_scope and active_scope.project_id else ""
+    )
+
     asyncio.create_task(
         _run_preflight_background(
             organization_id=str(current_user.organization_id),
             user_id=str(current_user.id),
+            project_id=active_project_id,
             request=request,
             correlation_id=correlation_id,
             test_sets=test_sets,

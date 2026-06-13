@@ -76,36 +76,55 @@ export default function TracesClientWrapper({
         </FabGroup>
       }
     >
-      <Box sx={{ mt: 2, mb: 2 }}>
-        <Paper
-          sx={{
-            width: '100%',
-            borderRadius: BORDER_RADIUS.md,
-            boxShadow: ELEVATION.xs,
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            overflow: 'hidden',
-          }}
+      <Box sx={{ mt: 2, mb: 2, position: 'relative' }}>
+        {/*
+         * Keep TracesClient mounted so a completed fetch can clear the empty hint.
+         * Unmounting on the first empty response trapped the page even when later
+         * requests returned traces (visible in Network but not in the UI).
+         */}
+        <Box
+          sx={
+            showEmptyHint
+              ? {
+                  position: 'absolute',
+                  width: '100%',
+                  height: 0,
+                  overflow: 'hidden',
+                  visibility: 'hidden',
+                  pointerEvents: 'none',
+                }
+              : {}
+          }
         >
-          <TracesClient
-            sessionToken={sessionToken}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            currentUserPicture={currentUserPicture}
-            initialTraceId={initialTraceId}
-            initialProjectId={initialProjectId}
-            refreshKey={refreshKey}
-            onRefresh={handleRefresh}
-            onUnfilteredEmpty={handleUnfilteredEmpty}
-          />
-        </Paper>
-        {showEmptyHint && (
-          <Box sx={{ mt: 3 }}>
-            <EntityEmptyState
-              icon={TimelineOutlinedIcon}
-              title="No traces yet"
-              description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
+          <Paper
+            sx={{
+              width: '100%',
+              borderRadius: BORDER_RADIUS.md,
+              boxShadow: ELEVATION.xs,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            <TracesClient
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+              initialTraceId={initialTraceId}
+              initialProjectId={initialProjectId}
+              refreshKey={refreshKey}
+              onRefresh={handleRefresh}
+              onUnfilteredEmpty={handleUnfilteredEmpty}
             />
-          </Box>
+          </Paper>
+        </Box>
+        {showEmptyHint && (
+          <EntityEmptyState
+            card
+            icon={TimelineOutlinedIcon}
+            title="No traces yet"
+            description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
+          />
         )}
       </Box>
     </PageLayout>

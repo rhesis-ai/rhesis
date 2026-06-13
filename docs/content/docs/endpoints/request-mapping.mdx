@@ -1,0 +1,238 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Request Mapping
+
+Request body templates define how Rhesis formats its [platform variables](/docs/endpoints#platform-managed-variables) into the JSON structure your API expects. Templates use Jinja2 syntax.
+
+## Jinja2 Basics
+
+Place `input` wherever your API expects the user query:
+
+<CodeBlock filename="simple-request.json" language="json">
+  {`{
+  "prompt": "{{ input }}",
+  "max_tokens": 500
+}`}
+</CodeBlock>
+
+For nested message formats:
+
+<CodeBlock filename="openai-style-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": 0.7
+}`}
+</CodeBlock>
+
+### The `tojson` Filter
+
+Use `tojson` for optional fields or when a value might be `null`:
+
+<CodeBlock filename="tojson-example.json" language="json">
+  {`{
+  "query": "{{ input }}",
+  "conversation_id": {{ conversation_id | tojson }},
+  "metadata": {{ metadata | tojson }}
+}`}
+</CodeBlock>
+
+`tojson` ensures proper JSON serialization: `None` → `null`, strings are quoted, objects and arrays are serialized correctly.
+
+## Raw Body Templates
+
+If your template renders to a JSON object with a `__body__` key, Rhesis unwraps it and sends the value as the raw request body. This is useful for APIs that expect a plain string or a non-JSON payload rather than a JSON object.
+
+<CodeBlock filename="raw-body-template.json" language="json">
+  {`{
+  "__body__": "{{ input }}"
+}`}
+</CodeBlock>
+
+## File Format Filters
+
+When tests include file attachments, the `files` variable contains an array of objects with `filename`, `content_type`, and `data` (base64-encoded). See [Multi-modal Testing](/docs/multimodal-testing) for the full type and size matrix.
+
+Most provider APIs expect the user message `content` field to contain both the text and the files together. Use the **content filters** for this — they combine `input` and `files` into a single content array automatically:
+
+| Filter | Provider |
+|---|---|
+| `anthropic_content` | Anthropic Claude |
+| `openai_content` | OpenAI |
+| `gemini_parts` | Google Gemini |
+
+<CodeBlock filename="anthropic-combined.json" language="json">
+  {`{
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 1024,
+  "messages": [{ "role": "user", "content": {{ files | anthropic_content | tojson }} }]
+}`}
+</CodeBlock>
+
+<CodeBlock filename="openai-combined.json" language="json">
+  {`{
+  "model": "gpt-4o",
+  "messages": [{ "role": "user", "content": {{ files | openai_content | tojson }} }]
+}`}
+</CodeBlock>
+
+<CodeBlock filename="gemini-combined.json" language="json">
+  {`{
+  "contents": [{ "role": "user", "parts": {{ files | gemini_parts | tojson }} }]
+}`}
+</CodeBlock>
+
+If your API separates text and files into different fields, use the **file-only filters** instead — these convert files to the provider format without including the text:
+
+| Filter | Provider |
+|---|---|
+| `to_anthropic` | Anthropic Claude |
+| `to_openai` | OpenAI |
+| `to_gemini` | Google Gemini |
+
+When no files are attached, all filters return an empty array (`[]`).
+
+**Multi-turn conversation format filters** — convert an OpenAI-style messages array to a provider-specific format:
+
+| Filter | Description |
+|---|---|
+| `to_gemini_contents` | Converts to Gemini `contents` format |
+| `to_anthropic_messages` | Converts to Anthropic messages format |
+
+<Callout type="info">
+  See [Examples](/docs/endpoints/mapping-examples#file-attachments) for complete request and response configurations with file attachments.
+</Callout>
+
+## Multi-Turn Conversations
+
+Rhesis supports two conversation patterns:
+
+- **Stateful** — your API manages session state. It returns a conversation ID which Rhesis passes back on subsequent requests.
+- **Stateless** — no server-side state. The caller sends the full conversation history with every request. Rhesis manages this internally.
+
+Rhesis detects which mode to use based on your template configuration.
+
+### Stateful Endpoints
+
+Map the conversation field from the API response:
+
+<CodeBlock filename="stateful-response-mapping.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "conversation_id": "$.conversation_id"
+}`}
+</CodeBlock>
+
+Include the conversation variable in the request template so Rhesis passes it back on subsequent turns:
+
+<CodeBlock filename="stateful-request.json" language="json">
+  {`{
+  "query": "{{ input }}",
+  "conversation_id": {{ conversation_id | tojson }}
+}`}
+</CodeBlock>
+
+`tojson` ensures the value is `null` on the first turn and a properly quoted string on subsequent turns.
+
+**Supported conversation field names** (Rhesis normalizes all to `conversation_id` internally):
+- Tier 1: `conversation_id`, `session_id`, `thread_id`, `chat_id`
+- Tier 2: `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`
+
+**How it works:**
+
+1. First request sent without a conversation ID (or with `null`)
+2. Rhesis extracts the conversation ID from the response
+3. Subsequent requests for the same conversation include the ID automatically
+
+### Example Flow (Stateful)
+
+<CodeBlock filename="stateful-flow.json" language="json">
+  {`// Turn 1 — no conversation_id yet
+{ "query": "What is the capital of France?" }
+
+// API responds: { "output": "Paris", "conversation_id": "abc-123" }
+
+// Turn 2 — conversation_id automatically included
+{ "query": "What is its population?", "conversation_id": "abc-123" }
+
+// API maintains context and responds about Paris`}
+</CodeBlock>
+
+### Stateless Endpoints
+
+Use the `messages` template variable. Rhesis detects this and switches to stateless conversation management:
+
+<CodeBlock filename="stateless-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": "{{ messages }}",
+  "temperature": 0.7,
+  "system_prompt": "You are a helpful assistant."
+}`}
+</CodeBlock>
+
+**Single-turn auto-population** — for single test runs (outside a multi-turn conversation), Rhesis automatically builds the messages array from the test input and system prompt. You do not need to provide the array manually.
+
+Rhesis builds the messages array incrementally during multi-turn execution:
+
+<CodeBlock filename="messages-format.json" language="json">
+  {`[
+  { "role": "system", "content": "You are a helpful assistant." },
+  { "role": "user", "content": "What is the capital of France?" },
+  { "role": "assistant", "content": "The capital of France is Paris." },
+  { "role": "user", "content": "What is its population?" }
+]`}
+</CodeBlock>
+
+**System prompt handling** — Rhesis extracts `system_prompt` from the template, prepends it to `messages` as the first `system` role entry, and strips the `system_prompt` field from the request body before sending. Your API only receives the standard `messages` array:
+
+<CodeBlock filename="system-prompt-example.json" language="json">
+  {`// Your request template:
+{
+  "messages": "{{ messages }}",
+  "model": "gpt-4",
+  "system_prompt": "You are a helpful insurance expert."
+}
+
+// What Rhesis actually sends:
+{
+  "messages": [
+    { "role": "system", "content": "You are a helpful insurance expert." },
+    { "role": "user", "content": "What is term life insurance?" }
+  ],
+  "model": "gpt-4"
+}`}
+</CodeBlock>
+
+### Comparison
+
+| | Stateful | Stateless |
+|---|---|---|
+| Server manages context | Yes | No |
+| Request includes | `conversation_id` + `input` | `messages` array |
+| Detected by | Conversation field in response mapping | `{{ messages }}` in request template |
+| Example providers | Custom chatbots, managed services | OpenAI, Anthropic, Google AI |
+
+### Per-Turn Response Fields
+
+For both patterns, Rhesis captures response fields on every turn. These are available to conversational metrics during evaluation:
+
+| Field | Per-turn behavior |
+|---|---|
+| `output` | Assistant response text for this turn |
+| `context` | Retrieval context (e.g., RAG sources) |
+| `metadata` | Structured metadata (e.g., confidence, model info) |
+| `tool_calls` | Tool/function calls made during this turn |
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - See [Response Mapping](/docs/endpoints/response-mapping) to extract values from API responses
+  - Browse [Examples](/docs/endpoints/mapping-examples) for complete provider configurations
+</Callout>

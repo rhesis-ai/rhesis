@@ -1,16 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography } from '@mui/material';
 import EditableSection from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
-import FileAttachmentList from '@/components/common/FileAttachmentList';
-import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
-import { useFiles } from '@/hooks/useFiles';
 import { UUID } from 'crypto';
 
 interface TagsDraft {
@@ -29,20 +25,6 @@ export default function TestFormElementsCard({
   onUpdate: _onUpdate,
 }: TestFormElementsCardProps) {
   const notifications = useNotifications();
-  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
-  const [isUploading, setIsUploading] = React.useState(false);
-
-  const {
-    files: attachedFiles,
-    isLoading: filesLoading,
-    totalSizeBytes: existingFilesSize,
-    uploadFiles: uploadFilesToServer,
-    deleteFile: deleteAttachedFile,
-  } = useFiles({
-    entityId: test.id,
-    entityType: 'Test',
-    sessionToken,
-  });
 
   const initialTagNames = (test.tags ?? []).map((t: Tag) => t.name);
 
@@ -81,22 +63,9 @@ export default function TestFormElementsCard({
     });
   };
 
-  const handleFilesSelect = React.useCallback(
-    async (files: File[]) => {
-      setPendingFiles([]);
-      setIsUploading(true);
-      try {
-        await uploadFilesToServer(files);
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    [uploadFilesToServer]
-  );
-
   return (
     <EditableSection
-      title="Tags & attachments"
+      title="Tags"
       initialValue={initialDraft}
       onSave={handleSave}
       isDirty={(draft, initial) =>
@@ -105,56 +74,12 @@ export default function TestFormElementsCard({
       }
     >
       {({ draft, setDraft, isEditing }) => (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Tags */}
-          <TagsField
-            tagNames={draft.tagNames}
-            isEditing={isEditing}
-            onChange={tagNames => setDraft(d => ({ ...d, tagNames }))}
-            helperText="These tags help categorize and find this test"
-          />
-
-          {/* Attachments */}
-          <Box>
-            <Typography
-              sx={{
-                fontSize: 18,
-                fontWeight: 700,
-                lineHeight: '25px',
-                color: 'text.primary',
-                mb: '2px',
-              }}
-            >
-              Attachments
-            </Typography>
-            <Typography
-              sx={{
-                fontSize: 12,
-                lineHeight: '18px',
-                color: 'text.secondary',
-                display: 'block',
-                mb: 2,
-              }}
-            >
-              Images, PDFs or audio files attached to this test
-            </Typography>
-            <FileAttachmentList
-              files={attachedFiles}
-              sessionToken={sessionToken}
-              isLoading={filesLoading}
-              onDelete={deleteAttachedFile}
-            />
-            <MultiFileUpload
-              selectedFiles={pendingFiles}
-              onFilesSelect={handleFilesSelect}
-              onFileRemove={idx =>
-                setPendingFiles(prev => prev.filter((_, i) => i !== idx))
-              }
-              existingFilesSize={existingFilesSize}
-              disabled={isUploading}
-            />
-          </Box>
-        </Box>
+        <TagsField
+          tagNames={draft.tagNames}
+          isEditing={isEditing}
+          onChange={tagNames => setDraft(d => ({ ...d, tagNames }))}
+          helperText="These tags help categorize and find this test"
+        />
       )}
     </EditableSection>
   );

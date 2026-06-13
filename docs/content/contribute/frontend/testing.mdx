@@ -91,7 +91,10 @@ The test environment is configured in `jest.setup.js`:
 {`import "@testing-library/jest-dom";
 
 // Set environment variables for tests
-process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:8080/api/v1";
+process.env.API_BASE_URL = "http://localhost:8080/api/v1";
+window.__ENV__ = {
+  apiBaseUrl: "http://localhost:8080/api/v1",
+};
 
 // Mock Next.js router
 jest.mock("next/router", () => ({
@@ -536,7 +539,10 @@ test:
   <div>
     <h3>Environment Variables Missing</h3>
     <pre><code>{`# Add to jest.setup.js
-process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';`}</code></pre>
+process.env.API_BASE_URL = 'http://localhost:8080/api/v1';
+window.__ENV__ = {
+  apiBaseUrl: 'http://localhost:8080/api/v1',
+};`}</code></pre>
   </div>
 
 <div>

@@ -3,7 +3,9 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
+import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -114,41 +116,27 @@ export default function ProjectEndpointPage() {
     { label: endpoint.name },
   ];
 
-  const metadataStrip = endpoint.endpoint_metadata?.created_at ? (
-    <Box sx={{ display: 'flex', gap: '30px' }}>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: theme => theme.palette.greyscale.body,
-          }}
-        >
-          registered:
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: theme => theme.palette.greyscale.title,
-          }}
-        >
-          {new Date(endpoint.endpoint_metadata.created_at).toLocaleString()}
-        </Typography>
-      </Box>
-    </Box>
-  ) : undefined;
+  const metadataStrip = (
+    <DetailMetadataStrip
+      items={[
+        { label: 'created by:', value: '—' },
+        {
+          label: 'created on:',
+          value: endpoint.endpoint_metadata?.created_at
+            ? format(
+                new Date(endpoint.endpoint_metadata.created_at),
+                'dd/MM/yyyy'
+              )
+            : '—',
+        },
+      ]}
+    />
+  );
 
   return (
     <EndpointDetailProvider endpoint={endpoint}>
       <PageLayout
         title={endpoint.name}
-        description={
-          endpoint.description ||
-          `${endpoint.connection_type} endpoint · ${endpoint.environment}`
-        }
         breadcrumbs={breadcrumbs}
         metadata={metadataStrip}
         actions={<EndpointHeaderActions />}

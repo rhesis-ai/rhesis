@@ -1,8 +1,7 @@
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageLayout } from '@/components/layout/PageLayout';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import ExplorerDetail from './components/ExplorerDetail';
 
 interface ExplorerDetailPageProps {
@@ -22,7 +21,7 @@ export default async function ExplorerDetailPage({
       throw new Error('No session token available');
     }
 
-    const clientFactory = new ApiClientFactory(session.session_token);
+    const clientFactory = await createServerApiFactory(session.session_token);
     const explorerClient = clientFactory.getExplorerClient();
 
     // Fetch tree data (all nodes) and topics in parallel
@@ -45,21 +44,13 @@ export default async function ExplorerDetailPage({
     }
 
     return (
-      <PageLayout
-        title={testSetName}
-        breadcrumbs={[
-          { label: 'Explorer', href: '/explorer' },
-          { label: testSetName },
-        ]}
-      >
-        <ExplorerDetail
-          tests={tests}
-          topics={topics}
-          testSetName={testSetName}
-          testSetId={identifier}
-          sessionToken={session.session_token}
-        />
-      </PageLayout>
+      <ExplorerDetail
+        tests={tests}
+        topics={topics}
+        testSetName={testSetName}
+        testSetId={identifier}
+        sessionToken={session.session_token}
+      />
     );
   } catch (error) {
     const errorMessage = (error as Error).message;

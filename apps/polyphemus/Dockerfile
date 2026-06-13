@@ -15,7 +15,7 @@
 # ============================================================================
 FROM python:3.12.8-slim AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app
 

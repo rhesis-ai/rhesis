@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { Paper } from '@mui/material';
+import { Box } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
@@ -16,7 +16,6 @@ interface TasksAndCommentsWrapperProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
-  elevation?: number;
   onCountsChange?: () => void;
   additionalMetadata?: Record<string, unknown>;
 }
@@ -28,7 +27,6 @@ export function TasksAndCommentsWrapper({
   currentUserId,
   currentUserName,
   currentUserPicture,
-  elevation = 1,
   onCountsChange,
   additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
@@ -37,6 +35,7 @@ export function TasksAndCommentsWrapper({
     string | undefined
   >();
   const [isCreating, setIsCreating] = useState(false);
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
   const { createTask, deleteTask } = useTasks({
     entityType,
@@ -63,6 +62,7 @@ export function TasksAndCommentsWrapper({
         await createTask(enrichedTaskData);
         setCreateDrawerOpen(false);
         setPendingCommentId(undefined);
+        setTasksRefreshKey(key => key + 1);
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
@@ -81,6 +81,7 @@ export function TasksAndCommentsWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
+        setTasksRefreshKey(key => key + 1);
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
@@ -103,10 +104,13 @@ export function TasksAndCommentsWrapper({
 
   return (
     <>
-      <Paper
-        elevation={elevation}
-        sx={{ p: 3, mb: 3 }}
-        suppressHydrationWarning
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '30px',
+          '& .MuiPaper-root': { mb: 0 },
+        }}
       >
         <TasksSection
           entityType={entityType}
@@ -118,10 +122,9 @@ export function TasksAndCommentsWrapper({
           onOpenCreateDrawer={handleOpenCreateDrawer}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
+          refreshKey={tasksRefreshKey}
         />
-      </Paper>
 
-      <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
         <CommentsWrapper
           entityType={entityType}
           entityId={entityId}
@@ -133,7 +136,7 @@ export function TasksAndCommentsWrapper({
           onCreateTaskFromEntity={() => handleOpenCreateDrawer()}
           onCountsChange={onCountsChange}
         />
-      </Paper>
+      </Box>
 
       <TaskCreationDrawer
         open={createDrawerOpen}
