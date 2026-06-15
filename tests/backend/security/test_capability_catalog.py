@@ -70,6 +70,24 @@ class TestCapabilityCatalogInSync:
             + (f"  Retire in permission table (write a migration):\n    {extra}\n" if extra else "")
         )
 
+    def test_permission_scope_matches_capability_scope(self, test_db: Session) -> None:
+        """The seeded ``scope`` column must agree with ``capability_scope()``.
+
+        The drift guard above only checks capability *names*; a migration could
+        seed a row with the wrong scope (used by the UI to group permissions).
+        This catches that.
+        """
+        from rhesis.backend.ee.rbac.models import Permission, capability_scope
+
+        mismatches = [
+            f"{p.name}: table={p.scope!r} expected={capability_scope(p.name)!r}"
+            for p in test_db.query(Permission).filter_by(is_retired=False).all()
+            if p.scope != capability_scope(p.name)
+        ]
+        assert not mismatches, (
+            "permission.scope drifted from capability_scope():\n  " + "\n  ".join(mismatches)
+        )
+
     def test_all_five_built_in_roles_exist(self, test_db: Session) -> None:
         """All five built-in roles must be present after migrations."""
         from rhesis.backend.ee.rbac.models import BUILT_IN_ROLE_NAMES, Role

@@ -5,10 +5,12 @@ Exit criteria (updated after sync removal):
 2. All five built-in roles are seeded by migrations with correct levels.
 3. No ``role_permission`` rows exist for built-in roles (permissions computed from code).
 4. ``FeatureName.RBAC`` is registered in the EE feature registry.
-5. Built-in level rules hold: Owner has all, Viewer has only :read + recycle:view,
-   None has nothing, Admin excludes EE management perms — verified from code, not DB.
+5. Built-in level rules hold: Owner has all, Viewer has :read (minus sensitive
+   org-admin reads) + recycle:view, None has nothing, Admin excludes EE
+   management perms — verified from code, not DB.
 6. RLS policy on ``role`` permits NULL-org built-ins globally.
-7. ``_PROJECT_SCOPED_RESOURCES`` ⊆ {capability_scope == project} invariant holds.
+7. Built-in roles nest monotonically (Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None)
+   and Member covers every project-scoped resource.
 
 Note: sync-based tests (idempotent sync, retirement, revival) are removed.
 The catalog is now migration-managed.  See test_capability_catalog.py for the
@@ -318,23 +320,75 @@ class TestPermissionsForBuiltInRole:
         assert "recycle:restore" not in result
         assert "role:manage" not in result
 
-    def test_member_allowlist_is_subset_of_project_scope(self):
-        """Every resource in the Member allowlist must be project-scoped."""
+    def test_viewer_excludes_sensitive_org_reads(self):
+        """Viewer gets org-context reads but never role:read / token:read."""
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        caps = [
+            "test_set:read",
+            "organization:read",
+            "member:read",
+            "role:read",
+            "token:read",
+            "recycle:view",
+        ]
+        viewer = permissions_for_built_in_role("Viewer", caps)
+        assert "organization:read" in viewer
+        assert "member:read" in viewer
+        assert "recycle:view" in viewer
+        assert "role:read" not in viewer
+        assert "token:read" not in viewer
+
+    def test_member_covers_all_project_resources(self):
+        """Member must hold CRUD on every project-scoped resource, not an allowlist."""
         from rhesis.backend.ee.rbac.models import (
-            _PROJECT_SCOPED_RESOURCES,
             SCOPE_PROJECT,
             capability_scope,
+            permissions_for_built_in_role,
         )
 
-        misclassified = [
-            resource
-            for resource in _PROJECT_SCOPED_RESOURCES
-            if capability_scope(f"{resource}:read") != SCOPE_PROJECT
+        caps = [
+            "behavior:read",
+            "behavior:create",
+            "topic:update",
+            "category:delete",
+            "test_set:read",
+            "organization:update",  # org-scoped → Member must NOT get it
         ]
-        assert not misclassified, (
-            f"Resources in _PROJECT_SCOPED_RESOURCES that capability_scope does not "
-            f"classify as project-scoped: {misclassified}"
-        )
+        member = permissions_for_built_in_role("Member", caps)
+        project_crud = {c for c in caps if capability_scope(c) == SCOPE_PROJECT}
+        assert project_crud <= member, f"Member missing project caps: {project_crud - member}"
+        assert "organization:update" not in member
+
+    def test_built_in_roles_nest_monotonically(self):
+        """Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None against the live catalog."""
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        caps = get_all_capabilities()
+        owner = permissions_for_built_in_role("Owner", caps)
+        admin = permissions_for_built_in_role("Admin", caps)
+        member = permissions_for_built_in_role("Member", caps)
+        viewer = permissions_for_built_in_role("Viewer", caps)
+        none = permissions_for_built_in_role("None", caps)
+
+        assert none <= viewer, f"None ⊄ Viewer: {none - viewer}"
+        assert viewer <= member, f"Viewer ⊄ Member: {viewer - member}"
+        assert member <= admin, f"Member ⊄ Admin: {member - admin}"
+        assert admin <= owner, f"Admin ⊄ Owner: {admin - owner}"
+
+    def test_member_reads_superset_of_viewer_reads_live(self):
+        """Regression for the SP8 inversion: a Member must read everything a
+        Viewer can read against the real 49-resource catalog."""
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        caps = get_all_capabilities()
+        member = permissions_for_built_in_role("Member", caps)
+        viewer = permissions_for_built_in_role("Viewer", caps)
+        viewer_reads = {c for c in viewer if c.endswith(":read")}
+        missing = viewer_reads - member
+        assert not missing, f"Member cannot read what Viewer can: {sorted(missing)}"
 
     def test_owner_level_rules_hold_against_live_catalog(self):
         """Owner must hold every capability in the live route-walk catalog."""

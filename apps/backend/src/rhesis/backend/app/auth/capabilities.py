@@ -191,6 +191,10 @@ class Permission:
 
     class Member(_PermissionEnum):
         READ = "member:read"
+        #: Add a member to the org (route-derived companion of MANAGE).
+        CREATE = "member:create"
+        #: Remove a member from the org (route-derived companion of MANAGE).
+        DELETE = "member:delete"
         #: Invite or remove members from the org.
         MANAGE = "member:manage"
         #: Update a user's own profile (self-service sub-action of MANAGE).
@@ -414,14 +418,15 @@ def register_capabilities(app: object) -> None:
     """
     global _capability_cache
     cap_map = build_capability_map(app)
-    catalog = set(cap_map.keys()) | enumerate_permission_enum()
+    enum_caps = enumerate_permission_enum()
+    catalog = set(cap_map.keys()) | enum_caps
     _capability_cache = sorted(catalog)
     logger.info(
         "capability catalog registered: %d capabilities (%d route-derived, "
         "%d enum-declared) across %d routes",
         len(_capability_cache),
         len(cap_map),
-        len(enumerate_permission_enum()),
+        len(enum_caps),
         sum(len(v) for v in cap_map.values()),
     )
 

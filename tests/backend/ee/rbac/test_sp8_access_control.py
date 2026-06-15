@@ -278,8 +278,13 @@ class TestAccessMatrix:
     def test_member_can_create_test_set(self):
         assert self._check("Member", "test_set:create")
 
-    def test_member_cannot_read_org(self):
-        assert not self._check("Member", "organization:read")
+    def test_member_can_read_org_context(self):
+        # Member ⊇ Viewer, which holds org-context reads (organization:read).
+        assert self._check("Member", "organization:read")
+
+    def test_member_cannot_read_roles(self):
+        # role:read / token:read are sensitive org-admin reads, withheld below Owner.
+        assert not self._check("Member", "role:read")
 
     def test_member_cannot_manage_members(self):
         assert not self._check("Member", "member:manage")
@@ -302,6 +307,14 @@ class TestAccessMatrix:
 
     def test_viewer_cannot_manage_members(self):
         assert not self._check("Viewer", "member:manage")
+
+    def test_viewer_can_read_org_context(self):
+        assert self._check("Viewer", "organization:read")
+        assert self._check("Viewer", "member:read")
+
+    def test_viewer_cannot_read_sensitive_org_admin(self):
+        assert not self._check("Viewer", "role:read")
+        assert not self._check("Viewer", "token:read")
 
     # None role — every permission denied
     def test_none_role_denies_read(self):

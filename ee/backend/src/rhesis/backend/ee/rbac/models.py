@@ -70,39 +70,6 @@ BUILT_IN_ROLE_LEVELS: dict[str, int] = {
     "None": 0,
 }
 
-# Resource types a plain **Member** may act on.
-#
-# This is a deliberate ALLOWLIST, intentionally narrower than "everything that
-# :func:`capability_scope` classifies as project-scoped".  In particular the
-# ``project`` entity itself is *excluded* so a Member cannot read/update project
-# settings (those require an org Owner / project Admin), while ``project_member``
-# is included only so the ``manage`` action can be explicitly withheld (``manage``
-# is not in ``member_actions``).
-#
-# Consequence to keep in mind when adding a new project resource: it will be
-# project-scoped per :func:`capability_scope` automatically, but a Member will
-# NOT receive its permissions until the resource is added here.  This is
-# fail-closed by design (Members gain new capabilities only deliberately).  The
-# invariant ``_PROJECT_SCOPED_RESOURCES`` ⊆ {capability_scope == project} is
-# asserted in the SP7 tests.
-_PROJECT_SCOPED_RESOURCES: frozenset[str] = frozenset(
-    {
-        "test_set",
-        "test",
-        "test_configuration",
-        "test_run",
-        "test_result",
-        "experiment",
-        "endpoint",
-        "metric",
-        "model",
-        "comment",
-        "task",
-        "file",
-        "project_member",
-    }
-)
-
 # Resource types whose permissions are org-scoped.
 _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
     {
@@ -133,6 +100,46 @@ def capability_scope(cap: str) -> str:
     return SCOPE_PROJECT
 
 
+# Actions a **Member** may perform on any project-scoped resource.  Unlike the
+# old hand-maintained resource allowlist, Member now covers *every* resource
+# that :func:`capability_scope` classifies as project-scoped, so new project
+# entities are usable by Members without editing this module.
+_MEMBER_ACTIONS: frozenset[str] = frozenset(
+    {"read", "create", "update", "delete", "execute", "generate", "import", "react"}
+)
+
+# Org-level reads that are too sensitive for a read-only **Viewer**.  ``role:read``
+# and ``token:read`` expose org-admin configuration; Owner alone holds ``role:read``
+# (Admin excludes it too).  Everything else ending in ``:read`` — including
+# ``organization:read`` and ``member:read`` for basic org context — is fine for a
+# Viewer.
+_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read"})
+
+
+def _viewer_permissions(cap_set: set[str]) -> set[str]:
+    """Read-only baseline: every ``:read`` capability except sensitive org-admin
+    reads (:data:`_VIEWER_EXCLUDED_READS`), plus ``recycle:view``."""
+    reads = {c for c in cap_set if c.endswith(":read")} - _VIEWER_EXCLUDED_READS
+    if "recycle:view" in cap_set:
+        reads.add("recycle:view")
+    return reads
+
+
+def _member_permissions(cap_set: set[str]) -> set[str]:
+    """Everything a Viewer can do, plus create/update/delete and the special
+    project actions on **every** project-scoped resource.
+
+    Unioning the Viewer set guarantees ``Member ⊇ Viewer`` by construction, so a
+    higher-level role can never read less than a lower one.
+    """
+    project_actions = {
+        c
+        for c in cap_set
+        if capability_scope(c) == SCOPE_PROJECT and c.split(":")[-1] in _MEMBER_ACTIONS
+    }
+    return project_actions | _viewer_permissions(cap_set)
+
+
 def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> set[str]:
     """Compute the permission set for a built-in role from the capability catalog.
 
@@ -142,14 +149,20 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
     from code at request time — no ``role_permission`` rows are stored for
     built-in roles.
 
-    Rules (locked in plan §2.2):
+    Rules (locked in plan §2.2, Viewer/Member revised after SP8 review):
     - **Owner**  (level 100): all permissions.
     - **Admin**  (level 80): all except EE-only management (role:manage,
       role:read, sso:manage, api_clients:manage).
-    - **Member** (level 60): project-scoped :read/:create/:update/:delete plus
-      special project actions (:execute, :generate, :import, :react).
-    - **Viewer** (level 40): all :read capabilities + recycle:view.
+    - **Member** (level 60): Viewer plus :create/:update/:delete and the special
+      project actions (:execute, :generate, :import, :react) on every
+      project-scoped resource.
+    - **Viewer** (level 40): every :read except role:read/token:read, plus
+      recycle:view (covers organization:read and member:read for org context).
     - **None**   (level 0): no permissions.
+
+    The definitions nest (Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None) so a
+    higher-level built-in role never holds fewer permissions than a lower one;
+    the SP7 catalog tests assert this invariant against the live catalog.
 
     Any name not in the built-in set returns an empty set (fail-closed).
     """
@@ -162,27 +175,9 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
             excluded = {"role:manage", "role:read", "sso:manage", "api_clients:manage"}
             return cap_set - excluded
         case "Member":
-            member_actions = {
-                "read",
-                "create",
-                "update",
-                "delete",
-                "execute",
-                "generate",
-                "import",
-                "react",
-            }
-            return {
-                c
-                for c in cap_set
-                if c.split(":")[0] in _PROJECT_SCOPED_RESOURCES
-                and c.split(":")[-1] in member_actions
-            }
+            return _member_permissions(cap_set)
         case "Viewer":
-            result = {c for c in cap_set if c.endswith(":read")}
-            if "recycle:view" in cap_set:
-                result.add("recycle:view")
-            return result
+            return _viewer_permissions(cap_set)
         case "None":
             return set()
         case _:
