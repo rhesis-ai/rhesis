@@ -10,7 +10,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.services.tool.rest.config import build_client, validate_base_url
+from rhesis.backend.app.services.tool.rest.config import validate_base_url
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 logger = logging.getLogger(__name__)
@@ -164,6 +164,8 @@ async def create_jira_ticket_from_task(
         credentials = json.loads(tool.credentials)
     except (json.JSONDecodeError, TypeError) as e:
         raise ValueError(f"Invalid credentials for tool '{tool_id}': {e}")
+
+    from rhesis.backend.app.services.tool.rest.config import build_client  # avoid circular import
 
     source = build_client("jira", credentials)
     if not isinstance(source, JiraRestClient):
