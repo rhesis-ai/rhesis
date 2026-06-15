@@ -111,7 +111,7 @@ describe('ServicesClient', () => {
     );
     await client.createJiraTicketFromTask('task-id', 'tool-id');
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/services/mcp/jira/create-ticket-from-task');
+    expect(url).toContain('/tools/jira/create-ticket-from-task');
     expect(opts.method).toBe('POST');
     expect(JSON.parse(opts.body)).toMatchObject({
       task_id: 'task-id',

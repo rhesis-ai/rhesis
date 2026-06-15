@@ -146,14 +146,19 @@ export default function ToolsPage() {
     }
   };
 
+  // TODO: remove once Confluence is supported
+  const supportedProviderTypes = providerTypes.filter(
+    pt => pt.type_value !== 'confluence'
+  );
+
   // Zip each provider type with its existing connection (or null)
-  const providerCards = providerTypes.map(pt => ({
+  const providerCards = supportedProviderTypes.map(pt => ({
     providerType: pt,
     tool: tools.find(t => t.tool_provider_type_id === pt.id) ?? null,
   }));
 
   // Only show unconnected providers in the FAB menu
-  const unconnectedProviders = providerTypes.filter(
+  const unconnectedProviders = supportedProviderTypes.filter(
     pt => !tools.find(t => t.tool_provider_type_id === pt.id)
   );
 
@@ -199,7 +204,6 @@ export default function ToolsPage() {
           {error}
         </Alert>
       )}
-
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
