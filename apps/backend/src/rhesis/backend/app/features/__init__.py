@@ -38,7 +38,15 @@ class FeatureName(str, Enum):
     Inheriting from ``str`` means members compare equal to their value
     (``FeatureName.SSO == "sso"``) and FastAPI serializes them to their
     raw string over the wire.
+
+    ``__str__`` is overridden so ``str(FeatureName.SSO)`` returns ``"sso"``
+    on Python 3.10–3.11 (where the default Enum.__str__ returns
+    ``"FeatureName.SSO"`` for str+Enum subclasses, not the value).
+    Python 3.11+ StrEnum has this right by default; this keeps parity on 3.10.
     """
+
+    def __str__(self) -> str:
+        return self.value
 
     SSO = "sso"
     API_CLIENTS = "api_clients"
@@ -106,7 +114,7 @@ class DefaultLicenseProvider:
     _REQUIRES_LICENSE: frozenset[str] = frozenset({"rbac"})
 
     def allows_feature(self, feature: Feature, org: Organization) -> bool:
-        return feature.name.value not in self._REQUIRES_LICENSE
+        return str(feature.name) not in self._REQUIRES_LICENSE
 
     def info(self) -> dict:
         # ``edition: dev`` (rather than ``community``) communicates that the EE
