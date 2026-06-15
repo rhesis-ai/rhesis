@@ -263,8 +263,8 @@ def _resume_architect(
             "auto_approve": context.get("auto_approve"),
         },
         headers={
-            "organization_id": context.get("org_id", ""),
-            "user_id": context.get("user_id", ""),
-            "project_id": context.get("project_id", ""),
+            "organization_id": context.get("org_id") or "",
+            "user_id": context.get("user_id") or "",
+            "project_id": context.get("project_id") or "",
         },
     )

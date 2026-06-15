@@ -43,13 +43,11 @@ class EndpointContext:
             with ctx.get_db() as db:
                 rows = db.query(Model).all()
 
-        A ``_db_factory`` **must** be supplied at construction time.
-        Platform-side code (Celery tasks, HTTP routes, and the internal
-        SDK connector) always provides one.  Calling this method on a
-        context created without a factory raises :exc:`RuntimeError`.
-
-        External SDK users writing ``@endpoint`` functions that do not
-        declare a ``ctx: EndpointContext`` parameter are unaffected.
+        When ``_db_factory`` is provided, it is called with
+        ``(organization_id, user_id, project_id)``.  Otherwise, falls
+        back to the backend's ``get_db_with_tenant_variables`` (when
+        running inside the backend process).  Raises
+        :exc:`RuntimeError` outside the backend if no factory is set.
         """
         if self._db_factory is not None:
             return self._db_factory(self.organization_id, self.user_id, self.project_id)

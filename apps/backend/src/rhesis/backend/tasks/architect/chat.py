@@ -47,7 +47,10 @@ def architect_chat_task(
     4. Persist response + updated state to DB
     5. Publish final ARCHITECT_RESPONSE event
     """
-    org_id, user_id, project_id = self.get_tenant_context()
+    _org_id, _user_id, _project_id = self.get_tenant_context()
+    org_id = _org_id or ""
+    user_id = _user_id or ""
+    project_id = _project_id or ""
     channel = f"architect:{session_id}"
     target = ChannelTarget(channel=channel)
 
@@ -69,9 +72,9 @@ def architect_chat_task(
 
         prior_trace_id = _load_session_trace_id(session_id, org_id, user_id, project_id)
         ctx = EndpointContext(
-            organization_id=org_id or "",
-            user_id=user_id or "",
-            project_id=project_id or "",
+            organization_id=org_id,
+            user_id=user_id,
+            project_id=project_id,
             _db_factory=get_db_with_tenant_variables,
         )
 
@@ -121,10 +124,10 @@ def architect_chat_task(
             register_awaiting_tasks(
                 session_id=session_id,
                 task_ids=[t["task_id"] for t in result.pending_tasks],
-                org_id=org_id or "",
-                user_id=user_id or "",
+                org_id=org_id,
+                user_id=user_id,
                 auto_approve=result.auto_approve_all,
-                project_id=project_id or "",
+                project_id=project_id,
             )
 
         publish_event(
