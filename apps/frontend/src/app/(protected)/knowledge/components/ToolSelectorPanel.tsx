@@ -15,10 +15,7 @@ import {
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
-import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
-
-/** Providers supported via the deterministic REST extract path. */
-const REST_PROVIDERS = ['notion', 'github'];
+import { TOOL_PROVIDER_ICONS, REST_PROVIDERS } from '@/config/tool-providers';
 
 interface ToolSelectorPanelProps {
   open: boolean;
@@ -48,7 +45,6 @@ export default function ToolSelectorPanel({
       const response = await toolsClient.getTools({ limit: 100 });
       const allTools = response.data || [];
 
-      // Keep only Notion and GitHub tools
       const supported = allTools.filter(tool =>
         REST_PROVIDERS.includes(tool.tool_provider_type?.type_value ?? '')
       );

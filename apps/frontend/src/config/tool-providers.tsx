@@ -10,18 +10,13 @@ import {
  * Tool Provider Configuration
  *
  * This file contains all configuration related to tool providers including:
- * - Supported providers
+ * - Supported providers (aligned with backend ToolProviderType values)
  * - Provider icons and branding
  */
 
-// Tool providers currently supported
-// These must match the ToolProviderType values defined in the backend
-export const SUPPORTED_TOOL_PROVIDERS = [
-  'notion',
-  'github',
-  'jira',
-  'confluence',
-];
+// Providers supported via the deterministic REST extract path.
+// Must match ToolProviderType values defined in the backend.
+export const REST_PROVIDERS = ['notion', 'github'];
 
 // Provider icon mapping
 export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
@@ -30,11 +25,3 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   jira: <SiJira className="h-8 w-8" />,
   confluence: <SiConfluence className="h-8 w-8" />,
 };
-
-// Provider information interface
-export interface ToolProviderInfo {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-}
