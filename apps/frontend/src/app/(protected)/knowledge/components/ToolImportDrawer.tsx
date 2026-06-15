@@ -1,10 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box,
+  Alert,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Link,
+} from '@mui/material';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
-import ToolSelectorPanel from './ToolSelectorPanel';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { TOOL_PROVIDER_ICONS, REST_PROVIDERS } from '@/config/tool-providers';
 import ToolImportPanel from './ToolImportPanel';
 
 interface ToolImportDrawerProps {
@@ -14,67 +26,63 @@ interface ToolImportDrawerProps {
   sessionToken: string;
 }
 
-type Step = 'select' | 'import';
-
 export default function ToolImportDrawer({
   open,
   onClose,
   onSuccess,
   sessionToken,
 }: ToolImportDrawerProps) {
-  const [step, setStep] = useState<Step>('select');
-  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [loadingTools, setLoadingTools] = useState(false);
+  const [selectedToolId, setSelectedToolId] = useState<string>('');
 
-  const resetState = useCallback(() => {
-    setStep('select');
-    setSelectedTool(null);
-  }, []);
+  const loadTools = useCallback(async () => {
+    if (!sessionToken) return;
+    try {
+      setLoadingTools(true);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const response = await apiFactory
+        .getToolsClient()
+        .getTools({ limit: 100 });
+      const supported = (response.data || []).filter(t =>
+        REST_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
+      );
+      setTools(supported);
+      // Auto-select when there is only one option
+      if (supported.length === 1) {
+        setSelectedToolId(supported[0].id);
+      }
+    } catch {
+      setTools([]);
+    } finally {
+      setLoadingTools(false);
+    }
+  }, [sessionToken]);
 
   useEffect(() => {
-    if (!open) {
-      resetState();
+    if (open) {
+      loadTools();
+    } else {
+      setTools([]);
+      setSelectedToolId('');
     }
-  }, [open, resetState]);
+  }, [open, loadTools]);
 
   const handleClose = () => {
-    resetState();
     onClose();
   };
 
-  const handleSelectTool = (tool: Tool) => {
-    setSelectedTool(tool);
-    setStep('import');
+  const selectedTool = tools.find(t => t.id === selectedToolId) ?? null;
+
+  const getProviderIcon = (tool: Tool) => {
+    const key = tool.tool_provider_type?.type_value ?? '';
+    return TOOL_PROVIDER_ICONS[key] ?? <SmartToyIcon />;
   };
 
-  const handleBack = () => {
-    setStep('select');
-    setSelectedTool(null);
+  const providerLabel = (tool: Tool) => {
+    const v = tool.tool_provider_type?.type_value ?? '';
+    return v.charAt(0).toUpperCase() + v.slice(1);
   };
-
-  const handleImportSuccess = () => {
-    handleClose();
-    onSuccess?.();
-  };
-
-  if (step === 'select') {
-    return (
-      <BaseDrawer
-        open={open}
-        onClose={handleClose}
-        title="Select Tool"
-        titleIcon={<CloudDownloadIcon color="primary" />}
-        closeButtonText="Cancel"
-        width={900}
-      >
-        <ToolSelectorPanel
-          open={open}
-          onClose={handleClose}
-          onSelectTool={handleSelectTool}
-          sessionToken={sessionToken}
-        />
-      </BaseDrawer>
-    );
-  }
 
   return (
     <BaseDrawer
@@ -84,16 +92,63 @@ export default function ToolImportDrawer({
       titleIcon={<CloudDownloadIcon color="primary" />}
       width={900}
       closeButtonText="Cancel"
-      showHeader={true}
     >
-      <ToolImportPanel
-        open={open}
-        onClose={handleClose}
-        onBack={handleBack}
-        onSuccess={handleImportSuccess}
-        sessionToken={sessionToken}
-        tool={selectedTool}
-      />
+      {loadingTools ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : tools.length === 0 ? (
+        <Alert severity="info">
+          No tools configured. Connect a Notion or GitHub tool in{' '}
+          <Link href="/tools" underline="hover">
+            Settings &rsaquo; Tools
+          </Link>{' '}
+          first.
+        </Alert>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Only show the selector when there is more than one option */}
+          {tools.length > 1 && (
+            <FormControl fullWidth>
+              <InputLabel id="tool-select-label">Source</InputLabel>
+              <Select
+                labelId="tool-select-label"
+                value={selectedToolId}
+                label="Source"
+                onChange={e => setSelectedToolId(e.target.value)}
+              >
+                {tools.map(tool => (
+                  <MenuItem
+                    key={tool.id}
+                    value={tool.id}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        '& svg': { width: 18, height: 18 },
+                      }}
+                    >
+                      {getProviderIcon(tool)}
+                    </Box>
+                    {providerLabel(tool)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <ToolImportPanel
+            open={open}
+            onClose={handleClose}
+            onSuccess={onSuccess}
+            sessionToken={sessionToken}
+            tool={selectedTool}
+          />
+        </Box>
+      )}
     </BaseDrawer>
   );
 }

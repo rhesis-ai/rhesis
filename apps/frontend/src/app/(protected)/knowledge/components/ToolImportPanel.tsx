@@ -46,7 +46,6 @@ interface PreviewItem {
 interface ToolImportPanelProps {
   open: boolean;
   onClose: () => void;
-  onBack?: () => void;
   onSuccess?: () => void;
   sessionToken: string;
   tool?: Tool | null;
@@ -79,7 +78,6 @@ function getProviderLabel(provider: string): {
 export default function ToolImportPanel({
   open,
   onClose,
-  onBack,
   onSuccess,
   sessionToken,
   tool,
@@ -138,11 +136,7 @@ export default function ToolImportPanel({
         );
       } else {
         reset();
-        if (onBack) {
-          onBack();
-        } else {
-          onClose();
-        }
+        onClose();
       }
     }
   };
