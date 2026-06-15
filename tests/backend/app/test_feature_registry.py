@@ -148,10 +148,16 @@ class TestReset:
 
 
 class TestDefaultLicenseProvider:
-    def test_allows_every_feature(self):
+    def test_allows_non_rbac_features(self):
         provider = DefaultLicenseProvider()
         feature = Feature(name=FeatureName.SSO, display_name="SSO")
         assert provider.allows_feature(feature, org=object()) is True
+
+    def test_denies_rbac_by_default(self):
+        """RBAC must be off by default to avoid locking out users with no org-role rows."""
+        provider = DefaultLicenseProvider()
+        feature = Feature(name=FeatureName.RBAC, display_name="RBAC")
+        assert provider.allows_feature(feature, org=object()) is False
 
     def test_info_marks_dev_edition(self):
         """Edition is 'dev' rather than 'community' when EE pkg is loaded but unlicensed."""
