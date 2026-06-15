@@ -114,7 +114,7 @@ def configure_llamaindex_settings(provider: Provider) -> tuple[str, str]:
     embed_model = os.getenv("LLAMAINDEX_EMBED_MODEL", "text-embedding-004")
     Settings.llm = GoogleGenAI(model=model, api_key=api_key)
     Settings.embed_model = GoogleGenAIEmbedding(model_name=embed_model, api_key=api_key)
-    return "google", model
+    return "gemini", model
 
 
 def build_index() -> VectorStoreIndex:
@@ -125,7 +125,6 @@ def build_index() -> VectorStoreIndex:
 @observe(
     span_name=AIOperationType.RETRIEVAL,
     **{
-        AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_RETRIEVAL,
         AIAttributes.RETRIEVAL_BACKEND: "llamaindex",
         AIAttributes.RETRIEVAL_TOP_K: TOP_K,
     },
