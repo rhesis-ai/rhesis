@@ -64,11 +64,15 @@ from rhesis.backend.ee.rbac.schemas import (
     RoleCreate,
     RoleUpdate,
 )
-from rhesis.backend.ee.rbac.sync import sync_rbac_catalog
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+#
+# The permission catalog and the five built-in roles are seeded once by the
+# Alembic migrations the ``test_db`` fixture runs, so no per-test catalog sync
+# is needed.  Built-in role permissions are computed from code by the provider
+# (``permissions_for_built_in_role``); custom roles use ``role_permission``.
 
 
 @contextmanager
@@ -83,22 +87,10 @@ def _rbac_enabled():
         yield
 
 
-def _do_sync(db: Session, capabilities: list[str] | None = None) -> None:
-    if capabilities is None:
-        sync_rbac_catalog(db)
-        return
-
-    with patch(
-        "rhesis.backend.app.auth.capabilities.get_all_capabilities",
-        return_value=capabilities,
-    ):
-        sync_rbac_catalog(db)
-
-
 def _builtin_role(db: Session, name: str) -> Role:
     with bypass_tenant_filter():
         role = db.query(Role).filter_by(name=name, is_built_in=True).first()
-    assert role is not None, f"Built-in role '{name}' not seeded — run _do_sync first"
+    assert role is not None, f"Built-in role '{name}' not seeded by migrations"
     return role
 
 
@@ -176,9 +168,7 @@ def _add_project_member(
     user_id: uuid.UUID,
     role_id: uuid.UUID | None = None,
 ) -> None:
-    existing = (
-        db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
-    )
+    existing = db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
     if existing:
         existing.role_id = role_id
     else:
@@ -234,23 +224,6 @@ def _authorized(
 # ---------------------------------------------------------------------------
 
 
-CAPS = [
-    "test_set:read",
-    "test_set:create",
-    "test_set:update",
-    "test_set:delete",
-    "test:read",
-    "test:create",
-    "organization:read",
-    "organization:update",
-    "member:read",
-    "member:manage",
-    "role:read",
-    "role:manage",
-    "sso:manage",
-]
-
-
 @pytest.mark.ee
 @pytest.mark.integration
 class TestAccessMatrix:
@@ -258,7 +231,6 @@ class TestAccessMatrix:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db, CAPS)
         self.db = test_db
         self.org_id = _create_org(test_db)
 
@@ -359,10 +331,6 @@ class TestProjectRoleOverride:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(
-            test_db,
-            ["test_set:read", "test_set:create", "test_set:update", "organization:update"],
-        )
         self.db = test_db
         self.org_id = _create_org(test_db)
         self.project_id = _create_project(test_db, self.org_id)
@@ -422,7 +390,6 @@ class TestCustomRoleLifecycle:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db, ["test_set:read", "test_set:create", "test:read"])
         self.db = test_db
         self.org_id = _create_org(test_db)
         self.actor_id = _create_user(test_db, self.org_id)
@@ -532,7 +499,6 @@ class TestMultiUserScenarios:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db, ["test_set:read", "test_set:create", "member:manage", "role:manage"])
         self.db = test_db
         self.org_id = _create_org(test_db)
 
@@ -646,7 +612,6 @@ class TestProjectMemberAPI:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db, ["test_set:read", "test_set:create"])
         self.db = test_db
         self.org_id = _create_org(test_db)
         self.project_id = _create_project(test_db, self.org_id)
@@ -706,7 +671,6 @@ class TestOrgMemberListing:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db)
         self.db = test_db
         self.org_id = _create_org(test_db)
 
@@ -743,7 +707,6 @@ class TestRoleCatalogListing:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db)
         self.db = test_db
         self.org_id = _create_org(test_db)
         self.user_id = _create_user(test_db, self.org_id)
@@ -778,7 +741,6 @@ class TestProjectMembershipRoleFK:
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
-        _do_sync(test_db)
         self.db = test_db
         self.org_id = _create_org(test_db)
         self.project_id = _create_project(test_db, self.org_id)

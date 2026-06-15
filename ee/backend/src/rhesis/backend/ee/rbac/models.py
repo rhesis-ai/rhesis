@@ -51,7 +51,6 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 
-
 # ---------------------------------------------------------------------------
 # Scope constants
 # ---------------------------------------------------------------------------
@@ -137,8 +136,11 @@ def capability_scope(cap: str) -> str:
 def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> set[str]:
     """Compute the permission set for a built-in role from the capability catalog.
 
-    Called by :func:`~rhesis.backend.ee.rbac.sync.sync_rbac_catalog` to
-    recompute built-in role assignments on every startup.
+    Called by
+    :meth:`~rhesis.backend.ee.rbac.provider.PermissionAuthorizationProvider._role_has_permission`
+    (and ``get_effective_permissions``) to resolve a built-in role's permissions
+    from code at request time — no ``role_permission`` rows are stored for
+    built-in roles.
 
     Rules (locked in plan §2.2):
     - **Owner**  (level 100): all permissions.
@@ -161,11 +163,18 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
             return cap_set - excluded
         case "Member":
             member_actions = {
-                "read", "create", "update", "delete",
-                "execute", "generate", "import", "react",
+                "read",
+                "create",
+                "update",
+                "delete",
+                "execute",
+                "generate",
+                "import",
+                "react",
             }
             return {
-                c for c in cap_set
+                c
+                for c in cap_set
                 if c.split(":")[0] in _PROJECT_SCOPED_RESOURCES
                 and c.split(":")[-1] in member_actions
             }
@@ -285,9 +294,7 @@ class RolePermission(Base):
         index=True,
     )
 
-    __table_args__ = (
-        UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
-    )
+    __table_args__ = (UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),)
 
     # Relationships
     role = relationship("Role", back_populates="role_permissions")
@@ -329,9 +336,7 @@ class OrganizationMember(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "organization_id", "user_id", name="uq_organization_member_org_user"
-        ),
+        UniqueConstraint("organization_id", "user_id", name="uq_organization_member_org_user"),
     )
 
     # Relationships

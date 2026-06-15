@@ -1,10 +1,20 @@
-"""Seed RBAC permission catalog and remaining built-in roles (SP7 data migration)
+"""Seed RBAC permission catalog and built-in roles (SP7 data migration)
 
-Populates the ``permission`` table with all 164 platform capabilities and
-seeds the three remaining built-in roles (Member, Viewer, None) that were not
-created by the preceding org-member backfill migration (371c3c3cd787).
+Populates the ``permission`` table with all 173 platform capabilities and is
+the authoritative, self-healing seed for the five built-in roles
+(Owner, Admin, Member, Viewer, None).
 
-Owner and Admin are already present from migration 371c3c3cd787.
+The catalog is the union of route-derived capabilities (resource×verb +
+``@capability`` overrides) and capabilities declared on the ``Permission`` enum
+but checked in handler/service code (e.g. ``member:manage``, ``role:manage``,
+``recycle:view``) — see ``capabilities.enumerate_permission_enum``.
+
+All inserts use ``ON CONFLICT DO NOTHING`` so the migration is idempotent and
+safe to re-run.  Owner and Admin are *also* seeded by the preceding org-member
+backfill migration (371c3c3cd787, which must create them so its backfill JOIN
+resolves); the overlap is harmless.  Seeding all five here means a database that
+somehow lost a built-in role recovers on the next ``upgrade`` rather than
+depending on the old startup sync (now removed).
 
 No ``role_permission`` rows are inserted for built-in roles — the EE
 ``PermissionAuthorizationProvider`` computes their permission sets from code
@@ -36,8 +46,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 # ---------------------------------------------------------------------------
-# Capability catalog — generated from get_all_capabilities() on 2026-06-10.
-# Columns: (name, display_name, resource_type, action, scope)
+# Capability catalog — generated from get_all_capabilities() (route-derived ∪
+# Permission enum).  Columns: (name, display_name, resource_type, action, scope)
 # Update this list whenever a capability is added/removed (write a migration).
 # ---------------------------------------------------------------------------
 _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
@@ -84,7 +94,9 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("feedback:create", "Create feedback", "feedback", "create", "project"),
     ("file:create", "Create files", "file", "create", "project"),
     ("file:delete", "Delete files", "file", "delete", "project"),
+    ("file:import", "Import files", "file", "import", "project"),
     ("file:read", "Read files", "file", "read", "project"),
+    ("file:update", "Update files", "file", "update", "project"),
     ("file_import:create", "Create file import", "file_import", "create", "project"),
     ("file_import:delete", "Delete file import", "file_import", "delete", "project"),
     ("file_import:read", "Read file import", "file_import", "read", "project"),
@@ -93,6 +105,7 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("job:read", "Read job", "job", "read", "project"),
     ("member:create", "Create member", "member", "create", "organization"),
     ("member:delete", "Delete member", "member", "delete", "organization"),
+    ("member:manage", "Manage member", "member", "manage", "organization"),
     ("member:read", "Read member", "member", "read", "organization"),
     ("member:update", "Update member", "member", "update", "organization"),
     ("metric:create", "Create metrics", "metric", "create", "project"),
@@ -125,8 +138,10 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("prompt_template:read", "Read prompt template", "prompt_template", "read", "project"),
     ("prompt_template:update", "Update prompt template", "prompt_template", "update", "project"),
     ("recycle:delete", "Delete recycle", "recycle", "delete", "organization"),
+    ("recycle:purge", "Purge recycle", "recycle", "purge", "organization"),
     ("recycle:read", "Read recycle", "recycle", "read", "organization"),
     ("recycle:restore", "Restore recycle", "recycle", "restore", "organization"),
+    ("recycle:view", "View recycle", "recycle", "view", "organization"),
     ("response_pattern:create", "Create response pattern", "response_pattern", "create", "project"),
     ("response_pattern:delete", "Delete response pattern", "response_pattern", "delete", "project"),
     ("response_pattern:read", "Read response pattern", "response_pattern", "read", "project"),
@@ -135,6 +150,8 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("risk:delete", "Delete risk", "risk", "delete", "project"),
     ("risk:read", "Read risk", "risk", "read", "project"),
     ("risk:update", "Update risk", "risk", "update", "project"),
+    ("role:manage", "Manage role", "role", "manage", "organization"),
+    ("role:read", "Read role", "role", "read", "organization"),
     ("service:create", "Create service", "service", "create", "project"),
     ("service:read", "Read service", "service", "read", "project"),
     ("source:create", "Create source", "source", "create", "project"),
@@ -200,6 +217,7 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("test_result:update", "Update test results", "test_result", "update", "project"),
     ("test_run:create", "Create test runs", "test_run", "create", "project"),
     ("test_run:delete", "Delete test runs", "test_run", "delete", "project"),
+    ("test_run:execute", "Execute test runs", "test_run", "execute", "project"),
     ("test_run:read", "Read test runs", "test_run", "read", "project"),
     ("test_run:update", "Update test runs", "test_run", "update", "project"),
     ("test_set:create", "Create test sets", "test_set", "create", "project"),
@@ -210,6 +228,7 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("test_set:update", "Update test sets", "test_set", "update", "project"),
     ("token:create", "Create token", "token", "create", "organization"),
     ("token:delete", "Delete token", "token", "delete", "organization"),
+    ("token:manage", "Manage token", "token", "manage", "organization"),
     ("token:read", "Read token", "token", "read", "organization"),
     ("token:update", "Update token", "token", "update", "organization"),
     ("tool:create", "Create tool", "tool", "create", "project"),
@@ -231,9 +250,13 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("websocket:create", "Create websocket", "websocket", "create", "project"),
 ]
 
-# Remaining built-in roles not seeded by 371c3c3cd787 (Owner/Admin already there).
-# No role_permission rows: built-in permissions are computed from code.
-_REMAINING_BUILT_IN_ROLES: list[tuple[str, int]] = [
+# All five built-in roles, seeded idempotently. Owner/Admin overlap with
+# 371c3c3cd787 (harmless via ON CONFLICT). Levels must match
+# BUILT_IN_ROLE_LEVELS in ee/rbac/models.py. No role_permission rows:
+# built-in permissions are computed from code.
+_BUILT_IN_ROLES: list[tuple[str, int]] = [
+    ("Owner", 100),
+    ("Admin", 80),
     ("Member", 60),
     ("Viewer", 40),
     ("None", 0),
@@ -241,7 +264,11 @@ _REMAINING_BUILT_IN_ROLES: list[tuple[str, int]] = [
 
 
 def upgrade() -> None:
-    op.execute(
+    # op.execute() does not support bound parameters; use the bind connection,
+    # which accepts a list of param dicts (executemany) for the seed rows.
+    conn = op.get_bind()
+
+    conn.execute(
         sa.text(
             """
             INSERT INTO permission (
@@ -267,7 +294,7 @@ def upgrade() -> None:
         ],
     )
 
-    op.execute(
+    conn.execute(
         sa.text(
             """
             INSERT INTO role (
@@ -281,16 +308,19 @@ def upgrade() -> None:
             ON CONFLICT DO NOTHING
             """
         ),
-        [{"name": name, "level": level} for name, level in _REMAINING_BUILT_IN_ROLES],
+        [{"name": name, "level": level} for name, level in _BUILT_IN_ROLES],
     )
 
 
 def downgrade() -> None:
-    op.execute(
+    conn = op.get_bind()
+    conn.execute(
         sa.text("DELETE FROM permission WHERE name = ANY(:names)"),
         {"names": [name for name, *_ in _PERMISSIONS]},
     )
-    op.execute(
+    # Only remove the roles this migration introduced. Owner/Admin are owned by
+    # 371c3c3cd787 (its backfill depends on them) and are left in place.
+    conn.execute(
         sa.text("DELETE FROM role WHERE name = ANY(:names) AND is_built_in = true"),
-        {"names": [name for name, _ in _REMAINING_BUILT_IN_ROLES]},
+        {"names": ["Member", "Viewer", "None"]},
     )

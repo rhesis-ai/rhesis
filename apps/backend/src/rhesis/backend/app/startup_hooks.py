@@ -11,7 +11,7 @@ Register in your EE bootstrap (before the lifespan fires):
 .. code-block:: python
 
     from rhesis.backend.app.startup_hooks import register_startup_hook
-    register_startup_hook(sync_rbac_catalog)
+    register_startup_hook(my_idempotent_hook)
 
 Core's lifespan calls :func:`run_startup_hooks` with a scoped session.
 Each hook receives ``(db: Session)`` and should be idempotent.

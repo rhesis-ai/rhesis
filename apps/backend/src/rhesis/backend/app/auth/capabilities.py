@@ -376,8 +376,34 @@ def build_capability_map(app: object) -> dict[str, list[str]]:
 _capability_cache: Optional[list[str]] = None
 
 
+def enumerate_permission_enum() -> set[str]:
+    """Return every capability string declared on the :class:`Permission` enum.
+
+    The convention deriver (resource + HTTP verb) only surfaces capabilities
+    that are gated *on a route*.  Some capabilities are checked in handler or
+    service code instead (e.g. ``member:manage`` in ``PUT /users/{id}``,
+    ``role:manage`` in the role router's escalation guard, ``recycle:view``),
+    so they never appear in a route's resource×verb mapping.  The ``Permission``
+    enum is the authoritative declaration of those, so the full catalog is the
+    union of the route-derived set and these enum values.
+    """
+    values: set[str] = set()
+    for member in vars(Permission).values():
+        if isinstance(member, type) and issubclass(member, _PermissionEnum):
+            values.update(str(m.value) for m in member)
+    return values
+
+
 def register_capabilities(app: object) -> None:
-    """Derive and cache the full capability catalog from registered routes.
+    """Derive and cache the full capability catalog.
+
+    The catalog is the union of:
+
+    1. Route-derived capabilities (resource×verb convention + ``@capability``
+       overrides), from :func:`build_capability_map`.
+    2. Capabilities declared on the :class:`Permission` enum but checked in
+       handler/service code rather than gated on a route (see
+       :func:`enumerate_permission_enum`).
 
     Must be called **once**, from ``main.py``, after all routers (core + EE)
     have been included and *after* :func:`apply_auth_backstop` has run (so EE
@@ -388,10 +414,14 @@ def register_capabilities(app: object) -> None:
     """
     global _capability_cache
     cap_map = build_capability_map(app)
-    _capability_cache = sorted(cap_map.keys())
+    catalog = set(cap_map.keys()) | enumerate_permission_enum()
+    _capability_cache = sorted(catalog)
     logger.info(
-        "capability catalog registered: %d capabilities across %d routes",
+        "capability catalog registered: %d capabilities (%d route-derived, "
+        "%d enum-declared) across %d routes",
         len(_capability_cache),
+        len(cap_map),
+        len(enumerate_permission_enum()),
         sum(len(v) for v in cap_map.values()),
     )
 
@@ -425,6 +455,7 @@ __all__ = [
     "Permission",
     "build_capability_map",
     "capability",
+    "enumerate_permission_enum",
     "get_all_capabilities",
     "get_capability_for_route",
     "register_capabilities",

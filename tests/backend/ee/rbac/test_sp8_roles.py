@@ -26,22 +26,6 @@ from sqlalchemy.orm import Session
 # ---------------------------------------------------------------------------
 
 
-def _do_sync(db: Session, capabilities: list[str] | None = None) -> None:
-    from unittest.mock import patch
-
-    from rhesis.backend.ee.rbac.sync import sync_rbac_catalog
-
-    if capabilities is None:
-        sync_rbac_catalog(db)
-        return
-
-    with patch(
-        "rhesis.backend.app.auth.capabilities.get_all_capabilities",
-        return_value=capabilities,
-    ):
-        sync_rbac_catalog(db)
-
-
 def _get_builtin_role(db: Session, name: str):
     from rhesis.backend.ee.rbac.models import Role
 
@@ -147,7 +131,7 @@ class TestBackfillMigration:
             owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
 
         if owner_role is None:
-            pytest.skip("Owner built-in role not yet seeded (sync not run)")
+            pytest.skip("Owner built-in role not seeded (migrations not run)")
 
         member = (
             test_db.query(OrganizationMember)
@@ -271,11 +255,6 @@ class TestRolePrecedence:
         from rhesis.backend.app.scope import bypass_tenant_filter
         from rhesis.backend.ee.rbac.models import OrganizationMember, Role
         from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
-
-        _do_sync(
-            test_db,
-            ["test_set:read", "test_set:create", "test_set:update", "test_set:delete"],
-        )
 
         with bypass_tenant_filter():
             viewer_role = test_db.query(Role).filter_by(name="Viewer", is_built_in=True).first()
@@ -423,8 +402,6 @@ class TestCacheBusting:
         from rhesis.backend.ee.rbac.models import OrganizationMember, Role
         from rhesis.backend.ee.rbac.router import _bust_role_holders
 
-        _do_sync(test_db)
-
         with bypass_tenant_filter():
             viewer_role = test_db.query(Role).filter_by(name="Viewer", is_built_in=True).first()
         assert viewer_role is not None
@@ -480,8 +457,6 @@ class TestLastOwnerProtection:
 
         from rhesis.backend.app.scope import bypass_tenant_filter
         from rhesis.backend.ee.rbac.models import OrganizationMember, Role
-
-        _do_sync(test_db)
 
         with bypass_tenant_filter():
             owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
@@ -564,7 +539,6 @@ class TestLastOwnerProtection:
         from rhesis.backend.ee.rbac.models import Role
         from rhesis.backend.ee.rbac.router import _is_last_owner
 
-        _do_sync(test_db)
         with bypass_tenant_filter():
             member_role = test_db.query(Role).filter_by(name="Member", is_built_in=True).first()
         assert member_role is not None
@@ -633,8 +607,6 @@ class TestScopeEnforcement:
         from rhesis.backend.ee.rbac.router import assign_project_role
         from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleAssign
 
-        _do_sync(test_db)
-
         with bypass_tenant_filter():
             admin_role = test_db.query(Role).filter_by(name="Admin", is_built_in=True).first()
         assert admin_role is not None
@@ -678,8 +650,6 @@ class TestForeignUserValidation:
         from rhesis.backend.ee.rbac.models import Role
         from rhesis.backend.ee.rbac.router import assign_org_role
         from rhesis.backend.ee.rbac.schemas import OrgRoleAssign
-
-        _do_sync(test_db)
 
         with bypass_tenant_filter():
             admin_role = test_db.query(Role).filter_by(name="Admin", is_built_in=True).first()
