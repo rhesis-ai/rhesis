@@ -108,6 +108,7 @@ async def _run_multi_turn(
         endpoint_id=str(ctx.endpoint.id),
         organization_id=ctx.organization_id,
         user_id=ctx.user_id,
+        project_id=ctx.project_id,
         test_execution_context=test_execution_context,
         endpoint=ctx.endpoint,
         invoke_max_attempts=ctx.invoke_max_attempts,

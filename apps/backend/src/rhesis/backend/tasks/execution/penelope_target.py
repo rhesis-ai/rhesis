@@ -67,6 +67,7 @@ class BackendEndpointTarget(Target):
         endpoint_id: str = "",
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         test_execution_context: Optional[dict[str, str]] = None,
         endpoint: Optional[Endpoint] = None,
         invoke_max_attempts: int = 4,
@@ -96,6 +97,7 @@ class BackendEndpointTarget(Target):
         self.endpoint_id = endpoint_id or (str(endpoint.id) if endpoint else "")
         self.organization_id = organization_id
         self.user_id = user_id
+        self.project_id = project_id
         self.test_execution_context = test_execution_context
         self.endpoint_service = get_endpoint_service()
         self._invoke_max_attempts = invoke_max_attempts
