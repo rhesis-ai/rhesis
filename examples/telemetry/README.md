@@ -41,6 +41,28 @@ Demonstrates:
 
 **Use Case**: When you're using LangChain and want automatic tracing without code changes.
 
+### 4. Direct OpenAI / Anthropic Python SDK
+**File**: `openai_sdk_example.py`
+
+Demonstrates (see [issue #1832](https://github.com/rhesis-ai/rhesis/issues/1832)):
+- **Direct** `openai` or `anthropic` SDK usage (no LangChain dependency in this extra)
+- Chat completion with optional **function / tool** round-trip
+- **Manual instrumentation** via `@observe`:
+  - `ai.agent.invoke` — chat pipeline boundary
+  - `ai.llm.invoke` — each SDK completion (prompt/completion tokens attached)
+  - `ai.tool.invoke` — `lookup_observability_fact` when the model calls it
+- `auto_instrument()` is called for consistency; native OpenAI/Anthropic SDK wrapping is in [#1083](https://github.com/rhesis-ai/rhesis/issues/1083)
+
+**Use Case**: Teams that call provider SDKs directly and need token/latency visibility in Rhesis today.
+
+```bash
+# OpenAI (default)
+uv run --extra openai-sdk openai_sdk_example.py
+
+# Anthropic
+OPENAI_SDK_PROVIDER=anthropic uv run --extra openai-sdk openai_sdk_example.py
+```
+
 ## Prerequisites
 
 This project uses `uv` for package management. Install it first:
@@ -66,6 +88,9 @@ uv sync
 
 # Install with LangChain support
 uv sync --extra langchain
+
+# Install with direct OpenAI/Anthropic SDK support
+uv sync --extra openai-sdk
 ```
 
 ## Prerequisites - Start the Backend
@@ -91,8 +116,11 @@ Set your environment variables:
 export RHESIS_API_KEY="your-api-key"
 export RHESIS_PROJECT_ID="your-project-id"
 
-# Required for LangChain example: Google Gemini API key
+# LangChain example: Google Gemini API key
 export GOOGLE_API_KEY="your-gemini-api-key"
+
+# OpenAI SDK example (default provider)
+export OPENAI_API_KEY="your-openai-api-key"
 ```
 
 **Important**: 
@@ -126,6 +154,9 @@ uv run --extra fastapi fastapi_example.py
 # Then test with:
 # curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \
 #   -d '{"input": "What is the weather like?", "session_id": "test-123"}'
+
+# Direct OpenAI / Anthropic SDK example (manual @observe)
+uv run --extra openai-sdk openai_sdk_example.py
 
 # LangChain example (auto-instrumentation)
 uv run --extra langchain langchain_example.py
