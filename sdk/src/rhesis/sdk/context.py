@@ -30,6 +30,7 @@ class EndpointContext:
 
     organization_id: str
     user_id: str
+    project_id: str = ""
     _db_factory: Optional[Callable[..., ContextManager[Any]]] = field(
         default=None, repr=False, compare=False
     )
@@ -51,7 +52,7 @@ class EndpointContext:
         declare a ``ctx: EndpointContext`` parameter are unaffected.
         """
         if self._db_factory is not None:
-            return self._db_factory(self.organization_id, self.user_id)
+            return self._db_factory(self.organization_id, self.user_id, self.project_id)
 
         # Try the backend module as a fallback so the internal connector
         # (which runs inside the backend process) works without needing to
@@ -61,7 +62,7 @@ class EndpointContext:
         try:
             from rhesis.backend.app.database import get_db_with_tenant_variables
 
-            return get_db_with_tenant_variables(self.organization_id, self.user_id)
+            return get_db_with_tenant_variables(self.organization_id, self.user_id, self.project_id)
         except ImportError:
             raise RuntimeError(
                 "EndpointContext.get_db() requires a _db_factory when called "
