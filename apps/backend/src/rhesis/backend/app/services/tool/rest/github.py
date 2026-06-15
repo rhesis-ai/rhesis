@@ -14,13 +14,16 @@ logger = logging.getLogger(__name__)
 _GITHUB_API = "https://api.github.com"
 
 
-def _parse_github_url(url: str) -> Tuple[str, str]:
+def _parse_github_url(url: str) -> Tuple[str, "str | None"]:
     """Parse a full GitHub URL into (api_url, branch).
 
     Accepts:
       - https://github.com/owner/repo
       - https://github.com/owner/repo/blob/branch/path/to/file
       - https://github.com/owner/repo/tree/branch/path/to/dir
+
+    Returns branch=None for repo-root URLs so callers omit the ``ref``
+    parameter and GitHub uses the repo's default branch.
     """
     url = url.strip()
     if not (url.startswith("http://") or url.startswith("https://")):
@@ -43,7 +46,7 @@ def _parse_github_url(url: str) -> Tuple[str, str]:
         branch = parts[3]
         path = "/".join(parts[4:])
     else:
-        branch = "main"
+        branch = None
         path = "/".join(parts[2:])
 
     api_url = f"{_GITHUB_API}/repos/{owner}/{repo}/contents/{path}"
@@ -91,10 +94,11 @@ class GitHubRestClient:
         self,
         client: httpx.AsyncClient,
         api_url: str,
-        branch: str,
+        branch: "str | None",
         recursive: bool,
     ) -> List[FetchedSource]:
-        response = await client.get(api_url, params={"ref": branch})
+        params = {"ref": branch} if branch else {}
+        response = await client.get(api_url, params=params)
 
         if response.status_code == 404:
             raise ValueError(f"GitHub resource not found: {api_url}. Check the URL and branch.")
