@@ -52,7 +52,7 @@ def _make_ctx(org_id="test-org-id", user_id="test-user-id", db=None):
         return EndpointContext(
             organization_id=org_id,
             user_id=user_id,
-            _db_factory=lambda o, u: _FakeCtxMgr(),
+            _db_factory=lambda o, u, p="": _FakeCtxMgr(),
         )
     return EndpointContext(organization_id=org_id, user_id=user_id)
 
