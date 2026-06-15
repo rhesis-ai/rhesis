@@ -44,7 +44,7 @@ def _get_redis() -> _redis_lib.Redis:
 
 
 # ------------------------------------------------------------------
-# Public API — called from architect.py
+# Public API — called from chat.py
 # ------------------------------------------------------------------
 
 
@@ -54,6 +54,7 @@ def register_awaiting_tasks(
     org_id: str,
     user_id: str,
     auto_approve: bool = False,
+    project_id: str | None = None,
 ) -> None:
     """Store the set of task IDs the Architect is waiting for."""
     r = _get_redis()
@@ -65,6 +66,7 @@ def register_awaiting_tasks(
             "org_id": org_id,
             "user_id": user_id,
             "auto_approve": auto_approve,
+            "project_id": project_id,
         }
     )
 
@@ -84,7 +86,7 @@ def register_awaiting_tasks(
 
 
 # ------------------------------------------------------------------
-# Result summarisation (reused from previous implementation)
+# Result summarisation
 # ------------------------------------------------------------------
 
 
@@ -252,7 +254,7 @@ def _resume_architect(
         session_id,
     )
 
-    from rhesis.backend.tasks.architect import architect_chat_task
+    from rhesis.backend.tasks.architect.chat import architect_chat_task
 
     architect_chat_task.apply_async(
         kwargs={
@@ -261,7 +263,8 @@ def _resume_architect(
             "auto_approve": context.get("auto_approve"),
         },
         headers={
-            "organization_id": context.get("org_id", ""),
-            "user_id": context.get("user_id", ""),
+            "organization_id": context.get("org_id") or "",
+            "user_id": context.get("user_id") or "",
+            "project_id": context.get("project_id") or "",
         },
     )

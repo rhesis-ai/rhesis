@@ -129,6 +129,7 @@ class ConnectorManager:
         return EndpointContext(
             organization_id=self._organization_id,
             user_id=self._user_id,
+            project_id=self.project_id or "",
         )
 
     def _ensure_connection(self) -> None:

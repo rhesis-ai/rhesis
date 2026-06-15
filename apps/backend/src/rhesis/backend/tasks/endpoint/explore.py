@@ -18,7 +18,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.celery.core import app
-from rhesis.backend.tasks.architect_progress import publish_task_progress
+from rhesis.backend.tasks.architect.progress import publish_task_progress
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.endpoint.target import make_target_factory
 
@@ -148,7 +148,9 @@ def run_exploration_task(
     start = time.monotonic()
 
     with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-        target_factory = make_target_factory(org_id=org_id, user_id=user_id, db=db)
+        target_factory = make_target_factory(
+            org_id=org_id, user_id=user_id, db=db, project_id=project_id
+        )
 
         tool = ExploreEndpointTool(
             target_factory=target_factory,

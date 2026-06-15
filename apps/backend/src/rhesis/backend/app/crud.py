@@ -75,10 +75,16 @@ def get_session_variables(db: Session):
 
 # Endpoint CRUD
 def get_endpoint(
-    db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str
+    db: Session,
+    endpoint_id: uuid.UUID,
+    organization_id: str,
+    user_id: str,
+    project_id: str = None,
 ) -> Optional[models.Endpoint]:
     """Get endpoint with relationships eagerly loaded."""
-    return get_item_detail(db, models.Endpoint, endpoint_id, organization_id, user_id)
+    return get_item_detail(
+        db, models.Endpoint, endpoint_id, organization_id, user_id, project_id=project_id
+    )
 
 
 def get_endpoints(

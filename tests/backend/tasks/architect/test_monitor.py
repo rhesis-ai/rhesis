@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.backend.tasks.architect_monitor import (
+from rhesis.backend.tasks.architect.monitor import (
     _on_task_done,
     _resolve_awaiting_key,
     _resume_architect,
@@ -13,7 +13,7 @@ from rhesis.backend.tasks.architect_monitor import (
     register_awaiting_tasks,
 )
 
-_CHAT_TASK_PATH = "rhesis.backend.tasks.architect.architect_chat_task"
+_CHAT_TASK_PATH = "rhesis.backend.tasks.architect.chat.architect_chat_task"
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ def mock_redis():
     r.exists.return_value = False
     r.scan_iter.return_value = []
     with patch(
-        "rhesis.backend.tasks.architect_monitor._get_redis",
+        "rhesis.backend.tasks.architect.monitor._get_redis",
         return_value=r,
     ):
         yield r
@@ -139,6 +139,33 @@ class TestRegisterAwaitingTasks:
         assert ctx["user_id"] == "user-2"
         assert ctx["auto_approve"] is False
 
+    def test_context_includes_project_id(self, mock_redis):
+        register_awaiting_tasks(
+            session_id="sess-3",
+            task_ids=["tid-d"],
+            org_id="org-3",
+            user_id="user-3",
+            project_id="proj-1",
+        )
+
+        pipe = mock_redis.pipeline.return_value
+        set_calls = [c for c in pipe.method_calls if c[0] == "set"]
+        ctx = json.loads(set_calls[0][1][1])
+        assert ctx["project_id"] == "proj-1"
+
+    def test_context_project_id_defaults_to_none(self, mock_redis):
+        register_awaiting_tasks(
+            session_id="sess-4",
+            task_ids=["tid-e"],
+            org_id="org-4",
+            user_id="user-4",
+        )
+
+        pipe = mock_redis.pipeline.return_value
+        set_calls = [c for c in pipe.method_calls if c[0] == "set"]
+        ctx = json.loads(set_calls[0][1][1])
+        assert ctx["project_id"] is None
+
 
 # ---------------------------------------------------------------------------
 # _resolve_awaiting_key
@@ -236,7 +263,7 @@ class TestOnTaskDone:
         assert result_key == "arch:result:sess-1:tid-a"
         mock_redis.decr.assert_called_once_with("arch:count:sess-1")
 
-    @patch("rhesis.backend.tasks.architect_monitor._resume_architect")
+    @patch("rhesis.backend.tasks.architect.monitor._resume_architect")
     def test_matches_via_test_run_id_in_result(
         self, mock_resume, mock_redis
     ):
@@ -270,7 +297,7 @@ class TestOnTaskDone:
         mock_redis.decr.assert_called_once_with("arch:count:sess-1")
         mock_resume.assert_called_once()
 
-    @patch("rhesis.backend.tasks.architect_monitor._resume_architect")
+    @patch("rhesis.backend.tasks.architect.monitor._resume_architect")
     def test_resumes_when_counter_hits_zero(self, mock_resume, mock_redis):
         ctx = json.dumps({
             "session_id": "sess-1",
@@ -289,7 +316,7 @@ class TestOnTaskDone:
         assert call_args[0][0] == "sess-1"
         assert call_args[0][1]["auto_approve"] is True
 
-    @patch("rhesis.backend.tasks.architect_monitor._resume_architect")
+    @patch("rhesis.backend.tasks.architect.monitor._resume_architect")
     def test_does_not_resume_while_tasks_remain(self, mock_resume, mock_redis):
         ctx = json.dumps({
             "session_id": "sess-1",
@@ -387,3 +414,44 @@ class TestResumeArchitect:
         deleted_keys = [c[1][0] for c in delete_calls]
         assert b"arch:result:sess-2:tid-x" in deleted_keys
         assert "arch:count:sess-2" in deleted_keys
+
+    @patch(_CHAT_TASK_PATH)
+    def test_forwards_project_id_in_headers(self, mock_chat_task, mock_redis):
+        mock_redis.scan_iter.return_value = [b"arch:result:sess-3:tid-y"]
+        mock_redis.get.return_value = json.dumps({
+            "task_id": "tid-y",
+            "state": "SUCCESS",
+            "result": {},
+        }).encode()
+
+        context = {
+            "session_id": "sess-3",
+            "org_id": "org-1",
+            "user_id": "user-1",
+            "project_id": "proj-1",
+        }
+
+        _resume_architect("sess-3", context, mock_redis)
+
+        kw = mock_chat_task.apply_async.call_args.kwargs
+        assert kw["headers"]["project_id"] == "proj-1"
+
+    @patch(_CHAT_TASK_PATH)
+    def test_project_id_defaults_to_empty_string(self, mock_chat_task, mock_redis):
+        mock_redis.scan_iter.return_value = [b"arch:result:sess-4:tid-z"]
+        mock_redis.get.return_value = json.dumps({
+            "task_id": "tid-z",
+            "state": "SUCCESS",
+            "result": {},
+        }).encode()
+
+        context = {
+            "session_id": "sess-4",
+            "org_id": "org-1",
+            "user_id": "user-1",
+        }
+
+        _resume_architect("sess-4", context, mock_redis)
+
+        kw = mock_chat_task.apply_async.call_args.kwargs
+        assert kw["headers"]["project_id"] == ""
