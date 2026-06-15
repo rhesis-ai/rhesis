@@ -31,7 +31,7 @@ import {
 import { UUID } from 'crypto';
 import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
 import { getErrorMessage } from '@/utils/entity-error-handler';
-import Link from '@mui/material/Link';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 /**
  * Get the credential key name for a given provider
@@ -780,20 +780,6 @@ export function ToolConnectionDrawer({
       width={640}
     >
       <Stack spacing={2}>
-        <Typography variant="body2" color="text.secondary">
-          {isEditMode
-            ? 'Update your tool connection settings'
-            : 'Configure your tool connection settings below'}{' '}
-          <Link
-            href="https://docs.rhesis.ai/platform/mcp#provider-setup-instructions"
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ textDecoration: 'none' }}
-          >
-            (setup guide)
-          </Link>
-        </Typography>
-
         {!isEditMode && providers.length > 0 && (
           <FormControl fullWidth>
             <InputLabel id="tool-provider-label">Provider</InputLabel>
@@ -818,9 +804,7 @@ export function ToolConnectionDrawer({
           </FormControl>
         )}
 
-        {/* Basic Configuration */}
         <Stack spacing={3}>
-          <Typography sx={sectionHeadingSx}>Basic Configuration</Typography>
           <TextField
             label="Connection Name"
             fullWidth
@@ -981,7 +965,7 @@ export function ToolConnectionDrawer({
                   sx={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    borderRadius: theme.shape.borderRadius,
+                    borderRadius: BORDER_RADIUS.xs,
                     px: '30px',
                     py: '12px',
                     mt: 2,
