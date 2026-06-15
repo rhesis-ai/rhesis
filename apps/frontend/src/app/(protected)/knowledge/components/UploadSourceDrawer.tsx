@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DragAndDropUpload from '@/components/common/DragAndDropUpload';
@@ -171,6 +172,7 @@ export default function UploadSourceDrawer({
         required
         disabled={uploading}
         placeholder="Enter a title for this source"
+        sx={drawerOutlinedFieldSx}
       />
 
       <TextField

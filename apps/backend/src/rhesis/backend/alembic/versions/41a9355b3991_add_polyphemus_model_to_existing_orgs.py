@@ -16,6 +16,8 @@ from typing import Sequence, Union
 from alembic import op
 from sqlalchemy.orm import Session
 
+from sqlalchemy import text
+
 from rhesis.backend.app import models
 from rhesis.backend.app.utils.crud_utils import create_default_rhesis_model
 
@@ -59,17 +61,20 @@ def upgrade() -> None:
                 skipped_count += 1
                 continue
 
-            # Check if a protected Polyphemus model already exists
-            existing_model = (
-                session.query(models.Model)
-                .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
-                .filter(
-                    models.Model.organization_id == org_id,
-                    models.TypeLookup.type_value == "polyphemus",
-                    models.Model.is_protected,
-                )
-                .first()
-            )
+            # Check if a protected Polyphemus model already exists.
+            # Raw SQL avoids selecting columns (e.g. project_id) that may not
+            # exist yet at this point in the migration chain.
+            existing_model = session.execute(
+                text(
+                    "SELECT 1 FROM model m "
+                    "JOIN type_lookup t ON m.provider_type_id = t.id "
+                    "WHERE m.organization_id = :org_id "
+                    "AND t.type_value = 'polyphemus' "
+                    "AND m.is_protected = TRUE "
+                    "LIMIT 1"
+                ),
+                {"org_id": str(org_id)},
+            ).fetchone()
 
             if existing_model:
                 print(f"  ⏭ Skipping org {organization_id}: Polyphemus model already exists")
@@ -126,24 +131,20 @@ def downgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        # Find protected Polyphemus models to delete
-        models_to_delete = (
-            session.query(models.Model)
-            .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
-            .filter(
-                models.Model.is_protected,
-                models.Model.name == "Rhesis Polyphemus",
-                models.TypeLookup.type_value == "polyphemus",
+        # Raw SQL avoids selecting columns (e.g. project_id) that may not exist
+        # yet at this point in the migration chain.
+        result = session.execute(
+            text(
+                "DELETE FROM model "
+                "WHERE is_protected = TRUE AND name = 'Rhesis Polyphemus' "
+                "AND provider_type_id IN ("
+                "  SELECT id FROM type_lookup WHERE type_value = 'polyphemus'"
+                ") "
+                "RETURNING id"
             )
-            .all()
-        )
+        ).fetchall()
 
-        deleted_count = len(models_to_delete)
-
-        # Delete each model individually
-        for model in models_to_delete:
-            session.delete(model)
-
+        deleted_count = len(result)
         session.commit()
         print(f"\n🗑 Removed {deleted_count} Polyphemus model(s)\n")
 

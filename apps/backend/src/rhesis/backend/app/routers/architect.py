@@ -14,6 +14,8 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 
+import rhesis.backend.app.services.architect.runner as _architect_runner  # noqa: F401
+
 router = APIRouter(
     prefix="/architect/sessions",
     tags=["architect"],

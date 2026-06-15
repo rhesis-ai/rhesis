@@ -2,8 +2,6 @@
 
 import React from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import { SxProps, Theme } from '@mui/material/styles';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
@@ -12,6 +10,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 export interface ToolbarPillTab {
   label: string;
   value: string;
+  icon?: React.ReactNode;
 }
 
 export interface GridToolbarProps {
@@ -19,8 +18,12 @@ export interface GridToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   searchWidth?: number;
-  onFilterClick?: () => void;
+  /** Use `standalone` on directory pages where the toolbar sits on the page bg. */
+  searchVariant?: 'embedded' | 'standalone';
+  onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
+  /** Number of active filters to display on the filter button badge */
+  activeFilterCount?: number;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   sx?: SxProps<Theme>;
@@ -34,6 +37,12 @@ export const directoryToolbarSx: SxProps<Theme> = {
   borderBottom: 'none',
   minHeight: 'auto',
 };
+
+/** Spread on directory toolbars: layout + raised search pill for page-bg contrast. */
+export const directoryToolbarProps = {
+  sx: directoryToolbarSx,
+  searchVariant: 'standalone',
+} as const satisfies Pick<GridToolbarProps, 'sx' | 'searchVariant'>;
 
 export interface PrimarySegmentedPillsProps {
   tabs: ToolbarPillTab[];
@@ -59,52 +68,12 @@ export function ToolbarPillTabs({
   onChange,
 }: ToolbarPillTabsProps) {
   return (
-    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      <ButtonGroup
-        variant="outlined"
-        size="small"
-        sx={{
-          '& .MuiButtonGroup-grouped': {
-            borderRadius: 0,
-            '&:first-of-type': {
-              borderTopLeftRadius: BORDER_RADIUS.pill,
-              borderBottomLeftRadius: BORDER_RADIUS.pill,
-            },
-            '&:last-of-type': {
-              borderTopRightRadius: BORDER_RADIUS.pill,
-              borderBottomRightRadius: BORDER_RADIUS.pill,
-            },
-            borderColor: theme => theme.palette.greyscale.border,
-          },
-        }}
-      >
-        {tabs.map(tab => (
-          <Button
-            key={tab.value}
-            onClick={() => onChange(tab.value)}
-            sx={{
-              px: 2,
-              py: 0.5,
-              fontWeight: activeValue === tab.value ? 600 : 400,
-              bgcolor:
-                activeValue === tab.value ? 'primary.dark' : 'transparent',
-              color:
-                activeValue === tab.value
-                  ? 'primary.contrastText'
-                  : theme => theme.palette.greyscale.body,
-              '&:hover': {
-                bgcolor:
-                  activeValue === tab.value
-                    ? 'primary.dark'
-                    : theme => theme.palette.greyscale.surface1,
-              },
-            }}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </ButtonGroup>
-    </Box>
+    <PrimarySegmentedPills
+      tabs={tabs}
+      mode="single"
+      activeValue={activeValue}
+      onSingleChange={onChange}
+    />
   );
 }
 
@@ -120,7 +89,7 @@ export function PrimarySegmentedPills({
 }: PrimarySegmentedPillsProps) {
   return (
     <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      {tabs.map(({ value, label }, idx, arr) => {
+      {tabs.map(({ value, label, icon }, idx, arr) => {
         const isSelected =
           mode === 'single'
             ? activeValue === value
@@ -153,6 +122,7 @@ export function PrimarySegmentedPills({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '4px',
               px: '16px',
               py: '8px',
               fontSize: 14,
@@ -177,8 +147,12 @@ export function PrimarySegmentedPills({
                   : theme => `${theme.palette.primary.main}0f`,
               },
               whiteSpace: 'nowrap',
+              '& svg': {
+                fontSize: 20,
+              },
             }}
           >
+            {icon}
             {label}
           </Box>
         );
@@ -186,6 +160,47 @@ export function PrimarySegmentedPills({
     </Box>
   );
 }
+
+/** Toolbar row inside a linked-data card (Figma 1435:46915) — below a card header. */
+export const linkedGridToolbarSx: SxProps<Theme> = {
+  px: '30px',
+  pt: 0,
+  pb: '30px',
+  minHeight: 'auto',
+  borderBottom: 'none',
+};
+
+/** Bleed a grid to SectionCard edges so toolbar/columns/footer share one 30px inset. */
+export const sectionCardGridBleedSx: SxProps<Theme> = {
+  mx: '-30px',
+  width: 'calc(100% + 60px)',
+};
+
+/** 48px row/header height matching Figma linked-data table rows. */
+export const linkedDataGridRowSx: SxProps<Theme> = {
+  '& .MuiDataGrid-columnHeaders': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-columnHeader': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-row': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+  },
+  '& .MuiDataGrid-cell': {
+    minHeight: '48px !important',
+    maxHeight: '48px !important',
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+  '& .MuiDataGrid-columnHeaderTitle': {
+    fontSize: 14,
+    lineHeight: '22px',
+  },
+};
 
 /**
  * Shared toolbar row for BaseDataGrid: filter button, search pill, optional middle/right slots.
@@ -195,19 +210,23 @@ export function GridToolbar({
   onSearchChange,
   searchPlaceholder = 'Search…',
   searchWidth = 240,
+  searchVariant = 'embedded',
   onFilterClick,
   hasActiveFilters = false,
+  activeFilterCount,
   middleContent,
   rightContent,
   sx,
 }: GridToolbarProps) {
+  // Figma grid-card default: 30px all around. Directory pages and drawers
+  // that render the toolbar outside a grid border override px/py via `sx`
+  // (e.g. `directoryToolbarSx`).
   const baseSx: SxProps<Theme> = {
     display: 'flex',
     alignItems: 'center',
     gap: 1.5,
-    px: 2,
-    py: 1,
-    borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
+    px: '30px',
+    py: '30px',
     minHeight: 52,
   };
 
@@ -217,6 +236,7 @@ export function GridToolbar({
         <FilterButton
           onClick={onFilterClick}
           hasActiveFilters={hasActiveFilters}
+          activeFilterCount={activeFilterCount}
         />
       ) : null}
       <SearchPill
@@ -224,6 +244,7 @@ export function GridToolbar({
         onChange={onSearchChange}
         placeholder={searchPlaceholder}
         width={searchWidth}
+        variant={searchVariant}
       />
       {middleContent}
       {!middleContent && <Box sx={{ flex: 1 }} />}

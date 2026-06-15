@@ -16,9 +16,10 @@ locals {
     server_ip          = var.wireguard_tunnel_ip
     listen_port        = var.wireguard_port
     server_private_key = wireguard_asymmetric_key.server.private_key
-    peer_cidr          = var.wireguard_peer_cidr
-    peers              = local.wireguard_peers_with_keys
-    subnet_cidrs       = var.subnet_cidrs
+    peer_cidr             = var.wireguard_peer_cidr
+    peers                 = local.wireguard_peers_with_keys
+    subnet_cidrs          = var.subnet_cidrs
+    gke_public_endpoints  = var.gke_public_endpoints
   })
 
   # Routing setup script: resolves interface names by NIC IP at runtime
@@ -64,9 +65,12 @@ locals {
     }
   ) : ""
 
-  # Render BIND9 rhesis.ai split-horizon zone file
-  bind9_rhesis_ai_zone_file = length(var.bind9_tsig_keys) > 0 ? templatefile(
-    "${path.module}/templates/rhesis.ai.zone.tpl", {}
+  # Read BIND9 rhesis.ai split-horizon zone file.
+  # Uses file() not templatefile() — the zone file has no Terraform variables,
+  # and templatefile() with empty {} does not convert $$ → $ escapes, leaving
+  # $$ORIGIN / $$TTL in the output which BIND9 rejects as syntax errors.
+  bind9_rhesis_ai_zone_file = length(var.bind9_tsig_keys) > 0 ? file(
+    "${path.module}/templates/rhesis.ai.zone.tpl"
   ) : ""
 
   # Render cloud-init configuration (use base64 for binary/structured files to avoid YAML parsing issues)

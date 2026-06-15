@@ -91,7 +91,7 @@ class EndpointValidationService:
             logger.info(f"Starting async validation for {len(functions_data)} functions")
 
             # Create our own database session for this background task
-            with get_db_with_tenant_variables(organization_id, user_id) as db:
+            with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
                 # Get all endpoints for this project/environment
                 # Use QueryBuilder which properly handles soft delete filtering
                 query_builder = QueryBuilder(db, Endpoint).with_organization_filter(organization_id)

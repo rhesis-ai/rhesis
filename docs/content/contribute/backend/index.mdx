@@ -19,22 +19,35 @@ The smoothest path is the **`rh` CLI** from the repository root. From there, run
 ./rh dev backend`}
 </CodeBlock>
 
-**`./rh dev backend`** runs `uv sync`, then `apps/backend/start.sh`, which applies migrations when the database is configured and starts Uvicorn on **port 8080**.
+**`./rh dev backend`** runs `uv sync`, then `apps/backend/start.sh`, which calls **`migrate.sh`** when the database is configured, then starts Uvicorn on **port 8080**.
 
-If you prefer not to use `rh`, go to `apps/backend`, ensure `.env` is present, run `uv sync`, then `./start.sh`. Set `SKIP_MIGRATIONS=true` if something else already applied migrations (for example in CI or a deployment pipeline).
+If you prefer not to use `rh`, go to `apps/backend`, ensure `.env` is present, run `uv sync`, then `./start.sh`. Set `SKIP_MIGRATIONS=true` if something else already applied migrations (for example a Cloud Run migration job in CI).
+
+### Database migrations
+
+All migration paths use **`apps/backend/migrate.sh`**, which runs `alembic upgrade head`:
+
+- **Local dev** — `start.sh` loads `.env`, then calls `migrate.sh` (uses `uv run alembic` when needed).
+- **Docker Compose** — `start.sh` in the backend container calls `migrate.sh`.
+- **Cloud deploy** — a separate Cloud Run Job runs `migrate.sh`; the backend service sets `SKIP_MIGRATIONS=true`.
+
+In local and test environments (`ENVIRONMENT` or `BACKEND_ENV` is `local` or `test`), `migrate.sh` skips the Postgres wait loop and database ownership step. Deployed environments run both before applying migrations.
+
+You can also run migrations directly: `cd apps/backend && ./migrate.sh` (with `.env` loaded or database variables exported).
 
 Once the server is up, open interactive docs at `http://localhost:8080/docs`, or ReDoc and the OpenAPI JSON at `/redoc` and `/openapi.json`. A simple **`GET /health`** responds with `{"status": "ok"}`. Background processing is not started with the API alone; use **`./rh dev worker`** from the repo root when you need Celery (details in [Background tasks](/contribute/backend/background-tasks)).
 
 ## How the codebase is organized
 
-HTTP routes live under **`app/routers/`**, with Pydantic types in **`app/schemas/`** and SQLAlchemy models in **`app/models/`**. Shared database helpers sit in **`app/crud.py`**. Authentication and token handling are grouped under **`app/auth/`** (see [Authentication](/contribute/backend/authentication)). Celery-related code is split between **`tasks/`** (what runs in the worker), **`celery/`** (app wiring), and **`worker.py`** at the package root. Database migrations are Alembic revisions under **`src/rhesis/backend/alembic/`**; `start.sh` runs them for local development when `SQLALCHEMY_DB_HOST` is set.
+HTTP routes live under **`app/routers/`**, with Pydantic types in **`app/schemas/`** and SQLAlchemy models in **`app/models/`**. Shared database helpers sit in **`app/crud.py`**. Authentication and token handling are grouped under **`app/auth/`** (see [Authentication](/contribute/backend/authentication)). Celery-related code is split between **`tasks/`** (what runs in the worker), **`celery/`** (app wiring), and **`worker.py`** at the package root. Database migrations are Alembic revisions under **`src/rhesis/backend/alembic/`**, applied by **`migrate.sh`** (see above).
 
 A trimmed view of `apps/backend`:
 
 <CodeBlock filename="layout.txt" language="text">
 {`apps/backend/
 ├── pyproject.toml
-├── start.sh                 # loads .env, runs migrations, starts the server
+├── migrate.sh               # alembic upgrade head (local, Docker, Cloud Run Job)
+├── start.sh                 # loads .env, calls migrate.sh, starts the server
 └── src/rhesis/backend/
     ├── app/
     │   ├── main.py
@@ -67,7 +80,7 @@ Formatting and linting use Ruff. The project’s conventions and exact commands 
 
 ## Configuration
 
-Secrets and connection strings are environment-driven. For a structured list of variables, see [Environment configuration](/contribute/backend/environment-config) and the central [Environment variables](/contribute/environment-variables) reference. Local **`./rh dev init`** output is a good template for values such as `SQLALCHEMY_DATABASE_URL`, Redis broker URLs, and `JWT_SECRET_KEY`.
+Secrets and connection strings are environment-driven. For a structured list of variables, see [Environment configuration](/contribute/backend/environment-config) and the central [Environment variables](/contribute/environment-variables) reference. Local **`./rh dev init`** output is a good template for values such as `APP_DB_PASS`, Redis broker URLs, and `JWT_SECRET_KEY`.
 
 ## Further reading
 

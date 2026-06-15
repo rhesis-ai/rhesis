@@ -39,9 +39,8 @@ spec:
 
               echo "Adding rhesis.ai:53 stub zone (BIND9: ${BIND9_IP})..."
 
-              # Build the new block and insert it before the catch-all .:53 block
-              STUB=$(printf 'rhesis.ai:53 {\n    errors\n    cache 30\n    bind 169.254.20.10\n    forward . %s\n    prometheus :9253\n    }\n' "$BIND9_IP")
-              NEW_COREFILE=$(echo "$CURRENT" | sed "s|\.\:53 {|${STUB}\n.:53 {|")
+              # Prepend stub zone to Corefile using Python (single line avoids YAML indentation conflict)
+              NEW_COREFILE=$(printf '%s' "$CURRENT" | python3 -c "import sys,os; ip=os.environ['BIND9_IP']; stub='rhesis.ai:53 {\n    errors\n    cache 30\n    bind 169.254.20.10\n    forward . '+ip+'\n    prometheus :9253\n    }\n'; print(stub+sys.stdin.read(),end='')")
 
               # Patch the ConfigMap
               kubectl patch configmap node-local-dns -n kube-system \

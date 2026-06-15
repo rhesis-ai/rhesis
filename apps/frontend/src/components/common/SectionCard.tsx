@@ -8,13 +8,16 @@ import { ELEVATION, BORDER_RADIUS } from '@/styles/theme';
 export type SectionCardVariant = 'default' | 'danger';
 
 export interface SectionCardProps {
-  title: string;
-  /** Optional subtitle below the title (Body S, secondary) */
-  subtitle?: string;
+  /** When omitted (along with subtitle and actions), the header row is skipped entirely */
+  title?: string;
+  /** Optional subtitle below the title (Body S, secondary). Accepts a string or React node for inline links. */
+  subtitle?: React.ReactNode;
   /** Header actions (e.g. Edit button, FAB) */
   actions?: React.ReactNode;
   variant?: SectionCardVariant;
-  children: React.ReactNode;
+  /** Makes the entire header row clickable (e.g. for collapsible sections) */
+  onHeaderClick?: () => void;
+  children?: React.ReactNode;
 }
 
 function cardSx(variant: SectionCardVariant) {
@@ -54,40 +57,58 @@ export function SectionCard({
   subtitle,
   actions,
   variant = 'default',
+  onHeaderClick,
   children,
 }: SectionCardProps) {
   const titleColor = variant === 'danger' ? 'error.main' : 'primary.main';
+  const hasHeader = Boolean(title || subtitle || actions);
 
   return (
     <Paper elevation={0} sx={cardSx(variant)}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 2,
-          mb: subtitle || actions ? 3 : 3,
-        }}
-      >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: titleColor }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography
-              variant="body2"
-              sx={{ mt: 0.5, color: 'text.secondary' }}
+      {hasHeader && (
+        <Box
+          onClick={onHeaderClick}
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 2,
+            mb: 3,
+            ...(onHeaderClick && { cursor: 'pointer', userSelect: 'none' }),
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {title && (
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, color: titleColor }}
+              >
+                {title}
+              </Typography>
+            )}
+            {subtitle && (
+              <Typography
+                variant="body2"
+                sx={{ mt: 0.5, color: 'text.secondary' }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          {actions && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexShrink: 0,
+                alignItems: 'center',
+                gap: '10px',
+              }}
             >
-              {subtitle}
-            </Typography>
+              {actions}
+            </Box>
           )}
         </Box>
-        {actions && (
-          <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center' }}>
-            {actions}
-          </Box>
-        )}
-      </Box>
+      )}
       {children}
     </Paper>
   );

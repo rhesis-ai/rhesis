@@ -7,6 +7,7 @@ import {
   ChatErrorPayload,
   FileAttachment,
 } from '@/utils/websocket';
+import { readActiveProjectId } from '@/utils/active-project';
 
 /**
  * Chat message interface for the playground.
@@ -226,6 +227,7 @@ export function usePlaygroundChat(
       setIsLoading(true);
 
       // Send message via WebSocket (include conversation_id if we have one)
+      const activeProjectId = readActiveProjectId();
       const sent = send({
         type: EventType.CHAT_MESSAGE,
         correlation_id: correlationId,
@@ -234,6 +236,7 @@ export function usePlaygroundChat(
           message: trimmedMessage,
           ...(sessionId && { conversation_id: sessionId }),
           ...(files?.length && { files }),
+          ...(activeProjectId && { project_id: activeProjectId }),
         },
       });
 

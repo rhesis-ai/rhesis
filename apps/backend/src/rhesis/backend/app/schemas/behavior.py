@@ -1,8 +1,12 @@
-from typing import Optional
+from datetime import datetime
+from typing import List, Optional, Union
 
-from pydantic import UUID4
+from pydantic import UUID4, Field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.status import Status
+from rhesis.backend.app.schemas.tag import Tag
+from rhesis.backend.app.schemas.user import UserReference
 
 
 # Behavior schemas
@@ -23,4 +27,7 @@ class BehaviorUpdate(BehaviorBase):
 
 
 class Behavior(BehaviorBase):
-    pass
+    tags: List[Tag] = Field(default_factory=list)
+    created_at: Optional[Union[datetime, str]] = None
+    status: Optional[Status] = None
+    user: Optional[UserReference] = None

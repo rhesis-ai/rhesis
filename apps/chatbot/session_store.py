@@ -72,23 +72,32 @@ class InMemorySessionStore:
 
 
 class RedisSessionStore:
-    """Redis-backed session store using one list key per chat session."""
+    """Redis-backed session store using one list key per chat session.
+
+    The Redis client is created lazily on first use so that an unreachable
+    Redis host never blocks gunicorn worker startup.
+    """
 
     def __init__(self, broker_url: str, ttl_seconds: int):
         self.ttl_seconds = ttl_seconds
         self.redis_url = _with_database(broker_url, CHATBOT_SESSIONS_DB)
-        self.client = Redis.from_url(self.redis_url, decode_responses=True)
+        self._client: Redis | None = None
+
+    def _get_client(self) -> Redis:
+        if self._client is None:
+            self._client = Redis.from_url(self.redis_url, decode_responses=True)
+        return self._client
 
     def _key(self, session_id: str) -> str:
         return f"{SESSION_KEY_PREFIX}{session_id}"
 
     async def get(self, session_id: str) -> list[dict[str, Any]]:
         key = self._key(session_id)
-        values = await self.client.lrange(key, 0, -1)
+        values = await self._get_client().lrange(key, 0, -1)
         if not values:
             return []
 
-        await self.client.expire(key, self.ttl_seconds)
+        await self._get_client().expire(key, self.ttl_seconds)
         messages: list[dict[str, Any]] = []
         for value in values:
             try:
@@ -106,19 +115,20 @@ class RedisSessionStore:
 
         key = self._key(session_id)
         encoded = [json.dumps(message, default=str) for message in messages]
-        async with self.client.pipeline(transaction=True) as pipe:
+        async with self._get_client().pipeline(transaction=True) as pipe:
             pipe.rpush(key, *encoded)
             pipe.expire(key, self.ttl_seconds)
             await pipe.execute()
 
     async def exists(self, session_id: str) -> bool:
-        return bool(await self.client.exists(self._key(session_id)))
+        return bool(await self._get_client().exists(self._key(session_id)))
 
     async def delete(self, session_id: str) -> bool:
-        return bool(await self.client.delete(self._key(session_id)))
+        return bool(await self._get_client().delete(self._key(session_id)))
 
     async def close(self) -> None:
-        await self.client.aclose()
+        if self._client is not None:
+            await self._client.aclose()
 
 
 def create_session_store(ttl_seconds: int) -> SessionStore:

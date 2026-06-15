@@ -39,7 +39,6 @@ import {
   TableHead,
   TableRow,
   Tooltip,
-  Typography,
 } from '@mui/material';
 import {
   Refresh as RotateIcon,
@@ -137,23 +136,8 @@ export default function ApiClientsList({
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress size={24} />
-      </Box>
-    );
-  }
-
-  if (clients.length === 0) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          No API clients yet. Create one to let an external integration
-          exchange its OIDC token for a Rhesis JWT.
-        </Typography>
-      </Box>
-    );
+  if (loading || clients.length === 0) {
+    return null;
   }
 
   return (

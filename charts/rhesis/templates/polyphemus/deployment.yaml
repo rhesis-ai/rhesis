@@ -39,12 +39,6 @@ spec:
                 name: {{ .Values.existingSecret }}
           env:
 {{- include "rhesis.database.cnpgUserPassEnv" . | nindent 12 }}
-            - name: SQLALCHEMY_DATABASE_URL
-              {{- if .Values.database.existingSecret }}
-              value: "postgresql://$(SQLALCHEMY_APP_DB_USER):$(SQLALCHEMY_APP_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
-              {{- else }}
-              value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
-              {{- end }}
             {{- with .Values.polyphemus.env }}
             {{- range . }}
             - name: {{ .name }}

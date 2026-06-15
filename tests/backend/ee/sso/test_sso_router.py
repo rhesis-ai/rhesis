@@ -3,13 +3,20 @@
 Pure unit tests that mock DB and encryption -- no network or Postgres needed.
 """
 
-import os
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from pydantic import SecretStr
+
+from rhesis.backend.app.config.settings import get_application_settings
+
+
+@pytest.fixture(autouse=True)
+def clear_application_settings_cache():
+    get_application_settings.cache_clear()
+    yield
+    get_application_settings.cache_clear()
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +177,11 @@ class TestGetSSOConfig:
         assert config.client_id == "my-client"
         assert config.get_secret_value() == "my-secret"
 
-    @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    def test_plaintext_secret_fallback_in_dev(self):
+    def test_plaintext_secret_fallback_in_dev(self, monkeypatch):
         from rhesis.backend.ee.sso.router import _get_sso_config
+
+        monkeypatch.setenv("BACKEND_ENV", "development")
+        get_application_settings.cache_clear()
 
         org = SimpleNamespace(
             id=uuid4(),

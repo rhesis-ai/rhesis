@@ -59,7 +59,7 @@ const generateTypeScriptFile = templates => {
 // Do not edit manually - run 'npm run generate-templates' to regenerate
 
 ${imports}
-import { TestTemplate } from '@/app/(protected)/tests/new-generated/components/shared/types';
+import { TestTemplate } from '@/app/(protected)/test-sets/new-generated/components/shared/types';
 
 // Icon mapping for YAML references
 const iconMap: Record<string, React.ComponentType<any>> = {

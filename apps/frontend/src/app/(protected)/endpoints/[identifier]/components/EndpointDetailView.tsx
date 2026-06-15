@@ -2,7 +2,6 @@
 
 import { Suspense } from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import EndpointSummaryCard from './EndpointSummaryCard';
 import EndpointDetailTabs from './EndpointDetailTabs';
 
 function TabsFallback() {
@@ -15,11 +14,8 @@ function TabsFallback() {
 
 export default function EndpointDetailView() {
   return (
-    <>
-      <EndpointSummaryCard />
-      <Suspense fallback={<TabsFallback />}>
-        <EndpointDetailTabs />
-      </Suspense>
-    </>
+    <Suspense fallback={<TabsFallback />}>
+      <EndpointDetailTabs />
+    </Suspense>
   );
 }

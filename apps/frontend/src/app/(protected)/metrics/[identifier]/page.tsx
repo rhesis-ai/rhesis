@@ -1,10 +1,7 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { MetricDetailView } from './MetricDetailView';
+import MetricDetailPageTabs from './MetricDetailPageTabs';
 
 export default function MetricDetailPage() {
-  const params = useParams();
-  const metricId = params.identifier as string;
-  return <MetricDetailView metricId={metricId} mode="page" />;
+  return <MetricDetailPageTabs />;
 }

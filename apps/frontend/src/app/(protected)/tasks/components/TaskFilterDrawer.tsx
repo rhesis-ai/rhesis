@@ -32,6 +32,10 @@ export function hasActiveTaskFilters(f: TaskFilters): boolean {
   return Object.values(f).some(v => v !== '');
 }
 
+export function countActiveTaskFilters(f: TaskFilters): number {
+  return Object.values(f).filter(v => v !== '').length;
+}
+
 const STATUS_OPTIONS: { label: string; value: TaskStatus }[] = [
   { label: 'Open', value: 'Open' },
   { label: 'In Progress', value: 'In Progress' },

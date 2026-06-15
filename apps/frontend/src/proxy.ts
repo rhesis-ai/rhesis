@@ -7,8 +7,59 @@ import {
 } from './constants/paths';
 import { getServerBackendUrl } from './utils/url-resolver';
 
+const decodeBase64 =
+  globalThis.atob ??
+  ((value: string) => Buffer.from(value, 'base64').toString('binary'));
+
+/** Decode a JWT payload segment without Node `Buffer` (middleware runs on Edge). */
+function decodeBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padLen = (4 - (base64.length % 4)) % 4;
+  const padded = padLen ? `${base64}${'='.repeat(padLen)}` : base64;
+  return decodeBase64(padded);
+}
+
+/** Unsigned JWT verification is allowed only for local Playwright (E2E_NO_DOCKER). */
+function isLocalE2EVerificationEnabled(): boolean {
+  return (
+    process.env.E2E_NO_DOCKER === '1' &&
+    process.env.NODE_ENV !== 'production' &&
+    (process.env.FRONTEND_ENV === 'development' ||
+      process.env.FRONTEND_ENV === 'test' ||
+      !process.env.FRONTEND_ENV)
+  );
+}
+
+/** Local JWT check for Playwright runs without a backend (E2E_NO_DOCKER=1). */
+function verifySessionLocally(sessionToken: string): boolean {
+  try {
+    if (!sessionToken.includes('.') || sessionToken.split('.').length !== 3) {
+      return false;
+    }
+
+    const [, payloadB64] = sessionToken.split('.');
+    const payload = JSON.parse(decodeBase64Url(payloadB64)) as {
+      exp?: number;
+      user?: { organization_id?: string | null };
+    };
+
+    const exp = payload.exp;
+    if (!exp || Math.floor(Date.now() / 1000) >= exp) {
+      return false;
+    }
+
+    return Boolean(payload.user?.organization_id);
+  } catch {
+    return false;
+  }
+}
+
 // Helper function to verify token with backend
 async function verifySessionWithBackend(sessionToken: string) {
+  if (isLocalE2EVerificationEnabled()) {
+    return verifySessionLocally(sessionToken);
+  }
+
   try {
     const response = await fetch(`${getServerBackendUrl()}/auth/verify`, {
       method: 'POST',
@@ -32,7 +83,9 @@ async function verifySessionWithBackend(sessionToken: string) {
 
 // Helper function to get session token from request
 function getSessionTokenFromRequest(request: NextRequest): string | null {
-  const sessionCookie = request.cookies.get('next-auth.session-token');
+  const sessionCookie =
+    request.cookies.get('authjs.session-token') ??
+    request.cookies.get('next-auth.session-token');
   if (!sessionCookie?.value) return null;
 
   const cookieValue = sessionCookie.value;

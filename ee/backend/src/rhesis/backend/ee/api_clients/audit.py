@@ -44,6 +44,8 @@ import os
 from enum import Enum
 from typing import Optional
 
+from rhesis.backend.app.config.settings import get_application_settings
+
 logger = logging.getLogger("rhesis.api_clients.audit")
 
 
@@ -69,24 +71,6 @@ class TokenExchangeEvent(str, Enum):
 # ---------------------------------------------------------------------------
 
 
-def _is_dev_environment() -> bool:
-    """Mirror :func:`rhesis.backend.ee.sso.http_client.is_dev_environment`.
-
-    Duplicated here rather than imported so this audit module has zero
-    runtime dependency on the SSO subpackage; otherwise importing
-    ``audit`` would transitively pull in ``httpx`` even in test setups
-    that do not exercise SSO.
-    """
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
-    return env in ("local", "test", "dev", "development") or backend_env in (
-        "local",
-        "test",
-        "dev",
-        "development",
-    )
-
-
 def _get_audit_hash_key() -> Optional[bytes]:
     """Return the configured AUDIT_HASH_KEY as bytes, or ``None``.
 
@@ -97,7 +81,7 @@ def _get_audit_hash_key() -> Optional[bytes]:
     """
     raw = os.getenv("AUDIT_HASH_KEY")
     if not raw:
-        if not _is_dev_environment():
+        if not get_application_settings().is_development:
             # Should never reach here in production because EE bootstrap
             # asserts the key is set before registering API_CLIENTS.
             # Logged once so operators see it if the assertion is

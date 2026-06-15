@@ -108,6 +108,10 @@ async def create_user(
         # Create the user (crud function will automatically exclude send_invite)
         created_user = crud.create_user(db=db, user=user)
 
+    # Note: new users are NOT auto-enrolled in any projects.
+    # An admin must explicitly add them via the project Members tab.
+    # This enforces real project-level isolation going forward.
+
     # Send invitation email if requested
     if send_invite and email_service.is_configured:
         try:
@@ -403,7 +407,7 @@ def update_user(
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,
     db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Request access to the Polyphemus adversarial model.

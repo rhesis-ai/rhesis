@@ -133,3 +133,28 @@ export interface Project extends ProjectBase, ProjectFrontendFields {
   owner: ProjectUser;
   organization: ProjectOrganization;
 }
+
+/** Minimal user info embedded in project membership responses */
+export interface ProjectMemberUser {
+  id: string;
+  name?: string | null;
+  given_name?: string | null;
+  family_name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+}
+
+/** A single project membership row */
+export interface ProjectMember {
+  project_id: string;
+  user_id: string;
+  organization_id: string;
+  role?: string | null;
+  user?: ProjectMemberUser | null;
+}
+
+/** Body for POST /projects/{id}/members */
+export interface ProjectMemberCreate {
+  user_id: string;
+  role?: string;
+}

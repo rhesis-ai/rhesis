@@ -1,17 +1,19 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   ToolbarPillTabs,
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
 import BehaviorCard from './BehaviorCard';
@@ -21,25 +23,29 @@ import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
   EMPTY_BEHAVIOR_FILTERS,
   hasActiveBehaviorFilters,
+  countActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
 
 interface BehaviorsClientProps {
   sessionToken: string;
   organizationId: UUID;
+  userId?: UUID;
   sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
 }
 
 export default function BehaviorsClient({
   sessionToken,
   organizationId,
+  userId,
   sessionStatus,
 }: BehaviorsClientProps) {
+  const router = useRouter();
   const notifications = useNotifications();
 
   // Data state
@@ -53,6 +59,7 @@ export default function BehaviorsClient({
     id: UUID | null;
     name: string;
     description: string;
+    tagNames: string[];
   } | null>(null);
   const [isNewBehavior, setIsNewBehavior] = React.useState(false);
   const [drawerLoading, setDrawerLoading] = React.useState(false);
@@ -123,23 +130,93 @@ export default function BehaviorsClient({
   }, [sessionToken, refreshKey, sessionStatus]);
 
   const handleAddNewBehavior = () => {
-    setEditingBehavior({ id: null, name: '', description: '' });
+    setEditingBehavior({ id: null, name: '', description: '', tagNames: [] });
     setIsNewBehavior(true);
     setDrawerOpen(true);
   };
 
-  const handleEditBehavior = (id: UUID, name: string, description: string) => {
-    setEditingBehavior({ id, name, description });
+  const handleEditBehavior = (
+    id: UUID,
+    name: string,
+    description: string,
+    tagNames: string[] = []
+  ) => {
+    setEditingBehavior({ id, name, description, tagNames });
     setIsNewBehavior(false);
     setDrawerOpen(true);
   };
 
-  const handleSaveBehavior = async (name: string, description: string) => {
+  const normalizeTagName = (name: string) => name.trim().toLowerCase();
+
+  /**
+   * Diff initial vs. new tag names and apply assign/remove against TagsClient.
+   * Compares on normalized names (trim + lowercase) while sending trimmed
+   * display values to the API.
+   */
+  const syncBehaviorTags = async (
+    behaviorId: UUID,
+    initialTags: Tag[],
+    nextTagNames: string[]
+  ): Promise<void> => {
+    const normalizedNext = new Set(
+      nextTagNames.map(normalizeTagName).filter(name => name.length > 0)
+    );
+    const normalizedInitial = new Map(
+      initialTags.map(tag => [normalizeTagName(tag.name), tag])
+    );
+
+    const toRemove = initialTags.filter(
+      tag => !normalizedNext.has(normalizeTagName(tag.name))
+    );
+
+    const seen = new Set<string>();
+    const toAdd = nextTagNames
+      .map(name => name.trim())
+      .filter(name => name.length > 0)
+      .filter(name => !normalizedInitial.has(normalizeTagName(name)))
+      .filter(name => {
+        const key = normalizeTagName(name);
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+
+    if (toRemove.length === 0 && toAdd.length === 0) {
+      return;
+    }
+
+    const tagsClient = new TagsClient(sessionToken);
+
+    await Promise.all(
+      toRemove.map(tag =>
+        tagsClient.removeTagFromEntity(EntityType.BEHAVIOR, behaviorId, tag.id)
+      )
+    );
+
+    await Promise.all(
+      toAdd.map(name =>
+        tagsClient.assignTagToEntity(EntityType.BEHAVIOR, behaviorId, {
+          name,
+          organization_id: organizationId,
+          ...(userId ? { user_id: userId } : {}),
+        })
+      )
+    );
+  };
+
+  const handleSaveBehavior = async (
+    name: string,
+    description: string,
+    tagNames: string[]
+  ) => {
     try {
       setDrawerLoading(true);
       setDrawerError(undefined);
 
       const behaviorClient = new BehaviorClient(sessionToken);
+      let tagSyncFailed = false;
 
       if (isNewBehavior) {
         const created = await behaviorClient.createBehavior({
@@ -148,37 +225,68 @@ export default function BehaviorsClient({
           organization_id: organizationId,
         });
 
+        if (tagNames.length > 0) {
+          try {
+            await syncBehaviorTags(created.id, [], tagNames);
+          } catch {
+            tagSyncFailed = true;
+          }
+        }
+
         const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
           created.id
         );
 
         setBehaviors(prev => [...prev, createdWithMetrics]);
 
-        notifications.show('Behavior created successfully', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
-      } else if (editingBehavior && editingBehavior.id) {
-        const updated = await behaviorClient.updateBehavior(
-          editingBehavior.id,
+        notifications.show(
+          tagSyncFailed
+            ? 'Behavior created, but some tags failed to sync'
+            : 'Behavior created successfully',
           {
-            name: name.trim(),
-            description: description?.trim() || null,
+            severity: tagSyncFailed ? 'warning' : 'success',
+            autoHideDuration: 4000,
           }
         );
+      } else if (editingBehavior && editingBehavior.id) {
+        const editingId = editingBehavior.id;
+        const existing = behaviors.find(b => b.id === editingId);
+        const updated = await behaviorClient.updateBehavior(editingId, {
+          name: name.trim(),
+          description: description?.trim() || null,
+        });
+
+        try {
+          await syncBehaviorTags(editingId, existing?.tags ?? [], tagNames);
+        } catch {
+          tagSyncFailed = true;
+        }
+
+        const refreshed =
+          await behaviorClient.getBehaviorWithMetrics(editingId);
 
         setBehaviors(prev =>
           prev.map(b =>
-            b.id === editingBehavior.id
-              ? { ...b, name: updated.name, description: updated.description }
+            b.id === editingId
+              ? {
+                  ...b,
+                  name: updated.name,
+                  description: updated.description,
+                  tags: refreshed.tags ?? [],
+                }
               : b
           )
         );
 
-        notifications.show('Behavior updated successfully', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
+        notifications.show(
+          tagSyncFailed
+            ? 'Behavior updated, but some tags failed to sync'
+            : 'Behavior updated successfully',
+          {
+            severity: tagSyncFailed ? 'warning' : 'success',
+            autoHideDuration: 4000,
+          }
+        );
       }
 
       setDrawerOpen(false);
@@ -315,6 +423,16 @@ export default function BehaviorsClient({
     }
   };
 
+  /** Unique tag names across all loaded behaviors. Reused for drawer
+   *  suggestions and filter chips so users group across behaviors. */
+  const availableTagNames = React.useMemo(
+    () =>
+      Array.from(
+        new Set(behaviors.flatMap(b => (b.tags ?? []).map(t => t.name)))
+      ).sort((a, b) => a.localeCompare(b)),
+    [behaviors]
+  );
+
   const filteredBehaviors = React.useMemo(() => {
     let filtered = behaviors;
 
@@ -325,6 +443,13 @@ export default function BehaviorsClient({
         if (metricCountFilter === 'no_metrics') return !hasMetrics;
         return true;
       });
+    }
+
+    if (drawerFilters.tagNames.length > 0) {
+      const selected = new Set(drawerFilters.tagNames);
+      filtered = filtered.filter(behavior =>
+        (behavior.tags ?? []).some(t => selected.has(t.name))
+      );
     }
 
     if (searchQuery.trim()) {
@@ -339,7 +464,10 @@ export default function BehaviorsClient({
             metric.name?.toLowerCase().includes(query) ||
             metric.description?.toLowerCase().includes(query)
         );
-        return nameMatch || descriptionMatch || metricMatch;
+        const tagMatch = (behavior.tags ?? []).some(t =>
+          t.name?.toLowerCase().includes(query)
+        );
+        return nameMatch || descriptionMatch || metricMatch || tagMatch;
       });
     }
 
@@ -408,7 +536,7 @@ export default function BehaviorsClient({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create behavior"
             aria-label="Create behavior"
             onClick={handleAddNewBehavior}
@@ -422,7 +550,8 @@ export default function BehaviorsClient({
         searchPlaceholder="Search behaviors…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
-        sx={directoryToolbarSx}
+        activeFilterCount={countActiveBehaviorFilters(drawerFilters)}
+        {...directoryToolbarProps}
         middleContent={
           <ToolbarPillTabs
             tabs={metricOptions}
@@ -477,11 +606,13 @@ export default function BehaviorsClient({
               <BehaviorCard
                 key={behavior.id}
                 behavior={behavior}
+                onClick={() => router.push(`/behaviors/${behavior.id}`)}
                 onEdit={() =>
                   handleEditBehavior(
                     behavior.id,
                     behavior.name,
-                    behavior.description || ''
+                    behavior.description || '',
+                    (behavior.tags ?? []).map(t => t.name)
                   )
                 }
                 onDuplicate={() =>
@@ -506,6 +637,8 @@ export default function BehaviorsClient({
           onClose={() => setDrawerOpen(false)}
           name={editingBehavior.name}
           description={editingBehavior.description}
+          initialTagNames={editingBehavior.tagNames}
+          tagSuggestions={availableTagNames}
           onSave={handleSaveBehavior}
           onDuplicate={
             editingBehaviorId
@@ -543,6 +676,7 @@ export default function BehaviorsClient({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        availableTagNames={availableTagNames}
         onApply={f => {
           setDrawerFilters(f);
           setMetricCountFilter(f.metricCount);

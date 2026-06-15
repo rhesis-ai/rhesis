@@ -83,14 +83,14 @@ export const ProjectCardSkeleton = () => (
     sx={{
       border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
       borderRadius: BORDER_RADIUS.md,
-      p: '30px',
+      p: 3.75,
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
+      gap: 1.5,
       height: '100%',
     }}
   >
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
       <Skeleton variant="circular" width={24} height={24} />
       <Skeleton variant="text" width="60%" height={25} />
     </Box>

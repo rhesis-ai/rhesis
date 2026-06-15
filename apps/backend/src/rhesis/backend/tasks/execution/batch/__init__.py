@@ -76,7 +76,9 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
     failed_ids = [r["test_id"] for r in failed]
 
     try:
-        with get_db_with_tenant_variables(ctx.organization_id, ctx.user_id or "") as db:
+        with get_db_with_tenant_variables(
+            ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
+        ) as db:
             existing = {
                 str(row.test_id)
                 for row in db.query(TestResult.test_id)

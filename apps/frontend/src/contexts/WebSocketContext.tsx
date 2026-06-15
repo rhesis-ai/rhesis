@@ -15,6 +15,7 @@ import {
   WebSocketMessage,
   EventHandler,
 } from '@/utils/websocket';
+import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
 /**
  * Context value interface for WebSocket functionality.
@@ -46,13 +47,10 @@ interface WebSocketProviderProps {
 }
 
 /**
- * Derive WebSocket URL from NEXT_PUBLIC_API_BASE_URL (http(s) → ws(s), path /ws).
+ * Derive WebSocket URL from runtime API base URL (http(s) → ws(s), path /ws).
  */
-function getWebSocketUrl(): string | null {
-  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (!apiUrl) {
-    return null;
-  }
+function getWebSocketUrl(): string {
+  const apiUrl = getClientApiBaseUrl();
   const wsProtocol = apiUrl.startsWith('https://') ? 'wss://' : 'ws://';
   const baseUrl = apiUrl.replace(/^https?:\/\//, '');
   return `${wsProtocol}${baseUrl}/ws`;
@@ -92,12 +90,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     }
 
     const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-      console.warn(
-        'WebSocket URL not configured. Set NEXT_PUBLIC_API_BASE_URL.'
-      );
-      return;
-    }
 
     // Create WebSocket client
     const client = new WebSocketClient({

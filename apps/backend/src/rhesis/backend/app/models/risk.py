@@ -3,11 +3,11 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 from .use_case import risk_use_case_association
 
 
-class Risk(Base, OrganizationAndUserMixin):
+class Risk(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "risk"
     name = Column(String)
     description = Column(Text)

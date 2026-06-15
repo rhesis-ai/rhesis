@@ -1,0 +1,18 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Ragas
+
+[Ragas](https://github.com/explodinggradients/ragas) evaluates RAG pipelines with referenceless and reference-based metrics (faithfulness, context relevance, answer accuracy).
+
+<CodeBlock filename="ragas_example.py" language="python">
+{`from rhesis.sdk.metrics import RagasFaithfulness
+
+metric = RagasFaithfulness(threshold=0.8)
+result = metric.evaluate(
+    input="What causes ocean tides?",
+    output="The gravitational pull of the moon causes ocean tides.",
+    contexts=["The moon's gravity pulls on Earth's oceans, causing tides."],
+)`}
+</CodeBlock>
+
+See the full metric list: [SDK — Ragas metrics](/sdk/metrics/single-turn#ragas-metrics)

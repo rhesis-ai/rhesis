@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AddIcon from '@mui/icons-material/Add';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabAddIcon } from '@/components/common/Fab';
 import TestSetDrawer from './components/TestSetDrawer';
 
 /**
@@ -22,7 +21,7 @@ export function TestSetsNewAction() {
   return (
     <>
       <Fab
-        icon={<AddIcon />}
+        icon={<FabAddIcon />}
         tooltip="New Test Set"
         onClick={() => setOpen(true)}
         disabled={!sessionToken}

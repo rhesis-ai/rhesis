@@ -48,7 +48,6 @@ export default function TypedValueEditor({
             label={label}
             value={current}
             onChange={e => onChange({ type: 'text', value: e.target.value })}
-            size="small"
             fullWidth
             multiline
             minRows={3}
@@ -64,7 +63,6 @@ export default function TypedValueEditor({
           label={label}
           value={current}
           onChange={e => onChange({ type: 'string', value: e.target.value })}
-          size="small"
           fullWidth
           helperText={helper}
         />
@@ -79,11 +77,13 @@ export default function TypedValueEditor({
           value={current}
           onChange={e => {
             const v = e.target.value;
+            const parsed = parseInt(v, 10);
             onChange(
-              v === '' ? null : { type: 'integer', value: parseInt(v, 10) }
+              v === '' || Number.isNaN(parsed)
+                ? null
+                : { type: 'integer', value: parsed }
             );
           }}
-          size="small"
           inputProps={{ step: 1, lang: 'en-US' }}
           helperText={helper}
         />
@@ -98,11 +98,13 @@ export default function TypedValueEditor({
           value={current}
           onChange={e => {
             const v = e.target.value;
+            const parsed = parseFloat(v);
             onChange(
-              v === '' ? null : { type: 'number', value: parseFloat(v) }
+              v === '' || Number.isNaN(parsed)
+                ? null
+                : { type: 'number', value: parsed }
             );
           }}
-          size="small"
           inputProps={{ step: 'any', lang: 'en-US' }}
           helperText={helper}
         />
@@ -150,7 +152,7 @@ export default function TypedValueEditor({
           ? value.value
           : '';
       return (
-        <FormControl size="small" sx={{ minWidth: 220 }}>
+        <FormControl fullWidth>
           <InputLabel>{label}</InputLabel>
           <Select
             label={label}
@@ -169,6 +171,15 @@ export default function TypedValueEditor({
               </MenuItem>
             ))}
           </Select>
+          {helper && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 0.5, px: '14px' }}
+            >
+              {helper}
+            </Typography>
+          )}
         </FormControl>
       );
     }
@@ -183,7 +194,6 @@ export default function TypedValueEditor({
             const v = e.target.value.trim();
             onChange(v ? { type: 'model_ref', value: v } : null);
           }}
-          size="small"
           fullWidth
           helperText={helper ?? 'UUID of a Model row'}
         />
@@ -200,7 +210,6 @@ export default function TypedValueEditor({
             const v = e.target.value.trim();
             onChange(v ? { type: 'secret_ref', value: v } : null);
           }}
-          size="small"
           fullWidth
           helperText={helper ?? 'UUID of a secret record'}
         />

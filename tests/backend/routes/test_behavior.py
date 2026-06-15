@@ -140,6 +140,76 @@ class TestBehaviorMetricRelationships(BehaviorTestMixin, BaseEntityTests):
         assert len(returned_metrics) == len(metrics)
 
 
+# === TAG RELATIONSHIP TESTS ===
+
+
+@pytest.mark.integration
+class TestBehaviorTags(BehaviorTestMixin, BaseEntityTests):
+    """Verify the polymorphic tags relationship surfaces on behavior responses."""
+
+    def test_behavior_response_includes_empty_tags_by_default(self, behavior_factory):
+        """A newly created behavior has an empty `tags` list in the response."""
+        behavior = behavior_factory.create(self.get_sample_data())
+
+        # The factory returns the create response body; verify the field is present
+        assert "tags" in behavior
+        assert behavior["tags"] == []
+
+    def test_behavior_list_includes_tags_field(self, behavior_factory):
+        """`GET /behaviors/` exposes `tags` (empty list when none assigned)."""
+        behavior_factory.create(self.get_sample_data())
+
+        response = behavior_factory.client.get(self.endpoints.list)
+
+        assert response.status_code == status.HTTP_200_OK
+        behaviors = response.json()
+        assert len(behaviors) >= 1
+        for entry in behaviors:
+            assert "tags" in entry
+            assert isinstance(entry["tags"], list)
+
+    def test_assigning_tag_to_behavior_updates_read_response(self, behavior_factory):
+        """Assigning a tag via /tags/Behavior/{id} reflects in the behavior read."""
+        behavior = behavior_factory.create(self.get_sample_data())
+        behavior_id = behavior["id"]
+
+        tag_payload = {"name": f"marketing-{fake.uuid4()}"}
+        assign_response = behavior_factory.client.post(
+            f"/tags/Behavior/{behavior_id}",
+            json=tag_payload,
+        )
+        assert assign_response.status_code == status.HTTP_200_OK
+
+        # Fetch the behavior and confirm the tag is now attached.
+        get_response = behavior_factory.client.get(self.endpoints.get(behavior_id))
+        assert get_response.status_code == status.HTTP_200_OK
+        body = get_response.json()
+        assert "tags" in body
+        tag_names = [tag["name"] for tag in body["tags"]]
+        assert tag_payload["name"] in tag_names
+
+    def test_removing_tag_from_behavior_updates_read_response(self, behavior_factory):
+        """Removing a tag clears it from the behavior's `tags` list."""
+        behavior = behavior_factory.create(self.get_sample_data())
+        behavior_id = behavior["id"]
+
+        tag_payload = {"name": f"legal-{fake.uuid4()}"}
+        assign_response = behavior_factory.client.post(
+            f"/tags/Behavior/{behavior_id}",
+            json=tag_payload,
+        )
+        assert assign_response.status_code == status.HTTP_200_OK
+        tag_id = assign_response.json()["id"]
+
+        remove_response = behavior_factory.client.delete(f"/tags/Behavior/{behavior_id}/{tag_id}")
+        assert remove_response.status_code == status.HTTP_200_OK
+
+        get_response = behavior_factory.client.get(self.endpoints.get(behavior_id))
+        assert get_response.status_code == status.HTTP_200_OK
+        body = get_response.json()
+        assert tag_payload["name"] not in [tag["name"] for tag in body["tags"]]
+
+
 # === EDGE CASE TESTS (Enhanced with Factory Data) ===
 
 

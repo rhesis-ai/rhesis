@@ -28,6 +28,10 @@ export function hasActiveTokenFilters(f: TokenFilters): boolean {
   return f.status !== 'all' || f.usage !== 'all';
 }
 
+export function countActiveTokenFilters(f: TokenFilters): number {
+  return (f.status !== 'all' ? 1 : 0) + (f.usage !== 'all' ? 1 : 0);
+}
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS: { label: string; value: TokenStatusFilter }[] = [

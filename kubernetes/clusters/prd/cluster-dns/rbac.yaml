@@ -5,11 +5,17 @@ kind: ServiceAccount
 metadata:
   name: cluster-dns-patcher
   namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cluster-dns-patcher
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -22,6 +28,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cluster-dns-patcher
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

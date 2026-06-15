@@ -81,7 +81,10 @@ async def run_mcp_authentication_test(
         system_prompt=auth_prompt,
         max_iterations=5,  # Keep it short for authentication test
         verbose=False,
-        event_handlers=get_agent_event_handlers(str(model)),
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-auth-test",
+        ),
     )
 
     # Run agent with query to test authentication
@@ -162,7 +165,10 @@ async def create_jira_ticket_from_task(
         system_prompt=create_issue_prompt,
         max_iterations=5,
         verbose=False,
-        event_handlers=get_agent_event_handlers(str(model)),
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-jira-issue",
+        ),
     )
 
     query = "Create the Jira issue as specified"

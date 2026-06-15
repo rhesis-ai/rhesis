@@ -139,7 +139,7 @@ export default function EntityCard({
         boxShadow: ELEVATION.xs,
         position: 'relative',
         gap: '20px',
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: onClick ? 'pointer' : 'inherit',
         height: '100%',
         boxSizing: 'border-box',
         transition: 'box-shadow 0.2s ease',
@@ -200,9 +200,10 @@ export default function EntityCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'primary.dark',
+                color: 'text.primary',
                 flexShrink: 0,
                 '& .MuiSvgIcon-root': { fontSize: 20 },
+                '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
               }}
             >
               {icon}

@@ -12,8 +12,16 @@ import pytest
 from faker import Faker
 
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.config.settings import get_auth_settings
 
 fake = Faker()
+
+
+@pytest.fixture(autouse=True)
+def clear_auth_settings_cache():
+    get_auth_settings.cache_clear()
+    yield
+    get_auth_settings.cache_clear()
 
 
 # =============================================================================
