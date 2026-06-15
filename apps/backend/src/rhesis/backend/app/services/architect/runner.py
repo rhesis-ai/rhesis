@@ -156,7 +156,7 @@ async def build_agent(
         pending_tasks=agent_state.get("pending_tasks") or [],
     )
 
-    tool_provider = LocalToolProvider(fastapi_app, delegation_token)
+    tool_provider = LocalToolProvider(fastapi_app, delegation_token, project_id=project_id)
     explore_tool = ExploreEndpointTool(
         target_factory=_make_target_factory(organization_id, user_id, project_id),
         model=model,
