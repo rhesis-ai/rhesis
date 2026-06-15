@@ -20,6 +20,7 @@ import { LoadingButton } from '@mui/lab';
 import { PlayArrowIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
+import { sectionContainedButtonSx } from '@/components/common/SectionCardActions';
 import { alpha, type Theme } from '@mui/material/styles';
 import { testPreviewSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
@@ -581,14 +582,13 @@ export default function TestAndMap({
           />
           <LoadingButton
             variant="contained"
-            size="small"
             onClick={handleQuickTest}
             loading={isTestingEndpoint}
             loadingPosition="start"
             startIcon={<PlayArrowIcon />}
-            sx={{ flexShrink: 0, mt: 0.5 }}
+            sx={{ ...sectionContainedButtonSx, flexShrink: 0, mt: 0.5 }}
           >
-            Test
+            Run test
           </LoadingButton>
         </Box>
         <RequestBodyEditor

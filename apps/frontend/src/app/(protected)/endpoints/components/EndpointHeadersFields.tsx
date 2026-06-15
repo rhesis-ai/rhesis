@@ -64,6 +64,7 @@ export default function EndpointHeadersFields({
       <Chip
         label="{{ auth_token }}"
         size="small"
+        component="span"
         sx={{
           ...variableChipSx,
           height: 18,

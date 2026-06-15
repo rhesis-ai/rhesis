@@ -26,10 +26,10 @@ x-frontend-backend-config: &frontend-backend-config
   JWT_ALGORITHM: HS256
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
   LOG_LEVEL: INFO
-  ENVIRONMENT: test
   BACKEND_ENV: local
   QUICK_START: true
   RHESIS_CONNECTOR_DISABLED: true
+  API_BASE_URL: "http://localhost:14003"
 
 services:
   frontend-test-postgres:

@@ -214,7 +214,8 @@ def _openai_tool_loop(client: Any, model: str, user_prompt: str) -> str:
     messages.append(message.model_dump(exclude_none=True))
     for tool_call in tool_calls:
         try:
-            args = json.loads(tool_call.function.arguments or "{}")
+            args_obj = json.loads(tool_call.function.arguments or "{}")
+            args = args_obj if isinstance(args_obj, dict) else {}
         except json.JSONDecodeError:
             print(f"⚠️  Skipping malformed OpenAI tool arguments: {tool_call.function.arguments!r}")
             args = {}
