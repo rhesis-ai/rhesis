@@ -8,30 +8,164 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
-## [0.8.0] - Unreleased
+## [0.9.0] - 2026-06-11
 
-### Storage migration: file bytes move out of Postgres
+### Platform Release
 
-This release migrates all file content from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). The change eliminates Cloud Run memory crashes caused by multi-MB file buffers and brings consistent streaming upload/download semantics across all execution paths.
+This release includes the following component versions:
+- **Backend 0.9.0**
+- **Frontend 0.9.0**
+- **SDK 0.9.0**
+- **Polyphemus 0.4.0**
+
+### Summary
+
+This release delivers a **major UI redesign** aligned with the Figma design system, an **endpoint creation wizard** with interactive test-and-map flows, **project-level isolation** with ambient request scope, and **OWASP LLM Top 10 red-teaming** via the new `OWASPSynthesizer`. The SDK connector architecture was refactored around `EndpointContext`, replacing local backend execution.
+
+### Featured Capabilities
+
+**Endpoint Creation Wizard**
+
+Endpoint setup is now guided end-to-end from the UI:
+
+- **Interactive test-and-map UI**: probe live endpoints, inspect responses, and build request/response mappings in a wizard flow
+- **Streamlined configuration**: reduces manual JSON mapping work when onboarding new endpoints
+
+**Design System Refresh**
+
+The platform UI was rebuilt across major surfaces:
+
+- **Figma-aligned redesign**: Experiments, Test Runs, Explorer, Playground, Project, Tasks, Tokens, and Organization settings
+- **Support drawer**: in-app help and resources from the sidebar
+- **Multi-step model provider flow**: clearer connection and configuration steps for LLM providers
+- **Persistent project selection**: the project switcher remembers your default project across sessions
+
+**Project Isolation and Security**
+
+Multi-tenant safety was strengthened at the project boundary:
+
+- **Ambient request scope**: organization, user, and project context is stamped automatically on ORM queries and writes
+- **Project-container scoping**: backend routes and Celery tasks respect project-level isolation consistently
+- **Behavior tags**: tag and group behaviors for easier organization and filtering
+
+**OWASP Red-Teaming and Connector Refactor**
+
+SDK testing and execution workflows gained new primitives:
+
+- **`OWASPSynthesizer`**: generate tests aligned with the OWASP LLM Top 10 for security red-teaming
+- **`EndpointContext`**: unified connector execution model replacing local backend execution paths
+- **Architect observability**: improved multi-turn traces and conversation views in the agent workflow
+
+### Backend Highlights
+- Added endpoint creation wizard with interactive test-and-map UI
+- Implemented project-level isolation, ambient scope, and security hardening
+- Added behavior tags, Redis chatbot sessions, and structured production logging
+- Centralized configuration under `BACKEND_ENV` and separated application from administrative database credentials
+- Fixed test execution reliability, tenant scope in Celery tasks, RLS migration requirements, and single-turn metric evaluation failures
+
+### Frontend Highlights
+- Redesigned all major pages and components to match the Figma design system
+- Added endpoint creation wizard, behavior tags, support drawer, and multi-step model provider flow
+- Persisted default project selection in the project switcher
+- Fixed traces page empty state, race conditions, endpoints grid, and sidebar display issues
+
+### SDK Highlights
+- Added `OWASPSynthesizer` for OWASP LLM Top 10 red-teaming
+- Refactored connector execution with `EndpointContext`, replacing local backend execution
+- Fixed `system_prompt` stripping, event loop blocking in batch execution, and single-turn metric evaluation failures
+
+### Polyphemus Highlights
+- Pinned `uv` to version `0.11.19` in Docker service images
+- Fixed Docker build reliability by switching `uv` source to `mirror.gcr.io`
+
+## [0.8.0] - 2026-05-21
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.8.0**
+- **Frontend 0.8.0**
+- **SDK 0.8.0**
+- **Polyphemus 0.3.0**
+
+### Summary
+
+This release introduces **parameter management and experiments** with environment-based routing, **Test Explorer** for adaptive test-tree workflows, **per-organization OIDC SSO** in the Enterprise Edition, and a **file storage migration** from Postgres `bytea` columns to object storage. Architect agent UX, file handling across invocation paths, and security hardening round out the release.
+
+### Featured Capabilities
+
+**Parameters and Experiments**
+
+Project-scoped configuration is now a first-class workflow:
+
+- **Parameter schemas**: define project-level parameter types and defaults
+- **Versioned experiments**: pin parameter values per experiment version and select them at test-run time
+- **Environment routing**: route parameter values by deployment environment (formerly "Labels")
+- **Unified injection**: resolve values via `{{ params.* }}` in request mappings, replacing the legacy `@endpoint(parameters=...)` approach
+- **SDK facade**: `Parameters.get()` resolves context, environment, and label precedence
+
+**Test Explorer**
+
+Adaptive testing surfaces were expanded and renamed:
+
+- **Explorer APIs**: create, import, export, list, and delete Explorer sessions through `/explorer` endpoints
+- **Tree operations**: manage topics and tests in an interactive adaptive test tree
+- **Default embedding model**: `rhesis/rhesis-embedding` is the platform default
+
+**File Storage Migration**
+
+All file content moved from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). This eliminates Cloud Run memory crashes from multi-MB file buffers and brings consistent streaming upload/download semantics.
 
 **Breaking changes:**
 
-- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
+- `GET /files/\{id\}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
 - `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
 - `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
 
-**New features:**
+**New file features:**
 
-- `GET /files/{id}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px).
-- `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported).
-- `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes.
-- `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`).
-- ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching.
+- `GET /files/\{id\}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px)
+- `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported)
+- `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes
+- `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`)
+- ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching
 
 **Deployment:** Apply Alembic revision `9b25f353e9c8` (adds storage columns), deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
 
 **IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
 
+**Enterprise SSO**
+
+Per-organization OIDC SSO landed in the Enterprise Edition:
+
+- **Keycloak integration**: provider configuration, user provisioning, and slug-based login URLs
+- **RFC 8693 token exchange**: API Clients let external services exchange Keycloak access tokens for Rhesis JWTs
+- **Feature gating**: capabilities are toggled through a central `FeatureRegistry` and license provider
+
+### Backend Highlights
+- Added parameter management, experiments, and environment-based parameter routing
+- Added Test Explorer endpoints and services for adaptive testing
+- Migrated file storage from `bytea` to object storage (GCS/S3/local)
+- Implemented per-organization OIDC SSO, token exchange, and API Clients in the Enterprise Edition
+- Resolved 56 Dependabot alerts and improved Redis backend stability
+
+### Frontend Highlights
+- Added parameter schema editor, experiment detail page, and experiment selector for test execution
+- Enhanced Test Explorer UI for building and evaluating adaptive test sets
+- Improved Architect agent UX with plan tracking, task progress events, and typo-tolerant entity resolution
+- Added file handling support across invocation paths, including image extraction and vision-based description
+
+### SDK Highlights
+- Added `Parameters.get()` facade and `Experiment` entity with `@endpoint` parameter injection
+- Unified parameter injection via `{{ params.* }}` in request mappings
+- Migrated file attachments to object storage with streaming uploads and `FileReference` support
+- Added image source type extraction and consolidated file extraction with vision fallback
+
+### Polyphemus Highlights
+- Hardened adversarial robustness with a system primer injected on every request
+- Streamlined dependencies by splitting backend packages into core and optional extras
+- Addressed security vulnerabilities across direct and transitive dependencies
+- Improved batch error handling by logging item failures instead of silently swallowing them
 
 ## [0.7.1] - 2026-05-07
 
