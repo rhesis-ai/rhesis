@@ -9,7 +9,6 @@ import {
   Link,
   Typography,
 } from '@mui/material';
-import { useSession } from 'next-auth/react';
 import {
   AutoFixHighIcon,
   KeyboardArrowDownIcon,
@@ -18,8 +17,8 @@ import {
 import EditableSection from '@/components/common/EditableSection';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
+import { testEndpointMapping } from '@/actions/endpoints';
 import TestAndMap from '../../components/TestAndMap';
 import AutoConfigureDrawer from '../../components/AutoConfigureDrawer';
 import {
@@ -46,7 +45,6 @@ function mappingFromEndpoint(endpoint: {
 
 export default function EndpointMappingTab() {
   const { endpoint, saveFields } = useEndpointDetailContext();
-  const { data: session } = useSession();
   const notifications = useNotifications();
   const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
   const [manualExpanded, setManualExpanded] = useState(true);
@@ -117,46 +115,22 @@ export default function EndpointMappingTab() {
     setIsTestingEndpoint(true);
     setTestResult(null);
     try {
-      if (!endpoint.url) {
-        throw new Error('Endpoint URL is required');
-      }
-      if (!session?.session_token) {
-        throw new Error('Session token not available');
-      }
-
-      const requestHeaders = (endpoint.request_headers ?? {}) as Record<
-        string,
-        string
-      >;
-
       let responseMapping: Record<string, string> = {};
       try {
         responseMapping = JSON.parse(resBody);
       } catch {
         throw new Error('Invalid response mapping JSON');
       }
-
-      const client = new ApiClientFactory(
-        session.session_token
-      ).getEndpointsClient();
-      const result = await client.testEndpoint({
-        connection_type: 'REST',
-        url: endpoint.url,
-        method: endpoint.method || 'POST',
-        request_headers: requestHeaders,
-        request_mapping: bodyToRequestMapping(reqBody),
-        response_mapping: responseMapping,
-        auth_type: 'bearer_token',
-        auth_token: '',
-        input_data: inputData,
-        endpoint_path: endpoint.endpoint_path || undefined,
-        response_format: (endpoint.response_format || 'json') as
-          | 'json'
-          | 'xml'
-          | 'text',
-      });
-
-      const r = result as Record<string, unknown>;
+      const result = await testEndpointMapping(
+        endpoint.id,
+        inputData,
+        bodyToRequestMapping(reqBody) as Record<string, unknown>,
+        responseMapping
+      );
+      if (!result.success) {
+        throw new Error(result.error ?? 'Test failed');
+      }
+      const r = result.data as Record<string, unknown>;
       const success = r.success !== false && !r.error;
       setTestResult({ success: Boolean(success), response: r });
     } catch (err) {
@@ -198,6 +172,37 @@ export default function EndpointMappingTab() {
 
       <EditableSection
         title="Manual Mapping"
+        subtitle={
+          <>
+            Define the request format, run a test call, then click the response
+            field that holds your model&apos;s reply.{' '}
+            <Link
+              href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
+              target="_blank"
+              rel="noopener"
+            >
+              See examples ↗
+            </Link>
+          </>
+        }
+        headerActions={
+          <IconButton
+            aria-label={
+              manualExpanded
+                ? 'Collapse manual mapping'
+                : 'Expand manual mapping'
+            }
+            size="small"
+            onClick={() => setManualExpanded(e => !e)}
+            sx={{ color: 'primary.main' }}
+          >
+            {manualExpanded ? (
+              <KeyboardArrowUpIcon />
+            ) : (
+              <KeyboardArrowDownIcon />
+            )}
+          </IconButton>
+        }
         initialValue={mappingInitial}
         onSave={async draft => {
           let responseMapping: Record<string, string>;
@@ -218,117 +223,81 @@ export default function EndpointMappingTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <SectionCard
-            title="Manual Mapping"
-            subtitle={
-              <>
-                Define the request format, run a test call, then click the
-                response field that holds your model&apos;s reply.{' '}
-                <Link
-                  href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
-                  target="_blank"
-                  rel="noopener"
-                  onClick={e => e.stopPropagation()}
-                >
-                  See examples ↗
-                </Link>
-              </>
-            }
-            actions={
-              <IconButton
-                aria-label={
-                  manualExpanded
-                    ? 'Collapse manual mapping'
-                    : 'Expand manual mapping'
+          <Collapse in={manualExpanded}>
+            {isEditing ? (
+              <TestAndMap
+                requestTemplate={draft.reqBody}
+                responseMapping={(() => {
+                  try {
+                    return JSON.parse(draft.resBody);
+                  } catch {
+                    return {};
+                  }
+                })()}
+                onRequestTemplateChange={t =>
+                  setDraft(prev => ({ ...prev, reqBody: t }))
                 }
-                size="small"
-                sx={{ color: 'primary.main', pointerEvents: 'none' }}
-              >
-                {manualExpanded ? (
-                  <KeyboardArrowUpIcon />
-                ) : (
-                  <KeyboardArrowDownIcon />
-                )}
-              </IconButton>
-            }
-            onHeaderClick={() => setManualExpanded(e => !e)}
-          >
-            <Collapse in={manualExpanded}>
-              {isEditing ? (
-                <TestAndMap
-                  requestTemplate={draft.reqBody}
-                  responseMapping={(() => {
-                    try {
-                      return JSON.parse(draft.resBody);
-                    } catch {
-                      return {};
-                    }
-                  })()}
-                  onRequestTemplateChange={t =>
-                    setDraft(prev => ({ ...prev, reqBody: t }))
-                  }
-                  onResponseMappingChange={m =>
-                    setDraft(prev => ({
-                      ...prev,
-                      resBody: JSON.stringify(m, null, 2),
-                    }))
-                  }
-                  onTest={inputData =>
-                    handleRunTest(inputData, draft.reqBody, draft.resBody)
-                  }
-                  testResponse={testResponse}
-                  isTestingEndpoint={isTestingEndpoint}
-                />
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Request mapping
-                    </Typography>
-                    <Typography
-                      component="pre"
-                      variant="body2"
-                      sx={{
-                        m: 0,
-                        p: 2,
-                        bgcolor: 'action.hover',
-                        borderRadius: 1,
-                        overflow: 'auto',
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {draft.reqBody || '{}'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Response mapping
-                    </Typography>
-                    <Typography
-                      component="pre"
-                      variant="body2"
-                      sx={{
-                        m: 0,
-                        p: 2,
-                        bgcolor: 'action.hover',
-                        borderRadius: 1,
-                        overflow: 'auto',
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {draft.resBody || '{}'}
-                    </Typography>
-                  </Box>
+                onResponseMappingChange={m =>
+                  setDraft(prev => ({
+                    ...prev,
+                    resBody: JSON.stringify(m, null, 2),
+                  }))
+                }
+                onTest={inputData =>
+                  handleRunTest(inputData, draft.reqBody, draft.resBody)
+                }
+                testResponse={testResponse}
+                isTestingEndpoint={isTestingEndpoint}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Request mapping
+                  </Typography>
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      m: 0,
+                      p: 2,
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      overflow: 'auto',
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {draft.reqBody || '{}'}
+                  </Typography>
                 </Box>
-              )}
-            </Collapse>
-          </SectionCard>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Response mapping
+                  </Typography>
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      m: 0,
+                      p: 2,
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      overflow: 'auto',
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {draft.resBody || '{}'}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </Collapse>
         )}
       </EditableSection>
 
