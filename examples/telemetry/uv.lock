@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-06-08T14:50:09.423677Z"
+exclude-newer = "2026-06-08T14:58:57.518606Z"
 exclude-newer-span = "P1W"
 
 [manifest]
@@ -5593,12 +5593,17 @@ llamaindex = [
     { name = "llama-index-llms-google-genai" },
     { name = "llama-index-llms-openai" },
 ]
+openai-sdk = [
+    { name = "anthropic" },
+    { name = "openai" },
+]
 pydantic-ai = [
     { name = "pydantic-ai" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", marker = "extra == 'openai-sdk'", specifier = ">=0.40.0" },
     { name = "crewai", extras = ["google-genai"], marker = "extra == 'crewai'", specifier = ">=0.108.0" },
     { name = "fastapi", marker = "extra == 'fastapi'", specifier = ">=0.104.0" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=1.0.0" },
@@ -5612,12 +5617,13 @@ requires-dist = [
     { name = "llama-index-embeddings-openai", marker = "extra == 'llamaindex'", specifier = ">=0.3.0" },
     { name = "llama-index-llms-google-genai", marker = "extra == 'llamaindex'", specifier = ">=0.5.0" },
     { name = "llama-index-llms-openai", marker = "extra == 'llamaindex'", specifier = ">=0.3.0" },
+    { name = "openai", marker = "extra == 'openai-sdk'", specifier = ">=1.0.0" },
     { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=1.31.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rhesis-sdk", editable = "../../sdk" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'fastapi'", specifier = ">=0.24.0" },
 ]
-provides-extras = ["langchain", "fastapi", "langgraph", "pydantic-ai", "llamaindex", "crewai"]
+provides-extras = ["langchain", "fastapi", "langgraph", "openai-sdk", "pydantic-ai", "llamaindex", "crewai"]
 
 [[package]]
 name = "rich"

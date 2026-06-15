@@ -57,7 +57,30 @@ Demonstrates:
 
 **Use Case**: When you orchestrate agents with LangGraph state machines.
 
-### 5. Pydantic AI Agent
+### 5. Direct OpenAI / Anthropic Python SDK
+**File**: `openai_sdk_example.py`
+
+Demonstrates (see [issue #1832](https://github.com/rhesis-ai/rhesis/issues/1832)):
+- **Direct** `openai` or `anthropic` SDK usage (no LangChain dependency in this extra)
+- Chat completion with optional **function / tool** round-trip
+- **Manual instrumentation** via `@observe`:
+  - `ai.agent.invoke` — chat pipeline boundary
+  - `ai.llm.invoke` — each SDK completion (prompt/completion tokens attached)
+  - `ai.tool.invoke` — `lookup_observability_fact` when the model calls it
+- `auto_instrument()` is called for consistency; native OpenAI/Anthropic SDK wrapping is in [#1083](https://github.com/rhesis-ai/rhesis/issues/1083)
+
+**Use Case**: Teams that call provider SDKs directly and need token/latency visibility in Rhesis today.
+
+```bash
+# OpenAI (default)
+uv run --extra openai-sdk openai_sdk_example.py
+
+# Anthropic
+OPENAI_SDK_PROVIDER=anthropic uv run --extra openai-sdk openai_sdk_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 6. Pydantic AI Agent
 **File**: `pydantic_ai_example.py`
 
 Demonstrates (see [issue #1831](https://github.com/rhesis-ai/rhesis/issues/1831)):
@@ -78,7 +101,7 @@ uv run --extra pydantic-ai pydantic_ai_example.py
 # Traces: http://localhost:3000/traces
 ```
 
-### 6. LlamaIndex RAG
+### 7. LlamaIndex RAG
 **File**: `llamaindex_example.py`
 
 Demonstrates (see [issue #1828](https://github.com/rhesis-ai/rhesis/issues/1828)):
@@ -97,7 +120,7 @@ uv run --extra llamaindex llamaindex_example.py
 # Traces: http://localhost:3000/traces
 ```
 
-### 7. LangChain Auto-Instrumentation
+### 8. LangChain Auto-Instrumentation
 **File**: `langchain_example.py`
 
 Demonstrates:
@@ -135,6 +158,9 @@ uv sync
 # Install with LangChain support
 uv sync --extra langchain
 
+# Install with direct OpenAI/Anthropic SDK support
+uv sync --extra openai-sdk
+
 # Install with Pydantic AI support
 uv sync --extra pydantic-ai
 
@@ -171,7 +197,7 @@ export RHESIS_PROJECT_ID="your-project-id"
 # LangChain / LlamaIndex (gemini): Google API key
 export GOOGLE_API_KEY="your-gemini-api-key"
 
-# LlamaIndex with OpenAI (default LLAMAINDEX_PROVIDER=openai)
+# OpenAI SDK example (default provider), Pydantic AI, or LlamaIndex with OpenAI
 export OPENAI_API_KEY="your-openai-api-key"
 ```
 
@@ -206,6 +232,9 @@ uv run --extra fastapi fastapi_example.py
 # Then test with:
 # curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \
 #   -d '{"input": "What is the weather like?", "session_id": "test-123"}'
+
+# Direct OpenAI / Anthropic SDK example (manual @observe)
+uv run --extra openai-sdk openai_sdk_example.py
 
 # Pydantic AI example (manual @observe instrumentation)
 uv run --extra pydantic-ai pydantic_ai_example.py
