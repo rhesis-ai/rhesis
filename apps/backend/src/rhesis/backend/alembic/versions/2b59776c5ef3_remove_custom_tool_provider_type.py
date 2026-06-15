@@ -20,6 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.execute(
         sa.text(
+            "DELETE FROM tool WHERE tool_provider_type_id IN ("
+            "  SELECT id FROM type_lookup WHERE type_name = 'ToolProviderType' AND type_value = 'custom'"
+            ")"
+        )
+    )
+    op.execute(
+        sa.text(
             "DELETE FROM type_lookup WHERE type_name = 'ToolProviderType' AND type_value = 'custom'"
         )
     )
