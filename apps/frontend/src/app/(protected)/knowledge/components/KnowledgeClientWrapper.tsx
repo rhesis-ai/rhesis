@@ -6,7 +6,8 @@ import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { MenuBookIcon, BuildIcon } from '@/components/icons';
+import { MenuBookIcon } from '@/components/icons';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -99,7 +100,7 @@ export default function KnowledgeClientWrapper({
               onClick={() => setUploadDrawerOpen(true)}
             />
             <Fab
-              icon={<BuildIcon />}
+              icon={<CloudDownloadIcon />}
               tooltip="Import from Tool"
               aria-label="Import from Tool"
               onClick={() => setToolImportDrawerOpen(true)}

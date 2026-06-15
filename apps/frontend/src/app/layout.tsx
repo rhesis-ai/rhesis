@@ -196,7 +196,6 @@ async function getNavigationItems(
       segment: 'tools',
       title: 'Tools',
       icon: <BuildIcon key="tool-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',

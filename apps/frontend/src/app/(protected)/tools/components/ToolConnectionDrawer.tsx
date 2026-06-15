@@ -30,7 +30,6 @@ import {
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
 import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
-import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
 import Link from '@mui/material/Link';
 
@@ -90,7 +89,6 @@ export function ToolConnectionDrawer({
   onUpdate,
 }: ToolConnectionDrawerProps) {
   const { data: session } = useSession();
-  const _notifications = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');

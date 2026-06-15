@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import TerminalIcon from '@mui/icons-material/Terminal';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
@@ -63,7 +62,7 @@ export default function ToolImportDrawer({
         open={open}
         onClose={handleClose}
         title="Select Tool"
-        titleIcon={<TerminalIcon color="primary" />}
+        titleIcon={<CloudDownloadIcon color="primary" />}
         closeButtonText="Cancel"
         width={900}
       >

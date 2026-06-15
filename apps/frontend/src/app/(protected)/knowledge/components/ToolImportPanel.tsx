@@ -17,7 +17,7 @@ import {
   Paper,
   Link,
 } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -387,7 +387,7 @@ export default function ToolImportPanel({
             onClick={() => commitImport(previewItems)}
             disabled={importing}
             startIcon={
-              importing ? <CircularProgress size={20} /> : <SaveIcon />
+              importing ? <CircularProgress size={20} /> : <CloudDownloadIcon />
             }
           >
             {importing
@@ -484,7 +484,9 @@ export default function ToolImportPanel({
           disabled={
             previewing || importing || pendingItems.length === 0 || !tool
           }
-          startIcon={previewing ? <CircularProgress size={20} /> : <SaveIcon />}
+          startIcon={
+            previewing ? <CircularProgress size={20} /> : <CloudDownloadIcon />
+          }
         >
           {previewing
             ? 'Fetching...'
