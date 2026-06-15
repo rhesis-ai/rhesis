@@ -17,6 +17,7 @@ from .base import RestClient
 
 # Private IP ranges that must never be reached by user-supplied URLs
 _BLOCKED_NETS = [
+    ipaddress.ip_network("0.0.0.0/8"),  # wildcard; routes to localhost on Linux
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
