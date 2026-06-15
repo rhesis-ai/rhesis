@@ -175,4 +175,5 @@ class TestMakeTargetFactory:
                 endpoint_id="ep-uuid",
                 organization_id="org-1",
                 user_id="user-1",
+                project_id=None,
             )
