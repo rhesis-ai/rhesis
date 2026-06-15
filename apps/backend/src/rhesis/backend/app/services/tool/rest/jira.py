@@ -1,5 +1,6 @@
 """Jira REST API client for deterministic issue creation."""
 
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -9,7 +10,8 @@ import httpx
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.services.tool.rest.config import validate_base_url
+from rhesis.backend.app.services.tool.rest.config import build_client, validate_base_url
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 logger = logging.getLogger(__name__)
 
@@ -139,21 +141,33 @@ async def create_jira_ticket_from_task(
     Raises:
         ValueError: If task/tool not found, misconfigured, or the API call fails.
     """
-    from rhesis.backend.app.services.tool.rest.config import get_rest_source
-
     task = crud.get_task(db, task_id, organization_id, user_id)
     if not task:
         raise ValueError(f"Task '{task_id}' not found")
 
-    source = get_rest_source(db, tool_id, organization_id, user_id)
-    if not isinstance(source, JiraRestClient):
+    try:
+        tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+    except ItemDeletedException:
+        raise ValueError(f"Tool '{tool_id}' has been deleted")
+    if not tool:
+        raise ValueError(f"Tool '{tool_id}' not found")
+
+    if tool.tool_provider_type.type_value != "jira":
         raise ValueError(f"Tool '{tool_id}' is not a Jira integration")
 
-    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
         raise ValueError("Jira tool is not configured with a space_key")
 
     space_key = tool.tool_metadata["space_key"]
+
+    try:
+        credentials = json.loads(tool.credentials)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise ValueError(f"Invalid credentials for tool '{tool_id}': {e}")
+
+    source = build_client("jira", credentials)
+    if not isinstance(source, JiraRestClient):
+        raise ValueError(f"Tool '{tool_id}' is not a Jira integration")
 
     response_data = await source.create_issue(
         project_key=space_key,
