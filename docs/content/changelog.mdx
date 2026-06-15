@@ -118,13 +118,13 @@ All file content moved from Postgres `bytea` columns to object storage (GCS/S3/l
 
 **Breaking changes:**
 
-- `GET /files/\{id\}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
+- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
 - `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
 - `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
 
 **New file features:**
 
-- `GET /files/\{id\}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px)
+- `GET /files/{id}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px)
 - `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported)
 - `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes
 - `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`)
