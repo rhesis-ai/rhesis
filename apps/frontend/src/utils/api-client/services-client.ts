@@ -372,7 +372,7 @@ export class ServicesClient extends BaseApiClient {
     toolId: string
   ): Promise<CreateJiraTicketFromTaskResponse> {
     return this.fetch<CreateJiraTicketFromTaskResponse>(
-      `${API_ENDPOINTS.services}/mcp/jira/create-ticket-from-task`,
+      `${API_ENDPOINTS.tools}/jira/create-ticket-from-task`,
       {
         method: 'POST',
         headers: {

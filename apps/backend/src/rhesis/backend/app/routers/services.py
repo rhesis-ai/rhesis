@@ -10,8 +10,6 @@ from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_se
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
-    CreateJiraTicketFromTaskRequest,
-    CreateJiraTicketFromTaskResponse,
     GenerateContentRequest,
     GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
@@ -42,12 +40,10 @@ from rhesis.backend.app.services.test_config_generator import TestConfigGenerato
 from rhesis.backend.app.services.test_generation_pipeline import (
     test_generation_pipeline_stream,
 )
-from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     query_mcp,
 )
-from rhesis.backend.app.services.tool.rest import create_jira_ticket_from_task
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.sdk.context import EndpointContext
 
@@ -605,55 +601,6 @@ async def query_mcp_server(
         return result
     except Exception as e:
         raise handle_mcp_exception(e, "query")
-
-
-@router.post("/mcp/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
-async def create_jira_ticket_from_task_endpoint(
-    request: CreateJiraTicketFromTaskRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """
-    Create a Jira ticket from a task.
-
-    This endpoint creates a Jira issue using the MCP Jira integration,
-    mapping task fields to Jira issue fields.
-
-    Args:
-        request: CreateJiraTicketFromTaskRequest with task_id and tool_id
-
-    Returns:
-        CreateJiraTicketFromTaskResponse with issue key, URL, and message
-
-    Raises:
-        HTTPException: 400 if validation fails, 500 if creation fails
-
-    Example:
-        POST /mcp/jira/create-ticket-from-task
-        {
-            "task_id": "task-uuid-123",
-            "tool_id": "tool-uuid-456"
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        result = await create_jira_ticket_from_task(
-            task_id=request.task_id,
-            tool_id=request.tool_id,
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-        return result
-    except ToolConfigurationError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to create Jira ticket: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)

@@ -13,6 +13,8 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
+    CreateJiraTicketFromTaskRequest,
+    CreateJiraTicketFromTaskResponse,
     ExtractToolRequest,
     ExtractToolResponse,
     TestToolConnectionRequest,
@@ -20,7 +22,11 @@ from rhesis.backend.app.schemas.services import (
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp import handle_mcp_exception
-from rhesis.backend.app.services.tool.rest import get_rest_client, run_rest_health_check
+from rhesis.backend.app.services.tool.rest import (
+    create_jira_ticket_from_task,
+    get_rest_client,
+    run_rest_health_check,
+)
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -250,6 +256,42 @@ async def test_tool_connection(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Tool health check error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
+async def create_jira_ticket_from_task_endpoint(
+    request: CreateJiraTicketFromTaskRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Create a Jira issue from a task using the configured Jira REST integration.
+
+    Args:
+        request: CreateJiraTicketFromTaskRequest with task_id and tool_id
+
+    Returns:
+        CreateJiraTicketFromTaskResponse with issue key, URL, and message
+    """
+    try:
+        organization_id, user_id = tenant_context
+        result = await create_jira_ticket_from_task(
+            task_id=request.task_id,
+            tool_id=request.tool_id,
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except ToolConfigurationError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to create Jira ticket: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
