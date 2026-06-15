@@ -335,6 +335,7 @@ def get_item_detail(
     organization_id: str = None,
     user_id: str = None,
     include_deleted: bool = False,
+    project_id: str = None,
 ) -> Optional[T]:
     """
     Get a single item with all first-level relationships eagerly loaded.
@@ -348,6 +349,10 @@ def get_item_detail(
         organization_id: Organization ID for filtering
         user_id: User ID for filtering
         include_deleted: If True, include soft-deleted records (default: False)
+        project_id: Project ID for filtering (defense-in-depth alongside
+            the session auto-filter).  When provided the predicate is
+            ``project_id = :pid OR project_id IS NULL`` so org-level rows
+            remain visible.  ``None`` skips the filter.
 
     Returns:
         Item with relationships loaded or None if not found
@@ -361,6 +366,7 @@ def get_item_detail(
         .with_deleted()  # Always include deleted to check status
         .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
+        .with_project_filter(project_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
     )
