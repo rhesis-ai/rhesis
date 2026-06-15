@@ -111,6 +111,9 @@ def upgrade() -> None:
             )
         """
     )
+    # Explicitly enable RLS in case the auto-trigger migration did not (or
+    # ran before this table existed).  ENABLE ROW LEVEL SECURITY is idempotent.
+    op.execute("ALTER TABLE role ENABLE ROW LEVEL SECURITY")
 
     # ------------------------------------------------------------------
     # role_permission  (M2M)

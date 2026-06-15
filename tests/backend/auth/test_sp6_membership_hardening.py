@@ -107,9 +107,15 @@ class TestRoleIdColumn:
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
         """enroll_user_in_project stores role_id when supplied."""
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+
         user = _unique_user(test_db, test_org_id)
         project = _make_project(test_db, test_org_id)
-        fake_role_id = uuid.uuid4()
+        with bypass_tenant_filter():
+            owner_role = test_db.query(Role).filter_by(name="Member", is_built_in=True).first()
+        assert owner_role is not None, "Member built-in role not seeded by migrations"
+        fake_role_id = owner_role.id
 
         enroll_user_in_project(
             test_db,
