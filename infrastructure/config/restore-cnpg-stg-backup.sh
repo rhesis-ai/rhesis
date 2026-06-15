@@ -3,13 +3,14 @@ set -euo pipefail
 
 # Restore a PostgreSQL backup into the CNPG staging database.
 # Usage:
-#   bash infrastructure/config/restore-cnpg-stg-backup.sh /absolute/path/to/backup.dump
+#   bash infrastructure/config/restore-cnpg-stg-backup.sh /actual/file/path/backup.dump
 #
 # Defaults target:
 #   namespace: rhesis
 #   service: rhesis-stg-rw
-#   database: rhesis-stg-db
-#   user secret: rhesis-admin-credentials (key: password)
+#   DB_USER: rhesis-admin (rhesis-stg-db database), rhesis-analytics-user (rhesis-analytics-user database) 
+#   database: rhesis-stg-db (rhesis-stg-db database), rhesis-analytics-stg-db (rhesis-analytics-stg-db database),
+#   user secret: rhesis-admin-credentials (key: password), rhesis-analytics-user-credentials (key: password)
 
 NAMESPACE="rhesis"
 RW_SERVICE="rhesis-stg-rw"
@@ -120,7 +121,7 @@ main() {
     echo "Detected custom/tar dump format. Using pg_restore..."
     local restore_log
     local restore_rc
-    restore_log="$(mktemp /tmp/rhesis-pg-restore.XXXXXX.log)"
+    restore_log="$(mktemp /tmp/rhesis-pg-restore.XXXXXX)"
 
     set +e
     pg_restore \

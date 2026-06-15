@@ -45,22 +45,27 @@ test.describe('Endpoints — Extended @sanity', () => {
 });
 
 test.describe('Endpoint navigation @sanity', () => {
-  test('can navigate from endpoints to new endpoint page', async ({ page }) => {
+  test('can open create endpoint drawer from endpoints list', async ({
+    page,
+  }) => {
     await page.goto('/endpoints');
     await page.waitForLoadState('networkidle');
 
-    // Find and click "new endpoint" or navigate directly
-    const newEndpointLink = page.getByRole('link', { name: /new/i }).first();
-    const hasLink = await newEndpointLink.isVisible().catch(() => false);
+    const createButton = page
+      .getByRole('button', { name: /new endpoint/i })
+      .first();
+    const hasCreateButton = await createButton.isVisible().catch(() => false);
 
-    if (hasLink) {
-      await newEndpointLink.click();
-      await expect(page).toHaveURL(/\/endpoints\/(new|.+)/);
+    if (hasCreateButton) {
+      await createButton.click();
     } else {
-      // Navigate directly if no link is visible (might require project context)
-      await page.goto('/endpoints/new');
-      await expect(page).toHaveURL(/\/endpoints/);
+      await page.goto('/endpoints?create=1');
     }
+
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
+    await expect(page.locator('input[name="name"]')).toBeVisible({
+      timeout: 15_000,
+    });
 
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'

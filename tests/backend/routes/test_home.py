@@ -182,7 +182,10 @@ class TestHomeProtectedEndpoint:
 
         Should return personalized welcome message for authenticated users.
         """
-        from rhesis.backend.app.auth.user_utils import require_current_user
+        from rhesis.backend.app.auth.user_utils import (
+            require_current_user,
+            require_current_user_or_token,
+        )
         from rhesis.backend.app.main import app
 
         # Mock user for dependency override
@@ -194,6 +197,8 @@ class TestHomeProtectedEndpoint:
             return mock_user
 
         app.dependency_overrides[require_current_user] = mock_require_current_user
+        # Also satisfy the app-level auth backstop (apply_auth_backstop)
+        app.dependency_overrides[require_current_user_or_token] = mock_require_current_user
 
         try:
             response = client.get(APIEndpoints.HOME.PROTECTED)
@@ -346,7 +351,10 @@ class TestHomeResponseFormat:
 
         Should have consistent format with other endpoints.
         """
-        from rhesis.backend.app.auth.user_utils import require_current_user
+        from rhesis.backend.app.auth.user_utils import (
+            require_current_user,
+            require_current_user_or_token,
+        )
         from rhesis.backend.app.main import app
 
         # Mock authenticated user
@@ -358,6 +366,8 @@ class TestHomeResponseFormat:
             return mock_user
 
         app.dependency_overrides[require_current_user] = mock_require_current_user
+        # Also satisfy the app-level auth backstop (apply_auth_backstop)
+        app.dependency_overrides[require_current_user_or_token] = mock_require_current_user
 
         try:
             response = client.get(APIEndpoints.HOME.PROTECTED)
@@ -435,7 +445,10 @@ class TestHomeIntegration:
         """
         from fastapi import HTTPException
 
-        from rhesis.backend.app.auth.user_utils import require_current_user
+        from rhesis.backend.app.auth.user_utils import (
+            require_current_user,
+            require_current_user_or_token,
+        )
         from rhesis.backend.app.main import app
 
         # Step 1: Unauthenticated access should fail
@@ -445,6 +458,7 @@ class TestHomeIntegration:
             )
 
         app.dependency_overrides[require_current_user] = mock_require_user_fail
+        app.dependency_overrides[require_current_user_or_token] = mock_require_user_fail
 
         try:
             response_unauth = client.get(APIEndpoints.HOME.PROTECTED)
@@ -458,6 +472,7 @@ class TestHomeIntegration:
                 return mock_user
 
             app.dependency_overrides[require_current_user] = mock_require_user_success
+            app.dependency_overrides[require_current_user_or_token] = mock_require_user_success
 
             response_auth = client.get(APIEndpoints.HOME.PROTECTED)
             assert response_auth.status_code == status.HTTP_200_OK
@@ -501,7 +516,10 @@ class TestHomePerformance:
         """
         import time
 
-        from rhesis.backend.app.auth.user_utils import require_current_user
+        from rhesis.backend.app.auth.user_utils import (
+            require_current_user,
+            require_current_user_or_token,
+        )
         from rhesis.backend.app.main import app
 
         # Mock authenticated user
@@ -512,6 +530,8 @@ class TestHomePerformance:
             return mock_user
 
         app.dependency_overrides[require_current_user] = mock_require_user
+        # Also satisfy the app-level auth backstop (apply_auth_backstop)
+        app.dependency_overrides[require_current_user_or_token] = mock_require_user
 
         try:
             start_time = time.time()

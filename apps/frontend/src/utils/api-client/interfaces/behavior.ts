@@ -25,6 +25,7 @@ export interface Behavior extends BehaviorBase {
   user?: User | null;
   organization?: Organization | null;
   metrics?: MetricWithRelationships[]; // Optional metrics when using include=metrics
+  tags?: Tag[];
 }
 
 export interface Organization {
@@ -98,10 +99,12 @@ export interface BehaviorWithMetrics extends BehaviorBase {
   user_id?: UUID | null;
   organization_id: UUID;
   status_id: UUID;
+  created_at?: string | null;
   status?: Status | null;
   user?: User | null;
   organization: Organization;
   metrics: MetricWithRelationships[]; // Full metric objects with type relationships
+  tags?: Tag[];
 }
 
 export interface MetricReference {

@@ -124,6 +124,7 @@ def trigger_results_collection(
             if test_config.organization_id
             else None,
             "user_id": str(test_config.user_id) if test_config.user_id else None,
+            "project_id": str(test_config.project_id) if test_config.project_id else None,
             "test_run_id": test_run_id,  # Pass test_run_id in headers
         }
     )

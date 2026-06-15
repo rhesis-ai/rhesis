@@ -291,6 +291,21 @@ def endpoint(
         func_sig = inspect.signature(func)
         param_names = list(func_sig.parameters.keys())
 
+        # Automatically exclude EndpointContext-annotated parameters from the
+        # registered schema.  These are injected by the platform executor and
+        # must never appear in the user-facing function signature.
+        try:
+            from rhesis.sdk.context import EndpointContext as _EndpointContext
+
+            _ctx_params = [
+                n for n, p in func_sig.parameters.items() if p.annotation is _EndpointContext
+            ]
+            if _ctx_params:
+                existing = enriched_metadata.get("_bound_params", [])
+                enriched_metadata["_bound_params"] = existing + _ctx_params
+        except ImportError:
+            pass  # context module not available (should not happen)
+
         # Helper to inject bound parameters
         def inject_bound_params(args, kwargs, cleanup_handlers):
             """

@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -27,11 +28,34 @@ interface ModelSelectorProps {
   purpose?: ModelPurpose;
   disabled?: boolean;
   helperText?: string;
+  hideHelperText?: boolean;
+  /** Plain text in the closed select — matches Figma drawer dropdowns. */
+  compact?: boolean;
+  /** Hide the secondary description line inside each dropdown item. */
+  hideItemDescriptions?: boolean;
+  /** Pre-fetched models list — skips the internal fetch when provided. */
+  preloadedModels?: Model[];
+  /** Whether the pre-fetched models are still loading. */
+  isLoadingModels?: boolean;
+  fieldSx?: SxProps<Theme>;
 }
 
 function ProviderIcon({ icon }: { icon?: string }) {
   if (!icon || !PROVIDER_ICONS[icon]) {
-    return <SmartToyIcon fontSize="small" />;
+    return (
+      <Box
+        sx={{
+          width: 20,
+          height: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <SmartToyIcon sx={{ fontSize: 20 }} />
+      </Box>
+    );
   }
 
   const providerIcon = PROVIDER_ICONS[icon];
@@ -43,11 +67,15 @@ function ProviderIcon({ icon }: { icon?: string }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          flexShrink: 0,
+          overflow: 'hidden',
           width: size,
           height: size,
           '& svg, & img': {
             width: size,
             height: size,
+            maxWidth: size,
+            maxHeight: size,
           },
         };
       }}
@@ -65,16 +93,47 @@ export default function ModelSelector({
   purpose,
   disabled = false,
   helperText,
+  hideHelperText = false,
+  compact = false,
+  hideItemDescriptions = false,
+  preloadedModels,
+  isLoadingModels: isLoadingModelsProp,
+  fieldSx,
 }: ModelSelectorProps) {
   const theme = useTheme();
-  const [models, setModels] = useState<Model[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<Model[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   const [defaultModelName, setDefaultModelName] = useState<string | null>(null);
 
+  // If preloaded data is supplied, use it; otherwise fetch internally.
+  const models = preloadedModels ?? fetchedModels;
+  const isLoading =
+    preloadedModels !== undefined ? (isLoadingModelsProp ?? false) : isFetching;
+
   useEffect(() => {
+    // Skip internal fetch when the parent supplies preloaded data.
+    if (preloadedModels !== undefined) {
+      // Still resolve the default model name for the helper text.
+      if (purpose && sessionToken) {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        apiFactory
+          .getUsersClient()
+          .getUserSettings()
+          .then(settings => {
+            const defaultModelId = settings?.models?.[purpose]?.model_id;
+            if (defaultModelId) {
+              const match = preloadedModels.find(m => m.id === defaultModelId);
+              setDefaultModelName(match?.name ?? null);
+            }
+          })
+          .catch(() => {});
+      }
+      return;
+    }
+
     const fetchData = async () => {
       try {
-        setIsLoading(true);
+        setIsFetching(true);
         const apiFactory = new ApiClientFactory(sessionToken);
         const modelsClient = apiFactory.getModelsClient();
         const response = await modelsClient.getModels({
@@ -83,8 +142,8 @@ export default function ModelSelector({
           skip: 0,
           limit: 100,
         });
-        const fetchedModels = response.data || [];
-        setModels(fetchedModels);
+        const fetchedList = response.data || [];
+        setFetchedModels(fetchedList);
 
         if (purpose) {
           try {
@@ -92,7 +151,7 @@ export default function ModelSelector({
             const settings = await usersClient.getUserSettings();
             const defaultModelId = settings?.models?.[purpose]?.model_id;
             if (defaultModelId) {
-              const match = fetchedModels.find(m => m.id === defaultModelId);
+              const match = fetchedList.find(m => m.id === defaultModelId);
               setDefaultModelName(match?.name ?? null);
             }
           } catch {
@@ -100,16 +159,16 @@ export default function ModelSelector({
           }
         }
       } catch {
-        setModels([]);
+        setFetchedModels([]);
       } finally {
-        setIsLoading(false);
+        setIsFetching(false);
       }
     };
 
     if (sessionToken) {
       fetchData();
     }
-  }, [sessionToken, purpose]);
+  }, [sessionToken, purpose, preloadedModels]);
 
   const selectedModel = models.find(m => m.id === value);
 
@@ -126,14 +185,50 @@ export default function ModelSelector({
 
   return (
     <Box>
-      <FormControl fullWidth disabled={disabled}>
+      <FormControl fullWidth disabled={disabled} sx={fieldSx}>
         <InputLabel shrink>{label}</InputLabel>
         <Select
           value={value}
           label={label}
           onChange={e => onChange(e.target.value as string)}
           displayEmpty
+          notched
           renderValue={selectedValue => {
+            if (compact) {
+              if (selectedValue === '') {
+                const desc = defaultModelName
+                  ? `Currently: ${defaultModelName}`
+                  : 'Uses your configured default from model settings';
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <SettingsSuggestIcon fontSize="small" />
+                    <Box>
+                      <Typography variant="body1">Default model</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {desc}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              }
+              const model = models.find(m => m.id === selectedValue);
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ProviderIcon icon={model?.icon} />
+                  <Box>
+                    <Typography variant="body1">
+                      {model?.name ?? String(selectedValue)}
+                    </Typography>
+                    {model?.description && (
+                      <Typography variant="caption" color="text.secondary">
+                        {model.description}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
+            }
+
             if (selectedValue === '') {
               return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -158,11 +253,13 @@ export default function ModelSelector({
               <SettingsSuggestIcon fontSize="small" />
               <Box>
                 <Typography variant="body2">Default model</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {defaultModelName
-                    ? `Currently: ${defaultModelName}`
-                    : 'Uses your configured default from model settings'}
-                </Typography>
+                {!hideItemDescriptions && (
+                  <Typography variant="caption" color="text.secondary">
+                    {defaultModelName
+                      ? `Currently: ${defaultModelName}`
+                      : 'Uses your configured default from model settings'}
+                  </Typography>
+                )}
               </Box>
             </Box>
           </MenuItem>
@@ -180,7 +277,7 @@ export default function ModelSelector({
                   <ProviderIcon icon={model.icon} />
                   <Box>
                     <Typography variant="body2">{model.name}</Typography>
-                    {model.description && (
+                    {!hideItemDescriptions && model.description && (
                       <Typography variant="caption" color="text.secondary">
                         {model.description}
                       </Typography>
@@ -192,7 +289,7 @@ export default function ModelSelector({
           )}
         </Select>
       </FormControl>
-      {effectiveHelperText && (
+      {effectiveHelperText && !hideHelperText && (
         <Typography
           variant="caption"
           color="text.secondary"

@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 
 // Generate metadata for the page
 export async function generateMetadata({
@@ -21,7 +21,7 @@ export async function generateMetadata({
       };
     }
 
-    const apiFactory = new ApiClientFactory(session.session_token);
+    const apiFactory = await createServerApiFactory(session.session_token);
     const projectsClient = apiFactory.getProjectsClient();
     const project = await projectsClient.getProject(identifier);
 

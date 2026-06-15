@@ -16,11 +16,16 @@ export default function BehaviorsPage() {
     () => session?.user?.organization_id as UUID,
     [session?.user?.organization_id]
   );
+  const userId = React.useMemo(
+    () => (session?.user?.id as UUID | undefined) ?? undefined,
+    [session?.user?.id]
+  );
 
   return (
     <BehaviorsClient
       sessionToken={sessionToken}
       organizationId={organizationId}
+      userId={userId}
       sessionStatus={status}
     />
   );

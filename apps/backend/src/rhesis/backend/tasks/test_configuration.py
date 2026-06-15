@@ -62,14 +62,14 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
     )
 
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
     retries = getattr(self.request, "retries", 0)
 
     self.log_with_context("debug", "Task context retrieved", retries=retries)
 
     try:
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             # Get test configuration with tenant context
             test_config = get_test_configuration(db, test_configuration_id, org_id)
 
@@ -187,7 +187,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
         )
 
         # Attempt to update test run status to failed
-        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             if test_run_id:
                 test_run = crud.get_test_run(db, UUID(test_run_id), organization_id=org_id)
             else:

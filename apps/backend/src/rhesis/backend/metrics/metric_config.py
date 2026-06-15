@@ -13,6 +13,25 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 logger = logging.getLogger(__name__)
 
 
+def _get_metric_signature(metric: BaseMetric) -> Any:
+    """Return the parameter map for the method that will actually be called.
+
+    Prefers a_evaluate because that is what the evaluation pipeline invokes.
+    Falls back to evaluate when a_evaluate only carries *args/**kwargs (the
+    BaseMetric default), which would yield no named parameters to inspect.
+    """
+    a_eval_params = inspect.signature(metric.a_evaluate).parameters
+    named = {
+        name
+        for name, p in a_eval_params.items()
+        if p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        and name != "self"
+    }
+    if named:
+        return a_eval_params
+    return inspect.signature(metric.evaluate).parameters
+
+
 def build_metric_evaluate_params(
     metric: BaseMetric,
     input_text: str,
@@ -24,9 +43,10 @@ def build_metric_evaluate_params(
     tool_calls: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
-    Build kwargs for metric.evaluate() from evaluation inputs using introspection.
+    Build kwargs for metric.a_evaluate() from evaluation inputs using introspection.
 
-    Inspects the metric's evaluate signature and only includes parameters
+    Inspects the metric's a_evaluate signature (falling back to evaluate when
+    a_evaluate is the base *args/**kwargs default) and only includes parameters
     that are actually defined (e.g., ContextualRelevancy doesn't need output).
 
     Args:
@@ -40,10 +60,9 @@ def build_metric_evaluate_params(
         tool_calls: Optional list of tool calls
 
     Returns:
-        Dict of kwargs to pass to metric.evaluate()
+        Dict of kwargs to pass to metric.a_evaluate()
     """
-    sig = inspect.signature(metric.evaluate)
-    params = sig.parameters
+    params = _get_metric_signature(metric)
 
     kwargs: Dict[str, Any] = {}
     if "input" in params:
@@ -54,7 +73,7 @@ def build_metric_evaluate_params(
         kwargs["expected_output"] = expected_output
     if "context" in params:
         kwargs["context"] = context
-    if "conversation_history" in params and conversation_history is not None:
+    if "conversation_history" in params:
         kwargs["conversation_history"] = conversation_history
     if "metadata" in params and metadata is not None:
         kwargs["metadata"] = metadata
@@ -79,6 +98,7 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
         "score_type",
         "ground_truth_required",
         "context_required",
+        "metric_scope",
     ]
     config = {field: getattr(metric, field, None) for field in common_fields}
     config["backend"] = metric.backend_type.type_value if metric.backend_type else "rhesis"

@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import bind_scope_to_session
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -373,6 +374,16 @@ def create_project_experiment(
     radar before its first save.
     """
     organization_id, user_id = tenant_context
+
+    # The project_isolation RLS policy's USING clause also acts as WITH CHECK
+    # on INSERT. The new row's project_id must equal app.current_project or the
+    # INSERT is rejected with InsufficientPrivilege. get_tenant_db_session sets
+    # app.current_project from X-Project-Id (the active-project cookie), which
+    # can differ from the path's project_id when the user navigates across
+    # projects. Override the session scope here so the GUC always matches the
+    # row being written.
+    bind_scope_to_session(db, organization_id, user_id or "", str(project_id))
+
     _load_project(project_id, db, organization_id, user_id)
 
     db_experiment = ExperimentModel(

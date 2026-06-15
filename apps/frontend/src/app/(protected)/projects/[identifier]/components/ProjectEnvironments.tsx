@@ -1,80 +1,135 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
-  Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import {
+  alpha,
+  useTheme,
+  type SxProps,
+  type Theme,
+} from '@mui/material/styles';
+import {
   GridColDef,
   GridRenderCellParams,
-  GridRowParams,
-  GridRowSelectionModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import Link from 'next/link';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import FormSectionDivider from '@/components/common/FormSectionDivider';
+import {
+  drawerFieldsSx,
+  drawerOutlinedFieldSx,
+  drawerSectionSx,
+} from '@/components/common/drawerFormFieldSx';
+import GridBadge from '@/components/common/GridBadge';
+import GridToolbar, {
+  linkedDataGridRowSx,
+  linkedGridToolbarSx,
+  sectionCardGridBleedSx,
+} from '@/components/common/GridToolbar';
+import {
+  ROW_ACTIONS_CLASS,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { experimentHref } from '@/utils/experiment-links';
 import {
   BuiltInEnvironment,
-  ENVIRONMENT_NAME_MAX_LENGTH,
   ExperimentRead,
   EnvironmentPointer,
   ProjectEnvironments as ProjectEnvironmentsShape,
   shortVersion,
-  validateEnvironmentName,
 } from '@/utils/api-client/interfaces/parameters';
-import {
-  CloseIcon,
-  AddIcon,
-  CheckIcon,
-  DeleteIcon,
-  PromoteIcon,
-} from '@/components/icons';
+import { AddIcon, DeleteIcon, PromoteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import ProjectAddEnvironmentDrawer from './ProjectAddEnvironmentDrawer';
+
+const FIGMA_BODY_SX = {
+  fontSize: 14,
+  lineHeight: '22px',
+  color: (theme: { palette: { greyscale: { body: string } } }) =>
+    theme.palette.greyscale.body,
+} as const;
 
 interface ProjectEnvironmentsProps {
   projectId: string;
   sessionToken: string;
+  /** When true, the add action lives in the section header instead of the grid toolbar. */
+  hideToolbarAddButton?: boolean;
 }
 
-/** Sentinel id used by the in-grid "Add new environment" draft row. */
-const DRAFT_ROW_ID = '__draft__';
+export interface ProjectEnvironmentsHandle {
+  openAddDrawer: () => void;
+}
 
-type EnvironmentRow =
-  | {
-      name: string;
-      pointer: EnvironmentPointer | null;
-      isWellKnown: boolean;
-      isDraft?: false;
-    }
-  | {
-      name: typeof DRAFT_ROW_ID;
-      isDraft: true;
-    };
-
-interface DraftState {
-  /** Name being typed; trimmed at save time. */
+type EnvironmentRow = {
   name: string;
+  pointer: EnvironmentPointer | null;
+  isWellKnown: boolean;
+};
+
+interface EnvironmentsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (value: string) => void;
+}
+
+const EnvironmentsToolbarContext =
+  React.createContext<EnvironmentsToolbarState>({
+    searchQuery: '',
+    setSearchQuery: () => {},
+  });
+
+function EnvironmentsToolbar() {
+  const { searchQuery, setSearchQuery } = useContext(
+    EnvironmentsToolbarContext
+  );
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search environments…"
+      searchWidth={288}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+      sx={linkedGridToolbarSx}
+    />
+  );
+}
+
+function canRemoveEnvironment(row: EnvironmentRow): boolean {
+  if (row.isWellKnown && !row.pointer) return false;
+  return true;
 }
 
 /**
@@ -85,602 +140,434 @@ interface DraftState {
  * experiment is bound. Bound and registered-but-unbound custom
  * environments appear inline alongside.
  *
- * Promoting an environment opens a small picker over the project's
- * shared experiments. Removing follows the application's standard
- * grid pattern: tick the rows you want gone and a "Remove N
- * environments" button surfaces in the toolbar, guarded by the same
- * {@link DeleteModal} used elsewhere. Well-known unbound rows aren't
- * selectable — they always exist as an overlay — but well-known bound
- * rows are (selecting "removes" the binding, which falls back to the
- * overlay-unbound state).
+ * Promoting an environment opens a drawer picker over the project's
+ * shared experiments. Row delete is available from the actions column.
  */
-export default function ProjectEnvironments({
-  projectId,
-  sessionToken,
-}: ProjectEnvironmentsProps) {
-  const notifications = useNotifications();
+export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
+  function ProjectEnvironments(
+    { projectId, sessionToken, hideToolbarAddButton = false },
+    ref
+  ) {
+    const notifications = useNotifications();
+    const theme = useTheme();
+    const [searchQuery, setSearchQuery] = useState('');
 
-  const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(
-    null
-  );
-  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
-    string | null
-  >(null);
+    const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(
+      null
+    );
+    const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
+      string | null
+    >(null);
+    const [addDrawerOpen, setAddDrawerOpen] = useState(false);
 
-  // Inline "add new environment" state. Kept ``null`` when the user is
-  // not adding, populated when the toolbar button is clicked. The
-  // sentinel draft row is rendered iff ``draft !== null``. A new
-  // environment registers without any experiment attached; the user
-  // promotes onto it later from the regular row's Promote button.
-  const [draft, setDraft] = useState<DraftState | null>(null);
-  const [savingDraft, setSavingDraft] = useState(false);
-
-  // Bulk-removal state. Selection drives the toolbar Remove button,
-  // mirroring the pattern in EndpointsGrid; deletion runs through the
-  // shared ``DeleteModal`` so the confirmation UX is identical.
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const apiFactory = useMemo(
-    () => new ApiClientFactory(sessionToken),
-    [sessionToken]
-  );
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const client = apiFactory.getParametersClient();
-      const [bindingsResp, expsResp] = await Promise.all([
-        client.getEnvironments(projectId),
-        client.listProjectExperiments(projectId, { limit: 200 }),
-      ]);
-      setBindings(bindingsResp);
-      setExperiments(expsResp);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load environments');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFactory, projectId]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const rows: EnvironmentRow[] = useMemo(() => {
-    const out: EnvironmentRow[] = BuiltInEnvironment.ALL.map(name => ({
-      name,
-      pointer: bindings?.environments[name] ?? null,
-      isWellKnown: true,
+    useImperativeHandle(ref, () => ({
+      openAddDrawer: () => setAddDrawerOpen(true),
     }));
-    if (bindings) {
-      for (const [name, pointer] of Object.entries(bindings.environments)) {
-        if (BuiltInEnvironment.ALL.includes(name)) continue;
-        out.push({ name, pointer, isWellKnown: false });
+
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleteTargetName, setDeleteTargetName] = useState<string | null>(
+      null
+    );
+    const [deleting, setDeleting] = useState(false);
+
+    const apiFactory = useMemo(
+      () => new ApiClientFactory(sessionToken),
+      [sessionToken]
+    );
+
+    const refresh = useCallback(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const client = apiFactory.getParametersClient();
+        const [bindingsResp, expsResp] = await Promise.all([
+          client.getEnvironments(projectId),
+          client.listProjectExperiments(projectId, { limit: 200 }),
+        ]);
+        setBindings(bindingsResp);
+        setExperiments(expsResp);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : 'Failed to load environments'
+        );
+      } finally {
+        setLoading(false);
       }
-    }
-    if (draft) {
-      // Draft sits at the top so the user's eye goes to the row they
-      // just opened without having to scroll past built-in entries.
-      out.unshift({ name: DRAFT_ROW_ID, isDraft: true });
-    }
-    return out;
-  }, [bindings, draft]);
+    }, [apiFactory, projectId]);
 
-  const sharedExperiments = useMemo(
-    () =>
-      experiments.filter(
-        e => e.visibility === 'shared' && e.versions_count > 0
-      ),
-    [experiments]
-  );
+    useEffect(() => {
+      refresh();
+    }, [refresh]);
 
-  const experimentName = useCallback(
-    (id: string) => experiments.find(e => e.id === id)?.name ?? id,
-    [experiments]
-  );
-
-  const existingNames = useMemo(
-    () =>
-      new Set<string>([
-        ...BuiltInEnvironment.ALL,
-        ...Object.keys(bindings?.environments ?? {}),
-      ]),
-    [bindings]
-  );
-
-  // Only rows with something to delete are selectable. The four
-  // built-in names that are *unbound* are pure overlay rows — there
-  // is literally nothing to remove on the server — and the inline
-  // draft row obviously can't be selected before it exists.
-  const isRowSelectable = useCallback((params: GridRowParams) => {
-    const row = params.row as EnvironmentRow;
-    if (row.isDraft) return false;
-    if (row.isWellKnown && !row.pointer) return false;
-    return true;
-  }, []);
-
-  const selectedNames = useMemo(() => selectedRows.map(String), [selectedRows]);
-
-  const handleBulkRemove = useCallback(async () => {
-    if (selectedNames.length === 0) return;
-    setDeleting(true);
-    try {
-      const client = apiFactory.getParametersClient();
-      // Serial removal keeps a clean error story: the first failure
-      // stops the loop and surfaces the underlying message verbatim.
-      let next: ProjectEnvironmentsShape | null = null;
-      for (const name of selectedNames) {
-        next = await client.deleteEnvironment(projectId, name);
+    const rows: EnvironmentRow[] = useMemo(() => {
+      const out: EnvironmentRow[] = BuiltInEnvironment.ALL.map(name => ({
+        name,
+        pointer: bindings?.environments[name] ?? null,
+        isWellKnown: true,
+      }));
+      if (bindings) {
+        for (const [name, pointer] of Object.entries(bindings.environments)) {
+          if (BuiltInEnvironment.ALL.includes(name)) continue;
+          out.push({ name, pointer, isWellKnown: false });
+        }
       }
-      if (next) setBindings(next);
-      setSelectedRows([]);
-      setDeleteDialogOpen(false);
-      notifications.show(
-        selectedNames.length === 1
-          ? `Environment "${selectedNames[0]}" removed`
-          : `${selectedNames.length} environments removed`,
-        { severity: 'success' }
-      );
-    } catch (e) {
-      notifications.show(
-        e instanceof Error ? e.message : 'Failed to remove environments',
-        { severity: 'error' }
-      );
-    } finally {
-      setDeleting(false);
-    }
-  }, [apiFactory, projectId, selectedNames, notifications]);
+      return out;
+    }, [bindings]);
 
-  // --------------------------------------------------------------- //
-  // Inline draft row plumbing                                       //
-  // --------------------------------------------------------------- //
+    const sharedExperiments = useMemo(
+      () =>
+        experiments.filter(
+          e => e.visibility === 'shared' && e.versions_count > 0
+        ),
+      [experiments]
+    );
 
-  // Combined name validation. Duplicates surface first because the
-  // remediation ("use the Promote button on that row") is more
-  // actionable than the generic shape hint.
-  const draftNameError = useMemo<string | null>(() => {
-    if (!draft) return null;
-    const trimmed = draft.name.trim();
-    if (!trimmed) return 'Name is required';
-    if (existingNames.has(trimmed)) {
-      return (
-        `"${trimmed}" already exists — use the Promote button on ` +
-        `that row to change what it points at.`
-      );
-    }
-    return validateEnvironmentName(trimmed);
-  }, [draft, existingNames]);
+    const experimentName = useCallback(
+      (id: string) => experiments.find(e => e.id === id)?.name ?? id,
+      [experiments]
+    );
 
-  const handleStartDraft = useCallback(() => {
-    setDraft({ name: '' });
-  }, []);
+    const existingNames = useMemo(
+      () =>
+        new Set<string>([
+          ...BuiltInEnvironment.ALL,
+          ...Object.keys(bindings?.environments ?? {}),
+        ]),
+      [bindings]
+    );
 
-  const handleCancelDraft = useCallback(() => {
-    setDraft(null);
-  }, []);
+    const handleDeleteRow = useCallback((name: string) => {
+      setDeleteTargetName(name);
+      setDeleteDialogOpen(true);
+    }, []);
 
-  const handleSaveDraft = useCallback(async () => {
-    if (!draft) return;
-    const trimmed = draft.name.trim();
-    if (draftNameError || !trimmed) {
-      return;
-    }
-    setSavingDraft(true);
-    try {
-      const client = apiFactory.getParametersClient();
-      const next = await client.registerEnvironment(projectId, {
-        name: trimmed,
+    const handleConfirmRemove = useCallback(async () => {
+      if (!deleteTargetName) return;
+      setDeleting(true);
+      try {
+        const client = apiFactory.getParametersClient();
+        const next = await client.deleteEnvironment(
+          projectId,
+          deleteTargetName
+        );
+        setBindings(next);
+        setDeleteDialogOpen(false);
+        setDeleteTargetName(null);
+        notifications.show(`Environment "${deleteTargetName}" removed`, {
+          severity: 'success',
+        });
+      } catch (e) {
+        notifications.show(
+          e instanceof Error ? e.message : 'Failed to remove environment',
+          { severity: 'error' }
+        );
+      } finally {
+        setDeleting(false);
+      }
+    }, [apiFactory, deleteTargetName, notifications, projectId]);
+
+    const displayedRows = useMemo(() => {
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return rows;
+      return rows.filter(row => {
+        const experimentLabel = row.pointer
+          ? experimentName(row.pointer.experiment_id).toLowerCase()
+          : '';
+        return (
+          row.name.toLowerCase().includes(query) ||
+          experimentLabel.includes(query) ||
+          (row.pointer?.version ?? '').toLowerCase().includes(query)
+        );
       });
-      setBindings(next);
-      notifications.show(
-        `Environment "${trimmed}" created. Use Promote to bind it.`,
-        { severity: 'success' }
-      );
-      setDraft(null);
-    } catch (e) {
-      notifications.show(
-        e instanceof Error ? e.message : 'Failed to create environment',
-        { severity: 'error' }
-      );
-    } finally {
-      setSavingDraft(false);
-    }
-  }, [apiFactory, projectId, draft, draftNameError, notifications]);
+    }, [rows, searchQuery, experimentName]);
 
-  const draftCanSave = !!draft && !draftNameError && !savingDraft;
-
-  const columns: GridColDef<EnvironmentRow>[] = useMemo(
-    () => [
-      {
-        field: 'name',
-        headerName: 'Environment',
-        flex: 1,
-        sortable: false,
-        renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
-          if (params.row.isDraft) {
+    const columns: GridColDef<EnvironmentRow>[] = useMemo(
+      () => [
+        {
+          field: 'name',
+          headerName: 'Environment',
+          flex: 1,
+          minWidth: 160,
+          sortable: false,
+          renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
+            const badge = <GridBadge label={params.row.name} />;
+            if (!params.row.isWellKnown) return badge;
             return (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: '100%',
-                  width: '100%',
-                  pr: 1,
-                }}
+              <Tooltip
+                title="Protected environment — always available, cannot be deleted."
+                placement="top"
+                arrow
               >
-                <TextField
-                  size="small"
-                  fullWidth
-                  autoFocus
-                  placeholder="environment name"
-                  value={draft?.name ?? ''}
-                  onChange={e =>
-                    setDraft(prev =>
-                      prev ? { ...prev, name: e.target.value } : prev
-                    )
-                  }
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && draftCanSave) {
-                      e.preventDefault();
-                      handleSaveDraft();
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault();
-                      handleCancelDraft();
-                    }
+                {badge}
+              </Tooltip>
+            );
+          },
+        },
+        {
+          field: 'pointer',
+          headerName: 'Bound to',
+          flex: 1,
+          minWidth: 160,
+          sortable: false,
+          renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
+            if (!params.row.pointer) {
+              return <Typography sx={FIGMA_BODY_SX}>Unbound</Typography>;
+            }
+            return (
+              <Link
+                href={experimentHref(
+                  params.row.pointer.experiment_id,
+                  params.row.pointer.version
+                )}
+                style={{ textDecoration: 'none' }}
+              >
+                <Typography
+                  sx={{
+                    ...FIGMA_BODY_SX,
+                    color: 'primary.main',
+                    '&:hover': { textDecoration: 'underline' },
                   }}
-                  error={!!draftNameError}
-                  inputProps={{ maxLength: ENVIRONMENT_NAME_MAX_LENGTH }}
-                />
-              </Box>
-            );
-          }
-          const chip = (
-            <Chip
-              size="small"
-              label={params.row.name}
-              color={params.row.pointer ? 'success' : 'default'}
-              variant={params.row.pointer ? 'filled' : 'outlined'}
-            />
-          );
-          return (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                height: '100%',
-              }}
-            >
-              {params.row.isWellKnown ? (
-                <Tooltip
-                  title="Protected environment — always available, cannot be deleted."
-                  placement="top"
-                  arrow
                 >
-                  {chip}
-                </Tooltip>
-              ) : (
-                chip
-              )}
-            </Box>
-          );
-        },
-      },
-      {
-        field: 'pointer',
-        headerName: 'Bound to',
-        flex: 2,
-        sortable: false,
-        renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
-          if (params.row.isDraft) {
-            return (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  height: '100%',
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Unbound
+                  {experimentName(params.row.pointer.experiment_id)}
                 </Typography>
-              </Box>
+              </Link>
             );
-          }
-          return (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                height: '100%',
-              }}
-            >
-              {params.row.pointer ? (
-                <>
-                  <Link
-                    href={experimentHref(
-                      params.row.pointer.experiment_id,
-                      params.row.pointer.version
-                    )}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Typography
-                      variant="body2"
-                      color="primary"
-                      sx={{ '&:hover': { textDecoration: 'underline' } }}
-                    >
-                      {experimentName(params.row.pointer.experiment_id)}
-                    </Typography>
-                  </Link>
-                  <Chip
-                    size="small"
-                    label={shortVersion(params.row.pointer.version)}
-                    sx={{ fontFamily: 'monospace' }}
-                  />
-                </>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Unbound
-                </Typography>
-              )}
-            </Box>
-          );
+          },
         },
-      },
-      {
-        field: 'actions',
-        headerName: '',
-        width: 160,
-        sortable: false,
-        filterable: false,
-        align: 'right',
-        headerAlign: 'right',
-        renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
-          if (params.row.isDraft) {
+        {
+          field: 'version',
+          headerName: 'Version',
+          width: 90,
+          sortable: false,
+          valueGetter: (_value, row) =>
+            row.pointer ? shortVersion(row.pointer.version) : '',
+          renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
+            if (!params.row.pointer) return null;
+            return (
+              <GridBadge
+                label={shortVersion(params.row.pointer.version)}
+                sx={{ fontFamily: 'monospace' }}
+              />
+            );
+          },
+        },
+        {
+          field: 'status',
+          headerName: 'Status',
+          width: 90,
+          sortable: false,
+          valueGetter: (_value, row) => (row.pointer ? 'Bound' : 'Unbound'),
+          renderCell: (params: GridRenderCellParams<EnvironmentRow>) => (
+            <GridBadge label={params.row.pointer ? 'Bound' : 'Unbound'} />
+          ),
+        },
+        {
+          field: 'actions',
+          headerName: '',
+          width: 80,
+          sortable: false,
+          filterable: false,
+          disableColumnMenu: true,
+          align: 'center',
+          headerAlign: 'center',
+          renderCell: (params: GridRenderCellParams<EnvironmentRow>) => {
+            const row = params.row;
+            const promoteDisabled = sharedExperiments.length === 0;
+
             return (
               <Box
+                className={ROW_ACTIONS_CLASS}
                 sx={{
                   display: 'flex',
+                  gap: '4px',
+                  justifyContent: 'center',
                   alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  gap: 0.5,
-                  height: '100%',
                   width: '100%',
                 }}
               >
-                <Tooltip title={draftNameError ?? 'Create environment'}>
+                <Tooltip
+                  title={
+                    promoteDisabled
+                      ? 'No shared experiments to promote'
+                      : 'Promote a shared experiment to this environment'
+                  }
+                >
                   <span>
                     <IconButton
                       size="small"
-                      color="primary"
-                      onClick={handleSaveDraft}
-                      disabled={!draftCanSave}
-                      aria-label="Save new environment"
+                      disabled={promoteDisabled}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setPickerEnvironmentName(row.name);
+                      }}
+                      sx={{
+                        p: 0.5,
+                        color: 'text.secondary',
+                        '&:hover': {
+                          color: 'primary.main',
+                          bgcolor: alpha(theme.palette.primary.main, 0.08),
+                        },
+                      }}
+                      aria-label={`Promote experiment to ${row.name}`}
                     >
-                      <CheckIcon fontSize="small" />
+                      <PromoteIcon sx={{ fontSize: 18 }} />
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title="Cancel">
-                  <IconButton
-                    size="small"
-                    onClick={handleCancelDraft}
-                    aria-label="Cancel new environment"
-                  >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {canRemoveEnvironment(row) && (
+                  <Tooltip title="Remove environment">
+                    <IconButton
+                      size="small"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDeleteRow(row.name);
+                      }}
+                      sx={{
+                        p: 0.5,
+                        color: 'text.secondary',
+                        '&:hover': {
+                          color: 'error.main',
+                          bgcolor: alpha(theme.palette.error.main, 0.08),
+                        },
+                      }}
+                      aria-label={`Remove environment ${row.name}`}
+                    >
+                      <DeleteIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             );
-          }
-          return (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: 1,
-                height: '100%',
-                width: '100%',
-              }}
-            >
-              <Tooltip
-                title={
-                  sharedExperiments.length === 0
-                    ? 'No shared experiments to promote'
-                    : 'Promote a shared experiment to this environment'
-                }
-              >
-                <span>
-                  <Button
-                    size="small"
-                    startIcon={<PromoteIcon />}
-                    disabled={sharedExperiments.length === 0}
-                    onClick={e => {
-                      e.stopPropagation();
-                      setPickerEnvironmentName(params.row.name);
-                    }}
-                  >
-                    Promote
-                  </Button>
-                </span>
-              </Tooltip>
-            </Box>
-          );
+          },
         },
-      },
-    ],
-    [
-      experimentName,
-      sharedExperiments,
-      draft,
-      draftNameError,
-      draftCanSave,
-      handleSaveDraft,
-      handleCancelDraft,
-    ]
-  );
+      ],
+      [experimentName, sharedExperiments, theme, handleDeleteRow]
+    );
 
-  if (loading) {
+    if (loading) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', p: 2, gap: 2 }}>
+          <CircularProgress size={20} />
+          <Typography color="text.secondary">
+            Loading environments...
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (error) {
+      return <Alert severity="error">{error}</Alert>;
+    }
+
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', p: 2, gap: 2 }}>
-        <CircularProgress size={20} />
-        <Typography color="text.secondary">Loading environments...</Typography>
-      </Box>
+      <EnvironmentsToolbarContext.Provider
+        value={{ searchQuery, setSearchQuery }}
+      >
+        <Box>
+          <Box
+            sx={
+              [
+                hideToolbarAddButton ? sectionCardGridBleedSx : null,
+                rowActionsHoverSx,
+              ].filter(Boolean) as SxProps<Theme>
+            }
+          >
+            <BaseDataGrid
+              rows={displayedRows}
+              columns={columns}
+              getRowId={row => row.name}
+              loading={loading}
+              toolbarSlot={EnvironmentsToolbar}
+              showToolbar
+              disablePaperWrapper
+              pageSizeOptions={[10, 25, 50]}
+              initialState={{
+                pagination: {
+                  paginationModel: { page: 0, pageSize: 10 },
+                },
+              }}
+              sx={linkedDataGridRowSx}
+            />
+          </Box>
+
+          {!hideToolbarAddButton ? (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setAddDrawerOpen(true)}
+              >
+                New Environment
+              </Button>
+            </Box>
+          ) : null}
+
+          <DeleteModal
+            open={deleteDialogOpen}
+            onClose={() => {
+              setDeleteDialogOpen(false);
+              setDeleteTargetName(null);
+            }}
+            onConfirm={handleConfirmRemove}
+            isLoading={deleting}
+            title="Remove environment"
+            message={
+              <>
+                <Typography sx={{ mb: 1.5 }}>
+                  Remove &ldquo;{deleteTargetName}&rdquo;?
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
+                  Only the pointer is cleared — the experiment and its version
+                  history stay intact, and any past test runs that used this
+                  name keep their snapshotted values.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Built-in names ({BuiltInEnvironment.ALL.join(', ')}) stay
+                  visible as Unbound; custom names disappear from the list.
+                </Typography>
+              </>
+            }
+            confirmButtonText="Remove"
+            itemType="environment"
+          />
+
+          {pickerEnvironmentName && (
+            <PromoteFromProjectDrawer
+              open={!!pickerEnvironmentName}
+              environmentName={pickerEnvironmentName}
+              projectId={projectId}
+              sessionToken={sessionToken}
+              experiments={sharedExperiments}
+              onClose={() => setPickerEnvironmentName(null)}
+              onPromoted={async () => {
+                setPickerEnvironmentName(null);
+                await refresh();
+              }}
+            />
+          )}
+
+          <ProjectAddEnvironmentDrawer
+            open={addDrawerOpen}
+            onClose={() => setAddDrawerOpen(false)}
+            projectId={projectId}
+            sessionToken={sessionToken}
+            existingNames={existingNames}
+            onCreated={refresh}
+          />
+        </Box>
+      </EnvironmentsToolbarContext.Provider>
     );
   }
+);
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
-  const toolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
-        gap: 2,
-      }}
-    >
-      {/* Bulk action surfaces on the left only when rows are picked. */}
-      {selectedNames.length > 0 ? (
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteDialogOpen(true)}
-          disabled={deleting}
-        >
-          Remove {selectedNames.length} environment
-          {selectedNames.length > 1 ? 's' : ''}
-        </Button>
-      ) : (
-        <Box />
-      )}
-      <Tooltip
-        title={
-          draft
-            ? 'Finish the row being added first'
-            : 'Add a new custom environment'
-        }
-      >
-        <span>
-          <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
-            disabled={!!draft}
-            onClick={handleStartDraft}
-          >
-            New Environment
-          </Button>
-        </span>
-      </Tooltip>
-    </Box>
-  );
-
-  return (
-    <Box>
-      {sharedExperiments.length === 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          No shared experiments yet. Create an experiment, save a version, and
-          share it before promoting it onto an environment.
-        </Alert>
-      )}
-
-      <Paper
-        elevation={2}
-        sx={{
-          p: 2,
-          // Rows in this grid aren't navigable on click — only the
-          // per-row Promote button is interactive — so suppress the
-          // "looks clickable" pointer cursor that BaseDataGrid applies
-          // by default.
-          '& .MuiDataGrid-row:hover': {
-            cursor: 'default',
-          },
-        }}
-      >
-        <BaseDataGrid
-          rows={rows}
-          columns={columns}
-          getRowId={row => row.name}
-          density="comfortable"
-          customToolbarContent={toolbar}
-          checkboxSelection
-          disableRowSelectionOnClick
-          rowSelectionModel={selectedRows}
-          onRowSelectionModelChange={setSelectedRows}
-          isRowSelectable={isRowSelectable}
-          disablePaperWrapper
-          hideFooter
-        />
-      </Paper>
-
-      <DeleteModal
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleBulkRemove}
-        isLoading={deleting}
-        title={`Remove ${
-          selectedNames.length > 1 ? 'environments' : 'environment'
-        }`}
-        message={
-          <>
-            <Typography sx={{ mb: 1.5 }}>
-              {selectedNames.length === 1
-                ? `Remove "${selectedNames[0]}"?`
-                : `Remove ${selectedNames.length} environments?`}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Only the pointer
-              {selectedNames.length > 1 ? 's are' : ' is'} cleared — the
-              experiment{selectedNames.length > 1 ? 's' : ''} and{' '}
-              {selectedNames.length > 1
-                ? 'their version histories'
-                : 'its version history'}{' '}
-              stay intact, and any past test runs that used{' '}
-              {selectedNames.length > 1 ? 'these names' : 'this name'} keep
-              their snapshotted values.
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Built-in names ({BuiltInEnvironment.ALL.join(', ')}) stay visible
-              as Unbound; custom names disappear from the list.
-            </Typography>
-          </>
-        }
-        confirmButtonText="Remove"
-        itemType={selectedNames.length > 1 ? 'environments' : 'environment'}
-      />
-
-      {pickerEnvironmentName && (
-        <PromoteFromProjectDialog
-          open={!!pickerEnvironmentName}
-          environmentName={pickerEnvironmentName}
-          projectId={projectId}
-          sessionToken={sessionToken}
-          experiments={sharedExperiments}
-          onClose={() => setPickerEnvironmentName(null)}
-          onPromoted={async () => {
-            setPickerEnvironmentName(null);
-            await refresh();
-          }}
-        />
-      )}
-    </Box>
-  );
-}
-
-interface PromoteFromProjectDialogProps {
+interface PromoteFromProjectDrawerProps {
   open: boolean;
   environmentName: string;
   projectId: string;
@@ -690,7 +577,7 @@ interface PromoteFromProjectDialogProps {
   onPromoted: () => void;
 }
 
-function PromoteFromProjectDialog({
+function PromoteFromProjectDrawer({
   open,
   environmentName,
   projectId,
@@ -698,7 +585,7 @@ function PromoteFromProjectDialog({
   experiments,
   onClose,
   onPromoted,
-}: PromoteFromProjectDialogProps) {
+}: PromoteFromProjectDrawerProps) {
   const notifications = useNotifications();
   const [experimentId, setExperimentId] = useState<string>(
     experiments[0]?.id ?? ''
@@ -765,16 +652,28 @@ function PromoteFromProjectDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Promote to {environmentName}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Experiment (shared only)</InputLabel>
+    <BaseDrawer
+      open={open}
+      onClose={onClose}
+      title={`Promote to ${environmentName}`}
+      onSave={handleSubmit}
+      saveButtonText="Promote"
+      saveDisabled={!experimentId || !version}
+      loading={submitting}
+    >
+      <Box sx={drawerSectionSx}>
+        <FormSectionDivider
+          headline="Binding"
+          descriptiveText="Choose a shared experiment and version to bind this environment to."
+        />
+        <Box sx={drawerFieldsSx}>
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Experiment (shared only)</InputLabel>
             <Select
               label="Experiment (shared only)"
               value={experimentId}
               onChange={e => setExperimentId(e.target.value)}
+              notched
             >
               {experiments.map(e => (
                 <MenuItem key={e.id} value={e.id}>
@@ -783,12 +682,13 @@ function PromoteFromProjectDialog({
               ))}
             </Select>
           </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Version</InputLabel>
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel shrink>Version</InputLabel>
             <Select
               label="Version"
               value={versions.length === 0 ? '' : version}
               onChange={e => setVersion(e.target.value)}
+              notched
             >
               {versions.length === 0 ? (
                 <MenuItem value="" disabled>
@@ -803,20 +703,8 @@ function PromoteFromProjectDialog({
               )}
             </Select>
           </FormControl>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={!experimentId || !version || submitting}
-        >
-          {submitting ? 'Promoting...' : 'Promote'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </Box>
+      </Box>
+    </BaseDrawer>
   );
 }

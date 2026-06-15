@@ -4,12 +4,11 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TasksGrid from './components/TasksGrid';
 import TaskDrawer, {
@@ -131,7 +130,7 @@ export default function TasksPage() {
         actions={
           <FabGroup>
             <Fab
-              icon={<AddIcon />}
+              icon={<FabAddIcon />}
               tooltip="New Task"
               aria-label="New Task"
               onClick={() => {

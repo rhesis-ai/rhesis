@@ -64,7 +64,7 @@ def read_tags(
     )
 
 
-@router.get("/{tag_id}")
+@router.get("/{tag_id}", response_model=schemas.Tag)
 def read_tag(
     tag_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

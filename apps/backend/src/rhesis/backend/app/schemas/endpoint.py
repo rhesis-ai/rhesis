@@ -89,7 +89,7 @@ class EndpointBase(Base):
     response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
-    project_id: UUID4  # Required field
+    project_id: Optional[UUID4] = None  # Inferred from X-Project-Id session scope when omitted
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None

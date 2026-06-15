@@ -109,6 +109,11 @@ class ConversationalMetricBase(ABC):
 
         Subclasses with native async implementations should override this.
         """
+        if conversation_history is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires conversation_history to evaluate. "
+                "No conversation history was provided."
+            )
         return await asyncio.to_thread(
             self.evaluate, conversation_history, goal, instructions, context, **kwargs
         )

@@ -6,7 +6,7 @@ import { BasePage } from './BasePage';
  */
 export class BehaviorsPage extends BasePage {
   readonly newBehaviorButton = this.page.getByRole('button', {
-    name: /new behavior/i,
+    name: /create behavior/i,
   });
 
   constructor(page: Page) {
@@ -42,30 +42,55 @@ export class BehaviorsPage extends BasePage {
   /** Assert that behavior cards or an empty state message is visible. */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
-    const cards = this.page.locator('.MuiCard-root');
+    const cards = this.behaviorCards();
     const emptyNoFilter = this.page.getByText(/no behaviors found/i);
     const emptyFiltered = this.page.getByText(/no behaviors match/i);
+    const emptyFirst = this.page.getByText(/no behavior yet/i);
     const mainContent = this.page.locator('main, [role="main"]').first();
 
     const hasCards = (await cards.count()) > 0;
     const hasEmptyNoFilter = await emptyNoFilter.isVisible().catch(() => false);
     const hasEmptyFiltered = await emptyFiltered.isVisible().catch(() => false);
+    const hasEmptyFirst = await emptyFirst.isVisible().catch(() => false);
     const hasMain = await mainContent.isVisible().catch(() => false);
 
     expect(
-      hasCards || hasEmptyNoFilter || hasEmptyFiltered || hasMain
+      hasCards ||
+        hasEmptyNoFilter ||
+        hasEmptyFiltered ||
+        hasEmptyFirst ||
+        hasMain
     ).toBeTruthy();
+  }
+
+  /** EntityCard renders as MuiButtonBase-root, not MuiCard-root. */
+  private behaviorCard(name: string) {
+    return this.page
+      .locator('.MuiButtonBase-root')
+      .filter({ has: this.page.getByText(name, { exact: true }) })
+      .first();
+  }
+
+  private behaviorCards() {
+    return this.page.locator('.MuiButtonBase-root').filter({
+      has: this.page.locator('[data-testid="entity-card-description"]'),
+    });
   }
 
   // ── CRUD helpers ──────────────────────────────────────────────────────────
 
-  /** Open the "New Behavior" drawer and wait for it to slide in. */
+  /** Open the create-behavior drawer and wait for it to slide in. */
   async openNewBehaviorDrawer() {
-    await this.newBehaviorButton.click();
-    // BehaviorMetricsViewer also renders a permanent right-anchored Drawer with
-    // keepMounted:true — it stays in the DOM hidden (aria-hidden="true") at all
-    // times. Use :not([aria-hidden="true"]) so we only match the drawer that is
-    // actually open (the BehaviorDrawer), not the permanently-hidden viewer portal.
+    const fab = this.newBehaviorButton.first();
+    const fabVisible = await fab
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (fabVisible) {
+      await fab.click();
+    } else {
+      await this.page.getByRole('button', { name: /create behavior/i }).click();
+    }
+
     await this.page
       .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'visible', timeout: 10_000 });
@@ -106,50 +131,65 @@ export class BehaviorsPage extends BasePage {
 
   /** Wait for the drawer to close after submission. */
   async waitForDrawerClosed() {
-    // Wait until no right-anchored drawer is open. When MUI closes a Drawer it
-    // adds aria-hidden="true" back to the portal root, so
-    // :not([aria-hidden="true"]) stops matching → waitFor hidden succeeds.
     await this.page
       .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'hidden', timeout: 15_000 });
   }
 
-  /** Find the card with the given name and click its edit (pencil) icon button. */
+  /** Open a behavior card on the detail page. */
+  async openBehaviorDetail(name: string) {
+    await expect(this.behaviorCard(name)).toBeVisible({ timeout: 15_000 });
+
+    const detailResponse = this.page.waitForResponse(
+      resp =>
+        /\/behaviors\/[0-9a-f-]{36}/i.test(resp.url()) &&
+        resp.request().method() === 'GET' &&
+        resp.status() === 200,
+      { timeout: 20_000 }
+    );
+
+    await this.behaviorCard(name).click();
+    await this.page.waitForURL(/\/behaviors\//, { timeout: 15_000 });
+    await detailResponse;
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  /** Edit opens from the behavior detail page (card actions were removed). */
   async clickEditOnCard(name: string) {
-    const card = this.page.locator('.MuiCard-root', { hasText: name });
-    await card.getByRole('button', { name: /edit/i }).first().click();
+    await this.openBehaviorDetail(name);
+    await this.page
+      .locator('main')
+      .getByRole('button', { name: /^edit$/i })
+      .first()
+      .click();
+    await this.page
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
+      .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
-  /** Find the card with the given name and click its delete (trash) icon button. */
+  /** Delete uses the icon-only control on the card header. */
   async clickDeleteOnCard(name: string) {
-    const card = this.page.locator('.MuiCard-root', { hasText: name });
-    await card
-      .getByRole('button', { name: /delete/i })
-      .first()
-      .click();
+    const card = this.behaviorCard(name);
+    await card.locator('button').click();
   }
 
-  /** Find the card with the given name and click its add metric (+) icon button. */
+  /** Assign metrics from the behavior detail Linked Metrics tab. */
   async clickAddMetricOnCard(name: string) {
-    const card = this.page.locator('.MuiCard-root', { hasText: name });
-    await card
-      .getByRole('button', { name: /add metric/i })
-      .first()
-      .click();
+    await this.openBehaviorDetail(name);
+    await this.page.getByRole('tab', { name: /linked metrics/i }).click();
+    await this.page.getByRole('button', { name: /^assign$/i }).click();
   }
 
   /** Returns true if a behavior card with the given name is visible. */
   async cardIsVisible(name: string): Promise<boolean> {
-    return this.page
-      .locator('.MuiCard-root', { hasText: name })
+    return this.behaviorCard(name)
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
   }
 
   /** Returns true if no behavior card with the given name is visible. */
   async cardIsGone(name: string): Promise<boolean> {
-    return this.page
-      .locator('.MuiCard-root', { hasText: name })
+    return this.behaviorCard(name)
       .isHidden({ timeout: 15_000 })
       .catch(() => false);
   }

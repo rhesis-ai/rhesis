@@ -12,6 +12,7 @@ from .mixins import (
     EmbeddableMixin,
     FilesMixin,
     OrganizationMixin,
+    ProjectMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -31,6 +32,7 @@ class Test(
     Base,
     EmbeddableMixin,
     ActivityTrackableMixin,
+    ProjectMixin,
     TagsMixin,
     OrganizationMixin,
     CommentsMixin,

@@ -1,4 +1,8 @@
 import { type Page, type Locator, expect } from '@playwright/test';
+import {
+  expectOpenDrawerTitle,
+  deleteGridRowByText,
+} from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Test Sets list page (/test-sets).
@@ -41,21 +45,23 @@ export class TestSetsPage {
 
   /** Open the "New Test Set" drawer. */
   async openNewTestSetDrawer() {
-    await this.newTestSetButton.click();
-    // Wait for the drawer to slide in
-    await this.page
-      .getByRole('presentation')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    const emptyAction = this.page
+      .getByRole('button', { name: /create test set/i })
+      .first();
+    const emptyVisible = await emptyAction
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false);
+    if (emptyVisible) {
+      await emptyAction.click();
+    } else {
+      await this.newTestSetButton.click();
+    }
+
+    await expectOpenDrawerTitle(this.page, /^new test set$/i);
   }
 
-  /** Select a grid row that contains the given text. */
-  async selectRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text });
-    await row.locator('input[type="checkbox"]').click();
-  }
-
-  /** Click the "Delete Test Sets" toolbar button (only visible when rows are selected). */
-  async clickDeleteSelected() {
-    await this.page.getByRole('button', { name: /delete test sets/i }).click();
+  /** Delete a row via the hover-revealed row-actions delete icon. */
+  async deleteRowByText(text: string) {
+    await deleteGridRowByText(this.page, text);
   }
 }

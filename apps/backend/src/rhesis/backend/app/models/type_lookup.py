@@ -6,10 +6,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class TypeLookup(Base, OrganizationAndUserMixin):
+class TypeLookup(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "type_lookup"
     type_name = Column(String)  # 'CategoryType', 'ResponsePatternType', 'EntityType', etc.
     type_value = Column(String)  # 'TYPE_A', 'TYPE_B', etc.

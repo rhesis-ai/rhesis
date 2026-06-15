@@ -33,31 +33,30 @@ resource "google_compute_firewall" "wireguard_vpn" {
   target_tags   = ["wireguard-server"]
 }
 
-# Allow DNS traffic (port 53) from GKE pods/nodes to BIND9 on the WireGuard server.
-# Created in each env VPC so pods can reach the internal DNS resolver.
-resource "google_compute_firewall" "dns_from_gke" {
-  for_each = { for nic in var.env_nics : nic.environment => nic }
 
-  name     = "wireguard-allow-dns-${each.key}"
-  network  = each.value.vpc_name
-  project  = var.project_id
-  priority = 900
+# Allow DNS from env VPC pods/nodes to BIND9 (for split-horizon DNS via VPC peering)
+# source_ranges uses the full network CIDR for each enabled environment (var.subnet_cidrs),
+# not the narrower nodes+pods CIDRs used in per-env firewall rules (e.g. envs/dev/main.tf).
+# This is intentional: the wireguard module has no visibility into per-env subnet breakdowns,
+# and traffic is VPC-internal only (not public internet). If least-privilege is required,
+# pass a flattened list of node+pod CIDRs per environment instead of the network CIDRs.
+resource "google_compute_firewall" "wireguard_dns_from_envs" {
+  name      = "wireguard-allow-dns-from-envs"
+  network   = var.vpc_name
+  project   = var.project_id
+  priority  = 900
+  direction = "INGRESS"
 
   allow {
     protocol = "tcp"
     ports    = ["53"]
   }
-
   allow {
     protocol = "udp"
     ports    = ["53"]
   }
 
-  allow {
-    protocol = "icmp"
-  }
-
-  source_ranges = [each.value.node_cidr, each.value.pod_cidr]
+  source_ranges = values(var.subnet_cidrs)
   target_tags   = ["wireguard-server"]
 }
 

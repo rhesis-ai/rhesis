@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -20,14 +19,14 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
 import {
   ConnectedToolCard,
-  MCPProviderSelectionDialog,
-  MCPConnectionDialog,
+  MCPConnectionDrawer,
   MCPFilterDrawer,
   MCPFilters,
 } from './components';
 import {
   EMPTY_MCP_FILTERS,
   hasActiveMCPFilters,
+  countActiveMCPFilters,
 } from './components/MCPFilterDrawer';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -39,11 +38,8 @@ export default function MCPSPage() {
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
-    null
-  );
-  const [providerSelectionOpen, setProviderSelectionOpen] = useState(false);
-  const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
+  const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
+  const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
 
@@ -105,12 +101,6 @@ export default function MCPSPage() {
     loadData();
   }, [session]);
 
-  const handleProviderSelect = (provider: TypeLookup) => {
-    setSelectedProvider(provider);
-    setProviderSelectionOpen(false);
-    setConnectionDialogOpen(true);
-  };
-
   const handleConnect = async (
     _providerId: string,
     toolData: ToolCreate
@@ -142,6 +132,11 @@ export default function MCPSPage() {
   const handleDeleteClick = (tool: Tool) => {
     setToolToDelete(tool);
     setDeleteDialogOpen(true);
+  };
+
+  const handleCardClick = (tool: Tool) => {
+    setToolToEdit(tool);
+    setConnectionDrawerOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -205,10 +200,13 @@ export default function MCPSPage() {
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Add MCP connection"
             aria-label="Add MCP connection"
-            onClick={() => setProviderSelectionOpen(true)}
+            onClick={() => {
+              setToolToEdit(null);
+              setConnectionDrawerOpen(true);
+            }}
           />
         </FabGroup>
       }
@@ -225,7 +223,8 @@ export default function MCPSPage() {
         searchPlaceholder="Search MCP connections..."
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveMCPFilters(filters)}
-        sx={directoryToolbarSx}
+        activeFilterCount={countActiveMCPFilters(filters)}
+        {...directoryToolbarProps}
       />
 
       {loading ? (
@@ -257,6 +256,7 @@ export default function MCPSPage() {
               key={tool.id}
               tool={tool}
               onDelete={handleDeleteClick}
+              onCardClick={handleCardClick}
             />
           ))}
         </Box>
@@ -273,22 +273,15 @@ export default function MCPSPage() {
         }}
       />
 
-      <MCPProviderSelectionDialog
-        open={providerSelectionOpen}
-        onClose={() => setProviderSelectionOpen(false)}
-        onSelectProvider={handleProviderSelect}
+      <MCPConnectionDrawer
+        open={connectionDrawerOpen}
         providers={providerTypes}
-      />
-
-      <MCPConnectionDialog
-        open={connectionDialogOpen}
-        provider={selectedProvider}
         mcpToolType={mcpToolType}
-        tool={null}
-        mode="create"
+        tool={toolToEdit}
+        mode={toolToEdit ? 'edit' : 'create'}
         onClose={() => {
-          setConnectionDialogOpen(false);
-          setTimeout(() => setSelectedProvider(null), 200);
+          setConnectionDrawerOpen(false);
+          setTimeout(() => setToolToEdit(null), 300);
         }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}

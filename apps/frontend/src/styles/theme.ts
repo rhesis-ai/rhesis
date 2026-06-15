@@ -296,6 +296,13 @@ const getDesignTokens = (mode: PaletteMode) => {
             '& .MuiSvgIcon-root': {
               color: mode === 'light' ? gs.body : '#FFFFFF',
             },
+            '& .MuiAvatar-root .MuiSvgIcon-root': {
+              color: 'inherit',
+            },
+            '& .MuiButton-icon .MuiSvgIcon-root, & .MuiButton-startIcon .MuiSvgIcon-root, & .MuiButton-endIcon .MuiSvgIcon-root':
+              {
+                color: 'inherit',
+              },
             '& .MuiListItemButton-root.Mui-selected': {
               backgroundColor: '#0080AF',
               '& .MuiSvgIcon-root': { color: '#FFFFFF' },
@@ -345,13 +352,13 @@ const getDesignTokens = (mode: PaletteMode) => {
               '&:hover': { backgroundColor: '#FDD803', color: '#1A1A1A' },
             },
             '&.MuiButton-outlinedPrimary': {
-              color: '#0080AF',
-              borderColor: '#0080AF',
+              color: mode === 'dark' ? '#33A6CB' : '#0080AF',
+              borderColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
               backgroundColor: 'transparent',
               '&:hover': {
-                backgroundColor: '#0080AF',
+                backgroundColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
                 color: '#FFFFFF',
-                borderColor: '#0080AF',
+                borderColor: mode === 'dark' ? '#33A6CB' : '#0080AF',
               },
             },
             '&.MuiButton-outlinedSecondary': {
@@ -458,6 +465,22 @@ const getDesignTokens = (mode: PaletteMode) => {
               borderColor: mode === 'light' ? '#C62828' : '#FCA5A5',
               backgroundColor: 'transparent',
             },
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontSize: '0.75rem', // 12px
+            lineHeight: 1.4,
+            padding: '6px 10px',
+            backgroundColor: mode === 'light' ? '#FFFFFF' : '#1C2128',
+            color: mode === 'light' ? '#1C2128' : '#E6EDF3',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          },
+          arrow: {
+            color: mode === 'light' ? '#FFFFFF' : '#1C2128',
           },
         },
       },

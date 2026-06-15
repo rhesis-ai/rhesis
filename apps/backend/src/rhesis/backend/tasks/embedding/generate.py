@@ -31,7 +31,7 @@ def generate_embedding_task(
     """
     from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
 
-    organization_id, user_id = self.get_tenant_context()
+    organization_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context(
         "info",

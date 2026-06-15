@@ -13,7 +13,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.database import SessionLocal, set_session_variables
+from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
 from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def post_ingest_link(
     db: Session = SessionLocal()
 
     try:
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(db, organization_id, "", project_id)
 
         stored_spans = db.query(models.Trace).filter(models.Trace.id.in_(stored_span_ids)).all()
 

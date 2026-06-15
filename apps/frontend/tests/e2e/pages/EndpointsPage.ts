@@ -42,9 +42,13 @@ export class EndpointsPage {
     return this.dataGrid.isVisible().catch(() => false);
   }
 
-  /** Navigate to new endpoint creation page. */
+  /** Open the create-endpoint drawer (via deep link). */
   async gotoNewEndpoint() {
-    await this.page.goto('/endpoints/new');
+    await this.page.goto('/endpoints?create=1');
+    await expect(this.page).toHaveURL(/\/endpoints\/?$/);
+    await expect(this.page.locator('input[name="name"]')).toBeVisible({
+      timeout: 15_000,
+    });
   }
 
   /** Navigate to endpoint detail by identifier. */

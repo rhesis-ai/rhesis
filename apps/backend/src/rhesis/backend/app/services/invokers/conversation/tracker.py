@@ -54,7 +54,7 @@ def mapping_has_template_variable(endpoint: Endpoint, variable: str) -> bool:
     if not mapping:
         return False
     mapping_str = json.dumps(mapping) if isinstance(mapping, dict) else str(mapping)
-    pattern = re.compile(r"\{\{\s*" + re.escape(variable) + r"\s*\}\}")
+    pattern = re.compile(r"\{\{\s*" + re.escape(variable) + r"(\s*\|[^}]*)?\s*\}\}")
     return bool(pattern.search(mapping_str))
 
 

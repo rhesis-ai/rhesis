@@ -38,6 +38,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_multi_turn_only(mc: Any) -> bool:
+    """Return True when a metric config is scoped exclusively to Multi-Turn.
+
+    Handles both MetricConfig objects and raw dicts, and guards against a
+    mis-shaped metric_scope that is a bare string rather than a list.
+    """
+    from rhesis.sdk.metrics.base import MetricScope
+
+    scope = mc.get("metric_scope") if isinstance(mc, dict) else getattr(mc, "metric_scope", None)
+    if not scope or not isinstance(scope, (list, tuple, set)):
+        return False
+    return all(
+        (s if isinstance(s, MetricScope) else MetricScope(s)) == MetricScope.MULTI_TURN
+        for s in scope
+    )
+
+
 def _build_conversation_history(
     conversation_summary: List[Dict[str, Any]],
 ) -> Optional[ConversationHistory]:
@@ -107,6 +124,12 @@ def evaluate_single_turn_metrics(
     actual_response = extract_response_with_fallback(result)
     metadata = result.get("metadata") if isinstance(result, dict) else None
     tool_calls = result.get("tool_calls") if isinstance(result, dict) else None
+
+    # Drop metrics scoped exclusively to Multi-Turn — they require conversation_history.
+    metrics = [mc for mc in metrics if not _is_multi_turn_only(mc)]
+
+    if not metrics:
+        return metrics_results
 
     try:
         metrics_results = metrics_evaluator.evaluate(

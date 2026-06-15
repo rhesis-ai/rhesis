@@ -11,13 +11,14 @@ import {
   Typography,
 } from '@mui/material';
 import { EntityType } from '@/types/tasks';
-import { getPriorities } from '@/utils/task-lookup';
+import { getPriorities, getStatuses } from '@/utils/task-lookup';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
-import { Priority } from '@/utils/api-client/interfaces/task';
+import { Priority, Status } from '@/utils/api-client/interfaces/task';
 import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 
 interface TaskCreationDrawerProps {
   open: boolean;
@@ -45,8 +46,10 @@ export function TaskCreationDrawer({
   const { data: session } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [statusId, setStatusId] = useState<string>('');
   const [priorityId, setPriorityId] = useState<string>('');
   const [assigneeId, setAssigneeId] = useState('');
+  const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -59,18 +62,27 @@ export function TaskCreationDrawer({
 
       setIsLoadingData(true);
       try {
-        const [fetchedPriorities, fetchedUsers] = await Promise.all([
-          getPriorities(sessionToken),
-          (async () => {
-            const clientFactory = new ApiClientFactory(sessionToken);
-            const usersClient = clientFactory.getUsersClient();
-            const response = await usersClient.getUsers();
-            return response.data;
-          })(),
-        ]);
+        const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
+          await Promise.all([
+            getStatuses(sessionToken),
+            getPriorities(sessionToken),
+            (async () => {
+              const clientFactory = new ApiClientFactory(sessionToken);
+              const usersClient = clientFactory.getUsersClient();
+              const response = await usersClient.getUsers();
+              return response.data;
+            })(),
+          ]);
 
+        setStatuses(fetchedStatuses);
         setPriorities(fetchedPriorities);
         setUsers(fetchedUsers);
+
+        // Default to "Open" status
+        const openStatus = fetchedStatuses.find(s => s.name === 'Open');
+        if (openStatus) {
+          setStatusId(openStatus.id);
+        }
       } catch (_error) {
       } finally {
         setIsLoadingData(false);
@@ -86,6 +98,7 @@ export function TaskCreationDrawer({
     await onSubmit({
       title: title.trim(),
       description: description.trim(),
+      status_id: statusId,
       priority_id: priorityId || null,
       assignee_id: assigneeId || null,
       entity_type: entityType,
@@ -96,6 +109,7 @@ export function TaskCreationDrawer({
     // Reset form
     setTitle('');
     setDescription('');
+    setStatusId('');
     setPriorityId('');
     setAssigneeId('');
   };
@@ -104,6 +118,7 @@ export function TaskCreationDrawer({
     if (!isLoading) {
       setTitle('');
       setDescription('');
+      setStatusId('');
       setPriorityId('');
       setAssigneeId('');
       onClose();
@@ -114,14 +129,16 @@ export function TaskCreationDrawer({
     <BaseDrawer
       open={open}
       onClose={handleClose}
-      title="Create New Task"
+      title="Create task"
       loading={isLoading}
       onSave={handleSubmit}
-      saveButtonText={isLoading ? 'Creating...' : 'Create Task'}
-      width={600}
+      saveButtonText="Save"
+      closeButtonText="Close"
+      saveDisabled={!title.trim()}
+      width={578}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Comment context info */}
+        {/* Comment context note */}
         {commentId && (
           <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">
@@ -131,17 +148,73 @@ export function TaskCreationDrawer({
           </Box>
         )}
 
-        {/* Title */}
+        {/* Task Title */}
         <TextField
-          label="Task Title"
+          label="Task Title*"
           value={title}
           onChange={e => setTitle(e.target.value)}
           fullWidth
-          required
           variant="outlined"
-          placeholder="Enter a brief description of the task"
           disabled={isLoading}
+          sx={drawerOutlinedFieldSx}
         />
+
+        {/* Status */}
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusId}
+            onChange={e => setStatusId(e.target.value)}
+            label="Status"
+            disabled={isLoadingData || isLoading}
+          >
+            {statuses.map(statusOption => (
+              <MenuItem key={statusOption.id} value={statusOption.id}>
+                {statusOption.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Priority */}
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel>Priority</InputLabel>
+          <Select
+            value={priorityId}
+            onChange={e => setPriorityId(e.target.value)}
+            label="Priority"
+            disabled={isLoadingData || isLoading}
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {priorities.map(priorityOption => (
+              <MenuItem key={priorityOption.id} value={priorityOption.id}>
+                {priorityOption.type_value || priorityOption.id}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Assignee */}
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <InputLabel>Assignee</InputLabel>
+          <Select
+            value={assigneeId}
+            onChange={e => setAssigneeId(e.target.value)}
+            label="Assignee"
+            disabled={isLoadingData || isLoading}
+          >
+            <MenuItem value="">
+              <em>Unassigned</em>
+            </MenuItem>
+            {users.map(user => (
+              <MenuItem key={user.id} value={user.id}>
+                {user.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {/* Description */}
         <TextField
@@ -152,62 +225,9 @@ export function TaskCreationDrawer({
           multiline
           rows={4}
           variant="outlined"
-          placeholder="Provide detailed information about what needs to be done"
           disabled={isLoading}
+          sx={drawerOutlinedFieldSx}
         />
-
-        {/* Priority and Assignee Row */}
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {/* Priority */}
-          <FormControl fullWidth>
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={priorityId}
-              onChange={e => setPriorityId(e.target.value)}
-              label="Priority"
-              disabled={isLoadingData || isLoading}
-            >
-              {priorities.map(priorityOption => (
-                <MenuItem key={priorityOption.id} value={priorityOption.id}>
-                  {priorityOption.type_value || priorityOption.id}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* Assignee */}
-          <FormControl fullWidth>
-            <InputLabel>Assignee</InputLabel>
-            <Select
-              value={assigneeId}
-              onChange={e => setAssigneeId(e.target.value)}
-              label="Assignee"
-              disabled={isLoadingData || isLoading}
-            >
-              <MenuItem value="">
-                <em>Unassigned</em>
-              </MenuItem>
-              {users.map(user => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-
-        {/* Entity Info */}
-        <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            <strong>Related to:</strong> {getEntityDisplayName(entityType)}
-          </Typography>
-          {commentId && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              <strong>From comment:</strong> This task was created from a
-              comment
-            </Typography>
-          )}
-        </Box>
       </Box>
     </BaseDrawer>
   );

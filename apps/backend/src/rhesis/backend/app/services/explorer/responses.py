@@ -61,11 +61,14 @@ async def generate_outputs_for_tests(
         - failed: list of {"test_id": str, "error": str}
         - updated: list of {"test_id": str, "output": str}
     """
-    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.database import _SCOPE_KEY, get_db_with_tenant_variables
     from rhesis.backend.app.dependencies import get_endpoint_service
     from rhesis.backend.tasks.execution.executors.results import (
         process_endpoint_result,
     )
+
+    _outer_scope = db.info.get(_SCOPE_KEY)
+    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
 
     svc = get_endpoint_service()
 
@@ -116,7 +119,7 @@ async def generate_outputs_for_tests(
     async def _invoke_one(test_id_str: str, prompt_content: str) -> tuple:
         async with semaphore:
             try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
                     result = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,

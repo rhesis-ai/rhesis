@@ -3,10 +3,11 @@ SMTP service for sending emails via SendGrid or other SMTP providers.
 """
 
 import logging
-import os
 import smtplib
 import socket
 from email.mime.multipart import MIMEMultipart
+
+from rhesis.backend.app.config.settings import get_smtp_settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +16,13 @@ class SMTPService:
     """Service for sending emails via SMTP (SendGrid)."""
 
     def __init__(self):
-        self.smtp_host = os.getenv("SMTP_HOST")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
-        from_email = os.getenv("FROM_EMAIL", "engineering@rhesis.ai")
+        settings = get_smtp_settings()
+
+        self.smtp_host = settings.host
+        self.smtp_port = settings.port
+        self.smtp_user = settings.user
+        self.smtp_password = settings.password
+        from_email = settings.from_email
         # Wrap bare email addresses with a display name
         if "<" not in from_email:
             from_email = f'"Harry from Rhesis AI" <{from_email}>'

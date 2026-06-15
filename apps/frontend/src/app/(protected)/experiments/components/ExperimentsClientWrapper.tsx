@@ -2,6 +2,7 @@
 
 import React, {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -12,25 +13,135 @@ import {
   GridColDef,
   GridFilterModel,
   GridPaginationModel,
-  GridRowSelectionModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import {
+  FilterDrawerShell,
+  FilterSection,
+  filterChipSx,
+  useFilterDrawerDraft,
+} from '@/components/common/FilterDrawer';
+import GridToolbar from '@/components/common/GridToolbar';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentRead,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
-import { Project } from '@/utils/api-client/interfaces/project';
-import { AddIcon, DeleteIcon, BiotechIcon } from '@/components/icons';
-import { DeleteModal } from '@/components/common/DeleteModal';
+import { AddIcon, BiotechIcon } from '@/components/icons';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
 import CreateExperimentDialog from './CreateExperimentDialog';
 import { formatDate } from '@/utils/date';
+
+// ─── Toolbar context ───────────────────────────────────────────────────────────
+
+interface ExperimentsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  openFilterDrawer: () => void;
+  hasActiveFilters: boolean;
+  activeFilterCount: number;
+}
+
+const ExperimentsToolbarContext = React.createContext<ExperimentsToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  openFilterDrawer: () => {},
+  hasActiveFilters: false,
+  activeFilterCount: 0,
+});
+
+function ExperimentsUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    openFilterDrawer,
+    hasActiveFilters,
+    activeFilterCount,
+  } = useContext(ExperimentsToolbarContext);
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search experiments…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveFilters}
+      activeFilterCount={activeFilterCount}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
+
+// ─── Filter drawer ─────────────────────────────────────────────────────────────
+
+const EMPTY_FILTERS = { visibility: '' };
+
+function ExperimentsFilterDrawer({
+  open,
+  onClose,
+  visibilityFilter,
+  onApply,
+}: {
+  open: boolean;
+  onClose: () => void;
+  visibilityFilter: string;
+  onApply: (visibility: string) => void;
+}) {
+  const committed = useMemo(
+    () => ({ visibility: visibilityFilter }),
+    [visibilityFilter]
+  );
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    committed,
+    EMPTY_FILTERS,
+    f => onApply(f.visibility),
+    onClose
+  );
+
+  return (
+    <FilterDrawerShell
+      open={open}
+      onClose={onClose}
+      onReset={handleReset}
+      onApply={handleApply}
+    >
+      <FilterSection title="Visibility">
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {(['', 'private', 'shared'] as const).map(v => (
+            <Box
+              key={v || 'all'}
+              component="button"
+              onClick={() => setDraft(d => ({ ...d, visibility: v }))}
+              sx={filterChipSx(draft.visibility === v)}
+            >
+              {v === '' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)}
+            </Box>
+          ))}
+        </Box>
+      </FilterSection>
+    </FilterDrawerShell>
+  );
+}
 
 interface ExperimentsClientWrapperProps {
   sessionToken: string;
@@ -42,14 +153,15 @@ export default function ExperimentsClientWrapper({
   const isMounted = useRef(false);
   const router = useRouter();
   const notifications = useNotifications();
-
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { activeProject } = useActiveProject();
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [visibilityFilter, setVisibilityFilter] = useState<string>('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -107,16 +219,6 @@ export default function ExperimentsClientWrapper({
     [sessionToken, apiFactory, filterModel, notifications]
   );
 
-  // Load projects for the create drawer
-  useEffect(() => {
-    if (!sessionToken) return;
-    const projectsClient = apiFactory.getProjectsClient();
-    projectsClient
-      .getAllProjects({ sort_by: 'name', sort_order: 'asc' })
-      .then(p => setProjects(p))
-      .catch(() => {});
-  }, [sessionToken, apiFactory]);
-
   useEffect(() => {
     isMounted.current = true;
 
@@ -136,24 +238,43 @@ export default function ExperimentsClientWrapper({
     []
   );
 
-  const handleDeleteExperiments = async () => {
+  // Sync search + visibility into the filter model
+  useEffect(() => {
+    setFilterModel(() => {
+      const items = [];
+      if (searchQuery.trim()) {
+        items.push({
+          field: '__quickFilter__',
+          operator: 'contains',
+          value: searchQuery.trim(),
+        });
+      }
+      if (visibilityFilter) {
+        items.push({
+          field: 'visibility',
+          operator: 'equals',
+          value: visibilityFilter,
+        });
+      }
+      return { items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery, visibilityFilter]);
+
+  const handleDeleteExperiment = async () => {
+    if (!deleteTargetId) return;
     setDeleting(true);
     try {
       const parametersClient = apiFactory.getParametersClient();
-      const ids = selectedRows as string[];
-      await Promise.all(ids.map(id => parametersClient.deleteExperiment(id)));
-      notifications.show(
-        `Deleted ${ids.length} experiment${ids.length > 1 ? 's' : ''}`,
-        { severity: 'success' }
+      await parametersClient.deleteExperiment(deleteTargetId);
+      notifications.show('Experiment deleted', { severity: 'success' });
+      setDeleteTargetId(null);
+      fetchExperiments(
+        paginationModel.page * paginationModel.pageSize,
+        paginationModel.pageSize
       );
-      setSelectedRows([]);
-      setDeleteDialogOpen(false);
-      const skip = paginationModel.page * paginationModel.pageSize;
-      fetchExperiments(skip, paginationModel.pageSize);
     } catch {
-      notifications.show('Failed to delete experiments', {
-        severity: 'error',
-      });
+      notifications.show('Failed to delete experiment', { severity: 'error' });
     } finally {
       setDeleting(false);
     }
@@ -161,103 +282,101 @@ export default function ExperimentsClientWrapper({
 
   const columns: GridColDef[] = useMemo(
     () => [
-      {
-        field: 'name',
-        headerName: 'Name',
-        flex: 1.5,
-        minWidth: 200,
-        filterable: true,
-        renderCell: params => (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <BiotechIcon fontSize="small" color="action" />
-            <Typography variant="body2">{params.row.name}</Typography>
-          </Box>
-        ),
-      },
-      {
-        field: 'projectName',
-        headerName: 'Project',
-        flex: 1,
-        minWidth: 140,
-        filterable: true,
-        valueGetter: (_value: unknown, row: ExperimentRead) =>
-          row.project_name || '—',
-      },
-      {
-        field: 'visibility',
-        headerName: 'Visibility',
-        flex: 0.6,
-        minWidth: 100,
-        filterable: true,
-        type: 'singleSelect',
-        valueOptions: ['private', 'shared'],
-        renderCell: params => (
-          <Chip
-            size="small"
-            label={params.value}
-            color={params.value === 'shared' ? 'primary' : 'default'}
-            variant="outlined"
-          />
-        ),
-      },
-      {
-        field: 'versions_count',
-        headerName: 'Versions',
-        flex: 0.5,
-        minWidth: 80,
-        align: 'right',
-        headerAlign: 'right',
-        filterable: false,
-      },
-      {
-        field: 'latest_version',
-        headerName: 'Latest',
-        flex: 0.6,
-        minWidth: 100,
-        filterable: false,
-        sortable: false,
-        renderCell: params =>
-          params.value ? (
-            <Chip
-              size="small"
-              label={shortVersion(params.value)}
-              sx={{ fontFamily: 'monospace' }}
-            />
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              (no versions)
+      ...([
+        {
+          field: 'name',
+          headerName: 'Name',
+          flex: 1.2,
+          minWidth: 160,
+          filterable: true,
+          renderCell: params => (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <BiotechIcon fontSize="small" color="action" />
+              <Typography variant="body2">{params.row.name}</Typography>
+            </Box>
+          ),
+        },
+        {
+          field: 'description',
+          headerName: 'Description',
+          flex: 1.8,
+          minWidth: 200,
+          filterable: false,
+          sortable: false,
+          renderCell: params => (
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {params.value || '—'}
             </Typography>
           ),
-      },
-      {
-        field: 'created_at',
-        headerName: 'Created',
-        flex: 0.8,
-        minWidth: 120,
-        filterable: false,
-        renderCell: params => (
-          <Typography variant="body2" color="text.secondary">
-            {params.value ? formatDate(params.value) : '—'}
-          </Typography>
-        ),
-      },
+        },
+        {
+          field: 'projectName',
+          headerName: 'Project',
+          flex: 0.9,
+          minWidth: 120,
+          filterable: true,
+          valueGetter: (_value: unknown, row: ExperimentRead) =>
+            row.project_name || '—',
+        },
+        {
+          field: 'visibility',
+          headerName: 'Visibility',
+          flex: 0.6,
+          minWidth: 90,
+          filterable: true,
+          type: 'singleSelect',
+          valueOptions: ['private', 'shared'],
+          renderCell: params => (
+            <Chip
+              size="small"
+              label={params.value}
+              color={params.value === 'shared' ? 'primary' : 'default'}
+              variant="outlined"
+            />
+          ),
+        },
+        {
+          field: 'latest_version',
+          headerName: 'Latest',
+          flex: 0.5,
+          minWidth: 80,
+          filterable: false,
+          sortable: false,
+          renderCell: params =>
+            params.value ? (
+              <Chip
+                size="small"
+                label={shortVersion(params.value)}
+                sx={{ fontFamily: 'monospace' }}
+              />
+            ) : (
+              <Typography variant="caption" color="text.disabled">
+                —
+              </Typography>
+            ),
+        },
+        {
+          field: 'created_at',
+          headerName: 'Created',
+          flex: 0.8,
+          minWidth: 120,
+          filterable: false,
+          renderCell: params => (
+            <Typography variant="body2" color="text.secondary">
+              {params.value ? formatDate(params.value) : '—'}
+            </Typography>
+          ),
+        },
+      ] as GridColDef[]),
+      createRowActionsColumn({
+        onEdit: id => router.push(`/experiments/${id}`),
+        onDelete: id => setDeleteTargetId(id),
+        editTooltip: 'Open experiment',
+        deleteTooltip: 'Delete experiment',
+      }),
     ],
-    []
+    [router]
   );
-
-  const actionButtons = useMemo(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: `Delete (${selectedRows.length})`,
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => setDeleteDialogOpen(true),
-      },
-    ];
-  }, [selectedRows.length]);
 
   return (
     <PageLayout
@@ -266,16 +385,19 @@ export default function ExperimentsClientWrapper({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="New Experiment"
             aria-label="New Experiment"
             onClick={() => setCreateOpen(true)}
-            disabled={projects.length === 0}
+            disabled={!activeProject}
           />
         </FabGroup>
       }
     >
-      {!loading && experiments.length === 0 && !filterModel.items.length ? (
+      {!loading &&
+      experiments.length === 0 &&
+      !searchQuery.trim() &&
+      !visibilityFilter ? (
         <Paper
           elevation={0}
           sx={{
@@ -312,27 +434,25 @@ export default function ExperimentsClientWrapper({
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setCreateOpen(true)}
-            disabled={projects.length === 0}
+            disabled={!activeProject}
           >
             New Experiment
           </Button>
         </Paper>
       ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            borderRadius: BORDER_RADIUS.md,
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            boxShadow: ELEVATION.xs,
+        <ExperimentsToolbarContext.Provider
+          value={{
+            searchQuery,
+            setSearchQuery,
+            openFilterDrawer: () => setFilterDrawerOpen(true),
+            hasActiveFilters: !!visibilityFilter,
+            activeFilterCount: visibilityFilter ? 1 : 0,
           }}
         >
           <BaseDataGrid
             rows={experiments}
             columns={columns}
             loading={loading}
-            density="comfortable"
-            actionButtons={actionButtons}
             linkPath="/experiments"
             linkField="id"
             paginationModel={paginationModel}
@@ -343,43 +463,39 @@ export default function ExperimentsClientWrapper({
             serverSidePagination={true}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
-            checkboxSelection
-            disableRowSelectionOnClick
-            rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={setSelectedRows}
-            disablePaperWrapper
+            showToolbar={true}
+            toolbarSlot={ExperimentsUnifiedToolbar}
             persistState
-            initialState={{
-              columns: {
-                columnVisibilityModel: {
-                  versions_count: false,
-                },
-              },
-            }}
+            sx={rowActionsHoverSx}
           />
-        </Paper>
+        </ExperimentsToolbarContext.Provider>
       )}
 
       <CreateExperimentDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         sessionToken={sessionToken}
-        projects={projects}
-        defaultProjectId={undefined}
         onCreated={async experiment => {
           setCreateOpen(false);
           router.push(`/experiments/${experiment.id}`);
         }}
       />
 
+      <ExperimentsFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        visibilityFilter={visibilityFilter}
+        onApply={v => setVisibilityFilter(v)}
+      />
+
       <DeleteModal
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDeleteExperiments}
+        open={!!deleteTargetId}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={handleDeleteExperiment}
         isLoading={deleting}
-        title={`Delete Experiment${selectedRows.length > 1 ? 's' : ''}`}
-        message={`Are you sure you want to delete ${selectedRows.length} experiment${selectedRows.length > 1 ? 's' : ''}? This action cannot be undone.`}
-        itemType="experiments"
+        title="Delete Experiment"
+        message="Are you sure you want to delete this experiment? This action cannot be undone."
+        itemType="experiment"
       />
     </PageLayout>
   );

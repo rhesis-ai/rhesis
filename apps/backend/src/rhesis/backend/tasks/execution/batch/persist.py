@@ -30,7 +30,9 @@ def persist_result(
     from rhesis.backend.app.services.invokers.tracing import persist_deferred_trace
     from rhesis.backend.tasks.execution.executors.results import create_test_result_record
 
-    with get_db_with_tenant_variables(ctx.organization_id, ctx.user_id or "") as db:
+    with get_db_with_tenant_variables(
+        ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
+    ) as db:
         try:
             for trace_data in deferred_traces:
                 persist_deferred_trace(db, trace_data)

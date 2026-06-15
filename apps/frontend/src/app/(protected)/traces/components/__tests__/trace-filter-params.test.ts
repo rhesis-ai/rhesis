@@ -57,10 +57,34 @@ describe('trace-filter-params', () => {
     ).toBe(true);
   });
 
+  it('detects active drawer filters in test run scope', () => {
+    expect(
+      hasActiveTraceDrawerFilters(
+        {
+          ...EMPTY_TRACE_DRAWER_FILTERS,
+          testRunId: 'run-1',
+          projectId: 'proj-1',
+        },
+        { testRunScope: true }
+      )
+    ).toBe(false);
+    expect(
+      hasActiveTraceDrawerFilters(
+        {
+          ...EMPTY_TRACE_DRAWER_FILTERS,
+          testRunId: 'run-1',
+          traceMetricsStatus: 'pass',
+        },
+        { testRunScope: true }
+      )
+    ).toBe(true);
+  });
+
   it('maps preset time ranges to ISO timestamps', () => {
     const after = timeRangeToStartTimeAfter('24h');
     expect(after).toBeDefined();
-    const diff = Date.now() - new Date(after!).getTime();
+    if (!after) return;
+    const diff = Date.now() - new Date(after).getTime();
     expect(diff).toBeGreaterThan(23 * 60 * 60 * 1000);
     expect(diff).toBeLessThan(25 * 60 * 60 * 1000);
   });

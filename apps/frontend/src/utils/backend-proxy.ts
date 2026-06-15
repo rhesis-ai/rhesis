@@ -9,6 +9,9 @@ const FORWARDED_REQUEST_HEADERS = [
   'accept',
   'accept-language',
   'user-agent',
+  // Active project scope — must be forwarded so requests routed through the
+  // proxy stay project-isolated instead of falling back to org-wide access.
+  'x-project-id',
 ];
 
 const FORWARDED_RESPONSE_HEADERS = [
