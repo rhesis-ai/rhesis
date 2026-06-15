@@ -18,6 +18,7 @@ from rhesis.backend.app.schemas.services import (
     TestToolConnectionResponse,
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
+from rhesis.backend.app.services.tool.rest.config import validate_base_url
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -133,8 +134,7 @@ def update_tool(
     """
     organization_id, user_id = tenant_context
 
-    # Validate provider-specific requirements when updating metadata
-    if tool.tool_metadata is not None:
+    if tool.tool_metadata is not None or tool.credentials is not None:
         existing_tool = crud.get_tool(
             db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
         )
@@ -146,17 +146,29 @@ def update_tool(
         )
         if provider_type:
             if provider_type.type_value == "jira":
-                if "space_key" not in tool.tool_metadata:
-                    raise HTTPException(
-                        status_code=400, detail="Jira integrations require 'space_key'"
-                    )
-                if (
-                    not isinstance(tool.tool_metadata["space_key"], str)
-                    or not tool.tool_metadata["space_key"].strip()
-                ):
-                    raise HTTPException(
-                        status_code=400, detail="Jira 'space_key' must be non-empty"
-                    )
+                if tool.tool_metadata is not None:
+                    if "space_key" not in tool.tool_metadata:
+                        raise HTTPException(
+                            status_code=400, detail="Jira integrations require 'space_key'"
+                        )
+                    if (
+                        not isinstance(tool.tool_metadata["space_key"], str)
+                        or not tool.tool_metadata["space_key"].strip()
+                    ):
+                        raise HTTPException(
+                            status_code=400, detail="Jira 'space_key' must be non-empty"
+                        )
+                if tool.credentials is not None and "JIRA_URL" in tool.credentials:
+                    try:
+                        validate_base_url(tool.credentials["JIRA_URL"], "JIRA_URL")
+                    except ValueError as e:
+                        raise HTTPException(status_code=400, detail=str(e))
+            elif provider_type.type_value == "confluence":
+                if tool.credentials is not None and "CONFLUENCE_URL" in tool.credentials:
+                    try:
+                        validate_base_url(tool.credentials["CONFLUENCE_URL"], "CONFLUENCE_URL")
+                    except ValueError as e:
+                        raise HTTPException(status_code=400, detail=str(e))
 
     db_tool = crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
