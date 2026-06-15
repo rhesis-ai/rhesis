@@ -193,28 +193,21 @@ async def extract_tool_item(
     Set include_children=True to recursively fetch child pages / subdirectory files.
     Either ``id`` or ``url`` (or both) must be provided in the request body.
     """
-    import logging
-
-    from rhesis.backend.app.services.tool.mcp import handle_mcp_exception
-    from rhesis.backend.app.services.tool.rest import get_rest_source
-
-    logger = logging.getLogger(__name__)
-
     try:
         organization_id, user_id = tenant_context
-        source = get_rest_source(
+        client = get_rest_client(
             db=db,
             tool_id=str(tool_id),
             organization_id=organization_id,
             user_id=user_id,
         )
-        if not hasattr(source, "fetch_all"):
+        if not hasattr(client, "fetch_all"):
             raise HTTPException(
                 status_code=400,
                 detail="Extract is not supported for this tool provider.",
             )
         identifier = request.url or request.id
-        docs = await source.fetch_all(identifier, include_children=request.include_children)
+        docs = await client.fetch_all(identifier, include_children=request.include_children)
         return ExtractToolResponse(
             sources=[
                 {"id": d.id, "title": d.title, "content": d.content, "url": d.url} for d in docs

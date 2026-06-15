@@ -1,5 +1,5 @@
 from .base import RestClient
-from .config import build_client, get_rest_source
+from .config import build_client, get_rest_client
 from .confluence import ConfluenceRestClient
 from .github import GitHubRestClient
 from .health import run_rest_health_check
@@ -12,7 +12,7 @@ __all__ = [
     "ConfluenceRestClient",
     "create_jira_ticket_from_task",
     "FetchedSource",
-    "get_rest_source",
+    "get_rest_client",
     "GitHubRestClient",
     "JiraRestClient",
     "NotionRestClient",

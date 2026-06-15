@@ -145,33 +145,20 @@ async def create_jira_ticket_from_task(
     if not task:
         raise ValueError(f"Task '{task_id}' not found")
 
-    try:
-        tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
-    except ItemDeletedException:
-        raise ValueError(f"Tool '{tool_id}' has been deleted")
-    if not tool:
-        raise ValueError(f"Tool '{tool_id}' not found")
+    from rhesis.backend.app.services.tool.rest import config  # avoid circular import
 
-    if tool.tool_provider_type.type_value != "jira":
+    # Raises ToolConfigurationError if tool xnot found, deleted, or misconfigured.
+    client = config.get_rest_client(db, tool_id, organization_id, user_id)
+    if not isinstance(client, JiraRestClient):
         raise ValueError(f"Tool '{tool_id}' is not a Jira integration")
 
+    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
         raise ValueError("Jira tool is not configured with a space_key")
 
     space_key = tool.tool_metadata["space_key"]
 
-    try:
-        credentials = json.loads(tool.credentials)
-    except (json.JSONDecodeError, TypeError) as e:
-        raise ValueError(f"Invalid credentials for tool '{tool_id}': {e}")
-
-    from rhesis.backend.app.services.tool.rest.config import build_client  # avoid circular import
-
-    source = build_client("jira", credentials)
-    if not isinstance(source, JiraRestClient):
-        raise ValueError(f"Tool '{tool_id}' is not a Jira integration")
-
-    response_data = await source.create_issue(
+    response_data = await client.create_issue(
         project_key=space_key,
         summary=task.title,
         description=task.description or "",

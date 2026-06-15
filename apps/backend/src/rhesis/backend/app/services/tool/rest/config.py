@@ -105,7 +105,7 @@ def build_client(provider: str, credentials: Dict[str, str]) -> RestClient:
     return factory(credentials)
 
 
-def get_rest_source(
+def get_rest_client(
     db: Session, tool_id: str, organization_id: str, user_id: str = None
 ) -> RestClient:
     """Resolve a DB tool to its REST client.
