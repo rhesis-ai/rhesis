@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rhesis.backend.app.services.architect.runner import persist_state
-from rhesis.backend.tasks.architect import (
+from rhesis.backend.tasks.architect.telemetry import (
     _conversation_telemetry_context,
     _load_session_trace_id,
 )
@@ -57,6 +57,16 @@ class TestLoadSessionTraceId:
         result = _load_session_trace_id(_VALID_SESSION_ID, "org", "user")
 
         assert result == "abc123"
+
+    @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
+    @patch("rhesis.backend.app.crud.get_architect_session")
+    def test_forwards_project_id_to_db_factory(self, mock_get_session, mock_db_ctx):
+        mock_db_ctx.return_value.__enter__.return_value = MagicMock()
+        mock_get_session.return_value = _make_session_row({"conversation_trace_id": "x"})
+
+        _load_session_trace_id(_VALID_SESSION_ID, "org", "user", project_id="proj-1")
+
+        mock_db_ctx.assert_called_once_with("org", "user", "proj-1")
 
     @patch("rhesis.backend.app.database.get_db_with_tenant_variables")
     @patch("rhesis.backend.app.crud.get_architect_session")
@@ -308,7 +318,7 @@ def test_task_parks_conversation_output_when_trace_id_available():
         patch(
             "rhesis.backend.app.services.telemetry.conversation_linking.register_pending_output"
         ) as mock_register,
-        patch("rhesis.backend.tasks.architect.architect_chat_task.run"),
+        patch("rhesis.backend.tasks.architect.chat.architect_chat_task.run"),
     ):
         # Simulate the parking logic directly (isolated from Celery infra).
         from rhesis.backend.app.services.telemetry.conversation_linking import (

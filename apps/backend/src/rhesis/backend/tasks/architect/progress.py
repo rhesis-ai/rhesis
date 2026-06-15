@@ -25,7 +25,7 @@ from rhesis.backend.app.schemas.websocket import (
     WebSocketMessage,
 )
 from rhesis.backend.app.services.websocket.publisher import publish_event
-from rhesis.backend.tasks.architect_monitor import _get_redis
+from rhesis.backend.tasks.architect.monitor import _get_redis
 
 logger = logging.getLogger(__name__)
 

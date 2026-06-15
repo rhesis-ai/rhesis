@@ -38,10 +38,16 @@ class LocalToolProvider(MCPTool):
     goes straight through httpx ASGITransport.
     """
 
-    def __init__(self, fastapi_app: Any, auth_token: str):
+    def __init__(
+        self,
+        fastapi_app: Any,
+        auth_token: str,
+        project_id: str | None = None,
+    ):
         # Skip MCPTool.__init__ — we don't have an MCP client.
         self._app = fastapi_app
         self._auth_header = f"Bearer {auth_token}"
+        self._project_id = project_id
         self._tool_defs: List[Dict[str, Any]] = []
         self._operation_map: Dict[str, dict] = {}
         self._confirmation_map: Dict[str, bool] = {}
@@ -96,6 +102,8 @@ class LocalToolProvider(MCPTool):
 
         arguments = dict(kwargs)
         headers = {"Authorization": self._auth_header}
+        if self._project_id:
+            headers["X-Project-Id"] = self._project_id
 
         # Path params
         path = op["path"]

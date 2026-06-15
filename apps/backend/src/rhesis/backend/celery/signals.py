@@ -2,7 +2,7 @@ import logging
 
 from celery.signals import task_failure, task_revoked, worker_shutdown
 
-import rhesis.backend.tasks.architect_monitor  # noqa: F401
+import rhesis.backend.tasks.architect.monitor  # noqa: F401
 from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger("celery.signals")

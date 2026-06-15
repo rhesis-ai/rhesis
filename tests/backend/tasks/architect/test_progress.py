@@ -11,16 +11,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # lookup_session_for_task
 # ---------------------------------------------------------------------------
 
 
 class TestLookupSessionForTask:
-    @patch("rhesis.backend.tasks.architect_progress._get_redis")
+    @patch("rhesis.backend.tasks.architect.progress._get_redis")
     def test_returns_session_id_when_key_present(self, mock_get_redis):
-        from rhesis.backend.tasks.architect_progress import lookup_session_for_task
+        from rhesis.backend.tasks.architect.progress import lookup_session_for_task
 
         mock_redis = MagicMock()
         mock_redis.get.return_value = json.dumps(
@@ -31,9 +30,9 @@ class TestLookupSessionForTask:
         assert lookup_session_for_task("task-abc") == "sess-123"
         mock_redis.get.assert_called_once_with("arch:task:task-abc")
 
-    @patch("rhesis.backend.tasks.architect_progress._get_redis")
+    @patch("rhesis.backend.tasks.architect.progress._get_redis")
     def test_returns_none_when_key_missing(self, mock_get_redis):
-        from rhesis.backend.tasks.architect_progress import lookup_session_for_task
+        from rhesis.backend.tasks.architect.progress import lookup_session_for_task
 
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
@@ -41,9 +40,9 @@ class TestLookupSessionForTask:
 
         assert lookup_session_for_task("task-missing") is None
 
-    @patch("rhesis.backend.tasks.architect_progress._get_redis")
+    @patch("rhesis.backend.tasks.architect.progress._get_redis")
     def test_returns_none_on_invalid_json(self, mock_get_redis):
-        from rhesis.backend.tasks.architect_progress import lookup_session_for_task
+        from rhesis.backend.tasks.architect.progress import lookup_session_for_task
 
         mock_redis = MagicMock()
         mock_redis.get.return_value = b"not-valid-json"
@@ -51,9 +50,9 @@ class TestLookupSessionForTask:
 
         assert lookup_session_for_task("task-bad") is None
 
-    @patch("rhesis.backend.tasks.architect_progress._get_redis")
+    @patch("rhesis.backend.tasks.architect.progress._get_redis")
     def test_returns_none_when_session_id_missing(self, mock_get_redis):
-        from rhesis.backend.tasks.architect_progress import lookup_session_for_task
+        from rhesis.backend.tasks.architect.progress import lookup_session_for_task
 
         mock_redis = MagicMock()
         mock_redis.get.return_value = json.dumps({"org_id": "org-1"})
@@ -61,11 +60,9 @@ class TestLookupSessionForTask:
 
         assert lookup_session_for_task("task-no-sid") is None
 
-    @patch("rhesis.backend.tasks.architect_progress._get_redis")
+    @patch("rhesis.backend.tasks.architect.progress._get_redis")
     def test_returns_none_on_redis_failure(self, mock_get_redis):
-        # Redis unavailable / connection error must never propagate —
-        # background workers should keep running for non-architect callers.
-        from rhesis.backend.tasks.architect_progress import lookup_session_for_task
+        from rhesis.backend.tasks.architect.progress import lookup_session_for_task
 
         mock_get_redis.side_effect = RuntimeError("redis down")
 
@@ -78,16 +75,14 @@ class TestLookupSessionForTask:
 
 
 class TestPublishTaskProgress:
-    @patch("rhesis.backend.tasks.architect_progress.publish_event")
-    @patch("rhesis.backend.tasks.architect_progress.lookup_session_for_task")
-    def test_publishes_to_session_channel(
-        self, mock_lookup, mock_publish
-    ):
+    @patch("rhesis.backend.tasks.architect.progress.publish_event")
+    @patch("rhesis.backend.tasks.architect.progress.lookup_session_for_task")
+    def test_publishes_to_session_channel(self, mock_lookup, mock_publish):
         from rhesis.backend.app.schemas.websocket import (
             ChannelTarget,
             EventType,
         )
-        from rhesis.backend.tasks.architect_progress import publish_task_progress
+        from rhesis.backend.tasks.architect.progress import publish_task_progress
 
         mock_lookup.return_value = "sess-1"
 
@@ -109,12 +104,10 @@ class TestPublishTaskProgress:
         assert isinstance(target, ChannelTarget)
         assert target.channel == "architect:sess-1"
 
-    @patch("rhesis.backend.tasks.architect_progress.publish_event")
-    @patch("rhesis.backend.tasks.architect_progress.lookup_session_for_task")
-    def test_includes_optional_fields_when_provided(
-        self, mock_lookup, mock_publish
-    ):
-        from rhesis.backend.tasks.architect_progress import publish_task_progress
+    @patch("rhesis.backend.tasks.architect.progress.publish_event")
+    @patch("rhesis.backend.tasks.architect.progress.lookup_session_for_task")
+    def test_includes_optional_fields_when_provided(self, mock_lookup, mock_publish):
+        from rhesis.backend.tasks.architect.progress import publish_task_progress
 
         mock_lookup.return_value = "sess-1"
         publish_task_progress(
@@ -131,12 +124,10 @@ class TestPublishTaskProgress:
         assert payload["total"] == 8
         assert payload["duration_ms"] == 1234
 
-    @patch("rhesis.backend.tasks.architect_progress.publish_event")
-    @patch("rhesis.backend.tasks.architect_progress.lookup_session_for_task")
-    def test_skips_optional_fields_when_omitted(
-        self, mock_lookup, mock_publish
-    ):
-        from rhesis.backend.tasks.architect_progress import publish_task_progress
+    @patch("rhesis.backend.tasks.architect.progress.publish_event")
+    @patch("rhesis.backend.tasks.architect.progress.lookup_session_for_task")
+    def test_skips_optional_fields_when_omitted(self, mock_lookup, mock_publish):
+        from rhesis.backend.tasks.architect.progress import publish_task_progress
 
         mock_lookup.return_value = "sess-1"
         publish_task_progress(task_id="t", status="started", label="Hi")
@@ -145,10 +136,10 @@ class TestPublishTaskProgress:
         for key in ("step", "total", "duration_ms"):
             assert key not in payload, f"{key} should not be set when not provided"
 
-    @patch("rhesis.backend.tasks.architect_progress.publish_event")
-    @patch("rhesis.backend.tasks.architect_progress.lookup_session_for_task")
+    @patch("rhesis.backend.tasks.architect.progress.publish_event")
+    @patch("rhesis.backend.tasks.architect.progress.lookup_session_for_task")
     def test_silent_noop_when_no_session(self, mock_lookup, mock_publish):
-        from rhesis.backend.tasks.architect_progress import publish_task_progress
+        from rhesis.backend.tasks.architect.progress import publish_task_progress
 
         mock_lookup.return_value = None
         publish_task_progress(
@@ -158,14 +149,10 @@ class TestPublishTaskProgress:
         )
         mock_publish.assert_not_called()
 
-    @patch("rhesis.backend.tasks.architect_progress.publish_event")
-    @patch("rhesis.backend.tasks.architect_progress.lookup_session_for_task")
-    def test_skips_lookup_when_session_id_provided(
-        self, mock_lookup, mock_publish
-    ):
-        # Workers that already know the session_id (e.g. cached at task
-        # start) shouldn't pay the Redis read on every event.
-        from rhesis.backend.tasks.architect_progress import publish_task_progress
+    @patch("rhesis.backend.tasks.architect.progress.publish_event")
+    @patch("rhesis.backend.tasks.architect.progress.lookup_session_for_task")
+    def test_skips_lookup_when_session_id_provided(self, mock_lookup, mock_publish):
+        from rhesis.backend.tasks.architect.progress import publish_task_progress
 
         publish_task_progress(
             task_id="task-1",
@@ -177,17 +164,14 @@ class TestPublishTaskProgress:
         assert mock_publish.call_count == 1
         assert mock_publish.call_args.args[0].payload["session_id"] == "sess-cached"
 
-    @patch("rhesis.backend.tasks.architect_progress.publish_event")
-    @patch("rhesis.backend.tasks.architect_progress.lookup_session_for_task")
+    @patch("rhesis.backend.tasks.architect.progress.publish_event")
+    @patch("rhesis.backend.tasks.architect.progress.lookup_session_for_task")
     def test_swallows_publisher_failures(self, mock_lookup, mock_publish):
-        # A Redis publish failure must never raise into the worker —
-        # progress events are best-effort, not load-bearing.
-        from rhesis.backend.tasks.architect_progress import publish_task_progress
+        from rhesis.backend.tasks.architect.progress import publish_task_progress
 
         mock_lookup.return_value = "sess-1"
         mock_publish.side_effect = ConnectionError("redis cluster down")
 
-        # Must not raise.
         publish_task_progress(task_id="t", status="started", label="L")
 
 
@@ -235,8 +219,6 @@ class TestExplorationEmitsProgress:
         result_mock.error = None
         mock_asyncio_run.return_value = result_mock
 
-        # Direct .run() leaves self.request.id empty, so the helper would
-        # short-circuit on ``not task_id``. Stub a synthetic id.
         with (
             patch.object(
                 run_exploration_task,
@@ -251,26 +233,14 @@ class TestExplorationEmitsProgress:
                 create=True,
             ),
         ):
-            run_exploration_task.run(
-                endpoint_id="ep-uuid", strategy="domain_probing"
-            )
+            run_exploration_task.run(endpoint_id="ep-uuid", strategy="domain_probing")
 
         statuses = [call.kwargs.get("status") for call in mock_publish.call_args_list]
         assert "started" in statuses
         assert "progress" in statuses
         assert "completed" in statuses
-        # No session_id is passed — the helper does the Redis lookup
-        # lazily on every call so a late-registered task still gets
-        # picked up mid-run.
-        assert all(
-            "session_id" not in call.kwargs
-            for call in mock_publish.call_args_list
-        )
-        # Every event carries the running task id.
-        assert all(
-            call.kwargs.get("task_id") == "task-abc"
-            for call in mock_publish.call_args_list
-        )
+        assert all("session_id" not in call.kwargs for call in mock_publish.call_args_list)
+        assert all(call.kwargs.get("task_id") == "task-abc" for call in mock_publish.call_args_list)
 
     @patch("rhesis.backend.tasks.endpoint.explore.publish_task_progress")
     @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
@@ -289,10 +259,6 @@ class TestExplorationEmitsProgress:
         mock_asyncio_run,
         mock_publish,
     ):
-        # When invoked outside a real Celery context (e.g. a unit
-        # test that calls ``.run()`` directly), ``self.request.id`` is
-        # empty. We bail out cheaply rather than spamming the helper
-        # with empty-key lookups that can never succeed.
         from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
         mock_crud.get_user.return_value = MagicMock()
@@ -313,9 +279,7 @@ class TestExplorationEmitsProgress:
             ),
             patch.object(run_exploration_task, "update_state"),
         ):
-            run_exploration_task.run(
-                endpoint_id="ep-uuid", strategy="domain_probing"
-            )
+            run_exploration_task.run(endpoint_id="ep-uuid", strategy="domain_probing")
 
         mock_publish.assert_not_called()
 
@@ -363,9 +327,7 @@ class TestExplorationEmitsProgress:
             ),
         ):
             with pytest.raises(RuntimeError):
-                run_exploration_task.run(
-                    endpoint_id="ep-uuid", strategy="domain_probing"
-                )
+                run_exploration_task.run(endpoint_id="ep-uuid", strategy="domain_probing")
 
         statuses = [call.kwargs.get("status") for call in mock_publish.call_args_list]
         assert "failed" in statuses
@@ -409,12 +371,8 @@ class TestPenelopeProgressHandler:
         emitted: list = []
         handler = _PenelopeProgressHandler(lambda *a, **kw: emitted.append((a, kw)))
 
-        await handler.on_tool_start(
-            tool_name="analyze_response", arguments={}
-        )
-        await handler.on_tool_start(
-            tool_name="record_finding", arguments={"text": "..."}
-        )
+        await handler.on_tool_start(tool_name="analyze_response", arguments={})
+        await handler.on_tool_start(tool_name="record_finding", arguments={"text": "..."})
 
         assert emitted == [], "internal Penelope tools should not surface as progress"
 
@@ -434,8 +392,6 @@ class TestPenelopeProgressHandler:
             arguments={"message": long_message},
         )
 
-        # Label should be much shorter than the original message —
-        # otherwise the bubble fills with one giant progress entry.
         assert len(emitted[0]) < len(long_message) / 2
 
     @pytest.mark.asyncio
@@ -451,3 +407,64 @@ class TestPenelopeProgressHandler:
         )
 
         assert emitted == []
+
+
+# ---------------------------------------------------------------------------
+# project_id flow through exploration task
+# ---------------------------------------------------------------------------
+
+
+class TestExplorationProjectIdFlow:
+    """Verify that project_id from tenant context flows to make_target_factory."""
+
+    @patch("rhesis.backend.tasks.endpoint.explore.publish_task_progress")
+    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
+    @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
+    @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
+    @patch("rhesis.backend.tasks.endpoint.explore.get_user_generation_model")
+    @patch("rhesis.backend.tasks.endpoint.explore.crud")
+    def test_passes_project_id_to_target_factory(
+        self,
+        mock_crud,
+        mock_get_model,
+        mock_db_ctx,
+        mock_make_factory,
+        mock_tool_cls,
+        mock_asyncio_run,
+        mock_publish,
+    ):
+        from rhesis.backend.tasks.endpoint.explore import run_exploration_task
+
+        mock_crud.get_user.return_value = MagicMock()
+        mock_get_model.return_value = "vertex_ai/gemini-2.0-flash"
+        mock_db_ctx.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_db_ctx.return_value.__exit__ = MagicMock(return_value=False)
+        result_mock = MagicMock()
+        result_mock.success = True
+        result_mock.content = json.dumps({"findings": {}, "conversation": []})
+        result_mock.error = None
+        mock_asyncio_run.return_value = result_mock
+
+        with (
+            patch.object(
+                run_exploration_task,
+                "get_tenant_context",
+                return_value=("org-1", "user-1", "proj-1"),
+            ),
+            patch.object(run_exploration_task, "update_state"),
+            patch.object(
+                run_exploration_task.request,
+                "id",
+                "task-abc",
+                create=True,
+            ),
+        ):
+            run_exploration_task.run(endpoint_id="ep-uuid", strategy="domain_probing")
+
+        mock_make_factory.assert_called_once_with(
+            org_id="org-1",
+            user_id="user-1",
+            db=mock_db_ctx.return_value.__enter__.return_value,
+            project_id="proj-1",
+        )
