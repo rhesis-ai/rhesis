@@ -29,7 +29,28 @@ Demonstrates:
 
 **Use Case**: When you want to see telemetry in a real API server context.
 
-### 3. LangChain Auto-Instrumentation
+### 3. Pydantic AI Agent
+**File**: `pydantic_ai_example.py`
+
+Demonstrates (see [issue #1831](https://github.com/rhesis-ai/rhesis/issues/1831)):
+- Pydantic AI agent with **structured output** (`ObservabilityBrief`)
+- Optional **tool** (`lookup_observability_snippet`) with explicit tracing
+- **Manual instrumentation** via `@observe` — `ai.agent.invoke` for runs, `ai.tool.invoke` for tools
+- Nested hierarchy under `pydantic_ai_observability_pipeline`
+- OpenAI or Gemini (set `PYDANTIC_AI_MODEL` and the matching API key in `.env`)
+
+Pydantic AI is OTel/OpenInference compatible; this example uses `@observe` so agent and tool
+boundaries show up in Rhesis today. Full `auto_instrument()` coverage is tracked in
+[#1083](https://github.com/rhesis-ai/rhesis/issues/1083).
+
+**Use Case**: Trace Pydantic AI agents with structured outputs and tool calls before native auto-instrumentation lands.
+
+```bash
+uv run --extra pydantic-ai pydantic_ai_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 4. LangChain Auto-Instrumentation
 **File**: `langchain_example.py`
 
 Demonstrates:
@@ -66,6 +87,9 @@ uv sync
 
 # Install with LangChain support
 uv sync --extra langchain
+
+# Install with Pydantic AI support
+uv sync --extra pydantic-ai
 ```
 
 ## Prerequisites - Start the Backend
@@ -126,6 +150,9 @@ uv run --extra fastapi fastapi_example.py
 # Then test with:
 # curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \
 #   -d '{"input": "What is the weather like?", "session_id": "test-123"}'
+
+# Pydantic AI example (manual @observe instrumentation)
+uv run --extra pydantic-ai pydantic_ai_example.py
 
 # LangChain example (auto-instrumentation)
 uv run --extra langchain langchain_example.py
