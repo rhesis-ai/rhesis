@@ -60,7 +60,6 @@ export default function ViewField({
           pl: '16px',
           pr: '12px',
           py: '16px',
-          minHeight: multiline ? 120 : undefined,
           alignItems: multiline ? 'flex-start' : 'center',
         }}
       >

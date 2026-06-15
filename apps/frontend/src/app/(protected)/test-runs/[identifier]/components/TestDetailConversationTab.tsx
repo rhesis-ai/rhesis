@@ -1,18 +1,24 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import {
   TestResultDetail,
-  ConversationTurn,
   Review,
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
-import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
+import type {
+  SpanNode,
+  TraceSummary,
+} from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
+import {
+  isMultiTurnTestResult,
+  resolveConversationSummary,
+} from '@/utils/conversation-from-spans';
 
 interface TestDetailConversationTabProps {
   test: TestResultDetail;
@@ -36,22 +42,27 @@ export default function TestDetailConversationTab({
   isConfirmingReview = false,
 }: TestDetailConversationTabProps) {
   const [traces, setTraces] = useState<TraceSummary[]>([]);
+  const [rootSpans, setRootSpans] = useState<SpanNode[]>([]);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
+  const [tracesLoading, setTracesLoading] = useState(false);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [selectedTurnNumber, setSelectedTurnNumber] = useState<number | null>(
     null
   );
 
+  const isMultiTurn = isMultiTurnTestResult(test, testSetType);
+
   // Fetch traces, trace detail, and span files in one chain.
-  // All state is set together at the end to avoid intermediate renders.
   useEffect(() => {
     setSpanFiles([]);
     setTraces([]);
+    setRootSpans([]);
 
-    if (!test.id || !sessionToken) return;
+    if (!test.id || !sessionToken || !isMultiTurn) return;
 
     const load = async () => {
+      setTracesLoading(true);
       try {
         const factory = new ApiClientFactory(sessionToken);
         const telemetryClient = factory.getTelemetryClient();
@@ -65,15 +76,17 @@ export default function TestDetailConversationTab({
         );
 
         let files: FileResponse[][] = [];
+        let spans: SpanNode[] = [];
         if (sorted.length > 0) {
           const detail = await telemetryClient.getTrace(
             sorted[0].trace_id,
             sorted[0].project_id
           );
+          spans = detail.root_spans ?? [];
 
           const filesClient = factory.getFilesClient();
           files = await Promise.all(
-            detail.root_spans.map(async span => {
+            spans.map(async span => {
               if (!span.id) return [] as FileResponse[];
               try {
                 return await filesClient.getSpanFiles(span.id);
@@ -85,31 +98,37 @@ export default function TestDetailConversationTab({
         }
 
         setTraces(sorted);
+        setRootSpans(spans);
         setSpanFiles(files);
       } catch {
-        // Silently fail — traces and files are optional
+        // Traces are optional; conversation may still come from test_output
+      } finally {
+        setTracesLoading(false);
       }
     };
 
-    load();
-  }, [test.id, sessionToken]);
+    void load();
+  }, [test.id, sessionToken, isMultiTurn]);
 
-  // Map turn numbers to trace — multi-turn conversations share a single trace
-  // with each turn as a root span, so all turns map to the same trace
+  const conversationSummary = useMemo(
+    () => resolveConversationSummary(test, rootSpans, spanFiles),
+    [test, rootSpans, spanFiles]
+  );
+
+  const hasConversation = isMultiTurn && conversationSummary.length > 0;
+
   const turnTraceMap = useMemo(() => {
     const map = new Map<number, TraceSummary>();
     if (traces.length > 0) {
       const trace = traces[0];
-      const conversationTurns =
-        test.test_output?.conversation_summary?.filter(
-          t => t.target_response
-        ) || [];
-      conversationTurns.forEach(turn => {
-        map.set(turn.turn, trace);
-      });
+      conversationSummary
+        .filter(t => t.target_response)
+        .forEach(turn => {
+          map.set(turn.turn, trace);
+        });
     }
     return map;
-  }, [traces, test.test_output?.conversation_summary]);
+  }, [traces, conversationSummary]);
 
   const projectId = traces[0]?.project_id || '';
 
@@ -125,7 +144,6 @@ export default function TestDetailConversationTab({
     [turnTraceMap]
   );
 
-  // Build a map of turn number -> latest review targeting that turn
   const turnReviewMap = useMemo(() => {
     const map = new Map<number, Review>();
     const reviews = test.test_reviews?.reviews || [];
@@ -152,25 +170,40 @@ export default function TestDetailConversationTab({
     return map;
   }, [test.test_reviews]);
 
-  // Determine if this is a multi-turn test
-  const isMultiTurn =
-    testSetType?.toLowerCase().includes('multi-turn') || false;
-
-  // Get conversation summary, merging any span files as penelope_files
-  const baseConversation = test.test_output?.conversation_summary;
-  const conversationSummary: ConversationTurn[] | undefined = useMemo(() => {
-    if (!baseConversation) return undefined;
-    if (spanFiles.length === 0) return baseConversation;
-    return baseConversation.map((turn, i) => ({
-      ...turn,
-      penelope_files: spanFiles[i] ?? [],
-    }));
-  }, [baseConversation, spanFiles]);
-  const hasConversation =
-    isMultiTurn && conversationSummary && conversationSummary.length > 0;
-
-  // If not a multi-turn test, show message
   if (!isMultiTurn) {
+    const singleTurnSummary = [
+      {
+        turn: 1,
+        timestamp: '',
+        session_id: '',
+        penelope_reasoning: '',
+        penelope_message: test.test?.prompt?.content ?? '',
+        target_response: test.test_output?.output ?? '',
+        success: test.test_output?.goal_evaluation?.all_criteria_met ?? false,
+      },
+    ];
+
+    return (
+      <Box
+        sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
+      >
+        <ConversationHistory
+          conversationSummary={singleTurnSummary}
+          goalEvaluation={test.test_output?.goal_evaluation}
+          project={project}
+          projectName={projectName}
+          onConfirmAutomatedReview={onConfirmAutomatedReview}
+          hasExistingReview={!!test.last_review}
+          reviewMatchesAutomated={test.matches_review === true}
+          isConfirmingReview={isConfirmingReview}
+          maxHeight="100%"
+          sessionToken={sessionToken}
+        />
+      </Box>
+    );
+  }
+
+  if (tracesLoading && !hasConversation) {
     return (
       <Box
         sx={{
@@ -181,14 +214,11 @@ export default function TestDetailConversationTab({
           minHeight: 300,
         }}
       >
-        <Typography variant="body1" color="text.secondary">
-          Conversation history is only available for multi-turn tests.
-        </Typography>
+        <CircularProgress size={32} />
       </Box>
     );
   }
 
-  // If no conversation available
   if (!hasConversation) {
     return (
       <Box

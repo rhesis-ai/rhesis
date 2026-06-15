@@ -7,6 +7,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Paper,
   ToggleButtonGroup,
   ToggleButton,
   useTheme,
@@ -25,7 +26,6 @@ import {
   TableCell,
   Tooltip,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { alpha } from '@mui/material/styles';
@@ -319,24 +319,49 @@ export default function TestDetailMetricsTab({
   return (
     <Box sx={{ p: 3 }}>
       {/* Filter Toggle - Only for Single-turn tests */}
-      <Box
-        sx={{
-          mb: 3,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography variant="h6" fontWeight={600}>
-          Metrics Overview
-        </Typography>
-        {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
+      {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
+        <Box sx={{ mb: 3 }}>
           <ToggleButtonGroup
             value={filterStatus}
             exclusive
             onChange={handleFilterChange}
-            size="small"
             aria-label="metric status filter"
+            sx={{
+              borderRadius: '999px',
+              border: '1px solid',
+              borderColor: 'primary.main',
+              overflow: 'hidden',
+              height: '38px',
+              '& .MuiToggleButtonGroup-grouped': {
+                border: 'none',
+                borderLeft: '1px solid',
+                borderLeftColor: 'primary.main',
+                borderRadius: 0,
+                px: 2,
+                py: 1,
+                fontWeight: 700,
+                fontSize: '14px',
+                lineHeight: '22px',
+                textTransform: 'none',
+                color: 'primary.main',
+                '&:first-of-type': {
+                  borderLeft: 'none',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: alpha(
+                    theme.palette.primary.main,
+                    theme.palette.action.hoverOpacity
+                  ),
+                },
+              },
+            }}
           >
             <ToggleButton value="all" aria-label="all metrics">
               All
@@ -348,8 +373,8 @@ export default function TestDetailMetricsTab({
               Failed
             </ToggleButton>
           </ToggleButtonGroup>
-        )}
-      </Box>
+        </Box>
+      )}
       {/* Summary Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid
@@ -358,7 +383,14 @@ export default function TestDetailMetricsTab({
             md: behaviorStats.hasMultipleBehaviors ? 4 : 6,
           }}
         >
-          <Card>
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: '12px',
+              borderColor: 'divider',
+              boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+            }}
+          >
             <CardContent>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Overall Performance
@@ -381,7 +413,14 @@ export default function TestDetailMetricsTab({
                 md: 4,
               }}
             >
-              <Card>
+              <Card
+                variant="outlined"
+                sx={{
+                  borderRadius: '12px',
+                  borderColor: 'divider',
+                  boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+                }}
+              >
                 <CardContent>
                   <Typography
                     variant="body2"
@@ -410,7 +449,14 @@ export default function TestDetailMetricsTab({
                 md: 4,
               }}
             >
-              <Card>
+              <Card
+                variant="outlined"
+                sx={{
+                  borderRadius: '12px',
+                  borderColor: 'divider',
+                  boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+                }}
+              >
                 <CardContent>
                   <Typography
                     variant="body2"
@@ -440,7 +486,14 @@ export default function TestDetailMetricsTab({
               md: 6,
             }}
           >
-            <Card>
+            <Card
+              variant="outlined"
+              sx={{
+                borderRadius: '12px',
+                borderColor: 'divider',
+                boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+              }}
+            >
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
@@ -474,6 +527,9 @@ export default function TestDetailMetricsTab({
             <Card
               sx={{
                 mb: 3,
+                borderRadius: '12px',
+                borderColor: 'divider',
+                boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
                 ...(goalIsOverruled && {
                   borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
                 }),
@@ -492,14 +548,6 @@ export default function TestDetailMetricsTab({
                     mb: 3,
                   }}
                 >
-                  <CheckCircleOutlineIcon
-                    sx={{
-                      color: goalAchievementData.isSuccessful
-                        ? 'success.main'
-                        : 'error.main',
-                      fontSize: theme.typography.body1.fontSize,
-                    }}
-                  />
                   <Typography variant="subtitle1" fontWeight={600}>
                     {goalMetricName}
                   </Typography>
@@ -796,162 +844,173 @@ export default function TestDetailMetricsTab({
         })()}
       {/* Metrics Details Table */}
       {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell width={onReviewMetric ? '15%' : '15%'}>
-                  Status
-                </TableCell>
-                <TableCell width={onReviewMetric ? '28%' : '30%'}>
-                  Metric
-                </TableCell>
-                <TableCell width={onReviewMetric ? '47%' : '55%'}>
-                  Reason
-                </TableCell>
-                {onReviewMetric && <TableCell width="10%" align="right" />}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredMetricsForTable.length === 0 ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            borderRadius: '12px',
+            borderColor: 'divider',
+            boxShadow: '0px 2px 2px rgba(84,90,101,0.25)',
+            bgcolor: 'background.paper',
+            overflow: 'hidden',
+          }}
+        >
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={onReviewMetric ? 4 : 3} align="center">
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ py: 2 }}
-                    >
-                      No metrics found
-                    </Typography>
+                  <TableCell width={onReviewMetric ? '15%' : '15%'}>
+                    Status
                   </TableCell>
+                  <TableCell width={onReviewMetric ? '28%' : '30%'}>
+                    Metric
+                  </TableCell>
+                  <TableCell width={onReviewMetric ? '47%' : '55%'}>
+                    Reason
+                  </TableCell>
+                  {onReviewMetric && <TableCell width="10%" align="right" />}
                 </TableRow>
-              ) : (
-                filteredMetricsForTable.map(metric => {
-                  const metricReview = metricReviewMap.get(metric.name);
-                  const isOverruled = !!metric.fullMetricData.override;
-                  const isConfirmed = !!metricReview && !isOverruled;
+              </TableHead>
+              <TableBody>
+                {filteredMetricsForTable.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={onReviewMetric ? 4 : 3} align="center">
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ py: 2 }}
+                      >
+                        No metrics found
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredMetricsForTable.map(metric => {
+                    const metricReview = metricReviewMap.get(metric.name);
+                    const isOverruled = !!metric.fullMetricData.override;
+                    const isConfirmed = !!metricReview && !isOverruled;
 
-                  return (
-                    <TableRow
-                      key={`${metric.behaviorName}-${metric.name}`}
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: theme.palette.action.hover,
-                        },
-                        ...(isOverruled && {
-                          borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
-                        }),
-                        ...(isConfirmed && {
-                          borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
-                        }),
-                      }}
-                    >
-                      <TableCell>
-                        <Tooltip
-                          title={
-                            isOverruled
-                              ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
-                              : isConfirmed
-                                ? `Confirmed by ${metricReview?.user?.name}`
-                                : ''
-                          }
-                          disableHoverListener={!metricReview}
-                          arrow
-                        >
-                          <Box>
-                            <StatusChip
-                              passed={metric.passed}
-                              label={metric.passed ? 'Pass' : 'Fail'}
-                              size="small"
-                              variant="filled"
-                              sx={{ minWidth: theme.spacing(10) }}
-                            />
-                          </Box>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip
-                          title={metric.description || ''}
-                          arrow
-                          placement="top"
-                          enterDelay={300}
-                          leaveDelay={0}
-                          disableHoverListener={!metric.description}
-                        >
-                          <Typography
-                            variant="body2"
-                            fontWeight={500}
-                            sx={{
-                              ...(onReviewMetric && {
-                                color: theme.palette.primary.main,
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  textDecoration: 'underline',
-                                },
-                              }),
-                            }}
-                            onClick={
-                              onReviewMetric
-                                ? () => onReviewMetric(metric.name)
-                                : undefined
+                    return (
+                      <TableRow
+                        key={`${metric.behaviorName}-${metric.name}`}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: theme.palette.action.hover,
+                          },
+                          ...(isOverruled && {
+                            borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
+                          }),
+                          ...(isConfirmed && {
+                            borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
+                          }),
+                        }}
+                      >
+                        <TableCell>
+                          <Tooltip
+                            title={
+                              isOverruled
+                                ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
+                                : isConfirmed
+                                  ? `Confirmed by ${metricReview?.user?.name}`
+                                  : ''
                             }
+                            disableHoverListener={!metricReview}
+                            arrow
                           >
-                            {metric.name}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        {metric.fullMetricData.reason ? (
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              wordBreak: 'break-word',
-                            }}
-                          >
-                            {metric.fullMetricData.reason}
-                          </Typography>
-                        ) : (
-                          <Typography
-                            variant="caption"
-                            color="text.disabled"
-                            fontStyle="italic"
-                          >
-                            No reason provided
-                          </Typography>
-                        )}
-                      </TableCell>
-                      {onReviewMetric && (
-                        <TableCell align="right">
-                          <Tooltip title="Review this metric">
-                            <IconButton
-                              size="small"
-                              onClick={() => onReviewMetric(metric.name)}
-                              sx={{
-                                padding: 0.5,
-                                color: theme.palette.text.secondary,
-                                '&:hover': {
-                                  color: theme.palette.primary.main,
-                                  backgroundColor: alpha(
-                                    theme.palette.primary.main,
-                                    theme.palette.action.hoverOpacity
-                                  ),
-                                },
-                              }}
-                            >
-                              <RateReviewIcon
-                                sx={{ fontSize: theme.spacing(2) }}
+                            <Box>
+                              <StatusChip
+                                passed={metric.passed}
+                                label={metric.passed ? 'Pass' : 'Fail'}
+                                size="small"
+                                variant="filled"
+                                sx={{ minWidth: theme.spacing(10) }}
                               />
-                            </IconButton>
+                            </Box>
                           </Tooltip>
                         </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                        <TableCell>
+                          <Tooltip
+                            title={metric.description || ''}
+                            arrow
+                            placement="top"
+                            enterDelay={300}
+                            leaveDelay={0}
+                            disableHoverListener={!metric.description}
+                          >
+                            <Typography
+                              variant="body2"
+                              fontWeight={500}
+                              sx={{
+                                ...(onReviewMetric && {
+                                  color: theme.palette.primary.main,
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    textDecoration: 'underline',
+                                  },
+                                }),
+                              }}
+                              onClick={
+                                onReviewMetric
+                                  ? () => onReviewMetric(metric.name)
+                                  : undefined
+                              }
+                            >
+                              {metric.name}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          {metric.fullMetricData.reason ? (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {metric.fullMetricData.reason}
+                            </Typography>
+                          ) : (
+                            <Typography
+                              variant="caption"
+                              color="text.disabled"
+                              fontStyle="italic"
+                            >
+                              No reason provided
+                            </Typography>
+                          )}
+                        </TableCell>
+                        {onReviewMetric && (
+                          <TableCell align="right">
+                            <Tooltip title="Review this metric">
+                              <IconButton
+                                size="small"
+                                onClick={() => onReviewMetric(metric.name)}
+                                sx={{
+                                  padding: 0.5,
+                                  color: theme.palette.text.secondary,
+                                  '&:hover': {
+                                    color: theme.palette.primary.main,
+                                    backgroundColor: alpha(
+                                      theme.palette.primary.main,
+                                      theme.palette.action.hoverOpacity
+                                    ),
+                                  },
+                                }}
+                              >
+                                <RateReviewIcon
+                                  sx={{ fontSize: theme.spacing(2) }}
+                                />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
       )}
     </Box>
   );

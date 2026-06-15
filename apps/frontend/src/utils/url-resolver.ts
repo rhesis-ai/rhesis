@@ -20,13 +20,15 @@ export function resolveLocalhostUrl(url: string): string {
 
 /**
  * Gets the API base URL for client-side requests with localhost resolution
- * Uses NEXT_PUBLIC_API_BASE_URL environment variable or falls back to default
+ * Uses runtime config injected into window.__ENV__ or falls back to default
  *
  * @returns Resolved API base URL
  */
 export function getClientApiBaseUrl(): string {
   const baseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    typeof window === 'undefined'
+      ? process.env.API_BASE_URL || 'http://localhost:8080'
+      : window.__ENV__?.apiBaseUrl || 'http://localhost:8080';
   return resolveLocalhostUrl(baseUrl);
 }
 
@@ -43,7 +45,7 @@ export function getServerBackendUrl(): string {
 
 /**
  * Gets the appropriate base URL based on execution environment
- * - Client-side: Uses NEXT_PUBLIC_API_BASE_URL for browser-to-host communication
+ * - Client-side: Uses runtime config for browser-to-host communication
  * - Server-side: Uses BACKEND_URL for container-to-container communication
  *
  * @returns Resolved base URL appropriate for the current environment
@@ -53,7 +55,7 @@ export function getBaseUrl(): string {
     // Server-side: use BACKEND_URL for container-to-container communication
     return getServerBackendUrl();
   } else {
-    // Client-side: use NEXT_PUBLIC_API_BASE_URL for browser-to-host communication
+    // Client-side: use runtime config for browser-to-host communication
     return getClientApiBaseUrl();
   }
 }

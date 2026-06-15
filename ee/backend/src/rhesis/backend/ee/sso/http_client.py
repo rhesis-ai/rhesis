@@ -11,26 +11,17 @@ rebinding attacks.
 
 import ipaddress
 import logging
-import os
 import socket
 from typing import List, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import httpx
 
+from rhesis.backend.app.config.settings import get_application_settings
+
 logger = logging.getLogger(__name__)
 
-_DEV_ENVIRONMENTS = ("local", "test", "development")
 _LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
-
-
-def is_dev_environment() -> bool:
-    """True when ENVIRONMENT is local, test, or development.
-
-    Used by SSO modules to relax localhost/HTTPS restrictions that are only
-    appropriate for production deployments.
-    """
-    return os.getenv("ENVIRONMENT", "").lower() in _DEV_ENVIRONMENTS
 
 _BLOCKED_NETWORKS = [
     # RFC 1918 private address space -- VPCs, Kubernetes pods, Docker networks,
@@ -95,7 +86,7 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
     """Resolve hostname, validate all IPs against the blocklist, and return
     the raw getaddrinfo results for pinning into the transport.
 
-    In development environments (ENVIRONMENT=local/test/development), localhost
+    In development environments (BACKEND_ENV=local/development/staging), localhost
     is allowed through the blocklist so that local IdP instances (e.g. Keycloak
     on localhost:8180) can be reached.
 
@@ -106,7 +97,8 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
         raise SSRFError(f"Blocked hostname: {hostname}")
 
     skip_blocklist = (
-        is_dev_environment() and hostname.lower() in _LOCALHOST_NAMES
+        get_application_settings().is_development
+        and hostname.lower() in _LOCALHOST_NAMES
     )
 
     try:
@@ -265,7 +257,10 @@ class SSOHttpClient:
         addr_infos = _resolve_and_validate(hostname)
 
         is_https = parsed.scheme == "https"
-        is_localhost_dev = is_dev_environment() and hostname.lower() in _LOCALHOST_NAMES
+        is_localhost_dev = (
+            get_application_settings().is_development
+            and hostname.lower() in _LOCALHOST_NAMES
+        )
 
         if is_https:
             # Keep hostname URL intact so httpx presents the correct SNI and

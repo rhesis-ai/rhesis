@@ -147,6 +147,22 @@ def _prepare_item_data(
     # Convert Pydantic to dict
     data = _convert_pydantic_to_dict(item_data)
 
+    # Drop keys that have no corresponding ORM column on this model.
+    # This handles schema fields (e.g. project_id on Base) that are absent from
+    # models like Organization, User, and Project itself.
+    model_columns = set(inspect(model).columns.keys())
+    dropped_keys = [k for k in data if k not in model_columns]
+    if dropped_keys:
+        # Surfaced at debug level so an unexpected drop (e.g. a mistyped column or a
+        # relationship-style input like "tags"/"tests") is discoverable without
+        # changing behavior.
+        logger.debug(
+            "_prepare_item_data dropped non-column keys for %s: %s",
+            getattr(model, "__name__", model),
+            dropped_keys,
+        )
+    data = {k: v for k, v in data.items() if k in model_columns}
+
     # Clean string fields
     data = _clean_string_fields(model, data)
 
@@ -165,6 +181,10 @@ def _prepare_update_data(
     """Prepare item data for update operations."""
     # Convert Pydantic to dict (excluding unset fields for updates)
     data = _convert_pydantic_to_dict_exclude_unset(item_data)
+
+    # project_id is immutable — silently strip it from update payloads so callers
+    # cannot accidentally (or maliciously) change the project scope of a record.
+    data.pop("project_id", None)
 
     # Clean string fields
     data = _clean_string_fields(model, data)
@@ -435,6 +455,7 @@ def get_items_detail(
     sort_order: str = "desc",
     filter: str | None = None,
     nested_relationships: dict = None,
+    selectin_chains: list | None = None,
     organization_id: str = None,
     user_id: str = None,
     secondary_sort_by: str | None = None,
@@ -448,15 +469,20 @@ def get_items_detail(
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+        selectin_chains: List of relationship-name chains to load with nested selectinload.
+                        Use for polymorphic one-to-many collections (e.g. TagsMixin) that
+                        are skipped by with_optimized_loads.
+                        Format: [["_tags_relationship", "tag"], ...]
     """
+    builder = QueryBuilder(db, model).with_optimized_loads(
+        skip_many_to_many=False,
+        skip_one_to_many=True,
+        nested_relationships=nested_relationships,
+    )
+    for chain in selectin_chains or []:
+        builder = builder.with_selectin_chain(*chain)
     return (
-        QueryBuilder(db, model)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=nested_relationships,
-        )
-        .with_organization_filter(organization_id)
+        builder.with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
@@ -1195,3 +1221,39 @@ def create_default_rhesis_model(
         user_id=user_id,
         commit=commit,
     )
+
+
+def validate_same_project(*entities: Any) -> None:
+    """
+    Validate that all supplied ORM instances belong to the same project scope.
+
+    Raises ``ValueError`` when two or more non-NULL ``project_id`` values differ,
+    which would create a cross-project association and break project isolation.
+
+    NULL ``project_id`` (org-wide entity) is compatible with every project — those
+    rows were created before project containers were introduced and remain visible
+    inside any project view.
+
+    Usage::
+
+        validate_same_project(test, test_set)
+        validate_same_project(*tags)
+
+    Args:
+        *entities: ORM model instances to check.  Instances without a
+            ``project_id`` attribute are silently skipped.
+
+    Raises:
+        ValueError: If two or more entities have conflicting non-NULL project_ids.
+    """
+    seen: set = set()
+    for entity in entities:
+        pid = getattr(entity, "project_id", None)
+        if pid is not None:
+            seen.add(str(pid))
+    if len(seen) > 1:
+        raise ValueError(
+            f"Cannot associate entities from different projects: {sorted(seen)}. "
+            "All associated entities must belong to the same project or be org-wide "
+            "(project_id = NULL)."
+        )

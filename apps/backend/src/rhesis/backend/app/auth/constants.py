@@ -13,13 +13,6 @@ class AuthProviderType(str, Enum):
     UNKNOWN = "unknown"
 
 
-# JWT Configuration
-ALGORITHM = "HS256"
-# Short-lived access token (refreshed via refresh token rotation)
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 15)
-)  # fallback to 15 minutes
-
 # Refresh token configuration
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))  # fallback to 7 days
 

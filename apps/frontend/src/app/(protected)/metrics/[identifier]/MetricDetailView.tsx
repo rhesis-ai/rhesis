@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@mui/material/styles';
 import {
   Box,
-  Stack,
   Paper,
+  Stack,
   Typography,
   Button,
   TextField,
@@ -16,17 +16,20 @@ import {
   IconButton,
   Chip,
 } from '@mui/material';
-import InfoIcon from '@mui/icons-material/Info';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import SettingsIcon from '@mui/icons-material/Settings';
-import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
 import BaseTag from '@/components/common/BaseTag';
+import { SectionCard } from '@/components/common/SectionCard';
+import {
+  SectionEditButton,
+  SectionSaveCancelActions,
+} from '@/components/common/SectionCardActions';
+import EditableSectionCard from '@/components/common/EditableSection';
+import TagsField from '@/components/common/TagsField';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -40,47 +43,13 @@ import {
 import { Model } from '@/utils/api-client/interfaces/model';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
+import { TagsClient } from '@/utils/api-client/tags-client';
 import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { generateCopyName } from '@/utils/entity-helpers';
 import { TEST_TYPES } from '@/constants/test-types';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
-
-const SectionHeader = React.memo(
-  ({ icon, title }: { icon: React.ReactNode; title: string }) => {
-    const theme = useTheme();
-    return (
-      <Box
-        sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}
-      >
-        <Box
-          sx={{
-            color: theme.palette.primary.main,
-            display: 'flex',
-            alignItems: 'center',
-            '& > svg': {
-              fontSize: theme.typography.h6.fontSize,
-            },
-          }}
-        >
-          {icon}
-        </Box>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: theme.typography.fontWeightMedium,
-            color: theme.palette.text.primary,
-          }}
-        >
-          {title}
-        </Typography>
-      </Box>
-    );
-  }
-);
-
-SectionHeader.displayName = 'SectionHeader';
 
 const InfoRow = React.memo(
   ({ label, children }: { label: string; children: React.ReactNode }) => {
@@ -123,7 +92,6 @@ InfoRow.displayName = 'InfoRow';
 const EditableSection = React.memo(
   ({
     title,
-    icon,
     section,
     children,
     isEditing,
@@ -134,7 +102,6 @@ const EditableSection = React.memo(
     checkChanges,
   }: {
     title: string;
-    icon: React.ReactNode;
     section: EditableSectionType;
     children: React.ReactNode;
     isEditing: EditableSectionType | null;
@@ -144,116 +111,25 @@ const EditableSection = React.memo(
     isSaving?: boolean;
     checkChanges: () => boolean;
   }) => {
-    const theme = useTheme();
     const hasChanges = isEditing === section ? checkChanges() : false;
-    return (
-      <Paper
-        sx={{
-          p: theme.spacing(3),
-          position: 'relative',
-          borderRadius: theme.shape.borderRadius,
-          bgcolor: theme.palette.background.paper,
-          boxShadow: theme.shadows[1],
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: theme.spacing(3),
-            pb: theme.spacing(2),
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          }}
-        >
-          <SectionHeader icon={icon} title={title} />
-          {!isEditing && (
-            <Button
-              startIcon={<EditIcon />}
-              onClick={() => onEdit(section)}
-              variant="outlined"
-              size="small"
-              sx={{
-                color: theme.palette.primary.main,
-                borderColor: theme.palette.primary.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.light,
-                  borderColor: theme.palette.primary.main,
-                },
-              }}
-            >
-              Edit Section
-            </Button>
-          )}
-        </Box>
+    const actions =
+      isEditing === section ? (
+        <SectionSaveCancelActions
+          onSave={onConfirm}
+          onCancel={onCancel}
+          isSaving={isSaving}
+          saveDisabled={!hasChanges}
+        />
+      ) : isEditing === null ? (
+        <SectionEditButton onClick={() => onEdit(section)} />
+      ) : null;
 
-        {isEditing === section ? (
-          <Box>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing(3),
-                p: theme.spacing(2),
-                bgcolor: theme.palette.action.hover,
-                borderRadius: theme.shape.borderRadius,
-                mb: theme.spacing(3),
-                border: `1px solid ${theme.palette.divider}`,
-              }}
-            >
-              {children}
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: theme.spacing(1),
-                mt: theme.spacing(2),
-              }}
-            >
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<CancelIcon />}
-                onClick={onCancel}
-                disabled={isSaving}
-                sx={{
-                  borderColor: theme.palette.error.main,
-                  '&:hover': {
-                    backgroundColor: theme.palette.error.light,
-                    borderColor: theme.palette.error.main,
-                  },
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<CheckIcon />}
-                onClick={onConfirm}
-                disabled={isSaving || !hasChanges}
-                sx={{
-                  bgcolor: theme.palette.primary.main,
-                  '&:hover': {
-                    bgcolor: theme.palette.primary.dark,
-                  },
-                  '&.Mui-disabled': {
-                    bgcolor: theme.palette.action.disabledBackground,
-                    color: theme.palette.action.disabled,
-                  },
-                }}
-              >
-                {isSaving ? 'Saving...' : 'Save Section'}
-              </Button>
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {children}
-          </Box>
-        )}
-      </Paper>
+    return (
+      <SectionCard title={title} actions={actions ?? undefined}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {children}
+        </Box>
+      </SectionCard>
     );
   }
 );
@@ -284,7 +160,7 @@ interface StepWithId {
   content: string;
 }
 
-export type MetricDetailViewMode = 'page' | 'embedded';
+export type MetricDetailViewMode = 'page' | 'embedded' | 'content';
 
 export interface MetricDetailViewProps {
   metricId: string;
@@ -293,6 +169,10 @@ export interface MetricDetailViewProps {
   onClose?: () => void;
   /** Called after a successful save so the parent can refresh summaries. */
   onSaved?: () => void;
+  /** Optional tab nav rendered above the detail body in page mode. */
+  tabNav?: React.ReactNode;
+  /** Optional content to replace the detail body (e.g. for secondary tabs). */
+  tabBody?: React.ReactNode;
 }
 
 export function MetricDetailView({
@@ -300,6 +180,8 @@ export function MetricDetailView({
   mode = 'page',
   onClose,
   onSaved,
+  tabNav,
+  tabBody,
 }: MetricDetailViewProps) {
   const { data: session } = useSession();
   const theme = useTheme();
@@ -459,16 +341,7 @@ export function MetricDetailView({
       }
     }
 
-    if (isEditing === 'general') {
-      const currentTags = editData.tags || [];
-      const originalTags = metric.tags?.map(tag => tag.name) || [];
-      if (
-        currentTags.length !== originalTags.length ||
-        !currentTags.every(tag => originalTags.includes(tag))
-      ) {
-        return true;
-      }
-    } else if (isEditing === 'evaluation') {
+    if (isEditing === 'evaluation') {
       if (editData.model_id && editData.model_id !== metric.model_id) {
         return true;
       }
@@ -608,10 +481,51 @@ export function MetricDetailView({
     []
   );
 
-  // Memoize the tag names to prevent unnecessary re-renders in BaseTag
   const tagNames = React.useMemo(
     () => metric?.tags?.map(tag => tag.name) || [],
     [metric?.tags]
+  );
+
+  const handleTagsSave = React.useCallback(
+    async (draft: { tagNames: string[] }) => {
+      if (!metric || !session?.session_token) return;
+      const tagsClient = new TagsClient(session.session_token);
+      const currentTagObjects = metric.tags || [];
+      const currentTagMap = new Map(
+        currentTagObjects.map(tag => [tag.name, tag])
+      );
+      const toRemove = tagNames.filter(n => !draft.tagNames.includes(n));
+      const toAdd = draft.tagNames.filter(n => !tagNames.includes(n));
+
+      for (const name of toRemove) {
+        const tag = currentTagMap.get(name);
+        if (tag) {
+          await tagsClient.removeTagFromEntity(
+            EntityType.METRIC,
+            metric.id,
+            tag.id
+          );
+        }
+      }
+      for (const name of toAdd) {
+        await tagsClient.assignTagToEntity(EntityType.METRIC, metric.id, {
+          name,
+          organization_id: metric.organization_id,
+          user_id: session.user?.id as UUID | undefined,
+        });
+      }
+
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const updatedMetric = await clientFactory
+        .getMetricsClient()
+        .getMetric(metric.id);
+      setMetric(updatedMetric as MetricDetail);
+      notifications.show('Tags updated', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+    },
+    [metric, session, tagNames, notifications]
   );
 
   const handleEdit = React.useCallback(
@@ -626,11 +540,7 @@ export function MetricDetailView({
       // Only set editData for select fields (model, score_type, etc.)
       let sectionData: Partial<EditData> = {};
 
-      if (section === 'general') {
-        sectionData = {
-          tags: tagNames,
-        };
-      } else if (section === 'evaluation') {
+      if (section === 'evaluation') {
         sectionData = {
           model_id: metric.model_id,
         };
@@ -775,50 +685,6 @@ export function MetricDetailView({
       const metricsClient = clientFactory.getMetricsClient();
       await metricsClient.updateMetric(metric.id, dataToSend);
 
-      // Handle tag updates separately if tags changed in general section
-      if (isEditing === 'general' && editData.tags) {
-        const tagsClient = clientFactory.getTagsClient();
-        const currentTagNames = tagNames;
-        const newTagNames = editData.tags;
-
-        // Get current tag objects
-        const currentTagObjects = metric.tags || [];
-        const currentTagMap = new Map(
-          currentTagObjects.map(tag => [tag.name, tag])
-        );
-
-        // Tags to remove
-        const tagsToRemove = currentTagNames.filter(
-          tagName => !newTagNames.includes(tagName)
-        );
-
-        // Tags to add
-        const tagsToAdd = newTagNames.filter(
-          tagName => !currentTagNames.includes(tagName)
-        );
-
-        // Remove tags
-        for (const tagName of tagsToRemove) {
-          const tag = currentTagMap.get(tagName);
-          if (tag) {
-            await tagsClient.removeTagFromEntity(
-              EntityType.METRIC,
-              metric.id,
-              tag.id
-            );
-          }
-        }
-
-        // Add new tags
-        for (const tagName of tagsToAdd) {
-          await tagsClient.assignTagToEntity(EntityType.METRIC, metric.id, {
-            name: tagName,
-            organization_id: metric.organization_id,
-            user_id: session.user?.id as UUID | undefined,
-          });
-        }
-      }
-
       const updatedMetric = await metricsClient.getMetric(metric.id);
       setMetric(updatedMetric as MetricDetail);
       setIsEditing(null);
@@ -915,11 +781,6 @@ export function MetricDetailView({
     }
   }, [session?.session_token, metric, notifications, router]);
 
-  // Memoize icons to prevent recreation
-  const infoIcon = <InfoIcon />;
-  const assessmentIcon = <AssessmentIcon />;
-  const settingsIcon = <SettingsIcon />;
-
   if (loading) {
     if (mode === 'embedded') {
       return (
@@ -995,28 +856,12 @@ export function MetricDetailView({
 
   const detailBody = (
     <Stack direction="column" spacing={3}>
-      {/* Action buttons */}
-      {mode === 'page' ? (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="outlined"
-            startIcon={<ContentCopyIcon />}
-            onClick={handleDuplicate}
-            disabled={isDuplicating || !!isEditing}
-            size="small"
-          >
-            {isDuplicating ? 'Duplicating...' : 'Duplicate'}
-          </Button>
-        </Box>
-      ) : null}
-
       {/* Main content */}
       <Box sx={{ flex: 1 }}>
         <Stack spacing={3}>
           {/* General Information Section */}
           <EditableSection
             title="General Information"
-            icon={infoIcon}
             section="general"
             isEditing={isEditing}
             onEdit={handleEdit}
@@ -1059,36 +904,32 @@ export function MetricDetailView({
                 <Typography>{metric.description || '-'}</Typography>
               )}
             </InfoRow>
-
-            <InfoRow label="Tags">
-              {isEditing === 'general' ? (
-                <BaseTag
-                  value={editData.tags || []}
-                  onChange={newTags =>
-                    setEditData(prev => ({ ...prev, tags: newTags }))
-                  }
-                  placeholder="Add tags..."
-                  chipColor="primary"
-                  addOnBlur
-                  delimiters={[',', 'Enter']}
-                  size="small"
-                />
-              ) : (
-                <BaseTag
-                  value={tagNames}
-                  onChange={() => {}}
-                  placeholder="Add tags..."
-                  chipColor="primary"
-                  disableEdition={true}
-                />
-              )}
-            </InfoRow>
           </EditableSection>
+
+          {/* Tags Section */}
+          <EditableSectionCard
+            title="Tags"
+            initialValue={{ tagNames }}
+            onSave={handleTagsSave}
+            isDirty={(draft, initial) =>
+              JSON.stringify(draft.tagNames.slice().sort()) !==
+              JSON.stringify(initial.tagNames.slice().sort())
+            }
+          >
+            {({ draft, setDraft, isEditing: isTagsEditing }) => (
+              <TagsField
+                tagNames={draft.tagNames}
+                isEditing={isTagsEditing}
+                onChange={names => setDraft(d => ({ ...d, tagNames: names }))}
+                helperText="These tags help categorize and find this metric"
+                emptyLabel="No tags"
+              />
+            )}
+          </EditableSectionCard>
 
           {/* Evaluation Process Section */}
           <EditableSection
             title="Evaluation Process"
-            icon={assessmentIcon}
             section="evaluation"
             isEditing={isEditing}
             onEdit={handleEdit}
@@ -1292,7 +1133,6 @@ export function MetricDetailView({
           {/* Result Configuration Section */}
           <EditableSection
             title="Result Configuration"
-            icon={settingsIcon}
             section="configuration"
             isEditing={isEditing}
             onEdit={handleEdit}
@@ -1785,6 +1625,10 @@ export function MetricDetailView({
     );
   }
 
+  if (mode === 'content') {
+    return <>{detailBody}</>;
+  }
+
   return (
     <PageLayout
       title={metric.name}
@@ -1792,8 +1636,21 @@ export function MetricDetailView({
         { label: 'Metrics', href: '/metrics' },
         { label: metric.name, href: `/metrics/${metricId}` },
       ]}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<ContentCopyIcon />}
+            tooltip="Duplicate"
+            aria-label="Duplicate metric"
+            onClick={handleDuplicate}
+            loading={isDuplicating}
+            disabled={!!isEditing}
+          />
+        </FabGroup>
+      }
     >
-      {detailBody}
+      {tabNav && <Box sx={{ mb: 2 }}>{tabNav}</Box>}
+      {tabBody !== undefined ? tabBody : detailBody}
     </PageLayout>
   );
 }

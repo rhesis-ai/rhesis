@@ -198,9 +198,9 @@ module "gke_dev" {
   service_cidr           = local.cidrs.dev.services
   wireguard_cidr         = local.cidrs.wireguard.network
   extra_authorized_cidrs = ["10.2.1.200/32"]
-  machine_type           = "e2-medium"
-  min_node_count         = 1
-  max_node_count         = 2
+  machine_type           = "e2-standard-2"
+  min_node_count         = 2
+  max_node_count         = 6
   deletion_protection    = var.gke_deletion_protection.dev
 
   depends_on = [module.dev]

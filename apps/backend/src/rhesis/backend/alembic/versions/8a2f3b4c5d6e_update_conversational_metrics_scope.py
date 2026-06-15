@@ -27,9 +27,7 @@ Create Date: 2025-11-13
 from typing import Sequence, Union
 
 from alembic import op
-from sqlalchemy.orm import Session
-
-from rhesis.backend.app import models
+from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision: str = "8a2f3b4c5d6e"
@@ -58,48 +56,18 @@ def upgrade() -> None:
     """
     Update specified metrics to have Multi-Turn scope across all organizations.
 
-    This operation is idempotent and will update metrics that match the names
-    in METRICS_TO_UPDATE to have metric_scope = ["Multi-Turn"].
+    Uses raw SQL so this migration remains correct even when the ORM model
+    has columns (e.g. project_id) that do not yet exist in the database at
+    the point in the migration chain where this revision runs.
     """
-    bind = op.get_bind()
-    session = Session(bind=bind)
-
-    try:
-        print("\n🔄 Updating metrics to Multi-Turn scope...")
-        print(f"   Metrics to update: {len(METRICS_TO_UPDATE)}\n")
-
-        updated_count = 0
-        not_found_count = 0
-
-        for metric_name in METRICS_TO_UPDATE:
-            # Find all metrics with this name across all organizations
-            metrics = session.query(models.Metric).filter(models.Metric.name == metric_name).all()
-
-            if metrics:
-                for metric in metrics:
-                    metric.metric_scope = ["Multi-Turn"]
-                    updated_count += 1
-
-                print(f"  ✓ Updated '{metric_name}' ({len(metrics)} org(s))")
-            else:
-                not_found_count += 1
-                print(f"  ⚠ Metric '{metric_name}' not found in any organization")
-
-        # Commit all changes
-        session.commit()
-
-        print("\n✅ Metric scope update complete!")
-        print(f"   Updated: {updated_count} metric(s) across all organizations")
-        if not_found_count > 0:
-            print(f"   Not found: {not_found_count} metric name(s)")
-        print()
-
-    except Exception as e:
-        print(f"\n❌ Migration failed: {e}\n")
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    for metric_name in METRICS_TO_UPDATE:
+        op.execute(
+            text(
+                "UPDATE metric SET metric_scope = CAST(:scope AS JSON) "
+                "WHERE name = :name AND deleted_at IS NULL"
+            ).bindparams(scope='["Multi-Turn"]', name=metric_name)
+        )
+    print(f"Updated {len(METRICS_TO_UPDATE)} metric name(s) to Multi-Turn scope")
 
 
 def downgrade() -> None:
@@ -109,36 +77,11 @@ def downgrade() -> None:
     WARNING: This will set all specified metrics back to ["Single-Turn"] scope.
     Only use this if you need to roll back the migration.
     """
-    bind = op.get_bind()
-    session = Session(bind=bind)
-
-    try:
-        print("\n🔄 Reverting metrics to Single-Turn scope...")
-        print(f"   Metrics to revert: {len(METRICS_TO_UPDATE)}\n")
-
-        reverted_count = 0
-
-        for metric_name in METRICS_TO_UPDATE:
-            # Find all metrics with this name across all organizations
-            metrics = session.query(models.Metric).filter(models.Metric.name == metric_name).all()
-
-            if metrics:
-                for metric in metrics:
-                    metric.metric_scope = ["Single-Turn"]
-                    reverted_count += 1
-
-                print(f"  ✓ Reverted '{metric_name}' ({len(metrics)} org(s))")
-
-        # Commit all changes
-        session.commit()
-
-        print("\n✅ Metric scope revert complete!")
-        print(f"   Reverted: {reverted_count} metric(s)")
-        print()
-
-    except Exception as e:
-        print(f"\n❌ Downgrade failed: {e}\n")
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    for metric_name in METRICS_TO_UPDATE:
+        op.execute(
+            text(
+                "UPDATE metric SET metric_scope = CAST(:scope AS JSON) "
+                "WHERE name = :name AND deleted_at IS NULL"
+            ).bindparams(scope='["Single-Turn"]', name=metric_name)
+        )
+    print(f"Reverted {len(METRICS_TO_UPDATE)} metric name(s) to Single-Turn scope")

@@ -32,11 +32,15 @@ from typing import Any, Literal
 
 from dotenv import load_dotenv
 from opentelemetry import trace
+from rhesis.telemetry.schemas import AIOperationType
 
 from rhesis.sdk import RhesisClient, observe
 from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.attributes import AIAttributes, create_llm_attributes, create_tool_attributes
-from rhesis.telemetry.schemas import AIOperationType
+from rhesis.sdk.telemetry.attributes import (
+    AIAttributes,
+    create_llm_attributes,
+    create_tool_attributes,
+)
 
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():
@@ -201,9 +205,7 @@ def _run_anthropic_chat(
 
 def _openai_tool_loop(client: Any, model: str, user_prompt: str) -> str:
     messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
-    response = _run_openai_chat(
-        client, model, messages, tools=TOOL_DEFINITIONS_OPENAI
-    )
+    response = _run_openai_chat(client, model, messages, tools=TOOL_DEFINITIONS_OPENAI)
     message = response.choices[0].message
     tool_calls = message.tool_calls or []
     if not tool_calls:
@@ -211,7 +213,11 @@ def _openai_tool_loop(client: Any, model: str, user_prompt: str) -> str:
 
     messages.append(message.model_dump(exclude_none=True))
     for tool_call in tool_calls:
-        args = json.loads(tool_call.function.arguments or "{}")
+        try:
+            args = json.loads(tool_call.function.arguments or "{}")
+        except json.JSONDecodeError:
+            print(f"⚠️  Skipping malformed OpenAI tool arguments: {tool_call.function.arguments!r}")
+            args = {}
         topic = args.get("topic", "debugging")
         fact = lookup_observability_fact(str(topic))
         messages.append(
@@ -228,9 +234,7 @@ def _openai_tool_loop(client: Any, model: str, user_prompt: str) -> str:
 
 def _anthropic_tool_loop(client: Any, model: str, user_prompt: str) -> str:
     messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
-    response = _run_anthropic_chat(
-        client, model, messages, tools=TOOL_DEFINITIONS_ANTHROPIC
-    )
+    response = _run_anthropic_chat(client, model, messages, tools=TOOL_DEFINITIONS_ANTHROPIC)
     tool_blocks = [b for b in response.content if getattr(b, "type", None) == "tool_use"]
     if not tool_blocks:
         text_blocks = [b.text for b in response.content if hasattr(b, "text")]

@@ -17,6 +17,7 @@ from .mixins import (
     CountsMixin,
     EmbeddableMixin,
     FilesMixin,
+    ProjectMixin,
     ReviewsMixin,
     TagsMixin,
     TasksMixin,
@@ -26,6 +27,7 @@ from .mixins import (
 class TestResult(
     Base,
     EmbeddableMixin,
+    ProjectMixin,
     TagsMixin,
     CommentsMixin,
     TasksMixin,

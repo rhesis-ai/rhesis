@@ -12,7 +12,7 @@ _EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.tasks.execute_test_configurat
 
 def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
     try:
-        from rhesis.backend.app.database import SessionLocal, set_session_variables
+        from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
         from rhesis.backend.tasks.execution.run import update_test_run_status
         from rhesis.backend.tasks.utils import get_test_run_by_task_id
 
@@ -25,7 +25,10 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                     if hasattr(test_run, "user_id") and test_run.user_id
                     else ""
                 )
-                set_session_variables(db, org_id, user_id)
+                project_id = (
+                    str(test_run.project_id) if getattr(test_run, "project_id", None) else ""
+                )
+                bind_scope_to_session(db, org_id, user_id, project_id)
 
                 if new_status == RunStatus.FAILED:
                     from rhesis.backend.tasks.utils import update_test_run_with_error

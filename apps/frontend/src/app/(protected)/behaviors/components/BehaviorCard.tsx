@@ -12,6 +12,7 @@ interface BehaviorCardProps {
   behavior: BehaviorWithMetrics;
   onRefresh: () => void;
   sessionToken: string;
+  onClick?: () => void;
   /** Retained for backward compatibility — no longer used in the card UI. */
   onEdit?: () => void;
   /** Retained for backward compatibility — no longer used in the card UI. */
@@ -24,6 +25,7 @@ export default function BehaviorCard({
   behavior,
   onRefresh,
   sessionToken,
+  onClick,
 }: BehaviorCardProps) {
   const notifications = useNotifications();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -55,6 +57,10 @@ export default function BehaviorCard({
   const metricsCount = behavior.metrics?.length || 0;
   const canDelete = metricsCount === 0;
 
+  const tags = behavior.tags ?? [];
+  const tagsCount = tags.length;
+  const MAX_VISIBLE_TAGS = 5;
+
   const chipSections: ChipSection[] = [
     {
       label: 'Metrics',
@@ -62,13 +68,30 @@ export default function BehaviorCard({
         ...(behavior.metrics || []).slice(0, 3).map(metric => ({
           key: metric.id,
           label: metric.name,
-          maxWidth: '150px',
         })),
         ...(metricsCount > 3
           ? [{ key: 'more', label: `+${metricsCount - 3} more` }]
           : []),
       ],
       emptyText: 'No metrics assigned',
+    },
+    {
+      label: 'Tags',
+      chips: [
+        ...tags.slice(0, MAX_VISIBLE_TAGS).map(tag => ({
+          key: tag.id,
+          label: tag.name,
+        })),
+        ...(tagsCount > MAX_VISIBLE_TAGS
+          ? [
+              {
+                key: 'more-tags',
+                label: `+${tagsCount - MAX_VISIBLE_TAGS} more`,
+              },
+            ]
+          : []),
+      ],
+      emptyText: 'No tags assigned',
     },
   ];
 
@@ -77,8 +100,8 @@ export default function BehaviorCard({
       <EntityCard
         title={behavior.name}
         description={behavior.description || 'No description provided'}
+        onClick={onClick}
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}
-        status={behavior.status?.name}
         userName={behavior.user?.name}
         chipSections={chipSections}
       />

@@ -111,8 +111,9 @@ The base client is implemented in `src/utils/api-client/client.ts` and handles c
 
 <CodeBlock filename="client.ts" language="typescript">
 {`import { getTokens } from '@/auth';
+import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = getClientApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -446,14 +447,14 @@ The Rhesis backend API URL is configured in environment variables:
 
 <CodeBlock filename=".env.local" language="bash">
   {`# .env.local
-NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai`}
+API_BASE_URL=https://api.rhesis.ai`}
 </CodeBlock>
 
 For local development, you might point to a local instance of the Rhesis backend:
 
 <CodeBlock language="bash" filename=".env.local">
 {`# .env.local
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3001`}
+API_BASE_URL=http://localhost:3001`}
 </CodeBlock>
 
 ## Error Handling

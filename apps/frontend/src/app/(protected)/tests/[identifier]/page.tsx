@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -40,7 +40,7 @@ export default async function TestDetailPage({ params }: PageProps) {
     throw new Error('No session token available');
   }
 
-  const apiFactory = new ApiClientFactory(session.session_token);
+  const apiFactory = await createServerApiFactory(session.session_token);
   const testsClient = apiFactory.getTestsClient();
   const promptsClient = apiFactory.getPromptsClient();
   const { identifier } = await params;

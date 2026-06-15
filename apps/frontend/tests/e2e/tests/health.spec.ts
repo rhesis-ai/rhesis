@@ -21,8 +21,7 @@ test.describe('Health @sanity', () => {
 
   test('API base URL is reachable from the frontend', async ({ request }) => {
     // Verify the backend health endpoint responds
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    const apiBase = process.env.API_BASE_URL || 'http://localhost:8080';
     const response = await request.get(`${apiBase}/health`);
     expect(response.ok()).toBeTruthy();
   });

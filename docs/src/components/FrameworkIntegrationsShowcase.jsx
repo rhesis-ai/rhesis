@@ -82,19 +82,19 @@ const MCP_ITEMS = [
 const EVAL_ITEMS = [
   {
     name: 'DeepEval',
-    href: '/docs/frameworks#deepeval',
+    href: '/docs/metrics/deepeval',
     src: '/integrations/deepeval-logo.svg',
     kind: 'deepeval',
   },
   {
     name: 'Ragas',
-    href: '/docs/frameworks#ragas',
+    href: '/docs/metrics/ragas',
     src: '/integrations/ragas-logo.png',
     kind: 'ragas',
   },
   {
     name: 'Garak',
-    href: '/docs/frameworks#garak',
+    href: '/docs/test-sets/import-from-garak',
     src: '/integrations/nvidia.svg',
     kind: 'brand',
   },
@@ -516,7 +516,7 @@ export function EvaluationSection() {
   )
 }
 
-/** Import tests (e.g. Garak) and metrics (DeepEval, Ragas, Rhesis) — see /docs/frameworks */
+/** Import tests (e.g. Garak) and metrics (DeepEval, Ragas, Rhesis) */
 export function TestsSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
@@ -529,15 +529,7 @@ export function TestsSection() {
           lineHeight: 1.55,
         }}
       >
-        In addition to Rhesis metrics, you can use DeepEval, Ragas, and Garak metrics and import
-        Garak test sets — see{' '}
-        <a
-          href="/docs/frameworks"
-          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
-        >
-          framework integrations
-        </a>
-        .
+        Use DeepEval and Ragas metrics in test suites, or import Garak probes as test sets.
       </p>
       <div
         style={{

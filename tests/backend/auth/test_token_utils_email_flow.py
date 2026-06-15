@@ -4,15 +4,15 @@ Unit tests for email-flow token functions (verification, password reset, magic l
 
 from unittest.mock import patch
 
+import jwt
 import pytest
 from fastapi import HTTPException
-import jwt
 
-from rhesis.backend.app.auth.constants import ALGORITHM
 from rhesis.backend.app.auth.token_utils import (
     create_email_verification_token,
     create_magic_link_token,
     create_password_reset_token,
+    get_jwt_algorithm,
     verify_email_flow_token,
 )
 
@@ -27,7 +27,12 @@ class TestEmailFlowTokenCreation:
     def test_create_email_verification_token_has_type_and_exp(self, mock_secret):
         """Verification token has type email_verification and exp."""
         token = create_email_verification_token(user_id="user-123", email="test@example.com")
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM], options={"verify_exp": False})
+        payload = jwt.decode(
+            token,
+            SECRET,
+            algorithms=[get_jwt_algorithm()],
+            options={"verify_exp": False},
+        )
         assert payload["type"] == "email_verification"
         assert payload["sub"] == "user-123"
         assert payload["email"] == "test@example.com"
@@ -39,7 +44,12 @@ class TestEmailFlowTokenCreation:
     def test_create_password_reset_token_has_jti(self, mock_secret):
         """Password reset token includes jti for single-use."""
         token = create_password_reset_token(user_id="user-456", email="user@example.com")
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM], options={"verify_exp": False})
+        payload = jwt.decode(
+            token,
+            SECRET,
+            algorithms=[get_jwt_algorithm()],
+            options={"verify_exp": False},
+        )
         assert payload["type"] == "password_reset"
         assert payload["sub"] == "user-456"
         assert payload["email"] == "user@example.com"
@@ -50,7 +60,12 @@ class TestEmailFlowTokenCreation:
     def test_create_magic_link_token_has_jti(self, mock_secret):
         """Magic link token includes jti for single-use."""
         token = create_magic_link_token(user_id="user-789", email="link@example.com")
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM], options={"verify_exp": False})
+        payload = jwt.decode(
+            token,
+            SECRET,
+            algorithms=[get_jwt_algorithm()],
+            options={"verify_exp": False},
+        )
         assert payload["type"] == "magic_link"
         assert payload["email"] == "link@example.com"
         assert "jti" in payload

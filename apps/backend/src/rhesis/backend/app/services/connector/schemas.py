@@ -17,11 +17,19 @@ class WebSocketConnectionContext:
     Created at connection time from the authenticated user. The organization_id
     and user_id cannot be overridden by subsequent messages — they are derived
     solely from the authentication token.
+
+    token_project_id: optional project UUID stored on the API token itself.
+    When present it serves as an alternate authorization path in
+    _authorize_and_register: a token explicitly scoped to a project may connect
+    the connector for that project even if the token owner lacks a
+    ProjectMembership row (e.g. tokens created before the membership migration
+    ran the backfill).
     """
 
     connection_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     user_id: str = ""
     organization_id: str = ""
+    token_project_id: Optional[str] = None
 
 
 class FunctionMetadata(BaseModel):

@@ -1,0 +1,98 @@
+name: "[Build & Deploy] OTEL Collector (K8s)"
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/otel-collector/**'
+      - '.github/workflows/otel-collector-k8s.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to build and push to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        default: ''
+        type: string
+      deploy:
+        description: 'Patch values file to trigger ArgoCD deploy after build'
+        required: false
+        default: true
+        type: boolean
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to build and push to'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        type: string
+        default: ''
+      deploy:
+        description: 'Patch values file to trigger ArgoCD deploy after build'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+  gate:
+    needs: validate-inputs
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve build and push
+        run: echo "Build and push approved for ${{ github.event.inputs.environment }}"
+
+  build:
+    needs: [validate-inputs, gate]
+    if: |
+      always() &&
+      needs.validate-inputs.result == 'success' &&
+      (needs.gate.result == 'success' || needs.gate.result == 'skipped')
+    uses: ./.github/workflows/k8s-build-push.yml
+    with:
+      image: rhesis-otel-collector
+      dockerfile: apps/otel-collector/Dockerfile
+      context: apps/otel-collector/
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      tag: ${{ inputs.tag || github.event.inputs.tag }}
+    secrets: inherit
+
+  deploy:
+    needs: build
+    # Auto-deploy on a direct push to main (CI to dev) or when a caller sets
+    # deploy: true. The main-ref guard matters: on a release push (release/*)
+    # deploy-all-k8s calls this with deploy: false, but github.event_name is
+    # inherited as 'push', so without the ref check the per-service deploy would
+    # fire and race the centralized k8s-deploy.
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.deploy)
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      tag: ${{ needs.build.outputs.tag }}
+      service: otelCollector
+    secrets: inherit

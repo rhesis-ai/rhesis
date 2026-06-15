@@ -13,7 +13,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CampaignIcon from '@mui/icons-material/Campaign';
-import { TestTemplate } from '@/app/(protected)/tests/new-generated/components/shared/types';
+import { TestTemplate } from '@/app/(protected)/test-sets/new-generated/components/shared/types';
 
 // Generated templates from YAML
 export const TEMPLATES: TestTemplate[] = [

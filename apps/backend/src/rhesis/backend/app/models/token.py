@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
+from .guid import GUID
 from .mixins import OrganizationMixin
 
 
@@ -27,6 +28,10 @@ class Token(Base, OrganizationMixin):
     last_used_at = Column(DateTime)
     last_refreshed_at = Column(DateTime)
     user_id = Column(ForeignKey("user.id"), nullable=False)
+
+    # Optional project scope - no FK so token lookups work before tenant context is resolved.
+    # When set, the token is restricted to that project's scope.
+    project_id = Column(GUID(), nullable=True, index=True)
 
     # Relationship to user
     user = relationship("User", back_populates="tokens")

@@ -34,13 +34,19 @@ export const ENVIRONMENTS = [
 
 export const METHODS = ['POST'] as const;
 
-export const TAB_KEYS = ['overview', 'connection', 'mappings', 'test'] as const;
+export const TAB_KEYS = [
+  'overview',
+  'connection',
+  'headers',
+  'mapping',
+  'connection-test',
+] as const;
 export type EndpointTabKey = (typeof TAB_KEYS)[number];
 
-export function tabIndexFromKey(key: string | null): number {
-  const idx = TAB_KEYS.indexOf(key as EndpointTabKey);
-  return idx >= 0 ? idx : 0;
-}
+/** @deprecated Old tab URLs — `mappings` was the former combined test tab */
+export const LEGACY_TAB_MAP: Record<string, EndpointTabKey> = {
+  mappings: 'connection-test',
+};
 
 const ICON_MAP: Record<string, React.ComponentType> = {
   SmartToy: SmartToyIcon,
@@ -83,7 +89,3 @@ export function getEnvironmentChipColor():
   | 'warning' {
   return 'default';
 }
-
-export const DEFAULT_TEST_INPUT = `{
-  "input": "[place your input here]"
-}`;

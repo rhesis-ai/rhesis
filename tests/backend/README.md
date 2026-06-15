@@ -96,7 +96,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set test mode BEFORE importing backend modules (CRITICAL!)
-os.environ["SQLALCHEMY_DB_MODE"] = "test"
+os.environ["DB_NAME"] = "test_db"  # ensure test database name is used
 
 # Now import backend modules after setting test mode
 from rhesis.backend.app.main import app
@@ -645,7 +645,7 @@ python -m pytest tests/backend/db/test_config.py -v
 1. **Permission denied**: Ensure your test database user has CREATE/DROP permissions
 2. **Database doesn't exist**: Create the test database first: `createdb rhesis_test`
 3. **Connection refused**: Ensure your database server is running
-4. **Wrong database used**: Check that `SQLALCHEMY_DB_MODE=test` is set automatically
+4. **Wrong database used**: Check that `DB_NAME` contains `test` (the test fixtures enforce this)
 
 ## 📚 Additional Resources
 

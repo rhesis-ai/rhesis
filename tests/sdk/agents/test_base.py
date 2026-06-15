@@ -83,7 +83,7 @@ class TestBaseAgentInit:
     @pytest.fixture
     def mock_model(self):
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     def test_default_parameters(self, mock_model):
@@ -190,7 +190,7 @@ class TestBaseAgentRunLoop:
     @pytest.mark.asyncio
     async def test_finish_returns_answer(self, mock_model):
         agent = _make_agent(mock_model)
-        mock_model.generate.return_value = _finish_dict("hello")
+        mock_model.a_generate.return_value = _finish_dict("hello")
 
         result = await agent.run_async("hi")
         assert result.success
@@ -200,7 +200,7 @@ class TestBaseAgentRunLoop:
     async def test_max_iterations_failsafe(self, mock_model):
         tool = DummyTool()
         agent = _make_agent(mock_model, tools=[tool], max_iterations=2)
-        mock_model.generate.return_value = _tool_dict()
+        mock_model.a_generate.return_value = _tool_dict()
 
         result = await agent.run_async("go")
         assert "maximum number of internal iterations" in result.final_answer
@@ -208,7 +208,7 @@ class TestBaseAgentRunLoop:
     @pytest.mark.asyncio
     async def test_timeout_failsafe(self, mock_model):
         agent = _make_agent(mock_model, max_iterations=100, timeout_seconds=0.0)
-        mock_model.generate.return_value = _tool_dict()
+        mock_model.a_generate.return_value = _tool_dict()
 
         result = await agent.run_async("go")
         assert "run out of time" in result.final_answer
@@ -222,7 +222,7 @@ class TestBaseAgentRunLoop:
             max_iterations=100,
             max_tool_executions=2,
         )
-        mock_model.generate.return_value = _tool_dict()
+        mock_model.a_generate.return_value = _tool_dict()
 
         result = await agent.run_async("go")
         assert "maximum number of tool calls" in result.final_answer

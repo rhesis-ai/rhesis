@@ -14,6 +14,7 @@ import {
   OverrideMarker,
   Review,
 } from '@/utils/api-client/interfaces/test-results';
+import { reconstructConversationFromSpans } from '@/utils/conversation-from-spans';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
@@ -29,31 +30,6 @@ interface ConversationTraceViewProps {
 interface TurnOverrideEntry {
   success: boolean;
   override: OverrideMarker;
-}
-
-/**
- * Compute automated turn success from turn_metrics.metrics
- * (before any human per-turn overrides).
- */
-function getAutomatedTurnSuccess(rootSpans: SpanNode[]): boolean | undefined {
-  const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
-    | Record<string, unknown>
-    | undefined;
-  if (!traceMetrics) return undefined;
-
-  const turnSection = traceMetrics.turn_metrics as
-    | Record<string, unknown>
-    | undefined;
-  if (!turnSection) return undefined;
-
-  const metrics = turnSection.metrics as
-    | Record<string, { is_successful?: boolean }>
-    | undefined;
-  if (metrics && Object.keys(metrics).length > 0) {
-    return Object.values(metrics).every(m => m?.is_successful);
-  }
-
-  return undefined;
 }
 
 /**
@@ -88,36 +64,6 @@ function getPerTurnOverrides(
     }
   }
   return result;
-}
-
-/**
- * Reconstruct conversation turns from span attributes when no test result
- * is available (e.g. direct SDK/endpoint multi-turn invocations).
- */
-function reconstructConversationFromSpans(
-  rootSpans: SpanNode[]
-): ConversationTurn[] {
-  const automatedSuccess = getAutomatedTurnSuccess(rootSpans);
-
-  return rootSpans
-    .filter(
-      span =>
-        span.attributes['rhesis.conversation.input'] ||
-        span.attributes['rhesis.conversation.output']
-    )
-    .map((span, i) => ({
-      turn: i + 1,
-      timestamp: span.start_time,
-      penelope_message: String(
-        span.attributes['rhesis.conversation.input'] || ''
-      ),
-      target_response: String(
-        span.attributes['rhesis.conversation.output'] || ''
-      ),
-      penelope_reasoning: '',
-      session_id: span.span_id,
-      success: automatedSuccess ?? span.status_code !== 'ERROR',
-    }));
 }
 
 export default function ConversationTraceView({

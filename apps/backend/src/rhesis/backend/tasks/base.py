@@ -78,21 +78,22 @@ class BaseTask(Task):
     # Report started status
     track_started = True
 
-    def get_tenant_context(self) -> Tuple[Optional[str], Optional[str]]:
+    def get_tenant_context(self) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
         Get tenant context from task request in a consistent way.
 
         Returns:
-            Tuple of (organization_id, user_id)
+            Tuple of (organization_id, user_id, project_id)
         """
         request = getattr(self, "request", None)
         if not request:
-            return None, None
+            return None, None, None
 
         organization_id = getattr(request, "organization_id", None)
         user_id = getattr(request, "user_id", None)
+        project_id = getattr(request, "project_id", None)
 
-        return organization_id, user_id
+        return organization_id, user_id, project_id
 
     def log_with_context(self, level: str, message: str, **kwargs):
         """
@@ -103,7 +104,7 @@ class BaseTask(Task):
             message: The message to log
             **kwargs: Additional context to include in the log
         """
-        organization_id, user_id = self.get_tenant_context()
+        organization_id, user_id, _ = self.get_tenant_context()
         task_id = getattr(self.request, "id", "unknown") if hasattr(self, "request") else "unknown"
 
         context_info = {
@@ -126,12 +127,16 @@ class BaseTask(Task):
         """
         Get a database session with tenant context automatically set.
 
-        Automatically sets PostgreSQL session variables for RLS using the same
-        centralized logic as the router dependencies.
+        Sets PostgreSQL session variables for RLS and stores the RequestScope on
+        Session.info, which the auto-filter / auto-stamp listeners read. (Scope is
+        stored on the session rather than a ContextVar so it is visible regardless
+        of which thread issues the queries.)
         """
-        organization_id, user_id = self.get_tenant_context()
+        organization_id, user_id, project_id = self.get_tenant_context()
 
-        with get_db_with_tenant_variables(organization_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(
+            organization_id or "", user_id or "", project_id or ""
+        ) as db:
             yield db
 
     def validate_params(self, args, kwargs):
@@ -173,7 +178,8 @@ class BaseTask(Task):
                     email_kwargs.update(filtered_retval)
                     self.log_with_context(
                         "debug",
-                        f"Passing {len(filtered_retval)} variables from task result to email template",
+                        f"Passing {len(filtered_retval)} variables from task result"
+                        " to email template",
                     )
 
                 self._send_task_completion_email("success", **email_kwargs)
@@ -197,7 +203,8 @@ class BaseTask(Task):
 
         retries = getattr(self.request, "retries", 0)
 
-        # Only send email notification if task permanently failed (not retrying) and email is enabled
+        # Only send email notification if task permanently failed (not retrying)
+        # and email is enabled
         if isinstance(exc, TestExecutionError) or retries >= self.max_retries:
             self.log_with_context(
                 "error",
@@ -243,6 +250,8 @@ class BaseTask(Task):
                 self.request.organization_id = headers["organization_id"]
             if "user_id" in headers:
                 self.request.user_id = headers["user_id"]
+            if "project_id" in headers:
+                self.request.project_id = headers["project_id"]
 
         # Fallback: Copy context from kwargs to request object (for backward compatibility)
         # This preserves tenant context for retries if it was passed via kwargs
@@ -250,6 +259,8 @@ class BaseTask(Task):
             self.request.organization_id = kwargs["organization_id"]
         if "user_id" in kwargs:
             self.request.user_id = kwargs["user_id"]
+        if "project_id" in kwargs:
+            self.request.project_id = kwargs["project_id"]
 
         # Do a soft validation (warning only)
         self.validate_params(args, kwargs)
@@ -303,7 +314,7 @@ class BaseTask(Task):
             from rhesis.backend.notifications import EmailTemplate, email_service
 
             # Get user context
-            organization_id, user_id = self.get_tenant_context()
+            organization_id, user_id, _ = self.get_tenant_context()
 
             self.log_with_context(
                 "debug",
@@ -409,7 +420,8 @@ class BaseTask(Task):
                 "frontend_url": frontend_url,
             }
 
-            # Add any additional variables from the task result (but don't override with None values)
+            # Add any additional variables from the task result
+            # (but don't override with None values)
             for key, value in kwargs.items():
                 if value is not None:
                     template_variables[key] = value

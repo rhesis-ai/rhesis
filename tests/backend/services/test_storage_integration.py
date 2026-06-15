@@ -421,6 +421,11 @@ class TestStorageServiceEnvironmentConfigurations(
         mock_fsspec.return_value = mock_fs
 
         configs = environment_configurations
+        from importlib import import_module
+
+        get_storage_settings = import_module(
+            "rhesis.backend.app.config.settings"
+        ).get_storage_settings
 
         # Test each environment configuration
         for env_name, env_vars in configs.items():
@@ -428,6 +433,7 @@ class TestStorageServiceEnvironmentConfigurations(
                 continue  # Skip local as it doesn't use buckets
 
             with patch.dict(os.environ, env_vars, clear=True):
+                get_storage_settings.cache_clear()
                 storage_service = StorageService()
 
                 if env_name == "development":
@@ -447,7 +453,7 @@ class TestStorageServiceEnvironmentConfigurations(
         with patch.dict(os.environ, config, clear=True):
             storage_service = StorageService()
 
-            assert storage_service.storage_uri is None
+            assert storage_service.storage_uri == "file:///tmp/local-test"
             assert storage_service.use_cloud_storage is False
             assert storage_service.storage_path == "/tmp/local-test"
 

@@ -1,29 +1,33 @@
-"""Public and token-enabled route registry.
+"""Public route registry.
 
-These two lists drive ``AuthenticatedAPIRoute.get_dependencies`` in
-``main.py``: paths in :data:`PUBLIC_ROUTES` skip authentication entirely;
-paths whose prefix matches an entry in :data:`TOKEN_ENABLED_ROUTES`
-accept either a session cookie or an API token; everything else
-requires a session.
+:data:`PUBLIC_ROUTES` drives ``apply_auth_backstop`` in ``main.py``: routes
+whose exact path is in this list skip the baseline authentication
+dependency. Every other HTTP route gets ``require_current_user_or_token``
+injected as a defense-in-depth backstop, so a route is never accidentally
+exposed without authentication. Per-handler dependencies still enforce the
+specific policy (session-only, superuser, project-membership, etc.) and
+remain authoritative.
 
 Why a mutable module-level list rather than a frozen tuple?
 -----------------------------------------------------------
 EE features may need to add their own public paths (e.g. SSO callback
 URLs). By exposing the list as a regular module attribute, EE can
-extend it from :func:`~rhesis.backend.ee.bootstrap` *before* it calls
-``app.include_router(...)`` for its own routes — at which point the
-auth class evaluates ``self.path in PUBLIC_ROUTES`` and sees the
-extended list.
+extend it from :func:`~rhesis.backend.ee.bootstrap` *before*
+``apply_auth_backstop`` runs — at which point the backstop evaluates
+``path in PUBLIC_ROUTES`` and sees the extended list.
+
+Note: the check is an **exact** match against the fully-resolved route
+path (prefix + route), so trailing slashes matter (e.g. ``/home/`` and
+``/feedback/`` are listed with their trailing slash).
 
 Order of operations during startup:
 
-1. Core imports its routers and calls ``app.include_router`` for each
-   (route_class evaluates against ``PUBLIC_ROUTES`` as it is at this
-   point — core paths only).
-2. Core calls ``bootstrap_ee(app)``.
-3. EE extends ``PUBLIC_ROUTES`` with its own paths.
-4. EE calls ``app.include_router(<ee_router>)`` (route_class now sees
-   the extended list and recognises EE-owned public paths).
+1. Core imports and includes its routers.
+2. Core calls ``bootstrap_ee(app)``; EE extends ``PUBLIC_ROUTES`` with its
+   own public paths and includes its routers.
+3. Core defines app-level routes (``/``, ``/health``).
+4. Core calls ``apply_auth_backstop(app)`` last, which evaluates every
+   registered route against the now-complete ``PUBLIC_ROUTES``.
 
 The list must therefore stay mutable for EE to extend; we deliberately
 do not freeze it.
@@ -53,39 +57,12 @@ PUBLIC_ROUTES: list[str] = [
     "/auth/demo",
     "/auth/local-login",
     "/home",
+    "/home/",
+    "/feedback/",
+    "/health",
     "/docs",
     "/redoc",
     "/openapi.json",
 ]
 
-#: Route prefixes that accept session-or-token authentication.
-TOKEN_ENABLED_ROUTES: list[str] = [
-    "/api/",
-    "/tokens/",
-    "/tasks/",
-    "/test_sets/",
-    "/topics/",
-    "/prompts/",
-    "/test_configurations/",
-    "/test_results/",
-    "/test_runs/",
-    "/services/",
-    "/organizations/",
-    "/demographics/",
-    "/dimensions/",
-    "/tags/",
-    "/users/",
-    "/statuses/",
-    "/risks/",
-    "/projects/",
-    "/tests/",
-    "/test-contexts/",
-    "/comments/",
-    "/sources/",
-    "/models/",
-    "/connector/",
-    "/explorer/",
-    "/features",
-]
-
-__all__ = ["PUBLIC_ROUTES", "TOKEN_ENABLED_ROUTES"]
+__all__ = ["PUBLIC_ROUTES"]

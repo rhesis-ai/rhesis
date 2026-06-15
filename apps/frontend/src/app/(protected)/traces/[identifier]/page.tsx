@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { Alert, Paper } from '@mui/material';
 
 interface TraceByIdPageProps {
@@ -30,7 +30,7 @@ export default async function TraceByIdPage({ params }: TraceByIdPageProps) {
       );
     }
 
-    const clientFactory = new ApiClientFactory(session.session_token);
+    const clientFactory = await createServerApiFactory(session.session_token);
     const client = clientFactory.getTelemetryClient();
     const lookup = await client.lookupSpan(identifier);
 

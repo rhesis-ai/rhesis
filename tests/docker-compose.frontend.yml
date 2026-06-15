@@ -8,19 +8,19 @@
 
 # Backend environment configuration
 x-frontend-database-config: &frontend-database-config
-  SQLALCHEMY_DB_NAME: rhesis-db
-  SQLALCHEMY_DB_USER: rhesis-user
-  SQLALCHEMY_DB_PASS: rhesis-password # trufflehog:ignore
-  SQLALCHEMY_DB_PORT: 5432
-  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:rhesis-password@frontend-test-postgres:5432/rhesis-db # trufflehog:ignore
-  SQLALCHEMY_DB_DRIVER: postgresql
-  SQLALCHEMY_DB_HOST: frontend-test-postgres
+  DB_NAME: rhesis-db
+  APP_DB_USER: rhesis-user
+  APP_DB_PASS: rhesis-password # trufflehog:ignore
+  DB_PORT: 5432
+  DB_DRIVER: postgresql
+  DB_HOST: frontend-test-postgres
   DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac= # trufflehog:ignore
 x-frontend-redis-config: &frontend-redis-config
   BROKER_URL: redis://:rhesis-redis-pass@frontend-test-redis:6379/0
   CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@frontend-test-redis:6379/1
 
 x-frontend-backend-config: &frontend-backend-config
+  FRONTEND_URL: "http://localhost:3000"
   JWT_SECRET_KEY: test-jwt-secret-key-for-e2e-tests
   SESSION_SECRET_KEY: test-session-secret-key-for-e2e
   JWT_ALGORITHM: HS256
@@ -68,6 +68,7 @@ services:
       - /data
 
   frontend-test-backend:
+    image: rhesis-frontend-e2e-backend:ci
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile

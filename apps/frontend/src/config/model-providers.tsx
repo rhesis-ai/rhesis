@@ -91,9 +91,8 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <Image
       src="/logos/polyphemus-logo-favicon-transparent.svg"
       alt="Polyphemus"
-      width={32}
-      height={32}
-      style={{ width: '32px', height: '32px' }}
+      width={20}
+      height={20}
     />
   ),
   replicate: <SiReplicate className="h-8 w-8" />,
@@ -101,9 +100,8 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <Image
       src="/logos/rhesis-logo-favicon-transparent.svg"
       alt="Rhesis"
-      width={32}
-      height={32}
-      style={{ width: '32px', height: '32px' }}
+      width={20}
+      height={20}
     />
   ),
   together_ai: (

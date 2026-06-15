@@ -18,12 +18,12 @@ from sqlalchemy.orm import sessionmaker
 from rhesis.backend.app.database import get_database_url
 
 # Test database configuration uses the same URL resolution as production.
-SQLALCHEMY_DATABASE_URL = get_database_url()
+DATABASE_URL = get_database_url()
 
 # Create test engine with the same configuration as production
 # but optimized for testing (smaller pool sizes)
 test_engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    DATABASE_URL,
     # Reduced pool settings for testing
     pool_size=5,  # Smaller than production (10)
     max_overflow=10,  # Smaller than production (20)

@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
 export interface CreateEndpointResult {
@@ -10,8 +10,12 @@ export interface CreateEndpointResult {
   error?: string;
 }
 
+type CreateEndpointPayload = Omit<Endpoint, 'id'> & {
+  auth_token?: string;
+};
+
 export async function createEndpoint(
-  data: Omit<Endpoint, 'id'>
+  data: CreateEndpointPayload
 ): Promise<CreateEndpointResult> {
   try {
     const session = await auth();
@@ -19,7 +23,7 @@ export async function createEndpoint(
       throw new Error('No session token available');
     }
 
-    const apiFactory = new ApiClientFactory(session.session_token);
+    const apiFactory = await createServerApiFactory(session.session_token);
     const endpointsClient = apiFactory.getEndpointsClient();
     const endpoint = await endpointsClient.createEndpoint(data);
 

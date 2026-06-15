@@ -7,7 +7,7 @@ set -e
 echo "=== Environment Configuration Debug ==="
 echo "BROKER_URL exists: $(if [ ! -z "$BROKER_URL" ]; then echo "yes"; else echo "no"; fi)"
 echo "CELERY_RESULT_BACKEND exists: $(if [ ! -z "$CELERY_RESULT_BACKEND" ]; then echo "yes"; else echo "no"; fi)"
-echo "SQLALCHEMY_DATABASE_URL exists: $(if [ ! -z "$SQLALCHEMY_DATABASE_URL" ]; then echo "yes"; else echo "no"; fi)"
+echo "DB_HOST exists: $(if [ ! -z "$DB_HOST" ]; then echo "yes"; else echo "no"; fi)"
 echo "Worker environment: ${WORKER_ENV:-not_set}"
 echo "Git branch: ${GIT_BRANCH:-unknown}"
 echo "Git commit: ${GIT_COMMIT:-unknown}"
@@ -85,20 +85,6 @@ except Exception as e:
     sys.exit(1)
 "
 
-# Override database URL for TCP connection if needed
-if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
-    echo "🔧 Overriding database URL for TCP connection..."
-
-    # Construct TCP database URL from components
-    export SQLALCHEMY_DATABASE_URL="postgresql://${SQLALCHEMY_DB_USER:-}:${SQLALCHEMY_DB_PASS:-}@${SQLALCHEMY_DB_HOST:-127.0.0.1}:${SQLALCHEMY_DB_PORT:-5432}/${SQLALCHEMY_DB_NAME:-}"
-
-    # Log connection details with credentials redacted
-    echo "Database host: ${SQLALCHEMY_DB_HOST}"
-    echo "Database port: ${SQLALCHEMY_DB_PORT}"
-    echo "Database name: ${SQLALCHEMY_DB_NAME}"
-    echo "Database user: ${SQLALCHEMY_DB_USER}"
-fi
-
 # Test broker connectivity
 echo "Testing broker connectivity..."
 # Use longer timeout for TLS connections
@@ -128,31 +114,6 @@ except Exception as e:
     print('Note: This is expected during startup - workers will retry connections')
     # Don't exit here - let the worker handle retries
 " || echo "⚠️ Broker connection test completed (timeouts are normal during startup)"
-
-# Test database connectivity if TCP mode is enabled
-if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
-    echo "Testing database connectivity (TCP mode)..."
-    timeout 10 python -c "
-import sys
-try:
-    from sqlalchemy import create_engine, text
-    import os
-    
-    # Test database connection
-    db_url = os.getenv('SQLALCHEMY_DATABASE_URL')
-    db_pass = os.getenv('SQLALCHEMY_DB_PASS', '')
-    redacted_url = db_url.replace(db_pass, '***') if db_pass else db_url
-    print(f'Testing database connection: {redacted_url}')
-    
-    engine = create_engine(db_url, pool_pre_ping=True)
-    with engine.connect() as conn:
-        result = conn.execute(text('SELECT 1'))
-        print('✅ Database connection successful')
-except Exception as e:
-    print(f'❌ Database connection failed: {e}')
-    sys.exit(1)
-" || echo "⚠️ Database connection test timed out or failed"
-fi
 
 # Start the health check server
 echo "Starting health check server on port 8080..."

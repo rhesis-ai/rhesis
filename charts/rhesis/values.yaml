@@ -9,7 +9,9 @@ global:
   #   europe-west4-docker.pkg.dev/<project-id>/rhesis
   registry: ""
   imagePullPolicy: IfNotPresent
-  imageTag: "latest"
+  # Default for local/chart-only use. In env overlays (dev/stg/prd) this is
+  # patched to an immutable git SHA tag by CI before each deploy.
+  imageTag: ""
   requirePinnedTag: false
 
 nameOverride: ""
@@ -26,11 +28,11 @@ existingSecret: "rhesis-app-secrets"
 # ---------------------------------------------------------------------------
 # Database credentials (stg / prd with CloudNativePG)
 # When database.existingSecret is set:
-#   - SQLALCHEMY_APP_DB_USER / SQLALCHEMY_APP_DB_PASS come from this secret and
-#     are used to build SQLALCHEMY_DATABASE_URL (app runtime, e.g. rhesis-user).
-#   - SQLALCHEMY_DB_USER / SQLALCHEMY_DB_PASS come from database.migrationSecret
-#     when non-empty (Alembic / migrate.sh, e.g. rhesis-admin); otherwise the same
-#     secret is used for both pairs (single-role setups).
+#   - APP_DB_USER / APP_DB_PASS come from this secret and are used by the
+#     application at runtime (e.g. rhesis-user).
+#   - ADMIN_DB_USER / ADMIN_DB_PASS come from database.migrationSecret when
+#     non-empty (Alembic / migrate.sh, e.g. rhesis-admin); when not set,
+#     migrate.sh falls back to APP_DB_* (single-role setups).
 # Keys match CNPG declarative role secrets: username, password.
 # ---------------------------------------------------------------------------
 database:
@@ -59,14 +61,14 @@ config:
   redisPort: "6379"
 
   # Frontend
-  nextPublicApiBaseUrl: ""
+  apiBaseUrl: ""
   nextPublicAppUrl: ""
   nextauthUrl: ""
   nextTelemetryDisabled: "1"
   nextPublicAuth0ClientId: ""
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
   nextPublicQuickStart: "false"
-
+  nextPublicSupportEmail: "hello@rhesis.ai"
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""
@@ -441,8 +443,8 @@ postgresql:
     username: "rhesis-user"
     existingSecret: "rhesis-app-secrets"
     secretKeys:
-      adminPasswordKey: "SQLALCHEMY_DB_PASS"
-      userPasswordKey: "SQLALCHEMY_DB_PASS"
+      adminPasswordKey: "APP_DB_PASS"
+      userPasswordKey: "APP_DB_PASS"
   primary:
     persistence:
       enabled: true

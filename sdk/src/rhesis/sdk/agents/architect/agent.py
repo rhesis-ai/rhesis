@@ -23,6 +23,7 @@ from rhesis.sdk.agents.constants import (
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
 from rhesis.sdk.agents.schemas import (
     AgentAction,
+    AgentResult,
     ExecutionStep,
     ToolCall,
     ToolResult,
@@ -31,6 +32,7 @@ from rhesis.sdk.models.base import BaseLLM
 
 from .config import ArchitectConfig, _default_discovery_state
 from .plan import _INTERNAL_FIELDS, ArchitectPlan, build_save_plan_tool
+from .state import ArchitectAgentStateSnapshot
 from .tool_registry import mode_for, plan_category_for
 
 logger = logging.getLogger(__name__)
@@ -257,6 +259,8 @@ class ArchitectAgent(BaseAgent):
                 query=message,
             )
 
+            response: str = ""
+            agent_error: Optional[Exception] = None
             try:
                 response = await self._run_loop(message)
 
@@ -270,8 +274,43 @@ class ArchitectAgent(BaseAgent):
                     print(f"[Architect:{self._mode}] Response: {response[:200]}...")
 
                 return response
+            except Exception as exc:
+                agent_error = exc
+                raise
             finally:
-                await self._disconnect_tools()
+                # Always emit ``on_agent_end`` so handlers (notably
+                # ``TracingHandler``) can close the ``mcp_agent_run``
+                # span attached during ``on_agent_start``.  Skipping
+                # this leaks the OTel context token, which (a) leaves
+                # the span unended -- the viewer never sees it, so
+                # downstream iteration spans appear orphaned at the
+                # top level -- and (b) breaks LIFO context detach
+                # ordering on the surrounding ``run_chat`` exit.
+                #
+                # The result mirrors ``BaseAgent.run_async`` so any
+                # handler that inspects ``execution_history`` /
+                # ``success`` / ``error`` sees the same shape.
+                try:
+                    finished_ok = any(s.action == Action.FINISH for s in self._execution_history)
+                    success = agent_error is None and finished_ok
+                    error_msg: Optional[str] = str(agent_error) if agent_error is not None else None
+                    result = AgentResult(
+                        final_answer=response,
+                        execution_history=list(self._execution_history),
+                        iterations_used=len(self._execution_history),
+                        max_iterations_reached=(
+                            len(self._execution_history) >= self.max_iterations and not finished_ok
+                        ),
+                        success=success,
+                        error=error_msg,
+                    )
+                    await _emit(
+                        self._event_handlers,
+                        "on_agent_end",
+                        result=result,
+                    )
+                finally:
+                    await self._disconnect_tools()
 
     # ── properties ───────────────────────────────────────────────
 
@@ -733,6 +772,9 @@ class ArchitectAgent(BaseAgent):
 
     async def _execute_save_plan(self, tool_call: ToolCall) -> ToolResult:
         """Parse LLM-provided plan data and store it."""
+        return await self._execute_save_plan_body(tool_call)
+
+    async def _execute_save_plan_body(self, tool_call: ToolCall) -> ToolResult:
         try:
             plan = ArchitectPlan.model_validate(_strip_llm_internal_fields(tool_call.arguments))
         except ValidationError as e:
@@ -918,6 +960,9 @@ class ArchitectAgent(BaseAgent):
 
     async def _execute_await_task(self, tool_call: ToolCall) -> ToolResult:
         """Pause the turn to wait for background tasks."""
+        return self._execute_await_task_body(tool_call)
+
+    def _execute_await_task_body(self, tool_call: ToolCall) -> ToolResult:
         task_ids = tool_call.arguments.get("task_ids", [])
         message = tool_call.arguments.get("message", "")
         if not task_ids:
@@ -1256,6 +1301,65 @@ class ArchitectAgent(BaseAgent):
 
         if updated:
             await _emit(self._event_handlers, "on_plan_update", plan=plan)
+
+    # ── state serialisation ──────────────────────────────────────
+
+    def dump_state(self) -> ArchitectAgentStateSnapshot:
+        """Serialise all runtime state into a portable snapshot.
+
+        The snapshot covers everything the backend needs to persist
+        across Celery task boundaries and restore on the next turn.
+        """
+        plan_data: Optional[Dict[str, Any]] = None
+        if self._plan:
+            try:
+                plan_data = self._plan.model_dump()
+            except Exception:
+                logger.warning("Failed to serialise agent plan", exc_info=True)
+
+        return ArchitectAgentStateSnapshot(
+            mode=self._mode.value if hasattr(self._mode, "value") else str(self._mode),
+            conversation_history=list(self._conversation_history),
+            discovery_state=dict(self._discovery_state),
+            guard_state=self.guard_state,
+            id_to_name=dict(self._id_to_name),
+            plan_data=plan_data,
+            max_iterations=self.max_iterations,
+            pending_tasks=list(self._pending_tasks),
+        )
+
+    def restore_state(self, snapshot: ArchitectAgentStateSnapshot) -> None:
+        """Restore agent state from a snapshot produced by ``dump_state``.
+
+        Unknown mode values fall back to DISCOVERY with a warning so a
+        bad DB value never silently corrupts the agent.  Plan restore
+        failures are also logged with the full traceback.
+        """
+        try:
+            self._mode = AgentMode(snapshot.mode)
+        except ValueError:
+            logger.warning(
+                "Unknown agent mode %r in snapshot, defaulting to DISCOVERY",
+                snapshot.mode,
+            )
+            self._mode = AgentMode.DISCOVERY
+
+        self._conversation_history = list(snapshot.conversation_history)
+
+        if snapshot.discovery_state:
+            self._discovery_state = snapshot.discovery_state
+
+        if snapshot.guard_state:
+            self.guard_state = snapshot.guard_state
+
+        if snapshot.id_to_name:
+            self._id_to_name = dict(snapshot.id_to_name)
+
+        if snapshot.plan_data:
+            try:
+                self._plan = ArchitectPlan.model_validate(snapshot.plan_data)
+            except Exception:
+                logger.warning("Failed to restore plan from snapshot", exc_info=True)
 
     # ── transport lifecycle ──────────────────────────────────────
 

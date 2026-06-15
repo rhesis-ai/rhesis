@@ -27,6 +27,9 @@ openai-sdk = [
     "anthropic>=0.40.0",
     "openai>=1.0.0",
 ]
+crewai = [
+    "crewai[google-genai]>=0.108.0",
+]
 
 [tool.uv]
 exclude-newer = "1 week"

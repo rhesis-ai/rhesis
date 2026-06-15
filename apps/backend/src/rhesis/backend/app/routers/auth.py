@@ -48,8 +48,10 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
-from rhesis.backend.app.config.settings import get_frontend_settings
-from rhesis.backend.app.constants import RHESIS_BASE_URL
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_frontend_settings,
+)
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
@@ -118,6 +120,7 @@ class ProvidersResponse(BaseModel):
 
     providers: List[ProviderInfo]
     password_policy: PasswordPolicyResponse
+    quick_start: bool = False
 
 
 class VerifyEmailRequest(BaseModel):
@@ -183,27 +186,30 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
+def _get_api_base_url() -> str:
+    return get_application_settings().api_base_url
+
+
 def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
     Never uses any request-derived data. Uses three independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
-    2. RHESIS_BASE_URL explicitly configured for localhost
-    3. ENVIRONMENT or BACKEND_ENV set to 'local'
+    2. API_BASE_URL explicitly configured for localhost
+    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
         return True
 
-    # Signal 2: RHESIS_BASE_URL points to a local address
-    parsed_host = urlparse(RHESIS_BASE_URL).hostname or ""
+    # Signal 2: API_BASE_URL points to a local address
+    parsed_host = urlparse(_get_api_base_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
-    # Signal 3: Environment variables indicate local deployment
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
-    if env == "local" or backend_env == "local":
+    # Signal 3: BACKEND_ENV explicitly set to local
+    settings = get_application_settings()
+    if settings.is_local:
         return True
 
     return False
@@ -216,7 +222,7 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     listening port to preserve session cookie domain alignment. Only
     whitelisted local hostnames (localhost, 127.0.0.1, ::1) are
     accepted; any other value falls back to 'localhost'. For
-    production, uses RHESIS_BASE_URL.
+    production, uses API_BASE_URL.
     """
     if is_running_locally():
         # Local: use request hostname to match session cookie domain
@@ -231,7 +237,7 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
         base_url = f"http://{hostname}:{port}"
     else:
         # Production: always use configured base URL
-        base_url = RHESIS_BASE_URL.rstrip("/")
+        base_url = _get_api_base_url().rstrip("/")
 
     callback_url = f"{base_url}/auth/callback"
 
@@ -291,6 +297,7 @@ def _resolve_org_by_id_or_slug(db: Session, org: str):
 
 @router.get("/providers", response_model=ProvidersResponse)
 async def get_providers(
+    request: Request,
     org: Optional[str] = None,
     db: Session = Depends(get_db_session),
 ):
@@ -330,6 +337,10 @@ async def get_providers(
             min_length=policy.min_length,
             max_length=policy.max_length,
             min_strength_score=policy.min_strength_score,
+        ),
+        quick_start=is_quick_start_enabled(
+            hostname=request.url.hostname,
+            headers=dict(request.headers),
         ),
     )
 

@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { EntityType } from '@/types/tasks';
 import type {
   TaskCreate,
@@ -197,7 +198,7 @@ export default function TaskDrawer({
         />
 
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormControl fullWidth disabled={loading}>
+          <FormControl fullWidth disabled={loading} sx={drawerOutlinedFieldSx}>
             <InputLabel>Status</InputLabel>
             <Select
               value={statusId}
@@ -212,7 +213,7 @@ export default function TaskDrawer({
             </Select>
           </FormControl>
 
-          <FormControl fullWidth disabled={loading}>
+          <FormControl fullWidth disabled={loading} sx={drawerOutlinedFieldSx}>
             <InputLabel>Priority</InputLabel>
             <Select
               value={priorityId}
@@ -228,13 +229,18 @@ export default function TaskDrawer({
           </FormControl>
         </Box>
 
-        <FormControl fullWidth disabled={loading}>
-          <InputLabel>Assignee</InputLabel>
+        <FormControl fullWidth disabled={loading} sx={drawerOutlinedFieldSx}>
+          <InputLabel shrink>Assignee</InputLabel>
           <Select
             value={assigneeId}
             onChange={e => setAssigneeId(e.target.value)}
             label="Assignee"
             displayEmpty
+            renderValue={value =>
+              value
+                ? (users.find(user => user.id === value)?.name ?? 'Unassigned')
+                : 'Unassigned'
+            }
           >
             <MenuItem value="">
               <em>Unassigned</em>

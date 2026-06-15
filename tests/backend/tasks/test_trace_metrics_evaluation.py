@@ -175,7 +175,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -219,7 +219,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -251,7 +251,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -281,7 +281,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
             ) as mock_load,
@@ -300,7 +300,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
             ) as mock_load,
@@ -323,7 +323,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
         ):
             out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
 
@@ -342,7 +342,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
         ):
             out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
 
@@ -360,7 +360,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -387,7 +387,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -420,7 +420,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -455,7 +455,7 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -497,7 +497,7 @@ class TestEvaluateTurnWithRootSpanId:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -535,7 +535,7 @@ class TestEvaluateTurnWithRootSpanId:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -563,7 +563,7 @@ class TestEvaluateTurnWithRootSpanId:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
         ):
             out = evaluate_turn_trace_metrics.run(
                 TRACE_ID, PROJECT_ID, ORG_ID, root_span_id="nonexistent-id",
@@ -604,7 +604,7 @@ class TestEvaluateConversationTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -652,7 +652,7 @@ class TestEvaluateConversationTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[],
@@ -673,7 +673,7 @@ class TestEvaluateConversationTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
             ) as mock_load,
@@ -704,7 +704,7 @@ class TestEvaluateConversationTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],
@@ -747,7 +747,7 @@ class TestEvaluateConversationTraceMetrics:
                 "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
-            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch("rhesis.backend.tasks.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
                 return_value=[mock_metric],

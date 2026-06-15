@@ -6,10 +6,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class Dimension(Base, OrganizationAndUserMixin):
+class Dimension(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "dimension"
     name = Column(String, nullable=False)
     description = Column(Text)

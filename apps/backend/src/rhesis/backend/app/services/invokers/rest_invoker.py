@@ -35,10 +35,25 @@ _HTTP_TIMEOUT = 30.0
 
 def _get_http_client() -> httpx.AsyncClient:
     """Return the thread-local AsyncClient, creating it on first access."""
+    import asyncio as _asyncio
+
     client: httpx.AsyncClient | None = getattr(_tls, "http_client", None)
-    if client is None or client.is_closed:
+    try:
+        current_loop = _asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+
+    stored_loop = getattr(_tls, "http_client_loop", None)
+
+    if client is None or client.is_closed or stored_loop is not current_loop:
+        if client is not None and not client.is_closed and current_loop is not None:
+            try:
+                current_loop.create_task(client.aclose())
+            except Exception:
+                pass
         client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
         _tls.http_client = client
+        _tls.http_client_loop = current_loop
     return client
 
 
@@ -62,6 +77,7 @@ def _close_thread_local_client() -> None:
             pass
         finally:
             _tls.http_client = None
+            _tls.http_client_loop = None
 
 
 class RestEndpointInvoker(BaseEndpointInvoker):
@@ -182,6 +198,22 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             endpoint.request_mapping or {}, template_context
         )
 
+        # Unwrap __body__ — used when the template string isn't valid JSON on its own
+        # (e.g. it contains Jinja expressions that produce JSON fragments inline).
+        # After Jinja rendering the result should be a valid JSON document; parse it
+        # back so _async_request can send it as json= rather than a quoted string.
+        if isinstance(request_body, dict) and list(request_body.keys()) == ["__body__"]:
+            raw = request_body["__body__"]
+            if isinstance(raw, str):
+                try:
+                    request_body = json.loads(raw)
+                except (json.JSONDecodeError, ValueError):
+                    request_body = raw
+            else:
+                request_body = raw
+
+        logger.debug(f"Request body to send: {request_body}")
+
         # Strip reserved meta keys (e.g. system_prompt) from the wire body
         self._strip_meta_keys(request_body)
 
@@ -265,12 +297,21 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                     mapped_response[conversation_field] = conversation_id
                     logger.debug(f"Added {conversation_field} to response: {conversation_id}")
 
-            # Preserve important unmapped fields from original response (error info, message, etc.)
-            important_fields = ["error", "status", "message"]
-            for field in important_fields:
+            # Keep the full API response for display
+            try:
+                raw_copy = json.loads(json.dumps(response_data))
+                mapped_response["raw_response"] = raw_copy
+            except (TypeError, ValueError):
+                mapped_response["raw_response"] = None
+
+            # Include the actual rendered request for the frontend preview
+            mapped_response["raw_request"] = self._create_request_details(
+                method, url, headers, request_body
+            )
+
+            for field in ("error", "status", "message"):
                 if field in response_data and field not in mapped_response:
                     mapped_response[field] = response_data[field]
-                    logger.debug(f"Preserved unmapped field '{field}': {response_data[field]}")
 
             return mapped_response
         except json.JSONDecodeError as json_error:
@@ -313,8 +354,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         if endpoint.auth_type or endpoint.auth_token:
             auth_token = self._get_valid_token(db, endpoint)
 
-            # Automatically add Authorization header if not explicitly set
-            if "Authorization" not in headers and auth_token:
+            # Automatically add Authorization header only if the token is not
+            # already referenced in any custom header (e.g. x-goog-api-key).
+            token_already_placed = any(
+                "auth_token" in str(v) or (auth_token and auth_token in str(v))
+                for v in headers.values()
+            )
+            if "Authorization" not in headers and not token_already_placed and auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
         else:
             auth_token = ""

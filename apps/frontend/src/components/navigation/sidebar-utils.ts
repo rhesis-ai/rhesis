@@ -5,6 +5,7 @@ import {
   type NavigationPageItem,
   type NavigationLinkItem,
   type NavigationHeaderItem,
+  type NavigationActionItem,
 } from '@/types/navigation';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
@@ -32,7 +33,6 @@ export interface ExtendedUser {
   name?: string | null;
   email?: string | null;
   image?: string | null;
-  is_superuser?: boolean;
 }
 
 // ── Active-path helper ────────────────────────────────────────────────────────
@@ -40,29 +40,6 @@ export interface ExtendedUser {
 export function isActive(pathname: string | null, fullPath: string): boolean {
   if (!pathname) return false;
   return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
-}
-
-// ── Navigation filtering ──────────────────────────────────────────────────────
-
-export function filterNavItems(
-  items: NavigationItem[],
-  isSuperuser: boolean
-): NavigationItem[] {
-  return items.reduce<NavigationItem[]>((acc, item) => {
-    const needsSuperuser =
-      'requireSuperuser' in item &&
-      (item as { requireSuperuser?: boolean }).requireSuperuser;
-    if (needsSuperuser && !isSuperuser) return acc;
-    if (item.kind === 'page' && item.children && item.children.length > 0) {
-      acc.push({
-        ...item,
-        children: filterNavItems(item.children, isSuperuser),
-      } as NavigationPageItem);
-    } else {
-      acc.push(item);
-    }
-    return acc;
-  }, []);
 }
 
 // ── Navigation grouping ───────────────────────────────────────────────────────
@@ -78,7 +55,7 @@ export type SectionGroup = {
 };
 export type FooterLinksGroup = {
   type: 'footer-links';
-  items: NavigationLinkItem[];
+  items: (NavigationLinkItem | NavigationActionItem)[];
 };
 export type NavGroup = StandaloneGroup | SectionGroup | FooterLinksGroup;
 
@@ -88,7 +65,7 @@ export function groupNavItems(items: NavigationItem[]): NavGroup[] {
     header: NavigationHeaderItem;
     items: NavigationPageItem[];
   } | null = null;
-  const footerLinks: NavigationLinkItem[] = [];
+  const footerLinks: (NavigationLinkItem | NavigationActionItem)[] = [];
   let inFooter = false;
 
   for (const item of items) {
@@ -105,7 +82,8 @@ export function groupNavItems(items: NavigationItem[]): NavGroup[] {
       continue;
     }
     if (inFooter) {
-      if (item.kind === 'link') footerLinks.push(item);
+      if (item.kind === 'link' || item.kind === 'action')
+        footerLinks.push(item);
       continue;
     }
     if (item.kind === 'header') {

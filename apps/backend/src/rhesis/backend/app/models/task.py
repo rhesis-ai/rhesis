@@ -4,10 +4,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin
+from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMixin, TagsMixin
 
 
-class Task(Base, ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin):
+class Task(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin, TagsMixin):
     __tablename__ = "task"
 
     # Core fields

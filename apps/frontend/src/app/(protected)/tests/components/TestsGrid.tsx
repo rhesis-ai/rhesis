@@ -17,6 +17,8 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridRenderCellParams,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -41,12 +43,20 @@ import TestFilterDrawer, {
   type TestFilters,
   EMPTY_TEST_FILTERS,
   hasActiveTestFilters,
+  countActiveTestFilters,
 } from './TestFilterDrawer';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import {
   getTestContentValue,
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
+import { TEST_TYPES } from '@/constants/test-types';
+import { applyTestDrawerFiltersToModel } from './test-filter-model';
+import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -64,6 +74,7 @@ interface TestsToolbarState {
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
 }
 
 const TestsToolbarContext = React.createContext<TestsToolbarState>({
@@ -73,12 +84,13 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
 });
 
 const PILL_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ];
 
 function TestsUnifiedToolbar() {
@@ -89,6 +101,7 @@ function TestsUnifiedToolbar() {
     setTypeFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
+    activeFilterCount,
   } = useContext(TestsToolbarContext);
 
   return (
@@ -98,10 +111,7 @@ function TestsUnifiedToolbar() {
       searchPlaceholder="Search tests…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
-      sx={{
-        borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
-        bgcolor: theme => theme.palette.greyscale.surface1,
-      }}
+      activeFilterCount={activeFilterCount}
       middleContent={
         <ToolbarPillTabs
           tabs={PILL_TABS}
@@ -123,8 +133,8 @@ function TestsUnifiedToolbar() {
 export default function TestsTable({
   sessionToken,
   onRefresh,
-  onNewTest,
-  disableAddButton = false,
+  onNewTest: _onNewTest,
+  disableAddButton: _disableAddButton = false,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -147,8 +157,10 @@ export default function TestsTable({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
@@ -189,12 +201,13 @@ export default function TestsTable({
 
       // Convert filter model to OData filter string
       const filterString = combineTestFiltersToOData(filterModel);
+      const { sort_by, sort_order } = gridSortToApiParams(sortModel);
 
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by,
+        sort_order,
         ...(filterString && { filter: filterString }),
       };
 
@@ -215,6 +228,7 @@ export default function TestsTable({
     paginationModel.page,
     paginationModel.pageSize,
     filterModel,
+    sortModel,
   ]);
 
   // Initial data fetch
@@ -234,6 +248,11 @@ export default function TestsTable({
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
     // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
@@ -278,61 +297,34 @@ export default function TestsTable({
 
   // Sync drawer filters into filterModel
   useEffect(() => {
-    setFilterModel(prev => {
-      const DRAWER_FIELDS = [
-        'test_type.type_value',
-        'status.name',
-        'behavior.name',
-        'category.name',
-        'topic.name',
-      ];
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
-      );
-      const drawerItems: typeof prev.items = [];
-      if (drawerFilters.testType) {
-        drawerItems.push({
-          field: 'test_type.type_value',
-          operator: 'equals',
-          value: drawerFilters.testType,
-        });
-      }
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status.name',
-          operator: 'contains',
-          value: drawerFilters.status,
-        });
-      }
-      if (drawerFilters.behavior) {
-        drawerItems.push({
-          field: 'behavior.name',
-          operator: 'contains',
-          value: drawerFilters.behavior,
-        });
-      }
-      if (drawerFilters.category) {
-        drawerItems.push({
-          field: 'category.name',
-          operator: 'contains',
-          value: drawerFilters.category,
-        });
-      }
-      if (drawerFilters.topic) {
-        drawerItems.push({
-          field: 'topic.name',
-          operator: 'contains',
-          value: drawerFilters.topic,
-        });
-      }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
-    });
+    setFilterModel(prev => applyTestDrawerFiltersToModel(prev, drawerFilters));
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
 
+  // Row action handlers
+  const handleRowDeleteAction = useCallback((id: string) => {
+    setPendingDeleteId(id);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleRowEditAction = useCallback(
+    (id: string) => {
+      const test = tests.find(t => t.id === id);
+      if (test) {
+        setSelectedTest(test);
+        setDrawerOpen(true);
+      }
+    },
+    [tests]
+  );
+
   // Column definitions
-  const columns: GridColDef[] = React.useMemo(
-    () => [
+  const columns: GridColDef[] = React.useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => handleRowEditAction(id),
+      onDelete: id => handleRowDeleteAction(id),
+    });
+    return [
       {
         field: 'prompt.content',
         headerName: 'Content',
@@ -350,8 +342,9 @@ export default function TestsTable({
         minWidth: 100,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.behavior?.name || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.behavior?.name || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
@@ -365,8 +358,9 @@ export default function TestsTable({
         minWidth: 100,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.topic?.name || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.topic?.name || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
@@ -380,8 +374,9 @@ export default function TestsTable({
         minWidth: 100,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.category?.name || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.category?.name || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
@@ -395,8 +390,9 @@ export default function TestsTable({
         minWidth: 90,
         resizable: true,
         filterable: true,
-        valueGetter: (value, row) => row.test_type?.type_value || '',
-        renderCell: params => {
+        valueGetter: (_value: unknown, row: TestDetail) =>
+          row.test_type?.type_value || '',
+        renderCell: (params: GridRenderCellParams<TestDetail>) => {
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
@@ -424,8 +420,9 @@ export default function TestsTable({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.comments ?? 0,
         renderCell: params => {
           const count = params.row.counts?.comments || 0;
           if (count === 0) return null;
@@ -443,8 +440,9 @@ export default function TestsTable({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.tasks ?? 0,
         renderCell: params => {
           const count = params.row.counts?.tasks || 0;
           if (count === 0) return null;
@@ -513,7 +511,9 @@ export default function TestsTable({
         width: 180,
         minWidth: 140,
         resizable: true,
-        sortable: false,
+        sortable: true,
+        valueGetter: (_, row) =>
+          row.tags?.filter((tag: Tag) => tag && tag.id && tag.name).length ?? 0,
         renderCell: params => {
           const test = params.row;
           if (!test.tags || test.tags.length === 0) {
@@ -553,9 +553,9 @@ export default function TestsTable({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [handleRowEditAction, handleRowDeleteAction]);
 
   // Event handlers
   const handleRowClick = useCallback(
@@ -618,25 +618,24 @@ export default function TestsTable({
   }, [selectedRows]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (selectedRows.length === 0) return;
+    const idsToDelete = pendingDeleteId
+      ? [pendingDeleteId]
+      : (selectedRows as string[]);
+    if (idsToDelete.length === 0) return;
 
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const testsClient = clientFactory.getTestsClient();
 
-      // Delete all selected tests
-      await Promise.all(
-        selectedRows.map(id => testsClient.deleteTest(id as string))
-      );
+      await Promise.all(idsToDelete.map(id => testsClient.deleteTest(id)));
 
-      // Show success notification
       notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}`,
+        `Successfully deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'test' : 'tests'}`,
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      // Clear selection and refresh data
+      setPendingDeleteId(null);
       setSelectedRows([]);
       fetchTests();
       onRefresh?.();
@@ -649,10 +648,18 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [selectedRows, sessionToken, notifications, fetchTests, onRefresh]);
+  }, [
+    pendingDeleteId,
+    selectedRows,
+    sessionToken,
+    notifications,
+    fetchTests,
+    onRefresh,
+  ]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   }, []);
 
   const _handleNewTest = useCallback(() => {
@@ -753,6 +760,7 @@ export default function TestsTable({
         setTypeFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
+        activeFilterCount: countActiveTestFilters(drawerFilters),
       }}
     >
       {error && (
@@ -796,12 +804,16 @@ export default function TestsTable({
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={selectedRows}
         onRowClick={handleRowClick}
+        getRowUrl={row => `/tests/${row.id}`}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         serverSideFiltering={true}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         toolbarSlot={TestsUnifiedToolbar}
         showToolbar={true}
         disablePaperWrapper={true}
@@ -813,6 +825,7 @@ export default function TestsTable({
             },
           },
         }}
+        sx={rowActionsHoverSx}
       />
 
       {sessionToken && (
@@ -836,8 +849,12 @@ export default function TestsTable({
             onClose={handleDeleteCancel}
             onConfirm={handleDeleteConfirm}
             isLoading={isDeleting}
-            title="Delete Tests"
-            message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+            title={pendingDeleteId ? 'Delete Test' : 'Delete Tests'}
+            message={
+              pendingDeleteId
+                ? 'Are you sure you want to delete this test? Related data will not be deleted.'
+                : `Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
+            }
             itemType="tests"
           />
         </>
@@ -848,6 +865,7 @@ export default function TestsTable({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           // If drawer sets a test type, sync the pill tab too
