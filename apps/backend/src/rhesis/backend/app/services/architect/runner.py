@@ -308,6 +308,7 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
                     input_data,
                     organization_id=org_id,
                     user_id=str(user_id),
+                    project_id=project_id,
                 )
             )
 
@@ -318,7 +319,9 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
             from rhesis.backend.app import crud
 
             with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-                ep = crud.get_endpoint(db, endpoint_id, organization_id=org_id, user_id=user_id)
+                ep = crud.get_endpoint(
+                    db, endpoint_id, organization_id=org_id, user_id=user_id, project_id=project_id
+                )
                 if ep:
                     name = ep.name or endpoint_id
                     description = ep.description or ""
