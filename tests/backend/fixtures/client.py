@@ -71,6 +71,10 @@ def superuser_client(test_db, client):
         test_db, test_org_name, test_user_email, test_user_name
     )
 
+    # Commit so the token is visible to the auth middleware, which uses a
+    # fresh get_db() connection rather than the overridden test_db session.
+    test_db.commit()
+
     # Set auth header
     client.headers.update({"Authorization": f"Bearer {token.token}"})
 

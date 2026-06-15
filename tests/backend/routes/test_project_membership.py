@@ -202,11 +202,13 @@ class TestProjectListingMembership:
         all_ids = set(p["id"] for p in all_resp.json())
         mine_ids = set(p["id"] for p in mine_resp.json())
 
-        # Every project the user is a member of must appear in both endpoints.
+        # The newly created project must appear in both endpoints.
         assert str(project.id) in all_ids
         assert str(project.id) in mine_ids
-        # Neither set should contain a project the other doesn't (they share the same filter).
-        assert all_ids == mine_ids
+        # Every project returned by GET /projects/ (paginated, limit=50) must also
+        # appear in GET /projects/mine (no pagination limit).  The reverse is not
+        # assertable here because mine may include more projects than the page holds.
+        assert all_ids.issubset(mine_ids)
 
 
 # ---------------------------------------------------------------------------

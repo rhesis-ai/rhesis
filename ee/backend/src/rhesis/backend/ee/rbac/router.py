@@ -35,6 +35,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.feature_gates import require_feature
 from rhesis.backend.app.auth.principal import resolve_principal
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -260,7 +261,7 @@ def _role_to_read(role, db: Session) -> RoleRead:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/roles", response_model=list[RoleRead])
+@router.get("/roles", response_model=list[RoleRead], **capability(Permission.Role.READ))
 def list_roles(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -283,7 +284,7 @@ def list_roles(
     return [_role_to_read(r, db) for r in roles]
 
 
-@router.get("/roles/{role_id}", response_model=RoleRead)
+@router.get("/roles/{role_id}", response_model=RoleRead, **capability(Permission.Role.READ))
 def get_role(
     role_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -298,7 +299,12 @@ def get_role(
     return _role_to_read(role, db)
 
 
-@router.post("/roles", response_model=RoleRead, status_code=201)
+@router.post(
+    "/roles",
+    response_model=RoleRead,
+    status_code=201,
+    **capability(Permission.Role.MANAGE),
+)
 def create_role(
     body: RoleCreate,
     db: Session = Depends(get_tenant_db_session),
@@ -344,7 +350,7 @@ def create_role(
     return _role_to_read(role, db)
 
 
-@router.put("/roles/{role_id}", response_model=RoleRead)
+@router.put("/roles/{role_id}", response_model=RoleRead, **capability(Permission.Role.MANAGE))
 def update_role(
     role_id: uuid.UUID,
     body: RoleUpdate,
@@ -390,7 +396,7 @@ def update_role(
     return _role_to_read(role, db)
 
 
-@router.delete("/roles/{role_id}", status_code=204)
+@router.delete("/roles/{role_id}", status_code=204, **capability(Permission.Role.MANAGE))
 def delete_role(
     role_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -430,7 +436,11 @@ def delete_role(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/organization-members", response_model=list[OrgMemberRead])
+@router.get(
+    "/organization-members",
+    response_model=list[OrgMemberRead],
+    **capability(Permission.Member.READ),
+)
 def list_org_members(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
@@ -445,7 +455,11 @@ def list_org_members(
     return [OrgMemberRead.model_validate(m) for m in members]
 
 
-@router.put("/organization-members/{user_id}/role", response_model=OrgMemberRead)
+@router.put(
+    "/organization-members/{user_id}/role",
+    response_model=OrgMemberRead,
+    **capability(Permission.Member.MANAGE),
+)
 def assign_org_role(
     user_id: uuid.UUID,
     body: OrgRoleAssign,
@@ -518,7 +532,11 @@ def assign_org_role(
     return OrgMemberRead.model_validate(member)
 
 
-@router.delete("/organization-members/{user_id}", status_code=204)
+@router.delete(
+    "/organization-members/{user_id}",
+    status_code=204,
+    **capability(Permission.Member.DELETE),
+)
 def remove_org_member(
     user_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -562,6 +580,7 @@ def remove_org_member(
     "/projects/{project_id}/members/{user_id}/role",
     response_model=ProjectMemberRoleRead,
     status_code=200,
+    **capability(Permission.Member.MANAGE),
 )
 def assign_project_role(
     project_id: uuid.UUID,
