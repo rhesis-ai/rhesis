@@ -1,51 +1,41 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import GridToolbar, {
-  directoryToolbarProps,
-} from '@/components/common/GridToolbar';
+import React, { useState, useEffect } from 'react';
+import { Box, Alert, CircularProgress, Menu, MenuItem } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
-import AddIcon from '@mui/icons-material/Add';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   Tool,
   ToolCreate,
   ToolUpdate,
+  TypeLookup,
 } from '@/utils/api-client/interfaces/tool';
-import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
-import {
-  ConnectedToolCard,
-  ToolConnectionDrawer,
-  ToolFilterDrawer,
-  ToolFilters,
-} from './components';
-import {
-  EMPTY_TOOL_FILTERS,
-  hasActiveToolFilters,
-} from './components/ToolFilterDrawer';
+import { ProviderCard, ToolConnectionDrawer } from './components';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 export default function ToolsPage() {
   const { data: session } = useSession();
   const notifications = useNotifications();
-  const [tools, setTools] = useState<Tool[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
+    null
+  );
   const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
 
-  // Toolbar state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<ToolFilters>(EMPTY_TOOL_FILTERS);
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // FAB menu
+  const [fabAnchorEl, setFabAnchorEl] = useState<null | HTMLElement>(null);
+  const fabMenuOpen = Boolean(fabAnchorEl);
 
   useEffect(() => {
     async function loadData() {
@@ -53,25 +43,22 @@ export default function ToolsPage() {
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
         const apiFactory = new ApiClientFactory(session.session_token);
         const toolsClient = apiFactory.getToolsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
 
-        const providerTypesData = await typeLookupClient.getTypeLookups({
-          $filter: "type_name eq 'ToolProviderType'",
-          limit: 100,
-        });
-        setProviderTypes(providerTypesData);
+        const [providerTypesData, toolsResponse] = await Promise.all([
+          typeLookupClient.getTypeLookups({
+            $filter: "type_name eq 'ToolProviderType'",
+            limit: 100,
+          }),
+          toolsClient.getTools({ limit: 100 }).catch(() => ({ data: [] })),
+        ]);
 
-        try {
-          const toolsResponse = await toolsClient.getTools({ limit: 100 });
-          setTools(toolsResponse.data || []);
-        } catch {
-          setTools([]);
-        }
+        setProviderTypes(providerTypesData);
+        setTools(toolsResponse.data || []);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to load tool connections'
@@ -84,15 +71,42 @@ export default function ToolsPage() {
     loadData();
   }, [session]);
 
-  const handleConnect = async (
+  const handleFabClick = (event: React.MouseEvent<HTMLElement>) => {
+    setFabAnchorEl(event.currentTarget);
+  };
+
+  const handleFabMenuClose = () => {
+    setFabAnchorEl(null);
+  };
+
+  const handleConnectClick = (providerType: TypeLookup) => {
+    handleFabMenuClose();
+    setSelectedProvider(providerType);
+    setToolToEdit(null);
+    setConnectionDrawerOpen(true);
+  };
+
+  const handleEditClick = (tool: Tool) => {
+    const pt =
+      providerTypes.find(p => p.id === tool.tool_provider_type_id) ?? null;
+    setSelectedProvider(pt);
+    setToolToEdit(tool);
+    setConnectionDrawerOpen(true);
+  };
+
+  const handleDeleteClick = (tool: Tool) => {
+    setToolToDelete(tool);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleToolCreate = async (
     _providerId: string,
     toolData: ToolCreate
   ): Promise<Tool> => {
     if (!session?.session_token) throw new Error('No session token');
     const apiFactory = new ApiClientFactory(session.session_token);
-    const toolsClient = apiFactory.getToolsClient();
-    const tool = await toolsClient.createTool(toolData);
-    setTools(prev => [...(prev || []), tool]);
+    const tool = await apiFactory.getToolsClient().createTool(toolData);
+    setTools(prev => [...prev, tool]);
     notifications.show('Tool connection created successfully', {
       severity: 'success',
     });
@@ -102,33 +116,21 @@ export default function ToolsPage() {
   const handleUpdate = async (toolId: UUID, updates: Partial<ToolUpdate>) => {
     if (!session?.session_token) return;
     const apiFactory = new ApiClientFactory(session.session_token);
-    const toolsClient = apiFactory.getToolsClient();
-    const updatedTool = await toolsClient.updateTool(toolId, updates);
-    setTools(prev =>
-      prev.map(tool => (tool.id === toolId ? updatedTool : tool))
-    );
+    const updated = await apiFactory
+      .getToolsClient()
+      .updateTool(toolId, updates);
+    setTools(prev => prev.map(t => (t.id === toolId ? updated : t)));
     notifications.show('Tool connection updated successfully', {
       severity: 'success',
     });
-  };
-
-  const handleDeleteClick = (tool: Tool) => {
-    setToolToDelete(tool);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleCardClick = (tool: Tool) => {
-    setToolToEdit(tool);
-    setConnectionDrawerOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
     if (!session?.session_token || !toolToDelete) return;
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
-      const toolsClient = apiFactory.getToolsClient();
-      await toolsClient.deleteTool(toolToDelete.id);
-      setTools(prev => prev.filter(tool => tool.id !== toolToDelete.id));
+      await apiFactory.getToolsClient().deleteTool(toolToDelete.id);
+      setTools(prev => prev.filter(t => t.id !== toolToDelete.id));
       setDeleteDialogOpen(false);
       setToolToDelete(null);
       notifications.show('Tool connection deleted successfully', {
@@ -144,36 +146,16 @@ export default function ToolsPage() {
     }
   };
 
-  // Derive available providers from loaded tools for the filter drawer
-  const availableProviders = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          tools
-            .map(t => t.tool_provider_type?.type_value)
-            .filter((v): v is string => Boolean(v))
-        )
-      ).sort(),
-    [tools]
+  // Zip each provider type with its existing connection (or null)
+  const providerCards = providerTypes.map(pt => ({
+    providerType: pt,
+    tool: tools.find(t => t.tool_provider_type_id === pt.id) ?? null,
+  }));
+
+  // Only show unconnected providers in the FAB menu
+  const unconnectedProviders = providerTypes.filter(
+    pt => !tools.find(t => t.tool_provider_type_id === pt.id)
   );
-
-  const filteredTools = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    return tools.filter(tool => {
-      const searchMatch =
-        !q ||
-        tool.name?.toLowerCase().includes(q) ||
-        tool.description?.toLowerCase().includes(q) ||
-        tool.tool_provider_type?.type_value?.toLowerCase().includes(q);
-
-      const providerMatch =
-        filters.providers.length === 0 ||
-        (tool.tool_provider_type?.type_value &&
-          filters.providers.includes(tool.tool_provider_type.type_value));
-
-      return searchMatch && providerMatch;
-    });
-  }, [tools, searchQuery, filters]);
 
   return (
     <PageLayout
@@ -181,17 +163,35 @@ export default function ToolsPage() {
       description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
       breadcrumbs={[]}
       actions={
-        <FabGroup>
-          <Fab
-            icon={<AddIcon />}
-            tooltip="Add tool connection"
-            aria-label="Add tool connection"
-            onClick={() => {
-              setToolToEdit(null);
-              setConnectionDrawerOpen(true);
-            }}
-          />
-        </FabGroup>
+        !loading && (
+          <FabGroup>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip={
+                unconnectedProviders.length === 0
+                  ? 'All tools are connected'
+                  : 'Connect a tool'
+              }
+              aria-label="Connect a tool"
+              disabled={unconnectedProviders.length === 0}
+              onClick={handleFabClick}
+            />
+            <Menu
+              anchorEl={fabAnchorEl}
+              open={fabMenuOpen}
+              onClose={handleFabMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              {unconnectedProviders.map(pt => (
+                <MenuItem key={pt.id} onClick={() => handleConnectClick(pt)}>
+                  {pt.type_value.charAt(0).toUpperCase() +
+                    pt.type_value.slice(1)}
+                </MenuItem>
+              ))}
+            </Menu>
+          </FabGroup>
+        )
       }
     >
       {error && (
@@ -200,26 +200,10 @@ export default function ToolsPage() {
         </Alert>
       )}
 
-      <GridToolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search tool connections..."
-        onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveToolFilters(filters)}
-        {...directoryToolbarProps}
-      />
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
-        </Box>
-      ) : filteredTools.length === 0 ? (
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
-            {tools.length === 0
-              ? 'No tool connections yet. Use the + button to add one.'
-              : 'No connections match your search or filters.'}
-          </Typography>
         </Box>
       ) : (
         <Box
@@ -233,38 +217,32 @@ export default function ToolsPage() {
             gap: '24px',
           }}
         >
-          {filteredTools.map(tool => (
-            <ConnectedToolCard
-              key={tool.id}
+          {providerCards.map(({ providerType, tool }) => (
+            <ProviderCard
+              key={providerType.id}
+              providerType={providerType}
               tool={tool}
+              onConnect={handleConnectClick}
+              onEdit={handleEditClick}
               onDelete={handleDeleteClick}
-              onCardClick={handleCardClick}
             />
           ))}
         </Box>
       )}
 
-      {/* Filter drawer */}
-      <ToolFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={filters}
-        availableProviders={availableProviders}
-        onApply={f => {
-          setFilters(f);
-        }}
-      />
-
       <ToolConnectionDrawer
         open={connectionDrawerOpen}
-        providers={providerTypes}
+        provider={selectedProvider}
         tool={toolToEdit}
         mode={toolToEdit ? 'edit' : 'create'}
         onClose={() => {
           setConnectionDrawerOpen(false);
-          setTimeout(() => setToolToEdit(null), 300);
+          setTimeout(() => {
+            setToolToEdit(null);
+            setSelectedProvider(null);
+          }, 300);
         }}
-        onConnect={handleConnect}
+        onConnect={handleToolCreate}
         onUpdate={handleUpdate}
       />
 
