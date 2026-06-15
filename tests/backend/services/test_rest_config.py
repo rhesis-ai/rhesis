@@ -1,4 +1,4 @@
-"""Tests for the REST provider registry — build_client and get_rest_source."""
+"""Tests for the REST provider registry — build_client and get_rest_client."""
 
 import uuid
 from unittest.mock import Mock, patch
@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
-from rhesis.backend.app.services.tool.rest.config import build_client, get_rest_source
+from rhesis.backend.app.services.tool.rest.config import build_client, get_rest_client
 from rhesis.backend.app.services.tool.rest.confluence import ConfluenceRestClient
 from rhesis.backend.app.services.tool.rest.github import GitHubRestClient
 from rhesis.backend.app.services.tool.rest.jira import JiraRestClient
@@ -57,8 +57,8 @@ class TestBuildClient:
 
 @pytest.mark.unit
 @pytest.mark.services
-class TestGetRestSource:
-    """Test get_rest_source DB → client resolution and error handling."""
+class TestGetRestClient:
+    """Test get_rest_client DB → client resolution and error handling."""
 
     def _tool(self, provider="notion", credentials='{"NOTION_TOKEN": "tok"}'):
         tool = Mock()
@@ -74,7 +74,7 @@ class TestGetRestSource:
             "rhesis.backend.app.services.tool.rest.config.crud"
         ) as mock_crud:
             mock_crud.get_tool.return_value = self._tool("github", '{"X": "y"}')
-            client = get_rest_source(db, tool_id, org_id)
+            client = get_rest_client(db, tool_id, org_id)
         assert isinstance(client, GitHubRestClient)
 
     def test_tool_not_found_raises(self):
@@ -84,7 +84,7 @@ class TestGetRestSource:
         ) as mock_crud:
             mock_crud.get_tool.return_value = None
             with pytest.raises(ToolConfigurationError, match="not found"):
-                get_rest_source(db, str(uuid.uuid4()), str(uuid.uuid4()))
+                get_rest_client(db, str(uuid.uuid4()), str(uuid.uuid4()))
 
     def test_deleted_tool_raises(self):
         db = Mock(spec=Session)
@@ -93,7 +93,7 @@ class TestGetRestSource:
         ) as mock_crud:
             mock_crud.get_tool.side_effect = ItemDeletedException("Tool", "gone")
             with pytest.raises(ToolConfigurationError, match="has been deleted"):
-                get_rest_source(db, str(uuid.uuid4()), str(uuid.uuid4()))
+                get_rest_client(db, str(uuid.uuid4()), str(uuid.uuid4()))
 
     def test_invalid_credentials_json_raises(self):
         db = Mock(spec=Session)
@@ -102,4 +102,4 @@ class TestGetRestSource:
         ) as mock_crud:
             mock_crud.get_tool.return_value = self._tool(credentials="not json{")
             with pytest.raises(ToolConfigurationError, match="Invalid credentials"):
-                get_rest_source(db, str(uuid.uuid4()), str(uuid.uuid4()))
+                get_rest_client(db, str(uuid.uuid4()), str(uuid.uuid4()))

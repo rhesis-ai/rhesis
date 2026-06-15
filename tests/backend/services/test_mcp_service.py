@@ -198,14 +198,11 @@ class TestGetMCPClientByToolId:
 
         # Execute
         db = Mock()
-        result, provider_name, repository_context = _get_mcp_tool_config(
-            db, tool_id, org_id, user_id
-        )
+        result, provider_name = _get_mcp_tool_config(db, tool_id, org_id, user_id)
 
         # Assert
         assert result == mock_client
         assert provider_name == "notion"
-        assert repository_context is None
         mock_crud.get_tool.assert_called_once_with(db, uuid.UUID(tool_id), org_id, user_id)
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials={"NOTION_TOKEN": "test_token"}
@@ -319,7 +316,7 @@ class TestQueryMCP:
         ctx = _make_ctx(db=db)
 
         mock_client = Mock()
-        mock_get_client.return_value = (mock_client, "notion", None)
+        mock_get_client.return_value = (mock_client, "notion")
 
         mock_template = Mock()
         mock_template.render.return_value = "Default query prompt"
@@ -368,7 +365,7 @@ class TestQueryMCP:
         ctx = _make_ctx(db=db)
 
         mock_client = Mock()
-        mock_get_client.return_value = (mock_client, "notion", None)
+        mock_get_client.return_value = (mock_client, "notion")
 
         mock_agent = Mock()
         mock_result = Mock()
@@ -410,7 +407,7 @@ class TestQueryMCP:
         ctx = _make_ctx(db=db)
 
         mock_client = Mock()
-        mock_get_client.return_value = (mock_client, "notion", None)
+        mock_get_client.return_value = (mock_client, "notion")
 
         mock_template = Mock()
         mock_template.render.return_value = "Default query prompt"

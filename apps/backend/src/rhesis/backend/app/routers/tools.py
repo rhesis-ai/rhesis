@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List
 
@@ -18,9 +19,13 @@ from rhesis.backend.app.schemas.services import (
     TestToolConnectionResponse,
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
+from rhesis.backend.app.services.tool.mcp import handle_mcp_exception
+from rhesis.backend.app.services.tool.rest import get_rest_client, run_rest_health_check
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for Tool
 ToolDetailSchema = create_detailed_schema(schemas.Tool, models.Tool)
@@ -230,12 +235,6 @@ async def test_tool_connection(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Test a tool's credentials via a lightweight REST health check."""
-    import logging
-
-    from rhesis.backend.app.services.tool.rest import run_rest_health_check
-
-    logger = logging.getLogger(__name__)
-
     try:
         organization_id, user_id = tenant_context
         result = await run_rest_health_check(

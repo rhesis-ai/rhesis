@@ -1,6 +1,5 @@
 """Jira REST API client for deterministic issue creation."""
 
-import json
 import logging
 import uuid
 from datetime import datetime
@@ -11,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.services.tool.rest.config import validate_base_url
-from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 logger = logging.getLogger(__name__)
 

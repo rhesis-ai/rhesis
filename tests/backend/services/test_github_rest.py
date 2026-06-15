@@ -17,10 +17,10 @@ from rhesis.backend.app.services.tool.rest.github import (
 class TestParseGithubUrl:
     """Test _parse_github_url for the supported URL shapes."""
 
-    def test_repo_root_defaults_to_main(self):
+    def test_repo_root_uses_default_branch(self):
         api_url, branch = _parse_github_url("https://github.com/owner/repo")
         assert api_url == "https://api.github.com/repos/owner/repo/contents/"
-        assert branch == "main"
+        assert branch is None
 
     def test_blob_url_extracts_branch_and_path(self):
         api_url, branch = _parse_github_url(
