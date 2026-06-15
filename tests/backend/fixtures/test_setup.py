@@ -155,45 +155,6 @@ def setup_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         raise
 
 
-def _assign_owner_role_if_rbac_available(db, organization, user) -> None:
-    """Assign the built-in Owner role to *user* in *organization* when RBAC tables exist.
-
-    The EE PermissionAuthorizationProvider denies users who have no
-    ``organization_member`` row.  Test users are org creators (Owner semantics),
-    so assigning them the Owner role preserves pre-RBAC test behaviour.
-
-    Silently no-ops when the EE package is not installed or the role table
-    hasn't been seeded yet.
-    """
-    try:
-        from rhesis.backend.app.scope import bypass_tenant_filter
-        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
-
-        with bypass_tenant_filter():
-            owner_role = db.query(Role).filter_by(name="Owner", is_built_in=True).first()
-
-        if owner_role is None:
-            return
-
-        existing = (
-            db.query(OrganizationMember)
-            .filter_by(organization_id=organization.id, user_id=user.id)
-            .first()
-        )
-        if existing is None:
-            db.add(
-                OrganizationMember(
-                    organization_id=organization.id,
-                    user_id=user.id,
-                    role_id=owner_role.id,
-                )
-            )
-            db.flush()
-            print(f"🔑 Assigned Owner RBAC role to test user {user.id}")
-    except Exception as e:
-        print(f"⚠️  Could not assign RBAC Owner role (EE not available?): {e}")
-
-
 def create_test_organization_and_user(
     db: Session,
     org_name: str = "Test Organization",
@@ -233,11 +194,6 @@ def create_test_organization_and_user(
         # Load initial data (uses get_db() with direct tenant context passing)
         print(f"🔧 Loading initial data for organization {organization.id}")
         setup_initial_data(db, str(organization.id), str(user.id))
-
-        # Assign Owner RBAC role when the EE RBAC tables are present.
-        # Without this the PermissionAuthorizationProvider denies the test
-        # user for every capability, breaking all route integration tests.
-        _assign_owner_role_if_rbac_available(db, organization, user)
 
         return organization, user, api_token
 

@@ -106,7 +106,7 @@ class DefaultLicenseProvider:
     _REQUIRES_LICENSE: frozenset[str] = frozenset({"rbac"})
 
     def allows_feature(self, feature: Feature, org: Organization) -> bool:
-        return str(feature.name) not in self._REQUIRES_LICENSE
+        return feature.name.value not in self._REQUIRES_LICENSE
 
     def info(self) -> dict:
         # ``edition: dev`` (rather than ``community``) communicates that the EE
