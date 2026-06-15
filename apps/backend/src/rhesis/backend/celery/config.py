@@ -97,7 +97,7 @@ CELERY_CONFIG = {
         "rhesis.backend.tasks.test_set",
         "rhesis.backend.tasks.execution.results",
         "rhesis.backend.tasks.telemetry.enrich",
-        "rhesis.backend.tasks.architect",
+        "rhesis.backend.tasks.architect.chat",
         "rhesis.backend.tasks.telemetry.evaluate",
         "rhesis.backend.tasks.telemetry.post_ingest",
     ],
