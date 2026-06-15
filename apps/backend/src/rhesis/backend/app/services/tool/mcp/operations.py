@@ -32,13 +32,11 @@ async def query_mcp(
         raise ValueError("user_id is required")
 
     with ctx.get_db() as db:
-        client, provider, repository_context = _get_mcp_tool_config(
-            db, tool_id, ctx.organization_id, ctx.user_id
-        )
+        client, provider = _get_mcp_tool_config(db, tool_id, ctx.organization_id, ctx.user_id)
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render(
-            provider=provider, repository_context=repository_context
+            provider=provider
         )
 
     model = get_model_settings().generation_model

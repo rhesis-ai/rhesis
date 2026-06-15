@@ -23,9 +23,7 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         user_id: User ID (for authorization check)
 
     Returns:
-        Tuple of (MCPClient, provider_name, repository_context) ready to use.
-        repository_context is None or a dict with 'owner', 'repo', 'full_name'
-        for GitHub repository-scoped connections.
+        Tuple of (MCPClient, provider_name) ready to use.
 
     Raises:
         ToolConfigurationError: If tool not found, deleted, not an MCP integration,
@@ -52,14 +50,12 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
     except (json.JSONDecodeError, TypeError) as e:
         raise ToolConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
 
-    repository_context = None
-
     factory = MCPClientFactory.from_provider(
         provider=provider,
         credentials=credentials_dict,
     )
     client = factory.create_client(provider)
-    return client, provider, repository_context
+    return client, provider
 
 
 def _get_mcp_client_from_params(
