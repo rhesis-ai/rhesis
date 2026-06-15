@@ -173,6 +173,19 @@ class EndpointTestRequest(Base):
         return v
 
 
+class EndpointMappingTestRequest(Base):
+    """Test draft mappings against a stored endpoint using its stored credentials.
+
+    The endpoint's URL, method, headers, and auth are taken from the database.
+    Only the mappings and input data are supplied by the caller.
+    """
+
+    request_mapping: Dict[str, Any]
+    response_mapping: Dict[str, str]
+    input_data: Dict[str, Any]
+    response_format: Optional[EndpointResponseFormat] = None
+
+
 class Endpoint(Base):
     """Response schema - excludes sensitive write-only fields"""
 

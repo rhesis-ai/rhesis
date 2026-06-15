@@ -32,65 +32,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { readActiveProjectId } from '@/utils/active-project';
 
-// Import icons for project icon rendering
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DevicesIcon from '@mui/icons-material/Devices';
-import WebIcon from '@mui/icons-material/Web';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-
-// Map of icon names to components for easy lookup
-const ICON_MAP: Record<string, React.ComponentType> = {
-  SmartToy: SmartToyIcon,
-  Devices: DevicesIcon,
-  Web: WebIcon,
-  Storage: StorageIcon,
-  Code: CodeIcon,
-  DataObject: DataObjectIcon,
-  Cloud: CloudIcon,
-  Analytics: AnalyticsIcon,
-  ShoppingCart: ShoppingCartIcon,
-  Terminal: TerminalIcon,
-  VideogameAsset: VideogameAssetIcon,
-  Chat: ChatIcon,
-  Psychology: PsychologyIcon,
-  Dashboard: DashboardIcon,
-  Search: SearchIcon,
-  AutoFixHigh: AutoFixHighIcon,
-  PhoneIphone: PhoneIphoneIcon,
-  School: SchoolIcon,
-  Science: ScienceIcon,
-  AccountTree: AccountTreeIcon,
-};
-
-const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
-
-// Get appropriate icon based on project type or use case
-const getProjectIcon = (project: Project) => {
-  // Check if a specific project icon was selected during creation
-  if (project?.icon && ICON_MAP[project.icon]) {
-    const IconComponent = ICON_MAP[project.icon];
-    return <IconComponent />;
-  }
-
-  // Fall back to a default icon
-  return <SmartToyIcon />;
-};
+import { getProjectIcon, ENVIRONMENTS } from './endpoint-icon-utils';
 
 export default function SwaggerEndpointForm() {
   const router = useRouter();

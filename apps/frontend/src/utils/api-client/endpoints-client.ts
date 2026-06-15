@@ -90,6 +90,26 @@ export class EndpointsClient extends BaseApiClient {
     );
   }
 
+  async testEndpointMapping(
+    id: string,
+    payload: {
+      request_mapping: Record<string, unknown>;
+      response_mapping: Record<string, string>;
+      input_data: Record<string, unknown>;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(
+      `${API_ENDPOINTS.endpoints}/${id}/test`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+  }
+
   async executeTestSet(
     endpointId: string,
     testSetId: string

@@ -9,6 +9,8 @@ import {
 
 interface EditableSectionProps<T> {
   title: string;
+  subtitle?: React.ReactNode;
+  headerActions?: React.ReactNode;
   initialValue: T;
   onSave: (draft: T) => Promise<boolean | void>;
   isDirty?: (draft: T, initial: T) => boolean;
@@ -25,6 +27,8 @@ function defaultIsDirty<T>(draft: T, initial: T): boolean {
 
 export function EditableSection<T>({
   title,
+  subtitle,
+  headerActions,
   initialValue,
   onSave,
   isDirty = defaultIsDirty,
@@ -77,7 +81,18 @@ export function EditableSection<T>({
   );
 
   return (
-    <SectionCard title={title} actions={actionButtons}>
+    <SectionCard
+      title={title}
+      subtitle={subtitle}
+      actions={
+        headerActions || actionButtons ? (
+          <>
+            {headerActions}
+            {actionButtons}
+          </>
+        ) : undefined
+      }
+    >
       {children({ draft, setDraft, isEditing })}
     </SectionCard>
   );
