@@ -111,6 +111,7 @@ export function ToolConnectionDrawer({
   // Tracks whether the user has modified credential fields in edit mode.
   // A re-test is only required when this is true.
   const [credentialsModified, setCredentialsModified] = useState(false);
+  const [scopeMetadataModified, setScopeMetadataModified] = useState(false);
 
   // Snapshot of non-credential fields when the drawer opens in edit mode,
   // used to detect whether anything has actually changed.
@@ -227,6 +228,7 @@ export function ToolConnectionDrawer({
         setTestResult(null);
         setConnectionTested(false);
         setCredentialsModified(false);
+        setScopeMetadataModified(false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -252,6 +254,7 @@ export function ToolConnectionDrawer({
         setTestResult(null);
         setConnectionTested(false);
         setCredentialsModified(false);
+        setScopeMetadataModified(false);
       }
     }
   }, [open, provider, tool, isEditMode, session?.user?.email]);
@@ -274,15 +277,12 @@ export function ToolConnectionDrawer({
         projectNamespace !== initialProjectNamespace ||
         selectedSpaceKey !== initialSpaceKey;
       const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
-      const modified =
-        tokenChanged ||
-        urlChanged ||
-        usernameChanged ||
-        gitlabApiUrlChanged ||
-        scopeMetadataChanged;
+      const credentialsChanged =
+        tokenChanged || urlChanged || usernameChanged || gitlabApiUrlChanged;
 
-      setCredentialsModified(modified);
-      if (modified) {
+      setCredentialsModified(credentialsChanged);
+      setScopeMetadataModified(scopeMetadataChanged);
+      if (credentialsChanged || scopeMetadataChanged) {
         setConnectionTested(false);
         setTestResult(null);
       }
@@ -363,6 +363,30 @@ export function ToolConnectionDrawer({
     return credentials;
   };
 
+  const buildScopeMetadataFromForm = (
+    currentProviderType: string | undefined
+  ): Record<string, unknown> | undefined => {
+    if (!currentProviderType) {
+      return undefined;
+    }
+
+    if (currentProviderType === 'github' && repositoryUrl.trim()) {
+      const repoData = parseRepositoryUrl(repositoryUrl);
+      return repoData ? { repository: repoData } : undefined;
+    }
+
+    if (currentProviderType === 'gitlab' && projectNamespace.trim()) {
+      const projectData = parseGitLabProjectUrl(projectNamespace);
+      return projectData ? { project: projectData } : undefined;
+    }
+
+    if (currentProviderType === 'jira' && selectedSpaceKey) {
+      return { space_key: selectedSpaceKey };
+    }
+
+    return undefined;
+  };
+
   const handleTestConnection = async () => {
     if (!session?.session_token) {
       setError('Session not available. Please try again.');
@@ -398,10 +422,35 @@ export function ToolConnectionDrawer({
         tool_metadata?: Record<string, unknown>;
       };
 
-      if (isEditMode && tool?.id && !credentialsModified) {
-        // Edit mode, no credential changes — test existing stored credentials
+      if (isEditMode && tool?.id && !credentialsModified && !scopeMetadataModified) {
+        // Edit mode, no config changes — test existing stored credentials
         testRequest = {
           tool_id: tool.id,
+        };
+      } else if (isEditMode && tool?.id && !credentialsModified && scopeMetadataModified) {
+        // Scope-only edit — reuse stored credentials with updated metadata
+        const currentProviderType =
+          provider?.type_value || tool.tool_provider_type?.type_value;
+        const parsedMetadata = buildScopeMetadataFromForm(currentProviderType);
+
+        if (currentProviderType === 'github' && repositoryUrl.trim() && !parsedMetadata) {
+          setError(
+            'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+          );
+          setTestingConnection(false);
+          return;
+        }
+        if (currentProviderType === 'gitlab' && projectNamespace.trim() && !parsedMetadata) {
+          setError(
+            'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
+          );
+          setTestingConnection(false);
+          return;
+        }
+
+        testRequest = {
+          tool_id: tool.id,
+          tool_metadata: parsedMetadata,
         };
       } else if (isEditMode && tool?.id && credentialsModified) {
         // Edit mode with changed credentials — test new credentials directly
@@ -921,8 +970,10 @@ export function ToolConnectionDrawer({
         (authToken && authToken !== '************')) &&
       (!instanceUrl || !username)) ||
     (!isEditMode && !connectionTested) ||
-    (isEditMode && credentialsModified && !connectionTested) ||
-    (isEditMode && !credentialsModified && !basicFieldsChanged) ||
+    (isEditMode &&
+      (credentialsModified || scopeMetadataModified) &&
+      !connectionTested) ||
+    (isEditMode && !credentialsModified && !scopeMetadataModified && !basicFieldsChanged) ||
     loading;
 
   const sectionHeadingSx = {
@@ -1261,12 +1312,13 @@ export function ToolConnectionDrawer({
           </Alert>
         )}
         {isEditMode &&
-          credentialsModified &&
+          (credentialsModified || scopeMetadataModified) &&
           !connectionTested &&
           !testResult && (
             <Alert severity="info">
-              Please test the connection with the updated credentials before
-              saving.
+              {credentialsModified
+                ? 'Please test the connection with the updated credentials before saving.'
+                : 'Please test the connection with the updated scope before saving.'}
             </Alert>
           )}
       </Stack>

@@ -16,6 +16,28 @@ from .templates import jinja_env
 
 logger = logging.getLogger(__name__)
 
+_AUTH_FAILURE_MARKERS = (
+    "authentication failed",
+    "auth failed",
+    "invalid token",
+    "invalid credentials",
+    "unauthorized",
+    "access denied",
+    "not authenticated",
+    "401",
+    "403 forbidden",
+)
+
+
+def _mcp_auth_succeeded(result: Dict[str, Any]) -> bool:
+    """Treat agent completion as authenticated only when the answer confirms it."""
+    if not result.get("success"):
+        return False
+    answer = (result.get("final_answer") or "").strip().lower()
+    if not answer:
+        return False
+    return not any(marker in answer for marker in _AUTH_FAILURE_MARKERS)
+
 
 async def _run_agent(
     client: Any,
@@ -42,11 +64,16 @@ async def _run_agent(
 
 
 def _resolve_tool_client(
-    organization_id: str, user_id: str, tool_id: str
+    organization_id: str,
+    user_id: str,
+    tool_id: str,
+    tool_metadata: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Build an MCP client, provider name, and optional scope context for a saved tool."""
     with get_db_with_tenant_variables(organization_id, user_id) as db:
-        return _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+        return _get_mcp_tool_config(
+            db, tool_id, organization_id, user_id, tool_metadata_override=tool_metadata
+        )
 
 
 def _resolve_params_client(
@@ -193,6 +220,7 @@ async def mcp_health_check(
     tool_id: Optional[str] = None,
     provider_type_id: Optional[Any] = None,
     credentials: Optional[Dict[str, str]] = None,
+    tool_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Test MCP credentials via a minimal read-only agent auth ping.
 
@@ -207,10 +235,16 @@ async def mcp_health_check(
         raise ValueError("user_id is required")
 
     if tool_id:
-        client, provider, project_context = _resolve_tool_client(organization_id, user_id, tool_id)
+        client, provider, project_context = _resolve_tool_client(
+            organization_id, user_id, tool_id, tool_metadata=tool_metadata
+        )
     elif provider_type_id is not None and credentials is not None:
         client, provider, project_context = _resolve_params_client(
-            organization_id, user_id, provider_type_id, credentials
+            organization_id,
+            user_id,
+            provider_type_id,
+            credentials,
+            tool_metadata=tool_metadata,
         )
     else:
         raise ToolConfigurationError(
@@ -224,7 +258,8 @@ async def mcp_health_check(
     result = await _run_agent(
         client, "Verify authentication and report the result.", system_prompt, 3, "mcp-health"
     )
-    if result.get("success"):
+    if _mcp_auth_succeeded(result):
         message = (result.get("final_answer") or "Connected").strip()[:200]
         return {"is_authenticated": "Yes", "message": message}
-    return {"is_authenticated": "No", "message": "Authentication failed."}
+    failure_message = (result.get("final_answer") or "Authentication failed.").strip()[:200]
+    return {"is_authenticated": "No", "message": failure_message}

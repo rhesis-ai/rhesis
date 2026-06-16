@@ -390,6 +390,7 @@ async def test_tool_connection(
                 tool_id=request.tool_id,
                 provider_type_id=request.provider_type_id,
                 credentials=request.credentials,
+                tool_metadata=request.tool_metadata,
             )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))

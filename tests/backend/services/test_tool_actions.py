@@ -7,6 +7,7 @@ import pytest
 from rhesis.backend.app.services.tool.actions import ToolAction, Transport, route
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp.operations import (
+    _mcp_auth_succeeded,
     _parse_fetched_sources,
     _strip_code_fence,
     mcp_extract,
@@ -146,3 +147,25 @@ class TestMcpHealthCheck:
             )
         assert result["is_authenticated"] == "Yes"
         assert rp.call_count == 1  # the unsaved-credentials path was used
+
+    async def test_success_with_auth_failure_answer_is_not_authenticated(self):
+        misleading = {"success": True, "final_answer": "Authentication failed: invalid token"}
+        with (
+            patch(f"{_OPS}._resolve_tool_client", return_value=(object(), "gitlab", None)),
+            patch(f"{_OPS}._run_agent", new=AsyncMock(return_value=misleading)),
+        ):
+            result = await mcp_health_check(
+                organization_id="org", user_id="user", tool_id="t1"
+            )
+        assert result["is_authenticated"] == "No"
+        assert "invalid token" in result["message"]
+
+
+class TestMcpAuthSucceeded:
+    def test_rejects_failure_markers(self):
+        assert not _mcp_auth_succeeded(
+            {"success": True, "final_answer": "Authentication failed: 401 Unauthorized"}
+        )
+
+    def test_accepts_positive_answer(self):
+        assert _mcp_auth_succeeded({"success": True, "final_answer": "Connected as alice"})

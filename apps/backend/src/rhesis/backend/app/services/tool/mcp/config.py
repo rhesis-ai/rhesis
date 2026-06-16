@@ -27,7 +27,11 @@ def _project_context_from_metadata(
 
 
 def _get_mcp_tool_config(
-    db: Session, tool_id: str, organization_id: str, user_id: str = None
+    db: Session,
+    tool_id: str,
+    organization_id: str,
+    user_id: str = None,
+    tool_metadata_override: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Return MCP client, provider name, and optional GitLab project context."""
     try:
@@ -49,7 +53,8 @@ def _get_mcp_tool_config(
     except (json.JSONDecodeError, TypeError) as e:
         raise ToolConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
 
-    project_context = _project_context_from_metadata(provider, tool.tool_metadata)
+    metadata = tool_metadata_override if tool_metadata_override is not None else tool.tool_metadata
+    project_context = _project_context_from_metadata(provider, metadata)
 
     factory = MCPClientFactory.from_provider(
         provider=provider,
