@@ -35,7 +35,10 @@ def _is_retryable_exception(exc: BaseException) -> bool:
 
     Retries on:
     - Connection errors and timeouts
-    - HTTP 429 (rate limit), 500, 502, 503, 504 (server errors)
+    - HTTP 429 (rate limit), 500, 502, 503, 504 (server errors), regardless of
+      whether the error comes from ``requests`` or from an LLM SDK
+      (litellm/openai ``RateLimitError``, ``APIStatusError``, …), which expose
+      the HTTP status via a ``status_code`` attribute rather than a ``response``.
 
     Does NOT retry on:
     - Client errors (400, 401, 403, 404)
@@ -45,7 +48,9 @@ def _is_retryable_exception(exc: BaseException) -> bool:
         return True
     if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
         return exc.response.status_code in RETRYABLE_STATUS_CODES
-    return False
+    # litellm / openai errors (e.g. RateLimitError -> 429) are not `requests`
+    # exceptions but carry the HTTP status on `status_code`.
+    return getattr(exc, "status_code", None) in RETRYABLE_STATUS_CODES
 
 
 llm_retry = retry(
