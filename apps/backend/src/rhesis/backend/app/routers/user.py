@@ -103,6 +103,13 @@ async def create_user(
             existing_user.family_name = user.family_name
 
         db.flush()
+
+        # Re-assign the default org-role (EE) for the rejoining user so they are
+        # not locked out once RBAC is enabled. No-op in community / RBAC-off.
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, existing_user.id, current_user.organization_id)
+
         created_user = existing_user
         send_invite = user.send_invite
     else:

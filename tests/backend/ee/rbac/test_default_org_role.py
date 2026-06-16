@@ -1,0 +1,243 @@
+"""Tests for default org-role assignment on user↔org association (item 0).
+
+Covers the RBAC-activation prerequisite: ``crud.create_user`` / onboarding /
+re-invite call the core ``on_user_org_assigned`` hook, and the EE handler
+(:func:`~rhesis.backend.ee.rbac.default_role.assign_default_org_role`) seeds an
+``organization_member`` row so users are not locked out once RBAC is enabled.
+
+Deny-first matrix:
+- new invitee (user != owner) → **Member**: allowed on Member endpoints,
+  denied on Admin-only ones;
+- org creator (user == owner) → **Owner**: allowed everywhere;
+- RBAC off / community build → handler no-ops (no row written);
+- idempotent: an existing Owner is never downgraded on re-invite.
+
+Run with:
+    cd apps/backend
+    uv run pytest ../../tests/backend/ee/rbac/test_default_org_role.py -v
+"""
+
+from __future__ import annotations
+
+import uuid
+from contextlib import contextmanager
+from unittest.mock import patch
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app.auth.principal import Principal
+from rhesis.backend.app.scope import bypass_tenant_filter
+from rhesis.backend.ee.rbac.default_role import assign_default_org_role
+from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _rbac_on():
+    """Force RBAC available for both the handler (FeatureRegistry.is_available)
+    and the provider (``_rbac_available``)."""
+    with (
+        patch(
+            "rhesis.backend.app.features.FeatureRegistry.is_available",
+            return_value=True,
+        ),
+        patch.object(PermissionAuthorizationProvider, "_rbac_available", return_value=True),
+    ):
+        yield
+
+
+def _create_org(db: Session, owner_id: uuid.UUID | None = None) -> uuid.UUID:
+    """Create an org. ``owner_id`` is left NULL unless given (the FK requires the
+    user to exist first, so creator tests set it via :func:`_set_owner`)."""
+    org_id = uuid.uuid4()
+    db.execute(
+        text("INSERT INTO organization (id, name, is_active) VALUES (:id, :name, true)"),
+        {"id": str(org_id), "name": f"TestOrg-{org_id.hex[:8]}"},
+    )
+    db.flush()
+    return org_id
+
+
+def _create_user(db: Session, org_id: uuid.UUID) -> uuid.UUID:
+    user_id = uuid.uuid4()
+    db.execute(
+        text(
+            'INSERT INTO "user" (id, email, organization_id, is_active) '
+            "VALUES (:id, :email, :oid, true)"
+        ),
+        {"id": str(user_id), "email": f"u-{user_id.hex[:8]}@test.example", "oid": str(org_id)},
+    )
+    db.flush()
+    return user_id
+
+
+def _set_owner(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    db.execute(
+        text("UPDATE organization SET owner_id = :owner WHERE id = :id"),
+        {"owner": str(user_id), "id": str(org_id)},
+    )
+    db.flush()
+
+
+def _member_row(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> OrganizationMember | None:
+    with bypass_tenant_filter():
+        return (
+            db.query(OrganizationMember)
+            .filter_by(organization_id=org_id, user_id=user_id)
+            .first()
+        )
+
+
+def _role_name(db: Session, role_id: uuid.UUID) -> str:
+    with bypass_tenant_filter():
+        return db.query(Role).filter_by(id=role_id).first().name
+
+
+def _authorized(db: Session, user_id, org_id, permission, project_id=None) -> bool:
+    return PermissionAuthorizationProvider().is_authorized(
+        Principal(user_id=user_id, organization_id=org_id, kind="session"),
+        permission,
+        project_id=project_id,
+        db=db,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invitee → Member
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestInviteeGetsMember:
+    def test_member_row_written(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Member"
+
+    def test_member_allowed_on_member_endpoint(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+            # Member holds project-scoped reads; a random project_id falls back
+            # to the org Member role since there is no project membership.
+            assert _authorized(test_db, user_id, org_id, "test_set:read", project_id=uuid.uuid4())
+
+    def test_member_denied_on_admin_only_endpoint(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+            # member:manage is org-scoped admin — not in the Member set.
+            assert not _authorized(test_db, user_id, org_id, "member:manage", project_id=None)
+
+
+# ---------------------------------------------------------------------------
+# Org creator → Owner
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestCreatorGetsOwner:
+    def test_owner_row_written_for_creator(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        _set_owner(test_db, org_id, user_id)
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Owner"
+
+    def test_owner_allowed_on_admin_only_endpoint(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        _set_owner(test_db, org_id, user_id)
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+            assert _authorized(test_db, user_id, org_id, "member:manage", project_id=None)
+
+
+# ---------------------------------------------------------------------------
+# RBAC off / idempotency
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestNoOpAndIdempotency:
+    def test_rbac_off_writes_no_row(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+
+        # No patch → DefaultLicenseProvider denies RBAC → handler no-ops.
+        assign_default_org_role(test_db, user_id, org_id)
+
+        assert _member_row(test_db, org_id, user_id) is None
+
+    def test_existing_owner_not_downgraded(self, test_db: Session):
+        """Re-invite of an existing Owner must keep Owner, not reset to Member."""
+        org_id = _create_org(test_db)  # owner_id left NULL → user is not the creator
+        user_id = _create_user(test_db, org_id)
+
+        with bypass_tenant_filter():
+            owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
+        test_db.add(
+            OrganizationMember(organization_id=org_id, user_id=user_id, role_id=owner_role.id)
+        )
+        test_db.flush()
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        member = _member_row(test_db, org_id, user_id)
+        assert _role_name(test_db, member.role_id) == "Owner"
+
+
+# ---------------------------------------------------------------------------
+# Core hook dispatch — community build (no handler) no-ops
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestCoreHookDispatch:
+    def test_no_handler_is_noop(self):
+        from rhesis.backend.app.auth import org_membership_hook as hook
+
+        saved = list(hook._handlers)
+        try:
+            hook.reset_org_membership_handlers()
+            # No handler registered → must not raise, must not need a usable db.
+            hook.on_user_org_assigned(db=None, user_id=uuid.uuid4(), organization_id=uuid.uuid4())
+        finally:
+            hook._handlers[:] = saved
+
+    def test_falsy_org_is_noop(self):
+        from rhesis.backend.app.auth import org_membership_hook as hook
+
+        called = []
+        hook.register_org_membership_handler(lambda db, u, o: called.append((u, o)))
+        try:
+            hook.on_user_org_assigned(db=None, user_id=uuid.uuid4(), organization_id=None)
+            assert called == []
+        finally:
+            hook.reset_org_membership_handlers()
