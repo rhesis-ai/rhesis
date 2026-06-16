@@ -131,11 +131,32 @@ def get_project_context(
         # does not cascade to project_membership). The soft-delete filter excludes
         # deleted projects here, so a stale header/cookie resolves to None.
         project = db.query(Project).filter_by(id=project_id).first()
-    if not membership or project is None:
-        raise HTTPException(
-            status_code=403,
-            detail=f"User is not a member of project {project_id}",
-        )
+
+        # A non-existent / soft-deleted project is always denied — even for the
+        # org ceiling role, there is nothing to enter.
+        if project is None:
+            raise HTTPException(
+                status_code=403,
+                detail=f"User is not a member of project {project_id}",
+            )
+
+        # Plan §1.4 carry-over: the org ceiling role (community tier: org Owner;
+        # EE tier: org Owner/Admin) may enter ANY project context in its org
+        # without an explicit project_membership row. Expressed through the PDP
+        # so it holds in both tiers with no core->EE import: member:manage is held
+        # only by the org Owner (community) and the Owner/Admin org roles (EE) —
+        # never by a plain Member/Viewer. App-layer only; RLS is unchanged.
+        if membership is None:
+            from rhesis.backend.app.auth.capabilities import Permission
+            from rhesis.backend.app.auth.principal import resolve_principal
+            from rhesis.backend.app.auth.rbac import authorize
+
+            principal = resolve_principal(current_user)
+            if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"User is not a member of project {project_id}",
+                )
 
     return str(project_id)
 
