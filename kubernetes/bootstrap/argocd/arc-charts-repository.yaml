@@ -1,0 +1,18 @@
+# Registers ghcr.io/actions/actions-runner-controller-charts as an OCI Helm
+# repository in ArgoCD so the arc-controller and runner-set Applications can
+# fetch their charts without explicit credentials (public registry).
+#
+# ArgoCD requires OCI repos to be registered even when unauthenticated because
+# the Helm client must know to use the OCI protocol instead of HTTP.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arc-charts-repository
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: arc-charts
+  url: ghcr.io/actions/actions-runner-controller-charts
+  enableOCI: "true"

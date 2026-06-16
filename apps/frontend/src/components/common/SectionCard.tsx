@@ -10,12 +10,14 @@ export type SectionCardVariant = 'default' | 'danger';
 export interface SectionCardProps {
   /** When omitted (along with subtitle and actions), the header row is skipped entirely */
   title?: string;
-  /** Optional subtitle below the title (Body S, secondary) */
-  subtitle?: string;
+  /** Optional subtitle below the title (Body S, secondary). Accepts a string or React node for inline links. */
+  subtitle?: React.ReactNode;
   /** Header actions (e.g. Edit button, FAB) */
   actions?: React.ReactNode;
   variant?: SectionCardVariant;
-  children: React.ReactNode;
+  /** Makes the entire header row clickable (e.g. for collapsible sections) */
+  onHeaderClick?: () => void;
+  children?: React.ReactNode;
 }
 
 function cardSx(variant: SectionCardVariant) {
@@ -55,6 +57,7 @@ export function SectionCard({
   subtitle,
   actions,
   variant = 'default',
+  onHeaderClick,
   children,
 }: SectionCardProps) {
   const titleColor = variant === 'danger' ? 'error.main' : 'primary.main';
@@ -64,12 +67,14 @@ export function SectionCard({
     <Paper elevation={0} sx={cardSx(variant)}>
       {hasHeader && (
         <Box
+          onClick={onHeaderClick}
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             gap: 2,
             mb: 3,
+            ...(onHeaderClick && { cursor: 'pointer', userSelect: 'none' }),
           }}
         >
           <Box sx={{ flex: 1, minWidth: 0 }}>

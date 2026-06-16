@@ -139,6 +139,7 @@ export default function TestSetsPage() {
             <Fab
               icon={<FabAddIcon />}
               tooltip="New Test Set"
+              aria-label="New Test Set"
               onClick={() => setCreateDrawerOpen(true)}
             />
           </FabGroup>

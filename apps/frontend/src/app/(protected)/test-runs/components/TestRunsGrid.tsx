@@ -16,6 +16,7 @@ import {
   GridColDef,
   GridPaginationModel,
   GridFilterModel,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -44,6 +45,11 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
+import {
+  appendPresenceFilterItems,
+  stripPresenceFilterItems,
+} from '@/components/common/presence-filter';
+import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
 import TestRunFilterDrawer, {
   type TestRunFilters,
   EMPTY_TEST_RUN_FILTERS,
@@ -168,6 +174,7 @@ function TestRunsGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
 
   // ── Filter drawer state ────────────────────────────────────────────────────
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -190,12 +197,13 @@ function TestRunsGrid({
         const testRunsClient = clientFactory.getTestRunsClient();
 
         const filterString = combineTestRunFiltersToOData(filterModel);
+        const { sort_by, sort_order } = gridSortToApiParams(sortModel);
 
         const apiParams: Parameters<typeof testRunsClient.getTestRuns>[0] = {
           skip,
           limit,
-          sort_by: 'created_at',
-          sort_order: 'desc' as const,
+          sort_by,
+          sort_order,
           ...(filterString && { filter: filterString }),
           ...(runKindFilter === 'experiments' && { has_experiment: true }),
           ...(runKindFilter === 'tests' && { has_experiment: false }),
@@ -220,7 +228,7 @@ function TestRunsGrid({
         }
       }
     },
-    [sessionToken, filterModel, runKindFilter, onTotalCountChange]
+    [sessionToken, filterModel, sortModel, runKindFilter, onTotalCountChange]
   );
 
   useEffect(() => {
@@ -231,7 +239,7 @@ function TestRunsGrid({
       isMounted.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, paginationModel, filterModel, runKindFilter]);
+  }, [sessionToken, paginationModel, filterModel, sortModel, runKindFilter]);
 
   // Refetch when parent signals a refresh
   useEffect(() => {
@@ -292,8 +300,8 @@ function TestRunsGrid({
       'tags',
     ];
     setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      const otherItems = stripPresenceFilterItems(
+        prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
       );
       const drawerItems: typeof prev.items = [];
       if (drawerFilters.testSet) {
@@ -317,7 +325,14 @@ function TestRunsGrid({
           value: drawerFilters.tag,
         });
       }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
+      return {
+        ...prev,
+        items: appendPresenceFilterItems([...otherItems, ...drawerItems], {
+          tags: drawerFilters.tags,
+          comments: drawerFilters.comments,
+          tasks: drawerFilters.tasks,
+        }),
+      };
     });
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
@@ -548,8 +563,9 @@ function TestRunsGrid({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.comments ?? 0,
         renderCell: params => {
           const count = params.row.counts?.comments || 0;
           if (count === 0) return null;
@@ -567,8 +583,9 @@ function TestRunsGrid({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.tasks ?? 0,
         renderCell: params => {
           const count = params.row.counts?.tasks || 0;
           if (count === 0) return null;
@@ -586,17 +603,10 @@ function TestRunsGrid({
         width: 180,
         minWidth: 140,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: true,
-        valueGetter: (_, row) => {
-          if (!row.tags || !Array.isArray(row.tags)) {
-            return '';
-          }
-          return row.tags
-            .filter((tag: Tag) => tag && tag.name)
-            .map((tag: Tag) => tag.name)
-            .join(', ');
-        },
+        valueGetter: (_, row) =>
+          row.tags?.filter((tag: Tag) => tag && tag.id && tag.name).length ?? 0,
         renderCell: params => {
           const testRun = params.row as TestRunDetail;
           if (!testRun.tags || testRun.tags.length === 0) {
@@ -662,6 +672,11 @@ function TestRunsGrid({
     },
     []
   );
+
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
 
   // ── Delete handlers ───────────────────────────────────────────────────────
 
@@ -802,6 +817,9 @@ function TestRunsGrid({
         onPaginationModelChange={handlePaginationModelChange}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         serverSideFiltering={true}
         onRowClick={handleRowClick}
         getRowUrl={row => `/test-runs/${row.id}`}

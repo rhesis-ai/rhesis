@@ -16,7 +16,9 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
+import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
+import Divider from '@mui/material/Divider';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -32,7 +34,6 @@ import {
   type StandaloneGroup,
   type SectionGroup,
   type FooterLinksGroup,
-  filterNavItems,
   groupNavItems,
   collapsedNavGroupSx,
   COLLAPSED_NAV_ITEM_SIZE,
@@ -99,9 +100,7 @@ export function Sidebar() {
   const [supportOpen, setSupportOpen] = useState(false);
 
   const orgName = branding?.title ?? 'Rhesis AI';
-  const isSuperuser = user?.is_superuser === true;
-  const filteredNavigation = filterNavItems(navigation, isSuperuser);
-  const groups = groupNavItems(filteredNavigation);
+  const groups = groupNavItems(navigation);
 
   const mainGroups = groups.filter(g => g.type !== 'footer-links') as (
     | StandaloneGroup
@@ -359,7 +358,7 @@ export function Sidebar() {
                 color: theme => theme.palette.greyscale.body,
               }}
             >
-              Settings
+              Org Settings
             </Typography>
           </MenuItem>
           <MenuItem
@@ -393,6 +392,43 @@ export function Sidebar() {
               Team
             </Typography>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              router.push('/projects');
+              setOrgMenuAnchor(null);
+            }}
+            sx={{
+              gap: '10px',
+              px: '14px',
+              py: '8px',
+              '&:hover': {
+                bgcolor: theme => theme.palette.greyscale.border,
+              },
+            }}
+          >
+            <AppsOutlinedIcon
+              sx={{
+                fontSize: 24,
+                color: theme => theme.palette.greyscale.body,
+              }}
+            />
+            <Typography
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                color: theme => theme.palette.greyscale.body,
+              }}
+            >
+              Projects
+            </Typography>
+          </MenuItem>
+          <Divider
+            sx={{
+              my: '6px',
+              borderColor: theme => theme.palette.greyscale.border,
+            }}
+          />
           <MenuItem
             onClick={() => {
               setOrgMenuAnchor(null);

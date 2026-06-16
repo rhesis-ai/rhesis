@@ -19,6 +19,7 @@ test.describe('Test Detail @sanity', () => {
 
   test('test detail renders heading and content @mocked', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail('/tests', FIXTURE_ID, testDetailFixture as any);
 
     const detail = new TestDetailPage(page);
@@ -29,10 +30,14 @@ test.describe('Test Detail @sanity', () => {
 
   test('test detail shows test name from fixture @mocked', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail('/tests', FIXTURE_ID, testDetailFixture as any);
 
     await page.goto(`/tests/${FIXTURE_ID}`);
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible' });
 
     // The test name or part of the fixture content should appear on the page
     const mainContent = page.locator('main, [role="main"]').first();

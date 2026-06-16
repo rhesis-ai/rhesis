@@ -15,7 +15,6 @@ class ToolBase(Base):
 
     name: str
     description: Optional[str] = None
-    tool_type_id: UUID4
     tool_provider_type_id: UUID4
     status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
@@ -43,7 +42,6 @@ class ToolUpdate(ToolBase):
     """Schema for updating an existing Tool"""
 
     name: Optional[str] = None
-    tool_type_id: Optional[UUID4] = None
     tool_provider_type_id: Optional[UUID4] = None
     # Optional - only update if provided, will be re-encrypted
     credentials: Optional[Dict[str, str]] = None
@@ -72,7 +70,6 @@ class Tool(Base):
     updated_at: Union[datetime, str]
     name: str
     description: Optional[str] = None
-    tool_type_id: UUID4
     tool_provider_type_id: UUID4
     status_id: Optional[UUID4] = None
     tool_metadata: Optional[Dict[str, Any]] = None
@@ -83,7 +80,6 @@ class Tool(Base):
     # credentials - can be set via Create/Update but is never returned
 
     # Relationships
-    tool_type: Optional[TypeLookup] = None
     tool_provider_type: Optional[TypeLookup] = None
     status: Optional[Status] = None
     user: Optional[User] = None

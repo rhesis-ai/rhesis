@@ -27,6 +27,7 @@ def make_target_factory(
     org_id: str,
     user_id: str,
     db: "Session",
+    project_id: str | None = None,
 ) -> Callable[[str], "BackendEndpointTarget"]:
     """Return a factory that creates ``BackendEndpointTarget`` instances.
 
@@ -36,6 +37,7 @@ def make_target_factory(
         db: An open SQLAlchemy session.  The caller must keep this session
             alive for the entire duration of the exploration (i.e. until
             all ``send_message`` calls on the returned targets complete).
+        project_id: Project UUID string for tenant isolation.
 
     Returns:
         A callable ``(endpoint_id: str) -> BackendEndpointTarget``.
@@ -48,6 +50,7 @@ def make_target_factory(
             endpoint_id=endpoint_id,
             organization_id=org_id,
             user_id=str(user_id),
+            project_id=project_id,
         )
 
     return factory

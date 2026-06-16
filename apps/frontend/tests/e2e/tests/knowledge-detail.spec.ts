@@ -25,14 +25,23 @@ test.describe('Knowledge Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/sources',
       FIXTURE_ID,
       knowledgeDetailFixture as any
     );
+    await page.route(`**/api/v1/sources/${FIXTURE_ID}/content`, route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(knowledgeDetailFixture),
+      })
+    );
 
     const detail = new KnowledgeDetailPage(page);
     await detail.goto(FIXTURE_ID);
+    await mock.waitForProjectGate();
     await detail.expectHeadingVisible();
     await detail.expectContentVisible();
   });
@@ -41,6 +50,7 @@ test.describe('Knowledge Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/sources',
       FIXTURE_ID,
@@ -48,6 +58,7 @@ test.describe('Knowledge Detail @sanity', () => {
     );
 
     await page.goto(`/knowledge/${FIXTURE_ID}`);
+    await mock.waitForProjectGate();
     await page.waitForLoadState('networkidle');
 
     const mainContent = page.locator('main, [role="main"]').first();

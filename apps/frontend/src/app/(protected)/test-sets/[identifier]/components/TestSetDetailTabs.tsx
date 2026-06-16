@@ -11,7 +11,6 @@ import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrap
 import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
 import TestSetLinkedTestsSection from './TestSetLinkedTestsSection';
-import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 
 const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
 
@@ -43,7 +42,7 @@ export default function TestSetDetailTabs({
       key === 'basic'
         ? 'Basic Information'
         : key === 'linked'
-          ? 'Linked Tests'
+          ? 'Tests'
           : 'Tasks',
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,
@@ -83,13 +82,6 @@ export default function TestSetDetailTabs({
           testCount={testCount}
           isGenerating={isGenerating}
         />
-        <Box sx={{ mt: 3 }}>
-          <EmbeddingTestsPanel
-            testSetId={testSet.id as string}
-            sessionToken={sessionToken}
-            testSetType={testSet.test_set_type?.type_value}
-          />
-        </Box>
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="test-set-detail">

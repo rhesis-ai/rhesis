@@ -504,6 +504,30 @@ export class TestSetsClient extends BaseApiClient {
     );
   }
 
+  async getAllTestSetTests(
+    testSetId: string,
+    params?: Omit<TestSetsQueryParams, 'skip' | 'limit'>
+  ): Promise<TestDetail[]> {
+    const pageSize = 100;
+    const allData: TestDetail[] = [];
+    let skip = 0;
+    let totalCount = Infinity;
+
+    while (skip < totalCount) {
+      const response = await this.getTestSetTests(testSetId, {
+        ...params,
+        skip,
+        limit: pageSize,
+      });
+      if (response.data.length === 0) break;
+      allData.push(...response.data);
+      totalCount = response.pagination.totalCount;
+      skip += pageSize;
+    }
+
+    return allData;
+  }
+
   async downloadTestSet(testSetId: string): Promise<Blob> {
     return this.fetchBlob(`${API_ENDPOINTS.testSets}/${testSetId}/download`);
   }

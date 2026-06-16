@@ -24,6 +24,7 @@ test.describe('Test Set Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/test_sets', [testSetDetailFixture as any]);
     await mock.mockList('/tests', testsFixture as any[]);
 
@@ -37,11 +38,15 @@ test.describe('Test Set Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockList('/test_sets', [testSetDetailFixture as any]);
     await mock.mockList('/tests', []);
 
     await page.goto(`/test-sets/${FIXTURE_ID}`);
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible' });
 
     const mainContent = page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible();

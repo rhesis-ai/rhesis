@@ -1,36 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import {
-  Box,
-  Button,
-  Card,
-  FormControl,
-  Grid,
-  InputLabel,
-  MenuItem,
-  Select,
-  Tab,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography,
-  Alert,
-  ToggleButton,
-  ToggleButtonGroup,
-  FormControlLabel,
-  Switch,
-  CircularProgress,
-  ListItemIcon,
-  ListItemText,
-  FormHelperText,
-  IconButton,
-  InputAdornment,
-} from '@mui/material';
-import dynamic from 'next/dynamic';
-import { useTheme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { Box, Alert } from '@mui/material';
+import DetailTabNav from '@/components/common/DetailTabNav';
+import DetailTabPanel from '@/components/common/DetailTabPanel';
+import ActionBar from '@/components/common/ActionBar';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   AutoConfigureResult,
@@ -38,1049 +20,524 @@ import {
 } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
-import AutoConfigureModal from './AutoConfigureModal';
-import {
-  PlayArrowIcon,
-  SmartToyIcon,
-  DevicesIcon,
-  WebIcon,
-  StorageIcon,
-  CodeIcon,
-  DataObjectIcon,
-  CloudIcon,
-  AnalyticsIcon,
-  ShoppingCartIcon,
-  TerminalIcon,
-  VideogameAssetIcon,
-  ChatIcon,
-  PsychologyIcon,
-  DashboardIcon,
-  SearchIcon,
-  AutoFixHighIcon,
-  PhoneIphoneIcon,
-  SchoolIcon,
-  ScienceIcon,
-  AccountTreeIcon,
-  VisibilityIcon,
-  VisibilityOffIcon,
-  LockIcon,
-} from '@/components/icons';
-import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { readActiveProjectId } from '@/utils/active-project';
+import AutoConfigureDrawer from './AutoConfigureDrawer';
+import TabBasics from './tabs/TabBasics';
+import TabHeaders from './tabs/TabHeaders';
+import TabBody from './tabs/TabBody';
+import TabTest from './tabs/TabTest';
+import {
+  bodyToRequestMapping,
+  parseBodyMapping,
+  parseResMapping,
+} from './mappingUtils';
 
-// Map of icon names to components for easy lookup
-const ICON_MAP: Record<string, React.ComponentType> = {
-  SmartToy: SmartToyIcon,
-  Devices: DevicesIcon,
-  Web: WebIcon,
-  Storage: StorageIcon,
-  Code: CodeIcon,
-  DataObject: DataObjectIcon,
-  Cloud: CloudIcon,
-  Analytics: AnalyticsIcon,
-  ShoppingCart: ShoppingCartIcon,
-  Terminal: TerminalIcon,
-  VideogameAsset: VideogameAssetIcon,
-  Chat: ChatIcon,
-  Psychology: PsychologyIcon,
-  Dashboard: DashboardIcon,
-  Search: SearchIcon,
-  AutoFixHigh: AutoFixHighIcon,
-  PhoneIphone: PhoneIphoneIcon,
-  School: SchoolIcon,
-  Science: ScienceIcon,
-  AccountTree: AccountTreeIcon,
-};
-
-// Lazy load Monaco Editor
-const Editor = dynamic(() => import('@monaco-editor/react'), {
-  ssr: false,
-  loading: () => (
-    <Box
-      sx={{
-        height: '200px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: theme => theme.shape.borderRadius,
-        backgroundColor: 'background.default',
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <CircularProgress size={20} />
-        <Typography variant="body2" color="text.secondary">
-          Loading editor...
-        </Typography>
-      </Box>
-    </Box>
-  ),
-});
-
-// Enums based on your backend models
-const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
-const METHODS = ['POST'];
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+export interface FormData {
+  name: string;
+  description: string;
+  connection_type: 'REST';
+  url: string;
+  environment: string;
+  config_source: string;
+  response_format: string;
+  method: string;
+  endpoint_path: string;
+  project_id: string;
+  organization_id: string;
+  auth_token: string;
+  request_headers: string;
+  disable_tracing: boolean;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+const DEFAULT_REQ_BODY =
+  '{\n  "input": "{{ input }}",\n  "messages": "{{ messages | tojson }}",\n  "conversation_id": "{{ conversation_id }}",\n  "files": "{{ files | to_openai | tojson }}"\n}';
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`endpoint-tabpanel-${index}`}
-      aria-labelledby={`endpoint-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+const DEFAULT_RES_BODY = '{}';
 
-interface FormData extends Omit<
-  Endpoint,
-  'id' | 'request_headers' | 'request_mapping' | 'response_mapping'
-> {
-  request_headers?: string;
-  request_mapping?: string;
-  response_mapping?: string;
-  auth_token?: string; // Write-only field for create/update
-}
+const CREATE_TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'headers', label: 'Headers' },
+  { key: 'mapping', label: 'Mapping' },
+  { key: 'connection-test', label: 'Connection Test' },
+] as const;
 
-// Get appropriate icon based on project type or use case
-const getProjectIcon = (project: Project) => {
-  // Check if a specific project icon was selected during creation
-  if (project?.icon && ICON_MAP[project.icon]) {
-    const IconComponent = ICON_MAP[project.icon];
-    return <IconComponent />;
+function validateUrl(url: string) {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
   }
+}
 
-  // Fall back to a default icon
-  return <SmartToyIcon />;
-};
+export interface EndpointFormSubmitState {
+  isSubmitting: boolean;
+  canSubmit: boolean;
+}
 
-export default function EndpointForm() {
-  const router = useRouter();
-  const params = useParams<{ identifier?: string }>();
-  const theme = useTheme();
-  const projectIdFromUrl = params?.identifier || '';
-  const [error, setError] = useState<string | null>(null);
-  const [currentTab, setCurrentTab] = useState(0);
-  const [urlError] = useState<string | null>(null);
-  const [testResponse, setTestResponse] = useState<string>('');
-  const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
-  const [testInput, setTestInput] = useState<string>(`{
-  "input": "[place your input here]"
-}`);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
-  const [showAuthToken, setShowAuthToken] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
-  const { data: session } = useSession();
-  const notifications = useNotifications();
-  const { markStepComplete } = useOnboarding();
+export interface EndpointFormProps {
+  projectId?: string;
+  onCancel?: () => void;
+  onCreated?: () => void;
+  hideActionBar?: boolean;
+  /** Hide project picker — project is inferred from active project scope */
+  hideProjectSelect?: boolean;
+  onSubmitStateChange?: (state: EndpointFormSubmitState) => void;
+}
 
-  // Determine editor theme based on MUI theme
-  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
+export interface EndpointFormHandle {
+  submit: () => void;
+}
 
-  // Theme-aware editor wrapper style
-  const editorWrapperStyle = {
-    border: 1,
-    borderColor: 'divider',
-    borderRadius: BORDER_RADIUS.sm,
-    '&:hover': {
-      borderColor: 'text.primary',
+const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
+  function EndpointForm(
+    {
+      projectId: projectIdProp,
+      onCancel,
+      onCreated,
+      hideActionBar = false,
+      hideProjectSelect = false,
+      onSubmitStateChange,
     },
-    '&:focus-within': {
-      borderWidth: 2,
-      borderColor: 'primary.main',
-      margin: '-1px',
-    },
-  };
+    ref
+  ) {
+    const router = useRouter();
+    const params = useParams<{ identifier?: string }>();
+    const projectIdFromUrl = projectIdProp ?? params?.identifier ?? '';
 
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    description: '',
-    connection_type: 'REST', // Fixed to REST for now
-    url: '',
-    environment: 'development',
-    config_source: 'manual',
-    response_format: 'json',
-    method: 'POST',
-    endpoint_path: '',
-    project_id: '',
-    organization_id: '',
-    auth_token: '',
-    request_headers: '{}',
-    request_mapping: '{}',
-    response_mapping: '{}',
-    disable_tracing: false,
-  });
+    const [activeTab, setActiveTab] = useState(0);
+    const [reqBody, setReqBody] = useState<string>(DEFAULT_REQ_BODY);
+    const [resBody, setResBody] = useState<string>(DEFAULT_RES_BODY);
+    const [testResult, setTestResult] = useState<{
+      success: boolean;
+      status?: number;
+      response?: Record<string, unknown>;
+      error?: string;
+    } | null>(null);
+    const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
+    const [tabTestResult, setTabTestResult] = useState<{
+      success: boolean;
+      status?: number;
+      response?: Record<string, unknown>;
+      error?: string;
+    } | null>(null);
+    const [isTabTestRunning, setIsTabTestRunning] = useState(false);
+    const [_testPassed, setTestPassed] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [loadingProjects, setLoadingProjects] = useState(true);
+    const [showAuthToken, setShowAuthToken] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
 
-  // Set project_id from URL parameter, then fall back to active project cookie
-  useEffect(() => {
-    const resolved = projectIdFromUrl || readActiveProjectId() || '';
-    if (resolved) {
-      setFormData(prev => ({
-        ...prev,
-        project_id: resolved,
-      }));
-    }
-  }, [projectIdFromUrl]);
+    const { data: session } = useSession();
+    const notifications = useNotifications();
+    const { markStepComplete } = useOnboarding();
 
-  // Fetch projects when component mounts
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!session?.session_token) {
+    const [formData, setFormData] = useState<FormData>({
+      name: '',
+      description: '',
+      connection_type: 'REST',
+      url: '',
+      environment: 'development',
+      config_source: 'manual',
+      response_format: 'json',
+      method: 'POST',
+      endpoint_path: '',
+      project_id: '',
+      organization_id: '',
+      auth_token: '',
+      request_headers: '{}',
+      disable_tracing: false,
+    });
+
+    // Set project_id from URL parameter, then fall back to active project cookie
+    useEffect(() => {
+      const resolved = projectIdFromUrl || readActiveProjectId() || '';
+      if (resolved) {
+        setFormData(prev => ({
+          ...prev,
+          project_id: resolved,
+        }));
+      }
+    }, [projectIdFromUrl]);
+
+    useEffect(() => {
+      if (hideProjectSelect) {
         setLoadingProjects(false);
         return;
       }
 
+      const fetchProjects = async () => {
+        if (!session?.session_token) {
+          setLoadingProjects(false);
+          return;
+        }
+        try {
+          setLoadingProjects(true);
+          const client = new ApiClientFactory(
+            session.session_token
+          ).getProjectsClient();
+          const data = await client.getProjects();
+          setProjects(Array.isArray(data) ? data : data?.data || []);
+        } catch {
+          setError('Failed to load projects. Please try again later.');
+          setProjects([]);
+        } finally {
+          setLoadingProjects(false);
+        }
+      };
+      fetchProjects();
+    }, [session, hideProjectSelect]);
+
+    const handleChange = (field: keyof FormData, value: unknown) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleAutoConfigureApply = (result: AutoConfigureResult) => {
+      if (result.request_mapping) {
+        setReqBody(
+          parseBodyMapping(result.request_mapping as Record<string, unknown>)
+        );
+      }
+      if (result.response_mapping) {
+        const rows = parseResMapping(
+          result.response_mapping as Record<string, string>
+        );
+        const asJson: Record<string, string> = {};
+        rows.forEach(r => {
+          if (r.rhesis) asJson[r.rhesis] = `$.${r.api}`;
+        });
+        setResBody(JSON.stringify(asJson, null, 2));
+      }
+      if (result.request_headers) {
+        setFormData(prev => ({
+          ...prev,
+          request_headers: JSON.stringify(result.request_headers, null, 2),
+          url: result.url || prev.url,
+          method: result.method || prev.method,
+        }));
+      }
+      setAutoConfigureOpen(false);
+      notifications.show('Auto-configure mappings applied!', {
+        severity: 'success',
+      });
+    };
+
+    const step1Valid =
+      Boolean(formData.url) &&
+      validateUrl(formData.url) &&
+      Boolean(formData.name) &&
+      Boolean(formData.project_id);
+
+    useEffect(() => {
+      onSubmitStateChange?.({
+        isSubmitting,
+        canSubmit: step1Valid,
+      });
+    }, [isSubmitting, step1Valid, onSubmitStateChange]);
+
+    const runTest = async (
+      inputData: Record<string, unknown>,
+      setResult: React.Dispatch<
+        React.SetStateAction<{
+          success: boolean;
+          status?: number;
+          response?: Record<string, unknown>;
+          error?: string;
+        } | null>
+      >,
+      setTesting: React.Dispatch<React.SetStateAction<boolean>>,
+      onSuccess?: () => void
+    ) => {
+      setTesting(true);
+      setResult(null);
       try {
-        setLoadingProjects(true);
+        if (!formData.url || !validateUrl(formData.url)) {
+          throw new Error('Please enter a valid URL in step 1');
+        }
+        if (!session?.session_token) {
+          throw new Error('Session token not available');
+        }
+
+        let requestHeaders: Record<string, string> = {};
+        try {
+          if (formData.request_headers?.trim()) {
+            requestHeaders = JSON.parse(formData.request_headers);
+          }
+        } catch {
+          throw new Error('Invalid JSON in request headers');
+        }
+
         const client = new ApiClientFactory(
           session.session_token
-        ).getProjectsClient();
-        const data = await client.getProjects();
-        setProjects(Array.isArray(data) ? data : data?.data || []);
-      } catch {
-        setError('Failed to load projects. Please try again later.');
-        setProjects([]);
+        ).getEndpointsClient();
+        const result = await client.testEndpoint({
+          connection_type: 'REST',
+          url: formData.url,
+          method: formData.method,
+          request_headers: requestHeaders,
+          request_mapping: bodyToRequestMapping(reqBody),
+          response_mapping: (() => {
+            try {
+              return JSON.parse(resBody);
+            } catch {
+              return {};
+            }
+          })(),
+          auth_type: 'bearer_token',
+          auth_token: formData.auth_token || '',
+          input_data: inputData,
+          endpoint_path: formData.endpoint_path || undefined,
+          response_format: (formData.response_format || 'json') as
+            | 'json'
+            | 'xml'
+            | 'text',
+        });
+
+        const r = result as Record<string, unknown>;
+        const success = r.success !== false && !r.error;
+        setResult({ success: Boolean(success), response: r });
+        if (success) onSuccess?.();
+      } catch (err) {
+        const msg = (err as Error).message ?? '';
+        const display = msg.includes('500')
+          ? 'The server encountered an error processing the response. Check the backend logs for details.'
+          : msg;
+        setResult({ success: false, error: display });
       } finally {
-        setLoadingProjects(false);
+        setTesting(false);
       }
     };
 
-    fetchProjects();
-  }, [session]);
+    const handleRunTest = (inputData: Record<string, unknown>) =>
+      runTest(inputData, setTestResult, setIsTestingEndpoint, () =>
+        setTestPassed(true)
+      );
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setCurrentTab(newValue);
-  };
+    const handleTabRunTest = (inputData: Record<string, unknown>) =>
+      runTest(inputData, setTabTestResult, setIsTabTestRunning);
 
-  const validateUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleChange = (field: keyof FormData, value: unknown) => {
-    setFormData((prev: FormData) => ({ ...prev, [field]: value }));
-  };
-
-  const handleJsonChange = (field: string, value: string) => {
-    try {
-      // Validate JSON if not empty
-      if (value.trim()) {
-        JSON.parse(value);
-      }
-      setFormData(prev => ({
-        ...prev,
-        [field]: value,
-      }));
+    const handleSubmit = useCallback(async () => {
       setError(null);
-    } catch (_err) {
-      setError(`Invalid JSON in ${field}`);
-    }
-  };
 
-  const isAutoConfigureEnabled =
-    Boolean(formData.name) && Boolean(formData.url);
+      if (!formData.url || !validateUrl(formData.url)) {
+        setError('Please enter a valid URL');
+        return;
+      }
 
-  const handleAutoConfigureApply = (result: AutoConfigureResult) => {
-    setFormData(prev => ({
-      ...prev,
-      request_mapping: result.request_mapping
-        ? JSON.stringify(result.request_mapping, null, 2)
-        : prev.request_mapping,
-      response_mapping: result.response_mapping
-        ? JSON.stringify(result.response_mapping, null, 2)
-        : prev.response_mapping,
-      request_headers: result.request_headers
-        ? JSON.stringify(result.request_headers, null, 2)
-        : prev.request_headers,
-      url: result.url || prev.url,
-      method: result.method || prev.method,
-    }));
-    setAutoConfigureOpen(false);
-    setCurrentTab(1); // Switch to Request Settings tab
-    notifications.show('Auto-configure mappings applied!', {
-      severity: 'success',
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!formData.url || !validateUrl(formData.url)) {
-      setError('Please enter a valid URL');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const transformedData = { ...formData } as Partial<typeof formData>;
-
-      // Handle JSON string fields
-      const jsonStringFields = [
-        'request_headers',
-        'request_mapping',
-        'response_mapping',
-      ] as const;
-      for (const field of jsonStringFields) {
-        const value = transformedData[field] as string;
-        if (value && typeof value === 'string' && value.trim()) {
-          try {
-            (transformedData as Record<string, unknown>)[field] =
-              JSON.parse(value);
-          } catch {
-            delete (transformedData as Record<string, unknown>)[field];
+      setIsSubmitting(true);
+      try {
+        let requestHeaders: Record<string, string> | undefined;
+        try {
+          if (
+            formData.request_headers?.trim() &&
+            formData.request_headers !== '{}'
+          ) {
+            requestHeaders = JSON.parse(formData.request_headers);
           }
-        } else {
-          delete (transformedData as Record<string, unknown>)[field];
+        } catch {
+          // ignore invalid headers
         }
+
+        const endpointData: Partial<Omit<Endpoint, 'id'>> = {
+          name: formData.name,
+          description: formData.description,
+          connection_type: formData.connection_type,
+          url: formData.url,
+          environment: formData.environment as Endpoint['environment'],
+          config_source: formData.config_source as Endpoint['config_source'],
+          response_format:
+            formData.response_format as Endpoint['response_format'],
+          method: formData.method,
+          endpoint_path: formData.endpoint_path,
+          project_id: formData.project_id,
+          disable_tracing: formData.disable_tracing,
+          request_mapping: bodyToRequestMapping(
+            reqBody
+          ) as unknown as Endpoint['request_mapping'],
+          response_mapping: (() => {
+            try {
+              return JSON.parse(resBody);
+            } catch {
+              return {};
+            }
+          })() as unknown as Endpoint['response_mapping'],
+        };
+
+        if (requestHeaders) {
+          endpointData.request_headers =
+            requestHeaders as unknown as Endpoint['request_headers'];
+        }
+        if (formData.auth_token) {
+          (endpointData as Record<string, unknown>).auth_token =
+            formData.auth_token;
+        }
+
+        await createEndpoint(endpointData as Omit<Endpoint, 'id'>);
+        markStepComplete('endpointSetup');
+        notifications.show('Endpoint created successfully!', {
+          severity: 'success',
+        });
+        if (onCreated) {
+          onCreated();
+        } else {
+          router.push(
+            projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
+          );
+        }
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsSubmitting(false);
       }
+    }, [
+      formData,
+      reqBody,
+      resBody,
+      markStepComplete,
+      notifications,
+      onCreated,
+      projectIdFromUrl,
+      router,
+    ]);
 
-      // Remove organization_id as it should not be part of the request
-      delete (transformedData as Record<string, unknown>).organization_id;
+    useImperativeHandle(
+      ref,
+      () => ({
+        submit: () => {
+          void handleSubmit();
+        },
+      }),
+      [handleSubmit]
+    );
 
-      // Remove empty project_id
-      if (!transformedData.project_id || transformedData.project_id === '') {
-        delete (transformedData as Record<string, unknown>).project_id;
+    const handleCancel = () => {
+      if (onCancel) {
+        onCancel();
+        return;
       }
-
-      // Handle auth_token: only include if it has a value
-      if (!transformedData.auth_token || transformedData.auth_token === '') {
-        delete (transformedData as Record<string, unknown>).auth_token;
-      }
-
-      // Ensure we're sending a single object, not an array
-      const endpointData = transformedData as unknown as Omit<Endpoint, 'id'>;
-      await createEndpoint(endpointData);
-
-      // Mark onboarding step as complete
-      markStepComplete('endpointSetup');
-
-      // Show success notification
-      notifications.show('Endpoint created successfully!', {
-        severity: 'success',
-      });
       router.push(
         projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
       );
-    } catch (error) {
-      setError((error as Error).message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    };
 
-  return (
-    <form onSubmit={handleSubmit}>
-      <Card>
-        {/* Action buttons row */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            p: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={() =>
-                router.push(
-                  projectIdFromUrl
-                    ? `/projects/${projectIdFromUrl}`
-                    : '/endpoints'
-                )
-              }
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Tooltip
-              title={
-                isAutoConfigureEnabled
-                  ? 'Use AI to generate request and response mappings'
-                  : 'Fill in name and URL first'
-              }
-            >
-              <span>
-                <Button
-                  variant="outlined"
-                  startIcon={<AutoFixHighIcon />}
-                  onClick={() => setAutoConfigureOpen(true)}
-                  disabled={!isAutoConfigureEnabled || isSubmitting}
-                >
-                  Auto-configure
-                </Button>
-              </span>
-            </Tooltip>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              loading={isSubmitting}
-              disabled={(projects?.length || 0) === 0 && !loadingProjects}
-            >
-              Create Endpoint
-            </Button>
-          </Box>
+    const navTabs = CREATE_TABS.map((tab, index) => ({
+      key: tab.key,
+      label: tab.label,
+      id: `endpoint-tab-${index}`,
+      'aria-controls': `endpoint-tabpanel-${index}`,
+    }));
+
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <Box sx={{ mb: 3 }}>
+          <DetailTabNav
+            tabs={navTabs}
+            activeIndex={activeTab}
+            onChange={setActiveTab}
+            aria-label="endpoint creation tabs"
+          />
         </Box>
 
-        {/* Tabs row */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs
-            value={currentTab}
-            onChange={handleTabChange}
-            aria-label="endpoint configuration tabs"
-          >
-            <Tab label="Basic Information" />
-            <Tab label="Request Settings" />
-            <Tab label="Response Settings" />
-            <Tab label="Test Connection" />
-          </Tabs>
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <DetailTabPanel value={activeTab} index={0} prefix="endpoint">
+            <TabBasics
+              formData={formData}
+              onChange={handleChange}
+              projects={projects}
+              loadingProjects={loadingProjects}
+              hideProjectSelect={hideProjectSelect}
+            />
+          </DetailTabPanel>
+
+          <DetailTabPanel value={activeTab} index={1} prefix="endpoint">
+            <TabHeaders
+              formData={formData}
+              onChange={handleChange}
+              showAuthToken={showAuthToken}
+              onToggleAuthToken={() => setShowAuthToken(v => !v)}
+            />
+          </DetailTabPanel>
+
+          <DetailTabPanel value={activeTab} index={2} prefix="endpoint">
+            <TabBody
+              reqBody={reqBody}
+              resBody={resBody}
+              onReqBodyChange={setReqBody}
+              onResBodyChange={setResBody}
+              testResult={testResult}
+              isTestingEndpoint={isTestingEndpoint}
+              onRunTest={handleRunTest}
+              onAutoConfigureOpen={() => setAutoConfigureOpen(true)}
+            />
+          </DetailTabPanel>
+
+          <DetailTabPanel value={activeTab} index={3} prefix="endpoint">
+            <TabTest
+              url={formData.url}
+              method={formData.method}
+              reqBody={reqBody}
+              resBody={resBody}
+              requestHeaders={formData.request_headers}
+              authToken={formData.auth_token}
+              testResult={tabTestResult}
+              isTestingEndpoint={isTabTestRunning}
+              onRunTest={handleTabRunTest}
+            />
+          </DetailTabPanel>
+
+          {error && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="error">{error}</Alert>
+            </Box>
+          )}
         </Box>
 
-        {/* Basic Information Tab */}
-        <TabPanel value={currentTab} index={0}>
-          <Grid container spacing={3}>
-            {/* General Information */}
-            <Grid size={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                General Information
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid
-                  size={{
-                    xs: 12,
-                    md: 6,
-                  }}
-                >
-                  <TextField
-                    fullWidth
-                    required
-                    label="Name"
-                    name="name"
-                    value={formData.name}
-                    onChange={e => handleChange('name', e.target.value)}
-                    helperText="A unique name to identify this endpoint"
-                  />
-                </Grid>
-                <Grid
-                  size={{
-                    xs: 12,
-                    md: 6,
-                  }}
-                >
-                  <TextField
-                    fullWidth
-                    label="Description"
-                    name="description"
-                    value={formData.description}
-                    onChange={e => handleChange('description', e.target.value)}
-                    multiline
-                    rows={1}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-            {/* Request Configuration */}
-            <Grid size={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                Request Configuration
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid
-                  size={{
-                    xs: 12,
-                    md: 6,
-                  }}
-                >
-                  <TextField
-                    fullWidth
-                    label="URL"
-                    name="url"
-                    value={formData.url}
-                    onChange={e => handleChange('url', e.target.value)}
-                    required
-                    error={Boolean(urlError)}
-                    helperText={urlError}
-                    placeholder="https://api.example.com"
-                  />
-                </Grid>
-                <Grid
-                  size={{
-                    xs: 12,
-                    md: 3,
-                  }}
-                >
-                  <FormControl fullWidth>
-                    <InputLabel>Connection Type</InputLabel>
-                    <Select
-                      name="connectionType"
-                      value="REST"
-                      label="Connection Type"
-                      required
-                      disabled
-                    >
-                      <MenuItem value="REST">REST</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid
-                  size={{
-                    xs: 12,
-                    md: 3,
-                  }}
-                >
-                  <FormControl fullWidth>
-                    <InputLabel>Method</InputLabel>
-                    <Select
-                      name="method"
-                      value={formData.method}
-                      onChange={e => handleChange('method', e.target.value)}
-                      label="Method"
-                    >
-                      {METHODS.map(method => (
-                        <MenuItem key={method} value={method}>
-                          {method}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Grid>
+        {!hideActionBar && (
+          <ActionBar
+            sx={{
+              borderTop: 0,
+              bgcolor: 'transparent',
+              position: 'relative',
+              flexShrink: 0,
+            }}
+            leftButton={{
+              label: 'Cancel',
+              onClick: handleCancel,
+              variant: 'outlined',
+            }}
+            rightButton={{
+              label: 'Save endpoint',
+              onClick: () => {
+                void handleSubmit();
+              },
+              variant: 'contained',
+              disabled: isSubmitting || !step1Valid,
+            }}
+          />
+        )}
 
-            {/* Authentication */}
-            <Grid size={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                Authentication
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Token will be encrypted and automatically included as{' '}
-                <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
-                <code>{'{{ auth_token }}'}</code> placeholder in custom headers.
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={12}>
-                  <TextField
-                    fullWidth
-                    label="API Token"
-                    type={showAuthToken ? 'text' : 'password'}
-                    value={formData.auth_token}
-                    onChange={e => handleChange('auth_token', e.target.value)}
-                    placeholder="sk-..."
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockIcon color="action" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label="toggle token visibility"
-                            onClick={() => setShowAuthToken(!showAuthToken)}
-                            edge="end"
-                          >
-                            {showAuthToken ? (
-                              <VisibilityOffIcon />
-                            ) : (
-                              <VisibilityIcon />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    helperText="Token will be encrypted and stored securely"
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
+        <AutoConfigureDrawer
+          open={autoConfigureOpen}
+          onClose={() => setAutoConfigureOpen(false)}
+          onApply={handleAutoConfigureApply}
+          url={formData.url || ''}
+          authToken={formData.auth_token || ''}
+          method={formData.method || 'POST'}
+        />
+      </Box>
+    );
+  }
+);
 
-            {/* Project Selection */}
-            <Grid size={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                Project
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={12}>
-                  <FormControl fullWidth>
-                    <InputLabel id="project-select-label">
-                      Project (optional — defaults to active project)
-                    </InputLabel>
-                    <Select
-                      labelId="project-select-label"
-                      id="project-select"
-                      name="project_id"
-                      value={formData.project_id}
-                      onChange={e => handleChange('project_id', e.target.value)}
-                      label="Project (optional — defaults to active project)"
-                      disabled={loadingProjects}
-                      renderValue={selected => {
-                        const selectedProject = projects.find(
-                          p => p.id === selected
-                        );
-                        return (
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {selectedProject && (
-                              <Box
-                                sx={{
-                                  mr: 1,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                {getProjectIcon(selectedProject)}
-                              </Box>
-                            )}
-                            {selectedProject?.name || 'Active project'}
-                          </Box>
-                        );
-                      }}
-                    >
-                      {loadingProjects ? (
-                        <MenuItem disabled value={formData.project_id || ''}>
-                          <CircularProgress size={20} sx={{ mr: 1 }} />
-                          Loading projects...
-                        </MenuItem>
-                      ) : (
-                        projects.map(project => (
-                          <MenuItem key={project.id} value={project.id}>
-                            <ListItemIcon>
-                              {getProjectIcon(project)}
-                            </ListItemIcon>
-                            <ListItemText
-                              primary={project.name}
-                              secondary={project.description}
-                            />
-                          </MenuItem>
-                        ))
-                      )}
-                    </Select>
-                    <FormHelperText>
-                      Leave unset to use the currently active project
-                    </FormHelperText>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Grid>
-
-            {/* Environment & Configuration */}
-            <Grid size={12}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                Environment
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={12}>
-                  <ToggleButtonGroup
-                    value={formData.environment}
-                    exclusive
-                    onChange={(e, newValue) => {
-                      if (newValue !== null) {
-                        handleChange('environment', newValue);
-                      }
-                    }}
-                    aria-label="environment selection"
-                    sx={{
-                      '& .MuiToggleButton-root.Mui-selected': {
-                        backgroundColor: 'primary.main',
-                        color: 'primary.contrastText',
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
-                        },
-                      },
-                    }}
-                  >
-                    {ENVIRONMENTS.map(env => (
-                      <ToggleButton
-                        key={env}
-                        value={env}
-                        sx={{
-                          textTransform: 'capitalize',
-                          '&.Mui-selected': {
-                            borderColor: 'primary.main',
-                          },
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        {env}
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
-                </Grid>
-              </Grid>
-            </Grid>
-
-            {/* Tracing control */}
-            <Grid size={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.disable_tracing ?? false}
-                    onChange={e =>
-                      setFormData(prev => ({
-                        ...prev,
-                        disable_tracing: e.target.checked,
-                      }))
-                    }
-                  />
-                }
-                label="Disable tracing"
-              />
-              <FormHelperText>
-                When enabled, invocations to this endpoint will not generate
-                traces or telemetry data
-              </FormHelperText>
-            </Grid>
-          </Grid>
-        </TabPanel>
-
-        {/* Request Settings Tab */}
-        <TabPanel value={currentTab} index={1}>
-          <Grid container spacing={2}>
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Headers (Optional)
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Custom headers for your endpoint. Authorization and Content-Type
-                are automatically provided. Example:{' '}
-                <code>{`{
-  "x-api-key": "{{ auth_token }}",
-  "x-custom-header": "value"
-}`}</code>
-              </Typography>
-              <Box sx={editorWrapperStyle}>
-                <Editor
-                  key={`request-headers-${editorTheme}`}
-                  height="200px"
-                  defaultLanguage="json"
-                  theme={editorTheme}
-                  value={formData.request_headers}
-                  onChange={value =>
-                    handleJsonChange('request_headers', value || '')
-                  }
-                  options={{
-                    minimap: { enabled: false },
-                    lineNumbers: 'on',
-                    folding: true,
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    padding: { top: 8, bottom: 8 },
-                    scrollbar: {
-                      vertical: 'visible',
-                      horizontal: 'visible',
-                    },
-                    fontSize: 14,
-                  }}
-                />
-              </Box>
-            </Grid>
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Body Template (Optional)
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Define request structure with <code>{'{{ placeholder }}'}</code>{' '}
-                for dynamic values. Example:{' '}
-                <code>{`{ "messages": [{ "role": "user", "content": "{{ input }}" }], "temperature": 0.7 }`}</code>
-              </Typography>
-              <Box sx={editorWrapperStyle}>
-                <Editor
-                  key={`request-body-${editorTheme}`}
-                  height="300px"
-                  defaultLanguage="json"
-                  theme={editorTheme}
-                  value={formData.request_mapping}
-                  onChange={value =>
-                    handleJsonChange('request_mapping', value || '')
-                  }
-                  options={{
-                    minimap: { enabled: false },
-                    lineNumbers: 'on',
-                    folding: true,
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    padding: { top: 8, bottom: 8 },
-                    scrollbar: {
-                      vertical: 'visible',
-                      horizontal: 'visible',
-                    },
-                    fontSize: 14,
-                  }}
-                />
-              </Box>
-            </Grid>
-          </Grid>
-        </TabPanel>
-
-        {/* Response Settings Tab */}
-        <TabPanel value={currentTab} index={2}>
-          <Grid container spacing={2}>
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Response Mapping (Optional)
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Extract values using JSONPath. Example:{' '}
-                <code>{'{ "output": "$.choices[0].message.content" }'}</code>.
-                Leave empty to return full response.
-              </Typography>
-              <Box sx={editorWrapperStyle}>
-                <Editor
-                  key={`response-mappings-${editorTheme}`}
-                  height="200px"
-                  defaultLanguage="json"
-                  theme={editorTheme}
-                  value={formData.response_mapping}
-                  onChange={value =>
-                    handleJsonChange('response_mapping', value || '')
-                  }
-                  options={{
-                    minimap: { enabled: false },
-                    lineNumbers: 'on',
-                    folding: true,
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    padding: { top: 8, bottom: 8 },
-                    scrollbar: {
-                      vertical: 'visible',
-                      horizontal: 'visible',
-                    },
-                    fontSize: 14,
-                  }}
-                />
-              </Box>
-            </Grid>
-          </Grid>
-        </TabPanel>
-
-        {/* Test Connection Tab */}
-        <TabPanel value={currentTab} index={3}>
-          <Grid container spacing={2}>
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Test Endpoint
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Provide test data with required <code>"input"</code> field.
-                Values will replace <code>{'{{ placeholders }}'}</code> in your
-                request template.
-              </Typography>
-              <Box sx={editorWrapperStyle}>
-                <Editor
-                  key={`test-input-${editorTheme}`}
-                  height="200px"
-                  defaultLanguage="json"
-                  theme={editorTheme}
-                  value={testInput}
-                  onChange={value => setTestInput(value || '')}
-                  options={{
-                    minimap: { enabled: false },
-                    lineNumbers: 'on',
-                    folding: true,
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    padding: { top: 8, bottom: 8 },
-                    scrollbar: {
-                      vertical: 'visible',
-                      horizontal: 'visible',
-                    },
-                    fontSize: 14,
-                  }}
-                />
-              </Box>
-            </Grid>
-
-            <Grid sx={{ mt: 2 }} size={12}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={async () => {
-                  setIsTestingEndpoint(true);
-                  setTestResponse('');
-                  try {
-                    // Validate required fields
-                    if (!formData.url || !validateUrl(formData.url)) {
-                      throw new Error('Please enter a valid URL');
-                    }
-                    if (!formData.connection_type) {
-                      throw new Error('Connection type is required');
-                    }
-                    if (!formData.method) {
-                      throw new Error('Method is required');
-                    }
-
-                    // Parse test input
-                    let inputData;
-                    try {
-                      inputData = JSON.parse(testInput);
-                    } catch (_error) {
-                      throw new Error('Invalid JSON in test input data');
-                    }
-
-                    // Parse JSON fields
-                    let requestHeaders: Record<string, string> = {};
-                    let requestMapping: Record<string, unknown> = {};
-                    let responseMapping: Record<string, string> = {};
-
-                    try {
-                      if (
-                        formData.request_headers &&
-                        formData.request_headers.trim()
-                      ) {
-                        requestHeaders = JSON.parse(formData.request_headers);
-                      }
-                    } catch {
-                      throw new Error('Invalid JSON in request headers');
-                    }
-
-                    try {
-                      if (
-                        formData.request_mapping &&
-                        formData.request_mapping.trim()
-                      ) {
-                        requestMapping = JSON.parse(formData.request_mapping);
-                      }
-                    } catch {
-                      throw new Error('Invalid JSON in request mapping');
-                    }
-
-                    try {
-                      if (
-                        formData.response_mapping &&
-                        formData.response_mapping.trim()
-                      ) {
-                        responseMapping = JSON.parse(formData.response_mapping);
-                      }
-                    } catch {
-                      throw new Error('Invalid JSON in response mapping');
-                    }
-
-                    // Build test request
-                    const testRequest = {
-                      connection_type: formData.connection_type as 'REST',
-                      url: formData.url,
-                      method: formData.method,
-                      request_headers: requestHeaders,
-                      request_mapping: requestMapping,
-                      response_mapping: responseMapping,
-                      auth_type: 'bearer_token' as const,
-                      auth_token: formData.auth_token ?? '',
-                      input_data: inputData,
-                      endpoint_path: formData.endpoint_path || undefined,
-                      response_format: formData.response_format || 'json',
-                    };
-
-                    // Call test endpoint API
-                    if (!session?.session_token) {
-                      throw new Error('Session token not available');
-                    }
-
-                    const client = new ApiClientFactory(
-                      session.session_token
-                    ).getEndpointsClient();
-                    const result = await client.testEndpoint(testRequest);
-
-                    setTestResponse(JSON.stringify(result, null, 2));
-                  } catch (error) {
-                    setTestResponse(
-                      JSON.stringify(
-                        {
-                          success: false,
-                          error: (error as Error).message,
-                        },
-                        null,
-                        2
-                      )
-                    );
-                  } finally {
-                    setIsTestingEndpoint(false);
-                  }
-                }}
-                loading={isTestingEndpoint}
-                loadingPosition="start"
-                startIcon={<PlayArrowIcon />}
-              >
-                Test Endpoint
-              </Button>
-            </Grid>
-
-            {testResponse && (
-              <Grid size={12}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Response
-                </Typography>
-                <Box sx={editorWrapperStyle}>
-                  <Editor
-                    key={`test-response-${editorTheme}`}
-                    height="200px"
-                    defaultLanguage="json"
-                    theme={editorTheme}
-                    value={testResponse}
-                    options={{
-                      minimap: { enabled: false },
-                      lineNumbers: 'on',
-                      folding: true,
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      readOnly: true,
-                      padding: { top: 8, bottom: 8 },
-                      scrollbar: {
-                        vertical: 'visible',
-                        horizontal: 'visible',
-                      },
-                      fontSize: 14,
-                    }}
-                  />
-                </Box>
-              </Grid>
-            )}
-          </Grid>
-        </TabPanel>
-      </Card>
-      {error && (
-        <Box sx={{ mt: 2 }}>
-          <Alert severity="error">{error}</Alert>
-        </Box>
-      )}
-      <AutoConfigureModal
-        open={autoConfigureOpen}
-        onClose={() => setAutoConfigureOpen(false)}
-        onApply={handleAutoConfigureApply}
-        url={formData.url || ''}
-        authToken={formData.auth_token || ''}
-        method={formData.method || 'POST'}
-      />
-    </form>
-  );
-}
+export default EndpointForm;

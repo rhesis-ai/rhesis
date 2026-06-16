@@ -49,7 +49,6 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { GridToolbar as AppGridToolbar } from '@/components/common/GridToolbar';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { EntityInfoBanner } from '@/components/common/EntityInfoBanner';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -1713,11 +1712,15 @@ function TestsList({
                   display: 'flex',
                   alignItems: 'center',
                 }}
+                onClick={e => e.stopPropagation()}
               >
                 {onEditTest && (
                   <IconButton
                     size="small"
-                    onClick={() => onEditTest(params.row)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onEditTest(params.row);
+                    }}
                     sx={{ color: 'text.secondary' }}
                   >
                     <EditIcon fontSize="small" />
@@ -1726,7 +1729,10 @@ function TestsList({
                 {onDeleteTest && (
                   <IconButton
                     size="small"
-                    onClick={() => onDeleteTest(params.row)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDeleteTest(params.row);
+                    }}
                     sx={{
                       color: 'text.secondary',
                       '&:hover': {
@@ -2777,6 +2783,11 @@ export default function ExplorerDetail({
     setDeleteConfirmOpen(false);
     setDeletingTest(null);
 
+    if (testDetailDrawerTest?.id === removedTest.id) {
+      setTestDetailDrawerOpen(false);
+      setTestDetailDrawerTest(null);
+    }
+
     // Fire API call in background
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getExplorerClient();
@@ -3761,7 +3772,10 @@ export default function ExplorerDetail({
           anchor="right"
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <EntityInfoBanner name="To keep results consistent with a new endpoint or metric, use Get outputs and Evaluate for all tests in this set." />
+            <Alert severity="info" sx={{ py: 1, px: 2 }}>
+              To keep results consistent with a new endpoint or metric, use Get
+              outputs and Evaluate for all tests in this set.
+            </Alert>
             <Autocomplete
               options={endpointOptions}
               getOptionLabel={option =>

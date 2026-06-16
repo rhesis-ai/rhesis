@@ -14,7 +14,6 @@ import GridToolbar from '@/components/common/GridToolbar';
 import {
   GridColDef,
   GridPaginationModel,
-  GridRowSelectionModel,
   GridFilterModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
@@ -23,19 +22,9 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import {
-  DeleteIcon,
-  ContentCopyIcon,
-  SmartToyIcon,
-  DevicesIcon,
-  WebIcon,
-  StorageIcon,
-  CodeIcon,
-} from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { createEndpoint } from '@/actions/endpoints';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { buildEndpointListFilter } from '@/utils/odata-filter';
 import EndpointFilterDrawer, {
@@ -48,55 +37,7 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-
-const ICON_MAP: Record<string, React.ComponentType> = {
-  SmartToy: SmartToyIcon,
-  Devices: DevicesIcon,
-  Web: WebIcon,
-  Storage: StorageIcon,
-  Code: CodeIcon,
-  DataObject: DataObjectIcon,
-  Cloud: CloudIcon,
-  Analytics: AnalyticsIcon,
-  ShoppingCart: ShoppingCartIcon,
-  Terminal: TerminalIcon,
-  VideogameAsset: VideogameAssetIcon,
-  Chat: ChatIcon,
-  Psychology: PsychologyIcon,
-  Dashboard: DashboardIcon,
-  Search: SearchIcon,
-  AutoFixHigh: AutoFixHighIcon,
-  PhoneIphone: PhoneIphoneIcon,
-  School: SchoolIcon,
-  Science: ScienceIcon,
-  AccountTree: AccountTreeIcon,
-};
-
-const getProjectIcon = (project: Project | undefined) => {
-  if (!project) {
-    return <SmartToyIcon />;
-  }
-  if (project.icon && ICON_MAP[project.icon]) {
-    const IconComponent = ICON_MAP[project.icon];
-    return <IconComponent />;
-  }
-  return <SmartToyIcon />;
-};
+import { getProjectIcon } from './endpoint-icon-utils';
 
 interface EndpointsGridProps {
   sessionToken?: string;
@@ -116,7 +57,6 @@ interface EndpointsToolbarState {
 const DRAWER_FILTER_FIELDS = [
   'connectionType',
   'environment',
-  'projectId',
   'status',
 ] as const;
 
@@ -183,11 +123,9 @@ export default function EndpointsGrid({
   });
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [duplicating, setDuplicating] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
     EMPTY_ENDPOINT_FILTERS
@@ -213,12 +151,27 @@ export default function EndpointsGrid({
       setTotalCount(response.pagination.totalCount);
       setError(null);
     } catch {
-      setError('Failed to load endpoints');
-      setEndpoints([]);
+      const hasActiveFilters =
+        hasActiveEndpointFilters(drawerFilters) || searchQuery.trim() !== '';
+      if (hasActiveFilters) {
+        setEndpoints([]);
+        setTotalCount(0);
+        setError(null);
+      } else {
+        setError('Failed to load endpoints');
+        setEndpoints([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel, filterModel, projectId]);
+  }, [
+    sessionToken,
+    paginationModel,
+    filterModel,
+    projectId,
+    drawerFilters,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     fetchEndpoints();
@@ -271,13 +224,6 @@ export default function EndpointsGrid({
           value: drawerFilters.environment,
         });
       }
-      if (drawerFilters.projectId && !projectId) {
-        drawerItems.push({
-          field: 'projectId',
-          operator: 'equals',
-          value: drawerFilters.projectId,
-        });
-      }
       if (drawerFilters.status) {
         drawerItems.push({
           field: 'status',
@@ -324,12 +270,6 @@ export default function EndpointsGrid({
     }
   }, [sessionToken]);
 
-  const handleRowSelectionModelChange = (
-    newSelection: GridRowSelectionModel
-  ) => {
-    setSelectedRows(newSelection);
-  };
-
   const handleFilterModelChange = useCallback((model: GridFilterModel) => {
     setFilterModel(model);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
@@ -348,10 +288,8 @@ export default function EndpointsGrid({
   }, [fetchEndpoints, onRefresh]);
 
   const handleDeleteEndpoints = async () => {
-    const idsToDelete = pendingDeleteId
-      ? [pendingDeleteId]
-      : (selectedRows as string[]);
-    if (!sessionToken || idsToDelete.length === 0) return;
+    if (!sessionToken || !pendingDeleteId) return;
+    const idsToDelete = [pendingDeleteId];
 
     try {
       setDeleting(true);
@@ -364,7 +302,6 @@ export default function EndpointsGrid({
       );
 
       setPendingDeleteId(null);
-      setSelectedRows([]);
       setDeleteDialogOpen(false);
       handleRefresh();
     } catch {
@@ -378,92 +315,6 @@ export default function EndpointsGrid({
     setPendingDeleteId(id);
     setDeleteDialogOpen(true);
   }, []);
-
-  const handleDuplicateEndpoints = useCallback(async () => {
-    if (selectedRows.length === 0) return;
-
-    try {
-      setDuplicating(true);
-      let successCount = 0;
-
-      for (const rowId of selectedRows) {
-        const source = endpoints.find(ep => ep.id === rowId);
-        if (!source) continue;
-
-        const {
-          id: _id,
-          status: _status,
-          status_id: _statusId,
-          user_id: _userId,
-          organization_id: _orgId,
-          nano_id: _nanoId,
-          created_at: _createdAt,
-          updated_at: _updatedAt,
-          ...rest
-        } = source as Endpoint & Record<string, unknown>;
-
-        const copyMatch = source.name.match(
-          /^(.*?)\s*\(Copy(?:\s+(\d+))?\)\s*$/
-        );
-        let newName: string;
-        if (copyMatch) {
-          const base = copyMatch[1];
-          const currentNum = copyMatch[2] ? parseInt(copyMatch[2], 10) : 1;
-          newName = `${base} (Copy ${currentNum + 1})`;
-        } else {
-          newName = `${source.name} (Copy)`;
-        }
-
-        const result = await createEndpoint({
-          ...rest,
-          name: newName,
-        } as Omit<Endpoint, 'id'>);
-
-        if (result.success) {
-          successCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        notifications.show(
-          `${successCount} endpoint${successCount > 1 ? 's' : ''} duplicated`,
-          { severity: 'success' }
-        );
-        setSelectedRows([]);
-        handleRefresh();
-      }
-    } catch {
-      notifications.show('Failed to duplicate endpoints', {
-        severity: 'error',
-      });
-    } finally {
-      setDuplicating(false);
-    }
-  }, [selectedRows, endpoints, notifications, handleRefresh]);
-
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
-
-    return [
-      {
-        label: duplicating
-          ? 'Duplicating...'
-          : `Duplicate ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}`,
-        icon: <ContentCopyIcon />,
-        variant: 'outlined' as const,
-        onClick: handleDuplicateEndpoints,
-        disabled: duplicating,
-      },
-      {
-        label: `Delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}`,
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: () => setDeleteDialogOpen(true),
-        disabled: deleting,
-      },
-    ];
-  }, [selectedRows.length, duplicating, deleting, handleDuplicateEndpoints]);
 
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
@@ -550,31 +401,14 @@ export default function EndpointsGrid({
     [searchQuery, hasActiveDrawerFilters, activeFilterCount]
   );
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
   return (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <Box sx={{ position: 'relative' }}>
-        {selectedRows.length > 0 && (
-          <Box
-            sx={{
-              px: 2,
-              py: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              borderBottom: theme =>
-                `1px solid ${theme.palette.greyscale.border}`,
-            }}
-          >
-            <Typography variant="subtitle1" color="primary">
-              {selectedRows.length} selected
-            </Typography>
-          </Box>
-        )}
-
         <BaseDataGrid
           rows={endpoints}
           columns={columns}
@@ -589,15 +423,10 @@ export default function EndpointsGrid({
           paginationModel={paginationModel}
           onPaginationModelChange={handlePaginationModelChange}
           pageSizeOptions={[10, 25, 50]}
-          checkboxSelection
-          disableRowSelectionOnClick
-          rowSelectionModel={selectedRows}
-          onRowSelectionModelChange={handleRowSelectionModelChange}
           serverSideFiltering={true}
           filterModel={filterModel}
           onFilterModelChange={handleFilterModelChange}
           toolbarSlot={EndpointsUnifiedToolbar}
-          actionButtons={getActionButtons()}
           showToolbar={true}
           disablePaperWrapper={true}
           persistState
@@ -612,16 +441,8 @@ export default function EndpointsGrid({
           }}
           onConfirm={handleDeleteEndpoints}
           isLoading={deleting}
-          title={
-            pendingDeleteId
-              ? 'Delete Endpoint'
-              : `Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`
-          }
-          message={
-            pendingDeleteId
-              ? 'Are you sure you want to delete this endpoint? Related data will not be deleted.'
-              : `Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`
-          }
+          title="Delete Endpoint"
+          message="Are you sure you want to delete this endpoint? Related data will not be deleted."
           itemType="endpoints"
         />
       </Box>
@@ -631,7 +452,6 @@ export default function EndpointsGrid({
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
         onApply={setDrawerFilters}
-        hideProjectFilter={!!projectId}
       />
     </EndpointsToolbarContext.Provider>
   );

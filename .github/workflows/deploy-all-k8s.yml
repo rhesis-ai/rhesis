@@ -17,9 +17,20 @@ on:
         required: false
         default: ''
         type: string
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to build and push to'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
-  group: k8s-deploy-all-${{ github.event.inputs.environment }}
+  group: k8s-deploy-all-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
@@ -30,24 +41,28 @@ jobs:
     steps:
       - name: Approve build and push all K8s services
         run: |
-          echo "Building and pushing all K8s service images to ${{ github.event.inputs.environment }}"
-          echo "Tag override: ${{ github.event.inputs.tag || '(short git SHA)' }}"
+          echo "Building and pushing all K8s service images to ${{ inputs.environment }}"
+          echo "Tag override: ${{ inputs.tag || '(short git SHA)' }}"
 
       - id: resolve-tag
         name: Resolve image tag
         run: |
-          TAG="${{ github.event.inputs.tag }}"
+          TAG="${{ inputs.tag }}"
           if [ -z "$TAG" ]; then
             TAG=$(echo "${{ github.sha }}" | cut -c1-8)
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Resolved tag: $TAG"
 
+  # Deploy-all service list — each service needs a build job below and a matching
+  # entry in deploy-all needs. When adding a service, also update the helm-set
+  # loop in k8s-deploy.yml (empty service case). chatbot is excluded (9GB image;
+  # deploy separately via chatbot-k8s.yml).
   backend-build:
     needs: gate
     uses: ./.github/workflows/backend-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -56,7 +71,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/worker-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -65,7 +80,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/frontend-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -74,16 +89,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/docs-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
-      tag: ${{ needs.gate.outputs.tag }}
-      deploy: false
-    secrets: inherit
-
-  chatbot-build:
-    needs: gate
-    uses: ./.github/workflows/chatbot-k8s.yml
-    with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -92,7 +98,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/polyphemus-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -101,7 +107,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/otel-collector-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -110,13 +116,13 @@ jobs:
     needs: gate
     uses: ./.github/workflows/telemetry-processor-k8s.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
 
-  # After all images are pushed, update global.imageTag once so ArgoCD
-  # rolls all services to the same tag in a single Helm upgrade.
+  # After all images are pushed, k8s-deploy.yml sets per-service image tags and
+  # syncs ArgoCD (see k8s-deploy.yml for why global.imageTag is not used).
   deploy-all:
     needs:
       - gate
@@ -124,13 +130,12 @@ jobs:
       - worker-build
       - frontend-build
       - docs-build
-      - chatbot-build
       - polyphemus-build
       - otel-collector-build
       - telemetry-processor-build
     uses: ./.github/workflows/k8s-deploy.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ inputs.environment }}
       tag: ${{ needs.gate.outputs.tag }}
-      # service left empty → patches global.imageTag for all services
+      # service left empty → deploy-all helm-set list in k8s-deploy.yml
     secrets: inherit

@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.database import SessionLocal
+from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 from rhesis.backend.celery.core import app
 
@@ -30,6 +30,8 @@ def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: st
     db: Session = SessionLocal()
 
     try:
+        bind_scope_to_session(db, organization_id, "", project_id)
+
         logger.info(f"Starting async enrichment for trace {trace_id}")
 
         # Use same enricher as sync path (code reuse!)

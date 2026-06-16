@@ -8,7 +8,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
-  directoryToolbarSx,
+  directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -406,7 +406,7 @@ export default function ModelsPage() {
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveModelFilters(drawerFilters)}
         activeFilterCount={countActiveModelFilters(drawerFilters)}
-        sx={directoryToolbarSx}
+        {...directoryToolbarProps}
         middleContent={
           <ToolbarPillTabs
             tabs={typeFilterOptions}

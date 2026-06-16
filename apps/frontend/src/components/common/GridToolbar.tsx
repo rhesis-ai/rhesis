@@ -2,8 +2,6 @@
 
 import React from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import { SxProps, Theme } from '@mui/material/styles';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
@@ -20,6 +18,8 @@ export interface GridToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
   searchWidth?: number;
+  /** Use `standalone` on directory pages where the toolbar sits on the page bg. */
+  searchVariant?: 'embedded' | 'standalone';
   onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
   /** Number of active filters to display on the filter button badge */
@@ -37,6 +37,12 @@ export const directoryToolbarSx: SxProps<Theme> = {
   borderBottom: 'none',
   minHeight: 'auto',
 };
+
+/** Spread on directory toolbars: layout + raised search pill for page-bg contrast. */
+export const directoryToolbarProps = {
+  sx: directoryToolbarSx,
+  searchVariant: 'standalone',
+} as const satisfies Pick<GridToolbarProps, 'sx' | 'searchVariant'>;
 
 export interface PrimarySegmentedPillsProps {
   tabs: ToolbarPillTab[];
@@ -62,52 +68,12 @@ export function ToolbarPillTabs({
   onChange,
 }: ToolbarPillTabsProps) {
   return (
-    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      <ButtonGroup
-        variant="outlined"
-        size="small"
-        sx={{
-          '& .MuiButtonGroup-grouped': {
-            borderRadius: 0,
-            '&:first-of-type': {
-              borderTopLeftRadius: BORDER_RADIUS.pill,
-              borderBottomLeftRadius: BORDER_RADIUS.pill,
-            },
-            '&:last-of-type': {
-              borderTopRightRadius: BORDER_RADIUS.pill,
-              borderBottomRightRadius: BORDER_RADIUS.pill,
-            },
-            borderColor: theme => theme.palette.greyscale.border,
-          },
-        }}
-      >
-        {tabs.map(tab => (
-          <Button
-            key={tab.value}
-            onClick={() => onChange(tab.value)}
-            sx={{
-              px: 2,
-              py: 0.5,
-              fontWeight: activeValue === tab.value ? 600 : 400,
-              bgcolor:
-                activeValue === tab.value ? 'primary.dark' : 'transparent',
-              color:
-                activeValue === tab.value
-                  ? 'primary.contrastText'
-                  : theme => theme.palette.greyscale.body,
-              '&:hover': {
-                bgcolor:
-                  activeValue === tab.value
-                    ? 'primary.dark'
-                    : theme => theme.palette.greyscale.surface1,
-              },
-            }}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </ButtonGroup>
-    </Box>
+    <PrimarySegmentedPills
+      tabs={tabs}
+      mode="single"
+      activeValue={activeValue}
+      onSingleChange={onChange}
+    />
   );
 }
 
@@ -244,6 +210,7 @@ export function GridToolbar({
   onSearchChange,
   searchPlaceholder = 'Search…',
   searchWidth = 240,
+  searchVariant = 'embedded',
   onFilterClick,
   hasActiveFilters = false,
   activeFilterCount,
@@ -277,6 +244,7 @@ export function GridToolbar({
         onChange={onSearchChange}
         placeholder={searchPlaceholder}
         width={searchWidth}
+        variant={searchVariant}
       />
       {middleContent}
       {!middleContent && <Box sx={{ flex: 1 }} />}

@@ -1,6 +1,14 @@
 name: "[Build & Deploy] Backend (K8s)"
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - 'ee/backend/**'
+      - 'sdk/**'
+      - 'penelope/**'
+      - '.github/workflows/backend-k8s.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -17,6 +25,11 @@ on:
         required: false
         default: ''
         type: string
+      deploy:
+        description: 'Patch values file to trigger ArgoCD deploy after build'
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       environment:
@@ -44,7 +57,7 @@ jobs:
       - name: Validate environment parameter
         uses: ./.github/actions/validate-environment
         with:
-          environment: ${{ inputs.environment || github.event.inputs.environment }}
+          environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
 
   gate:
     needs: validate-inputs
@@ -66,16 +79,24 @@ jobs:
       dockerfile: apps/backend/Dockerfile
       context: .
       target: backend
-      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       tag: ${{ inputs.tag || github.event.inputs.tag }}
     secrets: inherit
 
   deploy:
     needs: build
-    if: github.event_name == 'workflow_dispatch' || inputs.deploy
+    # Auto-deploy on a direct push to main (CI to dev) or when a caller sets
+    # deploy: true. The main-ref guard matters: on a release push (release/*)
+    # deploy-all-k8s calls this with deploy: false, but github.event_name is
+    # inherited as 'push', so without the ref check the per-service deploy would
+    # fire and race the centralized k8s-deploy.
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.deploy)
     uses: ./.github/workflows/k8s-deploy.yml
     with:
-      environment: ${{ inputs.environment || github.event.inputs.environment }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       tag: ${{ needs.build.outputs.tag }}
       service: backend
     secrets: inherit

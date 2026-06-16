@@ -11,6 +11,8 @@ import {
   TraceQueryParams,
 } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { readActiveProjectId } from '@/utils/active-project';
 import {
   buildTraceQueryParams,
   EMPTY_TRACE_DRAWER_FILTERS,
@@ -53,8 +55,13 @@ export default function TracesClient({
   const router = useRouter();
   const pathname = usePathname();
   const notifications = useNotifications();
+  const { activeProject, loading: projectLoading } = useActiveProject();
+  const scopedProjectId = activeProject?.id
+    ? String(activeProject.id)
+    : readActiveProjectId();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -99,17 +106,33 @@ export default function TracesClient({
     [drawerFilters, searchQuery, typeFilter, pageSize, offset]
   );
 
+  const listLoading = loading || projectLoading;
+
   useEffect(() => {
     let cancelled = false;
 
     const fetchTraces = async () => {
-      if (!sessionToken) return;
+      if (!sessionToken || projectLoading) return;
 
+      // Traces are project-scoped (fail-closed RLS). Wait for active project
+      // resolution before fetching — the cookie may not exist on first paint.
+      if (!scopedProjectId) {
+        setTraces([]);
+        setTotalCount(0);
+        setHasFetchedOnce(false);
+        setLoading(false);
+        return;
+      }
+
+      setHasFetchedOnce(false);
       setLoading(true);
       setError(null);
 
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
+        const clientFactory = new ApiClientFactory(
+          sessionToken,
+          scopedProjectId
+        );
         const client = clientFactory.getTelemetryClient();
         const response = await client.listTraces(queryParams);
         if (cancelled) return;
@@ -125,7 +148,10 @@ export default function TracesClient({
         setTraces([]);
         setTotalCount(0);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setHasFetchedOnce(true);
+          setLoading(false);
+        }
       }
     };
 
@@ -138,6 +164,8 @@ export default function TracesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sessionToken,
+    projectLoading,
+    scopedProjectId,
     externalRefreshKey,
     drawerFilters,
     searchQuery,
@@ -154,9 +182,17 @@ export default function TracesClient({
         testRunScope: Boolean(fixedTestRunId),
         excludeTestRunId: Boolean(fixedTestRunId),
       });
-    onUnfilteredEmpty?.(!loading && totalCount === 0 && unfiltered);
+    onUnfilteredEmpty?.(
+      hasFetchedOnce &&
+        !listLoading &&
+        !!scopedProjectId &&
+        totalCount === 0 &&
+        unfiltered
+    );
   }, [
-    loading,
+    hasFetchedOnce,
+    listLoading,
+    scopedProjectId,
     totalCount,
     typeFilter,
     searchQuery,
@@ -210,7 +246,8 @@ export default function TracesClient({
     onRefresh?.();
   };
 
-  const showFilteredEmpty = !loading && traces.length === 0 && totalCount === 0;
+  const showFilteredEmpty =
+    !listLoading && traces.length === 0 && totalCount === 0;
 
   return (
     <>
@@ -222,7 +259,7 @@ export default function TracesClient({
 
       <TracesTable
         traces={traces}
-        loading={loading}
+        loading={listLoading}
         onRowClick={handleRowClick}
         totalCount={totalCount}
         page={Math.floor(offset / pageSize)}

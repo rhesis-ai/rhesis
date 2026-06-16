@@ -25,6 +25,9 @@ const customJestConfig = {
   // Use v8 coverage provider to avoid inflight/test-exclude compatibility issue
   coverageProvider: 'v8',
   moduleNameMapper: {
+    // Themed RTL render for all unit tests (see src/test/testing-library-react.tsx).
+    '^@testing-library/react-original$': '@testing-library/react',
+    '^@testing-library/react$': '<rootDir>/src/test/testing-library-react.tsx',
     // Path aliases must mirror tsconfig.json + next.config.mjs so test
     // imports resolve identically to runtime imports.
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -34,6 +37,9 @@ const customJestConfig = {
     // finds EE modules without needing a full npm install in tests.
     '^@rhesis/ee-frontend$': '<rootDir>/../../ee/frontend/src/index.ts',
     '^@rhesis/ee-frontend/(.*)$': '<rootDir>/../../ee/frontend/src/$1',
+    // Redirect @testing-library/react to a themed wrapper so all renders
+    // automatically include the custom MUI theme (theme.palette.greyscale.*).
+    '^@testing-library/react$': '<rootDir>/src/test-utils.tsx',
   },
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
@@ -55,7 +61,7 @@ const customJestConfig = {
     '<rootDir>/out/',
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|msw|@mswjs))',
+    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|@auth|msw|@mswjs))',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testMatch: [

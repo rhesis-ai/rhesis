@@ -1,7 +1,7 @@
 # Frontend Makefile
 # Mimics the validation script behavior with focus on errors only
 
-.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install docker-up docker-down docker-clean test-e2e
+.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install docker-up docker-down docker-clean test-e2e test-e2e-ci
 
 # Default target
 help:
@@ -95,25 +95,52 @@ BACKEND_E2E_PORT := 14003
 docker-up:
 	docker compose -f ../../tests/docker-compose.frontend.yml up -d --build --wait
 
+docker-build:
+	docker compose -f ../../tests/docker-compose.frontend.yml build frontend-test-backend
+
+docker-up-no-build:
+	docker compose -f ../../tests/docker-compose.frontend.yml up -d --wait
+
 docker-down:
 	docker compose -f ../../tests/docker-compose.frontend.yml down
 
 docker-clean:
 	docker compose -f ../../tests/docker-compose.frontend.yml down -v
 
+# Shared env for Playwright runs against the Docker Quick Start backend
+E2E_DOCKER_ENV = API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
+	NEXTAUTH_URL=http://localhost:3000
+
+# Live-backend Playwright args — @mocked specs run only via test-e2e-local
+E2E_DOCKER_GREP = --grep "@sanity|@crud" --grep-invert "@mocked"
+
 # E2E tests (starts docker automatically)
 # Runs @sanity smoke tests on both Chromium and Firefox, plus @crud interaction tests on Chromium only
 test-e2e: docker-up
-	API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
-	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
-	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
-	NEXTAUTH_URL=http://localhost:3000 \
-	npx playwright test --grep "@sanity|@crud"
+	$(E2E_DOCKER_ENV) npx playwright test $(E2E_DOCKER_GREP)
+
+# Playwright only — assumes Docker stack is already up (CI shards after prepare-docker)
+test-e2e-run-ci:
+	$(E2E_DOCKER_ENV) npx playwright test $(E2E_DOCKER_GREP) --project=chromium
+
+# CI E2E — Chromium only (Firefox browser install is skipped in GitHub Actions)
+test-e2e-ci: docker-up
+	$(E2E_DOCKER_ENV) npx playwright test $(E2E_DOCKER_GREP) --project=chromium
+
+# CI E2E — reuse a pre-built backend image (see frontend-e2e-test.yml prepare-docker job)
+test-e2e-ci-no-build: docker-up-no-build
+	$(E2E_DOCKER_ENV) npx playwright test $(E2E_DOCKER_GREP) --project=chromium
 
 # Run only @sanity smoke tests (faster, cross-browser)
 test-e2e-smoke: docker-up
-	API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
-	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	$(E2E_DOCKER_ENV) npx playwright test --grep "@sanity" --grep-invert "@mocked"
+
+# Local E2E without Docker — mocks API in-browser; auth seeded locally.
+test-e2e-local:
+	E2E_NO_DOCKER=1 \
+	FRONTEND_ENV=development \
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
-	NEXTAUTH_URL=http://localhost:3000 \
-	npx playwright test --grep "@sanity"
+	NEXTAUTH_URL=http://localhost:3100 \
+	npx playwright test --grep "@mocked" --project=mocked

@@ -41,7 +41,7 @@ config:
   # Replace with the staging Auth0 application client id when ready.
   nextPublicAuth0ClientId: ""
   nextPublicAuth0Domain: "stg-rhesis.eu.auth0.com"
-
+  nextPublicSupportEmail: "hello@rhesis.ai"
   # Backend
   rhesisBaseUrl: "https://stg-api.rhesis.ai"
   frontendUrl: "https://stg-app.rhesis.ai"

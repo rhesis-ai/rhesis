@@ -10,11 +10,9 @@ import '../styles/fonts.css';
 // pulled into the client bundle via consumers like the organization
 // settings page, so registry state is populated wherever it is read.
 import '../ee_bootstrap';
-import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import {
   ScienceIcon,
   BiotechIcon,
-  AppsIcon,
   VpnKeyIcon,
   TestRunsIcon,
   AssessmentIcon,
@@ -31,6 +29,7 @@ import {
   PlaygroundIcon,
   AccountTreeIcon,
   EngineeringIcon,
+  BuildIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -93,12 +92,6 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'projects',
-      title: 'Projects',
-      icon: <AppsIcon key="projects-icon" />,
-    },
-    {
-      kind: 'page',
       segment: 'knowledge',
       title: 'Knowledge',
       icon: <KnowledgeIcon key="knowledge-icon" />,
@@ -114,7 +107,6 @@ async function getNavigationItems(
       segment: 'metrics',
       title: 'Metrics',
       icon: <AutoGraphIcon key="metrics-icon" />,
-      requireSuperuser: true,
     },
     // GENERATE section — creation and exploration tools
     {
@@ -198,13 +190,12 @@ async function getNavigationItems(
       segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon key="models-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',
-      segment: 'mcp',
-      title: 'MCP',
-      icon: <ModelContextProtocolIcon key="mcp-icon" />,
+      segment: 'tools',
+      title: 'Tools',
+      icon: <BuildIcon key="tool-icon" />,
     },
     {
       kind: 'page',

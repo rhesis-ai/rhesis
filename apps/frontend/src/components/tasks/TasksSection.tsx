@@ -30,6 +30,8 @@ interface TasksSectionProps {
   onOpenCreateDrawer?: (commentId?: string) => void;
   currentUserId: string;
   currentUserName: string;
+  /** Bump after create/delete so the list refetches. */
+  refreshKey?: number;
 }
 
 export function TasksSection({
@@ -42,6 +44,7 @@ export function TasksSection({
   onOpenCreateDrawer,
   currentUserId: _currentUserId,
   currentUserName: _currentUserName,
+  refreshKey = 0,
 }: TasksSectionProps) {
   const router = useRouter();
   const { show: showNotification } = useNotifications();
@@ -127,7 +130,14 @@ export function TasksSection({
     return () => {
       abortController.abort();
     };
-  }, [currentPage, currentPageSize, entityType, entityId, sessionToken]);
+  }, [
+    currentPage,
+    currentPageSize,
+    entityType,
+    entityId,
+    sessionToken,
+    refreshKey,
+  ]);
 
   const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {

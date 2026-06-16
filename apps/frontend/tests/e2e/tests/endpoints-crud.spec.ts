@@ -18,8 +18,8 @@ test.describe('Endpoints — CRUD @crud', () => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
-    await page.goto('/endpoints/new');
-    await expect(page).toHaveURL(/\/endpoints(\?create=1)?$/);
+    await page.goto('/endpoints?create=1');
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
 
     // Verify page loaded without errors
     await expect(page.locator('body')).not.toContainText(
@@ -27,7 +27,7 @@ test.describe('Endpoints — CRUD @crud', () => {
     );
     await expect(page.locator('body')).not.toContainText('Application error');
 
-    // Create drawer should open with required fields.
+    // Create page should show required fields.
     // name attributes on TextFields keep selectors stable for e2e.
     const nameField = page.locator('input[name="name"]');
     const urlField = page.locator('input[name="url"]');
@@ -50,8 +50,8 @@ test.describe('Endpoints — CRUD @crud', () => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
-    await page.goto('/endpoints/new');
-    await expect(page).toHaveURL(/\/endpoints(\?create=1)?$/);
+    await page.goto('/endpoints?create=1');
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
 
     // Fill required text fields
     await page.locator('input[name="name"]').fill(UNIQUE_NAME);

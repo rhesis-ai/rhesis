@@ -30,6 +30,7 @@ class EndpointContext:
 
     organization_id: str
     user_id: str
+    project_id: str = ""
     _db_factory: Optional[Callable[..., ContextManager[Any]]] = field(
         default=None, repr=False, compare=False
     )
@@ -42,16 +43,14 @@ class EndpointContext:
             with ctx.get_db() as db:
                 rows = db.query(Model).all()
 
-        A ``_db_factory`` **must** be supplied at construction time.
-        Platform-side code (Celery tasks, HTTP routes, and the internal
-        SDK connector) always provides one.  Calling this method on a
-        context created without a factory raises :exc:`RuntimeError`.
-
-        External SDK users writing ``@endpoint`` functions that do not
-        declare a ``ctx: EndpointContext`` parameter are unaffected.
+        When ``_db_factory`` is provided, it is called with
+        ``(organization_id, user_id, project_id)``.  Otherwise, falls
+        back to the backend's ``get_db_with_tenant_variables`` (when
+        running inside the backend process).  Raises
+        :exc:`RuntimeError` outside the backend if no factory is set.
         """
         if self._db_factory is not None:
-            return self._db_factory(self.organization_id, self.user_id)
+            return self._db_factory(self.organization_id, self.user_id, self.project_id)
 
         # Try the backend module as a fallback so the internal connector
         # (which runs inside the backend process) works without needing to
@@ -61,7 +60,7 @@ class EndpointContext:
         try:
             from rhesis.backend.app.database import get_db_with_tenant_variables
 
-            return get_db_with_tenant_variables(self.organization_id, self.user_id)
+            return get_db_with_tenant_variables(self.organization_id, self.user_id, self.project_id)
         except ImportError:
             raise RuntimeError(
                 "EndpointContext.get_db() requires a _db_factory when called "

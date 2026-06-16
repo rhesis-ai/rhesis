@@ -1,26 +1,28 @@
-{% if item_url %}
-Extract the full content of the item with URL: {{ item_url }}
-{% elif item_id %}
-Extract the full content of the item with ID: {{ item_id }}
+{% if repair %}
+Your previous reply was not valid JSON. Reply with ONLY the JSON array described
+below — no prose, no explanation, no code fences.
+
+{% endif %}
+Extract the full content of the requested item using the available tools.
+
+{# Add provider-specific extraction guidance here, e.g.
+   {% if provider == "<name>" %}...{% endif %} #}
+{% if include_children %}
+Also extract every child page / nested item and return each as a separate entry.
 {% endif %}
 
-{% if provider == "github" %}
-Use the method parameter, which specifies the read operation to perform.
-Use get to retrieve the full details of the issue.
-{% elif provider == "notion" %}
-You must first determine the Notion object type before selecting any tool.
+Return ONLY a JSON array. Each element is an object with these fields:
+- id: a stable identifier for the item (page id, file path, issue key, ...)
+- title: the item's title or name
+- content: the full content rendered as markdown
+- url: the canonical URL of the item, or null if unavailable
 
-- If the object is a PAGE:
-  - Retrieve the page content.
-  - Include all text blocks, headings, lists, and nested blocks.
-- If the object is a DATABASE (data source):
-  - Retrieve the database schema.
-  - Query the database to retrieve all rows.
-  - Represent each row as a section with its properties.
-- If the URL refers to a DATABASE VIEW:
-  - Treat it as a database and ignore the view configuration.
-{% endif %}
+Example:
+[{"id": "abc123", "title": "Onboarding", "content": "# Onboarding\n...", "url": "https://..."}]
 
-Return the content as markdown text, including all text, headings, and lists.
-
-If you encounter recoverable errors (rate limits, temporary failures), you may retry.
+Rules:
+- Your entire response must be a valid JSON array and nothing else.
+- No prose, no explanation, no markdown code fences (no ```json or ```).
+- Render content as markdown inside the JSON string value.
+- Return one object per item; return [] if nothing could be extracted.
+- If you encounter recoverable errors (rate limits, temporary failures), you may retry.

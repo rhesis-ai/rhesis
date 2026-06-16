@@ -382,7 +382,7 @@ export function useArchitectChat(
                     content: payload.error
                       ? m.content || payload.content
                       : m.content,
-                    isError: !!payload.error,
+                    isError: Boolean(payload.error?.trim()),
                   }
                 : m
             )
@@ -424,6 +424,7 @@ export function useArchitectChat(
               return {
                 ...m,
                 content,
+                isError: false,
                 // When awaiting a background task, keep isStreaming=true so
                 // ArchitectChat continues passing streamingState to this bubble —
                 // task-progress events will append rows to it just like tool calls.

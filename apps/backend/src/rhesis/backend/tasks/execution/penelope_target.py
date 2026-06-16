@@ -67,6 +67,7 @@ class BackendEndpointTarget(Target):
         endpoint_id: str = "",
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         test_execution_context: Optional[dict[str, str]] = None,
         endpoint: Optional[Endpoint] = None,
         invoke_max_attempts: int = 4,
@@ -96,6 +97,7 @@ class BackendEndpointTarget(Target):
         self.endpoint_id = endpoint_id or (str(endpoint.id) if endpoint else "")
         self.organization_id = organization_id
         self.user_id = user_id
+        self.project_id = project_id
         self.test_execution_context = test_execution_context
         self.endpoint_service = get_endpoint_service()
         self._invoke_max_attempts = invoke_max_attempts
@@ -131,6 +133,7 @@ class BackendEndpointTarget(Target):
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
                 user_id=self.user_id,
+                project_id=self.project_id,
             )
             if endpoint:
                 self._endpoint_name = endpoint.name
@@ -179,6 +182,7 @@ class BackendEndpointTarget(Target):
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
                 user_id=self.user_id,
+                project_id=self.project_id,
             )
             if not endpoint:
                 return False, f"Endpoint {self.endpoint_id} not found or not accessible"
@@ -269,6 +273,7 @@ class BackendEndpointTarget(Target):
                     organization_id=self.organization_id,
                     user_id=self.user_id,
                     test_execution_context=self.test_execution_context,
+                    project_id=self.project_id,
                 )
             )
 
@@ -392,6 +397,7 @@ class BackendEndpointTarget(Target):
                     endpoint=self._endpoint,
                     deferred_trace=True,
                     trace_id=self._current_trace_id,
+                    project_id=self.project_id,
                 )
 
             response_data = await invoke_with_retry(

@@ -6,14 +6,22 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { TEST_TYPES } from '@/constants/test-types';
+import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import {
+  EMPTY_ACTIVITY_PRESENCE_FILTERS,
+  countActivePresenceFilters,
+  hasActivePresenceFilters,
+  type ActivityPresenceFilters,
+} from '@/components/common/presence-filter';
 
 export interface TestFilters {
-  /** test_type/type_value equals: 'single_turn' | 'multi_turn' | '' */
+  /** test_type/type_value equals: Single-Turn | Multi-Turn | '' */
   testType: string;
   /** status/name contains */
   status: string;
@@ -23,6 +31,9 @@ export interface TestFilters {
   category: string;
   /** topic/name contains */
   topic: string;
+  tags: ActivityPresenceFilters['tags'];
+  comments: ActivityPresenceFilters['comments'];
+  tasks: ActivityPresenceFilters['tasks'];
 }
 
 export const EMPTY_TEST_FILTERS: TestFilters = {
@@ -31,30 +42,37 @@ export const EMPTY_TEST_FILTERS: TestFilters = {
   behavior: '',
   category: '',
   topic: '',
+  ...EMPTY_ACTIVITY_PRESENCE_FILTERS,
 };
 
 export function hasActiveTestFilters(f: TestFilters): boolean {
-  return Object.values(f).some(v => v !== '');
+  return (
+    f.testType !== '' ||
+    f.status !== '' ||
+    f.behavior !== '' ||
+    f.category !== '' ||
+    f.topic !== '' ||
+    hasActivePresenceFilters(f)
+  );
 }
 
 export function countActiveTestFilters(f: TestFilters): number {
-  return Object.values(f).filter(v => v !== '').length;
+  return (
+    (f.testType !== '' ? 1 : 0) +
+    (f.status !== '' ? 1 : 0) +
+    (f.behavior !== '' ? 1 : 0) +
+    (f.category !== '' ? 1 : 0) +
+    (f.topic !== '' ? 1 : 0) +
+    countActivePresenceFilters(f)
+  );
 }
 
 const TEST_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ] as const;
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
-  },
-};
+const textFieldSx = filterDrawerTextFieldSx;
 
 interface TestFilterDrawerProps {
   open: boolean;
@@ -152,7 +170,7 @@ export default function TestFilterDrawer({
       <Autocomplete
         freeSolo
         options={options}
-        value={draft[field]}
+        value={draft[field] || null}
         loading={loadingOptions}
         onChange={(_, value) =>
           setDraft(prev => ({ ...prev, [field]: value || '' }))
@@ -209,6 +227,22 @@ export default function TestFilterDrawer({
         'Select category…'
       )}
       {renderAutocomplete('Topic', 'topic', topicOptions, 'Select topic…')}
+
+      <ActivityPresenceFiltersSection
+        values={{
+          tags: draft.tags,
+          comments: draft.comments,
+          tasks: draft.tasks,
+        }}
+        onChange={next =>
+          setDraft(prev => ({
+            ...prev,
+            tags: next.tags,
+            comments: next.comments,
+            tasks: next.tasks,
+          }))
+        }
+      />
     </FilterDrawerShell>
   );
 }

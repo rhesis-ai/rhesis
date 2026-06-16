@@ -662,10 +662,14 @@ def _resolve_metric_model(
         )
 
         if model_record and model_record.provider_type:
+            extra_params = {}
+            if model_record.endpoint and model_record.endpoint.strip():
+                extra_params["api_base"] = model_record.endpoint.strip()
             llm = get_model(
                 provider=model_record.provider_type.type_value,
                 model_name=model_record.model_name,
                 api_key=model_record.key,
+                **extra_params,
             )
             logger.info(
                 f"[METRIC_MODEL] Using metric-specific model for "

@@ -13,6 +13,7 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -20,6 +21,11 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
+import {
+  appendPresenceFilterItems,
+  stripPresenceFilterItems,
+} from '@/components/common/presence-filter';
+import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Box, Tooltip, Typography, Avatar, Alert, Chip } from '@mui/material';
@@ -177,6 +183,7 @@ export default function TestSetsGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
 
   // ── Drawer / dialog state (only what stays in the grid) ─────────────────────
@@ -200,12 +207,13 @@ export default function TestSetsGrid({
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const filterString = combineTestSetFiltersToOData(filterModel);
+      const { sort_by, sort_order } = gridSortToApiParams(sortModel);
 
       const apiParams = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc' as const,
+        sort_by,
+        sort_order,
         ...(filterString && { $filter: filterString }),
       };
 
@@ -219,7 +227,7 @@ export default function TestSetsGrid({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, paginationModel, filterModel]);
+  }, [sessionToken, paginationModel, filterModel, sortModel]);
 
   useEffect(() => {
     fetchTestSets();
@@ -246,9 +254,10 @@ export default function TestSetsGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (JSON.stringify(items) === JSON.stringify(prev.items)) return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   // ── Sync typeFilter pill tab into filterModel ────────────────────────────────
@@ -269,9 +278,10 @@ export default function TestSetsGrid({
               },
             ]
           : otherItems;
+      if (JSON.stringify(items) === JSON.stringify(prev.items)) return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [typeFilter]);
 
   // ── Sync drawer filters into filterModel ─────────────────────────────────────
@@ -279,8 +289,8 @@ export default function TestSetsGrid({
   useEffect(() => {
     const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
     setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      const otherItems = stripPresenceFilterItems(
+        prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
       );
       const drawerItems: typeof prev.items = [];
       if (drawerFilters.testSetType) {
@@ -311,9 +321,11 @@ export default function TestSetsGrid({
           value: drawerFilters.tag,
         });
       }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
+      const newItems = [...otherItems, ...drawerItems];
+      if (JSON.stringify(newItems) === JSON.stringify(prev.items)) return prev;
+      return { ...prev, items: newItems };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   // ── Pagination / filter handlers ─────────────────────────────────────────────
@@ -327,6 +339,11 @@ export default function TestSetsGrid({
 
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
@@ -557,8 +574,9 @@ export default function TestSetsGrid({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.comments ?? 0,
         renderCell: params => {
           const count = params.row.counts?.comments || 0;
           if (count === 0) return null;
@@ -576,8 +594,9 @@ export default function TestSetsGrid({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.tasks ?? 0,
         renderCell: params => {
           const count = params.row.counts?.tasks || 0;
           if (count === 0) return null;
@@ -626,13 +645,10 @@ export default function TestSetsGrid({
         width: 180,
         minWidth: 140,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: true,
         valueGetter: (_, row) =>
-          row.tags
-            ?.filter((tag: Tag) => tag?.name)
-            .map((tag: Tag) => tag.name)
-            .join(', ') ?? '',
+          row.tags?.filter((tag: Tag) => tag?.id && tag?.name).length ?? 0,
         renderCell: params => {
           const testSet = params.row;
           if (!testSet.tags || testSet.tags.length === 0) return null;
@@ -727,6 +743,9 @@ export default function TestSetsGrid({
         serverSideFiltering={true}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         toolbarSlot={TestSetsUnifiedToolbar}
         disablePaperWrapper={true}
         persistState

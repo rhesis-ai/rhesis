@@ -20,15 +20,16 @@ x-frontend-redis-config: &frontend-redis-config
   CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@frontend-test-redis:6379/1
 
 x-frontend-backend-config: &frontend-backend-config
+  FRONTEND_URL: "http://localhost:3000"
   JWT_SECRET_KEY: test-jwt-secret-key-for-e2e-tests
   SESSION_SECRET_KEY: test-session-secret-key-for-e2e
   JWT_ALGORITHM: HS256
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
   LOG_LEVEL: INFO
-  ENVIRONMENT: test
   BACKEND_ENV: local
   QUICK_START: true
   RHESIS_CONNECTOR_DISABLED: true
+  API_BASE_URL: "http://localhost:14003"
 
 services:
   frontend-test-postgres:
@@ -67,6 +68,7 @@ services:
       - /data
 
   frontend-test-backend:
+    image: rhesis-frontend-e2e-backend:ci
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile

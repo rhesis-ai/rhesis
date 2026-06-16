@@ -27,6 +27,7 @@ from .files import (
     inject_file_content_into_input,
 )
 from .testing import test_endpoint as _test_endpoint
+from .testing import test_endpoint_mapping as _test_endpoint_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class EndpointService:
         endpoint: Optional[Endpoint] = None,
         deferred_trace: bool = False,
         trace_id: Optional[str] = None,
+        project_id: str = None,
     ) -> Dict[str, Any]:
         """Invoke an endpoint with the given input data.
 
@@ -75,6 +77,7 @@ class EndpointService:
             deferred_trace: When True, trace data is collected in-memory and
                 returned in the result dict under ``_deferred_trace``.
             trace_id: Optional trace_id to reuse (for in-memory multi-turn tracking).
+            project_id: Project ID for explicit filtering (defense-in-depth).
 
         Returns:
             Dict containing the mapped response from the endpoint.
@@ -83,7 +86,7 @@ class EndpointService:
             HTTPException: If endpoint is not found or invocation fails.
         """
         if endpoint is None:
-            endpoint = self._get_endpoint(db, endpoint_id, organization_id)
+            endpoint = self._get_endpoint(db, endpoint_id, organization_id, project_id)
         logger.debug(f"Invoking endpoint {endpoint.name} ({endpoint.connection_type})")
 
         try:
@@ -382,13 +385,28 @@ class EndpointService:
                 organization_id=organization_id,
             )
 
-    def _get_endpoint(self, db: Session, endpoint_id: str, organization_id: str = None) -> Endpoint:
-        """Fetch an endpoint by ID, applying organization-level security filtering."""
+    def _get_endpoint(
+        self,
+        db: Session,
+        endpoint_id: str,
+        organization_id: str = None,
+        project_id: str = None,
+    ) -> Endpoint:
+        """Fetch an endpoint by ID, applying organization and project security filtering."""
+        from uuid import UUID
+
+        from sqlalchemy import or_
+
         query = db.query(Endpoint).filter(Endpoint.id == endpoint_id)
         if organization_id:
-            from uuid import UUID
-
             query = query.filter(Endpoint.organization_id == UUID(organization_id))
+        if project_id:
+            query = query.filter(
+                or_(
+                    Endpoint.project_id == UUID(project_id),
+                    Endpoint.project_id.is_(None),
+                )
+            )
         endpoint = query.first()
         if not endpoint:
             raise HTTPException(status_code=404, detail="Endpoint not found or not accessible")
@@ -415,6 +433,29 @@ class EndpointService:
             test_config=test_config,
             organization_id=organization_id,
             user_id=user_id,
+        )
+
+    async def test_endpoint_mapping(
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        request_mapping: Dict[str, Any],
+        response_mapping: Dict[str, Any],
+        input_data: Dict[str, Any],
+        organization_id: str = None,
+        user_id: str = None,
+        response_format: str = None,
+    ) -> Dict[str, Any]:
+        """Test draft mappings against a stored endpoint using its stored credentials."""
+        return await _test_endpoint_mapping(
+            db=db,
+            endpoint=endpoint,
+            request_mapping=request_mapping,
+            response_mapping=response_mapping,
+            input_data=input_data,
+            organization_id=organization_id,
+            user_id=user_id,
+            response_format=response_format,
         )
 
     async def sync_sdk_endpoints(

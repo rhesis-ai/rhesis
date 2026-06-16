@@ -18,7 +18,7 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.architect.attachments import process_attachments
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
-from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
+from rhesis.backend.app.services.tool.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.decorators import endpoint, observe
@@ -156,7 +156,7 @@ async def build_agent(
         pending_tasks=agent_state.get("pending_tasks") or [],
     )
 
-    tool_provider = LocalToolProvider(fastapi_app, delegation_token)
+    tool_provider = LocalToolProvider(fastapi_app, delegation_token, project_id=project_id)
     explore_tool = ExploreEndpointTool(
         target_factory=_make_target_factory(organization_id, user_id, project_id),
         model=model,
@@ -308,6 +308,7 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
                     input_data,
                     organization_id=org_id,
                     user_id=str(user_id),
+                    project_id=project_id,
                 )
             )
 
@@ -318,7 +319,9 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
             from rhesis.backend.app import crud
 
             with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-                ep = crud.get_endpoint(db, endpoint_id, organization_id=org_id, user_id=user_id)
+                ep = crud.get_endpoint(
+                    db, endpoint_id, organization_id=org_id, user_id=user_id, project_id=project_id
+                )
                 if ep:
                     name = ep.name or endpoint_id
                     description = ep.description or ""

@@ -200,3 +200,105 @@ class TestPolyphemusModelConfiguration:
         assert len(call_kwargs["api_key"]) > 0
         # JWT tokens don't start with rh-
         assert not call_kwargs["api_key"].startswith("rh-")
+
+
+class TestModelEndpointConfiguration:
+    """Test that stored model endpoint URLs are passed to the SDK."""
+
+    @pytest.fixture
+    def mock_db_model(self):
+        from rhesis.backend.app.models.model import Model
+
+        model = Mock(spec=Model)
+        model.id = "model-789"
+        model.name = "Local LiteLLM Proxy"
+        model.model_name = "gemini"
+        model.key = "test-key"
+        model.endpoint = "http://host.docker.internal:4000"
+        model.provider_type = Mock()
+        model.provider_type.type_value = "litellm_proxy"
+        return model
+
+    @patch("rhesis.backend.app.utils.user_model_utils.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    def test_fetch_and_configure_model_passes_endpoint(
+        self, mock_get_model, mock_sdk_get_model, mock_db_model
+    ):
+        from sqlalchemy.orm import Session
+
+        from rhesis.backend.app.utils.user_model_utils import _fetch_and_configure_model
+
+        mock_db = Mock(spec=Session)
+        mock_get_model.return_value = mock_db_model
+        mock_sdk_get_model.return_value = Mock()
+
+        _fetch_and_configure_model(
+            db=mock_db,
+            model_id="model-789",
+            organization_id="org-456",
+            default_model="gpt-4",
+        )
+
+        mock_sdk_get_model.assert_called_once_with(
+            provider="litellm_proxy",
+            model_name="gemini",
+            api_key="test-key",
+            model_type="language",
+            api_base="http://host.docker.internal:4000",
+        )
+
+    @patch("rhesis.backend.app.utils.user_model_utils.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    def test_fetch_and_configure_embedder_passes_endpoint(
+        self, mock_get_model, mock_sdk_get_model, mock_db_model
+    ):
+        from sqlalchemy.orm import Session
+
+        from rhesis.backend.app.utils.user_model_utils import _fetch_and_configure_embedder
+
+        mock_db = Mock(spec=Session)
+        mock_get_model.return_value = mock_db_model
+        mock_sdk_get_model.return_value = Mock()
+
+        _fetch_and_configure_embedder(
+            db=mock_db,
+            model_id="model-789",
+            organization_id="org-456",
+            default_model="openai",
+        )
+
+        mock_sdk_get_model.assert_called_once_with(
+            provider="litellm_proxy",
+            model_name="gemini",
+            api_key="test-key",
+            model_type="embedding",
+            api_base="http://host.docker.internal:4000",
+        )
+
+    @patch("rhesis.backend.app.utils.user_model_utils.get_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.crud.get_model")
+    def test_fetch_and_configure_model_omits_empty_endpoint(
+        self, mock_get_model, mock_sdk_get_model, mock_db_model
+    ):
+        from sqlalchemy.orm import Session
+
+        from rhesis.backend.app.utils.user_model_utils import _fetch_and_configure_model
+
+        mock_db_model.endpoint = None
+        mock_db = Mock(spec=Session)
+        mock_get_model.return_value = mock_db_model
+        mock_sdk_get_model.return_value = Mock()
+
+        _fetch_and_configure_model(
+            db=mock_db,
+            model_id="model-789",
+            organization_id="org-456",
+            default_model="gpt-4",
+        )
+
+        mock_sdk_get_model.assert_called_once_with(
+            provider="litellm_proxy",
+            model_name="gemini",
+            api_key="test-key",
+            model_type="language",
+        )

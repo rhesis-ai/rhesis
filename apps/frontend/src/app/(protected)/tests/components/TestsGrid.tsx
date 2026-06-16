@@ -18,6 +18,7 @@ import {
   GridPaginationModel,
   GridFilterModel,
   GridRenderCellParams,
+  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -53,6 +54,9 @@ import {
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
+import { TEST_TYPES } from '@/constants/test-types';
+import { applyTestDrawerFiltersToModel } from './test-filter-model';
+import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -85,8 +89,8 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
 
 const PILL_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
 ];
 
 function TestsUnifiedToolbar() {
@@ -153,6 +157,7 @@ export default function TestsTable({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -196,12 +201,13 @@ export default function TestsTable({
 
       // Convert filter model to OData filter string
       const filterString = combineTestFiltersToOData(filterModel);
+      const { sort_by, sort_order } = gridSortToApiParams(sortModel);
 
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by,
+        sort_order,
         ...(filterString && { filter: filterString }),
       };
 
@@ -222,6 +228,7 @@ export default function TestsTable({
     paginationModel.page,
     paginationModel.pageSize,
     filterModel,
+    sortModel,
   ]);
 
   // Initial data fetch
@@ -241,6 +248,11 @@ export default function TestsTable({
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
     // Reset to first page when filters change
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
+    setSortModel(newModel);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
@@ -285,55 +297,7 @@ export default function TestsTable({
 
   // Sync drawer filters into filterModel
   useEffect(() => {
-    setFilterModel(prev => {
-      const DRAWER_FIELDS = [
-        'test_type.type_value',
-        'status.name',
-        'behavior.name',
-        'category.name',
-        'topic.name',
-      ];
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
-      );
-      const drawerItems: typeof prev.items = [];
-      if (drawerFilters.testType) {
-        drawerItems.push({
-          field: 'test_type.type_value',
-          operator: 'equals',
-          value: drawerFilters.testType,
-        });
-      }
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status.name',
-          operator: 'contains',
-          value: drawerFilters.status,
-        });
-      }
-      if (drawerFilters.behavior) {
-        drawerItems.push({
-          field: 'behavior.name',
-          operator: 'contains',
-          value: drawerFilters.behavior,
-        });
-      }
-      if (drawerFilters.category) {
-        drawerItems.push({
-          field: 'category.name',
-          operator: 'contains',
-          value: drawerFilters.category,
-        });
-      }
-      if (drawerFilters.topic) {
-        drawerItems.push({
-          field: 'topic.name',
-          operator: 'contains',
-          value: drawerFilters.topic,
-        });
-      }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
-    });
+    setFilterModel(prev => applyTestDrawerFiltersToModel(prev, drawerFilters));
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [drawerFilters]);
 
@@ -456,8 +420,9 @@ export default function TestsTable({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.comments ?? 0,
         renderCell: params => {
           const count = params.row.counts?.comments || 0;
           if (count === 0) return null;
@@ -475,8 +440,9 @@ export default function TestsTable({
         width: 100,
         minWidth: 80,
         resizable: true,
-        sortable: false,
+        sortable: true,
         filterable: false,
+        valueGetter: (_, row) => row.counts?.tasks ?? 0,
         renderCell: params => {
           const count = params.row.counts?.tasks || 0;
           if (count === 0) return null;
@@ -545,7 +511,9 @@ export default function TestsTable({
         width: 180,
         minWidth: 140,
         resizable: true,
-        sortable: false,
+        sortable: true,
+        valueGetter: (_, row) =>
+          row.tags?.filter((tag: Tag) => tag && tag.id && tag.name).length ?? 0,
         renderCell: params => {
           const test = params.row;
           if (!test.tags || test.tags.length === 0) {
@@ -832,6 +800,7 @@ export default function TestsTable({
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
+        checkboxSelection
         disableRowSelectionOnClick
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={selectedRows}
@@ -843,6 +812,9 @@ export default function TestsTable({
         serverSideFiltering={true}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        sortingMode="server"
+        sortModel={sortModel}
+        onSortModelChange={handleSortModelChange}
         toolbarSlot={TestsUnifiedToolbar}
         showToolbar={true}
         disablePaperWrapper={true}

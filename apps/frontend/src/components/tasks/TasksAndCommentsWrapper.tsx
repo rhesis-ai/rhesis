@@ -35,6 +35,7 @@ export function TasksAndCommentsWrapper({
     string | undefined
   >();
   const [isCreating, setIsCreating] = useState(false);
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
   const { createTask, deleteTask } = useTasks({
     entityType,
@@ -61,6 +62,7 @@ export function TasksAndCommentsWrapper({
         await createTask(enrichedTaskData);
         setCreateDrawerOpen(false);
         setPendingCommentId(undefined);
+        setTasksRefreshKey(key => key + 1);
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
@@ -79,6 +81,7 @@ export function TasksAndCommentsWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
+        setTasksRefreshKey(key => key + 1);
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
@@ -101,19 +104,27 @@ export function TasksAndCommentsWrapper({
 
   return (
     <>
-      <TasksSection
-        entityType={entityType}
-        entityId={entityId}
-        sessionToken={sessionToken}
-        onCreateTask={handleCreateTask}
-        onEditTask={handleEditTask}
-        onDeleteTask={handleDeleteTask}
-        onOpenCreateDrawer={handleOpenCreateDrawer}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-      />
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '30px',
+          '& .MuiPaper-root': { mb: 0 },
+        }}
+      >
+        <TasksSection
+          entityType={entityType}
+          entityId={entityId}
+          sessionToken={sessionToken}
+          onCreateTask={handleCreateTask}
+          onEditTask={handleEditTask}
+          onDeleteTask={handleDeleteTask}
+          onOpenCreateDrawer={handleOpenCreateDrawer}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          refreshKey={tasksRefreshKey}
+        />
 
-      <Box sx={{ mt: '16px' }}>
         <CommentsWrapper
           entityType={entityType}
           entityId={entityId}

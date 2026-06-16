@@ -11,8 +11,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useRouter } from 'next/navigation';
-import TestSetTestsGrid from './TestSetTestsGrid';
-import TestSelectionDialog from './TestSelectionDialog';
+import AssignTestsDrawer from './AssignTestsDrawer';
+import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -26,16 +26,6 @@ const paperSx = {
   borderRadius: BORDER_RADIUS.md,
   border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   boxShadow: ELEVATION.xs,
-};
-
-// Grid card: no inner padding — BaseDataGrid provides the 30px insets so the
-// header, toolbar, cells and footer all line up at 30px (Figma design).
-const gridCardSx = {
-  width: '100%',
-  borderRadius: BORDER_RADIUS.md,
-  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
-  boxShadow: ELEVATION.xs,
-  overflow: 'hidden',
 };
 
 interface TestSetLinkedTestsSectionProps {
@@ -55,7 +45,7 @@ export default function TestSetLinkedTestsSection({
 }: TestSetLinkedTestsSectionProps) {
   const { show: showNotification } = useNotifications();
   const router = useRouter();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalCount, setTotalCount] = useState(initialTestCount);
   const [isGenerating, setIsGenerating] = useState(initialIsGenerating);
@@ -65,7 +55,6 @@ export default function TestSetLinkedTestsSection({
     setTotalCount(initialTestCount);
   }, [initialTestCount]);
 
-  // Poll for generation completion when the test set is being generated
   useEffect(() => {
     if (!isGenerating) return;
 
@@ -89,7 +78,6 @@ export default function TestSetLinkedTestsSection({
             clearInterval(pollRef.current);
             pollRef.current = null;
           }
-          // Refresh the page to show completed data
           router.refresh();
         }
       } catch {
@@ -97,7 +85,6 @@ export default function TestSetLinkedTestsSection({
       }
     };
 
-    // Fire immediately so users don't wait a full interval for the first check.
     checkStatus();
     pollRef.current = setInterval(checkStatus, POLL_INTERVAL_MS);
 
@@ -127,7 +114,7 @@ export default function TestSetLinkedTestsSection({
         `${tests.length} test${tests.length === 1 ? '' : 's'} added to test set`,
         { severity: 'success', autoHideDuration: 4000 }
       );
-      setDialogOpen(false);
+      setDrawerOpen(false);
       handleRefresh();
     } catch (error) {
       const msg = error instanceof Error ? error.message : '';
@@ -149,7 +136,7 @@ export default function TestSetLinkedTestsSection({
     <Button
       variant="outlined"
       startIcon={<AddIcon />}
-      onClick={() => setDialogOpen(true)}
+      onClick={() => setDrawerOpen(true)}
     >
       Assign
     </Button>
@@ -200,7 +187,7 @@ export default function TestSetLinkedTestsSection({
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
             >
-              No assigned entity yet
+              No tests yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Assign tests to this test set to group related cases together.
@@ -208,22 +195,20 @@ export default function TestSetLinkedTestsSection({
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
+              onClick={() => setDrawerOpen(true)}
             >
-              Assign entity
+              Assign tests
             </Button>
           </Box>
         </Paper>
       ) : (
-        <Paper elevation={0} sx={gridCardSx}>
+        <>
           <Box
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              px: '30px',
-              pt: '30px',
-              pb: '30px',
+              mb: 2,
             }}
           >
             <Typography
@@ -234,27 +219,28 @@ export default function TestSetLinkedTestsSection({
                 color: 'primary.main',
               }}
             >
-              Linked entity ({totalCount})
+              Tests ({totalCount})
             </Typography>
             {assignButton}
           </Box>
 
-          <TestSetTestsGrid
+          <EmbeddingTestsPanel
             key={refreshKey}
             testSetId={testSetId}
             sessionToken={sessionToken}
             testSetType={testSetType}
-            onRefresh={handleRefresh}
             onTotalCountChange={setTotalCount}
           />
-        </Paper>
+        </>
       )}
 
-      <TestSelectionDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onSelect={handleAssignTests}
+      <AssignTestsDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
         sessionToken={sessionToken}
+        testSetId={testSetId}
+        testSetType={testSetType}
+        onAssign={handleAssignTests}
       />
     </>
   );

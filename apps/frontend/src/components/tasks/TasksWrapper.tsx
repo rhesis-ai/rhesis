@@ -26,6 +26,7 @@ export function TasksWrapper({
 }: TasksWrapperProps) {
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
   const { createTask, deleteTask } = useTasks({
     entityType,
@@ -39,6 +40,7 @@ export function TasksWrapper({
         setIsCreating(true);
         await createTask(taskData as unknown as TaskCreate);
         setCreateDrawerOpen(false);
+        setTasksRefreshKey(key => key + 1);
       } catch {
         // Errors surfaced by useTasks
       } finally {
@@ -56,6 +58,7 @@ export function TasksWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
+        setTasksRefreshKey(key => key + 1);
       } catch {
         // Errors surfaced by useTasks
       }
@@ -75,6 +78,7 @@ export function TasksWrapper({
         onOpenCreateDrawer={() => setCreateDrawerOpen(true)}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
+        refreshKey={tasksRefreshKey}
       />
 
       <TaskCreationDrawer

@@ -76,7 +76,7 @@ jobs:
           touch "${{ runner.temp }}/digests/worker/${worker_digest#sha256:}"
 
       - name: Upload backend digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-backend-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/backend/*
@@ -84,7 +84,7 @@ jobs:
           retention-days: 1
 
       - name: Upload worker digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-worker-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/worker/*
@@ -145,9 +145,64 @@ jobs:
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-frontend-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  chatbot:
+    name: Build chatbot (${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - arch: amd64
+            os: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            os: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build chatbot by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/chatbot/Dockerfile
+          target: runtime
+          platforms: ${{ matrix.platform.os }}
+          provenance: false
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/chatbot,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-chatbot-${{ matrix.platform.arch }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -159,6 +214,7 @@ jobs:
     needs:
       - backend
       - frontend
+      - chatbot
 
     strategy:
       fail-fast: false
@@ -167,10 +223,11 @@ jobs:
           - backend
           - worker
           - frontend
+          - chatbot
 
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-${{ matrix.image }}-*

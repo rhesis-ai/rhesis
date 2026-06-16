@@ -122,13 +122,12 @@ describe('getStatuses', () => {
 
     const result = await getStatuses('tok');
 
-    // Only allowed names should be returned (Archived is filtered out)
-    expect(result).toHaveLength(4);
+    // Only allowed names should be returned (Archived/Cancelled are filtered out)
+    expect(result).toHaveLength(3);
     expect(result.map(s => s.name)).toEqual([
       'Open',
       'In Progress',
       'Completed',
-      'Cancelled',
     ]);
     expect(result[0]).toMatchObject({ id: 's1', name: 'Open' });
     expect(mockGetStatuses).toHaveBeenCalledTimes(1);
@@ -149,12 +148,11 @@ describe('getStatuses', () => {
 
     const result = await getStatuses('tok');
 
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(3);
     expect(result.map(s => s.name)).toEqual([
       'Open',
       'In Progress',
       'Completed',
-      'Cancelled',
     ]);
     // Defaults use preset UUIDs
     expect(result[0].id).toBe('550e8400-e29b-41d4-a716-446655440001');
@@ -252,7 +250,7 @@ describe('getStatusesForTask', () => {
     // 's1' is already in the allowed list
     const result = await getStatusesForTask('tok', 's1');
 
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(3);
     expect(mockGetStatus).not.toHaveBeenCalled();
   });
 
@@ -267,9 +265,9 @@ describe('getStatusesForTask', () => {
 
     const result = await getStatusesForTask('tok', 'extra-id');
 
-    // 4 allowed + 1 extra = 5
-    expect(result).toHaveLength(5);
-    expect(result[4]).toMatchObject({ id: 'extra-id', name: 'Custom Status' });
+    // 3 allowed + 1 extra = 4
+    expect(result).toHaveLength(4);
+    expect(result[3]).toMatchObject({ id: 'extra-id', name: 'Custom Status' });
     expect(mockGetStatus).toHaveBeenCalledWith('extra-id');
   });
 
@@ -279,7 +277,7 @@ describe('getStatusesForTask', () => {
 
     const result = await getStatusesForTask('tok', 'missing-id');
 
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(3);
   });
 
   it('returns base statuses when no existingTaskStatusId is provided', async () => {
@@ -287,7 +285,7 @@ describe('getStatusesForTask', () => {
 
     const result = await getStatusesForTask('tok');
 
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(3);
     expect(mockGetStatus).not.toHaveBeenCalled();
   });
 });

@@ -9,7 +9,7 @@ import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { ApiIcon } from '@/components/icons';
+import EndpointsIcon from '@/components/EndpointsIcon';
 import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -23,12 +23,9 @@ export default function EndpointsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    if (searchParams.get('create') === '1') {
-      setCreateDrawerOpen(true);
-    }
-  }, [searchParams]);
+  const [createProjectId, setCreateProjectId] = React.useState<
+    string | undefined
+  >();
 
   useDocumentTitle('Endpoints');
 
@@ -58,12 +55,25 @@ export default function EndpointsPage() {
     setRefreshKey(prev => prev + 1);
   }, []);
 
-  const handleCreateDrawerClose = React.useCallback(() => {
+  React.useEffect(() => {
+    if (searchParams.get('create') !== '1') return;
+
+    const projectId = searchParams.get('projectId') ?? undefined;
+    setCreateProjectId(projectId || undefined);
+    setCreateDrawerOpen(true);
+    router.replace('/endpoints', { scroll: false });
+  }, [searchParams, router]);
+
+  const handleCreate = React.useCallback(() => {
+    setCreateProjectId(undefined);
+    setCreateDrawerOpen(true);
+  }, []);
+
+  const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    if (searchParams.get('create') === '1') {
-      router.replace('/endpoints', { scroll: false });
-    }
-  }, [router, searchParams]);
+    setCreateProjectId(undefined);
+    handleRefresh();
+  }, [handleRefresh]);
 
   if (status === 'loading') {
     return (
@@ -86,54 +96,61 @@ export default function EndpointsPage() {
   }
 
   return (
-    <PageLayout
-      title="Endpoints"
-      description="Connect the Rhesis platform to your application under test via endpoints to enable comprehensive testing and evaluation workflows."
-      breadcrumbs={[]}
-      actions={
-        <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="New Endpoint"
-            onClick={() => setCreateDrawerOpen(true)}
-            data-tour="create-endpoint-button"
-          />
-        </FabGroup>
-      }
-    >
-      <Box sx={{ mt: 2, mb: 2 }}>
-        {endpointCount === 0 ? (
-          <EntityEmptyState
-            icon={ApiIcon}
-            title="No endpoints yet"
-            description="Create your first endpoint to connect your application under test and start running tests and evaluations."
-            actionLabel="Create endpoint"
-            onAction={() => setCreateDrawerOpen(true)}
-          />
-        ) : (
-          <Paper
-            sx={{
-              width: '100%',
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: theme => `1px solid ${theme.palette.greyscale.border}`,
-              overflow: 'hidden',
-            }}
-          >
-            <EndpointsGrid
-              sessionToken={sessionToken}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
+    <>
+      <PageLayout
+        title="Endpoints"
+        description="Connect the Rhesis platform to your application under test via endpoints to enable comprehensive testing and evaluation workflows."
+        breadcrumbs={[]}
+        actions={
+          <FabGroup>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="New Endpoint"
+              onClick={handleCreate}
+              data-tour="create-endpoint-button"
             />
-          </Paper>
-        )}
-      </Box>
+          </FabGroup>
+        }
+      >
+        <Box sx={{ mt: 2, mb: 2 }}>
+          {endpointCount === 0 ? (
+            <EntityEmptyState
+              card
+              icon={EndpointsIcon}
+              title="No endpoints yet"
+              description="Create your first endpoint to connect your application under test and start running tests and evaluations."
+              actionLabel="Create endpoint"
+              onAction={handleCreate}
+            />
+          ) : (
+            <Paper
+              sx={{
+                width: '100%',
+                borderRadius: BORDER_RADIUS.md,
+                boxShadow: ELEVATION.xs,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
+                overflow: 'hidden',
+              }}
+            >
+              <EndpointsGrid
+                sessionToken={sessionToken}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            </Paper>
+          )}
+        </Box>
+      </PageLayout>
 
       <EndpointCreateDrawer
         open={createDrawerOpen}
-        onClose={handleCreateDrawerClose}
-        onCreated={handleRefresh}
+        onClose={() => {
+          setCreateDrawerOpen(false);
+          setCreateProjectId(undefined);
+        }}
+        onCreated={handleCreateSuccess}
+        projectId={createProjectId}
       />
-    </PageLayout>
+    </>
   );
 }
