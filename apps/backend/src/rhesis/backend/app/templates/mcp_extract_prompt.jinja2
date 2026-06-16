@@ -1,0 +1,28 @@
+{% if repair %}
+Your previous reply was not valid JSON. Reply with ONLY the JSON array described
+below — no prose, no explanation, no code fences.
+
+{% endif %}
+Extract the full content of the requested item using the available tools.
+
+{# Add provider-specific extraction guidance here, e.g.
+   {% if provider == "<name>" %}...{% endif %} #}
+{% if include_children %}
+Also extract every child page / nested item and return each as a separate entry.
+{% endif %}
+
+Return ONLY a JSON array. Each element is an object with these fields:
+- id: a stable identifier for the item (page id, file path, issue key, ...)
+- title: the item's title or name
+- content: the full content rendered as markdown
+- url: the canonical URL of the item, or null if unavailable
+
+Example:
+[{"id": "abc123", "title": "Onboarding", "content": "# Onboarding\n...", "url": "https://..."}]
+
+Rules:
+- Your entire response must be a valid JSON array and nothing else.
+- No prose, no explanation, no markdown code fences (no ```json or ```).
+- Render content as markdown inside the JSON string value.
+- Return one object per item; return [] if nothing could be extracted.
+- If you encounter recoverable errors (rate limits, temporary failures), you may retry.

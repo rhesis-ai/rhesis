@@ -20,8 +20,18 @@ from rhesis.backend.app.schemas.services import (
     TestToolConnectionRequest,
     TestToolConnectionResponse,
 )
+from rhesis.backend.app.services.tool.actions import (
+    ToolAction,
+    Transport,
+    resolve_provider,
+    route,
+)
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
-from rhesis.backend.app.services.tool.mcp import handle_mcp_exception
+from rhesis.backend.app.services.tool.mcp import (
+    handle_mcp_exception,
+    mcp_extract,
+    mcp_health_check,
+)
 from rhesis.backend.app.services.tool.rest import (
     create_jira_ticket_from_task,
     get_rest_client,
@@ -200,25 +210,31 @@ async def extract_tool_item(
     """
     Extract content from a tool item as markdown.
 
-    Supports Notion and GitHub tools via direct REST API calls.
+    The transport (deterministic REST call vs. MCP agent) is chosen per provider for
+    the extract action — invisible to the caller.
     Set include_children=True to recursively fetch child pages / subdirectory files.
     Either ``id`` or ``url`` (or both) must be provided in the request body.
     """
     try:
         organization_id, user_id = tenant_context
-        client = get_rest_client(
-            db=db,
-            tool_id=str(tool_id),
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-        if not hasattr(client, "fetch_all"):
-            raise HTTPException(
-                status_code=400,
-                detail="Extract is not supported for this tool provider.",
-            )
+        provider = resolve_provider(db, organization_id, tool_id=str(tool_id), user_id=user_id)
         identifier = request.url or request.id
-        docs = await client.fetch_all(identifier, include_children=request.include_children)
+        transport = route(provider, ToolAction.EXTRACT)
+        if transport is Transport.REST:
+            docs = await get_rest_client(
+                db=db,
+                tool_id=str(tool_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            ).fetch_all(identifier, include_children=request.include_children)
+        elif transport is Transport.MCP:
+            docs = await mcp_extract(
+                tool_id=str(tool_id),
+                identifier=identifier,
+                organization_id=organization_id,
+                user_id=user_id,
+                include_children=request.include_children,
+            )
         return ExtractToolResponse(
             sources=[
                 {"id": d.id, "title": d.title, "content": d.content, "url": d.url} for d in docs
@@ -240,18 +256,34 @@ async def test_tool_connection(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Test a tool's credentials via a lightweight REST health check."""
+    """Test a tool's credentials via a lightweight connection check."""
     try:
         organization_id, user_id = tenant_context
-        result = await run_rest_health_check(
-            db=db,
-            organization_id=organization_id,
+        provider = resolve_provider(
+            db,
+            organization_id,
             tool_id=request.tool_id,
             provider_type_id=request.provider_type_id,
-            credentials=request.credentials,
             user_id=user_id,
         )
-        return result
+        transport = route(provider, ToolAction.TEST_CONNECTION)
+        if transport is Transport.REST:
+            return await run_rest_health_check(
+                db=db,
+                organization_id=organization_id,
+                tool_id=request.tool_id,
+                provider_type_id=request.provider_type_id,
+                credentials=request.credentials,
+                user_id=user_id,
+            )
+        elif transport is Transport.MCP:
+            return await mcp_health_check(
+                organization_id=organization_id,
+                user_id=user_id,
+                tool_id=request.tool_id,
+                provider_type_id=request.provider_type_id,
+                credentials=request.credentials,
+            )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -277,14 +309,16 @@ async def create_jira_ticket_from_task_endpoint(
     """
     try:
         organization_id, user_id = tenant_context
-        result = await create_jira_ticket_from_task(
+        provider = resolve_provider(db, organization_id, tool_id=request.tool_id, user_id=user_id)
+        # Validate the provider supports ticket creation (raises if not).
+        route(provider, ToolAction.CREATE_TICKET)
+        return await create_jira_ticket_from_task(
             task_id=request.task_id,
             tool_id=request.tool_id,
             db=db,
             organization_id=organization_id,
             user_id=user_id,
         )
-        return result
     except ToolConfigurationError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
