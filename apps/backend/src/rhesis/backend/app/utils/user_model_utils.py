@@ -464,8 +464,15 @@ def _fetch_and_configure_model(
 
     # Use SDK's get_model to create configured instance with error handling
     try:
+        extra_params = {}
+        if model.endpoint and model.endpoint.strip():
+            extra_params["api_base"] = model.endpoint.strip()
         configured_model = get_model(
-            provider=provider, model_name=model_name, api_key=api_key, model_type="language"
+            provider=provider,
+            model_name=model_name,
+            api_key=api_key,
+            model_type="language",
+            **extra_params,
         )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: "
@@ -607,8 +614,15 @@ def _fetch_and_configure_embedder(
 
     # Use SDK's get_model to create configured instance with error handling
     try:
+        extra_params = {}
+        if model.endpoint and model.endpoint.strip():
+            extra_params["api_base"] = model.endpoint.strip()
         configured_embedder = get_model(
-            provider=provider, model_name=model_name, api_key=api_key, model_type="embedding"
+            provider=provider,
+            model_name=model_name,
+            api_key=api_key,
+            model_type="embedding",
+            **extra_params,
         )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseEmbedder instance: "
