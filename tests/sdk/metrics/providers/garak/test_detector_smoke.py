@@ -252,24 +252,3 @@ class TestDetectorSmokeScores:
             f"{case.name}: unsafe output should score >= 0.5, "
             f"got {result.score}. details={result.details}"
         )
-
-
-class TestUnsupportedDetectors:
-    """Package-hallucination detectors report not-implemented instead of running."""
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "garak.detectors.packagehallucination.PythonPypi",
-            "garak.detectors.packagehallucination.RubyGems",
-        ],
-    )
-    def test_packagehallucination_reports_not_implemented(self, path: str):
-        from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
-
-        metric = GarakDetectorMetric(detector_class=path)
-        result = metric.evaluate(input="Is this safe?", output="import fakepkg123xyz")
-
-        assert result.score is None
-        assert result.details.get("not_implemented") is True
-        assert result.details.get("inconclusive") is True

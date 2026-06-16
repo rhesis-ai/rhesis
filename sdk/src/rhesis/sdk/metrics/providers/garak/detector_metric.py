@@ -118,8 +118,10 @@ class GarakDetectorMetric(BaseMetric):
 
     def _is_unsupported(self) -> bool:
         """Return True if this detector is on the unsupported list (not run)."""
+        # Normalized paths look like "garak.detectors.<module>.<Class>"; match the
+        # module segment exactly (".<module>.") rather than as a bare substring.
         path = normalize_detector_path(self.detector_class_path)
-        return any(token in path for token in _UNSUPPORTED_DETECTOR_MODULES)
+        return any(f".{module}." in path for module in _UNSUPPORTED_DETECTOR_MODULES)
 
     def _load_detector(self):
         """
