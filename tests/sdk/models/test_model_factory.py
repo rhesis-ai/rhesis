@@ -450,6 +450,24 @@ class TestAdditionalProviders:
         with pytest.raises(ValueError, match="does not support model type 'embedding'"):
             get_model("azure", "text-embedding-ada-002", model_type="embedding")
 
+    @patch("rhesis.sdk.models.providers.vllm.VllmLLM")
+    def test_vllm_llm_creation(self, mock_cls):
+        """vLLM LLM is created with correct args via shorthand."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model(
+            "vllm/meta-llama/Llama-2-7b-chat-hf",
+            api_base="http://localhost:8000",
+        )
+
+        mock_cls.assert_called_once_with(
+            model_name="meta-llama/Llama-2-7b-chat-hf",
+            api_key=None,
+            api_base="http://localhost:8000",
+        )
+        assert result == mock_instance
+
 
 class TestModelTypeClassification:
     """Test ModelType enum and classification logic."""

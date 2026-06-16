@@ -39,6 +39,7 @@ import {
   DEFAULT_ENDPOINTS,
   LOCAL_PROVIDERS,
   PROVIDERS_WITH_OPTIONAL_API_KEY,
+  providerSupportsModelListing,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -240,6 +241,14 @@ export const ConnectionForm = forwardRef<
       const currentProvider =
         isEditMode && model?.provider_type ? model.provider_type : provider;
       if (!currentProvider || !session?.session_token) return;
+
+      if (
+        !providerSupportsModelListing(currentProvider.type_value, modelType)
+      ) {
+        setAvailableModels([]);
+        setLoadingModels(false);
+        return;
+      }
 
       setLoadingModels(true);
       try {
