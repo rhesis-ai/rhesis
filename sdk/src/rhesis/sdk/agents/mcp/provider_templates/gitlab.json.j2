@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "gitlab": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": {{ GITLAB_PERSONAL_ACCESS_TOKEN | tojson }},
+        "GITLAB_API_URL": {{ (GITLAB_API_URL | default("https://gitlab.com/api/v4")) | tojson }},
+        "GITLAB_READ_ONLY_MODE": "true",
+        "USE_GITLAB_WIKI": "true"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from typing import Dict
+from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -12,23 +12,24 @@ from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.sdk.agents.mcp import MCPClientFactory
 
 
-def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_id: str = None):
-    """
-    Get MCP client and provider configuration from database by tool ID.
+def _project_context_from_metadata(
+    provider: str, tool_metadata: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, str]]:
+    if provider != "gitlab" or not tool_metadata or "project" not in tool_metadata:
+        return None
+    project_data = tool_metadata["project"]
+    namespace = project_data.get("namespace") if isinstance(project_data, dict) else None
+    if not isinstance(namespace, str) or not namespace.strip() or "/" not in namespace.strip():
+        raise ToolConfigurationError(
+            "GitLab tool has invalid project metadata; namespace must be a group/project path"
+        )
+    return {"namespace": namespace.strip()}
 
-    Args:
-        db: Database session
-        tool_id: Tool instance ID
-        organization_id: Organization ID (for authorization check)
-        user_id: User ID (for authorization check)
 
-    Returns:
-        Tuple of (MCPClient, provider_name) ready to use.
-
-    Raises:
-        ToolConfigurationError: If tool not found, deleted, not an MCP integration,
-            or invalid credentials
-    """
+def _get_mcp_tool_config(
+    db: Session, tool_id: str, organization_id: str, user_id: str = None
+) -> Tuple[Any, str, Optional[Dict[str, str]]]:
+    """Return MCP client, provider name, and optional GitLab project context."""
     try:
         tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     except ItemDeletedException:
@@ -41,21 +42,21 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
             f"Tool '{tool_id}' not found. Please add it in /integrations/tools"
         )
 
-    # Get provider name for the client
     provider = tool.tool_provider_type.type_value
 
-    # Parse credentials JSON
     try:
         credentials_dict = json.loads(tool.credentials)
     except (json.JSONDecodeError, TypeError) as e:
         raise ToolConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
+
+    project_context = _project_context_from_metadata(provider, tool.tool_metadata)
 
     factory = MCPClientFactory.from_provider(
         provider=provider,
         credentials=credentials_dict,
     )
     client = factory.create_client(provider)
-    return client, provider
+    return client, provider, project_context
 
 
 def _get_mcp_client_from_params(
@@ -64,24 +65,9 @@ def _get_mcp_client_from_params(
     db: Session,
     organization_id: str,
     user_id: str = None,
-):
-    """
-    Get MCP client from parameters without requiring a tool in the database.
-
-    Args:
-        provider_type_id: UUID of the provider type (TypeLookup)
-        credentials: Dictionary of credential key-value pairs
-        db: Database session
-        organization_id: Organization ID (for authorization check)
-        user_id: User ID (for authorization check)
-
-    Returns:
-        MCPClient ready to use
-
-    Raises:
-        ValueError: If provider not found, invalid configuration, or missing required fields
-    """
-    # Fetch provider type from database
+    tool_metadata: Optional[Dict[str, Any]] = None,
+) -> Tuple[Any, str, Optional[Dict[str, str]]]:
+    """Build an MCP client from unsaved credentials (connection test before save)."""
     provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
 
     if not provider_type:
@@ -89,12 +75,12 @@ def _get_mcp_client_from_params(
             f"Provider type '{provider_type_id}' not found. Please verify the provider_type_id."
         )
 
-    # Get provider name for the client
     provider = provider_type.type_value
+    project_context = _project_context_from_metadata(provider, tool_metadata)
 
     factory = MCPClientFactory.from_provider(
         provider=provider,
         credentials=credentials,
     )
     client = factory.create_client(provider)
-    return client
+    return client, provider, project_context
