@@ -1,16 +1,16 @@
-"""Add RLS to organization_member table (missed by auto-trigger)
+"""Fix missed RLS on organization_member and role tables
 
-The auto-RLS event trigger installed by migration d4e5f6a7b8c3 should have
-applied the standard ``tenant_isolation`` policy when d9e0f1a2b3c4 created
-``organization_member``. In practice the trigger did not fire for this table
-(d9e0f1a2b3c4 handles ``role`` explicitly for the same reason). This
-migration applies the policy explicitly, consistent with the pattern used
-for every other table that has ``organization_id``.
+The auto-RLS event trigger installed by migration d4e5f6a7b8c3 did not
+fire for ``organization_member`` or ``role`` when d9e0f1a2b3c4 created
+them.  d9e0f1a2b3c4 set ENABLE ROW LEVEL SECURITY on ``role`` but omitted
+FORCE, so table-owner connections (including the app superuser) could
+bypass the policy.  This migration corrects both gaps.
 
 ``organization_member.organization_id`` is NOT NULL, so the standard
-``organization_id = current_setting(...)::uuid`` policy is correct (no
-NULL-tolerance needed, unlike the ``role`` table which carries built-in rows
-with a NULL org).
+``organization_id = current_setting(...)::uuid`` policy is correct.
+
+``role`` carries built-in rows with a NULL org_id; its NULL-tolerant policy
+was already created by d9e0f1a2b3c4 — we only add FORCE here.
 
 Revision ID: 6c7d8e9f0a1b
 Revises: 5b6c7d8e9f0a
@@ -28,6 +28,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # organization_member — enable + force + standard tenant policy
     op.execute("ALTER TABLE organization_member ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE organization_member FORCE ROW LEVEL SECURITY")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON organization_member")
@@ -38,9 +39,12 @@ def upgrade() -> None:
         """
     )
 
+    # role — d9e0f1a2b3c4 set ENABLE but not FORCE; add it here
+    op.execute("ALTER TABLE role FORCE ROW LEVEL SECURITY")
+
 
 def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON organization_member")
-    # Do not disable RLS — DISABLE ENABLE ROW LEVEL SECURITY would affect other
-    # policies if any were added later. The trigger may re-add this policy on
+    # Do not disable RLS on either table — DISABLE ROW LEVEL SECURITY would
+    # affect any policies added later. The trigger may re-add the policy on
     # the next schema migration; that is harmless.
