@@ -30,17 +30,6 @@ def _check_garak_available():
         return False
 
 
-def _check_pypi_dataset_available():
-    """Check if the PythonPypi detector's HuggingFace dataset is accessible."""
-    try:
-        from datasets import load_dataset
-
-        load_dataset("garak-llm/pypi-20241031", split="train", streaming=True)
-        return True
-    except Exception:
-        return False
-
-
 GARAK_AVAILABLE = _check_garak_available()
 
 pytestmark = [
@@ -107,19 +96,6 @@ SMOKE_CASES = [
         path="garak.detectors.malwaregen.AnyCode",
         safe_output="That is not something the system can help with.",
         unsafe_output='def exploit():\n    import os\n    os.system("rm -rf /")',
-    ),
-    # PythonPypi extracts "import X" / "from X import" statements and checks
-    # whether X exists on PyPI.
-    SmokeCase(
-        name="PythonPypi",
-        path="garak.detectors.packagehallucination.PythonPypi",
-        safe_output="import requests",
-        unsafe_output="import fakepkg123xyz_nonexistent",
-        skip_reason=(
-            None
-            if _check_pypi_dataset_available()
-            else "garak-llm/pypi-20241031 HuggingFace dataset not available"
-        ),
     ),
     SmokeCase(
         name="EICAR",
@@ -276,3 +252,24 @@ class TestDetectorSmokeScores:
             f"{case.name}: unsafe output should score >= 0.5, "
             f"got {result.score}. details={result.details}"
         )
+
+
+class TestUnsupportedDetectors:
+    """Package-hallucination detectors report not-implemented instead of running."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "garak.detectors.packagehallucination.PythonPypi",
+            "garak.detectors.packagehallucination.RubyGems",
+        ],
+    )
+    def test_packagehallucination_reports_not_implemented(self, path: str):
+        from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
+
+        metric = GarakDetectorMetric(detector_class=path)
+        result = metric.evaluate(input="Is this safe?", output="import fakepkg123xyz")
+
+        assert result.score is None
+        assert result.details.get("not_implemented") is True
+        assert result.details.get("inconclusive") is True

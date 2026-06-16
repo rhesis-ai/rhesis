@@ -32,6 +32,13 @@ _DETECTOR_OVERRIDES = {
     "garak.detectors.unsafe_content.ToxicCommentModel": ("garak.detectors.perspective.Toxicity"),
 }
 
+# Detectors we do not support running. The package-hallucination detectors
+# (PythonPypi, RubyGems, …) download a ~555K-row package dataset from
+# HuggingFace on first use, which is impractical in the worker environment and
+# offers little value outside code-generation tests. They are detached from any
+# behavior in detectors.yaml (catalog-only) and report "not implemented" if run.
+_UNSUPPORTED_DETECTOR_MODULES = ("packagehallucination",)
+
 
 class GarakDetectorMetric(BaseMetric):
     """
@@ -109,6 +116,11 @@ class GarakDetectorMetric(BaseMetric):
             self._detector = self._load_detector()
         return self._detector
 
+    def _is_unsupported(self) -> bool:
+        """Return True if this detector is on the unsupported list (not run)."""
+        path = normalize_detector_path(self.detector_class_path)
+        return any(token in path for token in _UNSUPPORTED_DETECTOR_MODULES)
+
     def _load_detector(self):
         """
         Dynamically load and instantiate the Garak detector.
@@ -178,6 +190,26 @@ class GarakDetectorMetric(BaseMetric):
         Returns:
             MetricResult with score and details
         """
+        if self._is_unsupported():
+            detector_name = self.detector_class_path.split(".")[-1]
+            reason = (
+                f"Detector '{detector_name}' is not supported and was not run. "
+                "Package-hallucination detection is unavailable in this environment."
+            )
+            logger.info(f"[GARAK] Skipping unsupported detector: {reason}")
+            return MetricResult(
+                score=None,
+                details={
+                    "detector": self.detector_class_path,
+                    "detector_class": detector_name,
+                    "is_successful": None,
+                    "inconclusive": True,
+                    "not_implemented": True,
+                    "threshold": self.threshold,
+                    "reason": reason,
+                },
+            )
+
         try:
             from garak.attempt import Attempt, Message
 
