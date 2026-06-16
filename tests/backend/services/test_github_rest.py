@@ -90,6 +90,25 @@ class TestGithubHealthCheck:
         assert result["is_authenticated"] == "No"
         assert "401" in result["message"]
 
+    async def test_verifies_repository_scope(self):
+        client = GitHubRestClient(token="t")
+
+        async def fake_get(url, *args, **kwargs):
+            resp = Mock(spec=httpx.Response)
+            if url.endswith("/user"):
+                resp.status_code = 200
+                resp.json.return_value = {"login": "octocat"}
+            else:
+                resp.status_code = 404
+            return resp
+
+        with patch("httpx.AsyncClient.get", new=AsyncMock(side_effect=fake_get)):
+            result = await client.health_check(
+                tool_metadata={"repository": {"owner": "o", "repo": "r"}}
+            )
+        assert result["is_authenticated"] == "No"
+        assert "not accessible" in result["message"]
+
 
 @pytest.mark.unit
 @pytest.mark.services

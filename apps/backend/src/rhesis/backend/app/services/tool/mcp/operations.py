@@ -16,18 +16,6 @@ from .templates import jinja_env
 
 logger = logging.getLogger(__name__)
 
-_AUTH_FAILURE_MARKERS = (
-    "authentication failed",
-    "auth failed",
-    "invalid token",
-    "invalid credentials",
-    "unauthorized",
-    "access denied",
-    "not authenticated",
-    "401",
-    "403 forbidden",
-)
-
 
 def _parse_mcp_auth_response(result: Dict[str, Any]) -> Dict[str, str]:
     """Map an MCP auth-check agent result to a connection-test response."""
@@ -41,25 +29,27 @@ def _parse_mcp_auth_response(result: Dict[str, Any]) -> Dict[str, str]:
     try:
         parsed = json.loads(_strip_code_fence(raw))
     except (json.JSONDecodeError, TypeError):
-        parsed = None
+        return {
+            "is_authenticated": "No",
+            "message": "Authentication check did not return valid JSON.",
+        }
 
-    if isinstance(parsed, dict) and "authenticated" in parsed:
-        if parsed.get("authenticated") is True:
-            identity = parsed.get("identity")
-            if isinstance(identity, str) and identity.strip():
-                message = f"Connected as {identity.strip()}"
-            else:
-                message = "Connected"
-            return {"is_authenticated": "Yes", "message": message[:200]}
+    if not isinstance(parsed, dict) or "authenticated" not in parsed:
+        return {
+            "is_authenticated": "No",
+            "message": "Authentication check JSON must include an authenticated field.",
+        }
 
-        failure_message = parsed.get("message") or parsed.get("identity") or "Authentication failed."
-        return {"is_authenticated": "No", "message": str(failure_message).strip()[:200]}
+    if parsed.get("authenticated") is True:
+        identity = parsed.get("identity")
+        if isinstance(identity, str) and identity.strip():
+            message = f"Connected as {identity.strip()}"
+        else:
+            message = "Connected"
+        return {"is_authenticated": "Yes", "message": message[:200]}
 
-    lowered = raw.lower()
-    if any(marker in lowered for marker in _AUTH_FAILURE_MARKERS):
-        return {"is_authenticated": "No", "message": raw[:200]}
-
-    return {"is_authenticated": "Yes", "message": raw[:200]}
+    failure_message = parsed.get("message") or parsed.get("identity") or "Authentication failed."
+    return {"is_authenticated": "No", "message": str(failure_message).strip()[:200]}
 
 
 async def _run_agent(

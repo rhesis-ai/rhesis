@@ -382,6 +382,7 @@ async def test_tool_connection(
                 provider_type_id=request.provider_type_id,
                 credentials=request.credentials,
                 user_id=user_id,
+                tool_metadata=request.tool_metadata,
             )
         elif transport is Transport.MCP:
             return await mcp_health_check(

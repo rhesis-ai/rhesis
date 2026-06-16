@@ -27,7 +27,9 @@ class NotionRestClient:
             "Notion-Version": _NOTION_VERSION,
         }
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(
+        self, tool_metadata: Dict[str, Any] | None = None
+    ) -> Dict[str, Any]:
         """Verify credentials by calling GET /v1/users/me."""
         async with httpx.AsyncClient() as client:
             resp = await client.get("https://api.notion.com/v1/users/me", headers=self._headers)

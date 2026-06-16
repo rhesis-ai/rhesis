@@ -6,7 +6,9 @@ Verify that the configured credentials can authenticate against the {{ provider 
 You are restricted to the following GitLab project:
 - Namespace: {{ project_context.namespace }}
 
-Scope the read-only auth check to project namespace "{{ project_context.namespace }}".
+Perform a read-only project-scoped call for namespace "{{ project_context.namespace }}"
+(for example, fetch project details). Set authenticated to false if the project is
+not accessible with these credentials.
 {% endif %}
 Use a single read-only call. Do not create, modify, or delete anything.
 

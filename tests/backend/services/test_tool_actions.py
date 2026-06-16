@@ -167,7 +167,10 @@ class TestMcpHealthCheck:
         assert "401" in result["message"]
 
     async def test_success_with_auth_failure_answer_is_not_authenticated(self):
-        misleading = {"success": True, "final_answer": "Authentication failed: invalid token"}
+        misleading = {
+            "success": True,
+            "final_answer": '{"authenticated": false, "message": "invalid token"}',
+        }
         with (
             patch(f"{_OPS}._resolve_tool_client", return_value=(object(), "gitlab", None)),
             patch(f"{_OPS}._run_agent", new=AsyncMock(return_value=misleading)),
@@ -177,6 +180,18 @@ class TestMcpHealthCheck:
             )
         assert result["is_authenticated"] == "No"
         assert "invalid token" in result["message"]
+
+    async def test_unstructured_answer_is_not_authenticated(self):
+        misleading = {"success": True, "final_answer": "Authentication failed: invalid token"}
+        with (
+            patch(f"{_OPS}._resolve_tool_client", return_value=(object(), "gitlab", None)),
+            patch(f"{_OPS}._run_agent", new=AsyncMock(return_value=misleading)),
+        ):
+            result = await mcp_health_check(
+                organization_id="org", user_id="user", tool_id="t1"
+            )
+        assert result["is_authenticated"] == "No"
+        assert "valid JSON" in result["message"]
 
 
 class TestMcpAuthResponse:
@@ -202,3 +217,4 @@ class TestMcpAuthResponse:
             {"success": True, "final_answer": "Authentication failed: 401 Unauthorized"}
         )
         assert result["is_authenticated"] == "No"
+        assert "valid JSON" in result["message"]
