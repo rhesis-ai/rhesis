@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -48,8 +50,11 @@ class TestRunStatsMode(str, Enum):
     SUMMARY = "summary"
 
 
-router = APIRouter(
-    prefix="/test_runs", tags=["test_runs"], responses={404: {"description": "Not found"}}
+router = RhesisRouter(
+    prefix="/test_runs",
+    tags=["test_runs"],
+    responses={404: {"description": "Not found"}},
+    resource="test_run",
 )
 
 
@@ -441,7 +446,9 @@ def delete_test_run(
     )
 
 
-@router.post("/{test_run_id}/cancel", response_model=schemas.TestRun)
+@router.post(
+    "/{test_run_id}/cancel", response_model=schemas.TestRun, **capability(Permission.TestRun.UPDATE)
+)
 def cancel_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -490,7 +497,7 @@ def cancel_test_run(
     )
 
 
-@router.post("/{test_run_id}/rescore")
+@router.post("/{test_run_id}/rescore", **capability(Permission.TestRun.UPDATE))
 async def rescore_test_run_endpoint(
     test_run_id: UUID,
     request: schemas.TestRunRescoreRequest = None,

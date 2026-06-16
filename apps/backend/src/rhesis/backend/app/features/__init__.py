@@ -38,10 +38,20 @@ class FeatureName(str, Enum):
     Inheriting from ``str`` means members compare equal to their value
     (``FeatureName.SSO == "sso"``) and FastAPI serializes them to their
     raw string over the wire.
+
+    ``__str__`` is overridden so ``str(FeatureName.SSO)`` returns ``"sso"``
+    on Python 3.10–3.11 (where the default Enum.__str__ returns
+    ``"FeatureName.SSO"`` for str+Enum subclasses, not the value).
+    Python 3.11+ StrEnum has this right by default; this keeps parity on 3.10.
     """
+
+    def __str__(self) -> str:
+        return self.value
 
     SSO = "sso"
     API_CLIENTS = "api_clients"
+    #: Full RBAC: project-role overrides + custom roles (Phase 2, SP7–SP9).
+    RBAC = "rbac"
 
 
 # Accept either the enum or its raw string value so dynamic call sites
@@ -86,16 +96,25 @@ class LicenseProvider(Protocol):
 
 
 class DefaultLicenseProvider:
-    """Permissive provider — allows every registered EE feature for every org.
+    """Permissive provider — allows most EE features for every org.
 
     Active when ``RHESIS_LICENSE`` is not set. Intended for local development
     with the ``ee`` package installed but no license key configured. In
     production, :class:`JwtLicenseProvider` replaces this and restricts
     access to features listed in the signed JWT.
+
+    RBAC is explicitly excluded: enabling it by default would lock out every
+    existing user who has no ``organization_member`` row, since the
+    ``PermissionAuthorizationProvider`` denies when no role is assigned.
+    A real license (or an explicit migration that backfills org memberships)
+    is required before RBAC can be switched on for an org.
     """
 
+    # Features that require an explicit license even in dev/unlicensed mode.
+    _REQUIRES_LICENSE: frozenset[str] = frozenset({"rbac"})
+
     def allows_feature(self, feature: Feature, org: Organization) -> bool:
-        return True
+        return str(feature.name) not in self._REQUIRES_LICENSE
 
     def info(self) -> dict:
         # ``edition: dev`` (rather than ``community``) communicates that the EE

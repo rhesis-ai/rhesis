@@ -230,7 +230,6 @@ class TestGetCurrentUser:
             family_name="Without Org",
             auth0_id=f"test-auth0-no-org-{uuid.uuid4()}",
             is_active=True,
-            is_superuser=False,
             organization_id=None,  # No organization
             last_login_at=datetime.now(timezone.utc),
         )

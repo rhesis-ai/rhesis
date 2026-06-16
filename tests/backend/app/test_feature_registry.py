@@ -148,10 +148,16 @@ class TestReset:
 
 
 class TestDefaultLicenseProvider:
-    def test_allows_every_feature(self):
+    def test_allows_non_rbac_features(self):
         provider = DefaultLicenseProvider()
         feature = Feature(name=FeatureName.SSO, display_name="SSO")
         assert provider.allows_feature(feature, org=object()) is True
+
+    def test_denies_rbac_by_default(self):
+        """RBAC must be off by default to avoid locking out users with no org-role rows."""
+        provider = DefaultLicenseProvider()
+        feature = Feature(name=FeatureName.RBAC, display_name="RBAC")
+        assert provider.allows_feature(feature, org=object()) is False
 
     def test_info_marks_dev_edition(self):
         """Edition is 'dev' rather than 'community' when EE pkg is loaded but unlicensed."""
@@ -202,11 +208,11 @@ class TestEEBootstrap:
         assert feature is not None
         assert feature.display_name == "Single Sign-On"
         assert feature.runtime_check is not None
-        # The bootstrap mounts three routers today: SSO admin, API
-        # Clients CRUD, and the token-exchange endpoint. Pin the count
-        # so a future addition is a deliberate test update rather than
-        # silently growing the EE surface area.
-        assert mock_app.include_router.call_count == 3
+        # The bootstrap mounts four routers today: SSO admin, API
+        # Clients CRUD, the token-exchange endpoint, and the RBAC router.
+        # Pin the count so a future addition is a deliberate test update
+        # rather than silently growing the EE surface area.
+        assert mock_app.include_router.call_count == 4
 
     def test_registers_api_clients(self, clean_registry):
         """API_CLIENTS feature is registered alongside SSO."""
@@ -225,9 +231,9 @@ class TestEEBootstrap:
         mock_app = MagicMock()
         ee_pkg.bootstrap(mock_app)
         ee_pkg.bootstrap(mock_app)
-        # SSO + API_CLIENTS; idempotency means re-running bootstrap
+        # SSO + API_CLIENTS + RBAC; idempotency means re-running bootstrap
         # does not double the count.
-        assert len(FeatureRegistry._features) == 2
+        assert len(FeatureRegistry._features) == 3
 
     def test_route_class_inherits_from_app(self, clean_registry):
         """The EE router must adopt the app's authenticated route class.

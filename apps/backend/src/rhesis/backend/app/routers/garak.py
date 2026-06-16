@@ -9,6 +9,7 @@ import logging
 import random
 
 from fastapi import APIRouter, Depends, HTTPException
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -41,10 +42,11 @@ from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/garak",
     tags=["garak"],
     responses={404: {"description": "Not found"}},
+    resource="garak",
 )
 
 

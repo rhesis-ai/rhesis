@@ -55,6 +55,78 @@ Base.metadata.create_all(bind=engine)
 # paths) before `app.include_router` runs for the EE routers.
 
 
+def _inject_route_dependency(route: APIRoute, dependency) -> None:
+    """Insert *dependency* as the first dependency on an already-registered route.
+
+    Shared by :func:`apply_auth_backstop` (authentication) and
+    :func:`apply_authz_backstop` (authorization).  Both rewrite a route's
+    resolved ``dependant`` *after* registration rather than at decoration time:
+    ``include_router`` copies each route with its own ``route_class``, so
+    ``FastAPI(route_class=...)`` does not propagate to copied routes.  Rewriting
+    the dependant post-hoc is the reliable way to cover every route, including
+    those added by EE.
+
+    ``get_parameterless_sub_dependant`` is what FastAPI uses internally for
+    ``dependencies=[...]`` entries; inserting at index 0 makes the backstop run
+    before the handler's own dependencies.
+    """
+    from fastapi.dependencies.utils import get_parameterless_sub_dependant
+
+    sub_dependant = get_parameterless_sub_dependant(depends=dependency, path=route.path_format)
+    route.dependant.dependencies.insert(0, sub_dependant)
+    route.dependencies.insert(0, dependency)
+
+
+def apply_authz_backstop(app: FastAPI) -> None:
+    """Inject a permission check on every non-exempt HTTP route.
+
+    Mirrors :func:`apply_auth_backstop` exactly, but for *authorization* rather
+    than authentication.  Called **after** :func:`apply_auth_backstop` and
+    :func:`~rhesis.backend.app.auth.capabilities.register_capabilities` so all
+    routes (core + EE) are registered and the capability map is warm.
+
+    For each :class:`~fastapi.routing.APIRoute`:
+
+    1. Skip routes in :data:`~rhesis.backend.app.auth.public_routes.PUBLIC_ROUTES`
+       — no auth, so no authz either.
+    2. Skip routes in
+       :data:`~rhesis.backend.app.auth.public_routes.AUTHZ_EXEMPT_ROUTES`
+       — authenticated but deliberately exempt (onboarding, bootstrap).
+    3. Resolve the route's capability via
+       :func:`~rhesis.backend.app.auth.capabilities.get_capability_for_route`.
+       If ``None`` (unmapped or in the deriver skip-list), leave the route
+       unchanged — the CI drift guard (:mod:`tests.backend.security.test_authz_coverage`)
+       will flag these as failures.
+    4. Inject one parameterless ``require_permission(capability)`` sub-dependant
+       using the same mechanism as :func:`apply_auth_backstop`
+       (``get_parameterless_sub_dependant`` + ``route.dependant.dependencies.insert``).
+       Because FastAPI deduplicates dependency results per request, the extra
+       ``require_current_user_or_token`` call inside ``require_permission``
+       resolves only once even when the handler also declares it.
+
+    WebSocket routes (``APIWebSocketRoute``) and mounts are skipped; they
+    authenticate and authorise manually in their handlers.
+    """
+    from rhesis.backend.app.auth.capabilities import get_capability_for_route
+    from rhesis.backend.app.auth.public_routes import AUTHZ_EXEMPT_ROUTES, PUBLIC_ROUTES
+    from rhesis.backend.app.auth.rbac import require_permission
+
+    for route in app.router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        path: str = route.path
+        if path in PUBLIC_ROUTES:
+            continue
+        methods: set[str] = route.methods or set()
+        if any((m, path) in AUTHZ_EXEMPT_ROUTES for m in methods):
+            continue
+        cap = get_capability_for_route(route)
+        if cap is None:
+            # Unmapped route — the drift guard in test_authz_coverage.py will flag this.
+            continue
+        _inject_route_dependency(route, Depends(require_permission(cap)))
+
+
 # Authentication dependencies the backstop recognizes as "already protected".
 #
 # A route that declares any of these — directly or transitively via a tenant
@@ -113,12 +185,9 @@ def apply_auth_backstop(app: FastAPI) -> None:
     ``require_current_user_or_token`` on top of those would reject onboarding
     with a 403 even though the route is correctly authenticated.
 
-    Why post-hoc injection rather than a custom ``route_class``? The routers
-    are built at import time with the default ``APIRoute`` class, and
-    ``FastAPI(route_class=...)`` does not propagate to routes copied in via
-    ``include_router`` (it uses each route's own class). Rewriting the
-    ``dependant`` after registration is the reliable way to cover every route,
-    including those added by EE.
+    Post-hoc injection (see :func:`_inject_route_dependency`) is used rather than
+    a custom ``route_class`` because ``include_router`` copies routes with their
+    own class and ``FastAPI(route_class=...)`` does not propagate.
 
     WebSocket routes (``APIWebSocketRoute``) and mounts are skipped; they
     authenticate manually in their handlers.
@@ -126,8 +195,6 @@ def apply_auth_backstop(app: FastAPI) -> None:
     Must be called **after** all routers (core + EE) and app-level routes are
     registered.
     """
-    from fastapi.dependencies.utils import get_parameterless_sub_dependant
-
     backstop = Depends(require_current_user_or_token)
     for route in app.router.routes:
         if not isinstance(route, APIRoute):
@@ -139,9 +206,7 @@ def apply_auth_backstop(app: FastAPI) -> None:
         # weaker policy such as the context-free auth used during onboarding.
         if _dependant_has_auth(route.dependant):
             continue
-        sub_dependant = get_parameterless_sub_dependant(depends=backstop, path=route.path_format)
-        route.dependant.dependencies.insert(0, sub_dependant)
-        route.dependencies.insert(0, backstop)
+        _inject_route_dependency(route, backstop)
 
 
 def get_api_description():
@@ -198,9 +263,23 @@ async def lifespan(app: FastAPI):
     except Exception as _tp_err:
         logger.warning(f"Could not configure anyio thread limiter: {_tp_err}")
 
-    # Startup: Initialize local environment if enabled
+    # Startup: Initialize local environment + run any registered startup hooks.
+    # Hooks must be idempotent; failures abort startup so misconfiguration is loud.
+    # The RBAC catalog is now seeded by Alembic data migrations, not a startup hook,
+    # so this block primarily handles quick-start/local seeding via
+    # initialize_local_environment.
+    #
+    # Both calls share a single get_db() transaction deliberately: if either
+    # fails the whole block rolls back atomically, avoiding a half-initialised
+    # DB state.
+    #
+    # This block must complete and commit before the lifespan yield below so that
+    # DB state is consistent before the first request is served.
+    from rhesis.backend.app.startup_hooks import run_startup_hooks
+
     with get_db() as db:
         initialize_local_environment(db)
+        run_startup_hooks(db)
 
     # Pre-fetch exchange rate on startup (non-blocking async)
     from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate_async
@@ -239,6 +318,13 @@ async def lifespan(app: FastAPI):
 
     init_conv_cache()
     init_metrics_cache()
+
+    # Initialize permission cache (Redis DB 5, in-memory fallback — SP5)
+    from rhesis.backend.app.services.permission_cache import (
+        initialize_cache as init_permission_cache,
+    )
+
+    init_permission_cache()
 
     # Initialize WebSocket Redis subscriber (optional, doesn't fail startup)
     from rhesis.backend.app.services.websocket import start_redis_subscriber, ws_manager
@@ -640,3 +726,15 @@ async def health_check():
 # route. Runs last so it covers core routers, EE routers, and the app-level
 # routes (/, /health) defined above.
 apply_auth_backstop(app)
+
+# Derive and cache the capability catalog from the now-complete route table.
+# Must run after apply_auth_backstop so EE routes are already registered.
+from rhesis.backend.app.auth.capabilities import register_capabilities
+
+register_capabilities(app)
+
+# PEP backstop: inject require_permission(capability) on every non-exempt route.
+# Must run after register_capabilities so the capability map is warm (though the
+# backstop derives caps independently via get_capability_for_route, keeping both
+# in sync with the same deriver is belt-and-suspenders).
+apply_authz_backstop(app)

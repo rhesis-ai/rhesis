@@ -12,6 +12,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -73,10 +74,11 @@ from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/explorer",
     tags=["explorer"],
     responses={404: {"description": "Not found"}},
+    resource="explorer",
 )
 
 

@@ -20,6 +20,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
@@ -410,10 +411,6 @@ async def _require_org_admin(request: Request, org_id: str):
             detail="Authentication required",
         )
 
-    # Superusers can manage any org's SSO
-    if getattr(user, "is_superuser", False):
-        return user
-
     if str(user.organization_id) != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -423,7 +420,7 @@ async def _require_org_admin(request: Request, org_id: str):
     return user
 
 
-@router.get("/organizations/{org_id}/sso")
+@router.get("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def get_sso_config(
     request: Request,
@@ -455,7 +452,7 @@ async def get_sso_config(
     return result
 
 
-@router.put("/organizations/{org_id}/sso")
+@router.put("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def update_sso_config(
     request: Request,
@@ -574,7 +571,7 @@ async def update_sso_config(
     return result
 
 
-@router.delete("/organizations/{org_id}/sso")
+@router.delete("/organizations/{org_id}/sso", **capability(Permission.SSO.MANAGE))
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
 async def delete_sso_config(
     request: Request,
@@ -602,7 +599,7 @@ async def delete_sso_config(
     return {"status": "deleted"}
 
 
-@router.post("/organizations/{org_id}/sso/test")
+@router.post("/organizations/{org_id}/sso/test", **capability(Permission.SSO.MANAGE))
 @limiter.limit(SSO_TEST_CONNECTION_RATE_LIMIT)
 async def test_sso_connection(
     request: Request,

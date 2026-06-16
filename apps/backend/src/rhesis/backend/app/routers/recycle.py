@@ -1,7 +1,7 @@
 """
 Recycle bin management endpoints for soft-deleted records.
 
-These endpoints allow superusers to:
+These endpoints allow org admins to:
 - View soft-deleted records in the recycle bin
 - Restore soft-deleted records from the recycle bin
 - Permanently delete records (empty recycle bin)
@@ -12,6 +12,8 @@ from typing import Dict, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import UnmappedClassError
@@ -28,13 +30,7 @@ from rhesis.backend.app.utils.crud_utils import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/recycle", tags=["recycle"])
-
-
-def require_superuser(current_user: models.User):
-    """Check if the current user is a superuser."""
-    if not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Only superusers can access this endpoint")
+router = RhesisRouter(prefix="/recycle", tags=["recycle"], resource="recycle")
 
 
 def get_all_models() -> Dict[str, type]:
@@ -162,7 +158,7 @@ def get_recycled_records(
     }
 
 
-@router.post("/{model_name}/{item_id}/restore")
+@router.post("/{model_name}/{item_id}/restore", **capability(Permission.Recycle.RESTORE))
 def restore_from_recycle_bin(
     model_name: str,
     item_id: UUID,
@@ -381,7 +377,7 @@ def get_recycle_bin_counts(
     }
 
 
-@router.post("/bulk-restore/{model_name}")
+@router.post("/bulk-restore/{model_name}", **capability(Permission.Recycle.RESTORE))
 def bulk_restore_from_recycle_bin(
     model_name: str,
     item_ids: List[UUID],

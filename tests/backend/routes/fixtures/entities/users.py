@@ -65,7 +65,6 @@ def mock_user_data() -> Dict[str, Any]:
         "given_name": fake.first_name(),
         "family_name": fake.last_name(),
         "is_active": True,
-        "is_superuser": False,
         "organization_id": fake.uuid4(),
         "display_name": fake.name(),
     }
@@ -85,7 +84,6 @@ def mock_admin_data(mock_user_data) -> Dict[str, Any]:
             "email": f"admin+{fake.uuid4()[:8]}@example.com",
             "name": f"Admin {fake.last_name()}",
             "given_name": "Admin",
-            "is_superuser": True,
         }
     )
     return admin_data
@@ -122,7 +120,6 @@ def mock_user_object() -> Mock:
     user.given_name = fake.first_name()
     user.family_name = fake.last_name()
     user.is_active = True
-    user.is_superuser = False
     user.organization_id = fake.uuid4()
     user.display_name = user.name
     return user
@@ -161,7 +158,6 @@ def db_user(test_db, test_org_id):
         given_name=fake.first_name(),
         family_name=fake.last_name(),
         is_active=True,
-        is_superuser=False,
         auth0_id=f"auth0|{uuid.uuid4()}",
         organization_id=test_org_id,
     )
@@ -192,7 +188,6 @@ def db_admin(test_db, test_org_id):
         given_name="Admin",
         family_name=fake.last_name(),
         is_active=True,
-        is_superuser=True,
         auth0_id=f"auth0|{fake.uuid4()}",
         organization_id=test_org_id,
     )
@@ -221,7 +216,6 @@ def db_inactive_user(test_db, test_org_id):
         email=f"inactive+{fake.uuid4()[:8]}@example.com",
         name=f"Inactive {fake.last_name()}",
         is_active=False,
-        is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
         organization_id=test_org_id,
     )
@@ -257,7 +251,6 @@ def db_owner_user(test_db, test_org_id):
         given_name="Owner",
         family_name=fake.last_name(),
         is_active=True,
-        is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
         organization_id=test_org_id,
     )
@@ -293,7 +286,6 @@ def db_assignee_user(test_db, test_org_id):
         given_name="Assignee",
         family_name=fake.last_name(),
         is_active=True,
-        is_superuser=False,
         auth0_id=f"auth0|{fake.uuid4()}",
         organization_id=test_org_id,
     )
@@ -351,7 +343,6 @@ def authenticated_user_data(authenticated_user) -> Dict[str, Any]:
         "given_name": authenticated_user.given_name,
         "family_name": authenticated_user.family_name,
         "is_active": authenticated_user.is_active,
-        "is_superuser": authenticated_user.is_superuser,
         "organization_id": str(authenticated_user.organization_id),
         "display_name": authenticated_user.display_name,
     }
