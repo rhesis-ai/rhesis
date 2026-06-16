@@ -287,7 +287,21 @@ export function ToolConnectionDrawer({
         setTestResult(null);
       }
     }
-  }, [authToken, provider, isEditMode, repositoryUrl, instanceUrl, username, projectNamespace, selectedSpaceKey, gitlabApiUrl, initialRepositoryUrl, initialProjectNamespace, initialSpaceKey, initialGitlabApiUrl]);
+  }, [
+    authToken,
+    provider,
+    isEditMode,
+    repositoryUrl,
+    instanceUrl,
+    username,
+    projectNamespace,
+    selectedSpaceKey,
+    gitlabApiUrl,
+    initialRepositoryUrl,
+    initialProjectNamespace,
+    initialSpaceKey,
+    initialGitlabApiUrl,
+  ]);
 
   const parseRepositoryUrl = (
     url: string
@@ -349,13 +363,19 @@ export function ToolConnectionDrawer({
     return null;
   };
 
-  const buildGitLabCredentials = (token: string, apiUrl: string): Record<string, string> => {
+  const buildGitLabCredentials = (
+    token: string,
+    apiUrl: string
+  ): Record<string, string> => {
     const credentials: Record<string, string> = {
       GITLAB_PERSONAL_ACCESS_TOKEN: token.trim(),
     };
     const trimmedApiUrl = apiUrl.trim();
     if (trimmedApiUrl) {
-      credentials.GITLAB_API_URL = normalizeUrl(trimmedApiUrl).replace(/\/$/, '');
+      credentials.GITLAB_API_URL = normalizeUrl(trimmedApiUrl).replace(
+        /\/$/,
+        ''
+      );
       if (!credentials.GITLAB_API_URL.endsWith('/api/v4')) {
         credentials.GITLAB_API_URL = `${credentials.GITLAB_API_URL}/api/v4`;
       }
@@ -422,25 +442,43 @@ export function ToolConnectionDrawer({
         tool_metadata?: Record<string, unknown>;
       };
 
-      if (isEditMode && tool?.id && !credentialsModified && !scopeMetadataModified) {
+      if (
+        isEditMode &&
+        tool?.id &&
+        !credentialsModified &&
+        !scopeMetadataModified
+      ) {
         // Edit mode, no config changes — test existing stored credentials
         testRequest = {
           tool_id: tool.id,
         };
-      } else if (isEditMode && tool?.id && !credentialsModified && scopeMetadataModified) {
+      } else if (
+        isEditMode &&
+        tool?.id &&
+        !credentialsModified &&
+        scopeMetadataModified
+      ) {
         // Scope-only edit — reuse stored credentials with updated metadata
         const currentProviderType =
           provider?.type_value || tool.tool_provider_type?.type_value;
         const parsedMetadata = buildScopeMetadataFromForm(currentProviderType);
 
-        if (currentProviderType === 'github' && repositoryUrl.trim() && !parsedMetadata) {
+        if (
+          currentProviderType === 'github' &&
+          repositoryUrl.trim() &&
+          !parsedMetadata
+        ) {
           setError(
             'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
           );
           setTestingConnection(false);
           return;
         }
-        if (currentProviderType === 'gitlab' && projectNamespace.trim() && !parsedMetadata) {
+        if (
+          currentProviderType === 'gitlab' &&
+          projectNamespace.trim() &&
+          !parsedMetadata
+        ) {
           setError(
             'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
           );
@@ -479,7 +517,9 @@ export function ToolConnectionDrawer({
             return;
           }
         } else if (tokenIsPlaceholder) {
-          setError('Please re-enter your API token to test updated credentials.');
+          setError(
+            'Please re-enter your API token to test updated credentials.'
+          );
           setTestingConnection(false);
           return;
         }
@@ -723,7 +763,10 @@ export function ToolConnectionDrawer({
           authToken !== '************'
         ) {
           if (currentProviderType === 'gitlab') {
-            updates.credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
+            updates.credentials = buildGitLabCredentials(
+              authToken,
+              gitlabApiUrl
+            );
           } else {
             const credentialKey = getCredentialKey(currentProviderType);
             updates.credentials = {
@@ -978,9 +1021,7 @@ export function ToolConnectionDrawer({
     (!provider && !tool?.tool_provider_type) ||
     !name ||
     (!isEditMode && !authToken) ||
-    (!isEditMode &&
-      providerType === 'gitlab' &&
-      !projectNamespace.trim()) ||
+    (!isEditMode && providerType === 'gitlab' && !projectNamespace.trim()) ||
     (!isEditMode &&
       (providerType === 'jira' || providerType === 'confluence') &&
       (!instanceUrl || !username)) ||
@@ -994,7 +1035,10 @@ export function ToolConnectionDrawer({
     (isEditMode &&
       (credentialsModified || scopeMetadataModified) &&
       !connectionTested) ||
-    (isEditMode && !credentialsModified && !scopeMetadataModified && !basicFieldsChanged) ||
+    (isEditMode &&
+      !credentialsModified &&
+      !scopeMetadataModified &&
+      !basicFieldsChanged) ||
     loading;
 
   const sectionHeadingSx = {

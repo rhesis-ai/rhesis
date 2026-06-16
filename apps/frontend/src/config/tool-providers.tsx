@@ -1,5 +1,10 @@
 import React from 'react';
-import { SiNotion, SiGithub, SiJira, SiGitlab } from '@icons-pack/react-simple-icons';
+import {
+  SiNotion,
+  SiGithub,
+  SiJira,
+  SiGitlab,
+} from '@icons-pack/react-simple-icons';
 
 /**
  * Tool Provider Configuration
