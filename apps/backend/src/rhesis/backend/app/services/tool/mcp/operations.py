@@ -102,6 +102,8 @@ def _strip_code_fence(text: str) -> str:
     lines = text.splitlines()
     if lines and lines[0].startswith("```"):
         lines = lines[1:]
+    if lines and lines[0].strip() == "json":
+        lines = lines[1:]
     if lines and lines[-1].strip().startswith("```"):
         lines = lines[:-1]
     return "\n".join(lines).strip()
@@ -123,12 +125,13 @@ def _parse_fetched_sources(answer: str) -> List[FetchedSource]:
     for item in data:
         if not isinstance(item, dict):
             raise ValueError("Each source must be a JSON object.")
+        raw_url = item.get("url")
         sources.append(
             FetchedSource(
                 id=str(item.get("id", "")),
-                title=item.get("title", ""),
-                content=item.get("content", ""),
-                url=item.get("url"),
+                title=str(item.get("title") or ""),
+                content=str(item.get("content") or ""),
+                url=str(raw_url) if raw_url is not None else None,
             )
         )
     return sources

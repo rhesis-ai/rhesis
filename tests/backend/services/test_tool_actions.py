@@ -21,6 +21,7 @@ class TestRouteTable:
         assert route("notion", ToolAction.TEST_CONNECTION) is Transport.REST
         assert route("jira", ToolAction.CREATE_TICKET) is Transport.REST
         assert route("jira", ToolAction.TEST_CONNECTION) is Transport.REST
+        assert route("confluence", ToolAction.TEST_CONNECTION) is Transport.REST
 
     def test_jira_has_no_extract(self):
         with pytest.raises(ToolConfigurationError, match="does not support"):
