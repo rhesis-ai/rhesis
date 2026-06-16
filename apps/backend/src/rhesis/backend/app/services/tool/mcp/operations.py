@@ -29,14 +29,37 @@ _AUTH_FAILURE_MARKERS = (
 )
 
 
-def _mcp_auth_succeeded(result: Dict[str, Any]) -> bool:
-    """Treat agent completion as authenticated only when the answer confirms it."""
+def _parse_mcp_auth_response(result: Dict[str, Any]) -> Dict[str, str]:
+    """Map an MCP auth-check agent result to a connection-test response."""
     if not result.get("success"):
-        return False
-    answer = (result.get("final_answer") or "").strip().lower()
-    if not answer:
-        return False
-    return not any(marker in answer for marker in _AUTH_FAILURE_MARKERS)
+        return {"is_authenticated": "No", "message": "Authentication check did not complete."}
+
+    raw = (result.get("final_answer") or "").strip()
+    if not raw:
+        return {"is_authenticated": "No", "message": "Authentication check returned no answer."}
+
+    try:
+        parsed = json.loads(_strip_code_fence(raw))
+    except (json.JSONDecodeError, TypeError):
+        parsed = None
+
+    if isinstance(parsed, dict) and "authenticated" in parsed:
+        if parsed.get("authenticated") is True:
+            identity = parsed.get("identity")
+            if isinstance(identity, str) and identity.strip():
+                message = f"Connected as {identity.strip()}"
+            else:
+                message = "Connected"
+            return {"is_authenticated": "Yes", "message": message[:200]}
+
+        failure_message = parsed.get("message") or parsed.get("identity") or "Authentication failed."
+        return {"is_authenticated": "No", "message": str(failure_message).strip()[:200]}
+
+    lowered = raw.lower()
+    if any(marker in lowered for marker in _AUTH_FAILURE_MARKERS):
+        return {"is_authenticated": "No", "message": raw[:200]}
+
+    return {"is_authenticated": "Yes", "message": raw[:200]}
 
 
 async def _run_agent(
@@ -258,8 +281,4 @@ async def mcp_health_check(
     result = await _run_agent(
         client, "Verify authentication and report the result.", system_prompt, 3, "mcp-health"
     )
-    if _mcp_auth_succeeded(result):
-        message = (result.get("final_answer") or "Connected").strip()[:200]
-        return {"is_authenticated": "Yes", "message": message}
-    failure_message = (result.get("final_answer") or "Authentication failed.").strip()[:200]
-    return {"is_authenticated": "No", "message": failure_message}
+    return _parse_mcp_auth_response(result)

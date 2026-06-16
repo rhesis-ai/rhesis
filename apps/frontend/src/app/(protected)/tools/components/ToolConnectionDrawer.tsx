@@ -463,6 +463,27 @@ export function ToolConnectionDrawer({
           return;
         }
 
+        const tokenIsPlaceholder = authToken === '************';
+        const urlIsPlaceholder = instanceUrl === '************';
+        const usernameIsPlaceholder = username === '************';
+
+        if (
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence'
+        ) {
+          if (urlIsPlaceholder || usernameIsPlaceholder || tokenIsPlaceholder) {
+            setError(
+              'Please re-enter the URL, email, and API token to test updated credentials.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+        } else if (tokenIsPlaceholder) {
+          setError('Please re-enter your API token to test updated credentials.');
+          setTestingConnection(false);
+          return;
+        }
+
         const credentialKey = getCredentialKey(currentProviderType);
         let credentials: Record<string, string> = {};
         let parsedMetadata: Record<string, unknown> | undefined = undefined;

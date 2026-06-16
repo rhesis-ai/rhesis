@@ -7,7 +7,7 @@ import pytest
 from rhesis.backend.app.services.tool.actions import ToolAction, Transport, route
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp.operations import (
-    _mcp_auth_succeeded,
+    _parse_mcp_auth_response,
     _parse_fetched_sources,
     _strip_code_fence,
     mcp_extract,
@@ -122,7 +122,10 @@ class TestMcpHealthCheck:
             await mcp_health_check(organization_id="org", user_id="user")
 
     async def test_authenticated_saved_tool(self):
-        ok = {"success": True, "final_answer": "Connected as alice"}
+        ok = {
+            "success": True,
+            "final_answer": '{"authenticated": true, "identity": "alice"}',
+        }
         with (
             patch(f"{_OPS}._resolve_tool_client", return_value=(object(), "github", None)),
             patch(f"{_OPS}._run_agent", new=AsyncMock(return_value=ok)),
@@ -134,7 +137,7 @@ class TestMcpHealthCheck:
         assert "alice" in result["message"]
 
     async def test_authenticated_unsaved_credentials(self):
-        ok = {"success": True, "final_answer": "Connected"}
+        ok = {"success": True, "final_answer": '{"authenticated": true, "identity": null}'}
         with (
             patch(f"{_OPS}._resolve_params_client", return_value=(object(), "github", None)) as rp,
             patch(f"{_OPS}._run_agent", new=AsyncMock(return_value=ok)),
@@ -147,6 +150,21 @@ class TestMcpHealthCheck:
             )
         assert result["is_authenticated"] == "Yes"
         assert rp.call_count == 1  # the unsaved-credentials path was used
+
+    async def test_structured_auth_failure(self):
+        failed = {
+            "success": True,
+            "final_answer": '{"authenticated": false, "identity": null, "message": "401 Unauthorized"}',
+        }
+        with (
+            patch(f"{_OPS}._resolve_tool_client", return_value=(object(), "gitlab", None)),
+            patch(f"{_OPS}._run_agent", new=AsyncMock(return_value=failed)),
+        ):
+            result = await mcp_health_check(
+                organization_id="org", user_id="user", tool_id="t1"
+            )
+        assert result["is_authenticated"] == "No"
+        assert "401" in result["message"]
 
     async def test_success_with_auth_failure_answer_is_not_authenticated(self):
         misleading = {"success": True, "final_answer": "Authentication failed: invalid token"}
@@ -161,11 +179,26 @@ class TestMcpHealthCheck:
         assert "invalid token" in result["message"]
 
 
-class TestMcpAuthSucceeded:
-    def test_rejects_failure_markers(self):
-        assert not _mcp_auth_succeeded(
+class TestMcpAuthResponse:
+    def test_parses_structured_success(self):
+        result = _parse_mcp_auth_response(
+            {"success": True, "final_answer": '{"authenticated": true, "identity": "alice"}'}
+        )
+        assert result["is_authenticated"] == "Yes"
+        assert "alice" in result["message"]
+
+    def test_parses_structured_failure(self):
+        result = _parse_mcp_auth_response(
+            {
+                "success": True,
+                "final_answer": '{"authenticated": false, "message": "invalid token"}',
+            }
+        )
+        assert result["is_authenticated"] == "No"
+        assert "invalid token" in result["message"]
+
+    def test_rejects_unstructured_failure_markers(self):
+        result = _parse_mcp_auth_response(
             {"success": True, "final_answer": "Authentication failed: 401 Unauthorized"}
         )
-
-    def test_accepts_positive_answer(self):
-        assert _mcp_auth_succeeded({"success": True, "final_answer": "Connected as alice"})
+        assert result["is_authenticated"] == "No"

@@ -2,5 +2,22 @@ Verify that the configured credentials can authenticate against the {{ provider 
 
 {# Add provider-specific auth-check guidance here, e.g.
    {% if provider == "<name>" %}...{% endif %} #}
+{% if provider == "gitlab" and project_context %}
+You are restricted to the following GitLab project:
+- Namespace: {{ project_context.namespace }}
+
+Scope the read-only auth check to project namespace "{{ project_context.namespace }}".
+{% endif %}
 Use a single read-only call. Do not create, modify, or delete anything.
-Report whether authentication succeeded and, if possible, the authenticated identity.
+
+Return ONLY a JSON object with these fields:
+- authenticated: true if credentials are valid, false otherwise
+- identity: authenticated user or account name if known, otherwise null
+- message: optional short explanation when authenticated is false
+
+Example success: {"authenticated": true, "identity": "alice"}
+Example failure: {"authenticated": false, "identity": null, "message": "401 Unauthorized"}
+
+Rules:
+- Your entire response must be a valid JSON object and nothing else.
+- No prose, no explanation, no markdown code fences.
