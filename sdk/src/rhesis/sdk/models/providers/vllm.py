@@ -53,9 +53,7 @@ class VllmLLM(LiteLLM):
         """
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
-        resolved_api_base = (
-            api_base or os.getenv("HOSTED_VLLM_API_BASE") or DEFAULT_API_BASE
-        )
+        resolved_api_base = api_base or os.getenv("HOSTED_VLLM_API_BASE") or DEFAULT_API_BASE
         resolved_api_key = api_key or os.getenv("HOSTED_VLLM_API_KEY")
         super().__init__(
             self.PROVIDER + "/" + model_name,
