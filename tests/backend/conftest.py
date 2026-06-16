@@ -132,7 +132,7 @@ def run_migrations_once():
     env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
 
     result = subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "head"],
+        ["uv", "run", "alembic", "upgrade", "heads"],
         cwd=backend_dir,
         env=env,
         capture_output=True,
