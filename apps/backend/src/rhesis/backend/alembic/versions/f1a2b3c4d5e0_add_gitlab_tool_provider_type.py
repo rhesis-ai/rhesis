@@ -1,7 +1,7 @@
 """Add GitLab ToolProviderType
 
-Revision ID: c7d8e9f0a1b2
-Revises: 2b59776c5ef3
+Revision ID: f1a2b3c4d5e0
+Revises: 6c7d8e9f0a1b
 Create Date: 2026-06-16
 
 """
@@ -15,8 +15,8 @@ from rhesis.backend.alembic.utils.template_loader import (
     load_type_lookup_template,
 )
 
-revision: str = "c7d8e9f0a1b2"
-down_revision: Union[str, None] = "2b59776c5ef3"
+revision: str = "f1a2b3c4d5e0"
+down_revision: Union[str, None] = "6c7d8e9f0a1b"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
