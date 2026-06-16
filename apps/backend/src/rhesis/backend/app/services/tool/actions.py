@@ -48,6 +48,7 @@ _ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
     ("github", ToolAction.TEST_CONNECTION): Transport.REST,
     ("jira", ToolAction.TEST_CONNECTION): Transport.REST,
     ("jira", ToolAction.CREATE_TICKET): Transport.REST,
+    ("confluence", ToolAction.TEST_CONNECTION): Transport.REST,
 }
 
 
