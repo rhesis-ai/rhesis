@@ -5,8 +5,17 @@ below — no prose, no explanation, no code fences.
 {% endif %}
 Extract the full content of the requested item using the available tools.
 
-{# Add provider-specific extraction guidance here, e.g.
-   {% if provider == "<name>" %}...{% endif %} #}
+{% if provider == "gitlab" %}
+Use GitLab tools to retrieve the full issue, merge request, or wiki page content.
+If the item id references an issue or merge request, use the appropriate retrieval tool.
+{% if project_context %}
+You are restricted to the following GitLab project:
+- Namespace: {{ project_context.namespace }}
+
+Scope all GitLab tool calls to project namespace "{{ project_context.namespace }}".
+Do not access content outside this project!
+{% endif %}
+{% endif %}
 {% if include_children %}
 Also extract every child page / nested item and return each as a separate entry.
 {% endif %}

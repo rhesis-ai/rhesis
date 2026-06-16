@@ -184,7 +184,6 @@ class TestGetMCPClientByToolId:
         user_id = str(uuid.uuid4())
 
         mock_tool = Mock()
-        mock_tool.tool_type.type_value = "mcp"
         mock_tool.tool_provider_type.type_value = "notion"
         mock_tool.credentials = '{"NOTION_TOKEN": "test_token"}'
         mock_tool.tool_metadata = None
@@ -198,11 +197,14 @@ class TestGetMCPClientByToolId:
 
         # Execute
         db = Mock()
-        result, provider_name = _get_mcp_tool_config(db, tool_id, org_id, user_id)
+        client, provider_name, project_context = _get_mcp_tool_config(
+            db, tool_id, org_id, user_id
+        )
 
         # Assert
-        assert result == mock_client
+        assert client == mock_client
         assert provider_name == "notion"
+        assert project_context is None
         mock_crud.get_tool.assert_called_once_with(db, uuid.UUID(tool_id), org_id, user_id)
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials={"NOTION_TOKEN": "test_token"}
@@ -229,7 +231,6 @@ class TestGetMCPClientByToolId:
         org_id = str(uuid.uuid4())
 
         mock_tool = Mock()
-        mock_tool.tool_type.type_value = "mcp"
         mock_tool.tool_provider_type.type_value = "notion"
         mock_tool.credentials = "invalid json{"
 
@@ -239,6 +240,32 @@ class TestGetMCPClientByToolId:
             _get_mcp_tool_config(Mock(), tool_id, org_id)
 
         assert "Invalid credentials format" in str(exc_info.value)
+
+    @patch("rhesis.backend.app.services.tool.mcp.config.MCPClientFactory")
+    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
+    def test_create_client_gitlab_returns_project_context(self, mock_crud, mock_factory):
+        """GitLab tools return project scope context from metadata."""
+        tool_id = str(uuid.uuid4())
+        org_id = str(uuid.uuid4())
+
+        mock_tool = Mock()
+        mock_tool.tool_provider_type.type_value = "gitlab"
+        mock_tool.credentials = '{"GITLAB_PERSONAL_ACCESS_TOKEN": "test_token"}'
+        mock_tool.tool_metadata = {"project": {"namespace": "group/project"}}
+        mock_crud.get_tool.return_value = mock_tool
+
+        mock_factory_instance = Mock()
+        mock_client = Mock()
+        mock_factory_instance.create_client.return_value = mock_client
+        mock_factory.from_provider.return_value = mock_factory_instance
+
+        client, provider_name, project_context = _get_mcp_tool_config(
+            Mock(), tool_id, org_id
+        )
+
+        assert client == mock_client
+        assert provider_name == "gitlab"
+        assert project_context == {"namespace": "group/project"}
 
 
 @pytest.mark.unit
@@ -265,7 +292,7 @@ class TestGetMCPClientFromParams:
 
         # Execute
         db = Mock()
-        result = _get_mcp_client_from_params(
+        client, provider_name, project_context = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,
             credentials=credentials,
             db=db,
@@ -274,7 +301,9 @@ class TestGetMCPClientFromParams:
         )
 
         # Assert
-        assert result == mock_client
+        assert client == mock_client
+        assert provider_name == "notion"
+        assert project_context is None
         mock_crud.get_type_lookup.assert_called_once_with(db, provider_type_id, org_id, None)
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials=credentials
@@ -316,7 +345,7 @@ class TestQueryMCP:
         ctx = _make_ctx(db=db)
 
         mock_client = Mock()
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_template = Mock()
         mock_template.render.return_value = "Default query prompt"
@@ -365,7 +394,7 @@ class TestQueryMCP:
         ctx = _make_ctx(db=db)
 
         mock_client = Mock()
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_agent = Mock()
         mock_result = Mock()
@@ -407,7 +436,7 @@ class TestQueryMCP:
         ctx = _make_ctx(db=db)
 
         mock_client = Mock()
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_template = Mock()
         mock_template.render.return_value = "Default query prompt"

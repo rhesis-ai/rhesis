@@ -69,6 +69,36 @@ class TestRunRestHealthCheck:
         assert result == _OK
         assert mock_build.call_args[0][0] == "github"
 
+    async def test_existing_tool_passes_scope_metadata(self):
+        db = Mock(spec=Session)
+        tool = Mock()
+        tool.tool_provider_type.type_value = "github"
+        tool.credentials = '{"GITHUB_PERSONAL_ACCESS_TOKEN": "tok"}'
+        tool.tool_metadata = {"repository": {"owner": "o", "repo": "r"}}
+
+        mock_client = Mock()
+        mock_client.health_check = AsyncMock(return_value=_OK)
+
+        scope_metadata = {"repository": {"owner": "o", "repo": "r2"}}
+
+        with (
+            patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud,
+            patch(
+                "rhesis.backend.app.services.tool.rest.health.build_client",
+                return_value=mock_client,
+            ),
+        ):
+            mock_crud.get_tool.return_value = tool
+            await run_rest_health_check(
+                db,
+                "org",
+                tool_id=str(uuid.uuid4()),
+                user_id="user",
+                tool_metadata=scope_metadata,
+            )
+
+        mock_client.health_check.assert_awaited_once_with(tool_metadata=scope_metadata)
+
     async def test_tool_not_found_raises(self):
         db = Mock(spec=Session)
         with patch("rhesis.backend.app.services.tool.rest.health.crud") as mock_crud:

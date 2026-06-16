@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from typing import List
@@ -56,6 +57,94 @@ router = RhesisRouter(
 )
 
 
+def _validate_gitlab_project(tool_metadata: dict | None) -> None:
+    if not tool_metadata or "project" not in tool_metadata:
+        raise HTTPException(
+            status_code=400,
+            detail="GitLab integrations require project metadata",
+        )
+    project = tool_metadata["project"]
+    if not isinstance(project, dict) or "namespace" not in project:
+        raise HTTPException(
+            status_code=400,
+            detail="GitLab project must include 'namespace'",
+        )
+    namespace = project["namespace"]
+    if not isinstance(namespace, str) or not namespace.strip() or "/" not in namespace.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="GitLab 'namespace' must be a non-empty group/project path",
+        )
+
+
+def _validate_gitlab_credentials(credentials: dict[str, str] | None) -> None:
+    token = (credentials or {}).get("GITLAB_PERSONAL_ACCESS_TOKEN", "")
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="GitLab integrations require 'GITLAB_PERSONAL_ACCESS_TOKEN'",
+        )
+
+
+def _merge_gitlab_credentials_on_update(
+    existing_credentials_json: str,
+    incoming_credentials: dict[str, str],
+) -> dict[str, str]:
+    """Preserve GITLAB_API_URL when PATCH updates only the token."""
+    merged = dict(incoming_credentials)
+    if merged.get("GITLAB_API_URL", "").strip():
+        return merged
+
+    try:
+        existing_credentials = json.loads(existing_credentials_json)
+    except (json.JSONDecodeError, TypeError):
+        return merged
+
+    if not isinstance(existing_credentials, dict):
+        return merged
+
+    existing_api_url = existing_credentials.get("GITLAB_API_URL")
+    if isinstance(existing_api_url, str) and existing_api_url.strip():
+        merged["GITLAB_API_URL"] = existing_api_url.strip()
+
+    return merged
+
+
+def _validate_provider_type_switch(
+    existing_tool: models.Tool,
+    tool: schemas.ToolUpdate,
+    provider_type: models.TypeLookup | None,
+) -> None:
+    if tool.tool_provider_type_id is None:
+        return
+    if tool.tool_provider_type_id == existing_tool.tool_provider_type_id:
+        return
+
+    if tool.credentials is None or tool.tool_metadata is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Changing tool provider type requires both credentials "
+                "and tool_metadata in the same request"
+            ),
+        )
+
+    if not provider_type:
+        raise HTTPException(status_code=400, detail="Invalid tool provider type")
+
+    if provider_type.type_value == "jira":
+        if "space_key" not in tool.tool_metadata:
+            raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
+        if (
+            not isinstance(tool.tool_metadata["space_key"], str)
+            or not tool.tool_metadata["space_key"].strip()
+        ):
+            raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
+    elif provider_type.type_value == "gitlab":
+        _validate_gitlab_credentials(tool.credentials)
+        _validate_gitlab_project(tool.tool_metadata)
+
+
 @router.post("/", response_model=schemas.Tool)
 def create_tool(
     tool: schemas.ToolCreate,
@@ -71,11 +160,10 @@ def create_tool(
     - MCPs
     - APIs
 
-    Supported providers: notion, github, jira, confluence.
+    Supported providers include notion, github, jira, confluence, and gitlab.
     """
     organization_id, user_id = tenant_context
 
-    # Validate provider-specific requirements
     provider_type = crud.get_type_lookup(db, tool.tool_provider_type_id, organization_id, user_id)
     if provider_type:
         if provider_type.type_value == "jira":
@@ -86,6 +174,9 @@ def create_tool(
                 or not tool.tool_metadata["space_key"].strip()
             ):
                 raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
+        elif provider_type.type_value == "gitlab":
+            _validate_gitlab_credentials(tool.credentials)
+            _validate_gitlab_project(tool.tool_metadata)
 
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
@@ -157,41 +248,51 @@ def update_tool(
     """
     organization_id, user_id = tenant_context
 
-    if tool.tool_metadata is not None or tool.credentials is not None:
-        existing_tool = crud.get_tool(
-            db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
-        )
-        if not existing_tool:
-            raise HTTPException(status_code=404, detail="Tool not found")
+    existing_tool = crud.get_tool(
+        db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
+    )
+    if not existing_tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
 
-        provider_type = crud.get_type_lookup(
-            db, existing_tool.tool_provider_type_id, organization_id, user_id
-        )
-        if provider_type:
-            if provider_type.type_value == "jira":
-                if tool.tool_metadata is not None:
-                    if "space_key" not in tool.tool_metadata:
-                        raise HTTPException(
-                            status_code=400, detail="Jira integrations require 'space_key'"
-                        )
-                    if (
-                        not isinstance(tool.tool_metadata["space_key"], str)
-                        or not tool.tool_metadata["space_key"].strip()
-                    ):
-                        raise HTTPException(
-                            status_code=400, detail="Jira 'space_key' must be non-empty"
-                        )
-                if tool.credentials is not None and "JIRA_URL" in tool.credentials:
-                    try:
-                        validate_base_url(tool.credentials["JIRA_URL"], "JIRA_URL")
-                    except ValueError as e:
-                        raise HTTPException(status_code=400, detail=str(e))
-            elif provider_type.type_value == "confluence":
-                if tool.credentials is not None and "CONFLUENCE_URL" in tool.credentials:
-                    try:
-                        validate_base_url(tool.credentials["CONFLUENCE_URL"], "CONFLUENCE_URL")
-                    except ValueError as e:
-                        raise HTTPException(status_code=400, detail=str(e))
+    effective_provider_type_id = (
+        tool.tool_provider_type_id
+        if tool.tool_provider_type_id is not None
+        else existing_tool.tool_provider_type_id
+    )
+    provider_type = crud.get_type_lookup(db, effective_provider_type_id, organization_id, user_id)
+
+    _validate_provider_type_switch(existing_tool, tool, provider_type)
+
+    if tool.tool_metadata is not None and provider_type:
+        if provider_type.type_value == "jira":
+            if "space_key" not in tool.tool_metadata:
+                raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
+            if (
+                not isinstance(tool.tool_metadata["space_key"], str)
+                or not tool.tool_metadata["space_key"].strip()
+            ):
+                raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
+        elif provider_type.type_value == "gitlab":
+            _validate_gitlab_project(tool.tool_metadata)
+
+    if tool.credentials is not None and provider_type:
+        if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
+            try:
+                validate_base_url(tool.credentials["JIRA_URL"], "JIRA_URL")
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        elif provider_type.type_value == "confluence" and "CONFLUENCE_URL" in tool.credentials:
+            try:
+                validate_base_url(tool.credentials["CONFLUENCE_URL"], "CONFLUENCE_URL")
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        elif provider_type.type_value == "gitlab":
+            merged_credentials = _merge_gitlab_credentials_on_update(
+                existing_tool.credentials,
+                tool.credentials,
+            )
+            _validate_gitlab_credentials(merged_credentials)
+            tool = tool.model_copy(update={"credentials": merged_credentials})
 
     db_tool = crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
@@ -277,6 +378,7 @@ async def test_tool_connection(
                 provider_type_id=request.provider_type_id,
                 credentials=request.credentials,
                 user_id=user_id,
+                tool_metadata=request.tool_metadata,
             )
         elif transport is Transport.MCP:
             return await mcp_health_check(
@@ -285,6 +387,7 @@ async def test_tool_connection(
                 tool_id=request.tool_id,
                 provider_type_id=request.provider_type_id,
                 credentials=request.credentials,
+                tool_metadata=request.tool_metadata,
             )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))

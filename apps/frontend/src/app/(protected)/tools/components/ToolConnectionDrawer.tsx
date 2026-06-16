@@ -42,6 +42,8 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'NOTION_TOKEN';
     case 'github':
       return 'GITHUB_PERSONAL_ACCESS_TOKEN';
+    case 'gitlab':
+      return 'GITLAB_PERSONAL_ACCESS_TOKEN';
     case 'jira':
       return 'JIRA_API_TOKEN';
     case 'confluence':
@@ -109,16 +111,23 @@ export function ToolConnectionDrawer({
   // Tracks whether the user has modified credential fields in edit mode.
   // A re-test is only required when this is true.
   const [credentialsModified, setCredentialsModified] = useState(false);
+  const [scopeMetadataModified, setScopeMetadataModified] = useState(false);
 
   // Snapshot of non-credential fields when the drawer opens in edit mode,
   // used to detect whether anything has actually changed.
   const [initialName, setInitialName] = useState('');
   const [initialDescription, setInitialDescription] = useState('');
   const [initialRepositoryUrl, setInitialRepositoryUrl] = useState('');
+  const [initialProjectNamespace, setInitialProjectNamespace] = useState('');
+  const [initialGitlabApiUrl, setInitialGitlabApiUrl] = useState('');
   const [initialSpaceKey, setInitialSpaceKey] = useState('');
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
+
+  // GitLab project fields
+  const [projectNamespace, setProjectNamespace] = useState('');
+  const [gitlabApiUrl, setGitlabApiUrl] = useState('');
 
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
@@ -183,6 +192,19 @@ export function ToolConnectionDrawer({
           setInitialRepositoryUrl('');
         }
 
+        if (
+          currentProviderType === 'gitlab' &&
+          typeof tool.tool_metadata?.project?.namespace === 'string'
+        ) {
+          setProjectNamespace(tool.tool_metadata.project.namespace);
+          setInitialProjectNamespace(tool.tool_metadata.project.namespace);
+        } else {
+          setProjectNamespace('');
+          setInitialProjectNamespace('');
+        }
+        setGitlabApiUrl('');
+        setInitialGitlabApiUrl('');
+
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
         // We cannot display them in edit mode as they're encrypted
         // Show placeholder to indicate existing values
@@ -206,12 +228,15 @@ export function ToolConnectionDrawer({
         setTestResult(null);
         setConnectionTested(false);
         setCredentialsModified(false);
+        setScopeMetadataModified(false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
         setDescription('');
         setAuthToken('');
         setRepositoryUrl('');
+        setProjectNamespace('');
+        setGitlabApiUrl('');
         setInstanceUrl('');
         // Pre-fill email with logged-in user's email for Jira/Confluence
         const isAtlassian =
@@ -229,6 +254,7 @@ export function ToolConnectionDrawer({
         setTestResult(null);
         setConnectionTested(false);
         setCredentialsModified(false);
+        setScopeMetadataModified(false);
       }
     }
   }, [open, provider, tool, isEditMode, session?.user?.email]);
@@ -246,15 +272,36 @@ export function ToolConnectionDrawer({
       const tokenChanged = Boolean(authToken && authToken !== '************');
       const urlChanged = Boolean(instanceUrl && instanceUrl !== '************');
       const usernameChanged = Boolean(username && username !== '************');
-      const modified = tokenChanged || urlChanged || usernameChanged;
+      const scopeMetadataChanged =
+        repositoryUrl !== initialRepositoryUrl ||
+        projectNamespace !== initialProjectNamespace ||
+        selectedSpaceKey !== initialSpaceKey;
+      const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
+      const credentialsChanged =
+        tokenChanged || urlChanged || usernameChanged || gitlabApiUrlChanged;
 
-      setCredentialsModified(modified);
-      if (modified) {
+      setCredentialsModified(credentialsChanged);
+      setScopeMetadataModified(scopeMetadataChanged);
+      if (credentialsChanged || scopeMetadataChanged) {
         setConnectionTested(false);
         setTestResult(null);
       }
     }
-  }, [authToken, provider, isEditMode, repositoryUrl, instanceUrl, username]);
+  }, [
+    authToken,
+    provider,
+    isEditMode,
+    repositoryUrl,
+    instanceUrl,
+    username,
+    projectNamespace,
+    selectedSpaceKey,
+    gitlabApiUrl,
+    initialRepositoryUrl,
+    initialProjectNamespace,
+    initialSpaceKey,
+    initialGitlabApiUrl,
+  ]);
 
   const parseRepositoryUrl = (
     url: string
@@ -285,6 +332,79 @@ export function ToolConnectionDrawer({
     }
 
     return null;
+  };
+
+  const parseGitLabProjectUrl = (url: string): { namespace: string } | null => {
+    if (!url || !url.trim()) {
+      return null;
+    }
+
+    const trimmedUrl = url.trim();
+
+    if (/^https?:\/\//i.test(trimmedUrl)) {
+      try {
+        const parsed = new URL(normalizeUrl(trimmedUrl));
+        const path = parsed.pathname.replace(/^\/+|\/+$/g, '');
+        const namespace = path.split('/-/')[0];
+        if (namespace.includes('/')) {
+          return { namespace };
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    const shortPattern = /^([^/\s]+\/[^/\s]+(?:\/[^/\s]+)*)$/;
+    const match = trimmedUrl.match(shortPattern);
+    if (match && match[1].includes('/')) {
+      return { namespace: match[1] };
+    }
+
+    return null;
+  };
+
+  const buildGitLabCredentials = (
+    token: string,
+    apiUrl: string
+  ): Record<string, string> => {
+    const credentials: Record<string, string> = {
+      GITLAB_PERSONAL_ACCESS_TOKEN: token.trim(),
+    };
+    const trimmedApiUrl = apiUrl.trim();
+    if (trimmedApiUrl) {
+      credentials.GITLAB_API_URL = normalizeUrl(trimmedApiUrl).replace(
+        /\/$/,
+        ''
+      );
+      if (!credentials.GITLAB_API_URL.endsWith('/api/v4')) {
+        credentials.GITLAB_API_URL = `${credentials.GITLAB_API_URL}/api/v4`;
+      }
+    }
+    return credentials;
+  };
+
+  const buildScopeMetadataFromForm = (
+    currentProviderType: string | undefined
+  ): Record<string, unknown> | undefined => {
+    if (!currentProviderType) {
+      return undefined;
+    }
+
+    if (currentProviderType === 'github' && repositoryUrl.trim()) {
+      const repoData = parseRepositoryUrl(repositoryUrl);
+      return repoData ? { repository: repoData } : undefined;
+    }
+
+    if (currentProviderType === 'gitlab' && projectNamespace.trim()) {
+      const projectData = parseGitLabProjectUrl(projectNamespace);
+      return projectData ? { project: projectData } : undefined;
+    }
+
+    if (currentProviderType === 'jira' && selectedSpaceKey) {
+      return { space_key: selectedSpaceKey };
+    }
+
+    return undefined;
   };
 
   const handleTestConnection = async () => {
@@ -322,10 +442,53 @@ export function ToolConnectionDrawer({
         tool_metadata?: Record<string, unknown>;
       };
 
-      if (isEditMode && tool?.id && !credentialsModified) {
-        // Edit mode, no credential changes — test existing stored credentials
+      if (
+        isEditMode &&
+        tool?.id &&
+        !credentialsModified &&
+        !scopeMetadataModified
+      ) {
+        // Edit mode, no config changes — test existing stored credentials
         testRequest = {
           tool_id: tool.id,
+        };
+      } else if (
+        isEditMode &&
+        tool?.id &&
+        !credentialsModified &&
+        scopeMetadataModified
+      ) {
+        // Scope-only edit — reuse stored credentials with updated metadata
+        const currentProviderType =
+          provider?.type_value || tool.tool_provider_type?.type_value;
+        const parsedMetadata = buildScopeMetadataFromForm(currentProviderType);
+
+        if (
+          currentProviderType === 'github' &&
+          repositoryUrl.trim() &&
+          !parsedMetadata
+        ) {
+          setError(
+            'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+          );
+          setTestingConnection(false);
+          return;
+        }
+        if (
+          currentProviderType === 'gitlab' &&
+          projectNamespace.trim() &&
+          !parsedMetadata
+        ) {
+          setError(
+            'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
+          );
+          setTestingConnection(false);
+          return;
+        }
+
+        testRequest = {
+          tool_id: tool.id,
+          tool_metadata: parsedMetadata,
         };
       } else if (isEditMode && tool?.id && credentialsModified) {
         // Edit mode with changed credentials — test new credentials directly
@@ -334,6 +497,29 @@ export function ToolConnectionDrawer({
 
         if (!currentProviderType) {
           setError('Provider type not available. Please try again.');
+          setTestingConnection(false);
+          return;
+        }
+
+        const tokenIsPlaceholder = authToken === '************';
+        const urlIsPlaceholder = instanceUrl === '************';
+        const usernameIsPlaceholder = username === '************';
+
+        if (
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence'
+        ) {
+          if (urlIsPlaceholder || usernameIsPlaceholder || tokenIsPlaceholder) {
+            setError(
+              'Please re-enter the URL, email, and API token to test updated credentials.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+        } else if (tokenIsPlaceholder) {
+          setError(
+            'Please re-enter your API token to test updated credentials.'
+          );
           setTestingConnection(false);
           return;
         }
@@ -356,6 +542,8 @@ export function ToolConnectionDrawer({
             CONFLUENCE_USERNAME: username.trim(),
             CONFLUENCE_API_TOKEN: authToken.trim(),
           };
+        } else if (currentProviderType === 'gitlab') {
+          credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
         } else {
           credentials = {
             [credentialKey]: authToken.trim(),
@@ -372,6 +560,18 @@ export function ToolConnectionDrawer({
             return;
           }
           parsedMetadata = { repository: repoData };
+        }
+
+        if (currentProviderType === 'gitlab' && projectNamespace.trim()) {
+          const projectData = parseGitLabProjectUrl(projectNamespace);
+          if (!projectData) {
+            setError(
+              'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = { project: projectData };
         }
 
         testRequest = {
@@ -408,6 +608,8 @@ export function ToolConnectionDrawer({
             CONFLUENCE_USERNAME: username.trim(),
             CONFLUENCE_API_TOKEN: authToken.trim(),
           };
+        } else if (provider.type_value === 'gitlab') {
+          credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
         }
         // Handle other providers
         else {
@@ -428,6 +630,21 @@ export function ToolConnectionDrawer({
           parsedMetadata = {
             ...(parsedMetadata || {}),
             repository: repoData,
+          };
+        }
+
+        if (provider.type_value === 'gitlab' && projectNamespace.trim()) {
+          const projectData = parseGitLabProjectUrl(projectNamespace);
+          if (!projectData) {
+            setError(
+              'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = {
+            ...(parsedMetadata || {}),
+            project: projectData,
           };
         }
 
@@ -545,10 +762,25 @@ export function ToolConnectionDrawer({
           authToken.trim() &&
           authToken !== '************'
         ) {
-          const credentialKey = getCredentialKey(currentProviderType);
-          updates.credentials = {
-            [credentialKey]: authToken.trim(),
-          };
+          if (currentProviderType === 'gitlab') {
+            updates.credentials = buildGitLabCredentials(
+              authToken,
+              gitlabApiUrl
+            );
+          } else {
+            const credentialKey = getCredentialKey(currentProviderType);
+            updates.credentials = {
+              [credentialKey]: authToken.trim(),
+            };
+          }
+        } else if (
+          currentProviderType === 'gitlab' &&
+          gitlabApiUrl !== initialGitlabApiUrl &&
+          gitlabApiUrl.trim()
+        ) {
+          setError('Re-enter your GitLab token when updating the API URL.');
+          setLoading(false);
+          return;
         }
 
         let metadataToUpdate: Record<string, unknown> | undefined = undefined;
@@ -584,6 +816,26 @@ export function ToolConnectionDrawer({
           metadataToUpdate = {
             ...(metadataToUpdate || tool.tool_metadata || {}),
             space_key: selectedSpaceKey,
+          };
+        }
+
+        if (providerType === 'gitlab') {
+          if (!projectNamespace.trim()) {
+            setError('Project namespace is required for GitLab integrations');
+            setLoading(false);
+            return;
+          }
+          const projectData = parseGitLabProjectUrl(projectNamespace);
+          if (!projectData) {
+            setError(
+              'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
+            );
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            project: projectData,
           };
         }
 
@@ -662,6 +914,8 @@ export function ToolConnectionDrawer({
               CONFLUENCE_USERNAME: username.trim(),
               CONFLUENCE_API_TOKEN: authToken.trim(),
             };
+          } else if (provider.type_value === 'gitlab') {
+            credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
           }
           // Handle other providers
           else {
@@ -704,6 +958,26 @@ export function ToolConnectionDrawer({
             };
           }
 
+          if (providerType === 'gitlab') {
+            if (!projectNamespace.trim()) {
+              setError('Project namespace is required for GitLab integrations');
+              setLoading(false);
+              return;
+            }
+            const projectData = parseGitLabProjectUrl(projectNamespace);
+            if (!projectData) {
+              setError(
+                'Invalid project path. Please use format: group/project or https://gitlab.com/group/project'
+              );
+              setLoading(false);
+              return;
+            }
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              project: projectData,
+            };
+          }
+
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
@@ -740,12 +1014,14 @@ export function ToolConnectionDrawer({
     (name !== initialName ||
       description !== initialDescription ||
       repositoryUrl !== initialRepositoryUrl ||
+      projectNamespace !== initialProjectNamespace ||
       selectedSpaceKey !== initialSpaceKey);
 
   const saveDisabled =
     (!provider && !tool?.tool_provider_type) ||
     !name ||
     (!isEditMode && !authToken) ||
+    (!isEditMode && providerType === 'gitlab' && !projectNamespace.trim()) ||
     (!isEditMode &&
       (providerType === 'jira' || providerType === 'confluence') &&
       (!instanceUrl || !username)) ||
@@ -756,8 +1032,13 @@ export function ToolConnectionDrawer({
         (authToken && authToken !== '************')) &&
       (!instanceUrl || !username)) ||
     (!isEditMode && !connectionTested) ||
-    (isEditMode && credentialsModified && !connectionTested) ||
-    (isEditMode && !credentialsModified && !basicFieldsChanged) ||
+    (isEditMode &&
+      (credentialsModified || scopeMetadataModified) &&
+      !connectionTested) ||
+    (isEditMode &&
+      !credentialsModified &&
+      !scopeMetadataModified &&
+      !basicFieldsChanged) ||
     loading;
 
   const sectionHeadingSx = {
@@ -934,6 +1215,28 @@ export function ToolConnectionDrawer({
               />
             )}
 
+            {providerType === 'gitlab' && (
+              <>
+                <TextField
+                  label="Project namespace"
+                  fullWidth
+                  required
+                  value={projectNamespace}
+                  onChange={e => setProjectNamespace(e.target.value)}
+                  placeholder="my-group/my-project"
+                  helperText="GitLab project path (group/project) or full project URL on any host"
+                />
+                <TextField
+                  label="GitLab API URL (optional)"
+                  fullWidth
+                  value={gitlabApiUrl}
+                  onChange={e => setGitlabApiUrl(e.target.value)}
+                  placeholder="https://gitlab.example.com"
+                  helperText="Leave blank for gitlab.com; use for self-managed instances"
+                />
+              </>
+            )}
+
             <Box>
               <Button
                 variant="outlined"
@@ -944,6 +1247,7 @@ export function ToolConnectionDrawer({
                   loading ||
                   !authToken ||
                   (providerType === 'github' && !repositoryUrl.trim()) ||
+                  (providerType === 'gitlab' && !projectNamespace.trim()) ||
                   (!isEditMode &&
                     (providerType === 'jira' ||
                       providerType === 'confluence') &&
@@ -1073,12 +1377,13 @@ export function ToolConnectionDrawer({
           </Alert>
         )}
         {isEditMode &&
-          credentialsModified &&
+          (credentialsModified || scopeMetadataModified) &&
           !connectionTested &&
           !testResult && (
             <Alert severity="info">
-              Please test the connection with the updated credentials before
-              saving.
+              {credentialsModified
+                ? 'Please test the connection with the updated credentials before saving.'
+                : 'Please test the connection with the updated scope before saving.'}
             </Alert>
           )}
       </Stack>

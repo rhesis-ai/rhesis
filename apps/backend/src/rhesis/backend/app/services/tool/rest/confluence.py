@@ -13,7 +13,7 @@ class ConfluenceRestClient:
         self._base_url = base_url.rstrip("/")
         self._auth = (username, api_token)
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self, tool_metadata: Dict[str, Any] | None = None) -> Dict[str, Any]:
         url = self._base_url + "/wiki/rest/api/user/current"
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, auth=self._auth)

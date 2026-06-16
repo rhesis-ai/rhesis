@@ -20,12 +20,14 @@ async def run_rest_health_check(
     provider_type_id: Optional[uuid.UUID] = None,
     credentials: Optional[Dict[str, str]] = None,
     user_id: Optional[str] = None,
+    tool_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Test a tool's credentials via a lightweight REST health check.
 
     Accepts either an existing tool_id (loads credentials from DB) or
     provider_type_id + credentials (tests without saving).
     """
+    metadata = tool_metadata
     if tool_id is not None:
         try:
             tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
@@ -39,10 +41,12 @@ async def run_rest_health_check(
             credentials = json.loads(tool.credentials)
         except (json.JSONDecodeError, TypeError) as e:
             raise ToolConfigurationError(f"Invalid credentials for tool '{tool_id}': {e}")
+        if metadata is None:
+            metadata = tool.tool_metadata
     else:
         provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
         if not provider_type:
             raise ToolConfigurationError(f"Provider type '{provider_type_id}' not found.")
         provider = provider_type.type_value
 
-    return await build_client(provider, credentials or {}).health_check()
+    return await build_client(provider, credentials or {}).health_check(tool_metadata=metadata)

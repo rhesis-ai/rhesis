@@ -126,6 +126,7 @@ export interface TestToolConnectionRequest {
   tool_id?: string;
   provider_type_id?: string;
   credentials?: Record<string, string>;
+  tool_metadata?: Record<string, unknown>;
 }
 
 export interface TestToolConnectionResponse {

@@ -353,6 +353,7 @@ class TestToolConnectionRequest(BaseModel):
     tool_id: Optional[str] = None
     provider_type_id: Optional[UUID4] = None
     credentials: Optional[Dict[str, str]] = None
+    tool_metadata: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def validate_request(self):
