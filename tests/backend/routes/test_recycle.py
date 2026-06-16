@@ -39,10 +39,10 @@ class TestRecycleModelsEndpoint:
         assert response.status_code == status.HTTP_200_OK
 
     def test_list_models_success_as_superuser(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, owner_client: TestClient, test_db, test_org_id
     ):
         """Test that superuser can list all available models."""
-        response = superuser_client.get("/recycle/models")
+        response = owner_client.get("/recycle/models")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -59,9 +59,9 @@ class TestRecycleModelsEndpoint:
             assert "has_organization_id" in model_info
             assert "columns" in model_info
 
-    def test_list_models_includes_expected_entities(self, superuser_client: TestClient, test_db):
+    def test_list_models_includes_expected_entities(self, owner_client: TestClient, test_db):
         """Test that model list includes expected entities."""
-        response = superuser_client.get("/recycle/models")
+        response = owner_client.get("/recycle/models")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -89,9 +89,9 @@ class TestRecycleGetDeletedEndpoint:
         # Should succeed (200) or return empty list, not 403
         assert response.status_code == status.HTTP_200_OK
 
-    def test_get_deleted_invalid_model_name(self, superuser_client: TestClient, test_db):
+    def test_get_deleted_invalid_model_name(self, owner_client: TestClient, test_db):
         """Test that invalid model name returns 400."""
-        response = superuser_client.get("/recycle/invalid_model_name")
+        response = owner_client.get("/recycle/invalid_model_name")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Unknown model" in response.json()["detail"]
@@ -212,13 +212,13 @@ class TestRecycleRestoreEndpoint:
         response = authenticated_client.post(f"/recycle/behavior/{behavior.id}/restore")
         assert response.status_code == status.HTTP_200_OK
 
-    def test_restore_invalid_model_name(self, superuser_client: TestClient, test_db):
+    def test_restore_invalid_model_name(self, owner_client: TestClient, test_db):
         """Test that invalid model name returns 400."""
         import uuid
 
         fake_id = uuid.uuid4()
 
-        response = superuser_client.post(f"/recycle/invalid_model/{fake_id}/restore")
+        response = owner_client.post(f"/recycle/invalid_model/{fake_id}/restore")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Unknown model" in response.json()["detail"]
@@ -305,7 +305,7 @@ class TestRecyclePermanentDeleteEndpoint:
         assert response.status_code == status.HTTP_200_OK
 
     def test_permanent_delete_requires_confirmation(
-        self, superuser_client: TestClient, test_db, test_org_id
+        self, owner_client: TestClient, test_db, test_org_id
     ):
         """Test that permanent deletion requires confirm=true."""
         # Create and delete a behavior
@@ -315,7 +315,7 @@ class TestRecyclePermanentDeleteEndpoint:
         crud_utils.delete_item(test_db, models.Behavior, behavior.id, organization_id=test_org_id)
 
         # Try without confirmation
-        response = superuser_client.delete(f"/recycle/behavior/{behavior.id}")
+        response = owner_client.delete(f"/recycle/behavior/{behavior.id}")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "confirm" in response.json()["detail"].lower()
@@ -348,13 +348,13 @@ class TestRecyclePermanentDeleteEndpoint:
         )
         assert found is None
 
-    def test_permanent_delete_not_found(self, superuser_client: TestClient, test_db):
+    def test_permanent_delete_not_found(self, owner_client: TestClient, test_db):
         """Test permanent deletion of non-existent record returns 404."""
         import uuid
 
         fake_id = uuid.uuid4()
 
-        response = superuser_client.delete(f"/recycle/behavior/{fake_id}?confirm=true")
+        response = owner_client.delete(f"/recycle/behavior/{fake_id}?confirm=true")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -373,7 +373,7 @@ class TestRecycleStatsEndpoint:
         # Non-superuser can now access stats (with org filtering for security)
         assert response.status_code == status.HTTP_200_OK
 
-    def test_stats_returns_counts(self, superuser_client: TestClient, test_db, test_org_id):
+    def test_stats_returns_counts(self, owner_client: TestClient, test_db, test_org_id):
         """Test that stats endpoint returns deletion counts."""
         # Create and delete some items
         for _ in range(3):
@@ -387,7 +387,7 @@ class TestRecycleStatsEndpoint:
                 test_db, models.Behavior, behavior.id, organization_id=test_org_id
             )
 
-        response = superuser_client.get("/recycle/stats/counts")
+        response = owner_client.get("/recycle/stats/counts")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -415,9 +415,9 @@ class TestRecycleBulkRestoreEndpoint:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "No item IDs provided" in response.json()["detail"]
 
-    def test_bulk_restore_requires_item_ids(self, superuser_client: TestClient, test_db):
+    def test_bulk_restore_requires_item_ids(self, owner_client: TestClient, test_db):
         """Test that bulk restore requires item IDs."""
-        response = superuser_client.post("/recycle/bulk-restore/behavior", json=[])
+        response = owner_client.post("/recycle/bulk-restore/behavior", json=[])
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "No item IDs" in response.json()["detail"]
@@ -455,14 +455,14 @@ class TestRecycleBulkRestoreEndpoint:
             assert topic is not None
             assert topic.deleted_at is None
 
-    def test_bulk_restore_max_limit(self, superuser_client: TestClient, test_db):
+    def test_bulk_restore_max_limit(self, owner_client: TestClient, test_db):
         """Test that bulk restore enforces maximum limit."""
         import uuid
 
         # Try to restore 101 items (over the limit)
         item_ids = [str(uuid.uuid4()) for _ in range(101)]
 
-        response = superuser_client.post("/recycle/bulk-restore/behavior", json=item_ids)
+        response = owner_client.post("/recycle/bulk-restore/behavior", json=item_ids)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "100" in response.json()["detail"]
@@ -505,9 +505,9 @@ class TestRecycleEmptyBinEndpoint:
         response = authenticated_client.delete("/recycle/empty/behavior?confirm=true")
         assert response.status_code == status.HTTP_200_OK
 
-    def test_empty_bin_requires_confirmation(self, superuser_client: TestClient, test_db):
+    def test_empty_bin_requires_confirmation(self, owner_client: TestClient, test_db):
         """Test that emptying bin requires confirm=true."""
-        response = superuser_client.delete("/recycle/empty/behavior")
+        response = owner_client.delete("/recycle/empty/behavior")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "confirm" in response.json()["detail"].lower()

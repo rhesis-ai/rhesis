@@ -53,19 +53,24 @@ def authenticated_client(client, rhesis_api_key):
 
 
 @pytest.fixture
-def superuser_client(test_db, client):
-    """🔑 FastAPI test client with superuser authentication."""
+def owner_client(test_db, client):
+    """🔑 FastAPI test client authenticated as a fresh org owner.
+
+    Creates an independent org + user + token (separate from the shared
+    ``authenticated_client`` org) and returns a client authenticated as that
+    user.  The user is set as the org's ``owner_id``, matching real onboarding.
+    """
     import uuid
     from datetime import datetime
 
     from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
-    # Create a superuser
+    # Create a fresh org owner for this test
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     session_suffix = str(uuid.uuid4())[:8]
-    test_org_name = f"Superuser Org {timestamp}_{session_suffix}"
-    test_user_email = f"superuser_{timestamp}_{session_suffix}@rhesis-test.com"
-    test_user_name = "Test Superuser"
+    test_org_name = f"Owner Org {timestamp}_{session_suffix}"
+    test_user_email = f"owner_{timestamp}_{session_suffix}@rhesis-test.com"
+    test_user_name = "Test Org Owner"
 
     organization, user, token = create_test_organization_and_user(
         test_db, test_org_name, test_user_email, test_user_name

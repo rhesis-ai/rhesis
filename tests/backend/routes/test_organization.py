@@ -76,11 +76,11 @@ class OrganizationTestMixin:
 class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests):
     """Complete standard organization route tests using base classes"""
 
-    def test_delete_entity_not_found(self, superuser_client: TestClient):
+    def test_delete_entity_not_found(self, owner_client: TestClient):
         """Test deleting non-existent organization - endpoint removed"""
         non_existent_id = str(uuid.uuid4())
 
-        response = superuser_client.delete(self.endpoints.remove(non_existent_id))
+        response = owner_client.delete(self.endpoints.remove(non_existent_id))
 
         # Organization delete endpoint was removed, so method not allowed
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED

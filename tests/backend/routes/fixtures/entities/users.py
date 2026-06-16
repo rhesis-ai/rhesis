@@ -120,7 +120,6 @@ def mock_user_object() -> Mock:
     user.given_name = fake.first_name()
     user.family_name = fake.last_name()
     user.is_active = True
-    user.is_superuser = False
     user.organization_id = fake.uuid4()
     user.display_name = user.name
     return user
