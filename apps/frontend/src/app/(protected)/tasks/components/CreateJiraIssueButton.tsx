@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Menu, MenuItem, Typography } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { Task } from '@/types/tasks';
@@ -31,8 +30,6 @@ export default function CreateJiraIssueButton({
   const [jiraTools, setJiraTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
 
   const hasJiraIssue = Boolean(task.task_metadata?.jira_issue);
   const jiraIssue = task.task_metadata?.jira_issue as
@@ -72,8 +69,6 @@ export default function CreateJiraIssueButton({
   }, [session?.session_token]);
 
   const handleCreateIssue = async (toolId?: string) => {
-    setAnchorEl(null);
-
     const selectedToolId = toolId || jiraTools[0]?.id;
     if (!selectedToolId) return;
 
@@ -114,16 +109,8 @@ export default function CreateJiraIssueButton({
     }
   };
 
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    if (jiraTools.length === 1) {
-      handleCreateIssue(jiraTools[0].id);
-    } else {
-      setAnchorEl(event.currentTarget);
-    }
-  };
-
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
+  const handleClick = () => {
+    handleCreateIssue(jiraTools[0]?.id);
   };
 
   if (hasJiraIssue && jiraIssue) {
@@ -146,7 +133,7 @@ export default function CreateJiraIssueButton({
   const hasNoJiraTools = !loading && jiraTools.length === 0;
 
   const tooltip = hasNoJiraTools
-    ? 'Connect Jira in Connect → MCP to create issues from this task'
+    ? 'Connect Jira in Connect → Tools to create issues from this task'
     : loading
       ? 'Loading Jira tools…'
       : isCreating
@@ -165,34 +152,6 @@ export default function CreateJiraIssueButton({
           loading={loading || isCreating}
         />
       </FabGroup>
-
-      {jiraTools.length > 1 && (
-        <Menu
-          anchorEl={anchorEl}
-          open={open}
-          onClose={handleCloseMenu}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-        >
-          {jiraTools.map(tool => (
-            <MenuItem
-              key={tool.id}
-              onClick={() => handleCreateIssue(tool.id)}
-              sx={{ minWidth: 200 }}
-            >
-              <Typography variant="body2">
-                {tool.tool_metadata?.space_key || tool.name}
-              </Typography>
-            </MenuItem>
-          ))}
-        </Menu>
-      )}
     </>
   );
 }
