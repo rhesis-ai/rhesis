@@ -63,9 +63,7 @@ class GitHubRestClient:
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
-    async def health_check(
-        self, tool_metadata: Dict[str, Any] | None = None
-    ) -> Dict[str, Any]:
+    async def health_check(self, tool_metadata: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """Verify credentials by calling GET /user."""
         async with httpx.AsyncClient() as client:
             resp = await client.get("https://api.github.com/user", headers=self._headers)
@@ -90,8 +88,7 @@ class GitHubRestClient:
                         return {
                             "is_authenticated": "No",
                             "message": (
-                                f"Repository {owner}/{repo} not accessible: "
-                                f"{repo_resp.status_code}"
+                                f"Repository {owner}/{repo} not accessible: {repo_resp.status_code}"
                             ),
                         }
                     message = f"Connected as {login}; verified access to {owner}/{repo}"

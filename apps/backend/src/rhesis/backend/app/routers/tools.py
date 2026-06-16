@@ -257,25 +257,19 @@ def update_tool(
         if tool.tool_provider_type_id is not None
         else existing_tool.tool_provider_type_id
     )
-    provider_type = crud.get_type_lookup(
-        db, effective_provider_type_id, organization_id, user_id
-    )
+    provider_type = crud.get_type_lookup(db, effective_provider_type_id, organization_id, user_id)
 
     _validate_provider_type_switch(existing_tool, tool, provider_type)
 
     if tool.tool_metadata is not None and provider_type:
         if provider_type.type_value == "jira":
             if "space_key" not in tool.tool_metadata:
-                raise HTTPException(
-                    status_code=400, detail="Jira integrations require 'space_key'"
-                )
+                raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
             if (
                 not isinstance(tool.tool_metadata["space_key"], str)
                 or not tool.tool_metadata["space_key"].strip()
             ):
-                raise HTTPException(
-                    status_code=400, detail="Jira 'space_key' must be non-empty"
-                )
+                raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
         elif provider_type.type_value == "gitlab":
             _validate_gitlab_project(tool.tool_metadata)
 

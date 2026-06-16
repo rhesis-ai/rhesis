@@ -26,9 +26,7 @@ class JiraRestClient:
         self._base_url = base_url.rstrip("/")
         self._auth = (username, api_token)
 
-    async def health_check(
-        self, tool_metadata: Dict[str, Any] | None = None
-    ) -> Dict[str, Any]:
+    async def health_check(self, tool_metadata: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """Verify credentials and return available projects.
 
         Calls /rest/api/3/myself for auth and /rest/api/3/project for the
