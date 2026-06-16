@@ -219,17 +219,15 @@ async def extract_tool_item(
         organization_id, user_id = tenant_context
         provider = resolve_provider(db, organization_id, tool_id=str(tool_id), user_id=user_id)
         identifier = request.url or request.id
-        if route(provider, ToolAction.EXTRACT) is Transport.REST:
-            client = get_rest_client(
+        transport = route(provider, ToolAction.EXTRACT)
+        if transport is Transport.REST:
+            docs = await get_rest_client(
                 db=db,
                 tool_id=str(tool_id),
                 organization_id=organization_id,
                 user_id=user_id,
-            )
-            if not hasattr(client, "fetch_all"):
-                raise ToolConfigurationError("Extract is not supported for this tool provider.")
-            docs = await client.fetch_all(identifier, include_children=request.include_children)
-        else:
+            ).fetch_all(identifier, include_children=request.include_children)
+        elif transport is Transport.MCP:
             docs = await mcp_extract(
                 tool_id=str(tool_id),
                 identifier=identifier,
@@ -268,7 +266,8 @@ async def test_tool_connection(
             provider_type_id=request.provider_type_id,
             user_id=user_id,
         )
-        if route(provider, ToolAction.TEST_CONNECTION) is Transport.REST:
+        transport = route(provider, ToolAction.TEST_CONNECTION)
+        if transport is Transport.REST:
             return await run_rest_health_check(
                 db=db,
                 organization_id=organization_id,
@@ -277,13 +276,14 @@ async def test_tool_connection(
                 credentials=request.credentials,
                 user_id=user_id,
             )
-        return await mcp_health_check(
-            organization_id=organization_id,
-            user_id=user_id,
-            tool_id=request.tool_id,
-            provider_type_id=request.provider_type_id,
-            credentials=request.credentials,
-        )
+        elif transport is Transport.MCP:
+            return await mcp_health_check(
+                organization_id=organization_id,
+                user_id=user_id,
+                tool_id=request.tool_id,
+                provider_type_id=request.provider_type_id,
+                credentials=request.credentials,
+            )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
