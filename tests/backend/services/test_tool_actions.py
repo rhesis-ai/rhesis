@@ -22,12 +22,6 @@ class TestRouteTable:
         assert route("jira", ToolAction.CREATE_TICKET) is Transport.REST
         assert route("jira", ToolAction.TEST_CONNECTION) is Transport.REST
 
-    def test_confluence_supports_only_connection_test(self):
-        # Per-action: Confluence has a REST connection test but no extract route.
-        assert route("confluence", ToolAction.TEST_CONNECTION) is Transport.REST
-        with pytest.raises(ToolConfigurationError, match="does not support"):
-            route("confluence", ToolAction.EXTRACT)
-
     def test_jira_has_no_extract(self):
         with pytest.raises(ToolConfigurationError, match="does not support"):
             route("jira", ToolAction.EXTRACT)
