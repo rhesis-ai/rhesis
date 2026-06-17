@@ -520,9 +520,18 @@ export function ToolConnectionDrawer({
           return;
         }
 
+        // When the Asana workspace field is cleared, buildScopeMetadataFromForm
+        // returns undefined and JSON would drop the key, so the backend would
+        // test against the stored workspace_gid. Send an explicit empty object
+        // so the test reflects the cleared scope.
+        const scopeMetadata =
+          currentProviderType === 'asana' && !workspaceGid.trim()
+            ? {}
+            : parsedMetadata;
+
         testRequest = {
           tool_id: tool.id,
-          tool_metadata: parsedMetadata,
+          tool_metadata: scopeMetadata,
         };
       } else if (isEditMode && tool?.id && credentialsModified) {
         // Edit mode with changed credentials — test new credentials directly
