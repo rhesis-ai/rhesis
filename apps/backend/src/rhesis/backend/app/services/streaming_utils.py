@@ -2,7 +2,6 @@
 
 import json
 import logging
-import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
@@ -11,13 +10,12 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["ndjson", "IncrementalJsonArrayParser", "IncrementalConfigParser"]
 
+_CONFIG_ARRAY_KEYS = ("behaviors", "topics", "categories")
+
 
 def ndjson(event: Dict[str, Any]) -> bytes:
     """Encode a single NDJSON event."""
     return (json.dumps(event) + "\n").encode("utf-8")
-
-
-_KEY_PATTERN = re.compile(r'"(behaviors|topics|categories)"\s*:')
 
 
 class IncrementalConfigParser:
@@ -25,33 +23,27 @@ class IncrementalConfigParser:
 
     Wraps ``IncrementalJsonArrayParser`` and tracks which top-level key
     (``behaviors``, ``topics``, ``categories``) each object belongs to by
-    scanning for key names before ``[`` in the token stream.
+    detecting when the inner parser enters each successive array.
 
     Yields ``(category, obj)`` tuples.
     """
 
     def __init__(self):
         self._inner = IncrementalJsonArrayParser()
-        self._raw_buffer: str = ""
         self._current_key: Optional[str] = None
-        self._scan_pos: int = 0
+        self._next_array_index = 0
 
     def feed(self, chunk: str) -> List[Tuple[str, dict]]:
-        self._raw_buffer += chunk
-
-        # Scan for key names to track which array we're in
-        while self._scan_pos < len(self._raw_buffer):
-            remaining = self._raw_buffer[self._scan_pos :]
-            m = _KEY_PATTERN.search(remaining)
-            if m:
-                self._current_key = m.group(1)
-                self._scan_pos += m.end()
-            else:
-                # No more matches in current buffer -- advance to near the end
-                # but leave enough room for a partial match at the boundary.
-                self._scan_pos = max(0, len(self._raw_buffer) - 30)
-                break
-
-        objects = self._inner.feed(chunk)
-        category = self._current_key or "unknown"
-        return [(category, obj) for obj in objects]
+        results: List[Tuple[str, dict]] = []
+        for char in chunk:
+            was_in_array = self._inner._in_array
+            objects = self._inner.feed(char)
+            if not was_in_array and self._inner._in_array:
+                if self._next_array_index < len(_CONFIG_ARRAY_KEYS):
+                    self._current_key = _CONFIG_ARRAY_KEYS[self._next_array_index]
+                    self._next_array_index += 1
+                else:
+                    self._current_key = "unknown"
+            category = self._current_key or "unknown"
+            results.extend((category, obj) for obj in objects)
+        return results
