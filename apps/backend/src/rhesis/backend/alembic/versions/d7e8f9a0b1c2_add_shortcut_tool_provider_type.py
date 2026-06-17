@@ -1,7 +1,7 @@
 """Add Shortcut ToolProviderType
 
-Revision ID: a2b3c4d5e6f7
-Revises: f1a2b3c4d5e0
+Revision ID: d7e8f9a0b1c2
+Revises: cb4b107b5daf
 Create Date: 2026-06-17
 
 """
@@ -15,8 +15,8 @@ from rhesis.backend.alembic.utils.template_loader import (
     load_type_lookup_template,
 )
 
-revision: str = "a2b3c4d5e6f7"
-down_revision: Union[str, None] = "f1a2b3c4d5e0"
+revision: str = "d7e8f9a0b1c2"
+down_revision: Union[str, None] = "cb4b107b5daf"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

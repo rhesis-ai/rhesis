@@ -22,7 +22,6 @@ def _mcp_template_scope_kwargs(
 ) -> Dict[str, Optional[Dict[str, str]]]:
     return {
         "project_context": scope_context if provider == "gitlab" else None,
-        "workflow_context": scope_context if provider == "shortcut" else None,
         "workspace_context": scope_context if provider == "asana" else None,
     }
 

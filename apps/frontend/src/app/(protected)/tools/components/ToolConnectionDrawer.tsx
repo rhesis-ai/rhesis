@@ -123,7 +123,6 @@ export function ToolConnectionDrawer({
   const [initialProjectNamespace, setInitialProjectNamespace] = useState('');
   const [initialGitlabApiUrl, setInitialGitlabApiUrl] = useState('');
   const [initialSpaceKey, setInitialSpaceKey] = useState('');
-  const [initialWorkflowId, setInitialWorkflowId] = useState('');
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -131,9 +130,6 @@ export function ToolConnectionDrawer({
   // GitLab project fields
   const [projectNamespace, setProjectNamespace] = useState('');
   const [gitlabApiUrl, setGitlabApiUrl] = useState('');
-
-  // Shortcut workflow scope
-  const [workflowId, setWorkflowId] = useState('');
 
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
@@ -211,17 +207,6 @@ export function ToolConnectionDrawer({
         setGitlabApiUrl('');
         setInitialGitlabApiUrl('');
 
-        if (
-          currentProviderType === 'shortcut' &&
-          typeof tool.tool_metadata?.workflow_id === 'string'
-        ) {
-          setWorkflowId(tool.tool_metadata.workflow_id);
-          setInitialWorkflowId(tool.tool_metadata.workflow_id);
-        } else {
-          setWorkflowId('');
-          setInitialWorkflowId('');
-        }
-
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
         // We cannot display them in edit mode as they're encrypted
         // Show placeholder to indicate existing values
@@ -254,7 +239,6 @@ export function ToolConnectionDrawer({
         setRepositoryUrl('');
         setProjectNamespace('');
         setGitlabApiUrl('');
-        setWorkflowId('');
         setInstanceUrl('');
         // Pre-fill email with logged-in user's email for Jira/Confluence
         const isAtlassian =
@@ -293,8 +277,7 @@ export function ToolConnectionDrawer({
       const scopeMetadataChanged =
         repositoryUrl !== initialRepositoryUrl ||
         projectNamespace !== initialProjectNamespace ||
-        selectedSpaceKey !== initialSpaceKey ||
-        workflowId !== initialWorkflowId;
+        selectedSpaceKey !== initialSpaceKey;
       const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
       const credentialsChanged =
         tokenChanged || urlChanged || usernameChanged || gitlabApiUrlChanged;
@@ -316,11 +299,9 @@ export function ToolConnectionDrawer({
     projectNamespace,
     selectedSpaceKey,
     gitlabApiUrl,
-    workflowId,
     initialRepositoryUrl,
     initialProjectNamespace,
     initialSpaceKey,
-    initialWorkflowId,
     initialGitlabApiUrl,
   ]);
 
@@ -404,13 +385,6 @@ export function ToolConnectionDrawer({
     return credentials;
   };
 
-  const buildShortcutMetadata = (
-    workflow: string
-  ): Record<string, unknown> | undefined => {
-    const trimmed = workflow.trim();
-    return trimmed ? { workflow_id: trimmed } : undefined;
-  };
-
   const buildScopeMetadataFromForm = (
     currentProviderType: string | undefined
   ): Record<string, unknown> | undefined => {
@@ -430,10 +404,6 @@ export function ToolConnectionDrawer({
 
     if (currentProviderType === 'jira' && selectedSpaceKey) {
       return { space_key: selectedSpaceKey };
-    }
-
-    if (currentProviderType === 'shortcut') {
-      return buildShortcutMetadata(workflowId);
     }
 
     return undefined;
@@ -871,16 +841,6 @@ export function ToolConnectionDrawer({
           };
         }
 
-        if (providerType === 'shortcut') {
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            ...(buildShortcutMetadata(workflowId) || {}),
-          };
-          if (!workflowId.trim() && metadataToUpdate.workflow_id) {
-            delete metadataToUpdate.workflow_id;
-          }
-        }
-
         if (metadataToUpdate) {
           updates.tool_metadata = metadataToUpdate;
         }
@@ -1020,13 +980,6 @@ export function ToolConnectionDrawer({
             };
           }
 
-          if (providerType === 'shortcut') {
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              ...(buildShortcutMetadata(workflowId) || {}),
-            };
-          }
-
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
@@ -1064,7 +1017,6 @@ export function ToolConnectionDrawer({
       description !== initialDescription ||
       repositoryUrl !== initialRepositoryUrl ||
       projectNamespace !== initialProjectNamespace ||
-      workflowId !== initialWorkflowId ||
       selectedSpaceKey !== initialSpaceKey);
 
   const saveDisabled =
@@ -1285,17 +1237,6 @@ export function ToolConnectionDrawer({
                   helperText="Leave blank for gitlab.com; use for self-managed instances"
                 />
               </>
-            )}
-
-            {providerType === 'shortcut' && (
-              <TextField
-                label="Workflow ID (optional)"
-                fullWidth
-                value={workflowId}
-                onChange={e => setWorkflowId(e.target.value)}
-                placeholder="12345"
-                helperText="Optional Shortcut workflow scope for search and import"
-              />
             )}
 
             <Box>

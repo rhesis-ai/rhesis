@@ -10,7 +10,3 @@ When using GitLab tools, scope all operations to project namespace:
 
 Do not access any other GitLab projects.
 {% endif %}
-{% if provider == "shortcut" and workflow_context and workflow_context.workflow_id %}
-IMPORTANT RESTRICTION: Scope all Shortcut operations to workflow ID
-"{{ workflow_context.workflow_id }}".
-{% endif %}

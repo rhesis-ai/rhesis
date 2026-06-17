@@ -29,16 +29,6 @@ def _scope_context_from_metadata(
             )
         return {"namespace": namespace.strip()}
 
-    if provider == "shortcut":
-        if "workflow_id" not in tool_metadata:
-            return None
-        workflow_id = tool_metadata["workflow_id"]
-        if not isinstance(workflow_id, str) or not workflow_id.strip():
-            raise ToolConfigurationError(
-                "Shortcut tool has invalid workflow_id metadata; must be a non-empty string"
-            )
-        return {"workflow_id": workflow_id.strip()}
-
     return None
 
 
