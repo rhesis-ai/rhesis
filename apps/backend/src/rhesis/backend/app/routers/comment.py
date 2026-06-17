@@ -1,12 +1,13 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import capability
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.principal import resolve_principal
+from rhesis.backend.app.auth.rbac import authorize_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.dependencies import (
@@ -14,6 +15,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -145,8 +147,13 @@ def update_comment(
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    # Check if user owns the comment
-    if db_comment.user_id != current_user.id:
+    # SP10: object-level ownership check via PDP.
+    principal = resolve_principal(current_user)
+    scope = db.info.get("_scope")
+    project_id = getattr(scope, "project_id", None)
+    if not authorize_object(
+        principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
     return crud.update_comment(
@@ -174,8 +181,13 @@ def delete_comment(
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    # Check if user owns the comment
-    if db_comment.user_id != current_user.id:
+    # SP10: object-level ownership check via PDP.
+    principal = resolve_principal(current_user)
+    scope = db.info.get("_scope")
+    project_id = getattr(scope, "project_id", None)
+    if not authorize_object(
+        principal, Permission.Comment.DELETE_OWN, db_comment, project_id=project_id, db=db
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
     return crud.delete_comment(

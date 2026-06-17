@@ -154,6 +154,10 @@ class Permission:
         UPDATE = "comment:update"
         DELETE = "comment:delete"
         REACT = "comment:react"
+        #: Update a comment the caller created (object-level :own qualifier).
+        UPDATE_OWN = "comment:update:own"
+        #: Delete a comment the caller created (object-level :own qualifier).
+        DELETE_OWN = "comment:delete:own"
 
     class Task(_PermissionEnum):
         READ = "task:read"

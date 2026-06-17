@@ -108,6 +108,22 @@ _MEMBER_ACTIONS: frozenset[str] = frozenset(
     {"read", "create", "update", "delete", "execute", "generate", "import", "react"}
 )
 
+
+def _primary_action(cap: str) -> str:
+    """Return the primary action component of *cap*, stripping any ``:own`` qualifier.
+
+    ``comment:update:own`` → ``"update"``; ``test_set:read`` → ``"read"``.
+    Used by :func:`_member_permissions` so that ``:own``-qualified capabilities
+    are treated the same as their unqualified counterparts when deciding which
+    roles receive them.
+    """
+    parts = cap.split(":")
+    # Three-part caps end with an object qualifier like "own".
+    if len(parts) >= 3 and parts[-1] == "own":
+        return parts[-2]
+    return parts[-1] if len(parts) >= 2 else cap
+
+
 # Org-level reads that are too sensitive for a read-only **Viewer**.  ``role:read``
 # and ``token:read`` expose org-admin configuration; Owner alone holds ``role:read``
 # (Admin excludes it too).  Everything else ending in ``:read`` — including
@@ -135,7 +151,7 @@ def _member_permissions(cap_set: set[str]) -> set[str]:
     project_actions = {
         c
         for c in cap_set
-        if capability_scope(c) == SCOPE_PROJECT and c.split(":")[-1] in _MEMBER_ACTIONS
+        if capability_scope(c) == SCOPE_PROJECT and _primary_action(c) in _MEMBER_ACTIONS
     }
     return project_actions | _viewer_permissions(cap_set)
 

@@ -334,6 +334,64 @@ def authorize(
 
 
 # ---------------------------------------------------------------------------
+# Object-level authorization — :own qualifier helpers (SP10)
+# ---------------------------------------------------------------------------
+
+
+def authorize_object(
+    principal: Principal,
+    own_permission: "str | Permission",
+    obj: object,
+    *,
+    project_id: Optional[UUID],
+    db: Session,
+) -> bool:
+    """Evaluate whether *principal* may act on a specific *obj* it created.
+
+    Enforces strict ownership semantics: the caller must be the object's creator
+    (``obj.user_id == principal.user_id``) AND hold the ``:own``-qualified
+    capability via the active PDP.  Non-owners are **always** denied by this
+    helper — there is no admin bypass here.  For unrestricted access to any
+    object, call :func:`authorize` directly with the base capability.
+
+    Typical usage in a route handler after fetching the object::
+
+        principal = resolve_principal(current_user)
+        scope = db.info.get("_scope")
+        project_id = getattr(scope, "project_id", None)
+        if not authorize_object(
+            principal, Permission.Comment.UPDATE_OWN, db_comment,
+            project_id=project_id, db=db,
+        ):
+            raise HTTPException(403, "Not authorized to update this comment")
+
+    Args:
+        principal: Resolved caller identity (use :func:`resolve_principal`).
+        own_permission: The ``:own``-qualified capability, e.g.
+            ``Permission.Comment.UPDATE_OWN`` (``"comment:update:own"``).
+        obj: ORM object being acted upon; must expose a ``user_id`` attribute
+            that is the UUID of the object's creator.
+        project_id: Project scope (from ``db.info['_scope']``).
+        db: Active SQLAlchemy session (tenant-scoped).
+
+    Returns:
+        ``True`` iff the caller owns *obj* AND the PDP grants the capability.
+    """
+    own_perm_str = str(own_permission)
+    obj_user_id = getattr(obj, "user_id", None)
+
+    if obj_user_id is None or obj_user_id != principal.user_id:
+        logger.debug(
+            "authorize_object: deny — principal %s does not own object (owner: %s)",
+            principal.user_id,
+            obj_user_id,
+        )
+        return False
+
+    return authorize(principal, own_perm_str, project_id=project_id, db=db)
+
+
+# ---------------------------------------------------------------------------
 # FastAPI dependency factory — for explicit per-route use (before SP4 PEP)
 # ---------------------------------------------------------------------------
 
@@ -408,6 +466,7 @@ __all__ = [
     "DefaultAuthorizationProvider",
     "Permission",
     "authorize",
+    "authorize_object",
     "get_authorization_provider",
     "require_permission",
     "set_authorization_provider",
