@@ -24,7 +24,10 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import Link from 'next/link';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  PassFailStats,
+  TestResultDetail,
+} from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
@@ -35,6 +38,7 @@ import { BiotechIcon } from '@/components/icons';
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
   testResults: TestResultDetail[];
+  overallStats?: PassFailStats;
   loading?: boolean;
   onRefresh?: () => void;
 }
@@ -140,6 +144,7 @@ function SummaryCard({
 export default function TestRunHeader({
   testRun,
   testResults,
+  overallStats,
   loading: _loading = false,
   onRefresh,
 }: TestRunHeaderProps) {
@@ -153,40 +158,45 @@ export default function TestRunHeader({
 
   // Calculate statistics
   const stats = useMemo(() => {
-    const total = testResults.length;
-
-    // Count passed, failed, and execution errors
-    let passed = 0;
-    let failed = 0;
-    let executionErrors = 0;
+    let total: number;
+    let passed: number;
+    let failed: number;
+    let executionErrors: number;
     let totalTurns = 0;
     let testsWithTurnData = 0;
 
-    testResults.forEach(result => {
-      // Use unified status determination for both single-turn and multi-turn tests
-      // This checks test_metrics.metrics[].is_successful which is set by backend
-      // for both single-turn (SDK metrics) and multi-turn (Penelope metrics)
-      const status = getEffectiveTestResultStatus(result);
+    if (overallStats) {
+      total = overallStats.total;
+      passed = overallStats.passed;
+      failed = overallStats.failed;
+      executionErrors = total - passed - failed;
+    } else {
+      total = testResults.length;
+      passed = 0;
+      failed = 0;
+      executionErrors = 0;
 
-      if (status === 'Error') {
-        executionErrors++;
-      } else if (status === 'Pass') {
-        passed++;
-      } else if (status === 'Fail') {
-        failed++;
-      }
-
-      // For multi-turn tests, track turn depth
-      if (isMultiTurn && result.test_output) {
-        const turns =
-          result.test_output.turns_used ||
-          result.test_output.stats?.total_turns;
-        if (turns) {
-          totalTurns += turns;
-          testsWithTurnData++;
+      testResults.forEach(result => {
+        const status = getEffectiveTestResultStatus(result);
+        if (status === 'Error') {
+          executionErrors++;
+        } else if (status === 'Pass') {
+          passed++;
+        } else if (status === 'Fail') {
+          failed++;
         }
-      }
-    });
+
+        if (isMultiTurn && result.test_output) {
+          const turns =
+            result.test_output.turns_used ||
+            result.test_output.stats?.total_turns;
+          if (turns) {
+            totalTurns += turns;
+            testsWithTurnData++;
+          }
+        }
+      });
+    }
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
     const avgTurnDepth =
