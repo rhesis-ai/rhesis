@@ -1,7 +1,7 @@
 """Add Shortcut ToolProviderType
 
 Revision ID: d7e8f9a0b1c2
-Revises: cb4b107b5daf
+Revises: f1a2b3c4d5e0
 Create Date: 2026-06-17
 
 """
@@ -16,7 +16,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "d7e8f9a0b1c2"
-down_revision: Union[str, None] = "cb4b107b5daf"
+down_revision: Union[str, None] = "f1a2b3c4d5e0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
