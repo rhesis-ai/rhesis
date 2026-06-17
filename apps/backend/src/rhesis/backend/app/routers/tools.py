@@ -119,6 +119,22 @@ def _validate_shortcut_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
+def _validate_mcp_test_connection_request(
+    provider: str,
+    credentials: dict[str, str] | None,
+    tool_metadata: dict | None,
+) -> None:
+    """Validate unsaved credentials/metadata before MCP health check."""
+    if credentials is None:
+        return
+
+    if provider == "gitlab":
+        _validate_gitlab_credentials(credentials)
+        _validate_gitlab_project(tool_metadata)
+    elif provider == "shortcut":
+        _validate_shortcut_credentials(credentials)
+
+
 def _validate_provider_type_switch(
     existing_tool: models.Tool,
     tool: schemas.ToolUpdate,
@@ -396,6 +412,9 @@ async def test_tool_connection(
                 tool_metadata=request.tool_metadata,
             )
         elif transport is Transport.MCP:
+            _validate_mcp_test_connection_request(
+                provider, request.credentials, request.tool_metadata
+            )
             return await mcp_health_check(
                 organization_id=organization_id,
                 user_id=user_id,
