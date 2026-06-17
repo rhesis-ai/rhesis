@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import UUID4
 
@@ -12,6 +12,8 @@ class TokenBase(Base):
     expires_at: Optional[datetime] = None
     user_id: UUID4
     organization_id: Optional[UUID4] = None
+    # SP9: optional explicit permission subset. NULL = inherit owner's full access.
+    scopes: Optional[List[str]] = None
 
 
 class TokenCreate(TokenBase):
@@ -43,6 +45,7 @@ class TokenRead(TokenBase):
     last_refreshed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    scopes: Optional[List[str]] = None
 
 
 class Token(TokenBase):

@@ -41,25 +41,40 @@ class Principal:
     token_project_id: Optional[UUID] = field(default=None, compare=False)
 
 
-def resolve_principal(user: "object") -> Principal:
+def resolve_principal(
+    user: "object",
+    *,
+    scopes: Optional[frozenset[str]] = None,
+    token_project_id: Optional[UUID] = None,
+    kind: "Literal['session', 'token']" = "session",
+) -> Principal:
     """Build a :class:`Principal` from an authenticated ``User`` ORM object.
 
-    Phase 1: all authenticated users are treated as session principals with no
-    scope restrictions.  The ``kind`` argument may be overridden by the token
-    authentication path in Phase 2 once we distinguish session vs. token callers
-    in ``auth/user_utils.py``.
+    Phase 2 (SP9): pass ``scopes`` and ``token_project_id`` when the request
+    was authenticated via an API token that carries explicit scope restrictions.
+    The PEP backstop reads these from ``request.state`` (set by
+    ``get_authenticated_user_with_context``) and forwards them here.
 
     Args:
         user: An authenticated ``models.User`` instance as returned by
             ``require_current_user_or_token``.
+        scopes: Optional explicit permission subset from the authenticating
+            token (SP9).  ``None`` means the token inherits the owner's full
+            access (no scope narrowing).
+        token_project_id: Optional single-project boundary of the token (SP9).
+        kind: ``"token"`` when the request was authenticated via an API token
+            or M2M client JWT; ``"session"`` otherwise.
 
     Returns:
-        A frozen :class:`Principal` ready to pass to :func:`~rhesis.backend.app.auth.rbac.authorize`.
+        A frozen :class:`Principal` ready to pass to
+        :func:`~rhesis.backend.app.auth.rbac.authorize`.
     """
     return Principal(
         user_id=user.id,  # type: ignore[attr-defined]
         organization_id=user.organization_id,  # type: ignore[attr-defined]
-        kind="session",
+        kind=kind,
+        scopes=scopes,
+        token_project_id=token_project_id,
     )
 
 

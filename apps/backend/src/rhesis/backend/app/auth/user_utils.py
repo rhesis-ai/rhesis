@@ -310,6 +310,13 @@ async def get_authenticated_user_with_context(
                         if token.project_id is not None:
                             request.state.api_token_project_id = str(token.project_id)
 
+                        # SP9: store the token's explicit permission scopes on
+                        # request state so the PEP backstop can include them in
+                        # the Principal.  None means "inherit owner's full access".
+                        token_scopes = getattr(token, "scopes", None)
+                        if token_scopes is not None:
+                            request.state.api_token_scopes = frozenset(token_scopes)
+
                         if without_context:
                             # without_context allows users without organization
                             request.state.user = user

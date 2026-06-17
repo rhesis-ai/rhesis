@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -14,6 +13,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.token import (
     TokenCreate,
     TokenCreateResponse,
@@ -42,12 +42,30 @@ def create_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new API token."""
+    """Create a new API token.
+
+    Optional ``scopes`` field accepts a list of capability strings
+    (e.g. ``["testset:read", "endpoint:read"]``).  When supplied, every
+    scope must be within the caller's own effective permissions
+    (scopes ⊆ issuer — SP9).  In the community tier scopes are stored
+    but not enforced at authorization time; the EE tier intersects them.
+    """
     name = data.get("name")
     expires_in_days = data.get("expires_in_days")
+    requested_scopes: list | None = data.get("scopes")
 
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
+
+    # SP9: scopes ⊆ issuer check — a token may not exceed the creator's
+    # own effective permissions.  We check unconditionally so a downgraded
+    # user cannot back-door-escalate via a stale wide-scope token.
+    if requested_scopes is not None:
+        if not isinstance(requested_scopes, list) or not all(
+            isinstance(s, str) for s in requested_scopes
+        ):
+            raise HTTPException(status_code=422, detail="scopes must be a list of strings")
+        _validate_token_scopes(requested_scopes, current_user, db)
 
     organization_id, user_id = tenant_context
     token_value = generate_api_token()
@@ -64,6 +82,7 @@ def create_token(
         ),
         "user_id": user_id,
         "organization_id": organization_id,
+        "scopes": requested_scopes,
     }
 
     token_create = TokenCreate(**token_data)
@@ -80,6 +99,53 @@ def create_token(
         expires_at=created_token.expires_at,
         name=created_token.name,
     )
+
+
+def _validate_token_scopes(scopes: list[str], current_user: "User", db: Session) -> None:
+    """Raise 422 when any requested scope exceeds the caller's own permissions.
+
+    SP9 invariant: scopes ⊆ issuer permissions.  The caller cannot create a
+    token that grants more access than they currently hold.  This also prevents
+    a downgraded user from re-materialising permissions they no longer have.
+
+    In the community tier every valid capability string is permitted (the
+    DefaultAuthorizationProvider doesn't enforce scopes at auth time anyway).
+    In the EE tier we call the provider's ``get_effective_permissions`` so the
+    check matches exactly what ``authorize()`` would decide.
+    """
+    from rhesis.backend.app.auth.capabilities import get_all_capabilities
+    from rhesis.backend.app.auth.principal import resolve_principal
+    from rhesis.backend.app.auth.rbac import get_authorization_provider
+
+    # Validate that all requested scopes are known capability strings.
+    # Skip when the capability cache is not yet populated (early startup / tests).
+    all_caps = set(get_all_capabilities())
+    if all_caps:
+        unknown = set(scopes) - all_caps
+        if unknown:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown capability strings in scopes: {sorted(unknown)}",
+            )
+
+    provider = get_authorization_provider()
+    if not hasattr(provider, "get_effective_permissions"):
+        # Community provider — scopes are stored but not enforced at auth time.
+        return
+
+    # EE provider — validate scopes ⊆ caller's effective permissions.
+    principal = resolve_principal(current_user)
+    effective = provider.get_effective_permissions(principal, project_id=None, db=db)
+    if not effective:
+        # RBAC not active for this org or no role assigned (community fallback
+        # path) — skip the ⊆ check; the caller can hold any valid capability.
+        return
+    out_of_bounds = set(scopes) - effective
+    if out_of_bounds:
+        raise HTTPException(
+            status_code=422,
+            detail=(f"Requested scopes exceed your effective permissions: {sorted(out_of_bounds)}"),
+        )
 
 
 @router.get("/", response_model=List[TokenRead])

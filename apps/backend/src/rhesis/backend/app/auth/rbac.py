@@ -42,7 +42,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission
@@ -363,10 +363,27 @@ def require_permission(capability: "str | Permission"):
     """
 
     def _dependency(
+        request: Request,
         db: Session = Depends(get_tenant_db_session),
         current_user=Depends(require_current_user_or_token),
     ) -> None:
-        principal = resolve_principal(current_user)
+        # SP9: forward token scopes from request state (set by
+        # get_authenticated_user_with_context for rh-* API tokens).
+        token_scopes: Optional[frozenset[str]] = getattr(request.state, "api_token_scopes", None)
+        token_project_id_str: Optional[str] = getattr(request.state, "api_token_project_id", None)
+        tok_project_id: Optional[UUID] = None
+        if token_project_id_str is not None:
+            try:
+                tok_project_id = UUID(token_project_id_str)
+            except (ValueError, AttributeError):
+                pass
+
+        principal = resolve_principal(
+            current_user,
+            scopes=token_scopes,
+            token_project_id=tok_project_id,
+            kind="token" if token_scopes is not None or tok_project_id is not None else "session",
+        )
 
         # Read project_id from the ambient scope written by get_db_with_tenant_variables.
         scope = db.info.get("_scope")
