@@ -153,6 +153,9 @@ def _validate_mcp_test_connection_request(
         _validate_gitlab_project(tool_metadata)
     elif provider == "shortcut":
         _validate_shortcut_credentials(credentials)
+    elif provider == "asana":
+        _validate_asana_credentials(credentials)
+        _validate_asana_workspace_gid(tool_metadata)
 
 
 def _validate_provider_type_switch(
