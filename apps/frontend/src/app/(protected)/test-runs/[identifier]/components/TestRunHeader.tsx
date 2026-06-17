@@ -302,7 +302,7 @@ export default function TestRunHeader({
       statusColor,
       statusLabel,
     };
-  }, [testResults, testRun, isMultiTurn]);
+  }, [testResults, testRun, isMultiTurn, overallStats]);
 
   const totalExpected =
     testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;

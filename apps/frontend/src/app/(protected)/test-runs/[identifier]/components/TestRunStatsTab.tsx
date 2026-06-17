@@ -563,7 +563,7 @@ export default function TestRunStatsTab({
     isMounted.current = true;
 
     const fetchStats = async () => {
-      if (!sessionToken) return;
+      if (!sessionToken) return setStatsLoading(false);
       try {
         setStatsLoading(true);
         const client = new ApiClientFactory(
