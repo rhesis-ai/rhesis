@@ -593,6 +593,11 @@
             "description": "Shortcut integration"
         },
         {
+            "type_name": "ToolProviderType",
+            "type_value": "asana",
+            "description": "Asana integration"
+        },
+        {
             "type_name": "EmbeddingDimension",
             "type_value": "384",
             "description": "384-dimensional embeddings"

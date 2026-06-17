@@ -29,6 +29,16 @@ def _scope_context_from_metadata(
             )
         return {"namespace": namespace.strip()}
 
+    if provider == "asana":
+        if "workspace_gid" not in tool_metadata:
+            return None
+        workspace_gid = tool_metadata["workspace_gid"]
+        if not isinstance(workspace_gid, str) or not workspace_gid.strip():
+            raise ToolConfigurationError(
+                "Asana tool has invalid workspace_gid metadata; must be a non-empty string"
+            )
+        return {"workspace_gid": workspace_gid.strip()}
+
     return None
 
 

@@ -20,6 +20,16 @@ Do not access content outside this project!
 Use Shortcut tools to retrieve the full story or epic content, including description,
 acceptance criteria, tasks, and comments when available.
 {% endif %}
+{% if provider == "asana" %}
+Use Asana tools to retrieve the full task or project content, including description,
+notes, and custom fields when available.
+{% if workspace_context and workspace_context.workspace_gid %}
+You are restricted to the following Asana workspace:
+- Workspace GID: {{ workspace_context.workspace_gid }}
+
+Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid }}".
+{% endif %}
+{% endif %}
 {% if include_children %}
 Also extract every child page / nested item and return each as a separate entry.
 {% endif %}
