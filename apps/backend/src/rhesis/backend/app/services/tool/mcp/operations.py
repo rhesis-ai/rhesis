@@ -17,6 +17,16 @@ from .templates import jinja_env
 logger = logging.getLogger(__name__)
 
 
+def _mcp_template_scope_kwargs(
+    provider: str, scope_context: Optional[Dict[str, str]]
+) -> Dict[str, Optional[Dict[str, str]]]:
+    return {
+        "project_context": scope_context if provider == "gitlab" else None,
+        "workflow_context": scope_context if provider == "shortcut" else None,
+        "workspace_context": scope_context if provider == "asana" else None,
+    }
+
+
 def _parse_mcp_auth_response(result: Dict[str, Any]) -> Dict[str, str]:
     """Map an MCP auth-check agent result to a connection-test response."""
     if not result.get("success"):
@@ -128,14 +138,14 @@ async def query_mcp(
         raise ValueError("user_id is required")
 
     with ctx.get_db() as db:
-        client, provider, project_context = _get_mcp_tool_config(
+        client, provider, scope_context = _get_mcp_tool_config(
             db, tool_id, ctx.organization_id, ctx.user_id
         )
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render(
             provider=provider,
-            project_context=project_context,
+            **_mcp_template_scope_kwargs(provider, scope_context),
         )
 
     return await _run_agent(client, query, system_prompt, max_iterations, "mcp-query")
@@ -204,7 +214,7 @@ async def mcp_extract(
     if not user_id:
         raise ValueError("user_id is required")
 
-    client, provider, project_context = _resolve_tool_client(organization_id, user_id, tool_id)
+    client, provider, scope_context = _resolve_tool_client(organization_id, user_id, tool_id)
     query = f"Extract the full content of: {identifier}"
     template = jinja_env.get_template("mcp_extract_prompt.jinja2")
 
@@ -214,7 +224,7 @@ async def mcp_extract(
             provider=provider,
             include_children=include_children,
             repair=repair,
-            project_context=project_context,
+            **_mcp_template_scope_kwargs(provider, scope_context),
         )
         result = await _run_agent(client, query, system_prompt, max_iterations, "mcp-extract")
         try:
@@ -248,11 +258,11 @@ async def mcp_health_check(
         raise ValueError("user_id is required")
 
     if tool_id:
-        client, provider, project_context = _resolve_tool_client(
+        client, provider, scope_context = _resolve_tool_client(
             organization_id, user_id, tool_id, tool_metadata=tool_metadata
         )
     elif provider_type_id is not None and credentials is not None:
-        client, provider, project_context = _resolve_params_client(
+        client, provider, scope_context = _resolve_params_client(
             organization_id,
             user_id,
             provider_type_id,
@@ -266,7 +276,7 @@ async def mcp_health_check(
 
     system_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render(
         provider=provider,
-        project_context=project_context,
+        **_mcp_template_scope_kwargs(provider, scope_context),
     )
     result = await _run_agent(
         client, "Verify authentication and report the result.", system_prompt, 3, "mcp-health"

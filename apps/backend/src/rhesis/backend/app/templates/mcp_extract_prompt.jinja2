@@ -16,6 +16,13 @@ Scope all GitLab tool calls to project namespace "{{ project_context.namespace }
 Do not access content outside this project!
 {% endif %}
 {% endif %}
+{% if provider == "shortcut" %}
+Use Shortcut tools to retrieve the full story or epic content, including description,
+acceptance criteria, tasks, and comments when available.
+{% if workflow_context and workflow_context.workflow_id %}
+Scope all Shortcut tool calls to workflow ID {{ workflow_context.workflow_id }}.
+{% endif %}
+{% endif %}
 {% if include_children %}
 Also extract every child page / nested item and return each as a separate entry.
 {% endif %}

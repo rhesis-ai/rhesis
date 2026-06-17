@@ -32,6 +32,10 @@ class TestRouteTable:
         assert route("gitlab", ToolAction.EXTRACT) is Transport.MCP
         assert route("gitlab", ToolAction.TEST_CONNECTION) is Transport.MCP
 
+    def test_shortcut_routes_to_mcp(self):
+        assert route("shortcut", ToolAction.EXTRACT) is Transport.MCP
+        assert route("shortcut", ToolAction.TEST_CONNECTION) is Transport.MCP
+
     def test_unregistered_provider_raises(self):
         with pytest.raises(ToolConfigurationError, match="does not support"):
             route("unknown", ToolAction.EXTRACT)

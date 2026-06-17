@@ -110,6 +110,26 @@ def _merge_gitlab_credentials_on_update(
     return merged
 
 
+def _validate_shortcut_workflow_id(tool_metadata: dict | None) -> None:
+    if not tool_metadata or "workflow_id" not in tool_metadata:
+        return
+    workflow_id = tool_metadata["workflow_id"]
+    if not isinstance(workflow_id, str) or not workflow_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Shortcut 'workflow_id' must be a non-empty string",
+        )
+
+
+def _validate_shortcut_credentials(credentials: dict[str, str] | None) -> None:
+    token = (credentials or {}).get("SHORTCUT_API_TOKEN", "")
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Shortcut integrations require 'SHORTCUT_API_TOKEN'",
+        )
+
+
 def _validate_provider_type_switch(
     existing_tool: models.Tool,
     tool: schemas.ToolUpdate,
@@ -143,6 +163,9 @@ def _validate_provider_type_switch(
     elif provider_type.type_value == "gitlab":
         _validate_gitlab_credentials(tool.credentials)
         _validate_gitlab_project(tool.tool_metadata)
+    elif provider_type.type_value == "shortcut":
+        _validate_shortcut_credentials(tool.credentials)
+        _validate_shortcut_workflow_id(tool.tool_metadata)
 
 
 @router.post("/", response_model=schemas.Tool)
@@ -177,6 +200,9 @@ def create_tool(
         elif provider_type.type_value == "gitlab":
             _validate_gitlab_credentials(tool.credentials)
             _validate_gitlab_project(tool.tool_metadata)
+        elif provider_type.type_value == "shortcut":
+            _validate_shortcut_credentials(tool.credentials)
+            _validate_shortcut_workflow_id(tool.tool_metadata)
 
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
@@ -274,6 +300,8 @@ def update_tool(
                 raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
         elif provider_type.type_value == "gitlab":
             _validate_gitlab_project(tool.tool_metadata)
+        elif provider_type.type_value == "shortcut":
+            _validate_shortcut_workflow_id(tool.tool_metadata)
 
     if tool.credentials is not None and provider_type:
         if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
@@ -293,6 +321,8 @@ def update_tool(
             )
             _validate_gitlab_credentials(merged_credentials)
             tool = tool.model_copy(update={"credentials": merged_credentials})
+        elif provider_type.type_value == "shortcut":
+            _validate_shortcut_credentials(tool.credentials)
 
     db_tool = crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
