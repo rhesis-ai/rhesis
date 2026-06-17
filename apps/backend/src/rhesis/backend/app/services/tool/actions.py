@@ -51,6 +51,8 @@ _ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
     ("confluence", ToolAction.TEST_CONNECTION): Transport.REST,
     ("gitlab", ToolAction.EXTRACT): Transport.MCP,
     ("gitlab", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("shortcut", ToolAction.EXTRACT): Transport.MCP,
+    ("shortcut", ToolAction.TEST_CONNECTION): Transport.MCP,
 }
 
 

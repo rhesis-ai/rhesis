@@ -10,6 +10,11 @@ Perform a read-only project-scoped call for namespace "{{ project_context.namesp
 (for example, fetch project details). Set authenticated to false if the project is
 not accessible with these credentials.
 {% endif %}
+{% if provider == "shortcut" and workflow_context and workflow_context.workflow_id %}
+Scope the read-only auth check to Shortcut workflow ID
+"{{ workflow_context.workflow_id }}". Set authenticated to false if the workflow
+is not accessible with these credentials.
+{% endif %}
 Use a single read-only call. Do not create, modify, or delete anything.
 
 Return ONLY a JSON object with these fields:

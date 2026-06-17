@@ -32,6 +32,7 @@ export interface ToolMetadata {
     [key: string]: unknown;
   };
   space_key?: string;
+  workflow_id?: string;
   [key: string]: unknown;
 }
 
