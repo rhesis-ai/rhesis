@@ -24,16 +24,16 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  CategoryPassRates,
   TestResultDetail,
   TestResultsStats,
+  TopicPassRates,
 } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { BehaviorWithMetrics } from '../hooks/useTestRunDetailData';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
 import {
-  aggregateBehaviorStats,
-  aggregateMetricStats,
   BehaviorStat,
   getReviewBand,
   MetricStat,
@@ -463,61 +463,29 @@ function DimensionList({ items }: { items: DimensionItem[] }) {
 }
 
 function MoreBreakdownsSection({
-  testRunId,
-  sessionToken,
+  categoryPassRates,
+  topicPassRates,
+  isLoading,
 }: {
-  testRunId: string;
-  sessionToken: string;
+  categoryPassRates?: CategoryPassRates;
+  topicPassRates?: TopicPassRates;
+  isLoading: boolean;
 }) {
-  const isMounted = useRef(false);
-  const [data, setData] = useState<TestResultsStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    isMounted.current = true;
-
-    const fetchData = async () => {
-      if (!sessionToken) return;
-      try {
-        setIsLoading(true);
-        const client = new ApiClientFactory(
-          sessionToken
-        ).getTestResultsClient();
-        const result = await client.getComprehensiveTestResultsStats({
-          test_run_ids: [testRunId],
-          mode: 'all',
-        });
-        if (isMounted.current) {
-          setData(result);
-          setIsLoading(false);
-        }
-      } catch {
-        if (isMounted.current) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void fetchData();
-    return () => {
-      isMounted.current = false;
-    };
-  }, [testRunId, sessionToken]);
-
   const categoryStats = useMemo((): DimensionItem[] => {
-    if (!data?.category_pass_rates) return [];
-    return Object.entries(data.category_pass_rates)
+    if (!categoryPassRates) return [];
+    return Object.entries(categoryPassRates)
       .map(([name, s]) => ({ name, ...s }))
       .sort((a, b) => a.pass_rate - b.pass_rate);
-  }, [data]);
+  }, [categoryPassRates]);
 
   const topicStats = useMemo((): DimensionItem[] => {
-    if (!data?.topic_pass_rates) return [];
-    return Object.entries(data.topic_pass_rates)
+    if (!topicPassRates) return [];
+    return Object.entries(topicPassRates)
       .map(([name, s]) => ({ name, ...s }))
       .sort((a, b) => a.pass_rate - b.pass_rate);
-  }, [data]);
+  }, [topicPassRates]);
 
   const hasData = categoryStats.length > 0 || topicStats.length > 0;
 
@@ -587,15 +555,62 @@ export default function TestRunStatsTab({
   onViewBehavior,
   onViewMetric,
 }: TestRunStatsTabProps) {
-  const behaviorStats = useMemo(
-    () => aggregateBehaviorStats(testResults),
-    [testResults]
-  );
+  const isMounted = useRef(false);
+  const [stats, setStats] = useState<TestResultsStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  const metricStats = useMemo(
-    () => aggregateMetricStats(testResults),
-    [testResults]
-  );
+  useEffect(() => {
+    isMounted.current = true;
+
+    const fetchStats = async () => {
+      if (!sessionToken) return;
+      try {
+        setStatsLoading(true);
+        const client = new ApiClientFactory(
+          sessionToken
+        ).getTestResultsClient();
+        const result = await client.getComprehensiveTestResultsStats({
+          test_run_ids: [testRunId],
+          mode: 'all',
+        });
+        if (isMounted.current) {
+          setStats(result);
+          setStatsLoading(false);
+        }
+      } catch {
+        if (isMounted.current) {
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    void fetchStats();
+    return () => {
+      isMounted.current = false;
+    };
+  }, [testRunId, sessionToken]);
+
+  const behaviorStats = useMemo((): BehaviorStat[] => {
+    if (!stats?.behavior_pass_rates) return [];
+    return Object.entries(stats.behavior_pass_rates).map(([name, s]) => ({
+      name,
+      total: s.total,
+      passed: s.passed,
+      failed: s.failed,
+      passRate: s.pass_rate,
+    }));
+  }, [stats]);
+
+  const metricStats = useMemo((): MetricStat[] => {
+    if (!stats?.metric_pass_rates) return [];
+    return Object.entries(stats.metric_pass_rates).map(([name, s]) => ({
+      name,
+      total: s.total,
+      passed: s.passed,
+      failed: s.failed,
+      failRate: s.total > 0 ? ((s.total - s.passed) / s.total) * 100 : 0,
+    }));
+  }, [stats]);
 
   const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
 
@@ -604,12 +619,13 @@ export default function TestRunStatsTab({
       <TestRunHeader
         testRun={testRun}
         testResults={testResults}
-        loading={loading}
+        overallStats={stats?.overall_pass_rates}
+        loading={statsLoading}
         onRefresh={onRefresh}
       />
 
       <Stack spacing={3} sx={{ mt: 3 }}>
-        {loading && testResults.length === 0 ? (
+        {statsLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>
@@ -635,8 +651,9 @@ export default function TestRunStatsTab({
               />
             )}
             <MoreBreakdownsSection
-              testRunId={testRunId}
-              sessionToken={sessionToken}
+              categoryPassRates={stats?.category_pass_rates}
+              topicPassRates={stats?.topic_pass_rates}
+              isLoading={statsLoading}
             />
           </>
         )}
