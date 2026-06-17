@@ -508,11 +508,11 @@ export default function RunDrawer(props: RunDrawerProps) {
   }, [open, sessionToken, mode]);
 
   // -----------------------------------------------------------------------
-  // Load test sets (newTestRun mode)
+  // Load test sets (newTestRun & runExperiment modes)
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!open || mode !== 'newTestRun') return;
+    if (!open || (mode !== 'newTestRun' && mode !== 'runExperiment')) return;
     let mounted = true;
     const load = async () => {
       try {
