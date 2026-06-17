@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "asana": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@roychri/mcp-server-asana"],
+      "env": {
+        "ASANA_ACCESS_TOKEN": {{ ASANA_ACCESS_TOKEN | tojson }}
+      }
+    }
+  }
+}

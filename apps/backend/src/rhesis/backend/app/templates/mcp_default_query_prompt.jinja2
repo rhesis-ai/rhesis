@@ -10,3 +10,7 @@ When using GitLab tools, scope all operations to project namespace:
 
 Do not access any other GitLab projects.
 {% endif %}
+{% if provider == "asana" and workspace_context and workspace_context.workspace_gid %}
+IMPORTANT RESTRICTION: Scope all Asana operations to workspace GID
+"{{ workspace_context.workspace_gid }}".
+{% endif %}

@@ -46,6 +46,8 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'GITLAB_PERSONAL_ACCESS_TOKEN';
     case 'shortcut':
       return 'SHORTCUT_API_TOKEN';
+    case 'asana':
+      return 'ASANA_ACCESS_TOKEN';
     case 'jira':
       return 'JIRA_API_TOKEN';
     case 'confluence':
@@ -123,6 +125,7 @@ export function ToolConnectionDrawer({
   const [initialProjectNamespace, setInitialProjectNamespace] = useState('');
   const [initialGitlabApiUrl, setInitialGitlabApiUrl] = useState('');
   const [initialSpaceKey, setInitialSpaceKey] = useState('');
+  const [initialWorkspaceGid, setInitialWorkspaceGid] = useState('');
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -130,6 +133,9 @@ export function ToolConnectionDrawer({
   // GitLab project fields
   const [projectNamespace, setProjectNamespace] = useState('');
   const [gitlabApiUrl, setGitlabApiUrl] = useState('');
+
+  // Asana workspace scope
+  const [workspaceGid, setWorkspaceGid] = useState('');
 
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
@@ -207,6 +213,17 @@ export function ToolConnectionDrawer({
         setGitlabApiUrl('');
         setInitialGitlabApiUrl('');
 
+        if (
+          currentProviderType === 'asana' &&
+          typeof tool.tool_metadata?.workspace_gid === 'string'
+        ) {
+          setWorkspaceGid(tool.tool_metadata.workspace_gid);
+          setInitialWorkspaceGid(tool.tool_metadata.workspace_gid);
+        } else {
+          setWorkspaceGid('');
+          setInitialWorkspaceGid('');
+        }
+
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
         // We cannot display them in edit mode as they're encrypted
         // Show placeholder to indicate existing values
@@ -239,6 +256,7 @@ export function ToolConnectionDrawer({
         setRepositoryUrl('');
         setProjectNamespace('');
         setGitlabApiUrl('');
+        setWorkspaceGid('');
         setInstanceUrl('');
         // Pre-fill email with logged-in user's email for Jira/Confluence
         const isAtlassian =
@@ -277,7 +295,8 @@ export function ToolConnectionDrawer({
       const scopeMetadataChanged =
         repositoryUrl !== initialRepositoryUrl ||
         projectNamespace !== initialProjectNamespace ||
-        selectedSpaceKey !== initialSpaceKey;
+        selectedSpaceKey !== initialSpaceKey ||
+        workspaceGid !== initialWorkspaceGid;
       const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
       const credentialsChanged =
         tokenChanged || urlChanged || usernameChanged || gitlabApiUrlChanged;
@@ -299,9 +318,11 @@ export function ToolConnectionDrawer({
     projectNamespace,
     selectedSpaceKey,
     gitlabApiUrl,
+    workspaceGid,
     initialRepositoryUrl,
     initialProjectNamespace,
     initialSpaceKey,
+    initialWorkspaceGid,
     initialGitlabApiUrl,
   ]);
 
@@ -385,6 +406,13 @@ export function ToolConnectionDrawer({
     return credentials;
   };
 
+  const buildAsanaMetadata = (
+    workspace: string
+  ): Record<string, unknown> | undefined => {
+    const trimmed = workspace.trim();
+    return trimmed ? { workspace_gid: trimmed } : undefined;
+  };
+
   const buildScopeMetadataFromForm = (
     currentProviderType: string | undefined
   ): Record<string, unknown> | undefined => {
@@ -404,6 +432,10 @@ export function ToolConnectionDrawer({
 
     if (currentProviderType === 'jira' && selectedSpaceKey) {
       return { space_key: selectedSpaceKey };
+    }
+
+    if (currentProviderType === 'asana') {
+      return buildAsanaMetadata(workspaceGid);
     }
 
     return undefined;
@@ -841,6 +873,16 @@ export function ToolConnectionDrawer({
           };
         }
 
+        if (providerType === 'asana') {
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            ...(buildAsanaMetadata(workspaceGid) || {}),
+          };
+          if (!workspaceGid.trim() && metadataToUpdate.workspace_gid) {
+            delete metadataToUpdate.workspace_gid;
+          }
+        }
+
         if (metadataToUpdate) {
           updates.tool_metadata = metadataToUpdate;
         }
@@ -980,6 +1022,13 @@ export function ToolConnectionDrawer({
             };
           }
 
+          if (providerType === 'asana') {
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              ...(buildAsanaMetadata(workspaceGid) || {}),
+            };
+          }
+
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
@@ -1017,6 +1066,7 @@ export function ToolConnectionDrawer({
       description !== initialDescription ||
       repositoryUrl !== initialRepositoryUrl ||
       projectNamespace !== initialProjectNamespace ||
+      workspaceGid !== initialWorkspaceGid ||
       selectedSpaceKey !== initialSpaceKey);
 
   const saveDisabled =
@@ -1237,6 +1287,17 @@ export function ToolConnectionDrawer({
                   helperText="Leave blank for gitlab.com; use for self-managed instances"
                 />
               </>
+            )}
+
+            {providerType === 'asana' && (
+              <TextField
+                label="Workspace GID (optional)"
+                fullWidth
+                value={workspaceGid}
+                onChange={e => setWorkspaceGid(e.target.value)}
+                placeholder="1234567890"
+                helperText="Optional Asana workspace scope for search and import"
+              />
             )}
 
             <Box>
