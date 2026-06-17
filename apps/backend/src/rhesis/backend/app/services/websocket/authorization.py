@@ -8,9 +8,12 @@ Security principle: Fail-closed - unknown channel formats are rejected by defaul
 
 import logging
 import re
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from rhesis.backend.app.models.user import User
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +53,18 @@ class ChannelAuthorizer:
         re.IGNORECASE,
     )
 
-    async def authorize(self, user: User, channel: str) -> tuple[bool, Optional[str]]:
+    async def authorize(
+        self, user: User, channel: str, db: "Optional[Session]" = None
+    ) -> tuple[bool, Optional[str]]:
         """Check if user can subscribe to channel.
 
         Args:
             user: The authenticated user requesting subscription.
             channel: The channel name to subscribe to.
+            db: Optional SQLAlchemy session.  When provided,
+                :meth:`_authorize_resource_channel` calls :func:`authorize`
+                (SP11) to verify the caller holds the channel resource's read
+                capability via the active PDP.
 
         Returns:
             Tuple of (authorized: bool, error_message: Optional[str]).
@@ -87,7 +96,7 @@ class ChannelAuthorizer:
 
         # Protected resources: verify ownership via organization
         if prefix in self.PROTECTED_RESOURCE_PREFIXES:
-            return await self._authorize_resource_channel(user, prefix, resource_id)
+            return await self._authorize_resource_channel(user, prefix, resource_id, db=db)
 
         # Unknown channel format - deny by default (fail-closed)
         logger.warning(f"Unknown channel prefix from user {user.id}: {prefix}")
@@ -123,29 +132,48 @@ class ChannelAuthorizer:
         return True, None
 
     async def _authorize_resource_channel(
-        self, user: User, prefix: str, resource_id: str
+        self,
+        user: User,
+        prefix: str,
+        resource_id: str,
+        db: "Optional[Session]" = None,
     ) -> tuple[bool, Optional[str]]:
         """Authorize subscription to a resource-scoped channel.
 
-        Verifies the resource belongs to the user's organization.
-        For now, we trust that resources are organization-scoped and
-        the user's organization_id matches the resource's organization_id.
+        SP11: when *db* is provided, the caller's read capability for the
+        channel's resource type is verified via :func:`~rhesis.backend.app.auth.rbac.authorize`.
+        Without *db*, any authenticated org member is allowed (legacy path).
 
-        In a full implementation, this would query the database to verify
-        the resource exists and belongs to the user's organization.
+        The resource_id (UUID) is validated at the call site; no DB lookup is
+        performed for the resource row itself — the PDP's org-scope filter is
+        the data boundary.
         """
-        # For the foundation, we allow subscriptions to resource channels
-        # as long as the user is authenticated. The actual resource access
-        # control happens at the data layer when events are published.
-        #
-        # A more secure implementation would query the database here:
-        # resource = await self._get_resource(prefix, resource_id)
-        # if resource is None or resource.organization_id != user.organization_id:
-        #     return False, "Resource not found or access denied"
-        #
-        # For now, we log the subscription attempt for auditing
+        if db is not None:
+            # SP11: PDP-backed per-channel authorization.
+            # Map channel prefix (e.g. "test_run:") to read capability.
+            resource_type = prefix.rstrip(":")
+            cap = f"{resource_type}:read"
+
+            from rhesis.backend.app.auth.principal import resolve_principal
+            from rhesis.backend.app.auth.rbac import authorize
+
+            principal = resolve_principal(user)
+            if not authorize(principal, cap, project_id=None, db=db):
+                logger.warning(
+                    "WebSocket subscription denied: user %s lacks '%s' for channel %s%s",
+                    user.id,
+                    cap,
+                    prefix,
+                    resource_id,
+                )
+                return False, "Subscription denied: insufficient permissions"
+
         logger.info(
-            f"User {user.id} (org={user.organization_id}) subscribing to {prefix}{resource_id}"
+            "User %s (org=%s) subscribing to %s%s",
+            user.id,
+            user.organization_id,
+            prefix,
+            resource_id,
         )
         return True, None
 

@@ -251,9 +251,14 @@ class WebSocketManager:
             await self._send_error(conn_id, "Missing channel in subscribe request")
             return
 
-        # Security: Authorize channel subscription
+        # Security: Authorize channel subscription.
+        # SP11: open a short-lived tenant session so the PDP can evaluate
+        # the caller's read capability for resource-type channels.
+        from rhesis.backend.app.database import get_db_with_tenant_variables
+
         authorizer = get_channel_authorizer()
-        authorized, error_message = await authorizer.authorize(user, channel)
+        with get_db_with_tenant_variables(str(user.organization_id), str(user.id), "") as db:
+            authorized, error_message = await authorizer.authorize(user, channel, db=db)
         if not authorized:
             logger.warning(
                 f"Unauthorized subscription attempt by user {user.id} to {channel}: {error_message}"
