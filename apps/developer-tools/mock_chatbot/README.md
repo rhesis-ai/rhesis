@@ -14,7 +14,7 @@ The server listens on `http://localhost:18090`.
 ## Usage
 
 ```bash
-curl -X POST http://localhost:18090/chat \
+curl -X POST http://localhost:18090 \
   -H "Content-Type: application/json" \
   -d '{"message": "hello"}'
 ```
