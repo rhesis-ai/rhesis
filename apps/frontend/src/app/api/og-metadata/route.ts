@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const ALLOWED_HOSTS = new Set(['docs.rhesis.ai', 'www.docs.rhesis.ai']);
+import {
+  fetchAllowedPage,
+  isAllowedOgMetadataUrl,
+} from '@/app/api/og-metadata/og-metadata-utils';
 
 function extractMetaContent(
   html: string,
@@ -46,17 +48,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'invalid url' }, { status: 400 });
   }
 
-  if (!ALLOWED_HOSTS.has(parsed.hostname)) {
+  if (!isAllowedOgMetadataUrl(parsed)) {
     return NextResponse.json({ error: 'host not allowed' }, { status: 403 });
   }
 
   try {
-    const response = await fetch(parsed.toString(), {
-      headers: { 'User-Agent': 'RhesisOgMetadata/1.0' },
-      next: { revalidate: 86400 },
-    });
+    const response = await fetchAllowedPage(parsed);
 
-    if (!response.ok) {
+    if (!response?.ok) {
       return NextResponse.json(
         { error: 'failed to fetch page' },
         { status: 502 }
