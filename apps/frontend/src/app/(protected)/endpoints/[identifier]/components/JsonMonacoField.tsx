@@ -111,6 +111,9 @@ export default function JsonMonacoField({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: false,
+    });
     updateDecorations(editor, monaco);
     editor.onDidChangeModelContent(() => updateDecorations(editor, monaco));
   };
@@ -120,7 +123,7 @@ export default function JsonMonacoField({
       <Editor
         key={`${editorKey}-${theme}`}
         height={height}
-        defaultLanguage="plaintext"
+        defaultLanguage="json"
         theme={theme}
         value={value}
         onMount={handleMount}

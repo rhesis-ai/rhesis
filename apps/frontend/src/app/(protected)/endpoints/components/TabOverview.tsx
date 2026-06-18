@@ -18,7 +18,6 @@ import {
   ListItemIcon,
   ListItemText,
   FormHelperText,
-  Grid,
   Stack,
   Typography,
 } from '@mui/material';
@@ -26,11 +25,11 @@ import { SectionCard } from '@/components/common/SectionCard';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
-import type { FormData } from '../EndpointForm';
+import type { FormData } from './EndpointForm';
 
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 
-interface TabBasicsProps {
+interface TabOverviewProps {
   formData: FormData;
   onChange: (field: keyof FormData, value: unknown) => void;
   projects: Project[];
@@ -44,7 +43,7 @@ function ProjectSelect({
   onChange,
   projects,
   loadingProjects,
-}: TabBasicsProps) {
+}: TabOverviewProps) {
   if (projects.length === 0 && !loadingProjects) {
     return (
       <Alert
@@ -110,30 +109,21 @@ function ProjectSelect({
   );
 }
 
-export default function TabBasics({
+export default function TabOverview({
   formData,
   onChange,
   projects,
   loadingProjects,
   hideProjectSelect = false,
-}: TabBasicsProps) {
-  const validateUrl = (url: string) => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
+}: TabOverviewProps) {
   return (
     <Box>
       <SectionCard
         title="Overview"
         subtitle={
           hideProjectSelect
-            ? 'Name your endpoint and configure how Rhesis connects to it.'
-            : 'Choose a project, name your endpoint, and configure how Rhesis connects to it.'
+            ? 'Name your endpoint and add an optional description.'
+            : 'Choose a project, name your endpoint, and add an optional description.'
         }
       >
         {!hideProjectSelect && (
@@ -184,45 +174,6 @@ export default function TabBasics({
           rows={2}
           sx={{ mb: 2 }}
         />
-
-        <FormSectionDivider
-          headline="Connection"
-          descriptiveText="Enter the API URL of the AI application you want to test. Rhesis will send test prompts to this endpoint and evaluate how it responds."
-        />
-
-        <Grid container spacing={2} sx={{ mt: 2, mb: 2 }}>
-          <Grid size={{ xs: 12, sm: 3, md: 2 }}>
-            <TextField
-              fullWidth
-              label="Method"
-              value={formData.method}
-              onChange={e => onChange('method', e.target.value)}
-              slotProps={{
-                input: {
-                  readOnly: true,
-                  sx: { fontFamily: 'monospace', fontWeight: 700 },
-                },
-              }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 9, md: 10 }}>
-            <TextField
-              fullWidth
-              required
-              name="url"
-              label="Endpoint URL"
-              value={formData.url}
-              onChange={e => onChange('url', e.target.value)}
-              placeholder="https://api.example.com/chat"
-              error={Boolean(formData.url && !validateUrl(formData.url))}
-              helperText={
-                formData.url && !validateUrl(formData.url)
-                  ? 'Enter a valid URL'
-                  : undefined
-              }
-            />
-          </Grid>
-        </Grid>
 
         <FormSectionDivider
           headline="Additional settings"

@@ -4,14 +4,14 @@ import { useState, useMemo } from 'react';
 import { LoadingButton } from '@mui/lab';
 import { PlayArrowIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
-import EndpointTestWorkbench from '../EndpointTestWorkbench';
-import { responseMappingToPathToVar } from '../JsonPreview';
+import EndpointTestWorkbench from './EndpointTestWorkbench';
+import { responseMappingToPathToVar } from './JsonPreview';
 import {
   extractVars,
   applyJsonPath,
   substituteVars,
   buildCurl,
-} from '../endpoint-template-utils';
+} from './endpoint-template-utils';
 
 interface TestResult {
   success: boolean;

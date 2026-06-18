@@ -24,10 +24,10 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import AutoConfigureDrawer from './AutoConfigureDrawer';
-import TabBasics from './tabs/TabBasics';
-import TabHeaders from './tabs/TabHeaders';
-import TabBody from './tabs/TabBody';
-import TabTest from './tabs/TabTest';
+import TabOverview from './TabOverview';
+import TabConnection from './TabConnection';
+import TabMapping from './TabMapping';
+import TabTest from './TabTest';
 import {
   bodyToRequestMapping,
   parseBodyMapping,
@@ -58,9 +58,9 @@ const DEFAULT_RES_BODY = '{}';
 
 const CREATE_TABS = [
   { key: 'overview', label: 'Overview' },
-  { key: 'headers', label: 'Headers' },
+  { key: 'connection', label: 'Connection' },
   { key: 'mapping', label: 'Mapping' },
-  { key: 'connection-test', label: 'Connection Test' },
+  { key: 'test', label: 'Test' },
 ] as const;
 
 function validateUrl(url: string) {
@@ -124,11 +124,9 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       error?: string;
     } | null>(null);
     const [isTabTestRunning, setIsTabTestRunning] = useState(false);
-    const [_testPassed, setTestPassed] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(true);
-    const [showAuthToken, setShowAuthToken] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
 
@@ -249,8 +247,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           error?: string;
         } | null>
       >,
-      setTesting: React.Dispatch<React.SetStateAction<boolean>>,
-      onSuccess?: () => void
+      setTesting: React.Dispatch<React.SetStateAction<boolean>>
     ) => {
       setTesting(true);
       setResult(null);
@@ -300,7 +297,6 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         const r = result as Record<string, unknown>;
         const success = r.success !== false && !r.error;
         setResult({ success: Boolean(success), response: r });
-        if (success) onSuccess?.();
       } catch (err) {
         const msg = (err as Error).message ?? '';
         const display = msg.includes('500')
@@ -313,9 +309,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     };
 
     const handleRunTest = (inputData: Record<string, unknown>) =>
-      runTest(inputData, setTestResult, setIsTestingEndpoint, () =>
-        setTestPassed(true)
-      );
+      runTest(inputData, setTestResult, setIsTestingEndpoint);
 
     const handleTabRunTest = (inputData: Record<string, unknown>) =>
       runTest(inputData, setTabTestResult, setIsTabTestRunning);
@@ -451,7 +445,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
 
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           <DetailTabPanel value={activeTab} index={0} prefix="endpoint">
-            <TabBasics
+            <TabOverview
               formData={formData}
               onChange={handleChange}
               projects={projects}
@@ -461,16 +455,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           </DetailTabPanel>
 
           <DetailTabPanel value={activeTab} index={1} prefix="endpoint">
-            <TabHeaders
-              formData={formData}
-              onChange={handleChange}
-              showAuthToken={showAuthToken}
-              onToggleAuthToken={() => setShowAuthToken(v => !v)}
-            />
+            <TabConnection formData={formData} onChange={handleChange} />
           </DetailTabPanel>
 
           <DetailTabPanel value={activeTab} index={2} prefix="endpoint">
-            <TabBody
+            <TabMapping
               reqBody={reqBody}
               resBody={resBody}
               onReqBodyChange={setReqBody}

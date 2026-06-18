@@ -226,6 +226,7 @@ class Endpoint(Base):
     disable_tracing: bool = False
 
     auth_type: Optional[EndpointAuthType] = None
+    has_auth_token: bool = False
     # Sensitive fields excluded from response:
     # auth_token, client_secret, last_token, last_token_expires_at
     # These can be set via Create/Update but are never returned

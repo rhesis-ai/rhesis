@@ -77,3 +77,7 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
     extra_payload = Column(JSON, nullable=True)
     last_token = Column(EncryptedString(), nullable=True)  # Encrypted for security
     last_token_expires_at = Column(DateTime, nullable=True)
+
+    @property
+    def has_auth_token(self) -> bool:
+        return bool(self.auth_token)
