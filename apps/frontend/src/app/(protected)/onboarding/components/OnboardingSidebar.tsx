@@ -4,6 +4,7 @@ import Image from 'next/image';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Typography } from '@mui/material';
 import { ONBOARDING_STEPS } from './onboarding-steps';
+import { onboardingSidebarSx } from './onboarding-styles';
 
 interface OnboardingSidebarProps {
   activeStep: number;
@@ -19,7 +20,7 @@ export default function OnboardingSidebar({
         flexDirection: 'column',
         justifyContent: 'space-between',
         bgcolor: theme => theme.palette.greyscale.fieldSurface,
-        borderRadius: '20px',
+        ...onboardingSidebarSx,
         px: 5,
         py: '50px',
         minHeight: { xs: 'auto', md: 'calc(100vh - 40px)' },

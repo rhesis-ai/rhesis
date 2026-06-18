@@ -1,6 +1,7 @@
 'use client';
 
 import { Box } from '@mui/material';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { ONBOARDING_STEPS } from './onboarding-steps';
 
 interface OnboardingProgressBarProps {
@@ -25,7 +26,7 @@ export default function OnboardingProgressBar({
           sx={{
             flex: 1,
             height: 10,
-            borderRadius: '6px',
+            borderRadius: BORDER_RADIUS.sm,
             bgcolor: theme =>
               index === activeStep
                 ? theme.palette.primary.main

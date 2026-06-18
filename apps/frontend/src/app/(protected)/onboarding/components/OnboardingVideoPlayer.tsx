@@ -3,10 +3,12 @@
 import * as React from 'react';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { Box, Typography } from '@mui/material';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {
   getOnboardingVideoEmbedUrl,
   getYouTubeThumbnailUrl,
 } from '@/utils/onboarding-video';
+import { onboardingVideoShellSx } from './onboarding-styles';
 
 interface OnboardingVideoPlayerProps {
   videoUrl: string;
@@ -23,10 +25,7 @@ export default function OnboardingVideoPlayer({
     return (
       <Box
         sx={{
-          width: '100%',
-          aspectRatio: '16 / 9',
-          borderRadius: '20px',
-          bgcolor: '#090909',
+          ...onboardingVideoShellSx,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -44,11 +43,8 @@ export default function OnboardingVideoPlayer({
     return (
       <Box
         sx={{
-          width: '100%',
-          aspectRatio: '16 / 9',
-          borderRadius: '20px',
+          ...onboardingVideoShellSx,
           overflow: 'hidden',
-          bgcolor: '#090909',
         }}
       >
         <Box
@@ -74,11 +70,8 @@ export default function OnboardingVideoPlayer({
       onClick={() => setIsPlaying(true)}
       aria-label="Play onboarding video"
       sx={{
-        width: '100%',
-        aspectRatio: '16 / 9',
-        borderRadius: '20px',
+        ...onboardingVideoShellSx,
         overflow: 'hidden',
-        bgcolor: '#090909',
         border: 'none',
         cursor: 'pointer',
         position: 'relative',
@@ -103,14 +96,14 @@ export default function OnboardingVideoPlayer({
           sx={{
             width: 72,
             height: 52,
-            bgcolor: '#ff0000',
-            borderRadius: '12px',
+            bgcolor: 'error.main',
+            borderRadius: BORDER_RADIUS.md,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <PlayArrowIcon sx={{ color: 'white', fontSize: 40 }} />
+          <PlayArrowIcon sx={{ color: 'common.white', fontSize: 40 }} />
         </Box>
       </Box>
     </Box>

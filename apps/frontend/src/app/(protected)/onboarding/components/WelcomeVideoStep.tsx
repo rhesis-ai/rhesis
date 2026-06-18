@@ -7,6 +7,7 @@ import OnboardingNavButtons from './OnboardingNavButtons';
 import OnboardingVideoPlayer from './OnboardingVideoPlayer';
 import { ONBOARDING_STEPS } from './onboarding-steps';
 import { getOnboardingVideoUrl } from '@/utils/onboarding-video';
+import { onboardingVideoShellSx } from './onboarding-styles';
 
 type OnboardingStatus =
   | 'idle'
@@ -65,10 +66,7 @@ export default function WelcomeVideoStep({
       ) : (
         <Box
           sx={{
-            width: '100%',
-            aspectRatio: '16 / 9',
-            borderRadius: '20px',
-            bgcolor: '#090909',
+            ...onboardingVideoShellSx,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
