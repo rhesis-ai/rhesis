@@ -160,7 +160,10 @@ class BaseTask(Task):
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
         self.log_with_context(
-            "info", "Task completed successfully", task_result_type=type(retval).__name__
+            "info",
+            "Task completed successfully",
+            task_result_type=type(retval).__name__,
+            execution_time=self._get_execution_time() or "Unknown",
         )
 
         # Send email notification for successful completion if enabled
@@ -209,6 +212,7 @@ class BaseTask(Task):
                 f"Task permanently failed after {retries} attempts",
                 error=str(exc),
                 exception_type=type(exc).__name__,
+                execution_time=self._get_execution_time() or "Unknown",
             )
             # Send email notification for permanent failure if enabled
             if self.send_email_notification_flag:
@@ -230,6 +234,7 @@ class BaseTask(Task):
                 f"Task failed (will retry, attempt {retries}/{self.max_retries})",
                 error=str(exc),
                 exception_type=type(exc).__name__,
+                execution_time=self._get_execution_time() or "Unknown",
             )
 
         return super().on_failure(exc, task_id, args, kwargs, einfo)
@@ -264,6 +269,24 @@ class BaseTask(Task):
         self.validate_params(args, kwargs)
 
         return super().before_start(task_id, args, kwargs)
+
+    def _get_execution_time(self) -> Optional[str]:
+        """Return formatted task execution duration, if start time is available."""
+        from rhesis.backend.tasks.utils import format_execution_time
+
+        if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
+            try:
+                duration = (datetime.utcnow() - self.request.custom_start_time).total_seconds()
+                return format_execution_time(duration)
+            except Exception:
+                pass
+        elif hasattr(self.request, "time_start") and self.request.time_start:
+            try:
+                duration = datetime.utcnow().timestamp() - self.request.time_start
+                return format_execution_time(duration)
+            except Exception:
+                pass
+        return None
 
     def _get_user_info(
         self, user_id: str, organization_id: str = None
@@ -328,27 +351,7 @@ class BaseTask(Task):
             if "placeholder.rhesis.ai" in user_email:
                 return
 
-            # Calculate execution time using our custom start time or Celery's time_start
-            execution_time = None
-
-            # Try our custom start time first (most reliable)
-            if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
-                try:
-                    duration = (datetime.utcnow() - self.request.custom_start_time).total_seconds()
-                    from rhesis.backend.tasks.utils import format_execution_time
-
-                    execution_time = format_execution_time(duration)
-                except Exception:
-                    pass
-            # Fallback to Celery's time_start if available
-            elif hasattr(self.request, "time_start") and self.request.time_start:
-                try:
-                    duration = datetime.utcnow().timestamp() - self.request.time_start
-                    from rhesis.backend.tasks.utils import format_execution_time
-
-                    execution_time = format_execution_time(duration)
-                except Exception:
-                    pass
+            execution_time = self._get_execution_time()
 
             # Get frontend URL for links
             frontend_url = get_frontend_settings().url
