@@ -124,7 +124,6 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       error?: string;
     } | null>(null);
     const [isTabTestRunning, setIsTabTestRunning] = useState(false);
-    const [_testPassed, setTestPassed] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(true);
@@ -248,8 +247,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           error?: string;
         } | null>
       >,
-      setTesting: React.Dispatch<React.SetStateAction<boolean>>,
-      onSuccess?: () => void
+      setTesting: React.Dispatch<React.SetStateAction<boolean>>
     ) => {
       setTesting(true);
       setResult(null);
@@ -299,7 +297,6 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         const r = result as Record<string, unknown>;
         const success = r.success !== false && !r.error;
         setResult({ success: Boolean(success), response: r });
-        if (success) onSuccess?.();
       } catch (err) {
         const msg = (err as Error).message ?? '';
         const display = msg.includes('500')
@@ -312,9 +309,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     };
 
     const handleRunTest = (inputData: Record<string, unknown>) =>
-      runTest(inputData, setTestResult, setIsTestingEndpoint, () =>
-        setTestPassed(true)
-      );
+      runTest(inputData, setTestResult, setIsTestingEndpoint);
 
     const handleTabRunTest = (inputData: Record<string, unknown>) =>
       runTest(inputData, setTabTestResult, setIsTabTestRunning);

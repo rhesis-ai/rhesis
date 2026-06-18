@@ -5,11 +5,7 @@ import { Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
-import {
-  TAB_KEYS,
-  LEGACY_TAB_MAP,
-  type EndpointTabKey,
-} from './endpoint-detail-shared';
+import { TAB_KEYS, type EndpointTabKey } from './endpoint-detail-shared';
 import EndpointOverviewTab from './EndpointOverviewTab';
 import EndpointConnectionTab from './EndpointConnectionTab';
 import EndpointMappingTab from './EndpointMappingTab';
@@ -23,9 +19,6 @@ const TAB_LABELS: Record<EndpointTabKey, string> = {
 };
 
 function normalizeTabParam(param: string | null): EndpointTabKey {
-  if (param && param in LEGACY_TAB_MAP) {
-    return LEGACY_TAB_MAP[param];
-  }
   if (param && TAB_KEYS.includes(param as EndpointTabKey)) {
     return param as EndpointTabKey;
   }

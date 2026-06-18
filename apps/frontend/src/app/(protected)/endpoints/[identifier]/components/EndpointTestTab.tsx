@@ -11,7 +11,6 @@ import { responseMappingToPathToVar } from '../../components/JsonPreview';
 import {
   extractVars,
   applyJsonPath,
-  maskHeaders,
   substituteVars,
   buildCurl,
 } from '../../components/endpoint-template-utils';
