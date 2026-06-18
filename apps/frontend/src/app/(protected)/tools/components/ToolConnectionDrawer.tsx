@@ -44,6 +44,8 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'GITHUB_PERSONAL_ACCESS_TOKEN';
     case 'gitlab':
       return 'GITLAB_PERSONAL_ACCESS_TOKEN';
+    case 'shortcut':
+      return 'SHORTCUT_API_TOKEN';
     case 'jira':
       return 'JIRA_API_TOKEN';
     case 'confluence':

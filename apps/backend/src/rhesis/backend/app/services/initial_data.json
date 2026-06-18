@@ -588,6 +588,11 @@
             "description": "GitLab integration"
         },
         {
+            "type_name": "ToolProviderType",
+            "type_value": "shortcut",
+            "description": "Shortcut integration"
+        },
+        {
             "type_name": "EmbeddingDimension",
             "type_value": "384",
             "description": "384-dimensional embeddings"
