@@ -453,9 +453,12 @@ def require_permission(capability: "str | Permission"):
                 project_id = None
 
         if not authorize(principal, capability, project_id=project_id, db=db):
+            # SP12: GitHub-style X-Accepted-Permissions header so callers
+            # know exactly which capability they are missing.
             raise HTTPException(
                 status_code=403,
                 detail=f"Permission denied: {capability}",
+                headers={"X-Accepted-Permissions": str(capability)},
             )
 
     return _dependency
