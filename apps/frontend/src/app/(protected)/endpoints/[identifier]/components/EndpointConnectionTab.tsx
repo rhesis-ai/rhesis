@@ -182,7 +182,7 @@ export default function EndpointConnectionTab() {
             onToggleAuthToken={() => setShowAuthToken(v => !v)}
             editorTheme={editorTheme}
             isEditing={isEditing}
-            hasExistingToken={Boolean(endpoint.id)}
+            hasExistingToken={Boolean(endpoint.has_auth_token)}
             tokenFieldFocused={tokenFieldFocused}
             onTokenFocus={() => {
               setTokenFieldFocused(true);
