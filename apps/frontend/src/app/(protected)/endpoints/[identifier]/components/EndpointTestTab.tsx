@@ -130,7 +130,7 @@ export default function EndpointTestTab() {
 
   return (
     <SectionCard
-      title="Connection Test"
+      title="Test"
       subtitle="Fire a live request and see exactly what your API returns and how Rhesis maps it."
       actions={
         <LoadingButton
