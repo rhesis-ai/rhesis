@@ -191,8 +191,6 @@ class BaseTask(Task):
                     error=str(e),
                     exception_type=type(e).__name__,
                 )
-        else:
-            self.log_with_context("debug", "Email notification disabled for this task type")
 
         return super().on_success(retval, task_id, args, kwargs)
 
@@ -316,33 +314,18 @@ class BaseTask(Task):
             # Get user context
             organization_id, user_id, _ = self.get_tenant_context()
 
-            self.log_with_context(
-                "debug",
-                "Email notification process started",
-                status=status,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-
             if not user_id:
-                self.log_with_context("debug", "No user context available for email notification")
                 return
 
             # Get user information
-            self.log_with_context("debug", f"Looking up user information for user_id: {user_id}")
             user_email, user_name = self._get_user_info(user_id, organization_id)
 
             if not user_email:
                 self.log_with_context("warning", f"No email found for user {user_id}")
                 return
 
-            self.log_with_context("debug", f"Found user email: {user_email}, name: {user_name}")
-
             # Skip placeholder emails (these are internal users without real emails)
             if "placeholder.rhesis.ai" in user_email:
-                self.log_with_context(
-                    "debug", f"Skipping notification for placeholder email: {user_email}"
-                )
                 return
 
             # Calculate execution time using our custom start time or Celery's time_start
@@ -355,15 +338,8 @@ class BaseTask(Task):
                     from rhesis.backend.tasks.utils import format_execution_time
 
                     execution_time = format_execution_time(duration)
-                    self.log_with_context(
-                        "debug", f"Calculated execution time from custom timing: {execution_time}"
-                    )
-                except Exception as e:
-                    self.log_with_context(
-                        "warning",
-                        "Failed to calculate execution time from custom timing",
-                        error=str(e),
-                    )
+                except Exception:
+                    pass
             # Fallback to Celery's time_start if available
             elif hasattr(self.request, "time_start") and self.request.time_start:
                 try:
@@ -371,37 +347,13 @@ class BaseTask(Task):
                     from rhesis.backend.tasks.utils import format_execution_time
 
                     execution_time = format_execution_time(duration)
-                    self.log_with_context(
-                        "debug", f"Calculated execution time from Celery timing: {execution_time}"
-                    )
-                except Exception as e:
-                    self.log_with_context(
-                        "warning",
-                        "Failed to calculate execution time from Celery timing",
-                        error=str(e),
-                    )
-            else:
-                self.log_with_context(
-                    "debug",
-                    "No start time available for execution time calculation",
-                )
-
-            # Log final execution time
-            self.log_with_context("debug", f"Final calculated execution time: {execution_time}")
+                except Exception:
+                    pass
 
             # Get frontend URL for links
             frontend_url = get_frontend_settings().url
-            self.log_with_context("debug", f"Using frontend URL: {frontend_url}")
-
-            # Check if email service is configured
-            self.log_with_context(
-                "debug", f"Email service configured: {email_service.is_configured}"
-            )
 
             if not email_service.is_configured:
-                self.log_with_context(
-                    "warning", "Email service not configured - skipping email notification"
-                )
                 return
 
             # Get template and subject from decorator or use defaults
@@ -429,7 +381,6 @@ class BaseTask(Task):
             # Special handling for execution_time - ensure we have a reasonable fallback
             if template_variables.get("execution_time") is None:
                 template_variables["execution_time"] = "Unknown"
-                self.log_with_context("debug", "Using fallback execution time: Unknown")
 
             # Build subject
             if subject_template:
@@ -446,8 +397,6 @@ class BaseTask(Task):
             else:
                 subject = f"Task Completed: {self.get_display_name()} - {status.title()}"
 
-            # Send the email using centralized approach
-            self.log_with_context("info", f"Sending {status} email notification to {user_email}")
             success = email_service.send_email(
                 template=template,
                 recipient_email=user_email,
@@ -458,10 +407,16 @@ class BaseTask(Task):
 
             if success:
                 self.log_with_context(
-                    "info", f"Email notification sent successfully to {user_email}"
+                    "info",
+                    f"Task completion email sent ({status})",
+                    recipient_email=user_email,
                 )
             else:
-                self.log_with_context("error", f"Email notification failed to send to {user_email}")
+                self.log_with_context(
+                    "error",
+                    f"Task completion email failed ({status})",
+                    recipient_email=user_email,
+                )
 
         except Exception as e:
             # Don't fail the task if email sending fails - just log the error
@@ -519,3 +474,7 @@ class SilentTask(BaseTask):
     """Base task class with email notifications disabled (for background/parallel tasks)."""
 
     send_email_notification_flag = False
+
+    def on_success(self, retval, task_id, args, kwargs):
+        """Skip generic completion logging; callers log task-specific outcomes."""
+        return super(BaseTask, self).on_success(retval, task_id, args, kwargs)

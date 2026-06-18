@@ -536,23 +536,10 @@ def prepare_test_data(
     else:
         data = test_data.copy()
 
-    # Debug: Log original data
-    uuid_fields_before = {k: v for k, v in data.items() if k.endswith("_id")}
-    logger.debug(f"prepare_test_data - UUID fields before sanitization: {uuid_fields_before}")
-
     # Sanitize UUID fields - convert empty strings to None
     for key, value in list(data.items()):
         if key.endswith("_id"):
-            original_value = value
             data[key] = sanitize_uuid_field(value)
-            if original_value != data[key]:
-                logger.debug(
-                    f"prepare_test_data - Sanitized {key}: '{original_value}' -> '{data[key]}'"
-                )
-
-    # Debug: Log sanitized data
-    uuid_fields_after = {k: v for k, v in data.items() if k.endswith("_id")}
-    logger.debug(f"prepare_test_data - UUID fields after sanitization: {uuid_fields_after}")
 
     return data
 
@@ -672,11 +659,7 @@ def bulk_create_tests(
         )
 
         for i, test_data in enumerate(tests_data):
-            logger.debug(f"bulk_create_tests - Processing test {i + 1}/{len(tests_data)}")
             test_data_dict = prepare_test_data(test_data, defaults)
-            logger.debug(
-                f"bulk_create_tests - test_data_dict after prepare_test_data: {test_data_dict}"
-            )
 
             # Determine test type for this specific test
             # Priority: 1. Individual test's test_type, 2. Auto-detect from config,
@@ -758,22 +741,8 @@ def bulk_create_tests(
             )
 
             # Create test with improved owner_id handling
-            original_assignee_id = test_data_dict.get("assignee_id", None)
-            original_owner_id = test_data_dict.get("owner_id", None)
-            logger.debug(
-                f"bulk_create_tests - Original UUID values: "
-                f"assignee_id='{original_assignee_id}', "
-                f"owner_id='{original_owner_id}'"
-            )
-
             assignee_id = sanitize_uuid_field(test_data_dict.pop("assignee_id", None))
             owner_id = ensure_owner_id(test_data_dict.pop("owner_id", None), user_id)
-
-            logger.debug(
-                f"bulk_create_tests - Sanitized UUID values: "
-                f"assignee_id='{assignee_id}', "
-                f"owner_id='{owner_id}'"
-            )
 
             # Extract source_id from metadata if present
             # Note: SDK uses "metadata" but DB uses "test_metadata"
@@ -826,27 +795,13 @@ def bulk_create_tests(
             }
 
             # Clean any remaining UUID fields from the test data dict
-            logger.debug(
-                f"bulk_create_tests - Remaining test_data_dict before cleaning: {test_data_dict}"
-            )
             for key, value in list(test_data_dict.items()):
                 if key.endswith("_id"):
-                    original_value = value
                     test_data_dict[key] = sanitize_uuid_field(value)
-                    if original_value != test_data_dict[key]:
-                        logger.debug(
-                            f"bulk_create_tests - Cleaned remaining field {key}: "
-                            f"'{original_value}' -> '{test_data_dict[key]}'"
-                        )
             # Add any remaining fields from test_data_dict that weren't explicitly handled
             remaining_fields = {k: v for k, v in test_data_dict.items() if k not in test_params}
-            logger.debug(f"bulk_create_tests - Remaining fields to add: {remaining_fields}")
             test_params.update(remaining_fields)
 
-            # Log final test parameters for debugging UUID issues
-            uuid_params = {k: v for k, v in test_params.items() if k.endswith("_id")}
-            logger.debug(f"bulk_create_tests - Final UUID parameters: {uuid_params}")
-            logger.debug(f"bulk_create_tests - All test parameters: {test_params}")
             # Map "metadata" to "test_metadata" (SDK uses "metadata" but DB uses "test_metadata")
             if "metadata" in test_params and "test_metadata" not in test_params:
                 test_params["test_metadata"] = test_params.pop("metadata")
@@ -855,17 +810,13 @@ def bulk_create_tests(
                 test = models.Test(**test_params)
                 db.add(test)
                 _pending_tests.append(test)
-                logger.debug(
-                    f"bulk_create_tests - Successfully created Test model for test {i + 1}"
-                )
             except Exception as model_error:
                 logger.error(
-                    f"bulk_create_tests - Failed to create Test model "
-                    f"for test {i + 1}: {model_error}"
+                    "bulk_create_tests - Failed to create Test model for test %s: %s",
+                    i + 1,
+                    model_error,
                 )
-                logger.error(
-                    f"bulk_create_tests - Test parameters that caused error: {test_params}"
-                )
+                logger.error("bulk_create_tests - Test parameters that caused error: %s", test_params)
                 raise
 
             # Flush+expunge cycle: every flush_interval tests, flush to
@@ -876,11 +827,6 @@ def bulk_create_tests(
                 for t in _pending_tests:
                     created_test_ids.append(str(t.id))
                     db.expunge(t)
-                logger.debug(
-                    f"bulk_create_tests - Flushed and expunged "
-                    f"{len(_pending_tests)} tests "
-                    f"(total so far: {len(created_test_ids)})"
-                )
                 _pending_tests.clear()
 
         # Flush any remaining tests in the last partial batch
@@ -889,11 +835,6 @@ def bulk_create_tests(
             for t in _pending_tests:
                 created_test_ids.append(str(t.id))
                 db.expunge(t)
-            logger.debug(
-                f"bulk_create_tests - Flushed final batch of "
-                f"{len(_pending_tests)} tests "
-                f"(total: {len(created_test_ids)})"
-            )
             _pending_tests.clear()
 
         # Create test set associations AFTER all tests are created

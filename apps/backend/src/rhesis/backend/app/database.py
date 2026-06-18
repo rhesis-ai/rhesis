@@ -79,9 +79,6 @@ def _set_session_variables(
     # Persist in session.info so after_begin can re-apply after each commit.
     db.info[_TENANT_VARS_KEY] = params
     _execute_set_config(db, params)
-    logger.debug(
-        f"Session variables set: org={organization_id}, user={user_id}, project={project_id}"
-    )
 
 
 def _apply_scope_variables(db: Session, scope) -> None:
@@ -269,8 +266,6 @@ def reset_session_context(db: Session):
 
         # Also clear context vars for backward compatibility
         clear_tenant_context()
-
-        logger.debug("Successfully reset session variables to empty strings")
 
     except Exception as e:
         logger.debug(f"Error resetting RLS session context: {e}")

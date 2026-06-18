@@ -974,10 +974,6 @@ def get_or_create_type_lookup(
     description: str = None,
 ) -> TypeLookup:
     """Get or create a type lookup with the specified type_name and type_value."""
-    logger.debug(
-        f"get_or_create_type_lookup - Looking for type_name='{type_name}', "
-        f"type_value='{type_value}'"
-    )
 
     # Try to find existing type lookup
     query = (
@@ -991,18 +987,15 @@ def get_or_create_type_lookup(
         )
     )
 
-    logger.debug("get_or_create_type_lookup - About to execute query for existing type")
     try:
         existing_type = query.first()
         if existing_type:
-            logger.debug(f"get_or_create_type_lookup - Found existing type: {existing_type}")
             return existing_type
     except Exception as query_error:
-        logger.error(f"get_or_create_type_lookup - Error querying existing type: {query_error}")
+        logger.error("get_or_create_type_lookup - Error querying existing type: %s", query_error)
         raise
 
     # Create new type lookup
-    logger.debug("get_or_create_type_lookup - Creating new type lookup")
     try:
         item_data = {"type_name": type_name, "type_value": type_value}
         if description is not None:
@@ -1016,10 +1009,9 @@ def get_or_create_type_lookup(
             user_id=user_id,
             commit=commit,
         )
-        logger.debug(f"get_or_create_type_lookup - Created new type: {result}")
         return result
     except Exception as create_error:
-        logger.error(f"get_or_create_type_lookup - Error creating new type: {create_error}")
+        logger.error("get_or_create_type_lookup - Error creating new type: %s", create_error)
         raise
 
 
