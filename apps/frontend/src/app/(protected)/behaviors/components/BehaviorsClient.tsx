@@ -21,6 +21,7 @@ import BehaviorDrawer from './BehaviorDrawer';
 import BehaviorMetricsViewer from './BehaviorMetricsViewer';
 import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
@@ -580,11 +581,13 @@ export default function BehaviorsClient({
           />
         ) : (
           <EntityEmptyState
+            card
             icon={PsychologyIcon}
             title="No behavior yet"
             description="Create your first behavior to define atomic expectations for your AI applications. Behaviors are measured through metrics to ensure your requirements are met."
             actionLabel="Create behavior"
             onAction={handleAddNewBehavior}
+            enrichment={getEntityEmptyStateEnrichment('behaviors')}
           />
         )
       ) : (

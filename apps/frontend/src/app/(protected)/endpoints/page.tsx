@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import EndpointsIcon from '@/components/EndpointsIcon';
 import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
@@ -121,6 +122,7 @@ export default function EndpointsPage() {
               description="Create your first endpoint to connect your application under test and start running tests and evaluations."
               actionLabel="Create endpoint"
               onAction={handleCreate}
+              enrichment={getEntityEmptyStateEnrichment('endpoints')}
             />
           ) : (
             <Paper

@@ -11,6 +11,7 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -133,12 +134,14 @@ export default function TestsPage() {
       <Box sx={{ mt: 2, mb: 2 }}>
         {testCount === 0 ? (
           <EntityEmptyState
+            card
             icon={ScienceIcon}
             title="No test yet"
             description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
             actionLabel="Create test"
             onAction={handleCreateManual}
             actionDisabled={shouldDisableAddButton}
+            enrichment={getEntityEmptyStateEnrichment('tests')}
           />
         ) : (
           <Paper
