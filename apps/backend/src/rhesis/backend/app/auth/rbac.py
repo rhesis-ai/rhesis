@@ -391,6 +391,28 @@ def authorize_object(
     return authorize(principal, own_perm_str, project_id=project_id, db=db)
 
 
+def project_id_from_scope(db: Session) -> Optional[UUID]:
+    """Return the ambient request's ``project_id`` as a ``UUID``, or ``None``.
+
+    Reads ``db.info['_scope'].project_id`` (a string, written by
+    ``get_db_with_tenant_variables``) and coerces it to a ``UUID``.  A missing,
+    empty, or malformed value yields ``None`` — i.e. the request is treated as
+    org-scoped rather than failing.  Shared by :func:`require_permission` and
+    by handlers that call :func:`authorize_object` so both resolve the project
+    scope identically.
+    """
+    scope = db.info.get("_scope")
+    project_id = getattr(scope, "project_id", None)
+    if project_id is None:
+        return None
+    if isinstance(project_id, UUID):
+        return project_id
+    try:
+        return UUID(str(project_id))
+    except (ValueError, AttributeError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # FastAPI dependency factory — for explicit per-route use (before SP4 PEP)
 # ---------------------------------------------------------------------------
@@ -444,13 +466,7 @@ def require_permission(capability: "str | Permission"):
         )
 
         # Read project_id from the ambient scope written by get_db_with_tenant_variables.
-        scope = db.info.get("_scope")
-        project_id: Optional[UUID] = getattr(scope, "project_id", None)
-        if project_id is not None and not isinstance(project_id, UUID):
-            try:
-                project_id = UUID(str(project_id))
-            except (ValueError, AttributeError):
-                project_id = None
+        project_id = project_id_from_scope(db)
 
         if not authorize(principal, capability, project_id=project_id, db=db):
             # SP12: GitHub-style X-Accepted-Permissions header so callers
@@ -471,6 +487,7 @@ __all__ = [
     "authorize",
     "authorize_object",
     "get_authorization_provider",
+    "project_id_from_scope",
     "require_permission",
     "set_authorization_provider",
 ]

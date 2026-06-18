@@ -97,13 +97,15 @@ class TestChannelAuthorizerUnit:
         run_id = uuid.uuid4()
         fake_db = object()
 
+        # authorize/resolve_principal are imported lazily inside the method,
+        # so patch them at their source modules.
         with (
             patch(
-                "rhesis.backend.app.services.websocket.authorization.authorize",
+                "rhesis.backend.app.auth.rbac.authorize",
                 return_value=True,
             ) as mock_authz,
             patch(
-                "rhesis.backend.app.services.websocket.authorization.resolve_principal",
+                "rhesis.backend.app.auth.principal.resolve_principal",
                 return_value=SimpleNamespace(user_id=user.id, organization_id=user.organization_id),
             ),
         ):
@@ -125,11 +127,11 @@ class TestChannelAuthorizerUnit:
 
         with (
             patch(
-                "rhesis.backend.app.services.websocket.authorization.authorize",
+                "rhesis.backend.app.auth.rbac.authorize",
                 return_value=False,
             ),
             patch(
-                "rhesis.backend.app.services.websocket.authorization.resolve_principal",
+                "rhesis.backend.app.auth.principal.resolve_principal",
                 return_value=SimpleNamespace(user_id=user.id, organization_id=user.organization_id),
             ),
         ):

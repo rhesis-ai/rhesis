@@ -144,22 +144,19 @@ class TestAcceptedPermissionsHeader:
     """require_permission() must include X-Accepted-Permissions on 403."""
 
     def test_header_present_on_403(self, monkeypatch):
-        """When authorize() denies, the 403 response carries X-Accepted-Permissions."""
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
+        """When authorize() denies, the dependency raises 403 with the header.
 
+        Calls the dependency closure directly (no TestClient wiring) so the
+        assertion is deterministic rather than conditional on a 403 occurring.
+        """
+        from types import SimpleNamespace
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.auth.principal import Principal
         from rhesis.backend.app.auth.rbac import require_permission
 
-        # Build a minimal app with one protected route.
-        app = FastAPI()
-
-        @app.get("/protected")
-        def _protected(_authz=__import__("fastapi").Depends(require_permission("test_set:read"))):
-            return {"ok": True}
-
-        # Stub out the dependencies so we only test the header, not the full auth stack.
-        from rhesis.backend.app.auth.principal import Principal
-
+        # Deny unconditionally; force org-scoped (no project) resolution.
         monkeypatch.setattr(
             "rhesis.backend.app.auth.rbac.resolve_principal",
             lambda u, **kw: Principal(
@@ -168,28 +165,15 @@ class TestAcceptedPermissionsHeader:
         )
         monkeypatch.setattr("rhesis.backend.app.auth.rbac.authorize", lambda *a, **kw: False)
 
-        from unittest.mock import MagicMock
+        dependency = require_permission("test_set:read")
 
-        fake_user = MagicMock()
-        fake_user.id = uuid.uuid4()
-        fake_user.organization_id = uuid.uuid4()
+        fake_request = SimpleNamespace(state=SimpleNamespace())
+        fake_db = SimpleNamespace(info={})
+        fake_user = SimpleNamespace(id=uuid.uuid4(), organization_id=uuid.uuid4())
 
-        import rhesis.backend.app.auth.user_utils as uu
+        with pytest.raises(HTTPException) as exc_info:
+            dependency(request=fake_request, db=fake_db, current_user=fake_user)
 
-        monkeypatch.setattr(uu, "require_current_user_or_token", lambda: fake_user)
-
-
-        monkeypatch.setattr(
-            "rhesis.backend.app.auth.rbac.get_tenant_db_session",
-            lambda: iter([MagicMock()]),
-        )
-
-        with TestClient(app, raise_server_exceptions=False) as client:
-            resp = client.get("/protected")
-
-        # We only care about the header, not whether FastAPI wired our stub perfectly.
-        # The key assertion: IF a 403 is raised by require_permission, the header is set.
-        if resp.status_code == 403:
-            assert "x-accepted-permissions" in {k.lower() for k in resp.headers}, (
-                "require_permission must return X-Accepted-Permissions header on 403"
-            )
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.headers is not None
+        assert exc_info.value.headers.get("X-Accepted-Permissions") == "test_set:read"

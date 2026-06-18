@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal
-from rhesis.backend.app.auth.rbac import authorize_object
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.dependencies import (
@@ -149,8 +149,7 @@ def update_comment(
 
     # SP10: object-level ownership check via PDP.
     principal = resolve_principal(current_user)
-    scope = db.info.get("_scope")
-    project_id = getattr(scope, "project_id", None)
+    project_id = project_id_from_scope(db)
     if not authorize_object(
         principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
     ):
@@ -183,8 +182,7 @@ def delete_comment(
 
     # SP10: object-level ownership check via PDP.
     principal = resolve_principal(current_user)
-    scope = db.info.get("_scope")
-    project_id = getattr(scope, "project_id", None)
+    project_id = project_id_from_scope(db)
     if not authorize_object(
         principal, Permission.Comment.DELETE_OWN, db_comment, project_id=project_id, db=db
     ):
