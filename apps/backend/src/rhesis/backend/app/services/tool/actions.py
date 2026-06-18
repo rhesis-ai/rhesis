@@ -53,6 +53,8 @@ _ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
     ("gitlab", ToolAction.TEST_CONNECTION): Transport.MCP,
     ("shortcut", ToolAction.EXTRACT): Transport.MCP,
     ("shortcut", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("asana", ToolAction.EXTRACT): Transport.MCP,
+    ("asana", ToolAction.TEST_CONNECTION): Transport.MCP,
 }
 
 

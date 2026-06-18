@@ -32,6 +32,7 @@ export interface ToolMetadata {
     [key: string]: unknown;
   };
   space_key?: string;
+  workspace_gid?: string;
   [key: string]: unknown;
 }
 
