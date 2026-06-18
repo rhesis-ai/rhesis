@@ -1,6 +1,6 @@
 import logging
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from celery import Task
@@ -242,7 +242,7 @@ class BaseTask(Task):
     def before_start(self, task_id, args, kwargs):
         """Add organization_id and user_id to task request context."""
         # Store task start time for execution time calculation
-        self.request.custom_start_time = datetime.utcnow()
+        self.request.custom_start_time = datetime.now(timezone.utc)
 
         # Get tenant context from headers (preferred) or kwargs (fallback)
         headers = getattr(self.request, "headers", {}) or {}
@@ -276,13 +276,13 @@ class BaseTask(Task):
 
         if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
             try:
-                duration = (datetime.utcnow() - self.request.custom_start_time).total_seconds()
+                duration = (datetime.now(timezone.utc) - self.request.custom_start_time).total_seconds()
                 return format_execution_time(duration)
             except Exception:
                 pass
         elif hasattr(self.request, "time_start") and self.request.time_start:
             try:
-                duration = datetime.utcnow().timestamp() - self.request.time_start
+                duration = datetime.now(timezone.utc).timestamp() - self.request.time_start
                 return format_execution_time(duration)
             except Exception:
                 pass

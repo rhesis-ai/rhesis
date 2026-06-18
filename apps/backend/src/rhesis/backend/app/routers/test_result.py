@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
@@ -512,7 +512,7 @@ def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> d
 
 def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
     """Helper to update metadata when reviews change"""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     reviews_data["metadata"] = {
         "last_updated_at": now,
         "last_updated_by": {
@@ -565,7 +565,7 @@ def add_review(
         db_test_result.test_reviews["reviews"] = []
 
     # Create the new review
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     new_review = {
         "review_id": str(uuid4()),
         "status": status_details,
@@ -670,7 +670,7 @@ def update_review(
         target_changed = True
 
     # Update timestamp
-    review_to_update["updated_at"] = datetime.utcnow().isoformat()
+    review_to_update["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Update metadata
     latest_status = review_to_update["status"]
@@ -765,7 +765,7 @@ def delete_review(
         )
     else:
         db_test_result.test_reviews["metadata"] = {
-            "last_updated_at": datetime.utcnow().isoformat(),
+            "last_updated_at": datetime.now(timezone.utc).isoformat(),
             "last_updated_by": {
                 "user_id": str(current_user.id),
                 "name": current_user.name or current_user.email,

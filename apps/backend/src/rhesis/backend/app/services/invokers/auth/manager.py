@@ -1,7 +1,7 @@
 """Authentication management for endpoint invokers."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
@@ -37,7 +37,7 @@ class AuthenticationManager:
         """
         # Check if we have a valid cached token
         if endpoint.last_token and endpoint.last_token_expires_at:
-            if endpoint.last_token_expires_at > datetime.utcnow():
+            if endpoint.last_token_expires_at > datetime.now(timezone.utc):
                 return endpoint.last_token
 
         # No valid cached token, get new one based on auth type
@@ -94,7 +94,7 @@ class AuthenticationManager:
 
             # Update endpoint with new token info
             endpoint.last_token = token_data["access_token"]
-            endpoint.last_token_expires_at = datetime.utcnow() + timedelta(
+            endpoint.last_token_expires_at = datetime.now(timezone.utc) + timedelta(
                 seconds=token_data.get("expires_in", 3600)
             )
             # Transaction commit is handled by the session context manager

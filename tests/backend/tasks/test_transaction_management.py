@@ -17,7 +17,7 @@ Run with: python -m pytest tests/backend/tasks/test_transaction_management.py -v
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.orm import Session
@@ -57,7 +57,7 @@ class TestTaskTransactionManagement:
             test_db,
             test_run,
             RunStatus.COMPLETED,
-            completion_time=datetime.utcnow(),
+            completion_time=datetime.now(timezone.utc),
             execution_time="00:01:30",
             logger_func=mock_logger_func,
         )
@@ -93,7 +93,7 @@ class TestTaskTransactionManagement:
             test_db,
             mock_test_run,
             RunStatus.COMPLETED,
-            completion_time=datetime.utcnow(),
+            completion_time=datetime.now(timezone.utc),
             execution_time="00:01:30",
             logger_func=mock_logger_func,
         )
@@ -207,7 +207,7 @@ class TestTaskTransactionManagement:
             test_db,
             test_run1,
             RunStatus.COMPLETED,
-            completion_time=datetime.utcnow(),
+            completion_time=datetime.now(timezone.utc),
             execution_time="00:02:00",
             logger_func=mock_logger_func,
         )
@@ -216,7 +216,7 @@ class TestTaskTransactionManagement:
             test_db,
             test_run2,
             RunStatus.FAILED,
-            completion_time=datetime.utcnow(),
+            completion_time=datetime.now(timezone.utc),
             execution_time="00:01:45",
             logger_func=mock_logger_func,
         )
@@ -356,7 +356,7 @@ class TestTaskTransactionManagement:
             test_db,
             test_run1,
             RunStatus.COMPLETED,
-            completion_time=datetime.utcnow(),
+            completion_time=datetime.now(timezone.utc),
             execution_time="00:03:00",
             logger_func=mock_logger_func1,
         )
@@ -366,7 +366,7 @@ class TestTaskTransactionManagement:
             test_db,
             test_run2,
             RunStatus.COMPLETED,
-            completion_time=datetime.utcnow(),
+            completion_time=datetime.now(timezone.utc),
             execution_time="00:02:45",
             logger_func=mock_logger_func2,
         )
