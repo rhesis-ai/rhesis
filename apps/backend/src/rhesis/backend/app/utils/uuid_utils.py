@@ -38,10 +38,7 @@ def sanitize_uuid_field(value: Any) -> Optional[str]:
         None if value is None, empty string, or invalid UUID format,
         otherwise returns the value as string
     """
-    logger.debug(f"sanitize_uuid_field - Input: value='{value}', type={type(value)}")
-
     if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
-        logger.debug(f"sanitize_uuid_field - Returning None for empty/None value: '{value}'")
         return None
 
     # Validate UUID format
@@ -49,10 +46,9 @@ def sanitize_uuid_field(value: Any) -> Optional[str]:
         # Try to convert to UUID to validate format
         UUID(str(value))
         result = str(value)
-        logger.debug(f"sanitize_uuid_field - Valid UUID, returning: '{result}'")
         return result
     except (ValueError, TypeError) as e:
-        logger.debug(f"sanitize_uuid_field - Invalid UUID format provided: {value}, error: {e}")
+        logger.error(f"sanitize_uuid_field - Invalid UUID format provided: {value}, error: {e}")
         return None
 
 
@@ -106,6 +102,5 @@ def ensure_owner_id(owner_id: Optional[str], user_id: str) -> str:
     """
     sanitized_owner_id = sanitize_uuid_field(owner_id)
     if sanitized_owner_id is None:
-        logger.debug(f"Setting owner_id to user_id: {user_id}")
         return user_id
     return sanitized_owner_id

@@ -12,8 +12,8 @@ lint:
 	uvx ruff format $(ALL_FILES) --check
 
 format:
+	# uvx ruff check --fix $(ALL_FILES)
 	uvx ruff format $(ALL_FILES)
-	uvx ruff check --fix $(ALL_FILES)
 
 
 lint_diff:
