@@ -75,7 +75,9 @@ def cascade_soft_delete(
 
             # Bulk soft delete using UPDATE
             # synchronize_session=False is safe since we're not using these objects after
-            count = query.update({"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False)
+            count = query.update(
+                {"deleted_at": datetime.now(timezone.utc)}, synchronize_session=False
+            )
 
             total_deleted += count
 

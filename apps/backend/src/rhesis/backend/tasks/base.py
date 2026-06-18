@@ -276,7 +276,9 @@ class BaseTask(Task):
 
         if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
             try:
-                duration = (datetime.now(timezone.utc) - self.request.custom_start_time).total_seconds()
+                duration = (
+                    datetime.now(timezone.utc) - self.request.custom_start_time
+                ).total_seconds()
                 return format_execution_time(duration)
             except Exception:
                 pass
