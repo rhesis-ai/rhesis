@@ -6,7 +6,7 @@ user's effective permissions so a token can never exceed its owner's access.
 Community tier ignores scopes (but stores them for forward-compatibility).
 
 Revision ID: 7d8e9f0a1b2c
-Revises: 6c7d8e9f0a1b
+Revises: f1a2b3c4d5e0
 Create Date: 2026-06-17
 """
 
@@ -17,7 +17,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "7d8e9f0a1b2c"
-down_revision: Union[str, None] = "6c7d8e9f0a1b"
+down_revision: Union[str, None] = "f1a2b3c4d5e0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
