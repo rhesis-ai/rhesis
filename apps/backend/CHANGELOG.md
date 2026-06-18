@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-18
+
+BASE_URL` instead of `RHESIS_BASE_URL` to support hybrid self-hosted deployments.
+
+3.  **Refine and Format (Keep a Changelog style):**
+
+    *   **Added**
+        *   Comprehensive Role-Based Access Control (RBAC) system, including a Policy Decision Point (PDP), Policy Enforcement Point (PEP) backstop, Redis
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Added
