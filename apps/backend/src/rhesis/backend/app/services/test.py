@@ -816,7 +816,9 @@ def bulk_create_tests(
                     i + 1,
                     model_error,
                 )
-                logger.error("bulk_create_tests - Test parameters that caused error: %s", test_params)
+                logger.error(
+                    "bulk_create_tests - Test parameters that caused error: %s", test_params
+                )
                 raise
 
             # Flush+expunge cycle: every flush_interval tests, flush to
