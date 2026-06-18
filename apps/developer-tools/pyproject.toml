@@ -1,0 +1,18 @@
+[project]
+name = "developer-tools"
+version = "0.1.0"
+description = "Local development tools: mock LLM and mock chatbot servers"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "jsf>=0.11.0",
+    "faker>=30.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mock_llm", "mock_chatbot"]
