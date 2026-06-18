@@ -25,6 +25,16 @@ class ChatCompletionRequest(BaseModel):
     response_format: Optional[dict[str, Any]] = None
 
 
+def _no_empty_strings(value: Any) -> Any:
+    if isinstance(value, str):
+        return value or "mock"
+    if isinstance(value, dict):
+        return {k: _no_empty_strings(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_no_empty_strings(v) for v in value]
+    return value
+
+
 def _build_content(text: str, response_format: Optional[dict[str, Any]]) -> str:
     """Return the assistant content, honoring an OpenAI ``response_format`` request.
 
@@ -37,7 +47,7 @@ def _build_content(text: str, response_format: Optional[dict[str, Any]]) -> str:
     if fmt_type == "json_schema":
         schema = (response_format.get("json_schema") or {}).get("schema") or {}
         if schema:
-            return json.dumps(JSF(schema).generate(), default=str)
+            return json.dumps(_no_empty_strings(JSF(schema).generate()), default=str)
 
     if fmt_type == "json_object":
         return json.dumps({"response": text})
