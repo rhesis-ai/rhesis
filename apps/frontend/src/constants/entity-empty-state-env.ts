@@ -5,17 +5,6 @@ import type {
 } from '@/constants/entity-empty-state-types';
 import { getYouTubeWatchUrl } from '@/utils/onboarding-video';
 
-const ENV_PREFIX: Record<EntityEmptyStateKey, string> = {
-  projects: 'PROJECTS',
-  tests: 'TESTS',
-  'test-sets': 'TEST_SETS',
-  'test-runs': 'TEST_RUNS',
-  endpoints: 'ENDPOINTS',
-  behaviors: 'BEHAVIORS',
-  metrics: 'METRICS',
-  experiments: 'EXPERIMENTS',
-};
-
 const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
   {
     title: 'Documentation',
@@ -37,6 +26,76 @@ const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
   },
 ];
 
+/**
+ * Static process.env access per entity so Next.js inlines NEXT_PUBLIC_* at build time.
+ * Dynamic/bracket access is not replaced in client bundles.
+ */
+function readEntityEnvSources(key: EntityEmptyStateKey): {
+  videoUrl?: string;
+  articleUrls?: string;
+} {
+  switch (key) {
+    case 'projects':
+      return {
+        videoUrl:
+          process.env.NEXT_PUBLIC_PROJECTS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_PROJECTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'tests':
+      return {
+        videoUrl: process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'test-sets':
+      return {
+        videoUrl:
+          process.env.NEXT_PUBLIC_TEST_SETS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_TEST_SETS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'test-runs':
+      return {
+        videoUrl:
+          process.env.NEXT_PUBLIC_TEST_RUNS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_TEST_RUNS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'endpoints':
+      return {
+        videoUrl:
+          process.env.NEXT_PUBLIC_ENDPOINTS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_ENDPOINTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'behaviors':
+      return {
+        videoUrl:
+          process.env.NEXT_PUBLIC_BEHAVIORS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_BEHAVIORS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'metrics':
+      return {
+        videoUrl: process.env.NEXT_PUBLIC_METRICS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_METRICS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    case 'experiments':
+      return {
+        videoUrl:
+          process.env.NEXT_PUBLIC_EXPERIMENTS_EMPTY_STATE_VIDEO_URL?.trim(),
+        articleUrls:
+          process.env.NEXT_PUBLIC_EXPERIMENTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
+      };
+    default: {
+      const _exhaustive: never = key;
+      return _exhaustive;
+    }
+  }
+}
+
 function parseCommaSeparatedUrls(value: string | undefined): string[] {
   if (!value?.trim()) return [];
   return value
@@ -44,14 +103,6 @@ function parseCommaSeparatedUrls(value: string | undefined): string[] {
     .map(url => url.trim())
     .filter(Boolean)
     .slice(0, 4);
-}
-
-function readEnv(
-  key: EntityEmptyStateKey,
-  suffix: 'VIDEO_URL' | 'ARTICLE_URLS'
-) {
-  const prefix = ENV_PREFIX[key];
-  return process.env[`NEXT_PUBLIC_${prefix}_EMPTY_STATE_${suffix}`]?.trim();
 }
 
 function buildEnrichment({
@@ -111,8 +162,8 @@ export function hasEnrichmentContent(
 export function getEntityEmptyStateEnrichment(
   key: EntityEmptyStateKey
 ): EntityEmptyStateEnrichment | undefined {
-  const videoUrl = readEnv(key, 'VIDEO_URL');
-  const articleUrls = parseCommaSeparatedUrls(readEnv(key, 'ARTICLE_URLS'));
+  const { videoUrl, articleUrls: articleUrlsRaw } = readEntityEnvSources(key);
+  const articleUrls = parseCommaSeparatedUrls(articleUrlsRaw);
 
   if (!videoUrl && articleUrls.length === 0) {
     return undefined;
