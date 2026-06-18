@@ -40,9 +40,12 @@ test.describe('Endpoints — CRUD @crud', () => {
     await expect(urlField).toBeVisible({ timeout: 15_000 });
     await urlField.fill(TEST_URL);
 
-    // Verify values were accepted
-    await expect(nameField).toHaveValue(UNIQUE_NAME);
+    // Verify URL value was accepted on the Connection tab
     await expect(urlField).toHaveValue(TEST_URL);
+
+    // Switch back to Overview to verify the name field (tab panels unmount on switch)
+    await page.getByRole('tab', { name: /overview/i }).click();
+    await expect(nameField).toHaveValue(UNIQUE_NAME);
   });
 
   test('can create an endpoint when a project is available', async ({
