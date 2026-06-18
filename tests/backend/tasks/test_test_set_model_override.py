@@ -1,16 +1,16 @@
 """
-Unit tests for the model_id override helpers used by generate_and_save_test_set.
+Unit tests for _resolve_generation_model used by generate_and_save_test_set.
 
 Verifies that:
-- _get_model_for_user calls get_user_generation_model (user default path)
-- _get_override_model calls get_generation_model_with_override (per-request override)
+- With no model_id, the user's default is resolved
+  (get_generation_model_with_override called with model_id=None)
+- With a model_id, that override is passed through
+- A missing user raises ValueError (no silent fallback to the default model)
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from rhesis.backend.app.config.settings import get_model_settings
 
 
 def _make_mock_task():
@@ -20,87 +20,87 @@ def _make_mock_task():
     return task
 
 
-@pytest.mark.unit
-class TestGetModelForUser:
-    """Tests for _get_model_for_user (the user-default path)."""
-
-    @patch("rhesis.backend.app.utils.user_model_utils.get_user_generation_model")
-    @patch("rhesis.backend.app.crud.get_user")
-    @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
-    def test_calls_get_user_generation_model(
-        self, mock_get_db, mock_get_user, mock_gen_model
-    ):
-        from rhesis.backend.tasks.test_set import _get_model_for_user
-
-        task = _make_mock_task()
-        mock_user = MagicMock()
-        mock_get_user.return_value = mock_user
-        mock_db = MagicMock()
-        mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
-        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
-        mock_gen_model.return_value = "user-default-model"
-
-        result = _get_model_for_user(task, "org-1", "user-1")
-
-        mock_gen_model.assert_called_once_with(mock_db, mock_user)
-        assert result == "user-default-model"
-
-    @patch("rhesis.backend.app.crud.get_user")
-    @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
-    def test_falls_back_when_user_not_found(self, mock_get_db, mock_get_user):
-        from rhesis.backend.tasks.test_set import _get_model_for_user
-
-        task = _make_mock_task()
-        mock_get_user.return_value = None
-        mock_db = MagicMock()
-        mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
-        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
-
-        result = _get_model_for_user(task, "org-1", "user-1")
-
-        assert result == get_model_settings().generation_model
+def _mock_db_session(mock_get_db, mock_db):
+    """Wire the get_db_with_tenant_variables context manager to yield mock_db."""
+    mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
+    mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
 
 @pytest.mark.unit
-class TestGetOverrideModel:
-    """Tests for _get_override_model (the per-request override path)."""
+class TestResolveGenerationModel:
+    """Tests for _resolve_generation_model."""
 
-    @patch(
-        "rhesis.backend.app.utils.user_model_utils.get_generation_model_with_override"
-    )
+    @patch("rhesis.backend.tasks.test_set.get_generation_model_with_override")
     @patch("rhesis.backend.app.crud.get_user")
     @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
-    def test_calls_get_generation_model_with_override(
+    def test_resolves_user_default_when_no_model_id(
         self, mock_get_db, mock_get_user, mock_override
     ):
-        from rhesis.backend.tasks.test_set import _get_override_model
+        from rhesis.backend.tasks.test_set import _resolve_generation_model
 
         task = _make_mock_task()
         mock_user = MagicMock()
         mock_get_user.return_value = mock_user
         mock_db = MagicMock()
-        mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
-        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+        _mock_db_session(mock_get_db, mock_db)
+        mock_override.return_value = "user-default-model"
+
+        result = _resolve_generation_model(task, "org-1", "user-1", "project-1")
+
+        mock_override.assert_called_once_with(mock_db, mock_user, model_id=None)
+        assert result == "user-default-model"
+
+    @patch("rhesis.backend.tasks.test_set.get_generation_model_with_override")
+    @patch("rhesis.backend.app.crud.get_user")
+    @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
+    def test_passes_through_override_model_id(
+        self, mock_get_db, mock_get_user, mock_override
+    ):
+        from rhesis.backend.tasks.test_set import _resolve_generation_model
+
+        task = _make_mock_task()
+        mock_user = MagicMock()
+        mock_get_user.return_value = mock_user
+        mock_db = MagicMock()
+        _mock_db_session(mock_get_db, mock_db)
         mock_override.return_value = "override-model"
 
-        result = _get_override_model(task, "org-1", "user-1", "model-uuid-789")
+        result = _resolve_generation_model(
+            task, "org-1", "user-1", "project-1", "model-uuid-789"
+        )
 
         mock_override.assert_called_once_with(
             mock_db, mock_user, model_id="model-uuid-789"
         )
         assert result == "override-model"
 
+    @patch("rhesis.backend.tasks.test_set.get_generation_model_with_override")
     @patch("rhesis.backend.app.crud.get_user")
     @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
-    def test_falls_back_when_user_not_found(self, mock_get_db, mock_get_user):
-        from rhesis.backend.tasks.test_set import _get_override_model
+    def test_passes_project_id_to_session(
+        self, mock_get_db, mock_get_user, mock_override
+    ):
+        from rhesis.backend.tasks.test_set import _resolve_generation_model
+
+        task = _make_mock_task()
+        mock_get_user.return_value = MagicMock()
+        mock_db = MagicMock()
+        _mock_db_session(mock_get_db, mock_db)
+        mock_override.return_value = "user-default-model"
+
+        _resolve_generation_model(task, "org-1", "user-1", "project-1")
+
+        mock_get_db.assert_called_once_with("org-1", "user-1", "project-1")
+
+    @patch("rhesis.backend.app.crud.get_user")
+    @patch("rhesis.backend.tasks.test_set.get_db_with_tenant_variables")
+    def test_raises_when_user_not_found(self, mock_get_db, mock_get_user):
+        from rhesis.backend.tasks.test_set import _resolve_generation_model
 
         task = _make_mock_task()
         mock_get_user.return_value = None
         mock_db = MagicMock()
-        mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
-        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+        _mock_db_session(mock_get_db, mock_db)
 
-        result = _get_override_model(task, "org-1", "user-1", "model-uuid-789")
-
-        assert result == get_model_settings().generation_model
+        with pytest.raises(ValueError, match="User not found"):
+            _resolve_generation_model(task, "org-1", "user-1", "project-1")
