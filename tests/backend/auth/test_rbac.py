@@ -648,11 +648,15 @@ class TestRealAppCapabilities:
         )
 
     def test_capabilities_all_have_resource_action_format(self):
-        """Every capability must match the ``resource:action`` format."""
+        """Every capability must match ``resource:action`` (optionally ``:own``).
+
+        The optional ``:own`` qualifier is the object-level capability form (SP10),
+        e.g. ``comment:update:own`` — see ``authorize_object``.
+        """
         import re
 
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
 
-        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$")
+        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own)?$")
         for cap in get_all_capabilities():
             assert pattern.match(cap), f"Capability '{cap}' does not match resource:action format"
