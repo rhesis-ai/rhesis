@@ -24,6 +24,7 @@ import GridToolbar, {
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
@@ -273,12 +274,14 @@ export default function ProjectsClientWrapper({
               />
             ) : (
               <EntityEmptyState
+                card
                 icon={AppsIcon}
                 title="No project yet"
                 description="Create your first project to start organizing your AI applications. Projects help you group endpoints, tests, and results so you can collaborate with your team."
                 actionLabel="Create project"
                 onAction={() => setCreateDrawerOpen(true)}
                 actionDisabled={isProjectButtonDisabled}
+                enrichment={getEntityEmptyStateEnrichment('projects')}
               />
             )
           ) : (

@@ -62,17 +62,37 @@ function isValidVideoId(videoId: string): boolean {
   return /^[\w-]{11}$/.test(videoId);
 }
 
-/**
- * YouTube thumbnail for a watch/short URL (maxresdefault with hqdefault fallback).
- */
-export function getYouTubeThumbnailUrl(raw: string): string | null {
-  const embedUrl = getOnboardingVideoEmbedUrl(raw);
+/** Extract a YouTube video ID from a raw ID or watch/short/embed URL. */
+export function parseYouTubeVideoId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (isValidVideoId(trimmed)) return trimmed;
+
+  const embedUrl = getOnboardingVideoEmbedUrl(trimmed);
   if (!embedUrl) return null;
 
   const match = embedUrl.match(/\/embed\/([^?&/]+)/);
-  if (!match?.[1]) return null;
+  return match?.[1] ?? null;
+}
 
-  return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+/**
+ * YouTube thumbnail for a watch/short URL or raw video ID.
+ * Defaults to maxresdefault; use hqdefault as fallback in the UI on error.
+ */
+export function getYouTubeThumbnailUrl(
+  raw: string,
+  quality: 'maxresdefault' | 'hqdefault' = 'maxresdefault'
+): string | null {
+  const videoId = parseYouTubeVideoId(raw);
+  if (!videoId) return null;
+
+  return `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
+}
+
+export function getYouTubeWatchUrl(raw: string): string | null {
+  const videoId = parseYouTubeVideoId(raw);
+  if (!videoId) return null;
+  return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
 export function getOnboardingVideoUrl(): string | undefined {

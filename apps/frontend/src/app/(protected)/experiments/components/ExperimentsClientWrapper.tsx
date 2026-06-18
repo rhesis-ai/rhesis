@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Box, Button, Chip, Paper, Typography } from '@mui/material';
+import { Box, Chip, Paper, Typography } from '@mui/material';
 import {
   GridColDef,
   GridFilterModel,
@@ -19,6 +19,8 @@ import {
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -39,7 +41,7 @@ import {
   ExperimentRead,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
-import { AddIcon, BiotechIcon } from '@/components/icons';
+import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
@@ -398,47 +400,16 @@ export default function ExperimentsClientWrapper({
       experiments.length === 0 &&
       !searchQuery.trim() &&
       !visibilityFilter ? (
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: BORDER_RADIUS.md,
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            boxShadow: ELEVATION.xs,
-            p: theme => theme.spacing(6),
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-          }}
-        >
-          <BiotechIcon
-            sx={{
-              fontSize: theme => theme.spacing(8),
-              color: 'text.disabled',
-              mb: 2,
-            }}
-          />
-          <Typography variant="h6" gutterBottom>
-            No experiments yet
-          </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ maxWidth: theme => theme.spacing(58), mb: 3 }}
-          >
-            Experiments let you bundle parameter values into versioned
-            configurations. Create one to start tracking how different settings
-            affect your test results.
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            disabled={!activeProject}
-          >
-            New Experiment
-          </Button>
-        </Paper>
+        <EntityEmptyState
+          card
+          icon={BiotechIcon}
+          title="No experiments yet"
+          description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
+          actionLabel="New Experiment"
+          onAction={() => setCreateOpen(true)}
+          actionDisabled={!activeProject}
+          enrichment={getEntityEmptyStateEnrichment('experiments')}
+        />
       ) : (
         <ExperimentsToolbarContext.Provider
           value={{

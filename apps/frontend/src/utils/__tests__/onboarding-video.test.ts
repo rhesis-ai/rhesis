@@ -45,6 +45,21 @@ describe('onboarding-video utils', () => {
   it('builds YouTube thumbnail URLs', () => {
     expect(
       getYouTubeThumbnailUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    ).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg');
+  });
+
+  it('builds hqdefault thumbnails when requested', () => {
+    expect(
+      getYouTubeThumbnailUrl(
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        'hqdefault'
+      )
     ).toBe('https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+  });
+
+  it('parses raw YouTube video IDs', () => {
+    expect(getYouTubeThumbnailUrl('dQw4w9WgXcQ')).toBe(
+      'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'
+    );
   });
 });
