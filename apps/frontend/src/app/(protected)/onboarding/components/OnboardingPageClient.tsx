@@ -7,6 +7,7 @@ import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
 import WelcomeVideoStep from './WelcomeVideoStep';
 import OnboardingShell from './OnboardingShell';
+import { ONBOARDING_STEP_COUNT } from './onboarding-steps';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { UUID } from 'crypto';
@@ -55,15 +56,23 @@ export default function OnboardingPageClient({
   ).getOrganizationsClient();
   const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
 
+  const completingRef = React.useRef(false);
+
   const handleNext = () => {
-    setActiveStep(prevActiveStep => prevActiveStep + 1);
+    setActiveStep(prev => Math.min(prev + 1, ONBOARDING_STEP_COUNT - 1));
   };
 
   const handleBack = () => {
-    setActiveStep(prevActiveStep => prevActiveStep - 1);
+    setActiveStep(prev => Math.max(prev - 1, 0));
   };
 
   const handleComplete = async () => {
+    if (completingRef.current || isSubmitting) {
+      return;
+    }
+
+    completingRef.current = true;
+
     try {
       setIsSubmitting(true);
 
@@ -86,6 +95,7 @@ export default function OnboardingPageClient({
         organization =
           await organizationsClient.createOrganization(organizationData);
       } catch (orgError: unknown) {
+        completingRef.current = false;
         setIsSubmitting(false);
         notifications.show(
           orgError instanceof Error
@@ -108,6 +118,7 @@ export default function OnboardingPageClient({
       try {
         response = await usersClient.updateUser(userId, userUpdate);
       } catch (userError: unknown) {
+        completingRef.current = false;
         setIsSubmitting(false);
         notifications.show(
           userError instanceof Error
@@ -190,7 +201,6 @@ export default function OnboardingPageClient({
                 { severity: 'success' }
               );
             } else if (successCount > 0 && failedCount > 0) {
-              setIsSubmitting(false);
               notifications.show(
                 `Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} failed.`,
                 { severity: 'warning' }
@@ -206,7 +216,6 @@ export default function OnboardingPageClient({
                 );
               });
             } else if (failedCount > 0) {
-              setIsSubmitting(false);
               notifications.show(
                 `Failed to send all ${failedCount} invitation${failedCount === 1 ? '' : 's'}. Please try again.`,
                 { severity: 'error' }
@@ -214,7 +223,6 @@ export default function OnboardingPageClient({
             }
           }
         } catch (error: unknown) {
-          setIsSubmitting(false);
           const errorMessage =
             error instanceof Error
               ? error.message
@@ -242,6 +250,7 @@ export default function OnboardingPageClient({
             throw new Error('Failed to initialize organization data');
           }
         } catch (initError: unknown) {
+          completingRef.current = false;
           setIsSubmitting(false);
           setOnboardingStatus('idle');
           notifications.show(
@@ -256,6 +265,7 @@ export default function OnboardingPageClient({
         throw new Error('Invalid response from user update');
       }
     } catch (error: unknown) {
+      completingRef.current = false;
       setIsSubmitting(false);
       setOnboardingStatus('idle');
       notifications.show(

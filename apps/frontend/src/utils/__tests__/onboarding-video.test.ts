@@ -27,6 +27,21 @@ describe('onboarding-video utils', () => {
     expect(getOnboardingVideoEmbedUrl('')).toBeNull();
   });
 
+  it('rejects lookalike video hostnames', () => {
+    expect(
+      getOnboardingVideoEmbedUrl('https://evil-youtube.com/watch?v=dQw4w9WgXcQ')
+    ).toBeNull();
+    expect(
+      getOnboardingVideoEmbedUrl('https://evil-vimeo.com/123456789')
+    ).toBeNull();
+  });
+
+  it('parses YouTube embed URLs', () => {
+    expect(
+      getOnboardingVideoEmbedUrl('https://www.youtube.com/embed/dQw4w9WgXcQ')
+    ).toBe('https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0');
+  });
+
   it('builds YouTube thumbnail URLs', () => {
     expect(
       getYouTubeThumbnailUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')

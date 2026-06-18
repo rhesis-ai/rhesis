@@ -1,5 +1,6 @@
 /**
  * Parse a YouTube watch/short/embed URL into an embeddable iframe src.
+ * Only allowlisted YouTube/Vimeo hostnames are accepted.
  */
 export function getOnboardingVideoEmbedUrl(raw: string): string | null {
   const trimmed = raw.trim();
@@ -7,26 +8,27 @@ export function getOnboardingVideoEmbedUrl(raw: string): string | null {
 
   try {
     const url = new URL(trimmed);
+    const { hostname } = url;
 
-    if (url.hostname.includes('youtube.com')) {
+    if (isYouTubeHost(hostname)) {
       const videoId =
         url.searchParams.get('v') ??
         (url.pathname.startsWith('/embed/')
           ? url.pathname.split('/embed/')[1]?.split('/')[0]
           : null);
-      if (videoId) {
+      if (videoId && isValidVideoId(videoId)) {
         return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
       }
     }
 
-    if (url.hostname === 'youtu.be') {
+    if (hostname === 'youtu.be') {
       const videoId = url.pathname.slice(1).split('/')[0];
-      if (videoId) {
+      if (videoId && isValidVideoId(videoId)) {
         return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
       }
     }
 
-    if (url.hostname.includes('vimeo.com')) {
+    if (hostname === 'vimeo.com' || hostname === 'www.vimeo.com') {
       const parts = url.pathname.split('/').filter(Boolean);
       const videoId = parts[parts.length - 1];
       if (videoId && /^\d+$/.test(videoId)) {
@@ -34,19 +36,30 @@ export function getOnboardingVideoEmbedUrl(raw: string): string | null {
       }
     }
 
-    // Already an embed URL or other iframe-compatible URL
-    if (
-      url.pathname.includes('/embed/') ||
-      url.hostname.includes('player.vimeo.com')
-    ) {
-      const separator = url.search ? '&' : '?';
-      return `${trimmed}${separator}autoplay=1`;
+    if (hostname === 'player.vimeo.com') {
+      const match = url.pathname.match(/^\/video\/(\d+)/);
+      if (match?.[1]) {
+        return `https://player.vimeo.com/video/${match[1]}?autoplay=1`;
+      }
     }
   } catch {
     return null;
   }
 
   return null;
+}
+
+function isYouTubeHost(hostname: string): boolean {
+  return (
+    hostname === 'youtube.com' ||
+    hostname === 'www.youtube.com' ||
+    hostname === 'm.youtube.com' ||
+    hostname.endsWith('.youtube.com')
+  );
+}
+
+function isValidVideoId(videoId: string): boolean {
+  return /^[\w-]{11}$/.test(videoId);
 }
 
 /**

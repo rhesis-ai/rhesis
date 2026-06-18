@@ -183,8 +183,8 @@ export default function InviteTeamStep({
             <Box key={invite.id} display="flex" alignItems="center" gap={1.25}>
               <TextField
                 fullWidth
-                label={hasValue ? 'Email Address' : undefined}
-                placeholder={hasValue ? undefined : 'Email Address'}
+                label="Email Address"
+                InputLabelProps={{ shrink: hasValue }}
                 value={invite.email}
                 onChange={e => handleEmailChange(index, e.target.value)}
                 error={Boolean(errors[index]?.hasError)}
