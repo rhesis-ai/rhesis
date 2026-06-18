@@ -2,17 +2,19 @@ import logging
 from typing import Any, List, Optional, Union
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
+from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
     generate_test_set_attributes,
     load_defaults,
 )
-from rhesis.backend.app.services.test import bulk_create_tests
+from rhesis.backend.app.utils.user_model_utils import (
+    get_generation_model_with_override,
+)
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, email_notification
@@ -183,72 +185,27 @@ def _save_test_set_to_database(
     return db_test_set
 
 
-def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
-    """
-    Fetch user's configured generation model from database.
+def _resolve_generation_model(
+    self, org_id: str, user_id: str, project_id: str = "", model_id: Optional[str] = None
+) -> Union[str, Any]:
+    """Fetch the generation model for this task run.
 
-    Args:
-        org_id: Organization ID
-        user_id: User ID
-
-    Returns:
-        Either the user's configured BaseLLM instance or the system generation model string
+    Uses model_id as an explicit override when provided; otherwise returns the
+    user's configured default. project_id is required so project-scoped models
+    are visible to the ORM auto-filter.
     """
-    self.log_with_context("info", "Fetching user's configured generation model")
-    with get_db_with_tenant_variables(org_id, user_id) as db:
+    with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
         user = crud.get_user(db, user_id=user_id)
-        if user:
-            from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+        if not user:
+            raise ValueError(f"User not found: {user_id}")
 
-            model = get_user_generation_model(db, user)
-            self.log_with_context(
-                "info",
-                "Using user's configured model",
-                model_type=type(model).__name__ if not isinstance(model, str) else "string",
-            )
-            return model
-        else:
-            # Fallback to default if user not found
-            default_model = get_model_settings().generation_model
-            self.log_with_context(
-                "warning", "User not found, using default model", model=default_model
-            )
-            return default_model
-
-
-def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union[str, Any]:
-    """
-    Fetch a specific model by ID for per-request override.
-
-    Args:
-        org_id: Organization ID
-        user_id: User ID
-        model_id: Model UUID to fetch
-
-    Returns:
-        Either a configured BaseLLM instance or the system generation model string
-    """
-    self.log_with_context("info", "Fetching per-request override model", model_id=model_id)
-    with get_db_with_tenant_variables(org_id, user_id) as db:
-        user = crud.get_user(db, user_id=user_id)
-        if user:
-            from rhesis.backend.app.utils.user_model_utils import (
-                get_generation_model_with_override,
-            )
-
-            model = get_generation_model_with_override(db, user, model_id=model_id)
-            self.log_with_context(
-                "info",
-                "Using per-request override model",
-                model_type=type(model).__name__ if not isinstance(model, str) else "string",
-            )
-            return model
-        else:
-            default_model = get_model_settings().generation_model
-            self.log_with_context(
-                "warning", "User not found, using default model", model=default_model
-            )
-            return default_model
+        model = get_generation_model_with_override(db, user, model_id=model_id)
+        self.log_with_context(
+            "info",
+            "Resolved generation model",
+            model_type=type(model).__name__ if not isinstance(model, str) else "string",
+        )
+        return model
 
 
 def _build_task_result(
@@ -474,7 +431,7 @@ def generate_and_save_test_set(
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
     """
-    org_id, user_id, _ = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     # Parse config
     generation_config = GenerationConfig(**config)
@@ -496,11 +453,7 @@ def generate_and_save_test_set(
                 user_id=user_id,
             )
 
-    # Get model: use per-request override if provided, otherwise user's default
-    if model_id:
-        model = _get_override_model(self, org_id, user_id, model_id)
-    else:
-        model = _get_model_for_user(self, org_id, user_id)
+    model = _resolve_generation_model(self, org_id, user_id, project_id or "", model_id)
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
