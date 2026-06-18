@@ -90,7 +90,7 @@ export default function EndpointTestWorkbench({
     content: React.ReactNode
   ) => (
     <Box key={key} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-      <Box sx={{ flexShrink: 0, pt: '7px' }}>{chip}</Box>
+      <Box sx={{ flexShrink: 0, pt: '7px', width: 160 }}>{chip}</Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>{content}</Box>
     </Box>
   );
