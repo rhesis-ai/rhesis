@@ -27,6 +27,10 @@ export interface ToolMetadata {
     repo?: string;
     [key: string]: unknown;
   };
+  project?: {
+    namespace?: string;
+    [key: string]: unknown;
+  };
   space_key?: string;
   [key: string]: unknown;
 }

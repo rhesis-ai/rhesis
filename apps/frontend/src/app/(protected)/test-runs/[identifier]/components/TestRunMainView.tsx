@@ -101,6 +101,21 @@ export default function TestRunMainView({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const preferLinkedEntities = Boolean(initialSelectedTestId);
+  const activeTab = tabIndexFromKey(
+    searchParams.get('tab'),
+    preferLinkedEntities && !searchParams.get('tab')
+  );
+
+  // Only fetch raw test results once the Test Cases tab is opened.
+  // A ref ensures the fetch starts and stays enabled after the first visit.
+  const testCasesVisited = React.useRef(
+    activeTab === TAB_KEYS.indexOf('linked_entities')
+  );
+  if (activeTab === TAB_KEYS.indexOf('linked_entities')) {
+    testCasesVisited.current = true;
+  }
+
   const {
     testResults: loadedTestResults,
     prompts,
@@ -111,13 +126,8 @@ export default function TestRunMainView({
   } = useTestRunDetailData({
     testRunId,
     sessionToken,
+    enabled: testCasesVisited.current,
   });
-
-  const preferLinkedEntities = Boolean(initialSelectedTestId);
-  const activeTab = tabIndexFromKey(
-    searchParams.get('tab'),
-    preferLinkedEntities && !searchParams.get('tab')
-  );
 
   const handleTabChange = useCallback(
     (newValue: number) => {

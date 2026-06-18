@@ -63,14 +63,37 @@ class GitHubRestClient:
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self, tool_metadata: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """Verify credentials by calling GET /user."""
         async with httpx.AsyncClient() as client:
             resp = await client.get("https://api.github.com/user", headers=self._headers)
-        if resp.status_code == 200:
+            if resp.status_code != 200:
+                return {
+                    "is_authenticated": "No",
+                    "message": f"Authentication failed: {resp.status_code}",
+                }
             login = resp.json().get("login", "")
-            return {"is_authenticated": "Yes", "message": f"Connected as {login}"}
-        return {"is_authenticated": "No", "message": f"Authentication failed: {resp.status_code}"}
+            message = f"Connected as {login}"
+
+            repo_data = (tool_metadata or {}).get("repository")
+            if isinstance(repo_data, dict):
+                owner = repo_data.get("owner")
+                repo = repo_data.get("repo")
+                if owner and repo:
+                    repo_resp = await client.get(
+                        f"{_GITHUB_API}/repos/{owner}/{repo}",
+                        headers=self._headers,
+                    )
+                    if repo_resp.status_code != 200:
+                        return {
+                            "is_authenticated": "No",
+                            "message": (
+                                f"Repository {owner}/{repo} not accessible: {repo_resp.status_code}"
+                            ),
+                        }
+                    message = f"Connected as {login}; verified access to {owner}/{repo}"
+
+        return {"is_authenticated": "Yes", "message": message}
 
     async def fetch(self, url: str) -> str:
         """Fetch a single file or top-level directory listing from a GitHub URL."""

@@ -583,6 +583,11 @@
             "description": "Confluence integration"
         },
         {
+            "type_name": "ToolProviderType",
+            "type_value": "gitlab",
+            "description": "GitLab integration"
+        },
+        {
             "type_name": "EmbeddingDimension",
             "type_value": "384",
             "description": "384-dimensional embeddings"

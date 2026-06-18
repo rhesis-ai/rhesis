@@ -310,6 +310,78 @@ class TestStreamConfig:
 
 
 # ---------------------------------------------------------------------------
+# IncrementalConfigParser
+# ---------------------------------------------------------------------------
+
+
+def _config_response_json(**overrides):
+    payload = {
+        "behaviors": [
+            {"name": "Compliance", "description": "d", "active": True},
+            {"name": "Reliability", "description": "d", "active": True},
+        ],
+        "topics": [
+            {"name": "Claim Process", "description": "d", "active": True},
+            {"name": "Insurance Policy", "description": "d", "active": False},
+        ],
+        "categories": [
+            {"name": "Functional Testing", "description": "d", "active": True},
+            {"name": "Security Testing", "description": "d", "active": False},
+        ],
+    }
+    payload.update(overrides)
+    return json.dumps(payload)
+
+
+@pytest.mark.unit
+@pytest.mark.services
+class TestIncrementalConfigParser:
+    def test_single_chunk_attributes_each_array(self):
+        """Non-streaming models may deliver the full JSON in one chunk."""
+        from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser
+
+        parser = IncrementalConfigParser()
+        parsed = parser.feed(_config_response_json())
+
+        assert [cat for cat, _ in parsed] == [
+            "behaviors",
+            "behaviors",
+            "topics",
+            "topics",
+            "categories",
+            "categories",
+        ]
+
+    def test_char_stream_attributes_each_array(self):
+        from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser
+
+        parser = IncrementalConfigParser()
+        parsed = []
+        for ch in _config_response_json():
+            parsed.extend(parser.feed(ch))
+
+        assert {cat for cat, _ in parsed} == {"behaviors", "topics", "categories"}
+        assert len(parsed) == 6
+
+    def test_empty_array_does_not_shift_later_keys(self):
+        from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser
+
+        parser = IncrementalConfigParser()
+        parsed = parser.feed(
+            _config_response_json(
+                behaviors=[],
+                topics=[{"name": "Auth", "description": "d", "active": True}],
+                categories=[{"name": "Security", "description": "d", "active": True}],
+            )
+        )
+
+        assert parsed == [
+            ("topics", {"name": "Auth", "description": "d", "active": True}),
+            ("categories", {"name": "Security", "description": "d", "active": True}),
+        ]
+
+
+# ---------------------------------------------------------------------------
 # IncrementalJsonArrayParser
 # ---------------------------------------------------------------------------
 
