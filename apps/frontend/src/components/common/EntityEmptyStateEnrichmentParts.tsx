@@ -148,7 +148,7 @@ function EmptyStateMedia({
         display: 'block',
         width: '100%',
         maxWidth: 734,
-        borderRadius: '13px',
+        borderRadius: BORDER_RADIUS.md,
         overflow: 'hidden',
         textDecoration: 'none',
       }}
@@ -166,7 +166,7 @@ function EmptyStateMedia({
           display: 'block',
           width: '100%',
           height: 'auto',
-          borderRadius: '13px',
+          borderRadius: BORDER_RADIUS.md,
         }}
       />
     </Box>
@@ -262,7 +262,7 @@ function EmptyStateLinkCard({ card }: { card: EmptyStateLinkCard }) {
       elevation={0}
       sx={{
         border: theme => `1px solid ${theme.palette.greyscale.border}`,
-        borderRadius: '10px',
+        borderRadius: BORDER_RADIUS.sm,
         boxShadow: '0px 3px 5px rgba(0, 0, 0, 0.09)',
         p: '30px',
         width: '100%',
