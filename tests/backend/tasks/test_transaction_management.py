@@ -49,7 +49,7 @@ class TestTaskTransactionManagement:
         original_status = test_run.status.name if test_run.status else None
 
         # Mock logger function
-        def mock_logger_func(level, message):
+        def mock_logger_func(level, message, **kwargs):
             pass
 
         # Update test run status
@@ -199,7 +199,7 @@ class TestTaskTransactionManagement:
         test_db.flush()
 
         # Mock logger function
-        def mock_logger_func(level, message):
+        def mock_logger_func(level, message, **kwargs):
             pass
 
         # Update both test runs with different statuses
