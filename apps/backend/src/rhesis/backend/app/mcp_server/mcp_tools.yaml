@@ -665,7 +665,10 @@ tools:
       NEVER fetch source content — pass IDs directly to generate_test_set
       and the backend handles content injection.
     parameters:
-      $filter:
+      filter:
+        description: >
+          OData filter expression to search by title or description, e.g.
+          $filter=contains(tolower(title), 'keyword').
 
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
