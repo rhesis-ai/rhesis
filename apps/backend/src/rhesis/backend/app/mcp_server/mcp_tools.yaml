@@ -506,6 +506,65 @@ tools:
       audience:
         description: "OAuth audience (client_credentials flow)."
 
+  - name: update_endpoint
+    label: Updating endpoint
+    method: PUT
+    path: /endpoints/{endpoint_id}
+    requires_confirmation: true
+    description: >
+      Update an existing endpoint's configuration. Resolve the endpoint
+      FIRST with list_endpoints to obtain its id, then pass that id as
+      endpoint_id. Send ONLY the fields you want to change — every field is
+      optional and omitted fields keep their current values. Do NOT send
+      server-managed fields (id, user_id, organization_id, status_id,
+      created_at, updated_at). After updating, you can verify reachability
+      with check_endpoint.
+    parameters:
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint to update (path parameter)."
+      name:
+        description: "New endpoint name, unique within the project (string)."
+      description:
+        description: "What the endpoint does (string)."
+      url:
+        description: "Full endpoint URL, e.g. https://api.example.com/chat."
+      method:
+        description: 'HTTP method for REST endpoints, e.g. "POST" or "GET".'
+      environment:
+        description: '"production", "staging", "development", or "local".'
+      request_headers:
+        description: >
+          Object of HTTP headers sent with each request, e.g.
+          {"Content-Type": "application/json"}.
+      request_mapping:
+        description: >
+          Object mapping the request body, using {{ input }} for the user
+          message. e.g. {"message": "{{ input }}"}.
+      response_mapping:
+        description: >
+          Object mapping the response, using JSONPath to extract the output
+          field. e.g. {"output": "$.response"}.
+      query_params:
+        description: "Optional object of query-string parameters."
+      response_format:
+        description: '"json", "xml", or "text".'
+      auth_type:
+        description: >
+          Authentication scheme: "bearer_token", "client_credentials", or
+          "api_key".
+      auth_token:
+        description: "Bearer token / API key (write-only, stored encrypted)."
+      client_id:
+        description: "OAuth client id (client_credentials flow)."
+      client_secret:
+        description: "OAuth client secret (write-only, stored encrypted)."
+      token_url:
+        description: "OAuth token endpoint URL (client_credentials flow)."
+      scopes:
+        description: "List of OAuth scope strings (client_credentials flow)."
+      audience:
+        description: "OAuth audience (client_credentials flow)."
+
   - name: check_endpoint
     label: Checking endpoint connectivity
     method: POST
