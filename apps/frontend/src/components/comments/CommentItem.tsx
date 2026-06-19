@@ -88,7 +88,7 @@ export function CommentItem({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'Z');
+    const date = new Date(dateString);
     const diffInHours =
       (new Date().getTime() - date.getTime()) / (1000 * 60 * 60);
     if (diffInHours < 24) {

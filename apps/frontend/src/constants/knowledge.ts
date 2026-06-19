@@ -34,22 +34,7 @@ export const formatFileSize = (bytes?: number): string => {
   return `${Math.round((bytes / Math.pow(FILE_SIZE_CONSTANTS.BYTES_PER_KB, i)) * 100) / 100} ${sizes[i]}`;
 };
 
-export const formatDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return 'Unknown';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid date';
-
-    // Use consistent DD/MM/YYYY formatting
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${day}/${month}/${year}`;
-  } catch {
-    return 'Invalid date';
-  }
-};
+export { formatDate } from '@/utils/date';
 
 export const getFileExtension = (filename?: string): string => {
   if (!filename) return 'unknown';

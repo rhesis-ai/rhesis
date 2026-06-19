@@ -43,6 +43,7 @@ import { SearchPill } from '@/components/common/SearchPill';
 import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
 import { BiotechIcon } from '@/components/icons';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { formatDate } from '@/utils/date';
 
 interface RunExperimentInfo {
   experiment_id?: string;
@@ -499,17 +500,6 @@ export default function ComparisonView({
     const passed = currentTestResults.filter(isTestPassed).length;
     return Math.round((passed / currentTestResults.length) * 100);
   }, [currentTestResults]);
-
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   const _getPromptSnippet = (
     test: TestResultDetail,

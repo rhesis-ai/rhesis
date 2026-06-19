@@ -1,8 +1,13 @@
-export function formatDate(date: string | Date | undefined): string {
+export function formatDate(
+  date: string | Date | undefined,
+  timezone?: string
+): string {
   if (!date) return 'N/A';
 
+  const timeZone = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString('en-US', {
+  return dateObj.toLocaleDateString(undefined, {
+    timeZone,
     year: 'numeric',
     month: 'short',
     day: 'numeric',

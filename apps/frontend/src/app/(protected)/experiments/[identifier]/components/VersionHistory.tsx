@@ -32,6 +32,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { PromoteIcon } from '@/components/icons';
 import { renderValuePreview } from './TypedValueEditor';
+import { formatDate } from '@/utils/date';
 
 interface VersionHistoryProps {
   versions: ExperimentVersion[];
@@ -243,7 +244,7 @@ export default function VersionHistory({
                     )}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(version.created_at).toLocaleString()}
+                    {formatDate(version.created_at)}
                   </Typography>
                 </Box>
                 {envNames.map(name => (
