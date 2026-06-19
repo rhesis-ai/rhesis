@@ -48,6 +48,8 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'SHORTCUT_API_TOKEN';
     case 'asana':
       return 'ASANA_ACCESS_TOKEN';
+    case 'azure_devops':
+      return 'AZURE_DEVOPS_PAT';
     case 'jira':
       return 'JIRA_API_TOKEN';
     case 'confluence':
@@ -126,6 +128,7 @@ export function ToolConnectionDrawer({
   const [initialGitlabApiUrl, setInitialGitlabApiUrl] = useState('');
   const [initialSpaceKey, setInitialSpaceKey] = useState('');
   const [initialWorkspaceGid, setInitialWorkspaceGid] = useState('');
+  const [initialAzureProject, setInitialAzureProject] = useState('');
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -136,6 +139,10 @@ export function ToolConnectionDrawer({
 
   // Asana workspace scope
   const [workspaceGid, setWorkspaceGid] = useState('');
+
+  // Azure DevOps fields (org URL is an encrypted credential; project is metadata)
+  const [azureOrgUrl, setAzureOrgUrl] = useState('');
+  const [azureProject, setAzureProject] = useState('');
 
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
@@ -200,18 +207,34 @@ export function ToolConnectionDrawer({
           setInitialRepositoryUrl('');
         }
 
+        const gitlabProject = tool.tool_metadata?.project;
         if (
           currentProviderType === 'gitlab' &&
-          typeof tool.tool_metadata?.project?.namespace === 'string'
+          typeof gitlabProject === 'object' &&
+          typeof gitlabProject?.namespace === 'string'
         ) {
-          setProjectNamespace(tool.tool_metadata.project.namespace);
-          setInitialProjectNamespace(tool.tool_metadata.project.namespace);
+          setProjectNamespace(gitlabProject.namespace);
+          setInitialProjectNamespace(gitlabProject.namespace);
         } else {
           setProjectNamespace('');
           setInitialProjectNamespace('');
         }
         setGitlabApiUrl('');
         setInitialGitlabApiUrl('');
+
+        const azureProjectMeta = tool.tool_metadata?.project;
+        if (
+          currentProviderType === 'azure_devops' &&
+          typeof azureProjectMeta === 'string'
+        ) {
+          setAzureProject(azureProjectMeta);
+          setInitialAzureProject(azureProjectMeta);
+        } else {
+          setAzureProject('');
+          setInitialAzureProject('');
+        }
+        // Org URL is stored in encrypted credentials; show a placeholder in edit mode.
+        setAzureOrgUrl(currentProviderType === 'azure_devops' ? '************' : '');
 
         if (
           currentProviderType === 'asana' &&
@@ -257,6 +280,9 @@ export function ToolConnectionDrawer({
         setProjectNamespace('');
         setGitlabApiUrl('');
         setWorkspaceGid('');
+        setAzureOrgUrl('');
+        setAzureProject('');
+        setInitialAzureProject('');
         setInstanceUrl('');
         // Pre-fill email with logged-in user's email for Jira/Confluence
         const isAtlassian =
@@ -292,14 +318,22 @@ export function ToolConnectionDrawer({
       const tokenChanged = Boolean(authToken && authToken !== '************');
       const urlChanged = Boolean(instanceUrl && instanceUrl !== '************');
       const usernameChanged = Boolean(username && username !== '************');
+      const azureOrgUrlChanged = Boolean(
+        azureOrgUrl && azureOrgUrl !== '************'
+      );
       const scopeMetadataChanged =
         repositoryUrl !== initialRepositoryUrl ||
         projectNamespace !== initialProjectNamespace ||
         selectedSpaceKey !== initialSpaceKey ||
-        workspaceGid !== initialWorkspaceGid;
+        workspaceGid !== initialWorkspaceGid ||
+        azureProject !== initialAzureProject;
       const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
       const credentialsChanged =
-        tokenChanged || urlChanged || usernameChanged || gitlabApiUrlChanged;
+        tokenChanged ||
+        urlChanged ||
+        usernameChanged ||
+        gitlabApiUrlChanged ||
+        azureOrgUrlChanged;
 
       setCredentialsModified(credentialsChanged);
       setScopeMetadataModified(scopeMetadataChanged);
@@ -319,11 +353,14 @@ export function ToolConnectionDrawer({
     selectedSpaceKey,
     gitlabApiUrl,
     workspaceGid,
+    azureOrgUrl,
+    azureProject,
     initialRepositoryUrl,
     initialProjectNamespace,
     initialSpaceKey,
     initialWorkspaceGid,
     initialGitlabApiUrl,
+    initialAzureProject,
   ]);
 
   const parseRepositoryUrl = (
@@ -413,6 +450,23 @@ export function ToolConnectionDrawer({
     return trimmed ? { workspace_gid: trimmed } : undefined;
   };
 
+  const buildAzureDevOpsCredentials = (
+    orgUrl: string,
+    pat: string
+  ): Record<string, string> => {
+    const credentials: Record<string, string> = {
+      AZURE_DEVOPS_PAT: pat.trim(),
+    };
+    const trimmedOrgUrl = orgUrl.trim();
+    if (trimmedOrgUrl && trimmedOrgUrl !== '************') {
+      credentials.AZURE_DEVOPS_ORG_URL = normalizeUrl(trimmedOrgUrl).replace(
+        /\/$/,
+        ''
+      );
+    }
+    return credentials;
+  };
+
   const buildScopeMetadataFromForm = (
     currentProviderType: string | undefined
   ): Record<string, unknown> | undefined => {
@@ -436,6 +490,10 @@ export function ToolConnectionDrawer({
 
     if (currentProviderType === 'asana') {
       return buildAsanaMetadata(workspaceGid);
+    }
+
+    if (currentProviderType === 'azure_devops' && azureProject.trim()) {
+      return { project: azureProject.trim() };
     }
 
     return undefined;
@@ -587,10 +645,16 @@ export function ToolConnectionDrawer({
           };
         } else if (currentProviderType === 'gitlab') {
           credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
+        } else if (currentProviderType === 'azure_devops') {
+          credentials = buildAzureDevOpsCredentials(azureOrgUrl, authToken);
         } else {
           credentials = {
             [credentialKey]: authToken.trim(),
           };
+        }
+
+        if (currentProviderType === 'azure_devops' && azureProject.trim()) {
+          parsedMetadata = { project: azureProject.trim() };
         }
 
         if (currentProviderType === 'github' && repositoryUrl.trim()) {
@@ -653,11 +717,20 @@ export function ToolConnectionDrawer({
           };
         } else if (provider.type_value === 'gitlab') {
           credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
+        } else if (provider.type_value === 'azure_devops') {
+          credentials = buildAzureDevOpsCredentials(azureOrgUrl, authToken);
         }
         // Handle other providers
         else {
           credentials = {
             [credentialKey]: authToken.trim(),
+          };
+        }
+
+        if (provider.type_value === 'azure_devops' && azureProject.trim()) {
+          parsedMetadata = {
+            ...(parsedMetadata || {}),
+            project: azureProject.trim(),
           };
         }
         // Add repository metadata for GitHub if provided
@@ -810,6 +883,11 @@ export function ToolConnectionDrawer({
               authToken,
               gitlabApiUrl
             );
+          } else if (currentProviderType === 'azure_devops') {
+            updates.credentials = buildAzureDevOpsCredentials(
+              azureOrgUrl,
+              authToken
+            );
           } else {
             const credentialKey = getCredentialKey(currentProviderType);
             updates.credentials = {
@@ -822,6 +900,16 @@ export function ToolConnectionDrawer({
           gitlabApiUrl.trim()
         ) {
           setError('Re-enter your GitLab token when updating the API URL.');
+          setLoading(false);
+          return;
+        } else if (
+          currentProviderType === 'azure_devops' &&
+          azureOrgUrl &&
+          azureOrgUrl !== '************'
+        ) {
+          setError(
+            'Re-enter your Azure DevOps PAT when updating the organization URL.'
+          );
           setLoading(false);
           return;
         }
@@ -890,6 +978,18 @@ export function ToolConnectionDrawer({
           if (!workspaceGid.trim() && metadataToUpdate.workspace_gid) {
             delete metadataToUpdate.workspace_gid;
           }
+        }
+
+        if (providerType === 'azure_devops') {
+          if (!azureProject.trim()) {
+            setError('Project is required for Azure DevOps integrations');
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            project: azureProject.trim(),
+          };
         }
 
         if (metadataToUpdate) {
@@ -969,6 +1069,8 @@ export function ToolConnectionDrawer({
             };
           } else if (provider.type_value === 'gitlab') {
             credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
+          } else if (provider.type_value === 'azure_devops') {
+            credentials = buildAzureDevOpsCredentials(azureOrgUrl, authToken);
           }
           // Handle other providers
           else {
@@ -1038,6 +1140,18 @@ export function ToolConnectionDrawer({
             };
           }
 
+          if (providerType === 'azure_devops') {
+            if (!azureProject.trim()) {
+              setError('Project is required for Azure DevOps integrations');
+              setLoading(false);
+              return;
+            }
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              project: azureProject.trim(),
+            };
+          }
+
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
@@ -1076,6 +1190,7 @@ export function ToolConnectionDrawer({
       repositoryUrl !== initialRepositoryUrl ||
       projectNamespace !== initialProjectNamespace ||
       workspaceGid !== initialWorkspaceGid ||
+      azureProject !== initialAzureProject ||
       selectedSpaceKey !== initialSpaceKey);
 
   const saveDisabled =
@@ -1083,6 +1198,9 @@ export function ToolConnectionDrawer({
     !name ||
     (!isEditMode && !authToken) ||
     (!isEditMode && providerType === 'gitlab' && !projectNamespace.trim()) ||
+    (!isEditMode &&
+      providerType === 'azure_devops' &&
+      (!azureProject.trim() || !azureOrgUrl.trim())) ||
     (!isEditMode &&
       (providerType === 'jira' || providerType === 'confluence') &&
       (!instanceUrl || !username)) ||
@@ -1215,11 +1333,35 @@ export function ToolConnectionDrawer({
               </>
             )}
 
+            {providerType === 'azure_devops' && (
+              <TextField
+                label="Organization URL"
+                fullWidth
+                required={!isEditMode}
+                value={azureOrgUrl}
+                onChange={e => setAzureOrgUrl(e.target.value)}
+                onFocus={_e => {
+                  if (isEditMode && azureOrgUrl === '************') {
+                    setAzureOrgUrl('');
+                  }
+                }}
+                onBlur={e => {
+                  if (isEditMode && !e.target.value) {
+                    setAzureOrgUrl('************');
+                  }
+                }}
+                placeholder="https://dev.azure.com/your-organization"
+                helperText="Your Azure DevOps organization URL"
+              />
+            )}
+
             <TextField
               label={
                 providerType === 'jira' || providerType === 'confluence'
                   ? 'API Token'
-                  : 'Authentication token'
+                  : providerType === 'azure_devops'
+                    ? 'Personal Access Token'
+                    : 'Authentication token'
               }
               fullWidth
               required={!isEditMode}
@@ -1309,6 +1451,18 @@ export function ToolConnectionDrawer({
               />
             )}
 
+            {providerType === 'azure_devops' && (
+              <TextField
+                label="Project"
+                fullWidth
+                required
+                value={azureProject}
+                onChange={e => setAzureProject(e.target.value)}
+                placeholder="MyProject"
+                helperText="Azure DevOps project to scope work item search and import"
+              />
+            )}
+
             <Box>
               <Button
                 variant="outlined"
@@ -1320,6 +1474,10 @@ export function ToolConnectionDrawer({
                   !authToken ||
                   (providerType === 'github' && !repositoryUrl.trim()) ||
                   (providerType === 'gitlab' && !projectNamespace.trim()) ||
+                  (providerType === 'azure_devops' && !azureProject.trim()) ||
+                  (!isEditMode &&
+                    providerType === 'azure_devops' &&
+                    !azureOrgUrl.trim()) ||
                   (!isEditMode &&
                     (providerType === 'jira' ||
                       providerType === 'confluence') &&

@@ -15,6 +15,11 @@ Scope the read-only auth check to Asana workspace GID
 "{{ workspace_context.workspace_gid }}". Set authenticated to false if the workspace
 is not accessible with these credentials.
 {% endif %}
+{% if provider == "azure_devops" and azure_context and azure_context.project %}
+Perform a read-only project-scoped call for Azure DevOps project
+"{{ azure_context.project }}" (for example, fetch project details). Set authenticated
+to false if the project is not accessible with these credentials.
+{% endif %}
 Use a single read-only call. Do not create, modify, or delete anything.
 
 Return ONLY a JSON object with these fields:

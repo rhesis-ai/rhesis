@@ -110,6 +110,30 @@ def _merge_gitlab_credentials_on_update(
     return merged
 
 
+def _merge_azure_devops_credentials_on_update(
+    existing_credentials_json: str,
+    incoming_credentials: dict[str, str],
+) -> dict[str, str]:
+    """Preserve AZURE_DEVOPS_ORG_URL when PATCH updates only the token."""
+    merged = dict(incoming_credentials)
+    if merged.get("AZURE_DEVOPS_ORG_URL", "").strip():
+        return merged
+
+    try:
+        existing_credentials = json.loads(existing_credentials_json)
+    except (json.JSONDecodeError, TypeError):
+        return merged
+
+    if not isinstance(existing_credentials, dict):
+        return merged
+
+    existing_org_url = existing_credentials.get("AZURE_DEVOPS_ORG_URL")
+    if isinstance(existing_org_url, str) and existing_org_url.strip():
+        merged["AZURE_DEVOPS_ORG_URL"] = existing_org_url.strip()
+
+    return merged
+
+
 def _validate_shortcut_credentials(credentials: dict[str, str] | None) -> None:
     token = (credentials or {}).get("SHORTCUT_API_TOKEN", "")
     if not isinstance(token, str) or not token.strip():
@@ -139,6 +163,40 @@ def _validate_asana_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
+def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
+    if not tool_metadata or "project" not in tool_metadata:
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require project metadata",
+        )
+    project = tool_metadata["project"]
+    if not isinstance(project, str) or not project.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps 'project' must be a non-empty string",
+        )
+
+
+def _validate_azure_devops_credentials(credentials: dict[str, str] | None) -> None:
+    org_url = (credentials or {}).get("AZURE_DEVOPS_ORG_URL", "")
+    if not isinstance(org_url, str) or not org_url.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_ORG_URL'",
+        )
+    try:
+        validate_base_url(org_url, "AZURE_DEVOPS_ORG_URL")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    token = (credentials or {}).get("AZURE_DEVOPS_PAT", "")
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_PAT'",
+        )
+
+
 def _validate_mcp_test_connection_request(
     provider: str,
     credentials: dict[str, str] | None,
@@ -156,6 +214,9 @@ def _validate_mcp_test_connection_request(
     elif provider == "asana":
         _validate_asana_credentials(credentials)
         _validate_asana_workspace_gid(tool_metadata)
+    elif provider == "azure_devops":
+        _validate_azure_devops_credentials(credentials)
+        _validate_azure_devops_project(tool_metadata)
 
 
 def _validate_provider_type_switch(
@@ -196,6 +257,9 @@ def _validate_provider_type_switch(
     elif provider_type.type_value == "asana":
         _validate_asana_credentials(tool.credentials)
         _validate_asana_workspace_gid(tool.tool_metadata)
+    elif provider_type.type_value == "azure_devops":
+        _validate_azure_devops_credentials(tool.credentials)
+        _validate_azure_devops_project(tool.tool_metadata)
 
 
 @router.post("/", response_model=schemas.Tool)
@@ -235,6 +299,9 @@ def create_tool(
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "azure_devops":
+            _validate_azure_devops_credentials(tool.credentials)
+            _validate_azure_devops_project(tool.tool_metadata)
 
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
@@ -334,6 +401,8 @@ def update_tool(
             _validate_gitlab_project(tool.tool_metadata)
         elif provider_type.type_value == "asana":
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "azure_devops":
+            _validate_azure_devops_project(tool.tool_metadata)
 
     if tool.credentials is not None and provider_type:
         if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
@@ -357,6 +426,13 @@ def update_tool(
             _validate_shortcut_credentials(tool.credentials)
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
+        elif provider_type.type_value == "azure_devops":
+            merged_credentials = _merge_azure_devops_credentials_on_update(
+                existing_tool.credentials,
+                tool.credentials,
+            )
+            _validate_azure_devops_credentials(merged_credentials)
+            tool = tool.model_copy(update={"credentials": merged_credentials})
 
     db_tool = crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
