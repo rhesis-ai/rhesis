@@ -4,8 +4,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'a033c0a601a3'
-down_revision: Union[str, None] = 'e8f9a0b1c2d3'
+revision: str = "a033c0a601a3"
+down_revision: Union[str, None] = "e8f9a0b1c2d3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -99,12 +99,12 @@ def upgrade() -> None:
 
     for table_name in inspector.get_table_names():
         for column in inspector.get_columns(table_name):
-            if column['type'].__class__.__name__ == 'TIMESTAMP' and not column['type'].timezone:
+            if column["type"].__class__.__name__ == "TIMESTAMP" and not column["type"].timezone:
                 op.alter_column(
                     table_name,
-                    column['name'],
+                    column["name"],
                     type_=sa.DateTime(timezone=True),
-                    postgresql_using=f"{column['name']} AT TIME ZONE 'UTC'"
+                    postgresql_using=f"{column['name']} AT TIME ZONE 'UTC'",
                 )
 
     # Recreate views
@@ -122,12 +122,12 @@ def downgrade() -> None:
 
     for table_name in inspector.get_table_names():
         for column in inspector.get_columns(table_name):
-            if column['type'].__class__.__name__ == 'TIMESTAMP' and column['type'].timezone:
+            if column["type"].__class__.__name__ == "TIMESTAMP" and column["type"].timezone:
                 op.alter_column(
                     table_name,
-                    column['name'],
+                    column["name"],
                     type_=sa.DateTime(timezone=False),
-                    postgresql_using=f"{column['name']} AT TIME ZONE 'UTC'"
+                    postgresql_using=f"{column['name']} AT TIME ZONE 'UTC'",
                 )
 
     # Recreate views
