@@ -444,6 +444,68 @@ tools:
       tested (chat APIs, completion APIs, etc.). Use $select to request
       only the fields you need (e.g. $select=name,id,url,description).
 
+  - name: create_endpoint
+    label: Creating endpoint
+    method: POST
+    path: /endpoints/
+    requires_confirmation: true
+    description: >
+      Register a new REST API endpoint (an AI system to be tested — a chat
+      API, completion API, or chatbot). Resolve the target project FIRST with
+      list_projects and pass its id as project_id (REQUIRED — the endpoint
+      cannot be created without it). Do NOT send server-managed fields
+      (id, user_id, organization_id, status_id, created_at, updated_at).
+      After creating, you can verify reachability with check_endpoint.
+    parameters:
+      name:
+        description: "REQUIRED. Endpoint name, unique within the project (string)."
+      project_id:
+        description: >
+          REQUIRED. UUID of the project this endpoint belongs to. Resolve it
+          via list_projects (use the user's project, or ask if ambiguous).
+      connection_type:
+        description: 'Connection protocol. Use "REST" for HTTP APIs (default for chatbots).'
+      url:
+        description: "REQUIRED for REST. Full endpoint URL, e.g. https://api.example.com/chat."
+      method:
+        description: 'HTTP method for REST endpoints, e.g. "POST" or "GET".'
+      description:
+        description: "What the endpoint does (string)."
+      environment:
+        description: '"production", "staging", "development", or "local". Default: "development".'
+      request_headers:
+        description: >
+          Object of HTTP headers sent with each request, e.g.
+          {"Content-Type": "application/json"}.
+      request_mapping:
+        description: >
+          Object mapping the request body, using {{ input }} for the user
+          message. e.g. {"message": "{{ input }}"}.
+      response_mapping:
+        description: >
+          Object mapping the response, using JSONPath to extract the output
+          field. e.g. {"output": "$.response"}.
+      query_params:
+        description: "Optional object of query-string parameters."
+      response_format:
+        description: '"json", "xml", or "text". Default: "json".'
+      auth_type:
+        description: >
+          Authentication scheme: "bearer_token", "client_credentials", or
+          "api_key". Omit for unauthenticated endpoints.
+      auth_token:
+        description: "Bearer token / API key (write-only, stored encrypted)."
+      client_id:
+        description: "OAuth client id (client_credentials flow)."
+      client_secret:
+        description: "OAuth client secret (write-only, stored encrypted)."
+      token_url:
+        description: "OAuth token endpoint URL (client_credentials flow)."
+      scopes:
+        description: "List of OAuth scope strings (client_credentials flow)."
+      audience:
+        description: "OAuth audience (client_credentials flow)."
+
   - name: check_endpoint
     label: Checking endpoint connectivity
     method: POST
