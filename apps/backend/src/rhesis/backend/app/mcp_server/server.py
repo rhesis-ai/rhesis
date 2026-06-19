@@ -115,6 +115,13 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                 auth_value = request.headers.get("authorization", "")
                 if auth_value:
                     headers["Authorization"] = auth_value
+                # Forward project scope so project-isolated resources
+                # (endpoints, etc.) resolve under the correct RLS project.
+                # Without this, app.current_project is empty and any write
+                # carrying a project_id violates the project_isolation policy.
+                project_value = request.headers.get("x-project-id", "")
+                if project_value:
+                    headers["X-Project-Id"] = project_value
         except LookupError:
             pass
 
