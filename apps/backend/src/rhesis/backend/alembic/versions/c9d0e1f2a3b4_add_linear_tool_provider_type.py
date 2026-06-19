@@ -8,6 +8,7 @@ Create Date: 2026-06-19
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 from rhesis.backend.alembic.utils.template_loader import (
@@ -29,13 +30,22 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        """
-        DELETE FROM tool
-        WHERE tool_provider_type_id IN (
-            SELECT id FROM type_lookup
-            WHERE type_name = 'ToolProviderType' AND type_value = 'linear'
-        );
-        """
-    )
+    conn = op.get_bind()
+    linear_tool_count = conn.execute(
+        sa.text(
+            """
+            SELECT COUNT(*) FROM tool
+            WHERE tool_provider_type_id IN (
+                SELECT id FROM type_lookup
+                WHERE type_name = 'ToolProviderType' AND type_value = 'linear'
+            )
+            """
+        )
+    ).scalar()
+    if linear_tool_count:
+        raise RuntimeError(
+            f"Refusing to downgrade: {linear_tool_count} Linear tool(s) exist. "
+            "Delete them manually before reverting this migration."
+        )
+
     op.execute(load_cleanup_type_lookup_template("ToolProviderType", "'linear'"))

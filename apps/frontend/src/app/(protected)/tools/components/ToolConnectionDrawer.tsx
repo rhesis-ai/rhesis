@@ -234,8 +234,9 @@ export function ToolConnectionDrawer({
           currentProviderType === 'linear' &&
           typeof tool.tool_metadata?.team_id === 'string'
         ) {
-          setTeamId(tool.tool_metadata.team_id);
-          setInitialTeamId(tool.tool_metadata.team_id);
+          const trimmedTeamId = tool.tool_metadata.team_id.trim();
+          setTeamId(trimmedTeamId);
+          setInitialTeamId(trimmedTeamId);
         } else {
           setTeamId('');
           setInitialTeamId('');
