@@ -84,6 +84,15 @@ class AutoGenTarget(Target):
             return TargetResponse(success=False, content="", error="Empty message")
 
         session_key = conversation_id or "default"
+
+        if files:
+            return TargetResponse(
+                success=False,
+                content="",
+                error="AutoGenTarget does not support file attachments",
+                conversation_id=session_key,
+            )
+
         history = self._session_histories.setdefault(session_key, [])
         history.append({"role": "user", "content": message})
 
@@ -104,10 +113,13 @@ class AutoGenTarget(Target):
                 },
             )
         except Exception as exc:
+            if history and history[-1].get("role") == "user":
+                history.pop()
             return TargetResponse(
                 success=False,
                 content="",
                 error=f"AutoGen error: {exc}",
+                conversation_id=session_key,
             )
 
     def get_tool_documentation(self) -> str:

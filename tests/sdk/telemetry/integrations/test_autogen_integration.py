@@ -85,3 +85,24 @@ def test_enable_when_not_installed():
             return False
 
     assert NotInstalledIntegration().enable() is False
+
+
+def test_set_token_attributes_records_zero_counts():
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from rhesis.sdk.telemetry.attributes import AIAttributes
+    from rhesis.sdk.telemetry.integrations.tracing_helpers import set_token_attributes
+
+    provider = TracerProvider()
+    tracer = provider.get_tracer("test")
+    span = tracer.start_span("test")
+    set_token_attributes(
+        span,
+        {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    )
+    attrs = dict(span.attributes or {})
+    span.end()
+
+    assert attrs[AIAttributes.LLM_TOKENS_INPUT] == 0
+    assert attrs[AIAttributes.LLM_TOKENS_OUTPUT] == 0
+    assert attrs[AIAttributes.LLM_TOKENS_TOTAL] == 0

@@ -66,10 +66,22 @@ def test_send_message_multi_turn(mock_agent):
 def test_send_message_handles_exception(mock_agent):
     mock_agent.generate_reply.side_effect = RuntimeError("boom")
     target = AutoGenTarget(mock_agent, "bot-1")
-    response = target.send_message("Hello")
+    response = target.send_message("Hello", conversation_id="session-err")
 
     assert response.success is False
     assert "AutoGen error" in (response.error or "")
+    assert response.conversation_id == "session-err"
+    assert target._session_histories.get("session-err", []) == []
+
+
+def test_send_message_rejects_files(mock_agent):
+    target = AutoGenTarget(mock_agent, "bot-1")
+    response = target.send_message("Hello", files=[{"name": "doc.pdf"}])
+
+    assert response.success is False
+    assert "file attachments" in (response.error or "").lower()
+    assert response.conversation_id == "default"
+    mock_agent.generate_reply.assert_not_called()
 
 
 def test_clear_session(mock_agent):

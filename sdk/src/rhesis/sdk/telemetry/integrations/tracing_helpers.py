@@ -48,12 +48,9 @@ def set_token_attributes(span: trace.Span, usage: Any) -> None:
         return
     try:
         prompt, completion, total = extract_token_usage(usage)
-        if prompt:
-            span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, prompt)
-        if completion:
-            span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, completion)
-        if total:
-            span.set_attribute(AIAttributes.LLM_TOKENS_TOTAL, total)
+        span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, prompt)
+        span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, completion)
+        span.set_attribute(AIAttributes.LLM_TOKENS_TOTAL, total)
     except Exception:
         return
 
