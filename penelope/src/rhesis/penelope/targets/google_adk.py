@@ -5,10 +5,10 @@ Wraps a Google ADK Runner (or Agent) so Penelope can run multi-turn conversation
 tests against ADK-based agents.
 """
 
-import asyncio
 import inspect
 from typing import Any, List, Optional
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -152,7 +152,7 @@ class GoogleADKTarget(Target):
         session_id = conversation_id or "default"
         try:
             if inspect.iscoroutinefunction(self.runner.run):
-                return asyncio.run(self._async_send_message(message, session_id, **kwargs))
+                return run_sync(self._async_send_message(message, session_id, **kwargs))
             result = self.runner.run(
                 user_id=self.user_id,
                 session_id=session_id,

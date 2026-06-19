@@ -113,7 +113,7 @@ def _wrap_runner_run(original: Callable) -> Callable:
         ) as span:
             add_agent_io_events(span, new_message, None)
             result = await original(self, *args, **kwargs)
-            add_agent_io_events(span, new_message, result)
+            add_agent_io_events(span, None, result)
             return result
 
     return wrapped

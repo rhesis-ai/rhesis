@@ -46,6 +46,18 @@ def test_send_message_async_runner():
     assert response.content == "async reply"
 
 
+@pytest.mark.asyncio
+async def test_send_message_async_runner_under_running_loop():
+    runner = MagicMock()
+    runner.run = AsyncMock(return_value="async reply")
+    target = GoogleADKTarget(runner=runner, target_id="adk-1")
+    response = target.send_message("Hello", conversation_id="session-3")
+
+    assert response.success is True
+    assert response.content == "async reply"
+    runner.run.assert_awaited_once()
+
+
 def test_send_message_empty(mock_runner):
     target = GoogleADKTarget(runner=mock_runner, target_id="adk-1")
     response = target.send_message(" ")
