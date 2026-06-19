@@ -13,6 +13,7 @@ Future targets may include:
 """
 
 from rhesis.penelope.targets.endpoint import EndpointTarget
+from rhesis.penelope.targets.google_adk import GoogleADKTarget
 from rhesis.penelope.targets.langchain import LangChainTarget
 from rhesis.penelope.targets.langgraph import LangGraphTarget
 from rhesis.sdk.targets import Target, TargetResponse
@@ -21,6 +22,7 @@ __all__ = [
     "Target",
     "TargetResponse",
     "EndpointTarget",
+    "GoogleADKTarget",
     "LangChainTarget",
     "LangGraphTarget",
 ]
