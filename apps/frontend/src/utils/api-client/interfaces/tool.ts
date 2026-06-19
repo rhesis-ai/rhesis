@@ -33,6 +33,7 @@ export interface ToolMetadata {
   };
   space_key?: string;
   workspace_gid?: string;
+  team_id?: string;
   [key: string]: unknown;
 }
 

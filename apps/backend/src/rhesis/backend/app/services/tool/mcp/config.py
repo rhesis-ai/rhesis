@@ -39,6 +39,16 @@ def _scope_context_from_metadata(
             )
         return {"workspace_gid": workspace_gid.strip()}
 
+    if provider == "linear":
+        if "team_id" not in tool_metadata:
+            return None
+        team_id = tool_metadata["team_id"]
+        if not isinstance(team_id, str) or not team_id.strip():
+            raise ToolConfigurationError(
+                "Linear tool has invalid team_id metadata; must be a non-empty string"
+            )
+        return {"team_id": team_id.strip()}
+
     return None
 
 

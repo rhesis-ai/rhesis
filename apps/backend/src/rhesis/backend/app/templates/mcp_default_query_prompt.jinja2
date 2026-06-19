@@ -14,3 +14,7 @@ Do not access any other GitLab projects.
 IMPORTANT RESTRICTION: Scope all Asana operations to workspace GID
 "{{ workspace_context.workspace_gid }}".
 {% endif %}
+{% if provider == "linear" and team_context and team_context.team_id %}
+IMPORTANT RESTRICTION: Scope all Linear operations to team ID
+"{{ team_context.team_id }}".
+{% endif %}
