@@ -51,6 +51,24 @@ def test_enable_patches_pipeline_run(monkeypatch):
         assert HaystackPatchState.is_done() is True
 
 
+def test_enable_skips_patch_when_tracing_succeeds(monkeypatch):
+    class FakePipeline:
+        def run(self, data=None, *args, **kwargs):
+            return {"answer": "ok"}
+
+    fake_haystack = MagicMock()
+    fake_haystack.Pipeline = FakePipeline
+    monkeypatch.setitem(__import__("sys").modules, "haystack", fake_haystack)
+
+    with patch(
+        "rhesis.sdk.telemetry.integrations.haystack._enable_haystack_tracing",
+        return_value="tracer",
+    ):
+        integration = HaystackIntegration()
+        assert integration.enable() is True
+        assert HaystackPatchState.is_done() is False
+
+
 def test_disable_restores_pipeline(monkeypatch):
     class FakePipeline:
         def run(self, data=None, *args, **kwargs):
@@ -70,3 +88,19 @@ def test_disable_restores_pipeline(monkeypatch):
 
     assert integration.enabled is False
     assert HaystackPatchState.is_done() is False
+
+
+def test_add_agent_io_events_noops_when_tracing_disabled(monkeypatch):
+    from opentelemetry.trace import INVALID_SPAN
+
+    from rhesis.sdk.telemetry.integrations.tracing_helpers import add_agent_io_events
+
+    span = MagicMock()
+    monkeypatch.setattr(
+        "rhesis.sdk.telemetry.integrations.tracing_helpers.is_tracing_disabled",
+        lambda: True,
+    )
+
+    add_agent_io_events(span, {"query": "hello"}, {"answer": "ok"})
+    add_agent_io_events(INVALID_SPAN, {"query": "hello"}, {"answer": "ok"})
+    span.add_event.assert_not_called()

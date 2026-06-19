@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
 from opentelemetry import trace
-from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.trace import INVALID_SPAN, SpanKind, Status, StatusCode
 
 from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.sdk.telemetry.context import is_tracing_disabled
@@ -33,6 +33,8 @@ def infer_model_provider(model_name: str) -> Optional[str]:
 
 def set_agent_attributes(span: trace.Span, *, agent_name: str, model: Optional[str] = None) -> None:
     """Set common agent invocation attributes on a span."""
+    if is_tracing_disabled() or span is INVALID_SPAN:
+        return
     span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_INVOKE)
     span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
     if model:
@@ -44,16 +46,13 @@ def set_agent_attributes(span: trace.Span, *, agent_name: str, model: Optional[s
 
 def set_token_attributes(span: trace.Span, usage: Any) -> None:
     """Extract token usage from a provider response and set span attributes."""
-    if usage is None:
+    if usage is None or is_tracing_disabled() or span is INVALID_SPAN:
         return
     try:
         prompt, completion, total = extract_token_usage(usage)
-        if prompt:
-            span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, prompt)
-        if completion:
-            span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, completion)
-        if total:
-            span.set_attribute(AIAttributes.LLM_TOKENS_TOTAL, total)
+        span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, prompt)
+        span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, completion)
+        span.set_attribute(AIAttributes.LLM_TOKENS_TOTAL, total)
     except Exception:
         return
 
@@ -68,7 +67,7 @@ def observe_framework_call(
 ) -> Iterator[trace.Span]:
     """Create a span for a framework operation with latency and error handling."""
     if is_tracing_disabled():
-        yield trace.get_current_span()
+        yield INVALID_SPAN
         return
 
     tracer = trace.get_tracer(f"rhesis.sdk.integrations.{framework}")
@@ -93,6 +92,8 @@ def observe_framework_call(
 
 def add_agent_io_events(span: trace.Span, input_data: Any, output_data: Any) -> None:
     """Record agent input/output as span events."""
+    if is_tracing_disabled() or span is INVALID_SPAN:
+        return
     if input_data is not None:
         span.add_event(
             AIEvents.AGENT_INPUT,

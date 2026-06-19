@@ -53,7 +53,7 @@ def _wrap_pipeline_run(original: Callable) -> Callable:
         ) as span:
             add_agent_io_events(span, data, None)
             result = original(self, data, *args, **kwargs)
-            add_agent_io_events(span, data, result)
+            add_agent_io_events(span, None, result)
             return result
 
     return wrapped
@@ -69,7 +69,7 @@ def _wrap_pipeline_run_async(original: Callable) -> Callable:
         ) as span:
             add_agent_io_events(span, data, None)
             result = await original(self, data, *args, **kwargs)
-            add_agent_io_events(span, data, result)
+            add_agent_io_events(span, None, result)
             return result
 
     return wrapped
@@ -117,14 +117,13 @@ class HaystackIntegration(BaseIntegration):
             return False
 
     def _create_callback(self):
-        """Enable Haystack tracing and patch Pipeline.run as a fallback."""
-        callback: Any = None
+        """Enable Haystack tracing, patching Pipeline.run only as a fallback."""
         try:
-            callback = _enable_haystack_tracing()
+            return _enable_haystack_tracing()
         except Exception as exc:
             logger.debug(f"Haystack tracing API unavailable, using pipeline patch: {exc}")
-        _patch_pipeline_run()
-        return callback or "haystack_patched"
+            _patch_pipeline_run()
+            return "haystack_patched"
 
     def enable(self) -> bool:
         if self._enabled:
