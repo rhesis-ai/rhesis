@@ -26,7 +26,7 @@ class Task(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin,
     entity_type = Column(String, nullable=True)  # "Test", "TestSet", "TestRun", "Comment"
 
     # Timestamps
-    completed_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Metadata
     task_metadata = Column(JSON)
