@@ -62,22 +62,27 @@ def build_input_schema(
             continue
 
         name = param["name"]
+        # OData params are declared with aliases like "$filter"/"$select".
+        # "$" is not allowed in tool-schema property names by the Anthropic
+        # API (^[a-zA-Z0-9_.-]{1,64}$), so expose a sanitized key. The
+        # dispatcher maps it back to the real param name when forwarding.
+        prop_name = name.lstrip("$")
         param_schema = resolve_schema_references(
             param.get("schema", {"type": "string"}), openapi_schema
         )
         prop: Dict[str, Any] = dict(param_schema)
 
-        # Use OpenAPI description, allow YAML override
+        # Use OpenAPI description, allow YAML override (keyed by sanitized name)
         description = param.get("description", "")
-        if name in yaml_param_overrides:
-            description = yaml_param_overrides[name].get("description", description)
+        if prop_name in yaml_param_overrides:
+            description = yaml_param_overrides[prop_name].get("description", description)
         if description:
             prop["description"] = description
 
-        properties[name] = prop
+        properties[prop_name] = prop
 
         if param.get("required", param_in == "path"):
-            required.append(name)
+            required.append(prop_name)
 
     # Request body fields (flattened into top-level properties)
     request_body = operation.get("requestBody", {})

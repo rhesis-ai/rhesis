@@ -127,11 +127,13 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                     str(arguments.pop(param["name"])),
                 )
 
-        # 2. Query params: pop from arguments
+        # 2. Query params: pop from arguments (agent sees sanitized names,
+        #    e.g. "filter" for the "$filter" alias — see build_input_schema)
         query: Dict[str, Any] = {}
         for param in op["parameters"]:
-            if param.get("in") == "query" and param["name"] in arguments:
-                query[param["name"]] = arguments.pop(param["name"])
+            client_name = param["name"].lstrip("$")
+            if param.get("in") == "query" and client_name in arguments:
+                query[param["name"]] = arguments.pop(client_name)
 
         # Apply default_query and page_size peek-ahead. Both are declared in
         # mcp_tools.yaml and enforced here regardless of what the agent passed.

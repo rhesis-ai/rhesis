@@ -43,3 +43,42 @@ class TestExploreEndpointInMcpTools:
         params = cfg.get("parameters", {})
         assert "strategy" in params, "strategy parameter missing from explore_endpoint"
         assert "goal" in params, "goal parameter missing from explore_endpoint"
+
+
+@pytest.mark.unit
+class TestInputSchemaPropertyNames:
+    """Generated tool-schema property names must satisfy the Anthropic API.
+
+    Property keys must match ``^[a-zA-Z0-9_.-]{1,64}$``; OData aliases like
+    ``$filter``/``$select`` would otherwise get the whole tool list rejected.
+    """
+
+    def test_dollar_prefixed_params_are_sanitized(self):
+        from rhesis.backend.app.mcp_server.schema import build_input_schema
+
+        operation = {
+            "parameters": [
+                {"name": "$filter", "in": "query", "schema": {"type": "string"}},
+                {"name": "$select", "in": "query", "schema": {"type": "string"}},
+                {"name": "source_id", "in": "path", "required": True},
+            ]
+        }
+        schema = build_input_schema(operation, {}, {})
+
+        props = schema["properties"]
+        assert "filter" in props and "$filter" not in props
+        assert "select" in props and "$select" not in props
+        assert "source_id" in props
+        assert schema["required"] == ["source_id"]
+
+    def test_yaml_override_keyed_by_sanitized_name_applies(self):
+        from rhesis.backend.app.mcp_server.schema import build_input_schema
+
+        operation = {
+            "parameters": [
+                {"name": "$filter", "in": "query", "schema": {"type": "string"}},
+            ]
+        }
+        schema = build_input_schema(operation, {}, {"filter": {"description": "search by title"}})
+
+        assert schema["properties"]["filter"]["description"] == "search by title"
