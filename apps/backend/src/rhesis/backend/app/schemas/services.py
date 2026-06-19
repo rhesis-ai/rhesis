@@ -360,7 +360,6 @@ class TestToolConnectionRequest(BaseModel):
         """Ensure a valid tool connection test request shape."""
         has_tool_id = self.tool_id is not None
         has_unsaved_params = self.provider_type_id is not None and self.credentials is not None
-        has_saved_credential_override = has_tool_id and self.credentials is not None
 
         if not has_tool_id and not has_unsaved_params:
             raise ValueError(
