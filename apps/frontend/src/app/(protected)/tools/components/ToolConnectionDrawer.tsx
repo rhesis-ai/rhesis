@@ -681,11 +681,39 @@ export function ToolConnectionDrawer({
           parsedMetadata = { project: projectData };
         }
 
-        testRequest = {
-          provider_type_id: tool.tool_provider_type?.id,
-          credentials,
-          tool_metadata: parsedMetadata,
-        };
+        if (
+          currentProviderType === 'azure_devops' ||
+          currentProviderType === 'gitlab'
+        ) {
+          if (
+            currentProviderType === 'azure_devops' &&
+            !parsedMetadata &&
+            typeof tool.tool_metadata?.project === 'string'
+          ) {
+            parsedMetadata = { project: tool.tool_metadata.project };
+          }
+          if (
+            currentProviderType === 'gitlab' &&
+            !parsedMetadata &&
+            tool.tool_metadata?.project &&
+            typeof tool.tool_metadata.project === 'object' &&
+            typeof tool.tool_metadata.project.namespace === 'string'
+          ) {
+            parsedMetadata = { project: tool.tool_metadata.project };
+          }
+
+          testRequest = {
+            tool_id: tool.id,
+            credentials,
+            tool_metadata: parsedMetadata,
+          };
+        } else {
+          testRequest = {
+            provider_type_id: tool.tool_provider_type?.id,
+            credentials,
+            tool_metadata: parsedMetadata,
+          };
+        }
       } else {
         // In create mode, use direct parameters
         if (!provider) {

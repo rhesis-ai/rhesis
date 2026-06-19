@@ -357,18 +357,20 @@ class TestToolConnectionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_request(self):
-        """Ensure either tool_id OR (provider_type_id + credentials) is provided."""
+        """Ensure a valid tool connection test request shape."""
         has_tool_id = self.tool_id is not None
-        has_params = self.provider_type_id is not None and self.credentials is not None
+        has_unsaved_params = self.provider_type_id is not None and self.credentials is not None
+        has_saved_credential_override = has_tool_id and self.credentials is not None
 
-        if not has_tool_id and not has_params:
+        if not has_tool_id and not has_unsaved_params:
             raise ValueError(
                 "Either 'tool_id' OR ('provider_type_id' + 'credentials') must be provided"
             )
 
-        if has_tool_id and has_params:
+        if has_unsaved_params and has_tool_id:
             raise ValueError(
-                "Cannot provide both 'tool_id' and parameter-based fields. Use one approach."
+                "Cannot combine 'tool_id' with 'provider_type_id'. "
+                "Use 'tool_id' with optional 'credentials' to retest a saved tool."
             )
 
         return self

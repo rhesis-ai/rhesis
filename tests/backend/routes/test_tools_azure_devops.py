@@ -1,8 +1,11 @@
 import pytest
 from fastapi import HTTPException
 
+from rhesis.backend.app.services.tool.credential_merge import (
+    merge_azure_devops_credentials_on_update,
+    resolve_mcp_test_connection_credentials,
+)
 from rhesis.backend.app.routers.tools import (
-    _merge_azure_devops_credentials_on_update,
     _validate_azure_devops_credentials,
     _validate_azure_devops_project,
 )
@@ -54,7 +57,7 @@ def test_validate_azure_devops_project_accepts_non_empty_string():
 
 
 def test_merge_azure_devops_credentials_preserves_org_url():
-    merged = _merge_azure_devops_credentials_on_update(
+    merged = merge_azure_devops_credentials_on_update(
         '{"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org", "AZURE_DEVOPS_PAT": "old"}',
         {"AZURE_DEVOPS_PAT": "new"},
     )
@@ -64,7 +67,7 @@ def test_merge_azure_devops_credentials_preserves_org_url():
 
 
 def test_merge_azure_devops_credentials_keeps_incoming_org_url():
-    merged = _merge_azure_devops_credentials_on_update(
+    merged = merge_azure_devops_credentials_on_update(
         '{"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/old", "AZURE_DEVOPS_PAT": "old"}',
         {
             "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/new",
@@ -73,3 +76,14 @@ def test_merge_azure_devops_credentials_keeps_incoming_org_url():
     )
 
     assert merged["AZURE_DEVOPS_ORG_URL"] == "https://dev.azure.com/new"
+
+
+def test_resolve_mcp_test_connection_credentials_merges_saved_org_url():
+    merged = resolve_mcp_test_connection_credentials(
+        "azure_devops",
+        '{"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org", "AZURE_DEVOPS_PAT": "old"}',
+        {"AZURE_DEVOPS_PAT": "new"},
+    )
+
+    assert merged["AZURE_DEVOPS_ORG_URL"] == "https://dev.azure.com/org"
+    assert merged["AZURE_DEVOPS_PAT"] == "new"

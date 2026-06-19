@@ -29,6 +29,11 @@ from rhesis.backend.app.services.tool.actions import (
     route,
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
+from rhesis.backend.app.services.tool.credential_merge import (
+    merge_azure_devops_credentials_on_update as _merge_azure_devops_credentials_on_update,
+    merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
+    resolve_mcp_test_connection_credentials,
+)
 from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     mcp_extract,
@@ -84,54 +89,6 @@ def _validate_gitlab_credentials(credentials: dict[str, str] | None) -> None:
             status_code=400,
             detail="GitLab integrations require 'GITLAB_PERSONAL_ACCESS_TOKEN'",
         )
-
-
-def _merge_gitlab_credentials_on_update(
-    existing_credentials_json: str,
-    incoming_credentials: dict[str, str],
-) -> dict[str, str]:
-    """Preserve GITLAB_API_URL when PATCH updates only the token."""
-    merged = dict(incoming_credentials)
-    if merged.get("GITLAB_API_URL", "").strip():
-        return merged
-
-    try:
-        existing_credentials = json.loads(existing_credentials_json)
-    except (json.JSONDecodeError, TypeError):
-        return merged
-
-    if not isinstance(existing_credentials, dict):
-        return merged
-
-    existing_api_url = existing_credentials.get("GITLAB_API_URL")
-    if isinstance(existing_api_url, str) and existing_api_url.strip():
-        merged["GITLAB_API_URL"] = existing_api_url.strip()
-
-    return merged
-
-
-def _merge_azure_devops_credentials_on_update(
-    existing_credentials_json: str,
-    incoming_credentials: dict[str, str],
-) -> dict[str, str]:
-    """Preserve AZURE_DEVOPS_ORG_URL when PATCH updates only the token."""
-    merged = dict(incoming_credentials)
-    if merged.get("AZURE_DEVOPS_ORG_URL", "").strip():
-        return merged
-
-    try:
-        existing_credentials = json.loads(existing_credentials_json)
-    except (json.JSONDecodeError, TypeError):
-        return merged
-
-    if not isinstance(existing_credentials, dict):
-        return merged
-
-    existing_org_url = existing_credentials.get("AZURE_DEVOPS_ORG_URL")
-    if isinstance(existing_org_url, str) and existing_org_url.strip():
-        merged["AZURE_DEVOPS_ORG_URL"] = existing_org_url.strip()
-
-    return merged
 
 
 def _validate_shortcut_credentials(credentials: dict[str, str] | None) -> None:
@@ -502,11 +459,37 @@ async def test_tool_connection(
     """Test a tool's credentials via a lightweight connection check."""
     try:
         organization_id, user_id = tenant_context
+        effective_tool_id = request.tool_id
+        effective_provider_type_id = request.provider_type_id
+        effective_credentials = request.credentials
+        effective_metadata = request.tool_metadata
+
+        if request.tool_id and request.credentials is not None:
+            existing_tool = crud.get_tool(
+                db=db,
+                tool_id=uuid.UUID(request.tool_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            if not existing_tool:
+                raise HTTPException(status_code=404, detail="Tool not found")
+
+            provider = existing_tool.tool_provider_type.type_value
+            effective_credentials = resolve_mcp_test_connection_credentials(
+                provider,
+                existing_tool.credentials,
+                request.credentials,
+            )
+            if effective_metadata is None:
+                effective_metadata = existing_tool.tool_metadata
+            effective_provider_type_id = existing_tool.tool_provider_type_id
+            effective_tool_id = None
+
         provider = resolve_provider(
             db,
             organization_id,
-            tool_id=request.tool_id,
-            provider_type_id=request.provider_type_id,
+            tool_id=effective_tool_id,
+            provider_type_id=effective_provider_type_id,
             user_id=user_id,
         )
         transport = route(provider, ToolAction.TEST_CONNECTION)
@@ -514,23 +497,23 @@ async def test_tool_connection(
             return await run_rest_health_check(
                 db=db,
                 organization_id=organization_id,
-                tool_id=request.tool_id,
-                provider_type_id=request.provider_type_id,
-                credentials=request.credentials,
+                tool_id=effective_tool_id,
+                provider_type_id=effective_provider_type_id,
+                credentials=effective_credentials,
                 user_id=user_id,
-                tool_metadata=request.tool_metadata,
+                tool_metadata=effective_metadata,
             )
         elif transport is Transport.MCP:
             _validate_mcp_test_connection_request(
-                provider, request.credentials, request.tool_metadata
+                provider, effective_credentials, effective_metadata
             )
             return await mcp_health_check(
                 organization_id=organization_id,
                 user_id=user_id,
-                tool_id=request.tool_id,
-                provider_type_id=request.provider_type_id,
-                credentials=request.credentials,
-                tool_metadata=request.tool_metadata,
+                tool_id=effective_tool_id,
+                provider_type_id=effective_provider_type_id,
+                credentials=effective_credentials,
+                tool_metadata=effective_metadata,
             )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
