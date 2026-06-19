@@ -44,6 +44,11 @@ import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
 import { BiotechIcon } from '@/components/icons';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { formatDate } from '@/utils/date';
+import {
+  BORDER_RADIUS,
+  BACKDROP_COLORS,
+  ELEVATION,
+} from '@/styles/theme-constants';
 
 interface RunExperimentInfo {
   experiment_id?: string;
@@ -201,7 +206,7 @@ function MetricRow({
                 color={isPassed ? 'success' : 'error'}
                 sx={{
                   height: 8,
-                  borderRadius: '999px',
+                  borderRadius: BORDER_RADIUS.pill,
                   bgcolor: theme => theme.palette.background.light2,
                 }}
               />
@@ -242,8 +247,8 @@ function BehaviorSection({
     <Box
       sx={{
         border: theme => `1px solid ${theme.palette.greyscale.border}`,
-        borderRadius: '12px',
-        boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)',
+        borderRadius: BORDER_RADIUS.md,
+        boxShadow: ELEVATION.xs,
         bgcolor: 'background.paper',
         overflow: 'hidden',
       }}
@@ -556,7 +561,7 @@ export default function ComparisonView({
             variant="contained"
             startIcon={<CloseIcon />}
             sx={{
-              borderRadius: '8px',
+              borderRadius: BORDER_RADIUS.sm,
               px: '16px',
               py: '8px',
               fontWeight: 700,
@@ -850,7 +855,7 @@ export default function ComparisonView({
       {baselineTestResults && (
         <Card
           sx={{
-            borderRadius: '12px',
+            borderRadius: BORDER_RADIUS.md,
             border: theme => `1px solid ${theme.palette.greyscale.border}`,
           }}
         >
@@ -1150,7 +1155,7 @@ export default function ComparisonView({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '16px',
+            borderRadius: BORDER_RADIUS.lg,
             maxHeight: '90vh',
             overflow: 'hidden',
             display: 'flex',
@@ -1159,7 +1164,7 @@ export default function ComparisonView({
         }}
         slotProps={{
           backdrop: {
-            sx: { backgroundColor: 'rgba(0, 101, 140, 0.8)' },
+            sx: { backgroundColor: BACKDROP_COLORS.create },
           },
         }}
       >

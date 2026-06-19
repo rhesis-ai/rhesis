@@ -1,6 +1,5 @@
 import {
   formatFileSize,
-  formatDate,
   getFileExtension,
   truncateFilename,
   FILE_SIZE_CONSTANTS,
@@ -35,23 +34,6 @@ describe('formatFileSize', () => {
 
   it('has correct max upload size constant', () => {
     expect(FILE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE).toBe(5 * 1024 * 1024);
-  });
-});
-
-describe('formatDate', () => {
-  it('returns Unknown for null/undefined', () => {
-    expect(formatDate(null)).toBe('Unknown');
-    expect(formatDate(undefined)).toBe('Unknown');
-    expect(formatDate('')).toBe('Unknown');
-  });
-
-  it('formats valid date strings as DD/MM/YYYY', () => {
-    expect(formatDate('2024-01-15T14:30:00Z')).toBe('15/01/2024');
-    expect(formatDate('2024-12-25T00:00:00Z')).toBe('25/12/2024');
-  });
-
-  it('returns Invalid date for garbage input', () => {
-    expect(formatDate('not-a-date')).toBe('Invalid date');
   });
 });
 

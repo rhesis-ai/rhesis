@@ -34,8 +34,6 @@ export const formatFileSize = (bytes?: number): string => {
   return `${Math.round((bytes / Math.pow(FILE_SIZE_CONSTANTS.BYTES_PER_KB, i)) * 100) / 100} ${sizes[i]}`;
 };
 
-export { formatDate } from '@/utils/date';
-
 export const getFileExtension = (filename?: string): string => {
   if (!filename) return 'unknown';
   const ext = filename.split('.').pop()?.toLowerCase();
