@@ -33,8 +33,8 @@ SELECT
     tc.endpoint_id,
     ts.name          AS test_set_name,
     COALESCE(u.email, u.name, u.id::text) AS executor_name,
-    EXTRACT(YEAR  FROM tr.created_at)::int AS year,
-    EXTRACT(MONTH FROM tr.created_at)::int AS month
+    EXTRACT(YEAR  FROM tr.created_at AT TIME ZONE 'UTC')::int AS year,
+    EXTRACT(MONTH FROM tr.created_at AT TIME ZONE 'UTC')::int AS month
 FROM test_run tr
 JOIN status s ON tr.status_id = s.id
 LEFT JOIN test_configuration tc ON tr.test_configuration_id = tc.id
@@ -76,8 +76,8 @@ SELECT
     tr.id            AS run_id,
     tr.name          AS test_run_name,
     tr.created_at    AS test_run_created_at,
-    EXTRACT(YEAR  FROM trs.created_at)::int AS year,
-    EXTRACT(MONTH FROM trs.created_at)::int AS month
+    EXTRACT(YEAR  FROM trs.created_at AT TIME ZONE 'UTC')::int AS year,
+    EXTRACT(MONTH FROM trs.created_at AT TIME ZONE 'UTC')::int AS month
 FROM test_result trs
 JOIN test t    ON trs.test_id = t.id AND t.deleted_at IS NULL
 JOIN status s  ON trs.status_id = s.id
