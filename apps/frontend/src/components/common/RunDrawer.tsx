@@ -74,6 +74,7 @@ import tagStyles from '@/styles/BaseTag.module.css';
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
+import { formatDate } from '@/utils/date';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -1082,7 +1083,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                   {hasDuplicate && (
                     <Typography variant="caption" color="text.secondary">
                       {option.created_at
-                        ? `Created ${new Date(option.created_at).toLocaleDateString()}`
+                        ? `Created ${formatDate(option.created_at)}`
                         : `ID: ${option.nano_id ?? option.id.slice(0, 8)}`}
                     </Typography>
                   )}
@@ -1538,7 +1539,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                 {lastTestRun.name ||
                   `Test run from ${
                     lastTestRun.created_at
-                      ? new Date(lastTestRun.created_at).toLocaleDateString()
+                      ? formatDate(lastTestRun.created_at)
                       : 'unknown date'
                   }`}
               </Link>{' '}
