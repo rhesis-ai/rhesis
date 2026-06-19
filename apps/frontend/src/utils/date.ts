@@ -6,7 +6,7 @@ export function formatDate(
 
   const timeZone = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString('en-GB', {
+  return dateObj.toLocaleString('en-GB', {
     timeZone,
     year: 'numeric',
     month: 'short',
