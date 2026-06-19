@@ -97,9 +97,10 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
-    for table_name in inspector.get_table_names():
-        for column in inspector.get_columns(table_name):
+    for table_name in inspector.get_table_names(schema="public"):
+        for column in inspector.get_columns(table_name, schema="public"):
             if column["type"].__class__.__name__ == "TIMESTAMP" and not column["type"].timezone:
+                print(f"Converting {table_name}.{column['name']} to TIMESTAMPTZ")
                 op.alter_column(
                     table_name,
                     column["name"],
@@ -120,9 +121,10 @@ def downgrade() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
-    for table_name in inspector.get_table_names():
-        for column in inspector.get_columns(table_name):
+    for table_name in inspector.get_table_names(schema="public"):
+        for column in inspector.get_columns(table_name, schema="public"):
             if column["type"].__class__.__name__ == "TIMESTAMP" and column["type"].timezone:
+                print(f"Reverting {table_name}.{column['name']} to TIMESTAMP")
                 op.alter_column(
                     table_name,
                     column["name"],
