@@ -3,9 +3,9 @@
     "linear": {
       "transport": "stdio",
       "command": "npx",
-      "args": ["-y", "@linear/mcp-server"],
+      "args": ["-y", "@tacticlaunch/mcp-linear"],
       "env": {
-        "LINEAR_API_KEY": {{ LINEAR_API_KEY | tojson }}
+        "LINEAR_API_TOKEN": {{ LINEAR_API_KEY | tojson }}
       }
     }
   }
