@@ -37,7 +37,7 @@ def test_mcp_test_connection_validates_azure_devops_credentials():
         _validate_mcp_test_connection_request("azure_devops", {}, {"project": "P"})
 
     assert exc_info.value.status_code == 400
-    assert "AZURE_DEVOPS_ORG_URL" in exc_info.value.detail
+    assert "AZURE_DEVOPS_ORG" in exc_info.value.detail
 
 
 def test_mcp_test_connection_validates_azure_devops_project():
@@ -45,7 +45,8 @@ def test_mcp_test_connection_validates_azure_devops_project():
         _validate_mcp_test_connection_request(
             "azure_devops",
             {
-                "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org",
+                "AZURE_DEVOPS_ORG": "contoso",
+                "AZURE_DEVOPS_EMAIL": "user@example.com",
                 "AZURE_DEVOPS_PAT": "token",
             },
             {"project": "   "},

@@ -31,10 +31,8 @@ def merge_azure_devops_credentials_on_update(
     existing_credentials_json: str,
     incoming_credentials: dict[str, str],
 ) -> dict[str, str]:
-    """Preserve AZURE_DEVOPS_ORG_URL when PATCH or test-connection updates only the token."""
+    """Preserve org/email when PATCH or test-connection updates only the PAT."""
     merged = dict(incoming_credentials)
-    if merged.get("AZURE_DEVOPS_ORG_URL", "").strip():
-        return merged
 
     try:
         existing_credentials = json.loads(existing_credentials_json)
@@ -44,9 +42,11 @@ def merge_azure_devops_credentials_on_update(
     if not isinstance(existing_credentials, dict):
         return merged
 
-    existing_org_url = existing_credentials.get("AZURE_DEVOPS_ORG_URL")
-    if isinstance(existing_org_url, str) and existing_org_url.strip():
-        merged["AZURE_DEVOPS_ORG_URL"] = existing_org_url.strip()
+    for key in ("AZURE_DEVOPS_ORG", "AZURE_DEVOPS_EMAIL"):
+        if not merged.get(key, "").strip():
+            existing_value = existing_credentials.get(key)
+            if isinstance(existing_value, str) and existing_value.strip():
+                merged[key] = existing_value.strip()
 
     return merged
 

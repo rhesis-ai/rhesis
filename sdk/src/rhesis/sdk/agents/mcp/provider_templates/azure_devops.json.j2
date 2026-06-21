@@ -3,11 +3,9 @@
     "azure_devops": {
       "transport": "stdio",
       "command": "npx",
-      "args": ["-y", "@tiberriver256/mcp-server-azure-devops"],
+      "args": ["-y", "@azure-devops/mcp", {{ AZURE_DEVOPS_ORG | tojson }}, "--authentication", "pat"],
       "env": {
-        "AZURE_DEVOPS_ORG_URL": {{ AZURE_DEVOPS_ORG_URL | tojson }},
-        "AZURE_DEVOPS_AUTH_METHOD": "pat",
-        "AZURE_DEVOPS_PAT": {{ AZURE_DEVOPS_PAT | tojson }}
+        "PERSONAL_ACCESS_TOKEN": {{ (AZURE_DEVOPS_EMAIL ~ ':' ~ AZURE_DEVOPS_PAT) | b64encode | tojson }}
       }
     }
   }

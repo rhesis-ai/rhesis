@@ -11,26 +11,61 @@ from rhesis.backend.app.routers.tools import (
 )
 
 
-def test_validate_azure_devops_credentials_requires_org_url():
+def test_validate_azure_devops_credentials_requires_org():
     with pytest.raises(HTTPException) as exc_info:
-        _validate_azure_devops_credentials({"AZURE_DEVOPS_PAT": "token"})
+        _validate_azure_devops_credentials(
+            {
+                "AZURE_DEVOPS_EMAIL": "user@example.com",
+                "AZURE_DEVOPS_PAT": "token",
+            }
+        )
 
     assert exc_info.value.status_code == 400
-    assert "AZURE_DEVOPS_ORG_URL" in exc_info.value.detail
+    assert "AZURE_DEVOPS_ORG" in exc_info.value.detail
+
+
+def test_validate_azure_devops_credentials_requires_email():
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_azure_devops_credentials(
+            {"AZURE_DEVOPS_ORG": "contoso", "AZURE_DEVOPS_PAT": "token"}
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "AZURE_DEVOPS_EMAIL" in exc_info.value.detail
 
 
 def test_validate_azure_devops_credentials_requires_pat():
     with pytest.raises(HTTPException) as exc_info:
-        _validate_azure_devops_credentials({"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org"})
+        _validate_azure_devops_credentials(
+            {
+                "AZURE_DEVOPS_ORG": "contoso",
+                "AZURE_DEVOPS_EMAIL": "user@example.com",
+            }
+        )
 
     assert exc_info.value.status_code == 400
     assert "AZURE_DEVOPS_PAT" in exc_info.value.detail
 
 
+def test_validate_azure_devops_credentials_rejects_org_url():
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_azure_devops_credentials(
+            {
+                "AZURE_DEVOPS_ORG": "https://dev.azure.com/contoso",
+                "AZURE_DEVOPS_EMAIL": "user@example.com",
+                "AZURE_DEVOPS_PAT": "token",
+            }
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "organization name" in exc_info.value.detail
+
+
 def test_validate_azure_devops_credentials_accepts_full_credentials():
     _validate_azure_devops_credentials(
         {
-            "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org",
+            "AZURE_DEVOPS_ORG": "contoso",
+            "AZURE_DEVOPS_EMAIL": "user@example.com",
             "AZURE_DEVOPS_PAT": "token",
         }
     )
@@ -56,34 +91,45 @@ def test_validate_azure_devops_project_accepts_non_empty_string():
     _validate_azure_devops_project({"project": "MyProject"})
 
 
-def test_merge_azure_devops_credentials_preserves_org_url():
+def test_merge_azure_devops_credentials_preserves_org_and_email():
     merged = merge_azure_devops_credentials_on_update(
-        '{"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org", "AZURE_DEVOPS_PAT": "old"}',
+        (
+            '{"AZURE_DEVOPS_ORG": "contoso", "AZURE_DEVOPS_EMAIL": '
+            '"user@example.com", "AZURE_DEVOPS_PAT": "old"}'
+        ),
         {"AZURE_DEVOPS_PAT": "new"},
     )
 
-    assert merged["AZURE_DEVOPS_ORG_URL"] == "https://dev.azure.com/org"
+    assert merged["AZURE_DEVOPS_ORG"] == "contoso"
+    assert merged["AZURE_DEVOPS_EMAIL"] == "user@example.com"
     assert merged["AZURE_DEVOPS_PAT"] == "new"
 
 
-def test_merge_azure_devops_credentials_keeps_incoming_org_url():
+def test_merge_azure_devops_credentials_keeps_incoming_org():
     merged = merge_azure_devops_credentials_on_update(
-        '{"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/old", "AZURE_DEVOPS_PAT": "old"}',
+        (
+            '{"AZURE_DEVOPS_ORG": "old-org", "AZURE_DEVOPS_EMAIL": '
+            '"user@example.com", "AZURE_DEVOPS_PAT": "old"}'
+        ),
         {
-            "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/new",
+            "AZURE_DEVOPS_ORG": "new-org",
             "AZURE_DEVOPS_PAT": "new",
         },
     )
 
-    assert merged["AZURE_DEVOPS_ORG_URL"] == "https://dev.azure.com/new"
+    assert merged["AZURE_DEVOPS_ORG"] == "new-org"
 
 
-def test_resolve_mcp_test_connection_credentials_merges_saved_org_url():
+def test_resolve_mcp_test_connection_credentials_merges_saved_org_and_email():
     merged = resolve_mcp_test_connection_credentials(
         "azure_devops",
-        '{"AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/org", "AZURE_DEVOPS_PAT": "old"}',
+        (
+            '{"AZURE_DEVOPS_ORG": "contoso", "AZURE_DEVOPS_EMAIL": '
+            '"user@example.com", "AZURE_DEVOPS_PAT": "old"}'
+        ),
         {"AZURE_DEVOPS_PAT": "new"},
     )
 
-    assert merged["AZURE_DEVOPS_ORG_URL"] == "https://dev.azure.com/org"
+    assert merged["AZURE_DEVOPS_ORG"] == "contoso"
+    assert merged["AZURE_DEVOPS_EMAIL"] == "user@example.com"
     assert merged["AZURE_DEVOPS_PAT"] == "new"

@@ -134,16 +134,25 @@ def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
 
 
 def _validate_azure_devops_credentials(credentials: dict[str, str] | None) -> None:
-    org_url = (credentials or {}).get("AZURE_DEVOPS_ORG_URL", "")
-    if not isinstance(org_url, str) or not org_url.strip():
+    org = (credentials or {}).get("AZURE_DEVOPS_ORG", "")
+    if not isinstance(org, str) or not org.strip():
         raise HTTPException(
             status_code=400,
-            detail="Azure DevOps integrations require 'AZURE_DEVOPS_ORG_URL'",
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_ORG'",
         )
-    try:
-        validate_base_url(org_url, "AZURE_DEVOPS_ORG_URL")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    org = org.strip()
+    if "://" in org or org.lower().startswith("http"):
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps 'AZURE_DEVOPS_ORG' must be the organization name, not a URL",
+        )
+
+    email = (credentials or {}).get("AZURE_DEVOPS_EMAIL", "")
+    if not isinstance(email, str) or not email.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_EMAIL'",
+        )
 
     token = (credentials or {}).get("AZURE_DEVOPS_PAT", "")
     if not isinstance(token, str) or not token.strip():

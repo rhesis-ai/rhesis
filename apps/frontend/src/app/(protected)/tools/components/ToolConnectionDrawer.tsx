@@ -74,6 +74,15 @@ function normalizeUrl(url: string): string {
   return trimmed;
 }
 
+function normalizeAzureDevOpsOrg(value: string): string {
+  const trimmed = value.trim();
+  const urlMatch = trimmed.match(/dev\.azure\.com\/([^/?#]+)/i);
+  if (urlMatch) {
+    return urlMatch[1];
+  }
+  return trimmed.replace(/\/$/, '');
+}
+
 interface ToolConnectionDrawerProps {
   open: boolean;
   provider?: TypeLookup | null;
@@ -140,8 +149,9 @@ export function ToolConnectionDrawer({
   // Asana workspace scope
   const [workspaceGid, setWorkspaceGid] = useState('');
 
-  // Azure DevOps fields (org URL is an encrypted credential; project is metadata)
-  const [azureOrgUrl, setAzureOrgUrl] = useState('');
+  // Azure DevOps fields (org/email are encrypted credentials; project is metadata)
+  const [azureOrg, setAzureOrg] = useState('');
+  const [azureEmail, setAzureEmail] = useState('');
   const [azureProject, setAzureProject] = useState('');
 
   // Jira and Confluence fields
@@ -233,8 +243,9 @@ export function ToolConnectionDrawer({
           setAzureProject('');
           setInitialAzureProject('');
         }
-        // Org URL is stored in encrypted credentials; show a placeholder in edit mode.
-        setAzureOrgUrl(currentProviderType === 'azure_devops' ? '************' : '');
+        // Org and email are stored in encrypted credentials; show placeholders in edit mode.
+        setAzureOrg(currentProviderType === 'azure_devops' ? '************' : '');
+        setAzureEmail(currentProviderType === 'azure_devops' ? '************' : '');
 
         if (
           currentProviderType === 'asana' &&
@@ -280,16 +291,21 @@ export function ToolConnectionDrawer({
         setProjectNamespace('');
         setGitlabApiUrl('');
         setWorkspaceGid('');
-        setAzureOrgUrl('');
+        setAzureOrg('');
+        setAzureEmail('');
         setAzureProject('');
         setInitialAzureProject('');
         setInstanceUrl('');
-        // Pre-fill email with logged-in user's email for Jira/Confluence
+        // Pre-fill email with logged-in user's email for Jira/Confluence/Azure DevOps
         const isAtlassian =
           currentProviderType === 'jira' ||
           currentProviderType === 'confluence';
+        const isAzureDevOps = currentProviderType === 'azure_devops';
         setUsername(
           isAtlassian && session?.user?.email ? session.user.email : ''
+        );
+        setAzureEmail(
+          isAzureDevOps && session?.user?.email ? session.user.email : ''
         );
         setSelectedSpaceKey('');
         setAvailableSpaces([]);
@@ -318,8 +334,9 @@ export function ToolConnectionDrawer({
       const tokenChanged = Boolean(authToken && authToken !== '************');
       const urlChanged = Boolean(instanceUrl && instanceUrl !== '************');
       const usernameChanged = Boolean(username && username !== '************');
-      const azureOrgUrlChanged = Boolean(
-        azureOrgUrl && azureOrgUrl !== '************'
+      const azureOrgChanged = Boolean(azureOrg && azureOrg !== '************');
+      const azureEmailChanged = Boolean(
+        azureEmail && azureEmail !== '************'
       );
       const scopeMetadataChanged =
         repositoryUrl !== initialRepositoryUrl ||
@@ -333,7 +350,8 @@ export function ToolConnectionDrawer({
         urlChanged ||
         usernameChanged ||
         gitlabApiUrlChanged ||
-        azureOrgUrlChanged;
+        azureOrgChanged ||
+        azureEmailChanged;
 
       setCredentialsModified(credentialsChanged);
       setScopeMetadataModified(scopeMetadataChanged);
@@ -353,7 +371,8 @@ export function ToolConnectionDrawer({
     selectedSpaceKey,
     gitlabApiUrl,
     workspaceGid,
-    azureOrgUrl,
+    azureOrg,
+    azureEmail,
     azureProject,
     initialRepositoryUrl,
     initialProjectNamespace,
@@ -451,18 +470,20 @@ export function ToolConnectionDrawer({
   };
 
   const buildAzureDevOpsCredentials = (
-    orgUrl: string,
+    org: string,
+    email: string,
     pat: string
   ): Record<string, string> => {
     const credentials: Record<string, string> = {
       AZURE_DEVOPS_PAT: pat.trim(),
     };
-    const trimmedOrgUrl = orgUrl.trim();
-    if (trimmedOrgUrl && trimmedOrgUrl !== '************') {
-      credentials.AZURE_DEVOPS_ORG_URL = normalizeUrl(trimmedOrgUrl).replace(
-        /\/$/,
-        ''
-      );
+    const trimmedOrg = org.trim();
+    if (trimmedOrg && trimmedOrg !== '************') {
+      credentials.AZURE_DEVOPS_ORG = normalizeAzureDevOpsOrg(trimmedOrg);
+    }
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && trimmedEmail !== '************') {
+      credentials.AZURE_DEVOPS_EMAIL = trimmedEmail;
     }
     return credentials;
   };
@@ -646,7 +667,7 @@ export function ToolConnectionDrawer({
         } else if (currentProviderType === 'gitlab') {
           credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
         } else if (currentProviderType === 'azure_devops') {
-          credentials = buildAzureDevOpsCredentials(azureOrgUrl, authToken);
+          credentials = buildAzureDevOpsCredentials(azureOrg, azureEmail, authToken);
         } else {
           credentials = {
             [credentialKey]: authToken.trim(),
@@ -746,7 +767,7 @@ export function ToolConnectionDrawer({
         } else if (provider.type_value === 'gitlab') {
           credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
         } else if (provider.type_value === 'azure_devops') {
-          credentials = buildAzureDevOpsCredentials(azureOrgUrl, authToken);
+          credentials = buildAzureDevOpsCredentials(azureOrg, azureEmail, authToken);
         }
         // Handle other providers
         else {
@@ -913,7 +934,8 @@ export function ToolConnectionDrawer({
             );
           } else if (currentProviderType === 'azure_devops') {
             updates.credentials = buildAzureDevOpsCredentials(
-              azureOrgUrl,
+              azureOrg,
+              azureEmail,
               authToken
             );
           } else {
@@ -932,11 +954,11 @@ export function ToolConnectionDrawer({
           return;
         } else if (
           currentProviderType === 'azure_devops' &&
-          azureOrgUrl &&
-          azureOrgUrl !== '************'
+          ((azureOrg && azureOrg !== '************') ||
+            (azureEmail && azureEmail !== '************'))
         ) {
           setError(
-            'Re-enter your Azure DevOps PAT when updating the organization URL.'
+            'Re-enter your Azure DevOps PAT when updating the organization name or email.'
           );
           setLoading(false);
           return;
@@ -1098,7 +1120,7 @@ export function ToolConnectionDrawer({
           } else if (provider.type_value === 'gitlab') {
             credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
           } else if (provider.type_value === 'azure_devops') {
-            credentials = buildAzureDevOpsCredentials(azureOrgUrl, authToken);
+            credentials = buildAzureDevOpsCredentials(azureOrg, azureEmail, authToken);
           }
           // Handle other providers
           else {
@@ -1228,7 +1250,7 @@ export function ToolConnectionDrawer({
     (!isEditMode && providerType === 'gitlab' && !projectNamespace.trim()) ||
     (!isEditMode &&
       providerType === 'azure_devops' &&
-      (!azureProject.trim() || !azureOrgUrl.trim())) ||
+      (!azureProject.trim() || !azureOrg.trim() || !azureEmail.trim())) ||
     (!isEditMode &&
       (providerType === 'jira' || providerType === 'confluence') &&
       (!instanceUrl || !username)) ||
@@ -1362,25 +1384,46 @@ export function ToolConnectionDrawer({
             )}
 
             {providerType === 'azure_devops' && (
-              <TextField
-                label="Organization URL"
-                fullWidth
-                required={!isEditMode}
-                value={azureOrgUrl}
-                onChange={e => setAzureOrgUrl(e.target.value)}
-                onFocus={_e => {
-                  if (isEditMode && azureOrgUrl === '************') {
-                    setAzureOrgUrl('');
-                  }
-                }}
-                onBlur={e => {
-                  if (isEditMode && !e.target.value) {
-                    setAzureOrgUrl('************');
-                  }
-                }}
-                placeholder="https://dev.azure.com/your-organization"
-                helperText="Your Azure DevOps organization URL"
-              />
+              <>
+                <TextField
+                  label="Organization name"
+                  fullWidth
+                  required={!isEditMode}
+                  value={azureOrg}
+                  onChange={e => setAzureOrg(e.target.value)}
+                  onFocus={_e => {
+                    if (isEditMode && azureOrg === '************') {
+                      setAzureOrg('');
+                    }
+                  }}
+                  onBlur={e => {
+                    if (isEditMode && !e.target.value) {
+                      setAzureOrg('************');
+                    }
+                  }}
+                  placeholder="contoso"
+                  helperText="Azure DevOps organization name (not the full URL)"
+                />
+                <TextField
+                  label="Email"
+                  fullWidth
+                  required={!isEditMode}
+                  value={azureEmail}
+                  onChange={e => setAzureEmail(e.target.value)}
+                  onFocus={_e => {
+                    if (isEditMode && azureEmail === '************') {
+                      setAzureEmail('');
+                    }
+                  }}
+                  onBlur={e => {
+                    if (isEditMode && !e.target.value) {
+                      setAzureEmail('************');
+                    }
+                  }}
+                  placeholder="your-email@example.com"
+                  helperText="Email paired with your PAT for Azure DevOps authentication"
+                />
+              </>
             )}
 
             <TextField
@@ -1505,7 +1548,7 @@ export function ToolConnectionDrawer({
                   (providerType === 'azure_devops' && !azureProject.trim()) ||
                   (!isEditMode &&
                     providerType === 'azure_devops' &&
-                    !azureOrgUrl.trim()) ||
+                    (!azureOrg.trim() || !azureEmail.trim())) ||
                   (!isEditMode &&
                     (providerType === 'jira' ||
                       providerType === 'confluence') &&
