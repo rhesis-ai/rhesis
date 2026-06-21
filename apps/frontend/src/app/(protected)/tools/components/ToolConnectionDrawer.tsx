@@ -75,12 +75,24 @@ function normalizeUrl(url: string): string {
 }
 
 function normalizeAzureDevOpsOrg(value: string): string {
-  const trimmed = value.trim();
-  const urlMatch = trimmed.match(/dev\.azure\.com\/([^/?#]+)/i);
-  if (urlMatch) {
-    return urlMatch[1];
+  const trimmed = value.trim().replace(/\/$/, '');
+  if (!trimmed) {
+    return '';
   }
-  return trimmed.replace(/\/$/, '');
+
+  const devAzureMatch = trimmed.match(/dev\.azure\.com\/([^/?#]+)/i);
+  if (devAzureMatch) {
+    return devAzureMatch[1];
+  }
+
+  const visualStudioMatch = trimmed.match(
+    /(?:https?:\/\/)?([\w-]+)\.visualstudio\.com/i
+  );
+  if (visualStudioMatch) {
+    return visualStudioMatch[1];
+  }
+
+  return trimmed;
 }
 
 interface ToolConnectionDrawerProps {

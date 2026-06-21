@@ -33,6 +33,10 @@ from rhesis.backend.app.services.tool.credential_merge import (
     merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
     resolve_mcp_test_connection_credentials,
 )
+from rhesis.backend.app.services.tool.azure_devops import (
+    normalize_azure_devops_org,
+    prepare_azure_devops_credentials,
+)
 from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     mcp_extract,
@@ -140,12 +144,10 @@ def _validate_azure_devops_credentials(credentials: dict[str, str] | None) -> No
             status_code=400,
             detail="Azure DevOps integrations require 'AZURE_DEVOPS_ORG'",
         )
-    org = org.strip()
-    if "://" in org or org.lower().startswith("http"):
-        raise HTTPException(
-            status_code=400,
-            detail="Azure DevOps 'AZURE_DEVOPS_ORG' must be the organization name, not a URL",
-        )
+    try:
+        normalize_azure_devops_org(org)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     email = (credentials or {}).get("AZURE_DEVOPS_EMAIL", "")
     if not isinstance(email, str) or not email.strip():
@@ -223,8 +225,10 @@ def _validate_provider_type_switch(
         _validate_asana_credentials(tool.credentials)
         _validate_asana_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "azure_devops":
-        _validate_azure_devops_credentials(tool.credentials)
+        prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
+        _validate_azure_devops_credentials(prepared_credentials)
         _validate_azure_devops_project(tool.tool_metadata)
+        tool = tool.model_copy(update={"credentials": prepared_credentials})
 
 
 @router.post("/", response_model=schemas.Tool)
@@ -265,8 +269,10 @@ def create_tool(
             _validate_asana_credentials(tool.credentials)
             _validate_asana_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "azure_devops":
-            _validate_azure_devops_credentials(tool.credentials)
+            prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
+            _validate_azure_devops_credentials(prepared_credentials)
             _validate_azure_devops_project(tool.tool_metadata)
+            tool = tool.model_copy(update={"credentials": prepared_credentials})
 
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
@@ -392,9 +398,11 @@ def update_tool(
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
-            merged_credentials = _merge_azure_devops_credentials_on_update(
-                existing_tool.credentials,
-                tool.credentials,
+            merged_credentials = prepare_azure_devops_credentials(
+                _merge_azure_devops_credentials_on_update(
+                    existing_tool.credentials,
+                    tool.credentials,
+                )
             )
             _validate_azure_devops_credentials(merged_credentials)
             tool = tool.model_copy(update={"credentials": merged_credentials})
@@ -512,6 +520,10 @@ async def test_tool_connection(
                 tool_metadata=effective_metadata,
             )
         elif transport is Transport.MCP:
+            if provider == "azure_devops" and effective_credentials is not None:
+                effective_credentials = prepare_azure_devops_credentials(
+                    effective_credentials
+                )
             _validate_mcp_test_connection_request(
                 provider, effective_credentials, effective_metadata
             )

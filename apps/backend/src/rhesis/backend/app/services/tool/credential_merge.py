@@ -2,6 +2,8 @@
 
 import json
 
+from rhesis.backend.app.services.tool.azure_devops import prepare_azure_devops_credentials
+
 
 def merge_gitlab_credentials_on_update(
     existing_credentials_json: str,
@@ -58,9 +60,10 @@ def resolve_mcp_test_connection_credentials(
 ) -> dict[str, str]:
     """Fill missing credential fields from a saved tool before MCP health check."""
     if provider == "azure_devops":
-        return merge_azure_devops_credentials_on_update(
+        merged = merge_azure_devops_credentials_on_update(
             existing_credentials_json, incoming_credentials
         )
+        return prepare_azure_devops_credentials(merged)
     if provider == "gitlab":
         return merge_gitlab_credentials_on_update(existing_credentials_json, incoming_credentials)
     return dict(incoming_credentials)

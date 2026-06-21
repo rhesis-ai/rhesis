@@ -5,7 +5,7 @@
       "command": "npx",
       "args": ["-y", "@azure-devops/mcp", {{ AZURE_DEVOPS_ORG | tojson }}, "--authentication", "pat"],
       "env": {
-        "PERSONAL_ACCESS_TOKEN": {{ (AZURE_DEVOPS_EMAIL ~ ':' ~ AZURE_DEVOPS_PAT) | b64encode | tojson }}
+        "PERSONAL_ACCESS_TOKEN": {{ (AZURE_DEVOPS_EMAIL ~ ':' ~ AZURE_DEVOPS_PAT) | basic_auth_b64 | tojson }}
       }
     }
   }

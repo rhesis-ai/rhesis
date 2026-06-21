@@ -15,13 +15,14 @@ from mcp.client.streamable_http import streamablehttp_client  # type: ignore[imp
 from rhesis.sdk.agents.constants import ToolMeta
 
 
-def _b64encode(value: str) -> str:
+def _basic_auth_b64(value: str) -> str:
+    """Base64-encode a string for HTTP basic-auth style headers (not encryption)."""
     return base64.b64encode(value.encode("utf-8")).decode("ascii")
 
 
 def _mcp_jinja_env() -> jinja2.Environment:
     env = jinja2.Environment(autoescape=False)
-    env.filters["b64encode"] = _b64encode
+    env.filters["basic_auth_b64"] = _basic_auth_b64
     return env
 
 

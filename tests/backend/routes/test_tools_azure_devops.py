@@ -1,6 +1,10 @@
 import pytest
 from fastapi import HTTPException
 
+from rhesis.backend.app.services.tool.azure_devops import (
+    normalize_azure_devops_org,
+    prepare_azure_devops_credentials,
+)
 from rhesis.backend.app.services.tool.credential_merge import (
     merge_azure_devops_credentials_on_update,
     resolve_mcp_test_connection_credentials,
@@ -9,6 +13,25 @@ from rhesis.backend.app.routers.tools import (
     _validate_azure_devops_credentials,
     _validate_azure_devops_project,
 )
+
+
+def test_normalize_azure_devops_org_from_dev_azure_url():
+    assert (
+        normalize_azure_devops_org("https://dev.azure.com/contoso/MyProject")
+        == "contoso"
+    )
+
+
+def test_normalize_azure_devops_org_from_visualstudio_url():
+    assert (
+        normalize_azure_devops_org("https://contoso.visualstudio.com")
+        == "contoso"
+    )
+
+
+def test_normalize_azure_devops_org_rejects_slash_without_url():
+    with pytest.raises(ValueError, match="single organization name"):
+        normalize_azure_devops_org("contoso/extra")
 
 
 def test_validate_azure_devops_credentials_requires_org():
@@ -47,18 +70,28 @@ def test_validate_azure_devops_credentials_requires_pat():
     assert "AZURE_DEVOPS_PAT" in exc_info.value.detail
 
 
-def test_validate_azure_devops_credentials_rejects_org_url():
+def test_validate_azure_devops_credentials_normalizes_dev_azure_url():
+    _validate_azure_devops_credentials(
+        {
+            "AZURE_DEVOPS_ORG": "https://dev.azure.com/contoso",
+            "AZURE_DEVOPS_EMAIL": "user@example.com",
+            "AZURE_DEVOPS_PAT": "token",
+        }
+    )
+
+
+def test_validate_azure_devops_credentials_rejects_invalid_org_path():
     with pytest.raises(HTTPException) as exc_info:
         _validate_azure_devops_credentials(
             {
-                "AZURE_DEVOPS_ORG": "https://dev.azure.com/contoso",
+                "AZURE_DEVOPS_ORG": "contoso/extra",
                 "AZURE_DEVOPS_EMAIL": "user@example.com",
                 "AZURE_DEVOPS_PAT": "token",
             }
         )
 
     assert exc_info.value.status_code == 400
-    assert "organization name" in exc_info.value.detail
+    assert "single organization name" in exc_info.value.detail
 
 
 def test_validate_azure_devops_credentials_accepts_full_credentials():
@@ -69,6 +102,18 @@ def test_validate_azure_devops_credentials_accepts_full_credentials():
             "AZURE_DEVOPS_PAT": "token",
         }
     )
+
+
+def test_prepare_azure_devops_credentials_normalizes_org():
+    prepared = prepare_azure_devops_credentials(
+        {
+            "AZURE_DEVOPS_ORG": "https://contoso.visualstudio.com",
+            "AZURE_DEVOPS_EMAIL": "user@example.com",
+            "AZURE_DEVOPS_PAT": "token",
+        }
+    )
+
+    assert prepared["AZURE_DEVOPS_ORG"] == "contoso"
 
 
 def test_validate_azure_devops_project_requires_metadata():
@@ -120,16 +165,19 @@ def test_merge_azure_devops_credentials_keeps_incoming_org():
     assert merged["AZURE_DEVOPS_ORG"] == "new-org"
 
 
-def test_resolve_mcp_test_connection_credentials_merges_saved_org_and_email():
+def test_resolve_mcp_test_connection_credentials_merges_and_normalizes_org():
     merged = resolve_mcp_test_connection_credentials(
         "azure_devops",
         (
             '{"AZURE_DEVOPS_ORG": "contoso", "AZURE_DEVOPS_EMAIL": '
             '"user@example.com", "AZURE_DEVOPS_PAT": "old"}'
         ),
-        {"AZURE_DEVOPS_PAT": "new"},
+        {
+            "AZURE_DEVOPS_ORG": "https://dev.azure.com/new-org",
+            "AZURE_DEVOPS_PAT": "new",
+        },
     )
 
-    assert merged["AZURE_DEVOPS_ORG"] == "contoso"
+    assert merged["AZURE_DEVOPS_ORG"] == "new-org"
     assert merged["AZURE_DEVOPS_EMAIL"] == "user@example.com"
     assert merged["AZURE_DEVOPS_PAT"] == "new"
