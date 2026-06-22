@@ -23,6 +23,7 @@ import {
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { TestResultsClient } from '@/utils/api-client/test-results-client';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
+import { formatDate } from '@/utils/date';
 
 interface TestResultsSummaryProps {
   sessionToken: string;
@@ -162,7 +163,7 @@ export default function TestResultsSummary({
     const searchLower = searchValue.toLowerCase();
     const runName = (run.name || '').toLowerCase();
     const runDate = run.created_at
-      ? new Date(run.created_at).toLocaleString().toLowerCase()
+      ? formatDate(run.created_at).toLowerCase()
       : '';
     return runName.includes(searchLower) || runDate.includes(searchLower);
   });
@@ -406,9 +407,7 @@ export default function TestResultsSummary({
                       size="small"
                     />
                     <Typography variant="body2" color="text.secondary">
-                      {run.created_at
-                        ? new Date(run.created_at).toLocaleString()
-                        : 'N/A'}
+                      {formatDate(run.created_at)}
                     </Typography>
                   </Box>
                   <Grid container spacing={theme.customSpacing.container.small}>

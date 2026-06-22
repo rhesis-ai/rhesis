@@ -9,6 +9,7 @@ import { TokenResponse } from '@/utils/api-client/interfaces/token';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { formatDate } from '@/utils/date';
 
 interface TokenDisplayProps {
   open: boolean;
@@ -64,9 +65,7 @@ export default function TokenDisplay({
               Expires
             </Typography>
             <Typography variant="body1">
-              {token.expires_at
-                ? new Date(token.expires_at).toLocaleDateString()
-                : 'Never'}
+              {token.expires_at ? formatDate(token.expires_at) : 'Never'}
             </Typography>
           </Box>
 

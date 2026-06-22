@@ -10,7 +10,7 @@ session via Session.object_session() rather than accepting it as a parameter.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -76,7 +76,7 @@ def apply_review_override(
     Recalculates the overall Pass/Fail status for metric- and turn-level overrides.
     """
     review_passed = is_passed_status(status_details.get("name", ""))
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     if target_type == REVIEW_TARGET_METRIC and target_reference:
         _apply_metric_override(
@@ -263,7 +263,7 @@ def _revert_metric_override(
             metric["is_successful"] = original_val
             metric.pop("override", None)
         else:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             metric["is_successful"] = review_passed
             metric["override"] = {
                 "original_value": original_val,
@@ -310,7 +310,7 @@ def _revert_turn_override(
                 turn["success"] = original_val
                 turn.pop("override", None)
             else:
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 turn["success"] = review_passed
                 turn["override"] = {
                     "original_value": original_val,

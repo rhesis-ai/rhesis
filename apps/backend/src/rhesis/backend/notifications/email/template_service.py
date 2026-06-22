@@ -3,7 +3,7 @@ Template service for email notifications using Jinja2.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict
@@ -200,7 +200,7 @@ class TemplateService:
 
         # Add completed_at if not provided
         if "completed_at" not in context:
-            context["completed_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            context["completed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         # Fill missing required variables with 'N/A'
         missing_vars = []

@@ -20,6 +20,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment } from '@/types/comments';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
@@ -88,7 +89,7 @@ export function CommentItem({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'Z');
+    const date = new Date(dateString);
     const diffInHours =
       (new Date().getTime() - date.getTime()) / (1000 * 60 * 60);
     if (diffInHours < 24) {
@@ -193,7 +194,7 @@ export function CommentItem({
         {/* ── Content box ── */}
         <Box
           sx={{
-            bgcolor: '#f9f9fa',
+            bgcolor: theme => theme.palette.greyscale.surface1,
             borderRadius: '4px',
             p: '16px',
             display: 'flex',
@@ -267,8 +268,11 @@ export function CommentItem({
                       alignItems: 'center',
                       gap: '4px',
                       border: '1px solid',
-                      borderColor: hasReacted ? 'primary.main' : '#b6bdc9',
-                      borderRadius: '999px',
+                      borderColor: theme =>
+                        hasReacted
+                          ? theme.palette.primary.main
+                          : theme.palette.greyscale.border,
+                      borderRadius: BORDER_RADIUS.pill,
                       px: '10px',
                       py: '2px',
                       cursor: 'pointer',
@@ -283,7 +287,7 @@ export function CommentItem({
                       sx={{
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#2a2e36',
+                        color: theme => theme.palette.greyscale.body,
                       }}
                     >
                       {reactions.length}

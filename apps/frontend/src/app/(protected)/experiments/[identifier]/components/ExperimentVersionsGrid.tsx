@@ -38,6 +38,7 @@ import {
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { renderValuePreview } from './TypedValueEditor';
+import { formatDate } from '@/utils/date';
 
 interface DiffEntry {
   name: string;
@@ -212,7 +213,7 @@ export default function ExperimentVersionsGrid({
         renderCell: (params: GridRenderCellParams<ExperimentVersion>) => (
           <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography variant="body2" color="text.secondary">
-              {new Date(params.row.created_at).toLocaleString()}
+              {formatDate(params.row.created_at)}
             </Typography>
           </Box>
         ),
@@ -327,10 +328,7 @@ function DrawerContent({
     <Stack spacing={3}>
       <Stack spacing={2}>
         <ViewField label="Version" value={shortVersion(version.version)} />
-        <ViewField
-          label="Saved at"
-          value={new Date(version.created_at).toLocaleString()}
-        />
+        <ViewField label="Saved at" value={formatDate(version.created_at)} />
         {version.message && (
           <ViewField label="Message" value={version.message} />
         )}

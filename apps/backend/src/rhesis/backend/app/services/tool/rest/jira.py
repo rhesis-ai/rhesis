@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import httpx
@@ -182,7 +182,7 @@ async def create_jira_ticket_from_task(
         "issue_key": response_data["issue_key"],
         "issue_url": response_data["issue_url"],
         "tool_id": tool_id,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
     crud.update_task(

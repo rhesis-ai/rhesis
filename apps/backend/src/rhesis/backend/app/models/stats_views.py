@@ -18,7 +18,7 @@ class TestRunStatsView(Base):
 
     test_run_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
-    created_at = Column(DateTime)
+    created_at = Column(DateTime(timezone=True))
     user_id = Column(GUID())
     status_name = Column(String)
     result = Column(String)
@@ -42,7 +42,7 @@ class TestResultStatsView(Base):
 
     test_result_id = Column(GUID(), primary_key=True)
     organization_id = Column(GUID())
-    created_at = Column(DateTime)
+    created_at = Column(DateTime(timezone=True))
     test_run_id = Column(GUID())
     test_id = Column(GUID())
     test_metrics = Column(JSONB)
@@ -63,7 +63,7 @@ class TestResultStatsView(Base):
     topic_name = Column(String)
     run_id = Column(GUID())
     test_run_name = Column(String)
-    test_run_created_at = Column(DateTime)
+    test_run_created_at = Column(DateTime(timezone=True))
     year = Column(Integer)
     month = Column(Integer)
 
