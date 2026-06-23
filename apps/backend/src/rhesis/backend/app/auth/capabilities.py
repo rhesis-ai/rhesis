@@ -165,6 +165,21 @@ class Permission:
         UPDATE = "task:update"
         DELETE = "task:delete"
 
+    # --- Architect agent (project-scoped, WebSocket-driven) -----------------
+
+    class Architect(_PermissionEnum):
+        """Architect agent sessions. Checked in the WebSocket handler, not on a
+        route — ``READ`` gates channel subscription, ``CREATE`` gates sending a
+        message that enqueues an agent run (SP11)."""
+
+        READ = "architect:read"
+        CREATE = "architect:create"
+
+    class Preflight(_PermissionEnum):
+        """Ephemeral preflight operation channel (WebSocket, SP11)."""
+
+        CREATE = "preflight:create"
+
     # --- Files (project/org) ------------------------------------------------
 
     class File(_PermissionEnum):

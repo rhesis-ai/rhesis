@@ -273,6 +273,20 @@ class TestPermissionsForBuiltInRole:
         result = permissions_for_built_in_role("Owner", self._CAPS)
         assert result == set(self._CAPS)
 
+    def test_architect_create_is_member_not_viewer(self):
+        """SP11 gate semantics: a read-only Viewer may read but not run the
+        architect agent; a Member may run it (and preflight)."""
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        caps = ["architect:read", "architect:create", "preflight:create", "test_set:read"]
+        viewer = permissions_for_built_in_role("Viewer", caps)
+        member = permissions_for_built_in_role("Member", caps)
+
+        assert "architect:read" in viewer
+        assert "architect:create" not in viewer
+        assert "preflight:create" not in viewer
+        assert {"architect:read", "architect:create", "preflight:create"} <= member
+
     def test_none_gets_nothing(self):
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
