@@ -21,7 +21,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.backend.app.auth.principal import Principal, resolve_principal
+from rhesis.backend.app.auth.principal import (
+    Principal,
+    REQUEST_STATE_API_TOKEN_PROJECT_ID,
+    REQUEST_STATE_API_TOKEN_SCOPES,
+    REQUEST_STATE_AUTH_KIND,
+    resolve_principal,
+    resolve_principal_from_request,
+)
 from rhesis.backend.app.auth.rbac import (
     AuthorizationProvider,
     DefaultAuthorizationProvider,
@@ -119,6 +126,67 @@ class TestPrincipal:
             user_id=USER_ID, organization_id=ORG_ID, kind="session", token_project_id=None
         )
         assert p1 == p2
+
+    # -- REQUEST_STATE_* constants ------------------------------------------
+
+    def test_request_state_constants_have_expected_values(self):
+        assert REQUEST_STATE_AUTH_KIND == "auth_kind"
+        assert REQUEST_STATE_API_TOKEN_SCOPES == "api_token_scopes"
+        assert REQUEST_STATE_API_TOKEN_PROJECT_ID == "api_token_project_id"
+
+    # -- resolve_principal_from_request -------------------------------------
+
+    def _make_request(self, **state_attrs):
+        """Return a minimal request-like object with the given state attributes."""
+        state = type("State", (), {})()
+        for k, v in state_attrs.items():
+            setattr(state, k, v)
+        req = MagicMock()
+        req.state = state
+        return req
+
+    def _make_user(self):
+        user = MagicMock()
+        user.id = USER_ID
+        user.organization_id = ORG_ID
+        return user
+
+    def test_resolve_from_request_session_auth_defaults(self):
+        """No token state → kind='session', scopes=None, token_project_id=None."""
+        p = resolve_principal_from_request(self._make_user(), self._make_request())
+        assert p.kind == "session"
+        assert p.scopes is None
+        assert p.token_project_id is None
+
+    def test_resolve_from_request_token_with_scopes_and_project(self):
+        """Full token state → kind='token', scopes and project_id propagated."""
+        req = self._make_request(
+            auth_kind="token",
+            api_token_scopes=frozenset({"test_set:read", "endpoint:read"}),
+            api_token_project_id=str(PROJECT_ID),
+        )
+        p = resolve_principal_from_request(self._make_user(), req)
+        assert p.kind == "token"
+        assert p.scopes == frozenset({"test_set:read", "endpoint:read"})
+        assert p.token_project_id == PROJECT_ID
+
+    def test_resolve_from_request_unscoped_token(self):
+        """auth_kind='token' with no scopes/project → kind='token', others None."""
+        req = self._make_request(auth_kind="token")
+        p = resolve_principal_from_request(self._make_user(), req)
+        assert p.kind == "token"
+        assert p.scopes is None
+        assert p.token_project_id is None
+
+    def test_resolve_from_request_invalid_project_id_ignored(self):
+        """A non-UUID token_project_id string is silently ignored."""
+        req = self._make_request(
+            auth_kind="token",
+            api_token_project_id="not-a-uuid",
+        )
+        p = resolve_principal_from_request(self._make_user(), req)
+        assert p.kind == "token"
+        assert p.token_project_id is None
 
 
 # ---------------------------------------------------------------------------
