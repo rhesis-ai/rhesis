@@ -1,11 +1,14 @@
 ## TODO - move this file to the backend
+import inspect
+import logging
 from functools import wraps
-from typing import Any, Callable, Dict, ParamSpec, TypeVar
+from typing import Any, Callable, Dict
 
 import tenacity
 
-P = ParamSpec("P")
-T = TypeVar("T")
+from rhesis.sdk.metrics.base import MetricResult
+
+logger = logging.getLogger(__name__)
 
 
 def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -75,30 +78,72 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return config
 
 
+def _inconclusive_result(metric_name: str, exc: Exception) -> MetricResult:
+    return MetricResult(
+        score=None,
+        details={
+            "reason": (
+                f"Metric '{metric_name}' failed: the evaluation model could not "
+                "produce structured output required by this metric. Consider using "
+                "a more capable model for metric evaluation."
+            ),
+            "is_successful": None,
+            "inconclusive": True,
+            "error_type": type(exc).__name__,
+        },
+    )
+
+
+def resilient_evaluation(func: Callable) -> Callable:
+    """Catch evaluation errors and return an inconclusive MetricResult.
+
+    Works on both sync and async methods. Expects ``self`` to have a
+    ``name`` attribute (all metric classes do via ``BaseMetric``).
+    """
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(self, *args: Any, **kwargs: Any) -> MetricResult:
+            try:
+                return await func(self, *args, **kwargs)
+            except Exception as exc:
+                logger.warning(
+                    "Metric '%s' evaluation failed (%s)",
+                    getattr(self, "name", func.__qualname__),
+                    type(exc).__name__,
+                )
+                return _inconclusive_result(getattr(self, "name", func.__qualname__), exc)
+
+        return async_wrapper
+    else:
+
+        @wraps(func)
+        def sync_wrapper(self, *args: Any, **kwargs: Any) -> MetricResult:
+            try:
+                return func(self, *args, **kwargs)
+            except Exception as exc:
+                logger.warning(
+                    "Metric '%s' evaluation failed (%s)",
+                    getattr(self, "name", func.__qualname__),
+                    type(exc).__name__,
+                )
+                return _inconclusive_result(getattr(self, "name", func.__qualname__), exc)
+
+        return sync_wrapper
+
+
 def retry_evaluation(
     max_retries: int = 3,
     retry_delay: float = 1.0,
     retry_backoff: float = 2.0,
     retry_max_delay: float = 30.0,
     retry_exceptions: tuple = (ConnectionError, TimeoutError),
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """
-    Decorator that adds retry logic to evaluation methods.
+) -> Callable:
+    """Decorator that adds retry logic to evaluation methods."""
 
-    Args:
-        max_retries: Maximum number of retry attempts
-        retry_delay: Initial delay between retries in seconds
-        retry_backoff: Exponential backoff multiplier
-        retry_max_delay: Maximum delay between retries
-        retry_exceptions: Exception types that should trigger a retry
-
-    Returns:
-        Decorated function with retry logic
-    """
-
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             @tenacity.retry(
                 stop=tenacity.stop_after_attempt(max_retries),
                 wait=tenacity.wait_exponential(
@@ -106,7 +151,7 @@ def retry_evaluation(
                 ),
                 retry=tenacity.retry_if_exception_type(retry_exceptions),
             )
-            def _execute_with_retry() -> T:
+            def _execute_with_retry() -> Any:
                 return func(*args, **kwargs)
 
             return _execute_with_retry()

@@ -6,7 +6,7 @@ from ragas.metrics import AnswerAccuracy, AspectCritic, ContextRelevance, Faithf
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
-from rhesis.sdk.metrics.utils import retry_evaluation
+from rhesis.sdk.metrics.utils import resilient_evaluation, retry_evaluation
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -32,6 +32,7 @@ class RagasContextRelevance(RagasMetricBase):
     def evaluate(self, input: str, context: List[str]) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, context=context))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, context: List[str]) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
@@ -89,6 +90,7 @@ class RagasAnswerAccuracy(RagasMetricBase):
             self.a_evaluate(input=input, output=output, expected_output=expected_output)
         )
 
+    @resilient_evaluation
     async def a_evaluate(
         self,
         input: str,
@@ -138,6 +140,7 @@ class RagasFaithfulness(RagasMetricBase):
     ) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output, context=context))
 
+    @resilient_evaluation
     async def a_evaluate(
         self,
         input: str,
@@ -199,6 +202,7 @@ class RagasAspectCritic(RagasMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         sample = SingleTurnSample(
             user_input=input,
