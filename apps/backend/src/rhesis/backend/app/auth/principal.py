@@ -78,4 +78,32 @@ def resolve_principal(
     )
 
 
-__all__ = ["Principal", "resolve_principal"]
+def resolve_principal_from_request(user: "object", request: "object") -> Principal:
+    """Build a :class:`Principal` reading token context from ``request.state``.
+
+    Drop-in replacement for ``resolve_principal(user)`` in FastAPI handlers that
+    receive a ``Request`` object.  Reads ``auth_kind``, ``api_token_scopes``, and
+    ``api_token_project_id`` from ``request.state`` so the Principal accurately
+    reflects an unscoped token (``kind="token"`` with ``scopes=None``) rather than
+    being silently misclassified as ``kind="session"``.
+    """
+    from uuid import UUID
+
+    token_scopes = getattr(request.state, "api_token_scopes", None)  # type: ignore[union-attr]
+    token_project_id_str = getattr(request.state, "api_token_project_id", None)  # type: ignore[union-attr]
+    auth_kind = getattr(request.state, "auth_kind", "session")  # type: ignore[union-attr]
+    token_project_id: Optional[UUID] = None
+    if token_project_id_str:
+        try:
+            token_project_id = UUID(token_project_id_str)
+        except (ValueError, AttributeError):
+            pass
+    return resolve_principal(
+        user,
+        scopes=token_scopes,
+        token_project_id=token_project_id,
+        kind=auth_kind,
+    )
+
+
+__all__ = ["Principal", "resolve_principal", "resolve_principal_from_request"]

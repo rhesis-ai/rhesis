@@ -317,6 +317,11 @@ async def get_authenticated_user_with_context(
                         if token_scopes is not None:
                             request.state.api_token_scopes = frozenset(token_scopes)
 
+                        # Always mark the auth kind as "token" so resolve_principal
+                        # callers can set kind correctly even when the token carries
+                        # no scopes and no project_id (unscoped rh-* tokens).
+                        request.state.auth_kind = "token"
+
                         if without_context:
                             # without_context allows users without organization
                             request.state.user = user

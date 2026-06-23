@@ -134,6 +134,13 @@ def _validate_token_scopes(scopes: list[str], current_user: "User", db: Session)
         return
 
     # EE provider — validate scopes ⊆ caller's effective permissions.
+    # project_id=None intentionally validates against the caller's org-level
+    # role (the org-role ceiling) rather than a specific project role.  This is
+    # the conservative correct baseline: if a project-membership role grants
+    # fewer permissions than the org role, the caller cannot create a token with
+    # those extra org-level caps and then use it in that project — the EE
+    # provider will intersect at authorization time anyway.  The inverse
+    # (project role wider than org role) is not currently supported.
     principal = resolve_principal(current_user)
     effective = provider.get_effective_permissions(principal, project_id=None, db=db)
     if not effective:

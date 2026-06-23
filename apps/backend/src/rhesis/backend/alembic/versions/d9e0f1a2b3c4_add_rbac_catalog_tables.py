@@ -99,18 +99,14 @@ def upgrade() -> None:
             ),
             sa.Column("deleted_at", sa.DateTime(), nullable=True),
         )
+    # Indexes created independently so a partially-applied schema (table exists
+    # but index creation was interrupted) is repaired on re-run.
+    if not _index_exists(conn, "ix_permission_id"):
         op.create_index("ix_permission_id", "permission", ["id"], unique=True)
-        op.create_index(
-            "ix_permission_name",
-            "permission",
-            ["name"],
-            unique=True,
-        )
-        op.create_index(
-            "ix_permission_resource_type",
-            "permission",
-            ["resource_type"],
-        )
+    if not _index_exists(conn, "ix_permission_name"):
+        op.create_index("ix_permission_name", "permission", ["name"], unique=True)
+    if not _index_exists(conn, "ix_permission_resource_type"):
+        op.create_index("ix_permission_resource_type", "permission", ["resource_type"])
 
     # ------------------------------------------------------------------
     # role
@@ -170,14 +166,13 @@ def upgrade() -> None:
             ),
             sa.Column("deleted_at", sa.DateTime(), nullable=True),
         )
+    if not _index_exists(conn, "ix_role_id"):
         op.create_index("ix_role_id", "role", ["id"], unique=True)
+    if not _index_exists(conn, "ix_role_organization_id"):
         op.create_index("ix_role_organization_id", "role", ["organization_id"])
-        op.create_index(
-            "ix_role_name_org",
-            "role",
-            ["name", "organization_id"],
-            unique=True,
-        )
+    if not _index_exists(conn, "ix_role_name_org"):
+        op.create_index("ix_role_name_org", "role", ["name", "organization_id"], unique=True)
+    if not _index_exists(conn, "uq_role_builtin_name"):
         op.create_index(
             "uq_role_builtin_name",
             "role",
@@ -244,21 +239,13 @@ def upgrade() -> None:
                 name="uq_role_permission",
             ),
         )
+    if not _index_exists(conn, "ix_role_permission_id"):
+        op.create_index("ix_role_permission_id", "role_permission", ["id"], unique=True)
+    if not _index_exists(conn, "ix_role_permission_role_id"):
+        op.create_index("ix_role_permission_role_id", "role_permission", ["role_id"])
+    if not _index_exists(conn, "ix_role_permission_permission_id"):
         op.create_index(
-            "ix_role_permission_id",
-            "role_permission",
-            ["id"],
-            unique=True,
-        )
-        op.create_index(
-            "ix_role_permission_role_id",
-            "role_permission",
-            ["role_id"],
-        )
-        op.create_index(
-            "ix_role_permission_permission_id",
-            "role_permission",
-            ["permission_id"],
+            "ix_role_permission_permission_id", "role_permission", ["permission_id"]
         )
 
     # ------------------------------------------------------------------
@@ -311,26 +298,23 @@ def upgrade() -> None:
                 name="uq_organization_member_org_user",
             ),
         )
+    if not _index_exists(conn, "ix_organization_member_id"):
         op.create_index(
-            "ix_organization_member_id",
-            "organization_member",
-            ["id"],
-            unique=True,
+            "ix_organization_member_id", "organization_member", ["id"], unique=True
         )
+    if not _index_exists(conn, "ix_organization_member_organization_id"):
         op.create_index(
             "ix_organization_member_organization_id",
             "organization_member",
             ["organization_id"],
         )
+    if not _index_exists(conn, "ix_organization_member_user_id"):
         op.create_index(
-            "ix_organization_member_user_id",
-            "organization_member",
-            ["user_id"],
+            "ix_organization_member_user_id", "organization_member", ["user_id"]
         )
+    if not _index_exists(conn, "ix_organization_member_role_id"):
         op.create_index(
-            "ix_organization_member_role_id",
-            "organization_member",
-            ["role_id"],
+            "ix_organization_member_role_id", "organization_member", ["role_id"]
         )
 
 

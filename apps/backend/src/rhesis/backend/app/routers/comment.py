@@ -1,12 +1,12 @@
 import uuid
 from typing import List
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.principal import resolve_principal
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
@@ -134,6 +134,7 @@ def read_comment(
 def update_comment(
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -148,7 +149,7 @@ def update_comment(
         raise HTTPException(status_code=404, detail="Comment not found")
 
     # SP10: object-level ownership check via PDP.
-    principal = resolve_principal(current_user)
+    principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     if not authorize_object(
         principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
@@ -167,6 +168,7 @@ def update_comment(
 @router.delete("/{comment_id}", response_model=schemas.Comment)
 def delete_comment(
     comment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -181,7 +183,7 @@ def delete_comment(
         raise HTTPException(status_code=404, detail="Comment not found")
 
     # SP10: object-level ownership check via PDP.
-    principal = resolve_principal(current_user)
+    principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     if not authorize_object(
         principal, Permission.Comment.DELETE_OWN, db_comment, project_id=project_id, db=db

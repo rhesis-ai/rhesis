@@ -458,11 +458,12 @@ def require_permission(capability: "str | Permission"):
             except (ValueError, AttributeError):
                 pass
 
+        auth_kind = getattr(request.state, "auth_kind", "session")
         principal = resolve_principal(
             current_user,
             scopes=token_scopes,
             token_project_id=tok_project_id,
-            kind="token" if token_scopes is not None or tok_project_id is not None else "session",
+            kind=auth_kind,
         )
 
         # Read project_id from the ambient scope written by get_db_with_tenant_variables.

@@ -166,11 +166,12 @@ def get_project_context(
             token_proj_uuid = (
                 uuid.UUID(token_project_id_str) if token_project_id_str else None
             )
+            auth_kind = getattr(request.state, "auth_kind", "session")
             principal = resolve_principal(
                 current_user,
                 scopes=token_scopes,
                 token_project_id=token_proj_uuid,
-                kind="token" if (token_project_id_str or token_scopes) else "session",
+                kind=auth_kind,
             )
             if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
                 raise HTTPException(
