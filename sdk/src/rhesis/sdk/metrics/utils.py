@@ -1,4 +1,5 @@
 ## TODO - move this file to the backend
+import asyncio
 import inspect
 import logging
 from functools import wraps
@@ -94,8 +95,24 @@ def _inconclusive_result(metric_name: str, exc: Exception) -> MetricResult:
     )
 
 
+_PASSTHROUGH_EXCEPTIONS = (
+    ConnectionError,
+    TimeoutError,
+    OSError,
+    KeyboardInterrupt,
+    asyncio.CancelledError,
+)
+
+
 def resilient_evaluation(func: Callable) -> Callable:
     """Catch evaluation errors and return an inconclusive MetricResult.
+
+    Transient/infrastructure exceptions (ConnectionError, TimeoutError,
+    OSError), asyncio.CancelledError, and KeyboardInterrupt are re-raised
+    so that retry mechanisms (``@retry_evaluation``, backend
+    ``LocalStrategy`` retries) and cancellation continue to work. Only
+    non-transient evaluation failures (e.g. output parse errors) are
+    converted to inconclusive results.
 
     Works on both sync and async methods. Expects ``self`` to have a
     ``name`` attribute (all metric classes do via ``BaseMetric``).
@@ -106,6 +123,8 @@ def resilient_evaluation(func: Callable) -> Callable:
         async def async_wrapper(self, *args: Any, **kwargs: Any) -> MetricResult:
             try:
                 return await func(self, *args, **kwargs)
+            except _PASSTHROUGH_EXCEPTIONS:
+                raise
             except Exception as exc:
                 logger.warning(
                     "Metric '%s' evaluation failed (%s)",
@@ -121,6 +140,8 @@ def resilient_evaluation(func: Callable) -> Callable:
         def sync_wrapper(self, *args: Any, **kwargs: Any) -> MetricResult:
             try:
                 return func(self, *args, **kwargs)
+            except _PASSTHROUGH_EXCEPTIONS:
+                raise
             except Exception as exc:
                 logger.warning(
                     "Metric '%s' evaluation failed (%s)",
