@@ -49,7 +49,9 @@ class RagasContextRelevance(RagasMetricBase):
             user_input=input,
             retrieved_contexts=context,
         )
-        score = await self.scorer.single_turn_ascore(sample)
+        score = await self._safe_single_turn_ascore(self.scorer, sample)
+        if score is None:
+            return self._output_parse_error_result(self.threshold)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
@@ -100,7 +102,9 @@ class RagasAnswerAccuracy(RagasMetricBase):
             response=output,
             reference=expected_output,
         )
-        score = await self.scorer.single_turn_ascore(sample)
+        score = await self._safe_single_turn_ascore(self.scorer, sample)
+        if score is None:
+            return self._output_parse_error_result(self.threshold)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
@@ -160,7 +164,9 @@ class RagasFaithfulness(RagasMetricBase):
             response=output,
             retrieved_contexts=context,
         )
-        score = await self.scorer.single_turn_ascore(sample)
+        score = await self._safe_single_turn_ascore(self.scorer, sample)
+        if score is None:
+            return self._output_parse_error_result(self.threshold)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
@@ -204,7 +210,9 @@ class RagasAspectCritic(RagasMetricBase):
             user_input=input,
             response=output,
         )
-        score = await self.scorer.single_turn_ascore(sample)
+        score = await self._safe_single_turn_ascore(self.scorer, sample)
+        if score is None:
+            return self._output_parse_error_result(self.threshold)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
