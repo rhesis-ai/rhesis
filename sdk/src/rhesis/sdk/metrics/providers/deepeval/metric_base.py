@@ -1,12 +1,9 @@
-import logging
 from typing import Any, List, Optional, Union
 
 from deepeval.test_case.llm_test_case import LLMTestCase
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
-
-logger = logging.getLogger(__name__)
 
 
 class DeepEvalMetricBase(BaseMetric):
@@ -82,42 +79,3 @@ class DeepEvalMetricBase(BaseMetric):
             expected_output=expected_output,
             retrieval_context=context,
         )
-
-    async def _safe_a_measure(self, metric, test_case) -> Optional[MetricResult]:
-        """Run metric.a_measure(), returning an error MetricResult on failure.
-
-        DeepEval metrics use LLM-as-judge internally and require structured
-        output parsing. Models with limited instruction-following may produce
-        output that DeepEval cannot parse. Catching errors here avoids noisy
-        tracebacks and provides a clear inconclusive result.
-
-        Returns None on success (caller should read metric.score/reason),
-        or a MetricResult on failure.
-        """
-        try:
-            await metric.a_measure(test_case)
-            return None
-        except Exception as exc:
-            logger.warning(
-                "DeepEval metric '%s' failed during evaluation "
-                "(model may not support structured output required by this metric): %s",
-                self.name,
-                exc,
-            )
-            return MetricResult(
-                score=0.0,
-                details={
-                    "reason": (
-                        f"Metric '{self.name}' failed: the evaluation model could not "
-                        "produce output that DeepEval can parse. This commonly happens "
-                        "with smaller or local models that have limited "
-                        "instruction-following. Consider using a more capable model for "
-                        "metric evaluation."
-                    ),
-                    "is_successful": False,
-                    "threshold": getattr(self, "threshold", 0.0),
-                    "inconclusive": True,
-                    "error": str(exc),
-                    "error_type": type(exc).__name__,
-                },
-            )

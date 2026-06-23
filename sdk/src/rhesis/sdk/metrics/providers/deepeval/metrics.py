@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
-from rhesis.sdk.metrics.utils import retry_evaluation
+from rhesis.sdk.metrics.utils import resilient_evaluation, retry_evaluation
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -31,11 +31,10 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -72,6 +71,7 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
     ) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output, context=context))
 
+    @resilient_evaluation
     async def a_evaluate(
         self, input: str, output: str, context: Optional[List[str]] = None
     ) -> MetricResult:
@@ -87,9 +87,7 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, context=context)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -124,6 +122,7 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
     def evaluate(self, input: str, context: Optional[List[str]] = None) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, context=context))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, context: Optional[List[str]] = None) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
@@ -138,9 +137,7 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input=input, context=context)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -188,6 +185,7 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
             )
         )
 
+    @resilient_evaluation
     async def a_evaluate(
         self,
         input: str,
@@ -208,9 +206,7 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -258,6 +254,7 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
             )
         )
 
+    @resilient_evaluation
     async def a_evaluate(
         self,
         input: str,
@@ -278,9 +275,7 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -315,11 +310,10 @@ class DeepEvalBias(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -354,11 +348,10 @@ class DeepEvalToxicity(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -402,11 +395,10 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -446,11 +438,10 @@ class DeepEvalMisuse(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -485,11 +476,10 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -533,11 +523,10 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -577,11 +566,10 @@ class DeepTeamIllegal(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -620,11 +608,10 @@ class DeepTeamSafety(DeepEvalMetricBase):
     def evaluate(self, input: str, output: str) -> MetricResult:
         return run_sync(self.a_evaluate(input=input, output=output))
 
+    @resilient_evaluation
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        error_result = await self._safe_a_measure(self._metric, test_case)
-        if error_result is not None:
-            return error_result
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
