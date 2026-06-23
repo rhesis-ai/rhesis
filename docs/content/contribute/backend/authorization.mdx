@@ -162,6 +162,14 @@ migration. Their permission sets are computed from code
 | Viewer | 40 | Every `:read` except `role:read`/`token:read`, plus `recycle:view` |
 | None | 0 | Nothing |
 
+> **Cut-over note.** When RBAC is activated for an existing org, the backfill
+> migration (`371c3c3cd787`) assigns the org owner the **Owner** role and **every
+> other existing member the Admin role** — intentionally, so no current user
+> loses access at the moment RBAC turns on. New members invited afterwards are
+> seeded as **Member** (see `ee/.../rbac/default_role.py`), not Admin. Tighten
+> existing members from Admin to Member via the role-management API after
+> cut-over if least-privilege is required.
+
 ## Object-level ownership (`:own`)
 
 Some resources have creator semantics: a user may edit only the comments they
