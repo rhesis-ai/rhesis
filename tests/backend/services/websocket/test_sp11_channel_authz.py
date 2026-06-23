@@ -22,6 +22,7 @@ from unittest.mock import patch
 
 import pytest
 
+from rhesis.backend.app.auth.principal import resolve_principal
 from rhesis.backend.app.services.websocket.authorization import ChannelAuthorizer
 
 # ---------------------------------------------------------------------------
@@ -98,8 +99,11 @@ class TestChannelAuthorizerUnit:
         project_id = uuid.uuid4()
         fake_db = object()
 
-        # Stub the project resolver (avoids a real DB); authorize/resolve_principal
-        # are imported lazily inside the method, so patch them at their sources.
+        # Stub the project resolver (avoids a real DB); authorize is imported
+        # lazily inside the method, so patch it at its source. The caller must
+        # supply the connection's Principal (the manager always does); a missing
+        # principal now fails closed (see test_resource_channel_missing_principal_denied).
+        principal = SimpleNamespace(user_id=user.id, organization_id=user.organization_id)
         with (
             patch.object(
                 authorizer, "_resolve_channel_project_id", return_value=(project_id, True)
@@ -108,12 +112,10 @@ class TestChannelAuthorizerUnit:
                 "rhesis.backend.app.auth.rbac.authorize",
                 return_value=True,
             ) as mock_authz,
-            patch(
-                "rhesis.backend.app.auth.principal.resolve_principal",
-                return_value=SimpleNamespace(user_id=user.id, organization_id=user.organization_id),
-            ),
         ):
-            ok, err = await authorizer.authorize(user, f"test_run:{run_id}", db=fake_db)
+            ok, err = await authorizer.authorize(
+                user, f"test_run:{run_id}", db=fake_db, principal=principal
+            )
 
         assert ok is True
         mock_authz.assert_called_once()
@@ -131,6 +133,7 @@ class TestChannelAuthorizerUnit:
         project_id = uuid.uuid4()
         fake_db = object()
 
+        principal = SimpleNamespace(user_id=user.id, organization_id=user.organization_id)
         with (
             patch.object(
                 authorizer, "_resolve_channel_project_id", return_value=(project_id, True)
@@ -139,12 +142,10 @@ class TestChannelAuthorizerUnit:
                 "rhesis.backend.app.auth.rbac.authorize",
                 return_value=False,
             ),
-            patch(
-                "rhesis.backend.app.auth.principal.resolve_principal",
-                return_value=SimpleNamespace(user_id=user.id, organization_id=user.organization_id),
-            ),
         ):
-            ok, err = await authorizer.authorize(user, f"test_run:{run_id}", db=fake_db)
+            ok, err = await authorizer.authorize(
+                user, f"test_run:{run_id}", db=fake_db, principal=principal
+            )
 
         assert ok is False
         assert err is not None
@@ -159,15 +160,14 @@ class TestChannelAuthorizerUnit:
         run_id = uuid.uuid4()
         fake_db = object()
 
+        principal = SimpleNamespace(user_id=user.id, organization_id=user.organization_id)
         with (
             patch.object(authorizer, "_resolve_channel_project_id", return_value=(None, False)),
             patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
-            patch(
-                "rhesis.backend.app.auth.principal.resolve_principal",
-                return_value=SimpleNamespace(user_id=user.id, organization_id=user.organization_id),
-            ),
         ):
-            ok, err = await authorizer.authorize(user, f"test_run:{run_id}", db=fake_db)
+            ok, err = await authorizer.authorize(
+                user, f"test_run:{run_id}", db=fake_db, principal=principal
+            )
 
         assert ok is False
         assert err is not None
@@ -180,20 +180,41 @@ class TestChannelAuthorizerUnit:
         corr_id = uuid.uuid4()
         fake_db = object()
 
+        principal = SimpleNamespace(user_id=user.id, organization_id=user.organization_id)
         with (
             patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
-            patch(
-                "rhesis.backend.app.auth.principal.resolve_principal",
-                return_value=SimpleNamespace(user_id=user.id, organization_id=user.organization_id),
-            ),
         ):
-            ok, err = await authorizer.authorize(user, f"preflight:{corr_id}", db=fake_db)
+            ok, err = await authorizer.authorize(
+                user, f"preflight:{corr_id}", db=fake_db, principal=principal
+            )
 
         assert ok is True
         call = mock_authz.call_args
         # Ephemeral: org-scoped (project_id=None), capability preflight:create.
         assert call.kwargs["project_id"] is None
         assert "preflight:create" in str(call)
+
+    @pytest.mark.asyncio
+    async def test_resource_channel_missing_principal_denied(self, authorizer):
+        """Fail closed: on the PDP path, a missing Principal is denied rather than
+        synthesised from `user` (which would drop the token's SP9 scopes)."""
+        user = _fake_user()
+        run_id = uuid.uuid4()
+        fake_db = object()
+
+        with (
+            patch.object(
+                authorizer, "_resolve_channel_project_id", return_value=(uuid.uuid4(), True)
+            ),
+            patch("rhesis.backend.app.auth.rbac.authorize", return_value=True) as mock_authz,
+        ):
+            ok, err = await authorizer.authorize(
+                user, f"test_run:{run_id}", db=fake_db, principal=None
+            )
+
+        assert ok is False
+        assert err is not None
+        mock_authz.assert_not_called()
 
     # --- invalid channel formats ---
 
@@ -299,7 +320,9 @@ class TestChannelAuthorizerIntegration:
         user = _fake_user(user_id=user_id, org_id=org_id)
 
         authorizer = ChannelAuthorizer()
-        ok, err = await authorizer.authorize(user, f"project:{project_id}", db=db)
+        ok, err = await authorizer.authorize(
+            user, f"project:{project_id}", db=db, principal=resolve_principal(user)
+        )
 
         assert ok is True, f"Org owner should be allowed; err={err}"
 
@@ -316,7 +339,9 @@ class TestChannelAuthorizerIntegration:
         ghost_project = uuid.uuid4()  # never created
 
         authorizer = ChannelAuthorizer()
-        ok, err = await authorizer.authorize(user, f"project:{ghost_project}", db=db)
+        ok, err = await authorizer.authorize(
+            user, f"project:{ghost_project}", db=db, principal=resolve_principal(user)
+        )
 
         assert ok is False, "Subscription to a nonexistent project channel must be denied"
 
@@ -341,6 +366,8 @@ class TestChannelAuthorizerIntegration:
         user = _fake_user(user_id=user_b, org_id=org_b)
 
         authorizer = ChannelAuthorizer()
-        ok, err = await authorizer.authorize(user, f"project:{project_a}", db=db)
+        ok, err = await authorizer.authorize(
+            user, f"project:{project_a}", db=db, principal=resolve_principal(user)
+        )
 
         assert ok is False, "Cross-org project channel subscription must be denied"

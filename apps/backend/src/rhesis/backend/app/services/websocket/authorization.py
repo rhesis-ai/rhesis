@@ -217,11 +217,21 @@ class ChannelAuthorizer:
             )
             return False, "Resource not found or access denied"
 
-        from rhesis.backend.app.auth.principal import resolve_principal
         from rhesis.backend.app.auth.rbac import authorize
 
+        # Fail closed: on the PDP-enforcing path the caller must supply the
+        # connection's stored Principal. Synthesising one from `user` here would
+        # silently drop the token's scopes/project boundary (SP9), so a scoped
+        # token could subscribe beyond its scopes. The normal connect flow always
+        # registers a principal before any subscribe is processed.
         if principal is None:
-            principal = resolve_principal(user)
+            logger.warning(
+                "WebSocket subscription denied: no principal for user %s on %s%s",
+                user.id,
+                prefix,
+                resource_id,
+            )
+            return False, "Subscription denied: missing authorization context"
         if not authorize(principal, rule.capability, project_id=project_id, db=db):
             logger.warning(
                 "WebSocket subscription denied: user %s lacks '%s' for %s%s (project=%s)",
