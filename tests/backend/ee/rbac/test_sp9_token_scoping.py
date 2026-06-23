@@ -224,6 +224,25 @@ class TestTokenProjectBoundary:
 
 
 # ---------------------------------------------------------------------------
+# Unit-level: token scopes are immutable on update
+# ---------------------------------------------------------------------------
+
+
+class TestTokenScopeImmutability:
+    def test_prepare_update_data_strips_scopes(self):
+        """The generic update path must drop `scopes` for Token so a PUT can never
+        widen a token's capability set (SP9 scopes are mint-time-only)."""
+        from rhesis.backend.app import models
+        from rhesis.backend.app.schemas.token import TokenUpdate
+        from rhesis.backend.app.utils.crud_utils import _prepare_update_data
+
+        upd = TokenUpdate(name="renamed", scopes=["test_set:read", "test_set:delete"])
+        data = _prepare_update_data(None, models.Token, upd)
+        assert "scopes" not in data
+        assert data.get("name") == "renamed"
+
+
+# ---------------------------------------------------------------------------
 # Integration: EE provider scopes intersection
 # ---------------------------------------------------------------------------
 

@@ -250,7 +250,18 @@ def update_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a token by ID."""
+    """Update a token by ID.
+
+    Token ``scopes`` are immutable after creation: the SP9 ``scopes ⊆ issuer``
+    and chained-mint guards run only at mint time, so changing scopes requires
+    creating a new token rather than editing an existing one.
+    """
+    if "scopes" in token.model_fields_set:
+        raise HTTPException(
+            status_code=422,
+            detail="Token scopes are immutable; create a new token to change them",
+        )
+
     organization_id, user_id = tenant_context
     db_token = crud.update_token(
         db, token_id=token_id, token=token, organization_id=organization_id, user_id=user_id
