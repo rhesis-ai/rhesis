@@ -89,13 +89,9 @@ class TestResilientEvaluationAsync:
         class M(_StubMetric):
             @resilient_evaluation
             async def a_evaluate(self, input, output):
-                return MetricResult(
-                    score=1.0, details={"input": input, "output": output}
-                )
+                return MetricResult(score=1.0, details={"input": input, "output": output})
 
-        result = asyncio.get_event_loop().run_until_complete(
-            M().a_evaluate("hello", "world")
-        )
+        result = asyncio.get_event_loop().run_until_complete(M().a_evaluate("hello", "world"))
         assert result.details["input"] == "hello"
         assert result.details["output"] == "world"
 
@@ -137,6 +133,93 @@ class TestResilientEvaluationSync:
             result = M().evaluate()
             assert result.details["inconclusive"] is True
             assert result.details["error_type"] == exc_cls.__name__
+
+
+class TestResilientEvaluationPassthrough:
+    """Transient/infra exceptions must propagate so retry mechanisms work."""
+
+    def test_reraises_connection_error_sync(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            def evaluate(self, **kwargs):
+                raise ConnectionError("connection refused")
+
+        with pytest.raises(ConnectionError):
+            M().evaluate()
+
+    def test_reraises_timeout_error_sync(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            def evaluate(self, **kwargs):
+                raise TimeoutError("timed out")
+
+        with pytest.raises(TimeoutError):
+            M().evaluate()
+
+    def test_reraises_os_error_sync(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            def evaluate(self, **kwargs):
+                raise OSError("network unreachable")
+
+        with pytest.raises(OSError):
+            M().evaluate()
+
+    def test_reraises_keyboard_interrupt_sync(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            def evaluate(self, **kwargs):
+                raise KeyboardInterrupt()
+
+        with pytest.raises(KeyboardInterrupt):
+            M().evaluate()
+
+    def test_reraises_connection_error_async(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            async def a_evaluate(self, **kwargs):
+                raise ConnectionError("connection refused")
+
+        with pytest.raises(ConnectionError):
+            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+
+    def test_reraises_timeout_error_async(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            async def a_evaluate(self, **kwargs):
+                raise TimeoutError("timed out")
+
+        with pytest.raises(TimeoutError):
+            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+
+    def test_reraises_os_error_async(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            async def a_evaluate(self, **kwargs):
+                raise OSError("network unreachable")
+
+        with pytest.raises(OSError):
+            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+
+    def test_reraises_keyboard_interrupt_async(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            async def a_evaluate(self, **kwargs):
+                raise KeyboardInterrupt()
+
+        with pytest.raises(KeyboardInterrupt):
+            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+
+    def test_non_transient_errors_still_caught(self):
+        """ValueError/RuntimeError are not transient — should return inconclusive."""
+
+        class M(_StubMetric):
+            @resilient_evaluation
+            def evaluate(self, **kwargs):
+                raise ValueError("parse error")
+
+        result = M().evaluate()
+        assert result.details["inconclusive"] is True
 
 
 class TestResilientEvaluationLogging:
