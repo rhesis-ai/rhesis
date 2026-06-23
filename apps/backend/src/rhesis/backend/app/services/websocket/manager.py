@@ -10,7 +10,10 @@ This module provides the WebSocketManager class that handles:
 import asyncio
 import logging
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.principal import Principal
 
 from fastapi import WebSocket
 
@@ -52,6 +55,7 @@ class WebSocketManager:
         """Initialize the WebSocket manager."""
         self._registry = ConnectionRegistry()
         self._redis_listener_task: Optional[asyncio.Task] = None
+        self._principals: dict[str, "Principal"] = {}
 
     async def connect(self, websocket: WebSocket, user: User) -> str:
         """Register a new authenticated connection.
@@ -79,6 +83,14 @@ class WebSocketManager:
         )
         return conn_id
 
+    def register_principal(self, conn_id: str, principal: "Principal") -> None:
+        """Store the authenticated principal for a connection.
+
+        Called once after connect() so that channel authorization can apply
+        SP9 token scope intersection for scoped rh-* tokens.
+        """
+        self._principals[conn_id] = principal
+
     def disconnect(self, conn_id: str) -> None:
         """Clean up a connection and all its subscriptions.
 
@@ -86,6 +98,7 @@ class WebSocketManager:
             conn_id: The connection ID to disconnect.
         """
         conn_info = self._registry.remove(conn_id)
+        self._principals.pop(conn_id, None)
 
         # Clean up rate limiter tracking
         rate_limiter = get_rate_limiter()
@@ -254,11 +267,15 @@ class WebSocketManager:
         # Security: Authorize channel subscription.
         # SP11: open a short-lived tenant session so the PDP can evaluate
         # the caller's read capability for resource-type channels.
+        # Pass the stored principal so SP9 token scope intersection applies.
         from rhesis.backend.app.database import get_db_with_tenant_variables
 
         authorizer = get_channel_authorizer()
+        stored_principal = self._principals.get(conn_id)
         with get_db_with_tenant_variables(str(user.organization_id), str(user.id), "") as db:
-            authorized, error_message = await authorizer.authorize(user, channel, db=db)
+            authorized, error_message = await authorizer.authorize(
+                user, channel, db=db, principal=stored_principal
+            )
         if not authorized:
             logger.warning(
                 f"Unauthorized subscription attempt by user {user.id} to {channel}: {error_message}"

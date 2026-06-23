@@ -13,6 +13,7 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
 
+from rhesis.backend.app.auth.principal import resolve_principal, resolve_principal_from_request
 from rhesis.backend.app.auth.user_utils import (
     get_authenticated_user_with_context,
     get_secret_key,
@@ -62,19 +63,15 @@ async def get_websocket_token(
 async def authenticate_websocket_token(
     websocket: WebSocket,
     token: Optional[str] = None,
-) -> Optional[User]:
+) -> Optional[tuple[User, "Principal"]]:
     """Authenticate WebSocket connection using token from query parameter.
 
     This function supports two authentication methods:
     1. Short-lived WebSocket tokens (preferred, more secure)
-    2. Regular JWT tokens (fallback for compatibility)
+    2. Regular JWT/rh-* tokens (fallback for compatibility)
 
-    Args:
-        websocket: The WebSocket connection.
-        token: JWT, WebSocket token, or API token from query parameter.
-
-    Returns:
-        Authenticated User object, or None if authentication fails.
+    Returns a (User, Principal) pair so token scopes are preserved for
+    channel authorization (SP9).  Returns None if authentication fails.
     """
     if not token:
         return None
@@ -92,7 +89,8 @@ async def authenticate_websocket_token(
                 user = db.query(UserModel).filter(UserModel.id == ws_payload["sub"]).first()
                 if user:
                     logger.debug(f"WebSocket auth via WS token for user {user.id}")
-                    return user
+                    # WS tokens are always issued from session auth — session principal.
+                    return user, resolve_principal(user)
         except Exception as e:
             logger.warning(f"WebSocket token user lookup failed: {e}")
 
@@ -108,14 +106,18 @@ async def authenticate_websocket_token(
     mock_request = MockRequest()
 
     try:
-        # Use existing authentication logic (supports both rh- tokens and JWT)
+        # Use existing authentication logic (supports both rh- tokens and JWT).
+        # get_authenticated_user_with_context writes token context to mock_request.state
+        # so resolve_principal_from_request can harvest it below.
         user = await get_authenticated_user_with_context(
             request=mock_request,
             credentials=credentials,
             secret_key=get_secret_key(),
             without_context=False,  # Require organization
         )
-        return user
+        if user:
+            return user, resolve_principal_from_request(user, mock_request)
+        return None
     except Exception as e:
         logger.warning(f"WebSocket authentication failed: {e}")
         return None
@@ -145,17 +147,20 @@ async def websocket_endpoint(websocket: WebSocket):
     token = websocket.query_params.get("token")
 
     # Authenticate
-    user = await authenticate_websocket_token(websocket, token)
-    if not user:
+    auth = await authenticate_websocket_token(websocket, token)
+    if not auth:
         logger.warning("WebSocket authentication failed - closing connection")
         await websocket.close(code=1008, reason="Authentication failed")
         return
+    user, principal = auth
 
     # Accept the connection
     await websocket.accept()
 
-    # Register with manager
+    # Register with manager; store the principal so channel authorization
+    # can apply SP9 token scope intersection.
     conn_id = await ws_manager.connect(websocket, user)
+    ws_manager.register_principal(conn_id, principal)
 
     # Send connected confirmation
     try:

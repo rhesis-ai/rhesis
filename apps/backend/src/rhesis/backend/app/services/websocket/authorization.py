@@ -17,6 +17,8 @@ from rhesis.backend.app.models.user import User
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from rhesis.backend.app.auth.principal import Principal
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,7 +86,11 @@ class ChannelAuthorizer:
     )
 
     async def authorize(
-        self, user: User, channel: str, db: "Optional[Session]" = None
+        self,
+        user: User,
+        channel: str,
+        db: "Optional[Session]" = None,
+        principal: "Optional[Principal]" = None,
     ) -> tuple[bool, Optional[str]]:
         """Check if user can subscribe to channel.
 
@@ -126,7 +132,9 @@ class ChannelAuthorizer:
 
         # Protected resources: verify ownership via organization
         if prefix in self.PROTECTED_RESOURCE_PREFIXES:
-            return await self._authorize_resource_channel(user, prefix, resource_id, db=db)
+            return await self._authorize_resource_channel(
+                user, prefix, resource_id, db=db, principal=principal
+            )
 
         # Unknown channel format - deny by default (fail-closed)
         logger.warning(f"Unknown channel prefix from user {user.id}: {prefix}")
@@ -167,6 +175,7 @@ class ChannelAuthorizer:
         prefix: str,
         resource_id: str,
         db: "Optional[Session]" = None,
+        principal: "Optional[Principal]" = None,
     ) -> tuple[bool, Optional[str]]:
         """Authorize subscription to a resource-scoped channel.
 
@@ -211,7 +220,8 @@ class ChannelAuthorizer:
         from rhesis.backend.app.auth.principal import resolve_principal
         from rhesis.backend.app.auth.rbac import authorize
 
-        principal = resolve_principal(user)
+        if principal is None:
+            principal = resolve_principal(user)
         if not authorize(principal, rule.capability, project_id=project_id, db=db):
             logger.warning(
                 "WebSocket subscription denied: user %s lacks '%s' for %s%s (project=%s)",

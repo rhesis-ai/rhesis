@@ -1,12 +1,16 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.principal import Principal
 
 from fastapi import Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -65,7 +69,7 @@ def create_token(
             isinstance(s, str) for s in requested_scopes
         ):
             raise HTTPException(status_code=422, detail="scopes must be a list of strings")
-        _validate_token_scopes(requested_scopes, current_user, db)
+        _validate_token_scopes(requested_scopes, resolve_principal_from_request(current_user, request), db)
 
     organization_id, user_id = tenant_context
     token_value = generate_api_token()
@@ -101,12 +105,16 @@ def create_token(
     )
 
 
-def _validate_token_scopes(scopes: list[str], current_user: "User", db: Session) -> None:
+def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Session) -> None:
     """Raise 422 when any requested scope exceeds the caller's own permissions.
 
     SP9 invariant: scopes ⊆ issuer permissions.  The caller cannot create a
     token that grants more access than they currently hold.  This also prevents
     a downgraded user from re-materialising permissions they no longer have.
+
+    Chained-mint guard: when the request itself is authenticated via a scoped
+    token, the requested scopes must also be within that token's own scopes —
+    preventing privilege escalation by minting a wider child token.
 
     In the community tier every valid capability string is permitted (the
     DefaultAuthorizationProvider doesn't enforce scopes at auth time anyway).
@@ -114,8 +122,16 @@ def _validate_token_scopes(scopes: list[str], current_user: "User", db: Session)
     check matches exactly what ``authorize()`` would decide.
     """
     from rhesis.backend.app.auth.capabilities import get_all_capabilities
-    from rhesis.backend.app.auth.principal import resolve_principal
     from rhesis.backend.app.auth.rbac import get_authorization_provider
+
+    # SP9 chained-mint guard: a scoped token cannot mint a token with wider scopes.
+    if principal.kind == "token" and principal.scopes is not None:
+        out_of_token_scope = set(scopes) - principal.scopes
+        if out_of_token_scope:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Requested scopes exceed authenticating token's scopes: {sorted(out_of_token_scope)}",
+            )
 
     # Validate that all requested scopes are known capability strings.
     # Skip when the capability cache is not yet populated (early startup / tests).
@@ -141,7 +157,6 @@ def _validate_token_scopes(scopes: list[str], current_user: "User", db: Session)
     # those extra org-level caps and then use it in that project — the EE
     # provider will intersect at authorization time anyway.  The inverse
     # (project role wider than org role) is not currently supported.
-    principal = resolve_principal(current_user)
     effective = provider.get_effective_permissions(principal, project_id=None, db=db)
     if not effective:
         # RBAC not active for this org or no role assigned (community fallback
