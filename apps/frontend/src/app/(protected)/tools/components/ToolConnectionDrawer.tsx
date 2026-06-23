@@ -49,7 +49,7 @@ function getCredentialKey(providerType: string | undefined): string {
     case 'asana':
       return 'ASANA_ACCESS_TOKEN';
     case 'linear':
-      return 'LINEAR_API_KEY';
+      return 'LINEAR_API_TOKEN';
     case 'jira':
       return 'JIRA_API_TOKEN';
     case 'confluence':
@@ -128,7 +128,6 @@ export function ToolConnectionDrawer({
   const [initialGitlabApiUrl, setInitialGitlabApiUrl] = useState('');
   const [initialSpaceKey, setInitialSpaceKey] = useState('');
   const [initialWorkspaceGid, setInitialWorkspaceGid] = useState('');
-  const [initialTeamId, setInitialTeamId] = useState('');
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -139,9 +138,6 @@ export function ToolConnectionDrawer({
 
   // Asana workspace scope
   const [workspaceGid, setWorkspaceGid] = useState('');
-
-  // Linear team scope
-  const [teamId, setTeamId] = useState('');
 
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
@@ -230,18 +226,6 @@ export function ToolConnectionDrawer({
           setInitialWorkspaceGid('');
         }
 
-        if (
-          currentProviderType === 'linear' &&
-          typeof tool.tool_metadata?.team_id === 'string'
-        ) {
-          const trimmedTeamId = tool.tool_metadata.team_id.trim();
-          setTeamId(trimmedTeamId);
-          setInitialTeamId(trimmedTeamId);
-        } else {
-          setTeamId('');
-          setInitialTeamId('');
-        }
-
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
         // We cannot display them in edit mode as they're encrypted
         // Show placeholder to indicate existing values
@@ -275,7 +259,6 @@ export function ToolConnectionDrawer({
         setProjectNamespace('');
         setGitlabApiUrl('');
         setWorkspaceGid('');
-        setTeamId('');
         setInstanceUrl('');
         // Pre-fill email with logged-in user's email for Jira/Confluence
         const isAtlassian =
@@ -315,8 +298,7 @@ export function ToolConnectionDrawer({
         repositoryUrl !== initialRepositoryUrl ||
         projectNamespace !== initialProjectNamespace ||
         selectedSpaceKey !== initialSpaceKey ||
-        workspaceGid !== initialWorkspaceGid ||
-        teamId !== initialTeamId;
+        workspaceGid !== initialWorkspaceGid;
       const gitlabApiUrlChanged = gitlabApiUrl !== initialGitlabApiUrl;
       const credentialsChanged =
         tokenChanged || urlChanged || usernameChanged || gitlabApiUrlChanged;
@@ -339,13 +321,11 @@ export function ToolConnectionDrawer({
     selectedSpaceKey,
     gitlabApiUrl,
     workspaceGid,
-    teamId,
     initialRepositoryUrl,
     initialProjectNamespace,
     initialSpaceKey,
     initialWorkspaceGid,
     initialGitlabApiUrl,
-    initialTeamId,
   ]);
 
   const parseRepositoryUrl = (
@@ -435,13 +415,6 @@ export function ToolConnectionDrawer({
     return trimmed ? { workspace_gid: trimmed } : undefined;
   };
 
-  const buildLinearMetadata = (
-    team: string
-  ): Record<string, unknown> | undefined => {
-    const trimmed = team.trim();
-    return trimmed ? { team_id: trimmed } : undefined;
-  };
-
   const buildScopeMetadataFromForm = (
     currentProviderType: string | undefined
   ): Record<string, unknown> | undefined => {
@@ -465,10 +438,6 @@ export function ToolConnectionDrawer({
 
     if (currentProviderType === 'asana') {
       return buildAsanaMetadata(workspaceGid);
-    }
-
-    if (currentProviderType === 'linear') {
-      return buildLinearMetadata(teamId);
     }
 
     return undefined;
@@ -560,9 +529,7 @@ export function ToolConnectionDrawer({
         const scopeMetadata =
           currentProviderType === 'asana' && !workspaceGid.trim()
             ? {}
-            : currentProviderType === 'linear' && !teamId.trim()
-              ? {}
-              : parsedMetadata;
+            : parsedMetadata;
 
         testRequest = {
           tool_id: tool.id,
@@ -927,16 +894,6 @@ export function ToolConnectionDrawer({
           }
         }
 
-        if (providerType === 'linear') {
-          metadataToUpdate = {
-            ...(metadataToUpdate || tool.tool_metadata || {}),
-            ...(buildLinearMetadata(teamId) || {}),
-          };
-          if (!teamId.trim() && metadataToUpdate.team_id) {
-            delete metadataToUpdate.team_id;
-          }
-        }
-
         if (metadataToUpdate) {
           updates.tool_metadata = metadataToUpdate;
         }
@@ -1083,13 +1040,6 @@ export function ToolConnectionDrawer({
             };
           }
 
-          if (providerType === 'linear') {
-            parsedMetadata = {
-              ...(parsedMetadata || {}),
-              ...(buildLinearMetadata(teamId) || {}),
-            };
-          }
-
           const toolData: ToolCreate = {
             name,
             description: description || undefined,
@@ -1128,7 +1078,6 @@ export function ToolConnectionDrawer({
       repositoryUrl !== initialRepositoryUrl ||
       projectNamespace !== initialProjectNamespace ||
       workspaceGid !== initialWorkspaceGid ||
-      teamId !== initialTeamId ||
       selectedSpaceKey !== initialSpaceKey);
 
   const saveDisabled =
@@ -1359,17 +1308,6 @@ export function ToolConnectionDrawer({
                 onChange={e => setWorkspaceGid(e.target.value)}
                 placeholder="1234567890"
                 helperText="Optional Asana workspace scope for search and import"
-              />
-            )}
-
-            {providerType === 'linear' && (
-              <TextField
-                label="Team ID (optional)"
-                fullWidth
-                value={teamId}
-                onChange={e => setTeamId(e.target.value)}
-                placeholder="TEAM-123"
-                helperText="Optional Linear team scope for search and import"
               />
             )}
 

@@ -23,7 +23,6 @@ def _mcp_template_scope_kwargs(
     return {
         "project_context": scope_context if provider == "gitlab" else None,
         "workspace_context": scope_context if provider == "asana" else None,
-        "team_context": scope_context if provider == "linear" else None,
     }
 
 

@@ -139,23 +139,12 @@ def _validate_asana_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
-def _validate_linear_team_id(tool_metadata: dict | None) -> None:
-    if not tool_metadata or "team_id" not in tool_metadata:
-        return
-    team_id = tool_metadata["team_id"]
-    if not isinstance(team_id, str) or not team_id.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Linear 'team_id' must be a non-empty string",
-        )
-
-
 def _validate_linear_credentials(credentials: dict[str, str] | None) -> None:
-    token = (credentials or {}).get("LINEAR_API_KEY", "")
+    token = (credentials or {}).get("LINEAR_API_TOKEN", "")
     if not isinstance(token, str) or not token.strip():
         raise HTTPException(
             status_code=400,
-            detail="Linear integrations require 'LINEAR_API_KEY'",
+            detail="Linear integrations require 'LINEAR_API_TOKEN'",
         )
 
 
@@ -178,7 +167,6 @@ def _validate_mcp_test_connection_request(
         _validate_asana_workspace_gid(tool_metadata)
     elif provider == "linear":
         _validate_linear_credentials(credentials)
-        _validate_linear_team_id(tool_metadata)
 
 
 def _validate_provider_type_switch(
@@ -221,7 +209,6 @@ def _validate_provider_type_switch(
         _validate_asana_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "linear":
         _validate_linear_credentials(tool.credentials)
-        _validate_linear_team_id(tool.tool_metadata)
 
 
 @router.post("/", response_model=schemas.Tool)
@@ -263,7 +250,6 @@ def create_tool(
             _validate_asana_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
-            _validate_linear_team_id(tool.tool_metadata)
 
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
@@ -363,9 +349,6 @@ def update_tool(
             _validate_gitlab_project(tool.tool_metadata)
         elif provider_type.type_value == "asana":
             _validate_asana_workspace_gid(tool.tool_metadata)
-        elif provider_type.type_value == "linear":
-            _validate_linear_team_id(tool.tool_metadata)
-
     if tool.credentials is not None and provider_type:
         if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
             try:

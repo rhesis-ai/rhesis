@@ -1,14 +1,13 @@
 """Add Linear ToolProviderType
 
 Revision ID: c9d0e1f2a3b4
-Revises: e8f9a0b1c2d3
+Revises: ad0c2e7f9b14
 Create Date: 2026-06-19
 
 """
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
 
 from rhesis.backend.alembic.utils.template_loader import (
@@ -17,7 +16,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "c9d0e1f2a3b4"
-down_revision: Union[str, None] = "e8f9a0b1c2d3"
+down_revision: Union[str, None] = "ad0c2e7f9b14"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -30,22 +29,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    conn = op.get_bind()
-    linear_tool_count = conn.execute(
-        sa.text(
-            """
-            SELECT COUNT(*) FROM tool
-            WHERE tool_provider_type_id IN (
-                SELECT id FROM type_lookup
-                WHERE type_name = 'ToolProviderType' AND type_value = 'linear'
-            )
-            """
-        )
-    ).scalar()
-    if linear_tool_count:
-        raise RuntimeError(
-            f"Refusing to downgrade: {linear_tool_count} Linear tool(s) exist. "
-            "Delete them manually before reverting this migration."
-        )
-
+    op.execute(
+        """
+        DELETE FROM tool
+        WHERE tool_provider_type_id IN (
+            SELECT id FROM type_lookup
+            WHERE type_name = 'ToolProviderType' AND type_value = 'linear'
+        );
+        """
+    )
     op.execute(load_cleanup_type_lookup_template("ToolProviderType", "'linear'"))

@@ -15,10 +15,6 @@ Scope the read-only auth check to Asana workspace GID
 "{{ workspace_context.workspace_gid }}". Set authenticated to false if the workspace
 is not accessible with these credentials.
 {% endif %}
-{% if provider == "linear" and team_context and team_context.team_id %}
-Scope the read-only auth check to Linear team ID "{{ team_context.team_id }}".
-Set authenticated to false if the team is not accessible with these credentials.
-{% endif %}
 Use a single read-only call. Do not create, modify, or delete anything.
 
 Return ONLY a JSON object with these fields:

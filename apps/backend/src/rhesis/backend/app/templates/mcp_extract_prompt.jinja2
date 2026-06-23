@@ -33,12 +33,6 @@ Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid 
 {% if provider == "linear" %}
 Use Linear tools to retrieve the full issue, project, or document content, including
 description, acceptance criteria, and comments when available.
-{% if team_context and team_context.team_id %}
-You are restricted to the following Linear team:
-- Team ID: {{ team_context.team_id }}
-
-Scope all Linear tool calls to team ID "{{ team_context.team_id }}".
-{% endif %}
 {% endif %}
 {% if include_children %}
 Also extract every child page / nested item and return each as a separate entry.

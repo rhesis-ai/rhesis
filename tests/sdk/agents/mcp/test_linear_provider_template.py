@@ -4,7 +4,7 @@ from rhesis.sdk.agents.mcp.client import MCPClientFactory
 
 
 def test_linear_provider_template_renders_valid_config():
-    credentials = {"LINEAR_API_KEY": "linear_test_key_123"}
+    credentials = {"LINEAR_API_TOKEN": "linear_test_key_123"}
 
     factory = MCPClientFactory.from_provider("linear", credentials)
 

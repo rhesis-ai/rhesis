@@ -37,19 +37,7 @@ def test_mcp_test_connection_validates_linear_credentials():
         _validate_mcp_test_connection_request("linear", {}, None)
 
     assert exc_info.value.status_code == 400
-    assert "LINEAR_API_KEY" in exc_info.value.detail
-
-
-def test_mcp_test_connection_validates_linear_team_id():
-    with pytest.raises(HTTPException) as exc_info:
-        _validate_mcp_test_connection_request(
-            "linear",
-            {"LINEAR_API_KEY": "token"},
-            {"team_id": "   "},
-        )
-
-    assert exc_info.value.status_code == 400
-    assert "team_id" in exc_info.value.detail
+    assert "LINEAR_API_TOKEN" in exc_info.value.detail
 
 
 def test_mcp_test_connection_skips_when_credentials_omitted():
