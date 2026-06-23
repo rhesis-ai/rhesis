@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.principal import Principal, resolve_principal
 from rhesis.backend.app.auth.rbac import (
     DefaultAuthorizationProvider,
+    _scope_fingerprint,
     authorize,
     get_authorization_provider,
     set_authorization_provider,
@@ -158,6 +159,71 @@ class TestResolvePrincipal:
 
 
 # ---------------------------------------------------------------------------
+# Unit-level: cache scope fingerprint (no DB)
+# ---------------------------------------------------------------------------
+
+
+class TestScopeFingerprint:
+    def test_unscoped_principal_is_star(self):
+        p = Principal(user_id=uuid.uuid4(), organization_id=uuid.uuid4(), kind="session")
+        assert _scope_fingerprint(p) == "*"
+
+    def test_different_scopes_differ(self):
+        org = uuid.uuid4()
+        uid = uuid.uuid4()
+        a = Principal(uid, org, "token", scopes=frozenset(["test_set:read"]))
+        b = Principal(uid, org, "token", scopes=frozenset(["test_set:delete"]))
+        assert _scope_fingerprint(a) != _scope_fingerprint(b)
+        # And neither collides with the unscoped sentinel.
+        assert _scope_fingerprint(a) != "*"
+
+    def test_order_independent(self):
+        org = uuid.uuid4()
+        uid = uuid.uuid4()
+        a = Principal(uid, org, "token", scopes=frozenset(["a:read", "b:read"]))
+        b = Principal(uid, org, "token", scopes=frozenset(["b:read", "a:read"]))
+        assert _scope_fingerprint(a) == _scope_fingerprint(b)
+
+
+# ---------------------------------------------------------------------------
+# Unit-level: token project boundary short-circuit (no DB, no provider)
+# ---------------------------------------------------------------------------
+
+
+class TestTokenProjectBoundary:
+    def test_cross_project_denied_without_db(self):
+        """A project-scoped token targeting a different project is denied in the
+        PDP before any DB/provider work (so db is never touched)."""
+        token_project = uuid.uuid4()
+        other_project = uuid.uuid4()
+        principal = Principal(
+            user_id=uuid.uuid4(),
+            organization_id=uuid.uuid4(),
+            kind="token",
+            token_project_id=token_project,
+        )
+        # db=None proves the short-circuit returns before using the session.
+        assert authorize(principal, "test_set:read", project_id=other_project, db=None) is False
+
+    def test_org_scoped_request_not_blocked_by_token_project(self, test_db):
+        """token_project_id must NOT block org-scoped (project_id=None) checks."""
+        db = test_db
+        org_id = _create_org(db)
+        user_id = _create_user(db, org_id)
+        _set_owner(db, org_id, user_id)
+        _point_session_at_org(db, org_id)
+        principal = Principal(
+            user_id=user_id,
+            organization_id=org_id,
+            kind="token",
+            token_project_id=uuid.uuid4(),
+        )
+        with _rbac_on(db, org_id, user_id, "Owner"):
+            # Org-scoped permission with project_id=None — boundary does not apply.
+            assert authorize(principal, "organization:update", project_id=None, db=db) is True
+
+
+# ---------------------------------------------------------------------------
 # Integration: EE provider scopes intersection
 # ---------------------------------------------------------------------------
 
@@ -223,6 +289,39 @@ class TestEeTokenScopesIntersection:
         with _rbac_on(db, org_id, user_id, "Owner"):
             result = authorize(principal, "test_set:delete", project_id=None, db=db)
             assert result is True
+
+    def test_cached_unscoped_allow_does_not_leak_to_scoped_token(self, test_db):
+        """Regression (audit HIGH): a decision cached for an unscoped principal must
+        NOT be served to a scoped token for the same (user, org, project, perm).
+
+        Before the fix the cache key omitted the token scope set, so the scope
+        intersection (which runs inside the provider, after the cache) was skipped
+        on a cache hit — silently defeating SP9.
+        """
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        db = test_db
+        org_id = _create_org(db)
+        user_id = _create_user(db, org_id)
+        _set_owner(db, org_id, user_id)
+        _point_session_at_org(db, org_id)
+
+        get_permission_cache().clear_all()
+
+        unscoped = Principal(user_id=user_id, organization_id=org_id, kind="token", scopes=None)
+        scoped = Principal(
+            user_id=user_id,
+            organization_id=org_id,
+            kind="token",
+            scopes=frozenset(["test_set:read"]),  # does NOT include test_set:delete
+        )
+
+        with _rbac_on(db, org_id, user_id, "Owner"):
+            # 1. Unscoped principal evaluates test_set:delete → True, populating cache.
+            assert authorize(unscoped, "test_set:delete", project_id=None, db=db) is True
+            # 2. Same user/org/project/perm via a scoped token that excludes it.
+            #    Must be denied — not served the cached unscoped True.
+            assert authorize(scoped, "test_set:delete", project_id=None, db=db) is False
 
     def test_auto_narrow_on_role_downgrade(self, test_db):
         """Stale wide token scopes cannot re-grant a permission removed by role downgrade.

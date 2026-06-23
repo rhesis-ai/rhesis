@@ -153,16 +153,10 @@ class TestAcceptedPermissionsHeader:
 
         from fastapi import HTTPException
 
-        from rhesis.backend.app.auth.principal import Principal
         from rhesis.backend.app.auth.rbac import require_permission
 
-        # Deny unconditionally; force org-scoped (no project) resolution.
-        monkeypatch.setattr(
-            "rhesis.backend.app.auth.rbac.resolve_principal",
-            lambda u, **kw: Principal(
-                user_id=uuid.uuid4(), organization_id=uuid.uuid4(), kind="session"
-            ),
-        )
+        # Deny unconditionally. resolve_principal_from_request resolves the fake
+        # request's empty state to a session Principal on its own (no patch needed).
         monkeypatch.setattr("rhesis.backend.app.auth.rbac.authorize", lambda *a, **kw: False)
 
         dependency = require_permission("test_set:read")

@@ -38,6 +38,7 @@ Usage in route handlers (before the PEP backstop wires it automatically, SP4)::
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
@@ -48,7 +49,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import (
     Principal,
-    resolve_principal,
     resolve_principal_from_request,
 )
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -254,6 +254,21 @@ def get_authorization_provider() -> AuthorizationProvider:
 # ---------------------------------------------------------------------------
 
 
+def _scope_fingerprint(principal: Principal) -> str:
+    """Stable fingerprint of a principal's token scope set for cache keying.
+
+    Returns ``"*"`` when the principal carries no explicit scopes (session
+    callers and unscoped tokens, which inherit the owner's full access and
+    therefore share a decision).  Otherwise returns a short, order-independent
+    hash of the scope set so two differently-scoped tokens never collide on, or
+    read, each other's cached decisions.
+    """
+    if principal.scopes is None:
+        return "*"
+    canonical = ",".join(sorted(principal.scopes))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 def authorize(
     principal: Principal,
     permission: "str | Permission",
@@ -287,9 +302,31 @@ def authorize(
     """
     perm_str = str(permission)
 
+    # --- Token project boundary (deterministic, no DB, never cached) ---
+    # A project-scoped token may only act within its own project.  Enforced here
+    # in the PDP so the rule holds for every transport (HTTP, WebSocket, future
+    # callers), not just the HTTP get_project_context dependency.  Org-scoped
+    # checks (project_id is None) are intentionally not blocked.
+    if (
+        principal.token_project_id is not None
+        and project_id is not None
+        and project_id != principal.token_project_id
+    ):
+        logger.debug(
+            "authorize: deny — token scoped to project %s, request targets project %s",
+            principal.token_project_id,
+            project_id,
+        )
+        return False
+
     # Cache is keyed on org context; skip entirely when the org is absent
     # (those are always denies — no value in caching them).
     _cache = get_permission_cache() if principal.organization_id is not None else None
+
+    # The cache key must distinguish principals by their token scope set, because
+    # the EE provider's decision depends on it (SP9 intersection).  Without this a
+    # wide unscoped decision would be served to a narrowly-scoped token.
+    _scope_fp = _scope_fingerprint(principal)
 
     # --- Cache lookup ---
     if _cache is not None:
@@ -298,6 +335,7 @@ def authorize(
             org_id=principal.organization_id,
             project_id=project_id,
             permission=perm_str,
+            scope_fingerprint=_scope_fp,
         )
         if cached is not None:
             logger.debug(
@@ -330,6 +368,7 @@ def authorize(
                 project_id=project_id,
                 permission=perm_str,
                 result=result,
+                scope_fingerprint=_scope_fp,
             )
         except Exception as exc:
             logger.warning("authorize: cache set failed (non-fatal): %s", exc)

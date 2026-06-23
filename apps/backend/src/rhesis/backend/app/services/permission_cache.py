@@ -5,7 +5,14 @@ Wraps the authorization PDP result cache so that ``authorize()`` in
 
 Cache key format::
 
-    perm:v1:{user_id}:{org_id}:{project_id_or_None}:{permission}
+    perm:v1:{user_id}:{org_id}:{project_id_or_None}:{permission}:{scope_fp}
+
+``scope_fp`` is a fingerprint of the authenticating token's explicit scopes
+(``"*"`` for a session / unscoped token that inherits the owner's full access).
+It is part of the key because the EE provider's decision branches on the
+token's scope set (``scopes ∩ role_permissions``); without it a wide,
+unscoped decision could be served from cache to a narrowly-scoped token,
+silently defeating SP9 token scoping.
 
 Design decisions (plan §1.6 / §8b):
 
@@ -74,9 +81,10 @@ class PermissionCache(RedisBackedCache):
         org_id: UUID,
         project_id: Optional[UUID],
         permission: str,
+        scope_fingerprint: str = "*",
     ) -> str:
         proj_str = str(project_id) if project_id is not None else "None"
-        return f"{_KEY_PREFIX}:{user_id}:{org_id}:{proj_str}:{permission}"
+        return f"{_KEY_PREFIX}:{user_id}:{org_id}:{proj_str}:{permission}:{scope_fingerprint}"
 
     @staticmethod
     def _make_user_org_prefix(user_id: UUID, org_id: UUID) -> str:
@@ -92,9 +100,15 @@ class PermissionCache(RedisBackedCache):
         org_id: UUID,
         project_id: Optional[UUID],
         permission: str,
+        scope_fingerprint: str = "*",
     ) -> Optional[bool]:
-        """Return cached decision (``True``/``False``) or ``None`` on miss."""
-        key = self._make_key(user_id, org_id, project_id, permission)
+        """Return cached decision (``True``/``False``) or ``None`` on miss.
+
+        ``scope_fingerprint`` must identify the authenticating token's scope set
+        (``"*"`` for session / unscoped tokens) so a scoped principal never reads
+        a decision computed for a differently-scoped one.
+        """
+        key = self._make_key(user_id, org_id, project_id, permission, scope_fingerprint)
         val = self._get(key)
         if val is None:
             return None
@@ -107,9 +121,10 @@ class PermissionCache(RedisBackedCache):
         project_id: Optional[UUID],
         permission: str,
         result: bool,
+        scope_fingerprint: str = "*",
     ) -> None:
         """Store a permission decision in the cache."""
-        key = self._make_key(user_id, org_id, project_id, permission)
+        key = self._make_key(user_id, org_id, project_id, permission, scope_fingerprint)
         self._set(key, "1" if result else "0")
 
     def bust_user(self, user_id: UUID, org_id: UUID) -> None:
