@@ -1,6 +1,11 @@
 import logging
 
-from celery.signals import task_failure, task_revoked, worker_shutdown
+from celery.signals import (
+    after_setup_logger,
+    task_failure,
+    task_revoked,
+    worker_shutdown,
+)
 
 import rhesis.backend.tasks.architect.monitor  # noqa: F401
 from rhesis.backend.tasks.enums import RunStatus
@@ -42,6 +47,23 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                 )
     except Exception as e:
         logger.error(f"Failed to update test run status for task {task_id}: {e}", exc_info=True)
+
+
+@after_setup_logger.connect
+def quiet_celery_internal_loggers(logger=None, **kw):
+    """Silence low-signal Celery internal DEBUG chatter (e.g. pidbox
+    'enable_events()' control-mailbox heartbeats) without lowering the
+    worker's overall log level.
+
+    Runs after Celery configures its loggers at worker boot, so these
+    levels stick (an import-time setLevel would be reset by Celery).
+    """
+    for name in (
+        "celery.utils.functional",
+        "celery.app.trace",
+        "kombu.pidbox",
+    ):
+        logging.getLogger(name).setLevel(logging.WARNING)
 
 
 @task_failure.connect

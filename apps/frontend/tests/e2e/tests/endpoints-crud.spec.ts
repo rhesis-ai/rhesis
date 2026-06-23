@@ -30,18 +30,22 @@ test.describe('Endpoints — CRUD @crud', () => {
     // Create page should show required fields.
     // name attributes on TextFields keep selectors stable for e2e.
     const nameField = page.locator('input[name="name"]');
-    const urlField = page.locator('input[name="url"]');
 
     await expect(nameField).toBeVisible({ timeout: 15_000 });
-    await expect(urlField).toBeVisible({ timeout: 15_000 });
-
-    // Fill required text fields
     await nameField.fill(UNIQUE_NAME);
+
+    // URL field is on the Connection tab
+    await page.getByRole('tab', { name: /connection/i }).click();
+    const urlField = page.locator('input[name="url"]');
+    await expect(urlField).toBeVisible({ timeout: 15_000 });
     await urlField.fill(TEST_URL);
 
-    // Verify values were accepted
-    await expect(nameField).toHaveValue(UNIQUE_NAME);
+    // Verify URL value was accepted on the Connection tab
     await expect(urlField).toHaveValue(TEST_URL);
+
+    // Switch back to Overview to verify the name field (tab panels unmount on switch)
+    await page.getByRole('tab', { name: /overview/i }).click();
+    await expect(nameField).toHaveValue(UNIQUE_NAME);
   });
 
   test('can create an endpoint when a project is available', async ({
@@ -53,8 +57,9 @@ test.describe('Endpoints — CRUD @crud', () => {
     await page.goto('/endpoints?create=1');
     await expect(page).toHaveURL(/\/endpoints\/?$/);
 
-    // Fill required text fields
+    // Fill required text fields — URL field is on the Connection tab
     await page.locator('input[name="name"]').fill(UNIQUE_NAME);
+    await page.getByRole('tab', { name: /connection/i }).click();
     await page.locator('input[name="url"]').fill(TEST_URL);
 
     // Project is optional in the create drawer; select one when available

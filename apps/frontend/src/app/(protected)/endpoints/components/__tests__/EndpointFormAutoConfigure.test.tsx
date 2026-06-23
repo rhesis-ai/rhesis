@@ -148,7 +148,7 @@ describe('EndpointForm — Body step auto-configure', () => {
     expect(screen.getByTestId('auto-configure-drawer')).toBeInTheDocument();
   });
 
-  it('auth token field is in the headers tab', async () => {
+  it('auth token field is in the connection tab', async () => {
     const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
 
@@ -159,10 +159,10 @@ describe('EndpointForm — Body step auto-configure', () => {
     // On the Overview tab there is no auth token field
     expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
 
-    // Click the Headers tab
-    await user.click(screen.getByRole('tab', { name: /headers/i }));
+    // Click the Connection tab (headers merged into Connection)
+    await user.click(screen.getByRole('tab', { name: /connection/i }));
 
-    // Auth token should now be visible in the Headers tab
+    // Auth token should now be visible in the Connection tab
     expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
   });
 });

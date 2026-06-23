@@ -19,7 +19,7 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
 import { testEndpointMapping } from '@/actions/endpoints';
-import TestAndMap from '../../components/TestAndMap';
+import MappingEditor from '../../components/MappingEditor';
 import AutoConfigureDrawer from '../../components/AutoConfigureDrawer';
 import {
   bodyToRequestMapping,
@@ -225,7 +225,7 @@ export default function EndpointMappingTab() {
         {({ draft, setDraft, isEditing }) => (
           <Collapse in={manualExpanded}>
             {isEditing ? (
-              <TestAndMap
+              <MappingEditor
                 requestTemplate={draft.reqBody}
                 responseMapping={(() => {
                   try {

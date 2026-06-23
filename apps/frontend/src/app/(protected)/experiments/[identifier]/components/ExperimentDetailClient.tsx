@@ -40,6 +40,7 @@ import ExperimentOverviewTab from './ExperimentOverviewTab';
 import ExperimentVersionsGrid from './ExperimentVersionsGrid';
 import ExperimentRunsTab from './ExperimentRunsTab';
 import ExperimentParametersTab from './ExperimentParametersTab';
+import { formatDate } from '@/utils/date';
 
 const TAB_KEYS = ['overview', 'parameters', 'versions', 'runs'] as const;
 
@@ -279,7 +280,7 @@ export default function ExperimentDetailClient({
       ? [
           {
             label: 'Created',
-            value: new Date(experiment.created_at).toLocaleDateString(),
+            value: formatDate(experiment.created_at),
           },
         ]
       : []),

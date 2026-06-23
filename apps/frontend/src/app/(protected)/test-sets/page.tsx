@@ -12,6 +12,7 @@ import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
 import TestSetDrawer from './components/TestSetDrawer';
@@ -148,11 +149,13 @@ export default function TestSetsPage() {
         <Box sx={{ mt: 2, mb: 2 }}>
           {testSetCount === 0 ? (
             <EntityEmptyState
+              card
               icon={HorizontalSplitIcon}
               title="No test sets yet"
               description="Group related tests into a test set to version, share, and run them together."
               actionLabel="Create test set"
               onAction={() => setCreateDrawerOpen(true)}
+              enrichment={getEntityEmptyStateEnrichment('test-sets')}
             />
           ) : (
             <Paper

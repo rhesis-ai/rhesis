@@ -8,7 +8,7 @@ import {
   KeyboardArrowUpIcon,
 } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
-import TestAndMap from '../TestAndMap';
+import MappingEditor from './MappingEditor';
 
 interface TestResult {
   success: boolean;
@@ -17,7 +17,7 @@ interface TestResult {
   error?: string;
 }
 
-interface TabBodyProps {
+interface TabMappingProps {
   reqBody: string;
   resBody: string;
   onReqBodyChange: React.Dispatch<React.SetStateAction<string>>;
@@ -28,7 +28,7 @@ interface TabBodyProps {
   onAutoConfigureOpen: () => void;
 }
 
-export default function TabBody({
+export default function TabMapping({
   reqBody,
   resBody,
   onReqBodyChange,
@@ -37,7 +37,7 @@ export default function TabBody({
   isTestingEndpoint,
   onRunTest,
   onAutoConfigureOpen,
-}: TabBodyProps) {
+}: TabMappingProps) {
   const [manualExpanded, setManualExpanded] = useState(false);
 
   const testResponse = (() => {
@@ -118,7 +118,7 @@ export default function TabBody({
         onHeaderClick={() => setManualExpanded(e => !e)}
       >
         <Collapse in={manualExpanded}>
-          <TestAndMap
+          <MappingEditor
             requestTemplate={reqBody}
             responseMapping={responseMapping}
             onRequestTemplateChange={handleRequestTemplateChange}

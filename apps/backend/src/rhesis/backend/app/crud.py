@@ -3830,7 +3830,7 @@ def create_task(
         status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
         if status and status.name == "Completed":
             # Set completed_at to current timestamp
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
 
     return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
 
@@ -3864,7 +3864,7 @@ def update_task(
             new_status = status_query.first()
             if new_status and new_status.name == "Completed":
                 # Set completed_at to current timestamp
-                task.completed_at = datetime.utcnow()
+                task.completed_at = datetime.now(timezone.utc)
 
     return update_item(
         db, models.Task, task_id, task, organization_id=organization_id, user_id=user_id
@@ -4463,9 +4463,9 @@ def mark_trace_processed(
         .filter(models.Trace.trace_id == trace_id)
         .update(
             {
-                "processed_at": datetime.utcnow(),
+                "processed_at": datetime.now(timezone.utc),
                 "enriched_data": enriched_data,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             }
         )
     )
@@ -4572,7 +4572,7 @@ def update_traces_with_test_result_id(
         .update(
             {
                 "test_result_id": test_result_uuid,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             },
             synchronize_session=False,  # More efficient for bulk updates
         )
@@ -4620,7 +4620,7 @@ def update_conversation_id_for_trace(
         .update(
             {
                 models.Trace.conversation_id: conversation_id,
-                models.Trace.updated_at: datetime.utcnow(),
+                models.Trace.updated_at: datetime.now(timezone.utc),
             },
             synchronize_session=False,
         )
@@ -4883,12 +4883,12 @@ def update_trace_turn_metrics(
 
     existing = span.trace_metrics or {}
     existing["turn_metrics"] = turn_metrics
-    now = processed_at or datetime.utcnow()
+    now = processed_at or datetime.now(timezone.utc)
 
     update_values: Dict[str, Any] = {
         "trace_metrics": existing,
         "trace_metrics_processed_at": now,
-        "updated_at": datetime.utcnow(),
+        "updated_at": datetime.now(timezone.utc),
     }
     if status_id is not None:
         update_values["trace_metrics_status_id"] = status_id
@@ -4916,7 +4916,7 @@ def update_trace_conversation_metrics(
     if not spans:
         return 0
 
-    now = processed_at or datetime.utcnow()
+    now = processed_at or datetime.now(timezone.utc)
     count = 0
     for span in spans:
         existing = span.trace_metrics or {}
@@ -4929,7 +4929,7 @@ def update_trace_conversation_metrics(
         flag_modified(span, "trace_metrics")
 
         span.trace_metrics_processed_at = now
-        span.updated_at = datetime.utcnow()
+        span.updated_at = datetime.now(timezone.utc)
         if status_id is not None:
             span.trace_metrics_status_id = status_id
         count += 1

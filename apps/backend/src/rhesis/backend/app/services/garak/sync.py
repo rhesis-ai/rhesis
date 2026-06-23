@@ -14,7 +14,7 @@ Uses the bulk creation infrastructure to ensure proper metadata is set
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Set
 from uuid import UUID
 
@@ -148,7 +148,7 @@ class GarakSyncService:
         )
 
         # Update test set metadata
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         test_set.attributes = {
             **test_set.attributes,
             "garak_version": new_version,
@@ -232,7 +232,7 @@ class GarakSyncService:
         )
 
         # Update metadata
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         test_set.attributes = {
             **test_set.attributes,
             "garak_version": new_version,

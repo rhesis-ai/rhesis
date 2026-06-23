@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "shortcut": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@shortcut/mcp"],
+      "env": {
+        "SHORTCUT_API_TOKEN": {{ SHORTCUT_API_TOKEN | tojson }}
+      }
+    }
+  }
+}

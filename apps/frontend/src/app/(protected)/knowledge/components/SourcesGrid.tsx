@@ -33,11 +33,8 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
-import {
-  formatFileSize,
-  formatDate,
-  getFileExtension,
-} from '@/constants/knowledge';
+import { formatFileSize, getFileExtension } from '@/constants/knowledge';
+import { formatDate } from '@/utils/date';
 import SourceFilterDrawer, {
   type SourceFilters,
   EMPTY_SOURCE_FILTERS,

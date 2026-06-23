@@ -31,10 +31,10 @@ import { useRouter } from 'next/navigation';
 import type { UUID } from 'crypto';
 import {
   formatFileSize,
-  formatDate,
   getFileExtension,
   truncateFilename,
 } from '@/constants/knowledge';
+import { formatDate } from '@/utils/date';
 import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 

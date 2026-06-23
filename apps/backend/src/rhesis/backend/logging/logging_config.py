@@ -267,5 +267,6 @@ def set_logger():
     for name in (
         "celery.utils.functional",
         "celery.app.trace",
+        "kombu.pidbox",
     ):
         logging.getLogger(name).setLevel(logging.WARNING)

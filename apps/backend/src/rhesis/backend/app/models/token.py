@@ -25,9 +25,9 @@ class Token(Base, OrganizationMixin):
     )  # SHA-256 hash for lookups
     token_obfuscated = Column(String)
     token_type = Column(String, nullable=False)
-    expires_at = Column(DateTime, nullable=True)
-    last_used_at = Column(DateTime)
-    last_refreshed_at = Column(DateTime)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    last_used_at = Column(DateTime(timezone=True))
+    last_refreshed_at = Column(DateTime(timezone=True))
     user_id = Column(ForeignKey("user.id"), nullable=False)
 
     # Optional project scope - no FK so token lookups work before tenant context is resolved.

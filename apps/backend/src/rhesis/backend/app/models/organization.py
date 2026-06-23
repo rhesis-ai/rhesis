@@ -24,7 +24,7 @@ class Organization(Base, TagsMixin):
     # Organization settings
     is_active = Column(Boolean, default=True)
     max_users = Column(Integer)  # Limit on number of users
-    subscription_ends_at = Column(DateTime)  # When org subscription expires
+    subscription_ends_at = Column(DateTime(timezone=True))  # When org subscription expires
 
     # Domain verification
     domain = Column(String)  # For automatic user association

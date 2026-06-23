@@ -56,7 +56,7 @@ def get_generation_model_with_override(
         Either a string (provider name) or a configured BaseLLM instance
     """
     if model_id:
-        logger.info(f"[LLM_UTILS] Using per-request model override: model_id={model_id}")
+        logger.debug("Using per-request generation model override: model_id=%s", model_id)
         return _fetch_and_configure_model(
             db=db,
             model_id=str(model_id),
@@ -145,7 +145,7 @@ def get_execution_model_with_override(
         Either a string (provider name) or a configured BaseLLM instance
     """
     if model_id:
-        logger.info(f"[LLM_UTILS] Using per-request execution model override: model_id={model_id}")
+        logger.debug("Using per-request execution model override: model_id=%s", model_id)
         return _fetch_and_configure_model(
             db=db,
             model_id=str(model_id),
@@ -175,7 +175,7 @@ def get_evaluation_model_with_override(
         Either a string (provider name) or a configured BaseLLM instance
     """
     if model_id:
-        logger.info(f"[LLM_UTILS] Using per-request evaluation model override: model_id={model_id}")
+        logger.debug("Using per-request evaluation model override: model_id=%s", model_id)
         return _fetch_and_configure_model(
             db=db,
             model_id=str(model_id),
@@ -224,8 +224,9 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
                    with a specific error message about the configuration issue
     """
     logger.info(
-        f"[LLM_UTILS] Validating evaluation model for user_id={user.id}, "
-        f"email={user.email}, org_id={user.organization_id}"
+        "Validating evaluation model for user_id=%s, org_id=%s",
+        user.id,
+        user.organization_id,
     )
 
     # Get the evaluation model settings
@@ -234,11 +235,9 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
 
     # If no model configured, default model will be used (always valid)
     if not model_id:
-        logger.info("[LLM_UTILS] No custom evaluation model configured, default will be used")
         return
 
     # Try to fetch and configure the model to validate it
-    logger.info("[LLM_UTILS] Validating user's configured evaluation model...")
     try:
         _fetch_and_configure_model(
             db=db,
@@ -247,7 +246,6 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
             default_model=_default_evaluation_model(),
             user=user,
         )
-        logger.info("[LLM_UTILS] ✓ Evaluation model validation successful")
     except ValueError:
         # Re-raise ValueError as-is (it already has a user-friendly message)
         raise
@@ -270,8 +268,9 @@ def validate_user_generation_model(db: Session, user: User) -> None:
                    with a specific error message about the configuration issue
     """
     logger.info(
-        f"[LLM_UTILS] Validating generation model for user_id={user.id}, "
-        f"email={user.email}, org_id={user.organization_id}"
+        "Validating generation model for user_id=%s, org_id=%s",
+        user.id,
+        user.organization_id,
     )
 
     # Get the generation model settings
@@ -280,11 +279,9 @@ def validate_user_generation_model(db: Session, user: User) -> None:
 
     # If no model configured, default model will be used (always valid)
     if not model_id:
-        logger.info("[LLM_UTILS] No custom generation model configured, default will be used")
         return
 
     # Try to fetch and configure the model to validate it
-    logger.info("[LLM_UTILS] Validating user's configured generation model...")
     try:
         _fetch_and_configure_model(
             db=db,
@@ -293,7 +290,6 @@ def validate_user_generation_model(db: Session, user: User) -> None:
             default_model=_default_generation_model(),
             user=user,
         )
-        logger.info("[LLM_UTILS] ✓ Generation model validation successful")
     except ValueError:
         # Re-raise ValueError as-is (it already has a user-friendly message)
         raise
@@ -316,18 +312,17 @@ def validate_user_execution_model(db: Session, user: User) -> None:
                    with a specific error message about the configuration issue
     """
     logger.info(
-        f"[LLM_UTILS] Validating execution model for user_id={user.id}, "
-        f"email={user.email}, org_id={user.organization_id}"
+        "Validating execution model for user_id=%s, org_id=%s",
+        user.id,
+        user.organization_id,
     )
 
     model_settings = getattr(user.settings.models, "execution")
     model_id = model_settings.model_id
 
     if not model_id:
-        logger.info("[LLM_UTILS] No custom execution model configured, default will be used")
         return
 
-    logger.info("[LLM_UTILS] Validating user's configured execution model...")
     try:
         _fetch_and_configure_model(
             db=db,
@@ -336,7 +331,6 @@ def validate_user_execution_model(db: Session, user: User) -> None:
             default_model=_default_execution_model(),
             user=user,
         )
-        logger.info("[LLM_UTILS] ✓ Execution model validation successful")
     except ValueError:
         raise
 
@@ -380,19 +374,15 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
 
     # Verify user is active and verified before creating delegation token
     if not user.is_active:
-        logger.error(f"[LLM_UTILS] Cannot create delegation token: user {user.email} is inactive")
+        logger.error("Cannot create delegation token: user %s is inactive", user.email)
         raise ValueError("User account is inactive")
 
     if not user.is_verified:
-        logger.error(
-            f"[LLM_UTILS] Cannot create delegation token: user {user.email} is not verified"
-        )
+        logger.error("Cannot create delegation token: user %s is not verified", user.email)
         raise ValueError("User account is not verified")
 
     delegation_token = create_service_delegation_token(user, "polyphemus")
     polyphemus_url = os.environ.get("DEFAULT_POLYPHEMUS_URL", "https://polyphemus.rhesis.ai")
-
-    logger.info(f"[LLM_UTILS] Creating Polyphemus client with delegation for user: {user.email}")
 
     return PolyphemusLLM(
         model_name=model_name,
@@ -426,66 +416,41 @@ def _fetch_and_configure_model(
     model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
 
     if not model or not model.provider_type:
-        logger.warning(f"[LLM_UTILS] Model with id={model_id} not found or has no provider_type")
+        logger.warning("Model with id=%s not found or has no provider_type", model_id)
         return default_model
 
     # Get provider configuration
     provider = model.provider_type.type_value
     model_name = model.model_name
     api_key = model.key
-    api_key_preview = f"{model.key[:8]}..." if model.key else "None"
-
-    logger.info(
-        f"[LLM_UTILS] Found configured model: name={model.name}, provider={provider}, "
-        f"model_name={model_name}, api_key={api_key_preview}"
-    )
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
-        logger.info(
-            "[LLM_UTILS] Rhesis system model detected - "
-            "using backend's default model infrastructure"
-        )
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
 
     # Special handling for Polyphemus models without API keys (use delegation tokens)
     if provider == "polyphemus" and not api_key and user:
-        logger.info(
-            "[LLM_UTILS] Polyphemus system model detected - "
-            "using delegation token for authentication"
-        )
-        configured_model = _call_polyphemus_with_delegation(user, model_name)
-        model_type_name = type(configured_model).__name__
-        logger.info(
-            f"[LLM_UTILS] ✓ Returning Polyphemus instance with delegation: {model_type_name}"
-        )
-        return configured_model
+        return _call_polyphemus_with_delegation(user, model_name)
 
     # Use SDK's get_model to create configured instance with error handling
     try:
         extra_params = {}
         if model.endpoint and model.endpoint.strip():
             extra_params["api_base"] = model.endpoint.strip()
-        configured_model = get_model(
+        return get_model(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
             model_type="language",
             **extra_params,
         )
-        logger.info(
-            f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: "
-            f"{type(configured_model).__name__}"
-        )
-        return configured_model
     except ValueError as e:
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
 
         # Provide specific error messages based on the type of configuration issue
         if "api_key" in error_msg_lower or "not set" in error_msg_lower:
-            logger.error(f"[LLM_UTILS] User model API key not configured: {error_msg}")
+            logger.error("User model API key not configured: %s", error_msg)
             raise ModelConfigurationError(
                 f"Your configured model '{model.name}' ({provider}/{model_name}) requires "
                 f"an API key that is missing or invalid. "
@@ -493,7 +458,7 @@ def _fetch_and_configure_model(
                 original_error=e,
             )
         elif "provider" in error_msg_lower or "not supported" in error_msg_lower:
-            logger.error(f"[LLM_UTILS] Invalid provider for user model: {error_msg}")
+            logger.error("Invalid provider for user model: %s", error_msg)
             raise ModelConfigurationError(
                 f"Your configured model '{model.name}' uses an unsupported provider ({provider}). "
                 f"Please select a different model in the Models settings.",
@@ -502,7 +467,7 @@ def _fetch_and_configure_model(
         elif "model" in error_msg_lower and (
             "not found" in error_msg_lower or "invalid" in error_msg_lower
         ):
-            logger.error(f"[LLM_UTILS] Invalid model name for user model: {error_msg}")
+            logger.error("Invalid model name for user model: %s", error_msg)
             raise ModelConfigurationError(
                 f"Your configured model '{model.name}' has an invalid model name ({model_name}). "
                 f"Please select a valid model in the Models settings.",
@@ -510,7 +475,7 @@ def _fetch_and_configure_model(
             )
         else:
             # Generic configuration error
-            logger.error(f"[LLM_UTILS] Failed to configure user model: {error_msg}")
+            logger.error("Failed to configure user model: %s", error_msg)
             raise ModelConfigurationError(
                 f"Failed to initialize your configured model '{model.name}': {error_msg}",
                 original_error=e,
@@ -542,24 +507,13 @@ def _get_user_model(
         Always uses user.organization_id for model lookup to prevent privilege escalation.
         Never accepts organization_id as a parameter that could be manipulated.
     """
-    logger.info(
-        f"[LLM_UTILS] Getting {purpose} model for user_id={user.id}, "
-        f"email={user.email}, org_id={user.organization_id}"
-    )
-
     # Get the appropriate model settings based on type
     model_settings = getattr(user.settings.models, purpose)
     model_id = model_settings.model_id
 
-    logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
-
     if not model_id:
-        logger.info("[LLM_UTILS] No configured model found in user settings")
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
 
-    # Fetch and configure the user's model
-    logger.info("[LLM_UTILS] User has configured model, fetching from database...")
     return _fetch_and_configure_model(
         db=db,
         model_id=str(model_id),
@@ -589,27 +543,16 @@ def _fetch_and_configure_embedder(
     model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
 
     if not model or not model.provider_type:
-        logger.warning(f"[LLM_UTILS] Model with id={model_id} not found or has no provider_type")
+        logger.warning("Model with id=%s not found or has no provider_type", model_id)
         return default_model
 
     # Get provider configuration
     provider = model.provider_type.type_value
     model_name = model.model_name
     api_key = model.key
-    api_key_preview = f"{model.key[:8]}..." if model.key else "None"
-
-    logger.info(
-        f"[LLM_UTILS] Found configured embedder: name={model.name}, provider={provider}, "
-        f"model_name={model_name}, api_key={api_key_preview}"
-    )
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):
-        logger.info(
-            "[LLM_UTILS] Rhesis system model detected - "
-            "using backend's default embedder infrastructure"
-        )
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_model}")
         return default_model
 
     # Use SDK's get_model to create configured instance with error handling
@@ -617,25 +560,20 @@ def _fetch_and_configure_embedder(
         extra_params = {}
         if model.endpoint and model.endpoint.strip():
             extra_params["api_base"] = model.endpoint.strip()
-        configured_embedder = get_model(
+        return get_model(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
             model_type="embedding",
             **extra_params,
         )
-        logger.info(
-            f"[LLM_UTILS] ✓ Returning configured BaseEmbedder instance: "
-            f"{type(configured_embedder).__name__}"
-        )
-        return configured_embedder
     except ValueError as e:
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
 
         # Provide specific error messages based on the type of configuration issue
         if "api_key" in error_msg_lower or "not set" in error_msg_lower:
-            logger.error(f"[LLM_UTILS] Embedder API key not configured: {error_msg}")
+            logger.error("Embedder API key not configured: %s", error_msg)
             raise ModelConfigurationError(
                 f"Your configured embedding model '{model.name}' ({provider}/{model_name}) "
                 f"requires an API key that is missing or invalid. "
@@ -643,14 +581,14 @@ def _fetch_and_configure_embedder(
                 original_error=e,
             )
         elif "provider" in error_msg_lower or "not supported" in error_msg_lower:
-            logger.error(f"[LLM_UTILS] Invalid provider for embedder: {error_msg}")
+            logger.error("Invalid provider for embedder: %s", error_msg)
             raise ModelConfigurationError(
                 f"Your configured embedding model '{model.name}' uses an unsupported "
                 f"provider ({provider}). Please select a different model in the Models settings.",
                 original_error=e,
             )
         else:
-            logger.error(f"[LLM_UTILS] Failed to configure embedder: {error_msg}")
+            logger.error("Failed to configure embedder: %s", error_msg)
             raise ModelConfigurationError(
                 f"Failed to configure your embedding model '{model.name}': {error_msg}. "
                 f"Please check your model configuration in the Models settings.",
@@ -678,25 +616,13 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
     Security:
         Always uses user.organization_id for model lookup to prevent privilege escalation.
     """
-    logger.info(
-        f"[LLM_UTILS] Getting embedding model for user_id={user.id}, "
-        f"email={user.email}, org_id={user.organization_id}"
-    )
-
     # Get embedding model settings
     model_settings = user.settings.models.embedding
     model_id = model_settings.model_id
 
-    logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
-
     if not model_id:
-        default_embedding_model = _default_embedding_model()
-        logger.info("[LLM_UTILS] No configured embedding model found in user settings")
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_embedding_model}")
-        return default_embedding_model
+        return _default_embedding_model()
 
-    # Fetch and configure the user's embedder
-    logger.info("[LLM_UTILS] User has configured embedding model, fetching from database...")
     return _fetch_and_configure_embedder(
         db=db,
         model_id=str(model_id),

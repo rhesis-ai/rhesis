@@ -114,11 +114,13 @@ class LocalToolProvider(MCPTool):
                     str(arguments.pop(param["name"])),
                 )
 
-        # Query params
+        # Query params (agent sees sanitized names, e.g. "filter" for the
+        # "$filter" alias — see build_input_schema)
         query: Dict[str, Any] = {}
         for param in op["parameters"]:
-            if param.get("in") == "query" and param["name"] in arguments:
-                query[param["name"]] = arguments.pop(param["name"])
+            client_name = param["name"].lstrip("$")
+            if param.get("in") == "query" and client_name in arguments:
+                query[param["name"]] = arguments.pop(client_name)
 
         # Apply default_query and page_size peek-ahead.
         query, current_skip, page_size = apply_query_overrides(query, op)

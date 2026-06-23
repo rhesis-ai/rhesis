@@ -1,6 +1,6 @@
 """Fixtures for invoker tests."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 from uuid import UUID
 
@@ -80,7 +80,7 @@ def sample_endpoint_oauth():
     )
     # Set cached token
     endpoint.last_token = "cached-access-token"
-    endpoint.last_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+    endpoint.last_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
     return endpoint
 
 

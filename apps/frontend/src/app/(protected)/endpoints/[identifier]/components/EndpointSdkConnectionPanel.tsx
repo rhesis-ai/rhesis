@@ -15,6 +15,7 @@ import SectionCard from '@/components/common/SectionCard';
 import ViewField from '@/components/common/ViewField';
 import { getStatusColor } from '@/utils/status-colors';
 import { useEndpointDetailContext } from './EndpointDetailContext';
+import { formatDate } from '@/utils/date';
 
 function formatParamType(type?: string): string {
   if (!type) return '—';
@@ -307,9 +308,7 @@ export default function EndpointSdkConnectionPanel() {
                     Created
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {new Date(
-                      endpoint.endpoint_metadata.created_at
-                    ).toLocaleString()}
+                    {formatDate(endpoint.endpoint_metadata.created_at)}
                   </Typography>
                 </>
               )}
@@ -321,9 +320,7 @@ export default function EndpointSdkConnectionPanel() {
                     Last Registered
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {new Date(
-                      endpoint.endpoint_metadata.last_registered
-                    ).toLocaleString()}
+                    {formatDate(endpoint.endpoint_metadata.last_registered)}
                   </Typography>
                 </>
               )}

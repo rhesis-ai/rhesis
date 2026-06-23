@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 
 from sqlalchemy.orm import Session
@@ -58,7 +58,7 @@ def create_test_run(
     if task_info.get("id"):
         attributes["task_id"] = task_info["id"]
     if initial_status == RunStatus.PROGRESS:
-        attributes["started_at"] = datetime.utcnow().isoformat()
+        attributes["started_at"] = datetime.now(timezone.utc).isoformat()
 
     # Batch-run grouping (multi-experiment fan-out). Keys originate from
     # the request payload and live on test_configuration.attributes; we
@@ -150,7 +150,7 @@ def update_test_run_status(
         test_run.attributes["status"] = status_name
 
     # Always update the timestamp
-    test_run.attributes["updated_at"] = datetime.utcnow().isoformat()
+    test_run.attributes["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # If this is a final status (not Queued/Progress), add completed_at if not already present
     # This preserves the completed_at set by collect_results while ensuring it gets set
@@ -159,7 +159,7 @@ def update_test_run_status(
         status_name not in (RunStatus.QUEUED.value, RunStatus.PROGRESS.value)
         and "completed_at" not in test_run.attributes
     ):
-        test_run.attributes["completed_at"] = datetime.utcnow().isoformat()
+        test_run.attributes["completed_at"] = datetime.now(timezone.utc).isoformat()
 
     update_data["attributes"] = test_run.attributes
 

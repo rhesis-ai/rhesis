@@ -1,7 +1,7 @@
 """SDK endpoint synchronization logic."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
@@ -144,7 +144,7 @@ async def sync_sdk_endpoints(
                         "return_type": func_data.get("return_type", "any"),
                         "description": func_data.get("metadata", {}).get("description", ""),
                     },
-                    "last_registered": datetime.utcnow().isoformat(),
+                    "last_registered": datetime.now(timezone.utc).isoformat(),
                 }
 
                 # Update description if changed
@@ -210,8 +210,8 @@ async def sync_sdk_endpoints(
                             "return_type": func_data.get("return_type", "any"),
                             "description": func_data.get("metadata", {}).get("description", ""),
                         },
-                        "created_at": datetime.utcnow().isoformat(),
-                        "last_registered": datetime.utcnow().isoformat(),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "last_registered": datetime.now(timezone.utc).isoformat(),
                     },
                 )
 

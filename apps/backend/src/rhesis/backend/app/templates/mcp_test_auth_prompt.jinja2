@@ -10,6 +10,11 @@ Perform a read-only project-scoped call for namespace "{{ project_context.namesp
 (for example, fetch project details). Set authenticated to false if the project is
 not accessible with these credentials.
 {% endif %}
+{% if provider == "asana" and workspace_context and workspace_context.workspace_gid %}
+Scope the read-only auth check to Asana workspace GID
+"{{ workspace_context.workspace_gid }}". Set authenticated to false if the workspace
+is not accessible with these credentials.
+{% endif %}
 Use a single read-only call. Do not create, modify, or delete anything.
 
 Return ONLY a JSON object with these fields:

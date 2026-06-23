@@ -212,11 +212,6 @@ def setup_scope_listeners():
                     query = _inject_filter(query, entity.project_id.is_(None))
 
         query._scope_filter_applied = True
-        logger.debug(
-            "scope auto-filter: org=%s project=%s",
-            scope.organization_id,
-            scope.project_id,
-        )
         return query
 
     # ------------------------------------------------------------------

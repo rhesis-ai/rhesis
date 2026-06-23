@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { PlayArrowIcon } from '@/components/icons';
 import TestRunsGrid from './components/TestRunsGrid';
 import RunDrawer from '@/components/common/RunDrawer';
@@ -91,11 +92,13 @@ export default function TestRunsPage() {
         <Box sx={{ mt: 2, mb: 2 }}>
           {testRunCount === 0 ? (
             <EntityEmptyState
+              card
               icon={PlayArrowIcon}
               title="No test runs yet"
               description="Execute a test set against an AI endpoint to start your first test run. Test runs measure quality, safety, and reliability of your AI endpoints."
               actionLabel="Create test run"
               onAction={() => setCreateDrawerOpen(true)}
+              enrichment={getEntityEmptyStateEnrichment('test-runs')}
             />
           ) : (
             <Paper

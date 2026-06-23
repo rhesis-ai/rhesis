@@ -30,6 +30,7 @@ import {
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { formatDate } from '@/utils/date';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
@@ -109,9 +110,7 @@ export default function ExperimentRunsTab({
         ) => (
           <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography variant="body2" color="text.secondary">
-              {params.row.created_at
-                ? new Date(params.row.created_at).toLocaleString()
-                : ''}
+              {formatDate(params.row.created_at)}
             </Typography>
           </Box>
         ),
@@ -419,10 +418,7 @@ function RunSummaryContent({
         )}
         {run.created_at && (
           <Grid size={12}>
-            <ViewField
-              label="Created"
-              value={new Date(run.created_at).toLocaleString()}
-            />
+            <ViewField label="Created" value={formatDate(run.created_at)} />
           </Grid>
         )}
       </Grid>

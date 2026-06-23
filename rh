@@ -42,10 +42,14 @@ show_help() {
     echo -e "  ${GREEN}./rh dev clean${NC}         - Remove containers and volumes (resets database)"
     echo -e "  ${GREEN}./rh dev status${NC}        - Show dev environment status"
     echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server (local)"
+    echo -e "  ${GREEN}./rh dev seed${NC}          - Seed local mock LLM + chatbot resources"
     echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server (local)"
     echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server (local)"
     echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server (local)"
     echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker (local)"
+    echo -e "  ${GREEN}./rh dev mock-llm${NC}      - Start the mock LLM server (local)"
+    echo -e "  ${GREEN}./rh dev mock-chatbot${NC}  - Start the mock chatbot server (local)"
+    echo -e "  ${GREEN}./rh dev tmux${NC}          - Start all dev services in a tmux session"
     echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service (local)"
     echo ""
     echo -e "${YELLOW}Testing:${NC}"
@@ -827,6 +831,19 @@ delete_all() {
     fi
 }
 
+# Function to seed local dev resources (mock LLM model + mock chatbot endpoint).
+# Idempotent: creates them only if missing. Talks to the running backend over
+# HTTP using the Quick Start local token, so it touches no backend app code.
+seed_dev_resources() {
+    local script="$SCRIPT_DIR/apps/developer-tools/seed_dev_resources.sh"
+    if [ -f "$script" ]; then
+        bash "$script"
+    else
+        echo -e "${YELLOW}⚠️  Seed script not found: $script${NC}"
+        return 1
+    fi
+}
+
 # Function to start backend
 start_backend() {
     echo -e "${GREEN}Starting Rhesis Backend...${NC}"
@@ -851,6 +868,11 @@ start_backend() {
     }
     echo -e "${GREEN}✅ Python environment activated${NC}"
 
+    # Seed local dev resources once the backend is healthy. Runs in the
+    # background (it waits for /health itself) so the foreground server below is
+    # not blocked; it exits on its own after seeding or a timeout.
+    ( seed_dev_resources ) &
+
     if [ -f "start.sh" ]; then
         ./start.sh
     else
@@ -873,6 +895,99 @@ start_frontend() {
         echo -e "${RED}❌ Error: Frontend start.sh not found${NC}"
         exit 1
     fi
+}
+
+# Function to start mock LLM (developer-tools)
+start_mock_llm() {
+    echo -e "${GREEN}Starting Mock LLM...${NC}"
+    cd "$SCRIPT_DIR/apps/developer-tools" || {
+        echo -e "${RED}❌ Error: developer-tools directory not found${NC}"
+        exit 1
+    }
+
+    check_uv
+
+    if [ -f "mock_llm/start.sh" ]; then
+        ./mock_llm/start.sh
+    else
+        echo -e "${RED}❌ Error: mock_llm/start.sh not found${NC}"
+        exit 1
+    fi
+}
+
+# Function to start mock chatbot (developer-tools)
+start_mock_chatbot() {
+    echo -e "${GREEN}Starting Mock Chatbot...${NC}"
+    cd "$SCRIPT_DIR/apps/developer-tools" || {
+        echo -e "${RED}❌ Error: developer-tools directory not found${NC}"
+        exit 1
+    }
+
+    check_uv
+
+    if [ -f "mock_chatbot/start.sh" ]; then
+        ./mock_chatbot/start.sh
+    else
+        echo -e "${RED}❌ Error: mock_chatbot/start.sh not found${NC}"
+        exit 1
+    fi
+}
+
+# Function to start all dev services in a tmux session
+dev_tmux() {
+    local session="rhesis"
+
+    if ! command -v tmux &> /dev/null; then
+        echo -e "${RED}❌ Error: tmux is not installed${NC}"
+        echo -e "${YELLOW}   Install tmux and try again (e.g. brew install tmux)${NC}"
+        exit 1
+    fi
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    if ! check_env_files_exist; then
+        echo -e "${RED}❌ Environment files not found!${NC}"
+        echo -e "${YELLOW}   Run ${GREEN}./rh dev init${YELLOW} then ${GREEN}./rh dev up${YELLOW} first${NC}"
+        exit 1
+    fi
+
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "rhesis-dev-postgres"; then
+        echo -e "${YELLOW}Dev infrastructure not running — starting postgres and redis...${NC}"
+        dev_up
+    fi
+
+    if tmux has-session -t "$session" 2>/dev/null; then
+        echo -e "${BLUE}Attaching to existing tmux session: ${session}${NC}"
+        exec tmux attach-session -t "$session"
+    fi
+
+    echo -e "${GREEN}Starting tmux session: ${session}${NC}"
+    echo -e "${BLUE}Windows: backend, frontend, worker, llm, chatbot${NC}"
+    echo ""
+
+    start_win() {
+        local name="$1"
+        local service="$2"
+        if [ "$3" = "new" ]; then
+            tmux new-session -d -s "$session" -n "$name" -c "$SCRIPT_DIR"
+        else
+            tmux new-window -t "$session" -n "$name" -c "$SCRIPT_DIR"
+        fi
+        tmux send-keys -t "$session:$name" "$SCRIPT_DIR/rh dev $service" C-m
+    }
+
+    start_win backend backend new
+    start_win frontend frontend
+    start_win worker worker
+    start_win llm mock-llm
+    start_win chatbot mock-chatbot
+
+    tmux select-window -t "$session:backend"
+
+    exec tmux attach-session -t "$session"
 }
 
 # Function to start chatbot
@@ -1120,6 +1235,9 @@ case "$1" in
             "backend")
                 start_backend
                 ;;
+            "seed")
+                seed_dev_resources
+                ;;
             "frontend")
                 start_frontend
                 ;;
@@ -1131,6 +1249,15 @@ case "$1" in
                 ;;
             "worker")
                 start_worker
+                ;;
+            "mock-llm")
+                start_mock_llm
+                ;;
+            "mock-chatbot")
+                start_mock_chatbot
+                ;;
+            "tmux")
+                dev_tmux
                 ;;
             "polyphemus")
                 start_polyphemus
@@ -1147,8 +1274,12 @@ case "$1" in
                 echo ""
                 echo -e "${YELLOW}Services:${NC}"
                 echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server"
+                echo -e "  ${GREEN}./rh dev seed${NC}          - Seed local mock LLM + chatbot resources"
                 echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server"
                 echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker"
+                echo -e "  ${GREEN}./rh dev mock-llm${NC}      - Start the mock LLM server"
+                echo -e "  ${GREEN}./rh dev mock-chatbot${NC}  - Start the mock chatbot server"
+                echo -e "  ${GREEN}./rh dev tmux${NC}          - Start all dev services in tmux"
                 echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server"
                 echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server"
                 echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service"

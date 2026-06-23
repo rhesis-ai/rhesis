@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  useCallback,
-  Fragment,
-} from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -24,6 +18,11 @@ import { sectionContainedButtonSx } from '@/components/common/SectionCardActions
 import { alpha, type Theme } from '@mui/material/styles';
 import { testPreviewSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
+import {
+  JsonPreview,
+  OUTPUT_VARIABLES,
+  responseMappingToPathToVar,
+} from './JsonPreview';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -81,272 +80,9 @@ const REQUEST_VARIABLES = [
   },
 ];
 
-const OUTPUT_VARIABLES = [
-  {
-    name: 'output',
-    label: '{{ output }}',
-    groupLabel: 'Output',
-    description:
-      'Required. The text your model returned — this is what Rhesis scores.',
-  },
-  {
-    name: 'conversation_id',
-    label: '{{ conversation_id }}',
-    groupLabel: 'Conversation ID',
-    description: 'Conversation ID for multi-turn tracking.',
-    docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
-  },
-  {
-    name: 'context',
-    label: '{{ context }}',
-    groupLabel: 'Context',
-    description:
-      'Retrieved documents or sources — used by context-dependent metrics.',
-  },
-  {
-    name: 'metadata',
-    label: '{{ metadata }}',
-    groupLabel: 'Metadata',
-    description:
-      'Structured data (model version, token counts…). Stored with the result and available to custom metrics.',
-  },
-  {
-    name: 'tool_calls',
-    label: '{{ tool_calls }}',
-    groupLabel: 'Tool calls',
-    description:
-      'Tool or function calls made during response generation. Available to metrics that evaluate tool use.',
-  },
-];
-
-// ── Response JSON tree ────────────────────────────────────────────────────────
-
-interface JsonTreeProps {
-  value: unknown;
-  path: string;
-  depth: number;
-  comma: boolean;
-  pathToVar: Record<string, string>;
-  onKeyClick: (path: string, el: HTMLElement) => void;
-}
-
-const T = {
-  key: 'primary.main',
-  str: (t: Theme) => (t.palette.mode === 'dark' ? '#ce9178' : '#a31515'), // Intentional: syntax-highlighting token, no theme equivalent
-  num: (t: Theme) => (t.palette.mode === 'dark' ? '#b5cea8' : '#098658'), // Intentional: syntax-highlighting token, no theme equivalent
-  kw: (t: Theme) => (t.palette.mode === 'dark' ? '#569cd6' : '#0070c1'), // Intentional: syntax-highlighting token, no theme equivalent
-  bracket: 'text.secondary',
-  comma: 'text.disabled',
-};
-
-function JsonTree({
-  value,
-  path,
-  depth,
-  comma,
-  pathToVar,
-  onKeyClick,
-}: JsonTreeProps) {
-  const indent = (n: number) => ' '.repeat(n * 2);
-  const tail = comma ? (
-    <Box component="span" sx={{ color: T.comma }}>
-      ,
-    </Box>
-  ) : null;
-  const mappedVar = pathToVar[path];
-
-  if (mappedVar !== undefined) {
-    const outVar = OUTPUT_VARIABLES.find(v => v.name === mappedVar);
-    return (
-      <>
-        <Box
-          component="span"
-          sx={{
-            bgcolor: (t: {
-              palette: { mode: string; primary: { main: string } };
-            }) =>
-              t.palette.mode === 'light'
-                ? alpha(t.palette.primary.main, 0.1)
-                : alpha(t.palette.primary.main, 0.2),
-            color: 'primary.main',
-            px: '4px',
-            py: '1px',
-            borderRadius: '3px',
-            fontWeight: 500,
-          }}
-        >
-          {outVar?.label ?? `{{ ${mappedVar} }}`}
-        </Box>
-        {tail}
-      </>
-    );
-  }
-
-  if (value === null)
-    return (
-      <>
-        <Box component="span" sx={{ color: T.kw }}>
-          null
-        </Box>
-        {tail}
-      </>
-    );
-  if (typeof value === 'boolean')
-    return (
-      <>
-        <Box component="span" sx={{ color: T.kw }}>
-          {String(value)}
-        </Box>
-        {tail}
-      </>
-    );
-  if (typeof value === 'number')
-    return (
-      <>
-        <Box component="span" sx={{ color: T.num }}>
-          {value}
-        </Box>
-        {tail}
-      </>
-    );
-  if (typeof value === 'string')
-    return (
-      <>
-        <Box component="span" sx={{ color: T.str }}>
-          &quot;{value}&quot;
-        </Box>
-        {tail}
-      </>
-    );
-
-  if (Array.isArray(value)) {
-    if (!value.length)
-      return (
-        <>
-          <Box component="span" sx={{ color: T.bracket }}>
-            []
-          </Box>
-          {tail}
-        </>
-      );
-    return (
-      <>
-        <Box component="span" sx={{ color: T.bracket }}>
-          {'['}
-        </Box>
-        {'\n'}
-        {value.map((item, i) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <Fragment key={i}>
-            {indent(depth + 1)}
-            <JsonTree
-              value={item}
-              path={`${path}[${i}]`}
-              depth={depth + 1}
-              comma={i < value.length - 1}
-              pathToVar={pathToVar}
-              onKeyClick={onKeyClick}
-            />
-            {'\n'}
-          </Fragment>
-        ))}
-        {indent(depth)}
-        <Box component="span" sx={{ color: T.bracket }}>
-          {']'}
-        </Box>
-        {tail}
-      </>
-    );
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (!entries.length)
-      return (
-        <>
-          <Box component="span" sx={{ color: T.bracket }}>
-            {'{}'}
-          </Box>
-          {tail}
-        </>
-      );
-    return (
-      <>
-        <Box component="span" sx={{ color: T.bracket }}>
-          {'{'}
-        </Box>
-        {'\n'}
-        {entries.map(([k, v], i) => {
-          const childPath = path ? `${path}.${k}` : k;
-          const isAlreadyMapped = pathToVar[childPath] !== undefined;
-          return (
-            <Fragment key={k}>
-              {indent(depth + 1)}
-              <Box
-                component="span"
-                onClick={e => {
-                  e.stopPropagation();
-                  onKeyClick(childPath, e.currentTarget as HTMLElement);
-                }}
-                title={
-                  isAlreadyMapped
-                    ? 'Click to remap'
-                    : 'Click to map to output variable'
-                }
-                sx={{
-                  color: isAlreadyMapped ? 'primary.main' : T.key,
-                  cursor: 'pointer',
-                  borderRadius: '2px',
-                  px: '2px',
-                  ml: '-2px',
-                  fontWeight: isAlreadyMapped ? 600 : 400,
-                  textDecoration: 'underline',
-                  textDecorationStyle: 'dashed',
-                  textDecorationColor: (t: Theme) =>
-                    isAlreadyMapped
-                      ? alpha(t.palette.primary.main, 0.5)
-                      : alpha(t.palette.greyscale.subtitle, 0.5),
-                  textUnderlineOffset: '3px',
-                  '&:hover': {
-                    bgcolor: (t: { palette: { primary: { main: string } } }) =>
-                      alpha(t.palette.primary.main, 0.1),
-                    outline: '1px dashed',
-                    outlineColor: 'primary.main',
-                    textDecorationColor: 'primary.main',
-                  },
-                }}
-              >
-                &quot;{k}&quot;
-              </Box>
-              <Box component="span" sx={{ color: T.comma }}>
-                :{' '}
-              </Box>
-              <JsonTree
-                value={v}
-                path={childPath}
-                depth={depth + 1}
-                comma={i < entries.length - 1}
-                pathToVar={pathToVar}
-                onKeyClick={onKeyClick}
-              />
-              {'\n'}
-            </Fragment>
-          );
-        })}
-        {indent(depth)}
-        <Box component="span" sx={{ color: T.bracket }}>
-          {'}'}
-        </Box>
-        {tail}
-      </>
-    );
-  }
-  return null;
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
-export interface TestAndMapProps {
+export interface MappingEditorProps {
   requestTemplate: string;
   responseMapping: Record<string, string>;
   onRequestTemplateChange: (t: string) => void;
@@ -358,17 +94,7 @@ export interface TestAndMapProps {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function responseMappingToPathToVar(
-  mapping: Record<string, string>
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [varName, jsonPath] of Object.entries(mapping)) {
-    out[jsonPath.replace(/^\$\./, '')] = varName;
-  }
-  return out;
-}
-
-export default function TestAndMap({
+export default function MappingEditor({
   requestTemplate: requestTemplateProp,
   responseMapping,
   onRequestTemplateChange,
@@ -376,14 +102,12 @@ export default function TestAndMap({
   onTest,
   testResponse,
   isTestingEndpoint,
-}: TestAndMapProps) {
+}: MappingEditorProps) {
   const [requestTemplate, setRequestTemplate] = useState(requestTemplateProp);
 
   useEffect(() => {
     setRequestTemplate(requestTemplateProp);
   }, [requestTemplateProp]);
-
-  // ── Response mapping state ─────────────────────────────────────────────────
 
   const [pathToVar, setPathToVar] = useState<Record<string, string>>(() =>
     responseMappingToPathToVar(responseMapping)
@@ -631,17 +355,10 @@ export default function TestAndMap({
               {mappingTarget !== null ? (
                 <Box
                   component="pre"
-                  sx={{
-                    ...testPreviewSx,
-                    maxHeight: 400,
-                    lineHeight: 1.8,
-                  }}
+                  sx={{ ...testPreviewSx, maxHeight: 400, lineHeight: 1.8 }}
                 >
-                  <JsonTree
+                  <JsonPreview
                     value={mappingTarget}
-                    path=""
-                    depth={0}
-                    comma={false}
                     pathToVar={pathToVar}
                     onKeyClick={handleKeyClick}
                   />
@@ -669,7 +386,6 @@ export default function TestAndMap({
         </Box>
       </Box>
 
-      {/* Key mapping popover */}
       <Popover
         open={Boolean(popoverAnchor)}
         anchorEl={popoverAnchor}

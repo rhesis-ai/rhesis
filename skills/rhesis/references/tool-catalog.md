@@ -18,6 +18,34 @@ List configured endpoints (the AI systems under test).
 
 ---
 
+### `create_endpoint`
+Register a new REST API endpoint (the AI system to be tested — a chat API, completion API, or chatbot).
+
+Resolve the target project **first** with `list_projects` and pass its id — the endpoint cannot be created without a `project_id`. After creating, verify reachability with `check_endpoint`.
+
+**Key parameters:**
+- `name` (required) — endpoint name, unique within the project
+- `project_id` (required) — UUID of the owning project; resolve via `list_projects`
+- `connection_type` — `"REST"` for HTTP APIs (default for chatbots)
+- `url` (required for REST) — full endpoint URL, e.g. `https://api.example.com/chat`
+- `method` — HTTP method, e.g. `"POST"` or `"GET"`
+- `description` — what the endpoint does
+- `environment` — `"production"`, `"staging"`, `"development"`, or `"local"` (default `"development"`)
+- `request_headers` — object of HTTP headers, e.g. `{"Content-Type": "application/json"}`
+- `request_mapping` — object mapping the request body, using `{{ input }}` for the user message, e.g. `{"message": "{{ input }}"}`
+- `response_mapping` — object mapping the response via JSONPath, e.g. `{"output": "$.response"}`
+- `query_params` — optional object of query-string parameters
+- `response_format` — `"json"` (default), `"xml"`, or `"text"`
+
+**Auth (optional):**
+- `auth_type` — `"bearer_token"`, `"client_credentials"`, or `"api_key"`; omit for unauthenticated endpoints
+- `auth_token` — bearer token / API key (write-only, stored encrypted)
+- `client_id`, `client_secret`, `token_url`, `scopes`, `audience` — OAuth client-credentials fields (`client_secret` is write-only, stored encrypted)
+
+**Common mistakes:** Omitting `project_id` — the create fails because it is a required relationship. Always resolve the project with `list_projects` first. Do NOT send server-managed fields (`id`, `user_id`, `organization_id`, `status_id`, `created_at`, `updated_at`) — `status_id` is auto-assigned to "Active".
+
+---
+
 ### `check_endpoint`
 Send a test message to an endpoint to verify it is reachable and responding.
 
