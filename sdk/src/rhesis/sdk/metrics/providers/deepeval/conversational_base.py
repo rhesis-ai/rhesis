@@ -2,6 +2,7 @@
 
 import asyncio
 import copy
+import logging
 from typing import Any, Dict, Optional, Union
 
 from deepeval.test_case import ConversationalTestCase
@@ -12,6 +13,8 @@ from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
 from rhesis.sdk.models.base import BaseLLM
+
+logger = logging.getLogger(__name__)
 
 
 class DeepEvalConversationalBase(ConversationalMetricBase):
@@ -54,6 +57,26 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         """Set the model and update DeepEval wrapper."""
         self._model = self._set_model(value)
         self._update_model()
+
+    def _evaluation_error_result(self, exc: Exception) -> MetricResult:
+        """Return an inconclusive MetricResult for evaluation failures."""
+        return MetricResult(
+            score=0.0,
+            details={
+                "reason": (
+                    f"Metric '{self.name}' failed: the evaluation model could not "
+                    "produce output that DeepEval can parse. This commonly happens "
+                    "with smaller or local models that have limited "
+                    "instruction-following. Consider using a more capable model for "
+                    "metric evaluation."
+                ),
+                "is_successful": False,
+                "threshold": getattr(self._metric, "threshold", 0.0),
+                "inconclusive": True,
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            },
+        )
 
     def _to_deepeval_format(
         self, conversation: ConversationHistory, chatbot_role: Optional[str] = None, **kwargs: Any
@@ -132,7 +155,15 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         )
 
         # Run DeepEval's measure method
-        self._metric.measure(test_case)
+        try:
+            self._metric.measure(test_case)
+        except Exception as exc:
+            logger.warning(
+                "DeepEval conversational metric '%s' failed during evaluation: %s",
+                self.name,
+                exc,
+            )
+            return self._evaluation_error_result(exc)
 
         # Extract results
         return MetricResult(
@@ -176,10 +207,18 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
             conversation_history, chatbot_role=chatbot_role, **kwargs
         )
 
-        if hasattr(metric_copy, "a_measure"):
-            await metric_copy.a_measure(test_case)
-        else:
-            await asyncio.to_thread(metric_copy.measure, test_case)
+        try:
+            if hasattr(metric_copy, "a_measure"):
+                await metric_copy.a_measure(test_case)
+            else:
+                await asyncio.to_thread(metric_copy.measure, test_case)
+        except Exception as exc:
+            logger.warning(
+                "DeepEval conversational metric '%s' failed during async evaluation: %s",
+                self.name,
+                exc,
+            )
+            return self._evaluation_error_result(exc)
 
         return MetricResult(
             score=metric_copy.score,

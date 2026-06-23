@@ -33,7 +33,9 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -85,7 +87,9 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, context=context)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -134,7 +138,9 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input=input, context=context)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -202,7 +208,9 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -270,7 +278,9 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -307,7 +317,9 @@ class DeepEvalBias(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -344,7 +356,9 @@ class DeepEvalToxicity(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -390,7 +404,9 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -432,7 +448,9 @@ class DeepEvalMisuse(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -469,7 +487,9 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -515,7 +535,9 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -557,7 +579,9 @@ class DeepTeamIllegal(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
@@ -598,7 +622,9 @@ class DeepTeamSafety(DeepEvalMetricBase):
 
     async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        await self._metric.a_measure(test_case)
+        error_result = await self._safe_a_measure(self._metric, test_case)
+        if error_result is not None:
+            return error_result
         return MetricResult(
             score=self._metric.score,
             details={
