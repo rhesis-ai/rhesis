@@ -210,6 +210,15 @@ class TestResilientEvaluationPassthrough:
         with pytest.raises(KeyboardInterrupt):
             asyncio.get_event_loop().run_until_complete(M().a_evaluate())
 
+    def test_reraises_cancelled_error_async(self):
+        class M(_StubMetric):
+            @resilient_evaluation
+            async def a_evaluate(self, **kwargs):
+                raise asyncio.CancelledError()
+
+        with pytest.raises(asyncio.CancelledError):
+            asyncio.get_event_loop().run_until_complete(M().a_evaluate())
+
     def test_non_transient_errors_still_caught(self):
         """ValueError/RuntimeError are not transient — should return inconclusive."""
 
