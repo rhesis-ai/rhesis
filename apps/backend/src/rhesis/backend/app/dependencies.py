@@ -103,6 +103,17 @@ def get_project_context(
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid X-Project-Id format")
 
+    # Enforce token project boundary: a project-scoped token cannot access a
+    # different project via an X-Project-Id header override.  Without this
+    # check an org-owner token scoped to project A could pivot to project B by
+    # supplying X-Project-Id: <B> and passing the ceiling-role gate.
+    token_project_id_str = getattr(request.state, "api_token_project_id", None)
+    if token_project_id_str and str(project_id) != token_project_id_str:
+        raise HTTPException(
+            status_code=403,
+            detail="Token is scoped to a different project",
+        )
+
     # Guard: org-less users cannot belong to any project; fail early so we never
     # pass an empty string to get_db_with_tenant_variables (which would set
     # app.current_organization='' and cause a uuid cast error in RLS policies).
@@ -151,7 +162,16 @@ def get_project_context(
             from rhesis.backend.app.auth.principal import resolve_principal
             from rhesis.backend.app.auth.rbac import authorize
 
-            principal = resolve_principal(current_user)
+            token_scopes = getattr(request.state, "api_token_scopes", None)
+            token_proj_uuid = (
+                uuid.UUID(token_project_id_str) if token_project_id_str else None
+            )
+            principal = resolve_principal(
+                current_user,
+                scopes=token_scopes,
+                token_project_id=token_proj_uuid,
+                kind="token" if (token_project_id_str or token_scopes) else "session",
+            )
             if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
                 raise HTTPException(
                     status_code=403,
