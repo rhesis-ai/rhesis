@@ -65,10 +65,10 @@ export default function ReviewJudgementDrawer({
     [statuses]
   );
 
-  // Fetch statuses for TestResult entity type on mount
+  // Fetch statuses for TestResult entity type when first opened
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!sessionToken || statuses.length > 0) return;
+      if (!open || !sessionToken || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
@@ -84,7 +84,7 @@ export default function ReviewJudgementDrawer({
       }
     };
     fetchStatuses();
-  }, [sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length]);
 
   // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
   // from deps so parent state resets don't clear a form the user is actively filling)
