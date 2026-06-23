@@ -46,7 +46,11 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.auth.principal import Principal, resolve_principal, resolve_principal_from_request
+from rhesis.backend.app.auth.principal import (
+    Principal,
+    resolve_principal,
+    resolve_principal_from_request,
+)
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.services.permission_cache import get_permission_cache

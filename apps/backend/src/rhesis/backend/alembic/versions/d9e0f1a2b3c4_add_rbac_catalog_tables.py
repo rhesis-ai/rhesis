@@ -223,9 +223,7 @@ def upgrade() -> None:
     if not index_exists(conn, "ix_role_permission_role_id"):
         op.create_index("ix_role_permission_role_id", "role_permission", ["role_id"])
     if not index_exists(conn, "ix_role_permission_permission_id"):
-        op.create_index(
-            "ix_role_permission_permission_id", "role_permission", ["permission_id"]
-        )
+        op.create_index("ix_role_permission_permission_id", "role_permission", ["permission_id"])
 
     # ------------------------------------------------------------------
     # organization_member  (org-level role assignment)
@@ -278,9 +276,7 @@ def upgrade() -> None:
             ),
         )
     if not index_exists(conn, "ix_organization_member_id"):
-        op.create_index(
-            "ix_organization_member_id", "organization_member", ["id"], unique=True
-        )
+        op.create_index("ix_organization_member_id", "organization_member", ["id"], unique=True)
     if not index_exists(conn, "ix_organization_member_organization_id"):
         op.create_index(
             "ix_organization_member_organization_id",
@@ -288,13 +284,9 @@ def upgrade() -> None:
             ["organization_id"],
         )
     if not index_exists(conn, "ix_organization_member_user_id"):
-        op.create_index(
-            "ix_organization_member_user_id", "organization_member", ["user_id"]
-        )
+        op.create_index("ix_organization_member_user_id", "organization_member", ["user_id"])
     if not index_exists(conn, "ix_organization_member_role_id"):
-        op.create_index(
-            "ix_organization_member_role_id", "organization_member", ["role_id"]
-        )
+        op.create_index("ix_organization_member_role_id", "organization_member", ["role_id"])
 
 
 def downgrade() -> None:
