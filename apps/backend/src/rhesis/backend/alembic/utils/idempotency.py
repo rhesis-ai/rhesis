@@ -12,7 +12,7 @@ def column_exists(conn, table: str, column: str) -> bool:
         conn.execute(
             sa.text(
                 "SELECT 1 FROM information_schema.columns "
-                "WHERE table_name = :t AND column_name = :c"
+                "WHERE table_schema = 'public' AND table_name = :t AND column_name = :c"
             ),
             {"t": table, "c": column},
         ).fetchone()
@@ -36,7 +36,7 @@ def table_exists(conn, table: str) -> bool:
 def index_exists(conn, index_name: str) -> bool:
     return (
         conn.execute(
-            sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
+            sa.text("SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = :n"),
             {"n": index_name},
         ).fetchone()
         is not None
@@ -48,7 +48,8 @@ def fk_exists(conn, constraint_name: str, table: str) -> bool:
         conn.execute(
             sa.text(
                 "SELECT 1 FROM information_schema.table_constraints "
-                "WHERE constraint_name = :n AND table_name = :t"
+                "WHERE constraint_schema = 'public' "
+                "AND constraint_name = :n AND table_name = :t"
             ),
             {"n": constraint_name, "t": table},
         ).fetchone()
