@@ -14,6 +14,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from rhesis.backend.alembic.utils.idempotency import column_exists
+
 revision: str = "382779ccfbd3"
 down_revision: Union[str, None] = "371c3c3cd787"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -22,13 +24,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    col_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name = 'user' AND column_name = 'is_superuser'"
-        ),
-    ).fetchone()
-    if col_exists:
+    if column_exists(conn, "user", "is_superuser"):
         op.drop_column("user", "is_superuser")
 
 

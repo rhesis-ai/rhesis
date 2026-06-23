@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from rhesis.backend.app.auth.principal import STATE_API_TOKEN_PROJECT_ID
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
@@ -92,7 +93,7 @@ def get_project_context(
 
     # 2. Fall back to the project bound to the API token
     if not project_id_str:
-        project_id_str = getattr(request.state, "api_token_project_id", None)
+        project_id_str = getattr(request.state, STATE_API_TOKEN_PROJECT_ID, None)
 
     if not project_id_str:
         return None
@@ -107,7 +108,7 @@ def get_project_context(
     # different project via an X-Project-Id header override.  Without this
     # check an org-owner token scoped to project A could pivot to project B by
     # supplying X-Project-Id: <B> and passing the ceiling-role gate.
-    token_project_id_str = getattr(request.state, "api_token_project_id", None)
+    token_project_id_str = getattr(request.state, STATE_API_TOKEN_PROJECT_ID, None)
     if token_project_id_str and str(project_id) != token_project_id_str:
         raise HTTPException(
             status_code=403,

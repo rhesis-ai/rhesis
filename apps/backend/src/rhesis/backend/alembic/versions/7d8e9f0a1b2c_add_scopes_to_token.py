@@ -16,6 +16,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from rhesis.backend.alembic.utils.idempotency import column_exists
+
 revision: str = "7d8e9f0a1b2c"
 down_revision: Union[str, None] = "a033c0a601a3"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -24,13 +26,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    col_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name = 'token' AND column_name = 'scopes'"
-        ),
-    ).fetchone()
-    if not col_exists:
+    if not column_exists(conn, "token", "scopes"):
         op.add_column(
             "token",
             sa.Column(

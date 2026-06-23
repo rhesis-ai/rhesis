@@ -17,38 +17,17 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from rhesis.backend.alembic.utils.idempotency import column_exists, index_exists
+
 revision: str = "c8d9e0f1a2b3"
 down_revision: Union[str, None] = "c7d8e9f0a1b2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def _column_exists(conn, table, column):
-    return (
-        conn.execute(
-            sa.text(
-                "SELECT 1 FROM information_schema.columns "
-                "WHERE table_name = :t AND column_name = :c"
-            ),
-            {"t": table, "c": column},
-        ).fetchone()
-        is not None
-    )
-
-
-def _index_exists(conn, index_name):
-    return (
-        conn.execute(
-            sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
-            {"n": index_name},
-        ).fetchone()
-        is not None
-    )
-
-
 def upgrade() -> None:
     conn = op.get_bind()
-    if not _column_exists(conn, "project_membership", "role_id"):
+    if not column_exists(conn, "project_membership", "role_id"):
         op.add_column(
             "project_membership",
             sa.Column(
@@ -57,7 +36,7 @@ def upgrade() -> None:
                 nullable=True,
             ),
         )
-    if not _index_exists(conn, "ix_project_membership_role_id"):
+    if not index_exists(conn, "ix_project_membership_role_id"):
         op.create_index(
             "ix_project_membership_role_id",
             "project_membership",

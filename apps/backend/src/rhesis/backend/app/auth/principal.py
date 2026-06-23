@@ -14,6 +14,12 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 from uuid import UUID
 
+# Keys used to stash token context on request.state in user_utils.py.
+# Centralised here so callers share the same string literals.
+STATE_AUTH_KIND = "auth_kind"
+STATE_API_TOKEN_SCOPES = "api_token_scopes"
+STATE_API_TOKEN_PROJECT_ID = "api_token_project_id"
+
 
 @dataclass(frozen=True)
 class Principal:
@@ -89,9 +95,9 @@ def resolve_principal_from_request(user: "object", request: "object") -> Princip
     """
     from uuid import UUID
 
-    token_scopes = getattr(request.state, "api_token_scopes", None)  # type: ignore[union-attr]
-    token_project_id_str = getattr(request.state, "api_token_project_id", None)  # type: ignore[union-attr]
-    auth_kind = getattr(request.state, "auth_kind", "session")  # type: ignore[union-attr]
+    token_scopes = getattr(request.state, STATE_API_TOKEN_SCOPES, None)  # type: ignore[union-attr]
+    token_project_id_str = getattr(request.state, STATE_API_TOKEN_PROJECT_ID, None)  # type: ignore[union-attr]
+    auth_kind = getattr(request.state, STATE_AUTH_KIND, "session")  # type: ignore[union-attr]
     token_project_id: Optional[UUID] = None
     if token_project_id_str:
         try:
@@ -106,4 +112,11 @@ def resolve_principal_from_request(user: "object", request: "object") -> Princip
     )
 
 
-__all__ = ["Principal", "resolve_principal", "resolve_principal_from_request"]
+__all__ = [
+    "Principal",
+    "STATE_AUTH_KIND",
+    "STATE_API_TOKEN_PROJECT_ID",
+    "STATE_API_TOKEN_SCOPES",
+    "resolve_principal",
+    "resolve_principal_from_request",
+]

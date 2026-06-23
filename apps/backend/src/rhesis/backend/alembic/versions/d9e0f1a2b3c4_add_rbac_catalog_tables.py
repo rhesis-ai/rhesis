@@ -22,6 +22,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from rhesis.backend.alembic.utils.idempotency import index_exists, table_exists
+
 revision: str = "d9e0f1a2b3c4"
 down_revision: Union[str, None] = "c8d9e0f1a2b3"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -30,36 +32,13 @@ depends_on: Union[str, Sequence[str], None] = None
 _uuid = sa.dialects.postgresql.UUID(as_uuid=True)
 
 
-def _table_exists(conn, table):
-    return (
-        conn.execute(
-            sa.text(
-                "SELECT 1 FROM information_schema.tables "
-                "WHERE table_schema = 'public' AND table_name = :t"
-            ),
-            {"t": table},
-        ).fetchone()
-        is not None
-    )
-
-
-def _index_exists(conn, index_name):
-    return (
-        conn.execute(
-            sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
-            {"n": index_name},
-        ).fetchone()
-        is not None
-    )
-
-
 def upgrade() -> None:
     conn = op.get_bind()
 
     # ------------------------------------------------------------------
     # permission
     # ------------------------------------------------------------------
-    if not _table_exists(conn, "permission"):
+    if not table_exists(conn, "permission"):
         op.create_table(
             "permission",
             sa.Column(
@@ -101,17 +80,17 @@ def upgrade() -> None:
         )
     # Indexes created independently so a partially-applied schema (table exists
     # but index creation was interrupted) is repaired on re-run.
-    if not _index_exists(conn, "ix_permission_id"):
+    if not index_exists(conn, "ix_permission_id"):
         op.create_index("ix_permission_id", "permission", ["id"], unique=True)
-    if not _index_exists(conn, "ix_permission_name"):
+    if not index_exists(conn, "ix_permission_name"):
         op.create_index("ix_permission_name", "permission", ["name"], unique=True)
-    if not _index_exists(conn, "ix_permission_resource_type"):
+    if not index_exists(conn, "ix_permission_resource_type"):
         op.create_index("ix_permission_resource_type", "permission", ["resource_type"])
 
     # ------------------------------------------------------------------
     # role
     # ------------------------------------------------------------------
-    if not _table_exists(conn, "role"):
+    if not table_exists(conn, "role"):
         op.create_table(
             "role",
             sa.Column(
@@ -166,13 +145,13 @@ def upgrade() -> None:
             ),
             sa.Column("deleted_at", sa.DateTime(), nullable=True),
         )
-    if not _index_exists(conn, "ix_role_id"):
+    if not index_exists(conn, "ix_role_id"):
         op.create_index("ix_role_id", "role", ["id"], unique=True)
-    if not _index_exists(conn, "ix_role_organization_id"):
+    if not index_exists(conn, "ix_role_organization_id"):
         op.create_index("ix_role_organization_id", "role", ["organization_id"])
-    if not _index_exists(conn, "ix_role_name_org"):
+    if not index_exists(conn, "ix_role_name_org"):
         op.create_index("ix_role_name_org", "role", ["name", "organization_id"], unique=True)
-    if not _index_exists(conn, "uq_role_builtin_name"):
+    if not index_exists(conn, "uq_role_builtin_name"):
         op.create_index(
             "uq_role_builtin_name",
             "role",
@@ -198,7 +177,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     # role_permission  (M2M)
     # ------------------------------------------------------------------
-    if not _table_exists(conn, "role_permission"):
+    if not table_exists(conn, "role_permission"):
         op.create_table(
             "role_permission",
             sa.Column(
@@ -239,11 +218,11 @@ def upgrade() -> None:
                 name="uq_role_permission",
             ),
         )
-    if not _index_exists(conn, "ix_role_permission_id"):
+    if not index_exists(conn, "ix_role_permission_id"):
         op.create_index("ix_role_permission_id", "role_permission", ["id"], unique=True)
-    if not _index_exists(conn, "ix_role_permission_role_id"):
+    if not index_exists(conn, "ix_role_permission_role_id"):
         op.create_index("ix_role_permission_role_id", "role_permission", ["role_id"])
-    if not _index_exists(conn, "ix_role_permission_permission_id"):
+    if not index_exists(conn, "ix_role_permission_permission_id"):
         op.create_index(
             "ix_role_permission_permission_id", "role_permission", ["permission_id"]
         )
@@ -251,7 +230,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     # organization_member  (org-level role assignment)
     # ------------------------------------------------------------------
-    if not _table_exists(conn, "organization_member"):
+    if not table_exists(conn, "organization_member"):
         op.create_table(
             "organization_member",
             sa.Column(
@@ -298,21 +277,21 @@ def upgrade() -> None:
                 name="uq_organization_member_org_user",
             ),
         )
-    if not _index_exists(conn, "ix_organization_member_id"):
+    if not index_exists(conn, "ix_organization_member_id"):
         op.create_index(
             "ix_organization_member_id", "organization_member", ["id"], unique=True
         )
-    if not _index_exists(conn, "ix_organization_member_organization_id"):
+    if not index_exists(conn, "ix_organization_member_organization_id"):
         op.create_index(
             "ix_organization_member_organization_id",
             "organization_member",
             ["organization_id"],
         )
-    if not _index_exists(conn, "ix_organization_member_user_id"):
+    if not index_exists(conn, "ix_organization_member_user_id"):
         op.create_index(
             "ix_organization_member_user_id", "organization_member", ["user_id"]
         )
-    if not _index_exists(conn, "ix_organization_member_role_id"):
+    if not index_exists(conn, "ix_organization_member_role_id"):
         op.create_index(
             "ix_organization_member_role_id", "organization_member", ["role_id"]
         )

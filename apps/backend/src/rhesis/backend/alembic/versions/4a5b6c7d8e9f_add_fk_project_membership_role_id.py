@@ -25,6 +25,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from rhesis.backend.alembic.utils.idempotency import fk_exists
+
 revision: str = "4a5b6c7d8e9f"
 down_revision: Union[str, None] = "382779ccfbd3"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -33,14 +35,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    fk_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM information_schema.table_constraints "
-            "WHERE constraint_name = 'project_membership_role_id_fkey' "
-            "AND table_name = 'project_membership'"
-        ),
-    ).fetchone()
-    if not fk_exists:
+    if not fk_exists(conn, "project_membership_role_id_fkey", "project_membership"):
         op.create_foreign_key(
             "project_membership_role_id_fkey",
             "project_membership",
