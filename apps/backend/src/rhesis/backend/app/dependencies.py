@@ -159,20 +159,10 @@ def get_project_context(
         # never by a plain Member/Viewer. App-layer only; RLS is unchanged.
         if membership is None:
             from rhesis.backend.app.auth.capabilities import Permission
-            from rhesis.backend.app.auth.principal import resolve_principal
+            from rhesis.backend.app.auth.principal import resolve_principal_from_request
             from rhesis.backend.app.auth.rbac import authorize
 
-            token_scopes = getattr(request.state, "api_token_scopes", None)
-            token_proj_uuid = (
-                uuid.UUID(token_project_id_str) if token_project_id_str else None
-            )
-            auth_kind = getattr(request.state, "auth_kind", "session")
-            principal = resolve_principal(
-                current_user,
-                scopes=token_scopes,
-                token_project_id=token_proj_uuid,
-                kind=auth_kind,
-            )
+            principal = resolve_principal_from_request(current_user, request)
             if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
                 raise HTTPException(
                     status_code=403,
