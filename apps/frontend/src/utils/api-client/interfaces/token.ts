@@ -19,4 +19,5 @@ export interface TokenResponse {
   token_type: string;
   expires_at: string;
   name?: string;
+  project_id?: string;
 }
