@@ -9,8 +9,8 @@ from fastapi import Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -69,7 +69,9 @@ def create_token(
             isinstance(s, str) for s in requested_scopes
         ):
             raise HTTPException(status_code=422, detail="scopes must be a list of strings")
-        _validate_token_scopes(requested_scopes, resolve_principal_from_request(current_user, request), db)
+        _validate_token_scopes(
+            requested_scopes, resolve_principal_from_request(current_user, request), db
+        )
 
     organization_id, user_id = tenant_context
     token_value = generate_api_token()
@@ -130,7 +132,10 @@ def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Sessio
         if out_of_token_scope:
             raise HTTPException(
                 status_code=422,
-                detail=f"Requested scopes exceed authenticating token's scopes: {sorted(out_of_token_scope)}",
+                detail=(
+                    "Requested scopes exceed authenticating token's scopes: "
+                    f"{sorted(out_of_token_scope)}"
+                ),
             )
 
     # Validate that all requested scopes are known capability strings.
