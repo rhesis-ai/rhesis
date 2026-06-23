@@ -238,6 +238,57 @@ class TestBuiltInRoleRLSPolicy:
         }
         assert visible_owner == {"ProbeBuiltIn", "ProbeCustom"}
 
+    def test_restricted_role_cannot_write_builtin_or_cross_org(
+        self, test_db: Session, test_org_id: str
+    ):
+        """Audit fix: the role WITH CHECK must let a tenant write only its own-org
+        rows — never a NULL-org (built-in) or cross-org role row."""
+        import uuid
+
+        import pytest
+        from sqlalchemy import text
+
+        probe = f"rls_wc_probe_{uuid.uuid4().hex[:8]}"
+        other_org = str(uuid.uuid4())
+
+        test_db.execute(text(f'CREATE ROLE "{probe}" NOLOGIN'))
+        test_db.execute(text(f'GRANT SELECT, INSERT ON public.role TO "{probe}"'))
+        test_db.execute(text(f'SET LOCAL ROLE "{probe}"'))
+        test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": test_org_id})
+
+        # Own-org custom role: permitted by WITH CHECK.
+        with test_db.begin_nested():
+            test_db.execute(
+                text(
+                    "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
+                    "VALUES (gen_random_uuid(),'WcOwnOrg','project',30,false,:o)"
+                ),
+                {"o": test_org_id},
+            )
+
+        # NULL-org (built-in) row: rejected — a tenant must not mint a global role.
+        with pytest.raises(Exception):
+            with test_db.begin_nested():
+                test_db.execute(
+                    text(
+                        "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
+                        "VALUES (gen_random_uuid(),'WcEvilBuiltIn','organization',100,true,NULL)"
+                    )
+                )
+
+        # Cross-org row: rejected.
+        with pytest.raises(Exception):
+            with test_db.begin_nested():
+                test_db.execute(
+                    text(
+                        "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
+                        "VALUES (gen_random_uuid(),'WcCrossOrg','project',30,false,:o)"
+                    ),
+                    {"o": other_org},
+                )
+
+        test_db.execute(text("RESET ROLE"))
+
 
 # ---------------------------------------------------------------------------
 # permissions_for_built_in_role unit tests (pure, no DB)
