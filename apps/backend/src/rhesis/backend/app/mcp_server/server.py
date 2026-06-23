@@ -122,9 +122,9 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                 # request.state).  Without this, MCP clients that
                 # authenticate with a project-scoped token (e.g. Cursor)
                 # would see no project filtering on list endpoints.
-                project_value = request.headers.get(
-                    "x-project-id", ""
-                ) or getattr(request.state, "api_token_project_id", "")
+                project_value = request.headers.get("x-project-id", "") or getattr(
+                    request.state, "api_token_project_id", ""
+                )
                 if project_value:
                     headers["X-Project-Id"] = project_value
         except LookupError:
