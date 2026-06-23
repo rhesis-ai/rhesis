@@ -6,7 +6,7 @@ user's effective permissions so a token can never exceed its owner's access.
 Community tier ignores scopes (but stores them for forward-compatibility).
 
 Revision ID: 7d8e9f0a1b2c
-Revises: f1a2b3c4d5e0
+Revises: a033c0a601a3
 Create Date: 2026-06-17
 """
 
@@ -17,27 +17,36 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "7d8e9f0a1b2c"
-down_revision: Union[str, None] = "f1a2b3c4d5e0"
+down_revision: Union[str, None] = "a033c0a601a3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "token",
-        sa.Column(
-            "scopes",
-            postgresql.JSONB(astext_type=sa.Text()),
-            nullable=True,
-            comment=(
-                "Optional explicit permission subset for this token. "
-                "When set (a JSON array of capability strings), the EE "
-                "provider intersects with the owner's effective permissions — "
-                "the token can never exceed its issuer. NULL means the token "
-                "inherits the owner's full access (community-tier behaviour)."
-            ),
+    conn = op.get_bind()
+    col_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'token' AND column_name = 'scopes'"
         ),
-    )
+    ).fetchone()
+    if not col_exists:
+        op.add_column(
+            "token",
+            sa.Column(
+                "scopes",
+                postgresql.JSONB(astext_type=sa.Text()),
+                nullable=True,
+                comment=(
+                    "Optional explicit permission subset for this token. "
+                    "When set (a JSON array of capability strings), the EE "
+                    "provider intersects with the owner's effective "
+                    "permissions — the token can never exceed its issuer. "
+                    "NULL means the token inherits the owner's full access "
+                    "(community-tier behaviour)."
+                ),
+            ),
+        )
 
 
 def downgrade() -> None:

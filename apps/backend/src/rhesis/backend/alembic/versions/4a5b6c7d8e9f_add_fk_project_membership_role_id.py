@@ -22,6 +22,7 @@ Create Date: 2026-06-08
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "4a5b6c7d8e9f"
@@ -31,14 +32,23 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_foreign_key(
-        "project_membership_role_id_fkey",
-        "project_membership",
-        "role",
-        ["role_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    conn = op.get_bind()
+    fk_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.table_constraints "
+            "WHERE constraint_name = 'project_membership_role_id_fkey' "
+            "AND table_name = 'project_membership'"
+        ),
+    ).fetchone()
+    if not fk_exists:
+        op.create_foreign_key(
+            "project_membership_role_id_fkey",
+            "project_membership",
+            "role",
+            ["role_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:

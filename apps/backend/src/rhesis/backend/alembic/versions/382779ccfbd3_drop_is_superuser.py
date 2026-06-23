@@ -21,7 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_column("user", "is_superuser")
+    conn = op.get_bind()
+    col_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'user' AND column_name = 'is_superuser'"
+        ),
+    ).fetchone()
+    if col_exists:
+        op.drop_column("user", "is_superuser")
 
 
 def downgrade() -> None:

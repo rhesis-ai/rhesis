@@ -23,21 +23,47 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(conn, table, column):
+    return (
+        conn.execute(
+            sa.text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c"
+            ),
+            {"t": table, "c": column},
+        ).fetchone()
+        is not None
+    )
+
+
+def _index_exists(conn, index_name):
+    return (
+        conn.execute(
+            sa.text("SELECT 1 FROM pg_indexes WHERE indexname = :n"),
+            {"n": index_name},
+        ).fetchone()
+        is not None
+    )
+
+
 def upgrade() -> None:
-    op.add_column(
-        "project_membership",
-        sa.Column(
-            "role_id",
-            sa.dialects.postgresql.UUID(as_uuid=True),
-            nullable=True,
-        ),
-    )
-    op.create_index(
-        "ix_project_membership_role_id",
-        "project_membership",
-        ["role_id"],
-        unique=False,
-    )
+    conn = op.get_bind()
+    if not _column_exists(conn, "project_membership", "role_id"):
+        op.add_column(
+            "project_membership",
+            sa.Column(
+                "role_id",
+                sa.dialects.postgresql.UUID(as_uuid=True),
+                nullable=True,
+            ),
+        )
+    if not _index_exists(conn, "ix_project_membership_role_id"):
+        op.create_index(
+            "ix_project_membership_role_id",
+            "project_membership",
+            ["role_id"],
+            unique=False,
+        )
 
 
 def downgrade() -> None:
