@@ -20,6 +20,8 @@ export interface GridToolbarProps {
   searchWidth?: number;
   /** Use `standalone` on directory pages where the toolbar sits on the page bg. */
   searchVariant?: 'embedded' | 'standalone';
+  /** When true, the search pill grows to fill remaining toolbar width. */
+  searchFullWidth?: boolean;
   onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
   /** Number of active filters to display on the filter button badge */
@@ -36,13 +38,19 @@ export const directoryToolbarSx: SxProps<Theme> = {
   py: 0,
   borderBottom: 'none',
   minHeight: 'auto',
+  gap: '20px',
 };
 
 /** Spread on directory toolbars: layout + raised search pill for page-bg contrast. */
 export const directoryToolbarProps = {
   sx: directoryToolbarSx,
   searchVariant: 'standalone',
-} as const satisfies Pick<GridToolbarProps, 'sx' | 'searchVariant'>;
+  /** Figma Toolbar 841:38547 — Searchfield width */
+  searchWidth: 288,
+} as const satisfies Pick<
+  GridToolbarProps,
+  'sx' | 'searchVariant' | 'searchWidth'
+>;
 
 export interface PrimarySegmentedPillsProps {
   tabs: ToolbarPillTab[];
@@ -211,6 +219,7 @@ export function GridToolbar({
   searchPlaceholder = 'Search…',
   searchWidth = 240,
   searchVariant = 'embedded',
+  searchFullWidth = false,
   onFilterClick,
   hasActiveFilters = false,
   activeFilterCount,
@@ -239,15 +248,27 @@ export function GridToolbar({
           activeFilterCount={activeFilterCount}
         />
       ) : null}
-      <SearchPill
-        value={searchQuery}
-        onChange={onSearchChange}
-        placeholder={searchPlaceholder}
-        width={searchWidth}
-        variant={searchVariant}
-      />
+      {searchFullWidth ? (
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <SearchPill
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder={searchPlaceholder}
+            width="100%"
+            variant={searchVariant}
+          />
+        </Box>
+      ) : (
+        <SearchPill
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder={searchPlaceholder}
+          width={searchWidth}
+          variant={searchVariant}
+        />
+      )}
       {middleContent}
-      {!middleContent && <Box sx={{ flex: 1 }} />}
+      {!middleContent && !searchFullWidth && <Box sx={{ flex: 1 }} />}
       {rightContent ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {rightContent}

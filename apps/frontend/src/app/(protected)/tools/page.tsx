@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Alert, CircularProgress, Typography } from '@mui/material';
-import HandymanIcon from '@mui/icons-material/Handyman';
+import { Box, Alert, CircularProgress } from '@mui/material';
+import { BuildIcon } from '@/components/icons';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import GridToolbar, {
   directoryToolbarProps,
@@ -29,10 +29,12 @@ import {
   countActiveToolFilters,
 } from './components';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function ToolsPage() {
   const { data: session } = useSession();
   const notifications = useNotifications();
+  useDocumentTitle('Tools');
   const [tools, setTools] = useState<Tool[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,6 +171,11 @@ export default function ToolsPage() {
     });
   }, [tools, searchQuery, filters]);
 
+  const openConnectionDrawer = () => {
+    setToolToEdit(null);
+    setConnectionDrawerOpen(true);
+  };
+
   return (
     <PageLayout
       title="Tools"
@@ -180,10 +187,7 @@ export default function ToolsPage() {
             icon={<FabAddIcon />}
             tooltip="Add tool connection"
             aria-label="Add tool connection"
-            onClick={() => {
-              setToolToEdit(null);
-              setConnectionDrawerOpen(true);
-            }}
+            onClick={openConnectionDrawer}
           />
         </FabGroup>
       }
@@ -194,56 +198,70 @@ export default function ToolsPage() {
         </Alert>
       )}
 
-      <GridToolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search tool connections..."
-        onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveToolFilters(filters)}
-        activeFilterCount={countActiveToolFilters(filters)}
-        {...directoryToolbarProps}
-      />
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : tools.length === 0 ? (
-        <EntityEmptyState
-          icon={HandymanIcon}
-          title="No tool connections yet"
-          description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
-          actionLabel="Add tool connection"
-          onAction={() => setConnectionDrawerOpen(true)}
-        />
-      ) : filteredTools.length === 0 ? (
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
-            No connections match your search or filters.
-          </Typography>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-            },
-            gap: 3,
-          }}
-        >
-          {filteredTools.map(tool => (
-            <ConnectedToolCard
-              key={tool.id}
-              tool={tool}
-              onDelete={handleDeleteClick}
-              onCardClick={handleCardClick}
+      <Box sx={{ mt: 2, mb: 2 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : tools.length === 0 ? (
+          <EntityEmptyState
+            card
+            icon={BuildIcon}
+            title="No tool connections yet"
+            description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
+            actionLabel="Add tool connection"
+            onAction={openConnectionDrawer}
+          />
+        ) : (
+          <>
+            <GridToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search tool connections..."
+              onFilterClick={() => setFilterDrawerOpen(true)}
+              hasActiveFilters={hasActiveToolFilters(filters)}
+              activeFilterCount={countActiveToolFilters(filters)}
+              {...directoryToolbarProps}
             />
-          ))}
-        </Box>
-      )}
+
+            {filteredTools.length === 0 ? (
+              <EntityEmptyState
+                card
+                showAddIcon={false}
+                icon={BuildIcon}
+                title="No connections match your search or filters"
+                description="Try adjusting your search or filters to find the tool connections you're looking for."
+                actionLabel="Reset filters"
+                onAction={() => {
+                  setSearchQuery('');
+                  setFilters(EMPTY_TOOL_FILTERS);
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, 1fr)',
+                    md: 'repeat(3, 1fr)',
+                  },
+                  gap: 3,
+                }}
+              >
+                {filteredTools.map(tool => (
+                  <ConnectedToolCard
+                    key={tool.id}
+                    tool={tool}
+                    onDelete={handleDeleteClick}
+                    onCardClick={handleCardClick}
+                  />
+                ))}
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
 
       <ToolFilterDrawer
         open={filterDrawerOpen}

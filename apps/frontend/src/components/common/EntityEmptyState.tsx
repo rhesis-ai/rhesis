@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import AddIcon from '@mui/icons-material/Add';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import type { EntityEmptyStateEnrichment } from '@/constants/entity-empty-state-types';
 import { hasEnrichmentContent } from '@/constants/entity-empty-state-env';
 import {
@@ -139,7 +139,17 @@ export default function EntityEmptyState({
                   borderWidth: 2,
                 },
               }
-            : { mt: 1, fontWeight: 700 }
+            : {
+                mt: 1,
+                fontWeight: 700,
+                fontSize: 18,
+                lineHeight: '25px',
+                borderRadius: BORDER_RADIUS.pill,
+                textTransform: 'none',
+                px: '20px',
+                py: '12px',
+                boxShadow: ELEVATION.xs,
+              }
         }
       >
         {actionLabel}
