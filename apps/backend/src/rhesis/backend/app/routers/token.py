@@ -22,6 +22,7 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.token import (
     TokenCreate,
     TokenCreateResponse,
+    TokenInfoResponse,
     TokenRead,
     TokenUpdate,
 )
@@ -176,6 +177,21 @@ def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Sessio
             status_code=422,
             detail=(f"Requested scopes exceed your effective permissions: {sorted(out_of_bounds)}"),
         )
+
+
+@router.get("/current", response_model=TokenInfoResponse)
+def current_token_info(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Return project_id and organization_id for the calling API token."""
+    token_project_id = getattr(request.state, "api_token_project_id", None)
+    organization_id = str(current_user.organization_id) if current_user.organization_id else None
+
+    return TokenInfoResponse(
+        project_id=token_project_id,
+        organization_id=organization_id,
+    )
 
 
 @router.get("/", response_model=List[TokenRead])

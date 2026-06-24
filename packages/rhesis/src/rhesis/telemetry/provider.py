@@ -19,7 +19,7 @@ def get_tracer_provider(
     service_name: str,
     api_key: str,
     base_url: str,
-    project_id: str,
+    project_id: Optional[str],
     environment: str,
 ) -> TracerProvider:
     """

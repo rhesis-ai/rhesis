@@ -13,7 +13,11 @@ from sqlalchemy.orm.attributes import flag_modified
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_project_context,
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
@@ -51,6 +55,7 @@ def ingest_trace(
     trace_batch: OTELTraceBatch,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    scope_project_id: str | None = Depends(get_project_context),
 ) -> TraceResponse:
     """
     Ingest OpenTelemetry traces from SDK.
@@ -78,13 +83,21 @@ def ingest_trace(
     """
     organization_id, user_id = tenant_context
 
-    # Extract metadata
-    project_id = trace_batch.spans[0].project_id if trace_batch.spans else None
-
-    if not project_id:
+    # Resolve project_id: prefer span value, fall back to token/header scope
+    span_project_id = trace_batch.spans[0].project_id if trace_batch.spans else None
+    if span_project_id and span_project_id != "unknown":
+        project_id = span_project_id
+    elif scope_project_id:
+        project_id = scope_project_id
+        for span in trace_batch.spans:
+            span.project_id = scope_project_id
+    else:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Trace batch must contain at least one span with project_id",
+            detail=(
+                "No project_id could be resolved. Use a project-scoped token, "
+                "set RHESIS_PROJECT_ID, or pass X-Project-Id header."
+            ),
         )
 
     # Log ingestion (summary only)

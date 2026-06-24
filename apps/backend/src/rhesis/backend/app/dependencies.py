@@ -80,6 +80,10 @@ def get_project_context(
          (stored on ``request.state.api_token_project_id`` by the auth layer)
       3. ``None`` — request is not scoped to a specific project
 
+    When both an explicit header and a project-scoped token are present, the
+    values must match — a project-scoped token cannot be used to access a
+    different project (403).
+
     When a project_id is resolved the dependency validates that the authenticated
     user is a member of that project.  Non-members receive **403**.
 
@@ -89,11 +93,21 @@ def get_project_context(
         only -- project-scoped rows are not visible.
     """
     # 1. Prefer explicit header (FastAPI already parsed it via the Header() annotation)
-    project_id_str = x_project_id or request.headers.get("X-Project-Id")
+    explicit_project_id = x_project_id or request.headers.get("X-Project-Id")
+    token_project_id = getattr(request.state, "api_token_project_id", None)
+
+    # If the token is project-scoped, an explicit project_id must match
+    if explicit_project_id and token_project_id and explicit_project_id != token_project_id:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Project-scoped token is bound to project {token_project_id}; "
+                f"cannot override with {explicit_project_id}"
+            ),
+        )
 
     # 2. Fall back to the project bound to the API token
-    if not project_id_str:
-        project_id_str = getattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None)
+    project_id_str = explicit_project_id or token_project_id
 
     if not project_id_str:
         return None
