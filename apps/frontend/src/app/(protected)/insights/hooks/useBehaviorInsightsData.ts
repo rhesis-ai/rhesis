@@ -75,7 +75,8 @@ export function useBehaviorInsightsData(
         try {
           const testRunIds = await fetchTestRunIdsForEndpoint(
             sessionToken,
-            filters.endpointId
+            filters.endpointId,
+            resolveInsightsTimeRange(filters.timeRange)
           );
 
           if (!isCurrentRequest(requestId)) return;

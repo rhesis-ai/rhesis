@@ -11,6 +11,15 @@ import {
   writeInsightsEndpointId,
 } from '@/utils/insights-endpoint';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { InsightsTimeRange, timeRangeToStatsParams } from '../types';
+
+function endpointMatchesProject(
+  endpoint: Endpoint,
+  projectId: string | undefined
+): boolean {
+  if (!projectId) return true;
+  return String(endpoint.project_id) === String(projectId);
+}
 
 export interface DimensionItem {
   name: string;
@@ -86,13 +95,27 @@ export function isBehaviorRowExpandable(row: BehaviorInsightColumn[]): boolean {
   return row.some(isBehaviorColumnExpandable);
 }
 
+export function buildTestRunTimeFilter(timeRange: InsightsTimeRange): string {
+  const params = timeRangeToStatsParams(timeRange);
+  if (params.start_date) {
+    return `created_at ge '${params.start_date}'`;
+  }
+  if (params.months) {
+    const end = new Date();
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - 30 * params.months);
+    return `created_at ge '${start.toISOString()}'`;
+  }
+  return '';
+}
+
 export function resolveEndpointId(
   endpoints: Endpoint[],
   projectId: string | undefined
 ): string | null {
-  const projectEndpoints = projectId
-    ? endpoints.filter(e => e.project_id === projectId)
-    : endpoints;
+  const projectEndpoints = endpoints.filter(e =>
+    endpointMatchesProject(e, projectId)
+  );
 
   if (projectEndpoints.length === 0) return null;
 
@@ -113,10 +136,18 @@ export function buildEndpointRunFilter(endpointId: string): string {
 
 export async function fetchTestRunIdsForEndpoint(
   sessionToken: string,
-  endpointId: string
+  endpointId: string,
+  timeRange?: InsightsTimeRange
 ): Promise<string[]> {
   const client = new ApiClientFactory(sessionToken).getTestRunsClient();
-  const filter = buildEndpointRunFilter(endpointId);
+  const filterParts = [buildEndpointRunFilter(endpointId)];
+  if (timeRange) {
+    const timeFilter = buildTestRunTimeFilter(timeRange);
+    if (timeFilter) {
+      filterParts.push(timeFilter);
+    }
+  }
+  const filter = filterParts.join(' and ');
   const ids: string[] = [];
   let skip = 0;
   const limit = 100;
@@ -135,8 +166,6 @@ export async function fetchTestRunIdsForEndpoint(
     const total = response.pagination?.totalCount ?? response.data.length;
     hasMore = ids.length < total;
     skip += limit;
-
-    if (skip > 5000) break;
   }
 
   return ids;

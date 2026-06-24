@@ -57,7 +57,6 @@ import { formatDate } from '@/utils/date';
 import { TEST_TYPES } from '@/constants/test-types';
 import {
   applyTestDrawerFiltersToModel,
-  applyInsightsFailedTestIdsToModel,
   buildTestIdsODataFilter,
   combineODataFilterExpressions,
 } from './test-filter-model';
@@ -384,16 +383,6 @@ export default function TestsTable({
     sessionToken,
     insightsFailedFilter,
   ]);
-
-  useEffect(() => {
-    if (insightsFailedTestIds === null) {
-      return;
-    }
-    setFilterModel(prev =>
-      applyInsightsFailedTestIdsToModel(prev, insightsFailedTestIds)
-    );
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [insightsFailedTestIds]);
 
   // Sync drawer filters into filterModel
   useEffect(() => {

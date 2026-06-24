@@ -38,7 +38,9 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const projectEndpoints = useMemo(
     () =>
       activeProject
-        ? endpoints.filter(e => e.project_id === activeProject.id)
+        ? endpoints.filter(
+            e => String(e.project_id) === String(activeProject.id)
+          )
         : endpoints,
     [endpoints, activeProject]
   );
@@ -131,11 +133,13 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
       return;
     }
 
-    const resolvedId = resolveEndpointId(
-      endpoints,
-      activeProject?.id ? String(activeProject.id) : undefined
+    const projectId = activeProject?.id ? String(activeProject.id) : undefined;
+    const hasValidSelection = projectEndpoints.some(
+      e => e.id === filters.endpointId
     );
+    if (hasValidSelection) return;
 
+    const resolvedId = resolveEndpointId(endpoints, projectId);
     if (!resolvedId) return;
 
     setFilters(prev =>
@@ -143,7 +147,13 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
         ? prev
         : { timeRange: prev.timeRange, endpointId: resolvedId }
     );
-  }, [endpointsLoading, endpoints, activeProject?.id, projectEndpoints.length]);
+  }, [
+    endpointsLoading,
+    endpoints,
+    activeProject?.id,
+    projectEndpoints,
+    filters.endpointId,
+  ]);
 
   const handleFiltersChange = useCallback((newFilters: InsightsFilters) => {
     setFilters(normalizeInsightsFilters(newFilters));

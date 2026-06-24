@@ -105,5 +105,16 @@ describe('behavior-insights-utils', () => {
     it('returns null when no endpoints in project', () => {
       expect(resolveEndpointId([...endpoints], 'other-project')).toBeNull();
     });
+
+    it('matches project id when types differ', () => {
+      mockedRead.mockReturnValue(null);
+      const numericProjectEndpoints: Endpoint[] = [
+        {
+          ...endpoints[0],
+          project_id: 42 as unknown as string,
+        },
+      ];
+      expect(resolveEndpointId(numericProjectEndpoints, '42')).toBe('ep-1');
+    });
   });
 });

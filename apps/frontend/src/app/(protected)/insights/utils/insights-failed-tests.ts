@@ -181,7 +181,8 @@ export async function fetchFailedTestIdsForInsights(
 
   const testRunIds = await fetchTestRunIdsForEndpoint(
     sessionToken,
-    filters.endpointId
+    filters.endpointId,
+    filters.timeRange
   );
   if (testRunIds.length === 0) {
     return [];

@@ -70,10 +70,20 @@ export default function BehaviorInsightsView({
     );
   }
 
-  if (!filters.endpointId && !endpointsLoading) {
+  if (!filters.endpointId) {
+    if (endpointsLoading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
+      <Box sx={{ py: 6, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          Select an endpoint in Filters to view behavior insights.
+        </Typography>
       </Box>
     );
   }
