@@ -505,7 +505,7 @@ def get_test_set(
     return (
         QueryBuilder(db, models.TestSet)
         .with_organization_filter(organization_id)  # Add organization filtering
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.TestSet.id == test_set_id))
         .first()
     )
@@ -543,7 +543,7 @@ def get_test_sets(
             "organization",
         )
         .with_organization_filter(organization_id)  # Apply organization filtering
-        .with_visibility_filter()  # This already handles public visibility correctly
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -644,7 +644,7 @@ def get_test_set_by_nano_id_or_slug(
             "organization",
         )
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(
                 (models.TestSet.nano_id == identifier) | (models.TestSet.slug == identifier)
@@ -721,7 +721,7 @@ def get_test_sets_for_test(
             "organization",
         )
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.join(models.test.test_test_set_association).filter(
                 and_(
@@ -942,7 +942,7 @@ def get_status(
         .with_deleted()
         .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(status_id)
     )
     return _check_and_raise_if_deleted(item, models.Status, status_id, False)
@@ -2103,7 +2103,7 @@ def get_projects(
             QueryBuilder(db, models.Project)
             .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
             .with_organization_filter(organization_id)
-            .with_visibility_filter()
+            .with_visibility_filter(user_id)
             .with_odata_filter(filter)
         )
 
@@ -2137,7 +2137,7 @@ def count_projects(
         builder = (
             QueryBuilder(db, models.Project)
             .with_organization_filter(organization_id)
-            .with_visibility_filter()
+            .with_visibility_filter(user_id)
             .with_odata_filter(filter)
         )
         if user_id:
@@ -2378,7 +2378,7 @@ def get_test_run(
         )
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(test_run_id)
     )
 
@@ -2421,7 +2421,7 @@ def get_test_runs(
         .with_custom_filter(_defer_endpoint_last_token)
         .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -2878,7 +2878,7 @@ def get_metric(
         .with_joined(*_METRIC_M2O_RELATIONSHIPS)
         .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
         .first()
     )
@@ -2900,7 +2900,7 @@ def get_metrics(
         .with_joined(*_METRIC_M2O_RELATIONSHIPS)
         .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)

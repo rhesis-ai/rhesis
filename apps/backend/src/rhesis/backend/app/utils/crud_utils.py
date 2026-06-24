@@ -327,7 +327,7 @@ def get_item(
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(item_id)
     )
 
@@ -374,7 +374,7 @@ def get_item_detail(
         .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(item_id)
     )
 
@@ -419,7 +419,7 @@ def get_item_with_deferred(
         .with_deleted()  # Always include deleted to check status
         .with_optimized_loads()
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
     )
 
     # Add undefer options for deferred fields BEFORE query execution
@@ -451,7 +451,7 @@ def get_items(
     return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -496,7 +496,7 @@ def get_items_detail(
         builder = builder.with_selectin_chain(*chain)
     return (
         builder.with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(
@@ -706,7 +706,7 @@ def get_deleted_items(
         QueryBuilder(db, model)
         .only_deleted()
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
         .all()
@@ -802,7 +802,7 @@ def count_items(
     return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .count()
     )
@@ -885,7 +885,9 @@ def get_or_create_entity(
 
     # Build base query with direct tenant context
     query = (
-        QueryBuilder(db, model).with_organization_filter(organization_id).with_visibility_filter()
+        QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
     )
 
     # Try to find by ID first if provided
@@ -943,7 +945,7 @@ def get_or_create_status(
     query = (
         QueryBuilder(db, Status)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(Status.name == name, Status.entity_type_id == entity_type_lookup.id)
         )
@@ -986,7 +988,7 @@ def get_or_create_type_lookup(
     query = (
         QueryBuilder(db, TypeLookup)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(
                 TypeLookup.type_name == type_name, TypeLookup.type_value == type_value

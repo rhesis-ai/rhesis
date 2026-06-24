@@ -16,8 +16,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -28,6 +27,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.parameters import (
     ExperimentDetail,
     ExperimentRead,
@@ -85,14 +85,17 @@ def list_experiments(
         organization_id=organization_id,
         user_id=user_id,
     )
-    visible = [
-        r
-        for r in rows
-        if r.visibility != "private"
-        or (user_id is not None and str(r.owner_user_id) == str(user_id))
-    ]
-    response.headers["X-Total-Count"] = str(len(visible))
-    return [to_read(r) for r in visible]
+    from rhesis.backend.app.utils.crud_utils import count_items
+
+    total = count_items(
+        db,
+        Experiment,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return [to_read(r) for r in rows]
 
 
 @router.get("/{experiment_id}", response_model=ExperimentDetail)

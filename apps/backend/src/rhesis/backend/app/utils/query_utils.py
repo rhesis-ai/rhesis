@@ -2,7 +2,7 @@ import logging
 from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
-from sqlalchemy import desc, inspect
+from sqlalchemy import desc, inspect, or_
 from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, selectinload
 
 # Removed unused imports - legacy tenant functions no longer needed
@@ -281,8 +281,6 @@ class QueryBuilder:
         e.g. in admin paths that operate outside the normal request scope.
         """
         if project_id and has_project_id(self.model):
-            from sqlalchemy import or_
-
             self.query = self.query.filter(
                 or_(
                     self.model.project_id == project_id,
@@ -291,11 +289,38 @@ class QueryBuilder:
             )
         return self
 
-    def with_visibility_filter(self) -> "QueryBuilder":
-        """Apply visibility filter if the model supports it"""
-        # Note: Visibility filtering is now handled through direct parameter passing
-        # rather than session variables. This method is kept for compatibility
-        # but no longer applies automatic filters.
+    def with_visibility_filter(self, user_id: Optional[str] = None) -> "QueryBuilder":
+        """Hide owner-only rows from non-owners.
+
+        Models that declare a ``visibility`` column alongside an owner column
+        (``user_id`` or ``owner_user_id``) are filtered so that rows whose
+        visibility marks them as private (``'user'`` for TestSet,
+        ``'private'`` for Experiment) are visible only to their owner.
+        Models without these columns are returned unfiltered.
+        """
+        columns = inspect(self.model).columns.keys()
+        if "visibility" not in columns:
+            return self
+
+        if "user_id" in columns:
+            owner_col = self.model.user_id
+        elif "owner_user_id" in columns:
+            owner_col = self.model.owner_user_id
+        else:
+            return self
+
+        private_values = ("user", "private")
+
+        if user_id:
+            self.query = self.query.filter(
+                or_(
+                    ~self.model.visibility.in_(private_values),
+                    owner_col == user_id,
+                )
+            )
+        else:
+            self.query = self.query.filter(~self.model.visibility.in_(private_values))
+
         return self
 
     def with_odata_filter(self, filter_str: Optional[str]) -> "QueryBuilder":
@@ -444,10 +469,14 @@ def has_project_id(model: Type[T]) -> bool:
 
 
 def has_visibility(model: Type[T]) -> bool:
-    """Check if model supports visibility filtering (has visibility, organization_id and user_id
-    fields)"""
+    """Check if model supports visibility filtering.
+
+    Requires a ``visibility`` column and an owner column (``user_id`` or
+    ``owner_user_id``).
+    """
     columns = inspect(model).columns.keys()
-    return "visibility" in columns and "organization_id" in columns and "user_id" in columns
+    has_owner = "user_id" in columns or "owner_user_id" in columns
+    return "visibility" in columns and has_owner
 
 
 def get_model_relationships(

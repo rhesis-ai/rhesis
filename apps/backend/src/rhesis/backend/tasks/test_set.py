@@ -59,8 +59,10 @@ def count_test_sets(self):
             self.log_with_context("info", "Total test sets counted", total_count=total_count)
 
             # Get counts by visibility
-            public_count = db.query(TestSet).filter(TestSet.visibility == "public").count()
-            private_count = db.query(TestSet).filter(TestSet.visibility == "private").count()
+            org_visible_count = (
+                db.query(TestSet).filter(TestSet.visibility == "organization").count()
+            )
+            user_only_count = db.query(TestSet).filter(TestSet.visibility == "user").count()
 
             published_count = db.query(TestSet).filter(TestSet.is_published).count()
             unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
@@ -68,8 +70,8 @@ def count_test_sets(self):
         self.log_with_context(
             "info",
             "Visibility counts retrieved",
-            public_count=public_count,
-            private_count=private_count,
+            organization_count=org_visible_count,
+            user_only_count=user_only_count,
         )
         self.log_with_context(
             "info",
@@ -80,7 +82,7 @@ def count_test_sets(self):
 
         result = {
             "total_count": total_count,
-            "by_visibility": {"public": public_count, "private": private_count},
+            "by_visibility": {"organization": org_visible_count, "user": user_only_count},
             "by_status": {"published": published_count, "unpublished": unpublished_count},
             "organization_id": org_id,
             "user_id": user_id,
@@ -90,8 +92,8 @@ def count_test_sets(self):
             "info",
             "Task completed successfully",
             total_count=total_count,
-            public_count=public_count,
-            private_count=private_count,
+            org_visible_count=org_visible_count,
+            user_only_count=user_only_count,
         )
         return result
 
