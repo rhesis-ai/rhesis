@@ -1,15 +1,14 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import Permission, capability
+from fastapi import Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.principal import resolve_principal
+from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
@@ -22,6 +21,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.polyphemus import (
     PolyphemusAccessRequest,
     PolyphemusAccessResponse,
@@ -103,6 +103,13 @@ async def create_user(
             existing_user.family_name = user.family_name
 
         db.flush()
+
+        # Re-assign the default org-role (EE) for the rejoining user so they are
+        # not locked out once RBAC is enabled. No-op in community / RBAC-off.
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, existing_user.id, current_user.organization_id)
+
         created_user = existing_user
         send_invite = user.send_invite
     else:
@@ -391,7 +398,7 @@ def update_user(
     # Only allow users to update their own profile, or an org owner (member:manage) to update
     # any profile within their org.  is_superuser is no longer an authorization primitive.
     if str(db_user.id) != str(current_user.id):
-        principal = resolve_principal(current_user)
+        principal = resolve_principal_from_request(current_user, request)
         if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
             raise HTTPException(status_code=403, detail="Not authorized to update this user")
 

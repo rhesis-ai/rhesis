@@ -186,6 +186,13 @@ def _prepare_update_data(
     # cannot accidentally (or maliciously) change the project scope of a record.
     data.pop("project_id", None)
 
+    # Token scopes are mint-time-only: the SP9 "scopes ⊆ issuer" + chained-mint
+    # guard runs only at creation (routers/token.py). Stripping scopes here makes
+    # them immutable across every update path (PUT, refresh, …) so a token's
+    # capability set can never be widened after issue without re-minting.
+    if model.__name__ == "Token":
+        data.pop("scopes", None)
+
     # Clean string fields
     data = _clean_string_fields(model, data)
 

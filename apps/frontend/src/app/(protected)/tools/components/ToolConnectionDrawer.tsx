@@ -266,12 +266,15 @@ export function ToolConnectionDrawer({
         setInitialRepositoryUrl('');
       }
 
+      const gitlabProject = tool.tool_metadata?.project;
       if (
         currentProviderType === 'gitlab' &&
-        typeof tool.tool_metadata?.project?.namespace === 'string'
+        gitlabProject &&
+        typeof gitlabProject === 'object' &&
+        typeof gitlabProject.namespace === 'string'
       ) {
-        setProjectNamespace(tool.tool_metadata.project.namespace);
-        setInitialProjectNamespace(tool.tool_metadata.project.namespace);
+        setProjectNamespace(gitlabProject.namespace);
+        setInitialProjectNamespace(gitlabProject.namespace);
       } else {
         setProjectNamespace('');
         setInitialProjectNamespace('');

@@ -40,13 +40,13 @@ class TestRouteTable:
         assert route("asana", ToolAction.EXTRACT) is Transport.MCP
         assert route("asana", ToolAction.TEST_CONNECTION) is Transport.MCP
 
-    def test_linear_routes_to_mcp(self):
-        assert route("linear", ToolAction.EXTRACT) is Transport.MCP
-        assert route("linear", ToolAction.TEST_CONNECTION) is Transport.MCP
-
     def test_azure_devops_routes_to_mcp(self):
         assert route("azure_devops", ToolAction.EXTRACT) is Transport.MCP
         assert route("azure_devops", ToolAction.TEST_CONNECTION) is Transport.MCP
+
+    def test_linear_routes_to_mcp(self):
+        assert route("linear", ToolAction.EXTRACT) is Transport.MCP
+        assert route("linear", ToolAction.TEST_CONNECTION) is Transport.MCP
 
     def test_unregistered_provider_raises(self):
         with pytest.raises(ToolConfigurationError, match="does not support"):

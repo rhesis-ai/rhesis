@@ -24,19 +24,13 @@ def normalize_azure_devops_org(value: str) -> str:
         trimmed = visualstudio.group(1)
 
     if "://" in trimmed or trimmed.lower().startswith("http"):
-        raise ValueError(
-            "Azure DevOps 'AZURE_DEVOPS_ORG' must be the organization name, not a URL"
-        )
+        raise ValueError("Azure DevOps 'AZURE_DEVOPS_ORG' must be the organization name, not a URL")
 
     if "/" in trimmed:
-        raise ValueError(
-            "Azure DevOps 'AZURE_DEVOPS_ORG' must be a single organization name"
-        )
+        raise ValueError("Azure DevOps 'AZURE_DEVOPS_ORG' must be a single organization name")
 
     if re.search(r"dev\.azure\.com|visualstudio\.com", trimmed, re.IGNORECASE):
-        raise ValueError(
-            "Azure DevOps 'AZURE_DEVOPS_ORG' must be the organization name, not a URL"
-        )
+        raise ValueError("Azure DevOps 'AZURE_DEVOPS_ORG' must be the organization name, not a URL")
 
     if not _AZURE_DEVOPS_ORG_NAME.match(trimmed):
         raise ValueError("Azure DevOps 'AZURE_DEVOPS_ORG' contains invalid characters")

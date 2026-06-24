@@ -242,7 +242,6 @@ def _validate_provider_type_switch(
         prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
         _validate_azure_devops_credentials(prepared_credentials)
         _validate_azure_devops_project(tool.tool_metadata)
-        tool = tool.model_copy(update={"credentials": prepared_credentials})
 
 
 @router.post("/", response_model=schemas.Tool)
@@ -485,6 +484,17 @@ async def extract_tool_item(
         raise handle_mcp_exception(e, "extract")
 
 
+def _ensure_mcp_saved_credential_override(provider: str) -> None:
+    """Reject tool_id + partial credentials for REST test-connection paths."""
+    if route(provider, ToolAction.TEST_CONNECTION) is not Transport.MCP:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Partial credential overrides with tool_id are only supported for MCP providers"
+            ),
+        )
+
+
 @router.post("/test-connection", response_model=TestToolConnectionResponse)
 async def test_tool_connection(
     request: TestToolConnectionRequest,
@@ -512,6 +522,7 @@ async def test_tool_connection(
                 raise HTTPException(status_code=404, detail="Tool not found")
 
             provider = existing_tool.tool_provider_type.type_value
+            _ensure_mcp_saved_credential_override(provider)
             effective_credentials = resolve_mcp_test_connection_credentials(
                 provider,
                 existing_tool.credentials,
@@ -542,9 +553,7 @@ async def test_tool_connection(
             )
         elif transport is Transport.MCP:
             if provider == "azure_devops" and effective_credentials is not None:
-                effective_credentials = prepare_azure_devops_credentials(
-                    effective_credentials
-                )
+                effective_credentials = prepare_azure_devops_credentials(effective_credentials)
             _validate_mcp_test_connection_request(
                 provider, effective_credentials, effective_metadata
             )

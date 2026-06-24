@@ -202,7 +202,9 @@ class TestListCapabilities:
     ):
         import re
 
-        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$")
+        # resource:action, optionally with an object-level :own qualifier (SP10),
+        # e.g. comment:update:own.
+        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own)?$")
         for cap in authed_client.get("/capabilities").json():
             assert pattern.match(cap), (
                 f"Capability '{cap}' does not match resource:action format"

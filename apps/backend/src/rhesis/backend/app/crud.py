@@ -1480,6 +1480,14 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     db.add(db_user)
     # Flush to get ID and other generated values before refresh
     db.flush()
+
+    # Seed the default org-role (EE) so the user is not locked out once RBAC is
+    # enabled for their org. No-op in community builds / when no org is set.
+    if db_user.organization_id is not None:
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, db_user.id, db_user.organization_id)
+
     # Transaction commit is handled by the session context manager
     db.refresh(db_user)
     return db_user

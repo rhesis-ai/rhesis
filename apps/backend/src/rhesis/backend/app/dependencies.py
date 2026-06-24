@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from rhesis.backend.app.auth.principal import REQUEST_STATE_API_TOKEN_PROJECT_ID
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
@@ -92,7 +93,7 @@ def get_project_context(
 
     # 2. Fall back to the project bound to the API token
     if not project_id_str:
-        project_id_str = getattr(request.state, "api_token_project_id", None)
+        project_id_str = getattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None)
 
     if not project_id_str:
         return None
@@ -102,6 +103,17 @@ def get_project_context(
         project_id = uuid.UUID(project_id_str)
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid X-Project-Id format")
+
+    # Enforce token project boundary: a project-scoped token cannot access a
+    # different project via an X-Project-Id header override.  Without this
+    # check an org-owner token scoped to project A could pivot to project B by
+    # supplying X-Project-Id: <B> and passing the ceiling-role gate.
+    token_project_id_str = getattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None)
+    if token_project_id_str and str(project_id) != token_project_id_str:
+        raise HTTPException(
+            status_code=403,
+            detail="Token is scoped to a different project",
+        )
 
     # Guard: org-less users cannot belong to any project; fail early so we never
     # pass an empty string to get_db_with_tenant_variables (which would set
@@ -131,11 +143,32 @@ def get_project_context(
         # does not cascade to project_membership). The soft-delete filter excludes
         # deleted projects here, so a stale header/cookie resolves to None.
         project = db.query(Project).filter_by(id=project_id).first()
-    if not membership or project is None:
-        raise HTTPException(
-            status_code=403,
-            detail=f"User is not a member of project {project_id}",
-        )
+
+        # A non-existent / soft-deleted project is always denied — even for the
+        # org ceiling role, there is nothing to enter.
+        if project is None:
+            raise HTTPException(
+                status_code=403,
+                detail=f"User is not a member of project {project_id}",
+            )
+
+        # Plan §1.4 carry-over: the org ceiling role (community tier: org Owner;
+        # EE tier: org Owner/Admin) may enter ANY project context in its org
+        # without an explicit project_membership row. Expressed through the PDP
+        # so it holds in both tiers with no core->EE import: member:manage is held
+        # only by the org Owner (community) and the Owner/Admin org roles (EE) —
+        # never by a plain Member/Viewer. App-layer only; RLS is unchanged.
+        if membership is None:
+            from rhesis.backend.app.auth.capabilities import Permission
+            from rhesis.backend.app.auth.principal import resolve_principal_from_request
+            from rhesis.backend.app.auth.rbac import authorize
+
+            principal = resolve_principal_from_request(current_user, request)
+            if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"User is not a member of project {project_id}",
+                )
 
     return str(project_id)
 
