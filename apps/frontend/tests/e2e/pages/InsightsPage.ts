@@ -27,8 +27,12 @@ export class InsightsPage extends BasePage {
     const mainContent = this.page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible({ timeout: 10_000 });
 
-    const bodyText = await this.page.locator('body').innerText();
-    expect(bodyText.trim().length).toBeGreaterThan(20);
+    await expect(this.page.getByText(/pass rate/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(this.page.getByLabel(/endpoint/i)).toBeVisible({
+      timeout: 10_000,
+    });
   }
 
   /** Expand a collapsible sidebar section (e.g. CONNECT for Endpoints). */

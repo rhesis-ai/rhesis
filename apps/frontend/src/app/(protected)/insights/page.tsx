@@ -18,8 +18,9 @@ export default async function InsightsRoutePage() {
       <PageLayout title="Insights" breadcrumbs={[]}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" color="text.secondary">
-            Track and analyze test performance over time. Filter by time range,
-            test set, or search for specific test runs on the Overview tab.
+            View pass rates by behavior, metric, and topic for your selected
+            endpoint. Filter by time range or switch endpoints to compare
+            performance.
           </Typography>
         </Box>
         <InsightsPage sessionToken={session.session_token} />

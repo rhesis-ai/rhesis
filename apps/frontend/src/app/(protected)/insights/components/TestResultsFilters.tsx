@@ -10,21 +10,20 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Button,
-  Typography,
   useTheme,
 } from '@mui/material';
 import { Clear as ClearIcon } from '@mui/icons-material';
-import { SearchPill } from '@/components/common/SearchPill';
-import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { resolveEndpointId } from '../utils/behavior-insights-utils';
+import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
+import { DEFAULT_INSIGHTS_FILTERS, InsightsFilters } from '../types';
 
 interface TestResultsFiltersProps {
-  onFiltersChange: (filters: Partial<TestResultsStatsOptions>) => void;
-  onSearchChange: (value: string) => void;
-  initialFilters?: Partial<TestResultsStatsOptions>;
+  onFiltersChange: (filters: InsightsFilters) => void;
+  onEndpointsLoaded?: (endpoints: Endpoint[]) => void;
   sessionToken: string;
-  searchPlaceholder?: string;
 }
 
 const TIME_RANGES = [
@@ -36,220 +35,197 @@ const TIME_RANGES = [
 
 export default function TestResultsFilters({
   onFiltersChange,
-  onSearchChange,
-  initialFilters = {},
+  onEndpointsLoaded,
   sessionToken,
-  searchPlaceholder = 'Search test results...',
 }: TestResultsFiltersProps) {
   const theme = useTheme();
-  const [filters, setFilters] =
-    useState<Partial<TestResultsStatsOptions>>(initialFilters);
-  const [testSets, setTestSets] = useState<TestSet[]>([]);
-  const [isLoadingTestSets, setIsLoadingTestSets] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-
-  const updateFilters = useCallback(
-    (newFilters: Partial<TestResultsStatsOptions>) => {
-      const updatedFilters = { ...filters, ...newFilters };
-      setFilters(updatedFilters);
-      onFiltersChange(updatedFilters);
-    },
-    [filters, onFiltersChange]
+  const { activeProject } = useActiveProject();
+  const [filters, setFilters] = useState<InsightsFilters>(
+    DEFAULT_INSIGHTS_FILTERS
   );
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [isLoadingEndpoints, setIsLoadingEndpoints] = useState(false);
 
-  // Load test sets
-  const loadTestSets = useCallback(async () => {
+  const projectEndpoints = activeProject
+    ? endpoints.filter(e => e.project_id === activeProject.id)
+    : endpoints;
+
+  const loadEndpoints = useCallback(async () => {
     if (!sessionToken) return;
 
     try {
-      setIsLoadingTestSets(true);
+      setIsLoadingEndpoints(true);
       const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
+      const endpointsClient = clientFactory.getEndpointsClient();
 
-      const response = await testSetsClient.getTestSets({
+      const response = await endpointsClient.getEndpoints({
         limit: 100,
-        has_runs: true,
-        sort_by: 'created_at',
-        sort_order: 'desc', // Sort by most recent first
+        sort_by: 'name',
+        sort_order: 'asc',
       });
-      setTestSets(response.data);
+      setEndpoints(response.data);
+      onEndpointsLoaded?.(response.data);
     } catch (_error) {
+      setEndpoints([]);
+      onEndpointsLoaded?.([]);
     } finally {
-      setIsLoadingTestSets(false);
+      setIsLoadingEndpoints(false);
     }
-  }, [sessionToken]);
+  }, [sessionToken, onEndpointsLoaded]);
 
-  // Effect to load test sets on mount
   useEffect(() => {
-    loadTestSets();
-  }, [loadTestSets]);
+    void loadEndpoints();
+  }, [loadEndpoints]);
 
-  const handleTimeRangeChange = (months: number) => {
-    updateFilters({ months, start_date: undefined, end_date: undefined });
-  };
+  useEffect(() => {
+    if (isLoadingEndpoints) return;
 
-  const handleTestSetChange = (testSetId: string) => {
-    const newFilters: Partial<TestResultsStatsOptions> = {
-      test_set_ids: testSetId ? [testSetId] : undefined,
-    };
-    updateFilters(newFilters);
-  };
+    if (projectEndpoints.length === 0) {
+      setFilters(prev => {
+        const cleared: InsightsFilters = {
+          months: prev.months,
+          endpointId: '',
+        };
+        onFiltersChange(cleared);
+        return cleared;
+      });
+      return;
+    }
 
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-    onSearchChange(value);
-  };
-
-  const clearFilters = () => {
-    const clearedFilters: Partial<TestResultsStatsOptions> = { months: 1 };
-    setFilters(clearedFilters);
-    onFiltersChange(clearedFilters);
-    setSearchValue('');
-  };
-
-  const hasActiveFilters =
-    searchValue.length > 0 ||
-    Object.keys(filters).some(
-      key =>
-        key !== 'months' &&
-        filters[key as keyof TestResultsStatsOptions] !== undefined
+    const resolvedId = resolveEndpointId(
+      endpoints,
+      activeProject?.id ? String(activeProject.id) : undefined
     );
 
+    if (!resolvedId) return;
+
+    setFilters(prev => {
+      if (prev.endpointId === resolvedId) return prev;
+      const next: InsightsFilters = {
+        months: prev.months,
+        endpointId: resolvedId,
+      };
+      onFiltersChange(next);
+      return next;
+    });
+  }, [
+    isLoadingEndpoints,
+    endpoints,
+    activeProject?.id,
+    projectEndpoints.length,
+    onFiltersChange,
+  ]);
+
+  const updateFilters = useCallback(
+    (patch: Partial<InsightsFilters>) => {
+      setFilters(prev => {
+        const next = { ...prev, ...patch };
+        onFiltersChange(next);
+        return next;
+      });
+    },
+    [onFiltersChange]
+  );
+
+  const handleTimeRangeChange = (months: number) => {
+    updateFilters({ months });
+  };
+
+  const handleEndpointChange = (endpointId: string) => {
+    writeInsightsEndpointId(endpointId);
+    updateFilters({ endpointId });
+  };
+
+  const resetTime = () => {
+    updateFilters({ months: DEFAULT_INSIGHTS_FILTERS.months });
+  };
+
+  const hasNonDefaultTime = filters.months !== DEFAULT_INSIGHTS_FILTERS.months;
+
   return (
-    <Box>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        gap: 2,
+        alignItems: { xs: 'stretch', md: 'center' },
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+      }}
+    >
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: { xs: 'column', sm: 'row' },
           gap: 2,
+          flex: 1,
+          alignItems: { xs: 'stretch', sm: 'center' },
+          flexWrap: 'wrap',
         }}
       >
-        {/* Filter Controls */}
-        <Box
+        <ToggleButtonGroup
+          value={filters.months}
+          exclusive
+          onChange={(_, value) => value && handleTimeRangeChange(value)}
+          size="small"
           sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            gap: 2,
-            alignItems: { xs: 'stretch', md: 'center' },
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
+            '& .MuiToggleButton-root': {
+              px: 2,
+              py: 0.5,
+              textTransform: 'none',
+              fontWeight: 500,
+            },
+            '& .MuiToggleButton-root.Mui-selected': {
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
+              '&:hover': {
+                backgroundColor: theme.palette.primary.dark,
+              },
+            },
           }}
         >
-          {/* Left side: Filters */}
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2,
-              flex: 1,
-              alignItems: { xs: 'stretch', sm: 'center' },
-              flexWrap: 'wrap',
-            }}
+          {TIME_RANGES.map(range => (
+            <ToggleButton key={range.value} value={range.value}>
+              {range.label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+
+        <FormControl
+          sx={{ minWidth: { xs: '100%', sm: 280 } }}
+          size="small"
+          disabled={isLoadingEndpoints || projectEndpoints.length === 0}
+        >
+          <InputLabel id="insights-endpoint-label">Endpoint</InputLabel>
+          <Select
+            labelId="insights-endpoint-label"
+            value={filters.endpointId || ''}
+            label="Endpoint"
+            onChange={e => handleEndpointChange(e.target.value)}
           >
-            <SearchPill
-              value={searchValue}
-              onChange={handleSearchChange}
-              placeholder={searchPlaceholder}
-              width={250}
-            />
-
-            {/* Time Range */}
-            <ToggleButtonGroup
-              value={filters.months || 1}
-              exclusive
-              onChange={(_, value) => value && handleTimeRangeChange(value)}
-              size="small"
-              sx={{
-                '& .MuiToggleButton-root': {
-                  px: 2,
-                  py: 0.5,
-                  textTransform: 'none',
-                  fontWeight: 500,
-                },
-                '& .MuiToggleButton-root.Mui-selected': {
-                  backgroundColor: theme.palette.primary.main,
-                  color: theme.palette.primary.contrastText,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  },
-                },
-              }}
-            >
-              {TIME_RANGES.map(range => (
-                <ToggleButton key={range.value} value={range.value}>
-                  {range.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-
-            {/* Test Set Filter */}
-            <FormControl
-              sx={{ minWidth: { xs: '100%', sm: 300, lg: 500 } }}
-              size="small"
-            >
-              <InputLabel>Test Set</InputLabel>
-              <Select
-                value={filters.test_set_ids?.[0] || ''}
-                label="Test Set"
-                onChange={e => handleTestSetChange(e.target.value)}
-                disabled={isLoadingTestSets}
-              >
-                <MenuItem value="">All Test Sets</MenuItem>
-                {testSets.map(testSet => {
-                  const testCount =
-                    testSet.attributes?.metadata?.total_tests || 0;
-                  return (
-                    <MenuItem key={testSet.id} value={testSet.id}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          width: '100%',
-                          gap: 2,
-                        }}
-                      >
-                        <span>{testSet.name}</span>
-                        {testCount > 0 && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ ml: 'auto', flexShrink: 0 }}
-                          >
-                            {testCount} tests
-                          </Typography>
-                        )}
-                      </Box>
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Right side: Reset Button */}
-          {hasActiveFilters && (
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 1,
-                flexShrink: 0,
-                alignItems: 'center',
-              }}
-            >
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ClearIcon />}
-                onClick={clearFilters}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                Reset
-              </Button>
-            </Box>
-          )}
-        </Box>
+            {projectEndpoints.map(endpoint => (
+              <MenuItem key={endpoint.id} value={endpoint.id}>
+                {endpoint.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
+
+      {hasNonDefaultTime && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<ClearIcon />}
+          onClick={resetTime}
+          sx={{
+            whiteSpace: 'nowrap',
+            alignSelf: { xs: 'flex-start', md: 'center' },
+          }}
+        >
+          Reset time
+        </Button>
+      )}
     </Box>
   );
 }

@@ -1,31 +1,46 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Box } from '@mui/material';
-import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import TestResultsFilters from './TestResultsFilters';
-import TestResultsCharts from './TestResultsCharts';
+import BehaviorInsightsView from './BehaviorInsightsView';
+import { DEFAULT_INSIGHTS_FILTERS, InsightsFilters } from '../types';
 
 interface InsightsPageProps {
   sessionToken: string;
 }
 
 export default function InsightsPage({ sessionToken }: InsightsPageProps) {
-  const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
-    months: 1,
-  });
-  const [searchValue, setSearchValue] = useState('');
+  const { activeProject } = useActiveProject();
+  const [filters, setFilters] = useState<InsightsFilters>(
+    DEFAULT_INSIGHTS_FILTERS
+  );
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [endpointsLoading, setEndpointsLoading] = useState(true);
 
-  const handleFiltersChange = useCallback(
-    (newFilters: Partial<TestResultsStatsOptions>) => {
-      setFilters(newFilters);
-    },
-    []
+  const handleFiltersChange = useCallback((newFilters: InsightsFilters) => {
+    setFilters(newFilters);
+  }, []);
+
+  const handleEndpointsLoaded = useCallback((loaded: Endpoint[]) => {
+    setEndpoints(loaded);
+    setEndpointsLoading(false);
+  }, []);
+
+  const projectEndpoints = useMemo(
+    () =>
+      activeProject
+        ? endpoints.filter(e => e.project_id === activeProject.id)
+        : endpoints,
+    [endpoints, activeProject]
   );
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchValue(value);
-  }, []);
+  const selectedEndpointName = useMemo(
+    () => projectEndpoints.find(e => e.id === filters.endpointId)?.name,
+    [projectEndpoints, filters.endpointId]
+  );
 
   return (
     <Box
@@ -37,16 +52,16 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     >
       <TestResultsFilters
         onFiltersChange={handleFiltersChange}
-        onSearchChange={handleSearchChange}
-        initialFilters={filters}
+        onEndpointsLoaded={handleEndpointsLoaded}
         sessionToken={sessionToken}
-        searchPlaceholder="Search runs on Overview..."
       />
 
-      <TestResultsCharts
+      <BehaviorInsightsView
         sessionToken={sessionToken}
         filters={filters}
-        searchValue={searchValue}
+        endpointName={selectedEndpointName}
+        endpointsLoading={endpointsLoading}
+        noEndpoints={!endpointsLoading && projectEndpoints.length === 0}
       />
     </Box>
   );

@@ -8,25 +8,45 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn(),
 }));
 
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+jest.mock('@/contexts/ActiveProjectContext', () => ({
+  useActiveProject: () => ({
+    activeProject: { id: 'project-1', name: 'Test Project' },
+    projects: [],
+    loading: false,
+    setActiveProject: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}));
 
-function makeTestSet(id: string, name: string, totalTests = 0) {
+jest.mock('@/utils/insights-endpoint', () => ({
+  readInsightsEndpointId: jest.fn(() => null),
+  writeInsightsEndpointId: jest.fn(),
+  clearInsightsEndpointId: jest.fn(),
+}));
+
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
+
+function makeEndpoint(id: string, name: string) {
   return {
     id,
     name,
-    attributes: { metadata: { total_tests: totalTests } },
+    project_id: 'project-1',
+    connection_type: 'REST' as const,
+    environment: 'development' as const,
+    config_source: 'manual' as const,
   };
 }
 
-function mockApiFactory(testSets: unknown[] = []) {
-  const mockGetTestSets = jest.fn().mockResolvedValue({
-    data: testSets,
-    pagination: { totalCount: testSets.length },
+function mockApiFactory(endpoints: unknown[] = []) {
+  const mockGetEndpoints = jest.fn().mockResolvedValue({
+    data: endpoints,
+    pagination: { totalCount: endpoints.length },
   });
   (ApiClientFactory as jest.Mock).mockImplementation(() => ({
-    getTestSetsClient: () => ({ getTestSets: mockGetTestSets }),
+    getEndpointsClient: () => ({ getEndpoints: mockGetEndpoints }),
   }));
-  return mockGetTestSets;
+  return mockGetEndpoints;
 }
 
 function renderFilters(
@@ -34,7 +54,6 @@ function renderFilters(
 ) {
   const defaults = {
     onFiltersChange: jest.fn(),
-    onSearchChange: jest.fn(),
     sessionToken: 'token',
   };
   return {
@@ -54,6 +73,7 @@ afterEach(() => {
 
 describe('TestResultsFilters', () => {
   it('renders time range toggle buttons', async () => {
+    mockApiFactory([makeEndpoint('ep-1', 'My Endpoint')]);
     renderFilters();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '1M' })).toBeInTheDocument();
@@ -63,31 +83,35 @@ describe('TestResultsFilters', () => {
     expect(screen.getByRole('button', { name: '1Y' })).toBeInTheDocument();
   });
 
-  it('renders the search input', () => {
+  it('renders endpoint dropdown', async () => {
+    mockApiFactory([makeEndpoint('ep-1', 'Alpha Endpoint')]);
     renderFilters();
-    expect(
-      screen.getByPlaceholderText(/search test results/i)
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/endpoint/i)).toBeInTheDocument();
+    });
   });
 
-  it('calls onSearchChange when typing in the search field', async () => {
-    const user = userEvent.setup();
-    const onSearchChange = jest.fn();
-    renderFilters({ onSearchChange });
+  it('calls onFiltersChange with first endpoint when loaded', async () => {
+    mockApiFactory([makeEndpoint('ep-abc', 'Alpha Endpoint')]);
+    const onFiltersChange = jest.fn();
+    renderFilters({ onFiltersChange });
 
-    await user.type(
-      screen.getByPlaceholderText(/search test results/i),
-      'hello'
-    );
-
-    expect(onSearchChange).toHaveBeenCalledWith('h');
-    expect(onSearchChange).toHaveBeenLastCalledWith('hello');
+    await waitFor(() => {
+      expect(onFiltersChange).toHaveBeenCalledWith(
+        expect.objectContaining({ endpointId: 'ep-abc', months: 1 })
+      );
+    });
   });
 
   it('calls onFiltersChange when a time range button is clicked', async () => {
+    mockApiFactory([makeEndpoint('ep-1', 'Endpoint')]);
     const user = userEvent.setup();
     const onFiltersChange = jest.fn();
     renderFilters({ onFiltersChange });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '6M' })).toBeInTheDocument();
+    });
 
     await user.click(screen.getByRole('button', { name: '6M' }));
 
@@ -96,116 +120,65 @@ describe('TestResultsFilters', () => {
     );
   });
 
-  it('calls onFiltersChange when a different time range is selected', async () => {
-    const user = userEvent.setup();
-    const onFiltersChange = jest.fn();
-    renderFilters({ onFiltersChange });
-
-    await user.click(screen.getByRole('button', { name: '1Y' }));
-
-    expect(onFiltersChange).toHaveBeenCalledWith(
-      expect.objectContaining({ months: 12 })
-    );
-  });
-
-  it('renders test sets in the dropdown when loaded', async () => {
+  it('persists endpoint selection to cookie when changed', async () => {
     mockApiFactory([
-      makeTestSet('ts-1', 'My Test Set'),
-      makeTestSet('ts-2', 'Another Set'),
+      makeEndpoint('ep-1', 'Endpoint One'),
+      makeEndpoint('ep-2', 'Endpoint Two'),
     ]);
-
+    const user = userEvent.setup();
     renderFilters();
 
-    // Open the dropdown
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox'));
+    await waitFor(() => {
+      expect(screen.getByLabelText(/endpoint/i)).toBeInTheDocument();
+    });
 
-    await screen.findByRole('option', { name: /my test set/i });
-    expect(
-      screen.getByRole('option', { name: /another set/i })
-    ).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/endpoint/i));
+    await user.click(screen.getByRole('option', { name: 'Endpoint Two' }));
+
+    expect(writeInsightsEndpointId).toHaveBeenCalledWith('ep-2');
   });
 
-  it('shows "All Test Sets" as the default dropdown option', async () => {
-    mockApiFactory([makeTestSet('ts-1', 'Test Set Alpha')]);
-    renderFilters();
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox'));
-
-    await screen.findByRole('option', { name: /all test sets/i });
-  });
-
-  it('calls onFiltersChange with test_set_ids when a test set is selected', async () => {
-    mockApiFactory([makeTestSet('ts-abc', 'Alpha Set')]);
-    const onFiltersChange = jest.fn();
-    renderFilters({ onFiltersChange });
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox'));
-
-    await screen.findByRole('option', { name: /alpha set/i });
-    await user.click(screen.getByRole('option', { name: /alpha set/i }));
-
-    expect(onFiltersChange).toHaveBeenCalledWith(
-      expect.objectContaining({ test_set_ids: ['ts-abc'] })
-    );
-  });
-
-  it('does not show the Reset button when no active filters', async () => {
+  it('does not show Reset time when months is default', async () => {
+    mockApiFactory([makeEndpoint('ep-1', 'Endpoint')]);
     renderFilters();
     await waitFor(() => {
       expect(
-        screen.queryByRole('button', { name: /reset/i })
+        screen.queryByRole('button', { name: /reset time/i })
       ).not.toBeInTheDocument();
     });
   });
 
-  it('shows the Reset button when there is a search value', async () => {
+  it('shows Reset time when months is changed', async () => {
+    mockApiFactory([makeEndpoint('ep-1', 'Endpoint')]);
     const user = userEvent.setup();
     renderFilters();
 
-    await user.type(
-      screen.getByPlaceholderText(/search test results/i),
-      'some query'
-    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '3M' })).toBeInTheDocument();
+    });
 
-    expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '3M' }));
+
+    expect(
+      screen.getByRole('button', { name: /reset time/i })
+    ).toBeInTheDocument();
   });
 
-  it('clears the search and calls onFiltersChange with default filters on Reset click', async () => {
+  it('resets months to 1M on Reset time click', async () => {
+    mockApiFactory([makeEndpoint('ep-1', 'Endpoint')]);
     const user = userEvent.setup();
     const onFiltersChange = jest.fn();
-    const onSearchChange = jest.fn();
-    renderFilters({ onFiltersChange, onSearchChange });
+    renderFilters({ onFiltersChange });
 
-    // Trigger active filter
-    await user.type(
-      screen.getByPlaceholderText(/search test results/i),
-      'test query'
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '1Y' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: '1Y' }));
+    await user.click(screen.getByRole('button', { name: /reset time/i }));
+
+    expect(onFiltersChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ months: 1, endpointId: 'ep-1' })
     );
-
-    await user.click(screen.getByRole('button', { name: /reset/i }));
-
-    // Search field should be cleared
-    expect(screen.getByPlaceholderText(/search test results/i)).toHaveValue('');
-
-    // onFiltersChange should be called with default (months: 1)
-    expect(onFiltersChange).toHaveBeenLastCalledWith({ months: 1 });
-
-    // Reset button should disappear
-    expect(
-      screen.queryByRole('button', { name: /reset/i })
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows test counts in the dropdown when a test set has tests', async () => {
-    mockApiFactory([makeTestSet('ts-1', 'Big Set', 50)]);
-    renderFilters();
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox'));
-
-    await screen.findByText('50 tests');
   });
 });
