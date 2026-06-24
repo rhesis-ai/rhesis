@@ -16,7 +16,10 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TOOL_PROVIDER_ICONS, REST_PROVIDERS } from '@/config/tool-providers';
+import {
+  TOOL_PROVIDER_ICONS,
+  EXTRACT_PROVIDERS,
+} from '@/config/tool-providers';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import ToolImportPanel, {
   ToolImportPanelHandle,
@@ -57,7 +60,7 @@ export default function ToolImportDrawer({
         .getToolsClient()
         .getTools({ limit: 100 });
       const supported = (response.data || []).filter(t =>
-        REST_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
+        EXTRACT_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
       );
       setTools(supported);
       if (supported.length === 1) {
@@ -116,7 +119,7 @@ export default function ToolImportDrawer({
         </Box>
       ) : tools.length === 0 ? (
         <Alert severity="info">
-          No tools configured. Connect a Notion or GitHub tool in{' '}
+          No tools configured. Connect a tool in{' '}
           <Link href="/tools" underline="hover">
             Settings &rsaquo; Tools
           </Link>{' '}

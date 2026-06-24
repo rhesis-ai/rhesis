@@ -15,9 +15,18 @@ import {
  * - Provider icons and branding
  */
 
-// Providers supported via the deterministic REST extract path.
-// Must match ToolProviderType values defined in the backend.
-export const REST_PROVIDERS = ['notion', 'github'];
+// Providers that support the extract action (REST or MCP — backend picks transport).
+// Must stay in sync with _ROUTES in apps/backend/.../services/tool/actions.py.
+export const EXTRACT_PROVIDERS = [
+  'notion',
+  'github',
+  'gitlab',
+  'shortcut',
+  'asana',
+];
+
+/** @deprecated Use EXTRACT_PROVIDERS */
+export const REST_PROVIDERS = EXTRACT_PROVIDERS;
 
 // Short description of what each provider is used for in Rhesis
 export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
