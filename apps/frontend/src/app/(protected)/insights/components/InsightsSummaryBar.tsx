@@ -10,6 +10,12 @@ interface InsightsSummaryBarProps {
   loading?: boolean;
 }
 
+function progressColor(passRate: number): 'success' | 'warning' | 'error' {
+  if (passRate >= 70) return 'success';
+  if (passRate >= 40) return 'warning';
+  return 'error';
+}
+
 export default function InsightsSummaryBar({
   summary,
   endpointName,
@@ -19,65 +25,59 @@ export default function InsightsSummaryBar({
   const passed = summary?.passed ?? 0;
   const total = summary?.total ?? 0;
   const failed = summary?.failed ?? 0;
+  const barColor = progressColor(passRate);
 
   return (
     <Box
       sx={{
-        p: 2,
-        borderRadius: 2,
+        px: 1.75,
+        py: 1.25,
+        borderRadius: 1.5,
         border: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
       }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'baseline',
-          gap: 1,
-          mb: 1.5,
-        }}
+      <Typography
+        variant="body2"
+        sx={{ mb: 0.75, lineHeight: 1.45, color: 'text.primary' }}
       >
-        <Typography variant="h5" fontWeight={700} component="span">
-          {loading ? '—' : `${passRate.toFixed(1)}%`}
-        </Typography>
-        <Typography variant="body1" color="text.secondary" component="span">
-          Pass Rate
-        </Typography>
-        {endpointName && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            component="span"
-            sx={{ ml: { sm: 0.5 } }}
-          >
-            · {endpointName}
-          </Typography>
+        {loading ? (
+          <Box component="span" sx={{ color: 'text.secondary' }}>
+            Loading results…
+          </Box>
+        ) : (
+          <>
+            <Box component="span" sx={{ fontWeight: 600 }}>
+              {passRate.toFixed(1)}%
+            </Box>
+            {' Pass Rate '}
+            <Box
+              component="span"
+              sx={{
+                fontSize: '0.75rem',
+                color: 'text.disabled',
+                fontWeight: 400,
+              }}
+            >
+              ({passed}/{total} tests passed
+              {failed > 0 ? `, ${failed} failed` : ''})
+              {endpointName ? ` · ${endpointName}` : ''}
+            </Box>
+          </>
         )}
-      </Box>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        {loading
-          ? 'Loading results…'
-          : `${passed}/${total} tests passed${failed > 0 ? ` (${failed} failed)` : ''}`}
       </Typography>
 
       <LinearProgress
         variant={loading ? 'indeterminate' : 'determinate'}
         value={loading ? undefined : passRate}
+        color={loading ? 'primary' : barColor}
         sx={{
-          height: 6,
-          borderRadius: 3,
+          height: 4,
+          borderRadius: 2,
           bgcolor: theme => theme.palette.action.hover,
           '& .MuiLinearProgress-bar': {
-            borderRadius: 3,
-            bgcolor: theme =>
-              passRate >= 70
-                ? theme.palette.success.main
-                : passRate >= 40
-                  ? theme.palette.warning.main
-                  : theme.palette.error.main,
+            borderRadius: 2,
           },
         }}
       />
