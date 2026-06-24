@@ -1,110 +1,233 @@
 'use client';
 
 import React from 'react';
-import { Box, Chip, Typography } from '@mui/material';
+import { alpha, Box, Theme, Typography } from '@mui/material';
 import { getReviewBand } from '@/app/(protected)/test-runs/[identifier]/components/test-run-summary-utils';
 import { DimensionItem } from '../utils/behavior-insights-utils';
+import { InsightsFilters } from '../types';
+import {
+  buildInsightsFailedTestsUrl,
+  InsightsFailedTestsScope,
+} from '../utils/insights-failed-tests';
 
-function BandChip({ passRate }: { passRate: number }) {
-  const band = getReviewBand(passRate);
-  return (
-    <Chip
-      label={band.label}
-      size="small"
-      color={band.colorKey}
-      sx={{ fontWeight: 500 }}
-    />
-  );
+function passRateTextColor(item: DimensionItem): string {
+  if (item.total === 0) return 'text.secondary';
+  return `${getReviewBand(item.pass_rate).colorKey}.main`;
 }
 
-function DimensionRows({ items }: { items: DimensionItem[] }) {
+function passRateRowBackground(
+  item: DimensionItem,
+  clickable: boolean
+): (theme: Theme) => object {
+  return theme => {
+    if (item.total === 0) {
+      return {
+        bgcolor: alpha(theme.palette.grey[500], 0.06),
+        ...(clickable
+          ? {
+              '&:hover': {
+                bgcolor: alpha(theme.palette.grey[500], 0.1),
+              },
+            }
+          : {}),
+      };
+    }
+
+    const { colorKey } = getReviewBand(item.pass_rate);
+    const main = theme.palette[colorKey].main;
+
+    return {
+      bgcolor: alpha(main, 0.08),
+      ...(clickable
+        ? {
+            '&:hover': {
+              bgcolor: alpha(main, 0.14),
+            },
+          }
+        : {}),
+    };
+  };
+}
+
+function formatPassRate(item: DimensionItem): string {
+  return item.total === 0 ? '—' : `${item.pass_rate.toFixed(0)}%`;
+}
+
+function isClickable(item: DimensionItem): boolean {
+  return item.total > 0;
+}
+
+interface DimensionRowsProps {
+  items: DimensionItem[];
+  insightsFilters: InsightsFilters;
+  behaviorId: string;
+  behaviorName: string;
+  dimension: 'metric' | 'topic';
+}
+
+function DimensionRows({
+  items,
+  insightsFilters,
+  behaviorId,
+  behaviorName,
+  dimension,
+}: DimensionRowsProps) {
   if (items.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+      <Typography variant="body2" color="text.secondary">
         No data
       </Typography>
     );
   }
 
+  const openTestsForDimension = (item: DimensionItem) => {
+    const scope: InsightsFailedTestsScope = {
+      behaviorId,
+      behaviorName,
+      outcome: 'all',
+      ...(dimension === 'metric'
+        ? { metricName: item.name }
+        : { topicName: item.name }),
+    };
+    const url = buildInsightsFailedTestsUrl(insightsFilters, scope);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {items.map(item => (
-        <Box
-          key={item.name}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            py: 0.75,
-            borderBottom: 1,
-            borderColor: 'divider',
-            '&:last-child': { borderBottom: 0 },
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              flex: 1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-            title={item.name}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {items.map(item => {
+        const clickable = isClickable(item);
+        return (
+          <Box
+            key={item.name}
+            role={clickable ? 'button' : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onClick={clickable ? () => openTestsForDimension(item) : undefined}
+            onKeyDown={
+              clickable
+                ? e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openTestsForDimension(item);
+                    }
+                  }
+                : undefined
+            }
+            sx={[
+              {
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                py: 0.625,
+                px: 1,
+                cursor: clickable ? 'pointer' : 'default',
+                borderRadius: 1,
+              },
+              passRateRowBackground(item, clickable),
+            ]}
           >
-            {item.name}
-          </Typography>
-          <Typography
-            variant="body2"
-            fontWeight={600}
-            sx={{ whiteSpace: 'nowrap', minWidth: 44, textAlign: 'right' }}
-          >
-            {item.pass_rate.toFixed(0)}%
-          </Typography>
-          <Box sx={{ minWidth: 100, display: { xs: 'none', sm: 'block' } }}>
-            <BandChip passRate={item.pass_rate} />
+            <Typography
+              variant="body2"
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={item.name}
+            >
+              {item.name}
+            </Typography>
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{
+                flexShrink: 0,
+                color: passRateTextColor(item),
+              }}
+            >
+              {formatPassRate(item)}
+            </Typography>
           </Box>
-        </Box>
-      ))}
+        );
+      })}
     </Box>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="caption"
+      fontWeight={600}
+      color="text.secondary"
+      sx={{
+        display: 'block',
+        mb: 1,
+        textTransform: 'uppercase',
+        letterSpacing: '0.03em',
+      }}
+    >
+      {children}
+    </Typography>
   );
 }
 
 interface BehaviorMetricListProps {
   items: DimensionItem[];
+  insightsFilters: InsightsFilters;
+  behaviorId: string;
+  behaviorName: string;
 }
 
-export function BehaviorMetricList({ items }: BehaviorMetricListProps) {
+export function BehaviorMetricList({
+  items,
+  insightsFilters,
+  behaviorId,
+  behaviorName,
+}: BehaviorMetricListProps) {
+  if (items.length === 0) return null;
+
   return (
     <Box>
-      <Typography
-        variant="caption"
-        fontWeight={600}
-        color="text.secondary"
-        sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}
-      >
-        Metrics
-      </Typography>
-      <DimensionRows items={items} />
+      <SectionLabel>Metrics</SectionLabel>
+      <DimensionRows
+        items={items}
+        insightsFilters={insightsFilters}
+        behaviorId={behaviorId}
+        behaviorName={behaviorName}
+        dimension="metric"
+      />
     </Box>
   );
 }
 
 interface BehaviorTopicListProps {
   items: DimensionItem[];
+  insightsFilters: InsightsFilters;
+  behaviorId: string;
+  behaviorName: string;
 }
 
-export function BehaviorTopicList({ items }: BehaviorTopicListProps) {
+export function BehaviorTopicList({
+  items,
+  insightsFilters,
+  behaviorId,
+  behaviorName,
+}: BehaviorTopicListProps) {
+  if (items.length === 0) return null;
+
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography
-        variant="caption"
-        fontWeight={600}
-        color="text.secondary"
-        sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}
-      >
-        Topics
-      </Typography>
-      <DimensionRows items={items} />
+    <Box>
+      <SectionLabel>Topics</SectionLabel>
+      <DimensionRows
+        items={items}
+        insightsFilters={insightsFilters}
+        behaviorId={behaviorId}
+        behaviorName={behaviorName}
+        dimension="topic"
+      />
     </Box>
   );
 }

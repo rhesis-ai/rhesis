@@ -23,7 +23,7 @@ export default function InsightsSummaryBar({
   return (
     <Box
       sx={{
-        p: 2.5,
+        p: 2,
         borderRadius: 2,
         border: 1,
         borderColor: 'divider',
@@ -50,7 +50,7 @@ export default function InsightsSummaryBar({
             variant="body2"
             color="text.secondary"
             component="span"
-            sx={{ ml: { sm: 1 } }}
+            sx={{ ml: { sm: 0.5 } }}
           >
             · {endpointName}
           </Typography>

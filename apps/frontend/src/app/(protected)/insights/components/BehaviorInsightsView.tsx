@@ -10,31 +10,49 @@ import {
   Typography,
 } from '@mui/material';
 import { InsightsFilters } from '../types';
-import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
+import { BehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
+import { BehaviorInsightColumn } from '../utils/behavior-insights-utils';
 import InsightsSummaryBar from './InsightsSummaryBar';
 import BehaviorColumn from './BehaviorColumn';
+import BehaviorInsightsRow from './BehaviorInsightsRow';
 
 interface BehaviorInsightsViewProps {
   sessionToken: string;
   filters: InsightsFilters;
+  insights: Pick<
+    BehaviorInsightsData,
+    'summary' | 'columns' | 'loading' | 'error' | 'noRuns'
+  >;
+  searchQuery?: string;
   endpointName?: string;
   endpointsLoading?: boolean;
   noEndpoints?: boolean;
+  columnRows: BehaviorInsightColumn[][];
+  expandedRows: Set<number>;
+  onRowToggle: (rowIndex: number) => void;
 }
 
+const BEHAVIOR_GRID_COLUMNS = {
+  xs: '1fr',
+  md: '1fr 1fr 1fr',
+} as const;
+
 export default function BehaviorInsightsView({
-  sessionToken,
+  sessionToken: _sessionToken,
   filters,
+  insights,
+  searchQuery = '',
   endpointName,
   endpointsLoading = false,
   noEndpoints = false,
+  columnRows,
+  expandedRows,
+  onRowToggle,
 }: BehaviorInsightsViewProps) {
-  const { summary, columns, loading, error, noRuns } = useBehaviorInsightsData(
-    sessionToken,
-    filters
-  );
+  const { summary, loading, error, noRuns } = insights;
 
-  const showSkeleton = endpointsLoading || (loading && !summary);
+  const isLoading = endpointsLoading || loading;
+  const hasVisibleColumns = columnRows.some(row => row.length > 0);
 
   if (noEndpoints) {
     return (
@@ -65,29 +83,30 @@ export default function BehaviorInsightsView({
       <InsightsSummaryBar
         summary={summary}
         endpointName={endpointName}
-        loading={showSkeleton}
+        loading={isLoading}
       />
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {noRuns && !loading && !error && (
+      {noRuns && !isLoading && !error && (
         <Alert severity="info">
           No test runs found for this endpoint in the selected time range.
         </Alert>
       )}
 
-      {showSkeleton && columns.length === 0 ? (
+      {isLoading ? (
         <Box
           sx={{
-            display: 'flex',
-            gap: 2,
-            overflowX: 'auto',
-            pb: 1,
+            display: 'grid',
+            gridTemplateColumns: BEHAVIOR_GRID_COLUMNS,
+            gap: 1.25,
+            alignItems: 'stretch',
           }}
         >
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3, 4, 5, 6].map(i => (
             <BehaviorColumn
               key={i}
+              insightsFilters={filters}
               column={{
                 id: String(i),
                 name: '',
@@ -99,26 +118,27 @@ export default function BehaviorInsightsView({
             />
           ))}
         </Box>
-      ) : columns.length > 0 ? (
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 2,
-            overflowX: 'auto',
-            pb: 1,
-            alignItems: 'stretch',
-          }}
-        >
-          {columns.map(column => (
-            <BehaviorColumn key={column.id} column={column} />
+      ) : hasVisibleColumns ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {columnRows.map((row, rowIndex) => (
+            <BehaviorInsightsRow
+              key={row.map(column => column.id).join('-') || rowIndex}
+              row={row}
+              rowIndex={rowIndex}
+              expanded={expandedRows.has(rowIndex)}
+              onToggle={() => onRowToggle(rowIndex)}
+              insightsFilters={filters}
+            />
           ))}
         </Box>
       ) : (
-        !loading &&
+        !isLoading &&
         !noRuns &&
         !error && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-            No behavior data available for the selected filters.
+            {searchQuery.trim()
+              ? 'No behaviors match your search.'
+              : 'No behavior data available for the selected filters.'}
           </Typography>
         )
       )}

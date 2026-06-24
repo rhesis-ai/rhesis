@@ -30,7 +30,10 @@ export class InsightsPage extends BasePage {
     await expect(this.page.getByText(/pass rate/i).first()).toBeVisible({
       timeout: 10_000,
     });
-    await expect(this.page.getByLabel(/endpoint/i)).toBeVisible({
+    await expect(this.page.getByPlaceholder(/search behaviors/i)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(this.page.getByRole('button', { name: '1M' })).toBeVisible({
       timeout: 10_000,
     });
   }

@@ -28,11 +28,27 @@ export interface BehaviorInsightColumn {
   topics: DimensionItem[];
 }
 
-/** Sort ascending by pass rate (worst first). */
-export function sortByPassRateAsc<T extends { pass_rate: number }>(
-  items: T[]
-): T[] {
-  return [...items].sort((a, b) => a.pass_rate - b.pass_rate);
+/** Sort ascending by pass rate (worst first), with zero-test items last. */
+export function sortByPassRateAsc<
+  T extends { pass_rate: number; total: number },
+>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aEmpty = a.total === 0;
+    const bEmpty = b.total === 0;
+    if (aEmpty !== bEmpty) return aEmpty ? 1 : -1;
+    return a.pass_rate - b.pass_rate;
+  });
+}
+
+export function sortBehaviorColumns(
+  columns: BehaviorInsightColumn[]
+): BehaviorInsightColumn[] {
+  return [...columns].sort((a, b) => {
+    const aEmpty = a.overall.total === 0;
+    const bEmpty = b.overall.total === 0;
+    if (aEmpty !== bEmpty) return aEmpty ? 1 : -1;
+    return a.overall.pass_rate - b.overall.pass_rate;
+  });
 }
 
 export function passRatesToItems(
@@ -43,6 +59,31 @@ export function passRatesToItems(
     name,
     ...stats,
   }));
+}
+
+export function isBehaviorColumnExpandable(
+  column: Pick<BehaviorInsightColumn, 'overall' | 'metrics' | 'topics'>
+): boolean {
+  return (
+    column.overall.total > 0 &&
+    (column.metrics.length > 0 || column.topics.length > 0)
+  );
+}
+
+export const INSIGHTS_BEHAVIOR_COLUMNS_PER_ROW = 3;
+
+export function chunkBehaviorColumns(
+  columns: BehaviorInsightColumn[]
+): BehaviorInsightColumn[][] {
+  const rows: BehaviorInsightColumn[][] = [];
+  for (let i = 0; i < columns.length; i += INSIGHTS_BEHAVIOR_COLUMNS_PER_ROW) {
+    rows.push(columns.slice(i, i + INSIGHTS_BEHAVIOR_COLUMNS_PER_ROW));
+  }
+  return rows;
+}
+
+export function isBehaviorRowExpandable(row: BehaviorInsightColumn[]): boolean {
+  return row.some(isBehaviorColumnExpandable);
 }
 
 export function resolveEndpointId(
@@ -128,5 +169,5 @@ export function buildBehaviorColumns(
     }
   );
 
-  return sortByPassRateAsc(columns);
+  return sortBehaviorColumns(columns);
 }

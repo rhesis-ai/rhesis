@@ -1,6 +1,7 @@
 import {
   passRatesToItems,
   resolveEndpointId,
+  sortBehaviorColumns,
   sortByPassRateAsc,
 } from '../behavior-insights-utils';
 
@@ -23,13 +24,35 @@ describe('behavior-insights-utils', () => {
   });
 
   describe('sortByPassRateAsc', () => {
-    it('sorts by pass rate ascending (worst first)', () => {
+    it('sorts by pass rate ascending with zero-test items last', () => {
       const sorted = sortByPassRateAsc([
-        { name: 'a', pass_rate: 80 },
-        { name: 'b', pass_rate: 20 },
-        { name: 'c', pass_rate: 50 },
+        { name: 'a', pass_rate: 80, total: 10 },
+        { name: 'b', pass_rate: 20, total: 5 },
+        { name: 'c', pass_rate: 0, total: 0 },
+        { name: 'd', pass_rate: 50, total: 8 },
       ]);
-      expect(sorted.map(i => i.name)).toEqual(['b', 'c', 'a']);
+      expect(sorted.map(i => i.name)).toEqual(['b', 'd', 'a', 'c']);
+    });
+  });
+
+  describe('sortBehaviorColumns', () => {
+    it('puts behaviors with no tests at the bottom', () => {
+      const empty = {
+        id: '1',
+        name: 'Empty',
+        overall: { total: 0, passed: 0, failed: 0, pass_rate: 0 },
+        metrics: [],
+        topics: [],
+      };
+      const tested = {
+        id: '2',
+        name: 'Tested',
+        overall: { total: 10, passed: 5, failed: 5, pass_rate: 50 },
+        metrics: [],
+        topics: [],
+      };
+      const sorted = sortBehaviorColumns([empty, tested]);
+      expect(sorted.map(c => c.name)).toEqual(['Tested', 'Empty']);
     });
   });
 
