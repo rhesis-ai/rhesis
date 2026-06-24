@@ -11,7 +11,8 @@ reserved for EE Phase 2 (SP9).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from enum import Enum
+from typing import Optional
 from uuid import UUID
 
 # Keys used to stash token context on request.state in user_utils.py.
@@ -19,6 +20,27 @@ from uuid import UUID
 REQUEST_STATE_AUTH_KIND = "auth_kind"
 REQUEST_STATE_API_TOKEN_SCOPES = "api_token_scopes"
 REQUEST_STATE_API_TOKEN_PROJECT_ID = "api_token_project_id"
+
+
+class AuthKind(str, Enum):
+    """How the caller authenticated — the single source of truth for the values
+    carried by ``Principal.kind`` and ``request.state.auth_kind``.
+
+    Inheriting from ``str`` makes every member a real string, so no ``.value``
+    access is needed: ``AuthKind.TOKEN == "token"`` and round-tripping through
+    ``request.state`` both work directly.  ``__str__`` is overridden to return
+    the value (``"token"``) rather than ``"AuthKind.TOKEN"`` so members behave
+    like plain strings in f-strings and ``str()`` (matching ``_PermissionEnum``
+    / ``FeatureName``; Python 3.11+ ``StrEnum`` does this by default).
+    """
+
+    #: Browser/JWT session (cookie or M2M JWT). Inherits the owner's full access.
+    SESSION = "session"
+    #: ``rh-*`` API token or EE M2M client. May carry SP9 scopes / project boundary.
+    TOKEN = "token"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass(frozen=True)
@@ -30,8 +52,8 @@ class Principal:
         organization_id: The user's active organization UUID.  ``None`` only
             during the brief onboarding window before an org has been created;
             all authorization checks fail-closed when it is ``None``.
-        kind: ``"session"`` for browser/JWT sessions; ``"token"`` for ``rh-*``
-            API tokens and EE M2M clients.
+        kind: :class:`AuthKind` — ``SESSION`` for browser/JWT sessions; ``TOKEN``
+            for ``rh-*`` API tokens and EE M2M clients.
         scopes: EE Phase 2 (SP9) — explicit permission subset carried by the
             token.  ``None`` in community mode (inherit owner's full access).
         token_project_id: EE Phase 2 (SP9) — single-project boundary of the
@@ -40,7 +62,7 @@ class Principal:
 
     user_id: UUID
     organization_id: Optional[UUID]
-    kind: Literal["session", "token"]
+    kind: AuthKind
     # Populated in EE Phase 2 (SP9); intentionally excluded from equality so
     # two Principals for the same user compare equal regardless of token scopes.
     scopes: Optional[frozenset[str]] = field(default=None, compare=False)
@@ -52,7 +74,7 @@ def resolve_principal(
     *,
     scopes: Optional[frozenset[str]] = None,
     token_project_id: Optional[UUID] = None,
-    kind: "Literal['session', 'token']" = "session",
+    kind: AuthKind = AuthKind.SESSION,
 ) -> Principal:
     """Build a :class:`Principal` from an authenticated ``User`` ORM object.
 
@@ -68,8 +90,8 @@ def resolve_principal(
             token (SP9).  ``None`` means the token inherits the owner's full
             access (no scope narrowing).
         token_project_id: Optional single-project boundary of the token (SP9).
-        kind: ``"token"`` when the request was authenticated via an API token
-            or M2M client JWT; ``"session"`` otherwise.
+        kind: :attr:`AuthKind.TOKEN` when the request was authenticated via an
+            API token or M2M client JWT; :attr:`AuthKind.SESSION` otherwise.
 
     Returns:
         A frozen :class:`Principal` ready to pass to
@@ -90,14 +112,14 @@ def resolve_principal_from_request(user: "object", request: "object") -> Princip
     Drop-in replacement for ``resolve_principal(user)`` in FastAPI handlers that
     receive a ``Request`` object.  Reads ``auth_kind``, ``api_token_scopes``, and
     ``api_token_project_id`` from ``request.state`` so the Principal accurately
-    reflects an unscoped token (``kind="token"`` with ``scopes=None``) rather than
-    being silently misclassified as ``kind="session"``.
+    reflects an unscoped token (``AuthKind.TOKEN`` with ``scopes=None``) rather
+    than being silently misclassified as ``AuthKind.SESSION``.
     """
     from uuid import UUID
 
     token_scopes = getattr(request.state, REQUEST_STATE_API_TOKEN_SCOPES, None)  # type: ignore[union-attr]
     token_project_id_str = getattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None)  # type: ignore[union-attr]
-    auth_kind = getattr(request.state, REQUEST_STATE_AUTH_KIND, "session")  # type: ignore[union-attr]
+    auth_kind = getattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.SESSION)  # type: ignore[union-attr]
     token_project_id: Optional[UUID] = None
     if token_project_id_str:
         try:
@@ -113,6 +135,7 @@ def resolve_principal_from_request(user: "object", request: "object") -> Princip
 
 
 __all__ = [
+    "AuthKind",
     "Principal",
     "REQUEST_STATE_AUTH_KIND",
     "REQUEST_STATE_API_TOKEN_PROJECT_ID",

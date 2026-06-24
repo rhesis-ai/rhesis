@@ -9,7 +9,7 @@ from fastapi import Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.principal import AuthKind, resolve_principal_from_request
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
@@ -127,7 +127,7 @@ def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Sessio
     from rhesis.backend.app.auth.rbac import get_authorization_provider
 
     # SP9 chained-mint guard: a scoped token cannot mint a token with wider scopes.
-    if principal.kind == "token" and principal.scopes is not None:
+    if principal.kind == AuthKind.TOKEN and principal.scopes is not None:
         out_of_token_scope = set(scopes) - principal.scopes
         if out_of_token_scope:
             raise HTTPException(

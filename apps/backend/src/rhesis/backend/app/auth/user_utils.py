@@ -12,6 +12,7 @@ from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
     REQUEST_STATE_API_TOKEN_SCOPES,
     REQUEST_STATE_AUTH_KIND,
+    AuthKind,
 )
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
@@ -330,10 +331,10 @@ async def get_authenticated_user_with_context(
                                 frozenset(token_scopes),
                             )
 
-                        # Always mark the auth kind as "token" so resolve_principal
+                        # Always mark the auth kind as a token so resolve_principal
                         # callers can set kind correctly even when the token carries
                         # no scopes and no project_id (unscoped rh-* tokens).
-                        setattr(request.state, REQUEST_STATE_AUTH_KIND, "token")
+                        setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
 
                         if without_context:
                             # without_context allows users without organization
