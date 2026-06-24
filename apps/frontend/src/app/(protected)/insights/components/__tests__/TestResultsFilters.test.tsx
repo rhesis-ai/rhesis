@@ -19,6 +19,7 @@ function makeEndpoint(id: string, name: string) {
     connection_type: 'REST' as const,
     environment: 'development' as const,
     config_source: 'manual' as const,
+    response_format: 'json' as const,
   };
 }
 

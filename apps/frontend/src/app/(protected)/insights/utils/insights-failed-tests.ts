@@ -154,7 +154,11 @@ async function filterTestIdsByTopic(
       .map(id => `id eq '${escapeODataValue(id)}'`)
       .join(' or ');
     const filter = `(${idExpr}) and tolower(topic/name) eq tolower('${escapedTopic}')`;
-    const response = await client.getTests({ filter, limit: chunkSize });
+    const response = await client.getTests({
+      filter,
+      skip: 0,
+      limit: chunkSize,
+    });
     response.data.forEach(test => matched.add(String(test.id)));
   }
 

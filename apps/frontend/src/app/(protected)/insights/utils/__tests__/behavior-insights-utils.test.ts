@@ -1,3 +1,4 @@
+import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import {
   passRatesToItems,
   resolveEndpointId,
@@ -68,10 +69,26 @@ describe('behavior-insights-utils', () => {
   });
 
   describe('resolveEndpointId', () => {
-    const endpoints = [
-      { id: 'ep-1', name: 'One', project_id: 'project-1' },
-      { id: 'ep-2', name: 'Two', project_id: 'project-1' },
-    ] as const;
+    const endpoints: Endpoint[] = [
+      {
+        id: 'ep-1',
+        name: 'One',
+        project_id: 'project-1',
+        connection_type: 'REST',
+        environment: 'development',
+        config_source: 'manual',
+        response_format: 'json',
+      },
+      {
+        id: 'ep-2',
+        name: 'Two',
+        project_id: 'project-1',
+        connection_type: 'REST',
+        environment: 'development',
+        config_source: 'manual',
+        response_format: 'json',
+      },
+    ];
 
     it('returns cookie endpoint when valid for project', () => {
       mockedRead.mockReturnValue('ep-2');
