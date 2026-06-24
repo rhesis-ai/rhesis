@@ -71,6 +71,13 @@ class Token(TokenBase):
     updated_at: datetime
 
 
+class TokenInfoResponse(Base):
+    """Lightweight introspection response for the calling token."""
+
+    project_id: Optional[UUID4] = None
+    organization_id: Optional[UUID4] = None
+
+
 # Special response schema for token creation that includes the actual token value
 class TokenCreateResponse(Base):
     id: UUID4  # Add ID field for consistency

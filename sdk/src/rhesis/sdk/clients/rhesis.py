@@ -138,6 +138,10 @@ class RhesisClient:
         self.project_id = project_id or os.getenv("RHESIS_PROJECT_ID")
         self.environment = environment or os.getenv("RHESIS_ENVIRONMENT", "development")
 
+        # Resolve project_id from token when not explicitly provided
+        if not self.project_id and self.api_key:
+            self._resolve_project_from_token()
+
         # Lazy connector (not initialized yet)
         self._connector_manager = None
 
@@ -149,6 +153,32 @@ class RhesisClient:
 
         # Automatically register as default client for decorators
         self._register_as_default()
+
+    def _resolve_project_from_token(self) -> None:
+        """Resolve project_id by introspecting the API token."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        try:
+            import requests
+
+            resp = requests.get(
+                f"{self._base_url.rstrip('/')}/tokens/current",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                token_project_id = data.get("project_id")
+                if token_project_id:
+                    self.project_id = token_project_id
+                    logger.info(f"Resolved project_id from token: {token_project_id}")
+            else:
+                logger.debug(
+                    f"Token introspection returned {resp.status_code}, project_id not resolved"
+                )
+        except Exception as e:
+            logger.debug(f"Token introspection failed: {e}")
 
     @classmethod
     def from_environment(cls) -> Union["RhesisClient", DisabledClient]:
@@ -203,7 +233,7 @@ class RhesisClient:
                 service_name="rhesis-sdk",
                 api_key=self.api_key,
                 base_url=self._base_url,
-                project_id=self.project_id or "unknown",
+                project_id=self.project_id,
                 environment=self.environment,
             )
 
@@ -214,7 +244,7 @@ class RhesisClient:
             # Log successful initialization
             logger.info(
                 f"✅ Telemetry initialized successfully\n"
-                f"   Project: {self.project_id or 'unknown'}\n"
+                f"   Project: {self.project_id or 'not set (will use token scope)'}\n"
                 f"   Environment: {self.environment}\n"
                 f"   Endpoint: {self._base_url}/telemetry/traces\n"
                 f"   Note: Traces are batched and exported every 5 seconds"
@@ -250,7 +280,7 @@ class RhesisClient:
 
         self._tracer = Tracer(
             api_key=self.api_key,
-            project_id=self.project_id or "unknown",
+            project_id=self.project_id,
             environment=self.environment,
             base_url=self._base_url,
         )
