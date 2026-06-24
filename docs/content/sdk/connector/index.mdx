@@ -140,8 +140,8 @@ if __name__ == "__main__":
 </CodeBlock>
 
 <Callout type="info">
-  `@endpoint` registrations still require `project_id`. The optional `project_id` behavior applies to
-  metrics-only connector usage.
+  `@endpoint` registrations still require a `project_id`. It can come from the constructor, `RHESIS_PROJECT_ID`
+  env var, or a project-scoped API token. The optional `project_id` behavior applies to metrics-only connector usage.
 </Callout>
 
 ### See It in Action
@@ -233,7 +233,8 @@ Registered endpoints appear in the Rhesis dashboard:
 
 **Functions not appearing**:
 
-- Verify `RhesisClient` initialized with `api_key`, `project_id`, and `environment`
+- Verify `RhesisClient` initialized with `api_key` and `environment`
+- Ensure a `project_id` is available (via constructor, `RHESIS_PROJECT_ID` env var, or a project-scoped token)
 - Check functions use `@endpoint()` decorator
 - Check logs for "Connector initialized" and "Sent registration" messages
 
@@ -252,7 +253,7 @@ Registered endpoints appear in the Rhesis dashboard:
 **Common errors**:
 
 - `"RhesisClient not initialized"`: Create `RhesisClient` instance before using `@endpoint`
-- `"@endpoint requires project_id"`: Provide `project_id` or set `RHESIS_PROJECT_ID` env var
+- `"@endpoint requires project_id"`: Provide `project_id`, set `RHESIS_PROJECT_ID` env var, or use a project-scoped API token
 - `"Functions not appearing as Active"`: Restart app to trigger re-registration
 
 **Parameter binding issues**:

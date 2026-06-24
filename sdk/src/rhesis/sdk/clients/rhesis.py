@@ -165,14 +165,14 @@ class RhesisClient:
             resp = requests.get(
                 f"{self._base_url.rstrip('/')}/tokens/current",
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=5,
+                timeout=2,
             )
             if resp.status_code == 200:
                 data = resp.json()
                 token_project_id = data.get("project_id")
                 if token_project_id:
                     self.project_id = token_project_id
-                    logger.info(f"Resolved project_id from token: {token_project_id}")
+                    logger.debug(f"Resolved project_id from token: {token_project_id}")
             else:
                 logger.debug(
                     f"Token introspection returned {resp.status_code}, project_id not resolved"
