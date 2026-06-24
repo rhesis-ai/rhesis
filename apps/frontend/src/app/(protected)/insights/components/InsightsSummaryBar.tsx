@@ -52,18 +52,15 @@ export default function InsightsSummaryBar({
               {passRate.toFixed(1)}%
             </Box>
             {' Pass Rate '}
-            <Box
+            <Typography
               component="span"
-              sx={{
-                fontSize: '0.75rem',
-                color: 'text.disabled',
-                fontWeight: 400,
-              }}
+              variant="caption"
+              sx={{ color: 'text.disabled', fontWeight: 400 }}
             >
               ({passed}/{total} tests passed
               {failed > 0 ? `, ${failed} failed` : ''})
               {endpointName ? ` · ${endpointName}` : ''}
-            </Box>
+            </Typography>
           </>
         )}
       </Typography>
