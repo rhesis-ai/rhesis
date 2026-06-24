@@ -203,8 +203,14 @@ permissions, so a token can only ever narrow access, never widen it:
   scope on a downgraded user's token cannot re-grant a removed permission.
 - The community provider ignores scopes entirely.
 
-Note: M2M / token-exchange JWT clients do not yet populate `principal.scopes`;
-RBAC scope enforcement currently covers `rh-*` tokens only.
+**M2M / token-exchange JWT clients** are narrowed by their **service user's
+role**, not by capability scopes. Their JWT branch does not populate
+`principal.scopes`, so the intersection is not applied. This is by design
+(Decision A, locked): assign the service user a low-privilege role (Viewer or a
+custom role) to restrict M2M access. Per-token capability narrowing below the
+service user's role is available for `rh-*` tokens only. If a concrete
+requirement for sub-role M2M narrowing appears, the hybrid option (optional
+`rbac_scopes` on `AuthClient`) can be added without changing the PDP.
 
 ## Non-HTTP enforcement surfaces
 

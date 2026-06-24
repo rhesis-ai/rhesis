@@ -11,17 +11,17 @@ import logging
 from typing import Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import Permission, capability
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import UnmappedClassError
 
 from rhesis.backend.app import models
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services import recycle as recycle_service
 from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
@@ -244,7 +244,7 @@ def empty_recycle_bin_for_model(
         QueryBuilder(db, model)
         .only_deleted()
         .with_organization_filter(org_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .all()
     )
 
@@ -358,7 +358,7 @@ def get_recycle_bin_counts(
                 QueryBuilder(db, model)
                 .only_deleted()
                 .with_organization_filter(org_id)
-                .with_visibility_filter()
+                .with_visibility_filter(user_id)
                 .count()
             )
 
