@@ -2614,6 +2614,7 @@ def get_test_results(
         sort_by,
         sort_order,
         filter,
+        nested_relationships={"test": ["prompt", "behavior", "topic"]},
         organization_id=organization_id,
         user_id=user_id,
     )
