@@ -24,6 +24,9 @@ export default {
   authentication: {
     title: "Backend Authentication",
   },
+  authorization: {
+    title: "Authorization (RBAC)",
+  },
   "multi-tenancy": {
     title: "Multi-tenancy",
   },

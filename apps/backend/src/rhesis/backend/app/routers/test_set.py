@@ -3,15 +3,14 @@ import uuid
 from enum import Enum
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import Permission, capability
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -19,6 +18,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.schemas.embedding import (
     EmbeddingGraphComputeResponse,
@@ -940,6 +940,7 @@ def remove_metric_from_test_set(
 @router.post(
     "/{test_set_identifier}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
+    **capability(Permission.TestSet.EXECUTE),
 )
 def compute_test_set_embedding_graph(
     test_set_identifier: str,

@@ -22,7 +22,10 @@ Create Date: 2026-06-08
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
+
+from rhesis.backend.alembic.utils.idempotency import fk_exists
 
 revision: str = "4a5b6c7d8e9f"
 down_revision: Union[str, None] = "382779ccfbd3"
@@ -31,14 +34,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_foreign_key(
-        "project_membership_role_id_fkey",
-        "project_membership",
-        "role",
-        ["role_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    conn = op.get_bind()
+    if not fk_exists(conn, "project_membership_role_id_fkey", "project_membership"):
+        op.create_foreign_key(
+            "project_membership_role_id_fkey",
+            "project_membership",
+            "role",
+            ["role_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:

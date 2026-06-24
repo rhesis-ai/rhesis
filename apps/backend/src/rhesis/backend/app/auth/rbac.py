@@ -38,15 +38,19 @@ Usage in route handlers (before the PEP backstop wires it automatically, SP4)::
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.auth.principal import Principal, resolve_principal
+from rhesis.backend.app.auth.principal import (
+    Principal,
+    resolve_principal_from_request,
+)
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.services.permission_cache import get_permission_cache
@@ -250,6 +254,21 @@ def get_authorization_provider() -> AuthorizationProvider:
 # ---------------------------------------------------------------------------
 
 
+def _scope_fingerprint(principal: Principal) -> str:
+    """Stable fingerprint of a principal's token scope set for cache keying.
+
+    Returns ``"*"`` when the principal carries no explicit scopes (session
+    callers and unscoped tokens, which inherit the owner's full access and
+    therefore share a decision).  Otherwise returns a short, order-independent
+    hash of the scope set so two differently-scoped tokens never collide on, or
+    read, each other's cached decisions.
+    """
+    if principal.scopes is None:
+        return "*"
+    canonical = ",".join(sorted(principal.scopes))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 def authorize(
     principal: Principal,
     permission: "str | Permission",
@@ -283,9 +302,31 @@ def authorize(
     """
     perm_str = str(permission)
 
+    # --- Token project boundary (deterministic, no DB, never cached) ---
+    # A project-scoped token may only act within its own project.  Enforced here
+    # in the PDP so the rule holds for every transport (HTTP, WebSocket, future
+    # callers), not just the HTTP get_project_context dependency.  Org-scoped
+    # checks (project_id is None) are intentionally not blocked.
+    if (
+        principal.token_project_id is not None
+        and project_id is not None
+        and project_id != principal.token_project_id
+    ):
+        logger.debug(
+            "authorize: deny — token scoped to project %s, request targets project %s",
+            principal.token_project_id,
+            project_id,
+        )
+        return False
+
     # Cache is keyed on org context; skip entirely when the org is absent
     # (those are always denies — no value in caching them).
     _cache = get_permission_cache() if principal.organization_id is not None else None
+
+    # The cache key must distinguish principals by their token scope set, because
+    # the EE provider's decision depends on it (SP9 intersection).  Without this a
+    # wide unscoped decision would be served to a narrowly-scoped token.
+    _scope_fp = _scope_fingerprint(principal)
 
     # --- Cache lookup ---
     if _cache is not None:
@@ -294,6 +335,7 @@ def authorize(
             org_id=principal.organization_id,
             project_id=project_id,
             permission=perm_str,
+            scope_fingerprint=_scope_fp,
         )
         if cached is not None:
             logger.debug(
@@ -326,11 +368,92 @@ def authorize(
                 project_id=project_id,
                 permission=perm_str,
                 result=result,
+                scope_fingerprint=_scope_fp,
             )
         except Exception as exc:
             logger.warning("authorize: cache set failed (non-fatal): %s", exc)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Object-level authorization — :own qualifier helpers (SP10)
+# ---------------------------------------------------------------------------
+
+
+def authorize_object(
+    principal: Principal,
+    own_permission: "str | Permission",
+    obj: object,
+    *,
+    project_id: Optional[UUID],
+    db: Session,
+) -> bool:
+    """Evaluate whether *principal* may act on a specific *obj* it created.
+
+    Enforces strict ownership semantics: the caller must be the object's creator
+    (``obj.user_id == principal.user_id``) AND hold the ``:own``-qualified
+    capability via the active PDP.  Non-owners are **always** denied by this
+    helper — there is no admin bypass here.  For unrestricted access to any
+    object, call :func:`authorize` directly with the base capability.
+
+    Typical usage in a route handler after fetching the object::
+
+        principal = resolve_principal(current_user)
+        scope = db.info.get("_scope")
+        project_id = getattr(scope, "project_id", None)
+        if not authorize_object(
+            principal, Permission.Comment.UPDATE_OWN, db_comment,
+            project_id=project_id, db=db,
+        ):
+            raise HTTPException(403, "Not authorized to update this comment")
+
+    Args:
+        principal: Resolved caller identity (use :func:`resolve_principal`).
+        own_permission: The ``:own``-qualified capability, e.g.
+            ``Permission.Comment.UPDATE_OWN`` (``"comment:update:own"``).
+        obj: ORM object being acted upon; must expose a ``user_id`` attribute
+            that is the UUID of the object's creator.
+        project_id: Project scope (from ``db.info['_scope']``).
+        db: Active SQLAlchemy session (tenant-scoped).
+
+    Returns:
+        ``True`` iff the caller owns *obj* AND the PDP grants the capability.
+    """
+    own_perm_str = str(own_permission)
+    obj_user_id = getattr(obj, "user_id", None)
+
+    if obj_user_id is None or obj_user_id != principal.user_id:
+        logger.debug(
+            "authorize_object: deny — principal %s does not own object (owner: %s)",
+            principal.user_id,
+            obj_user_id,
+        )
+        return False
+
+    return authorize(principal, own_perm_str, project_id=project_id, db=db)
+
+
+def project_id_from_scope(db: Session) -> Optional[UUID]:
+    """Return the ambient request's ``project_id`` as a ``UUID``, or ``None``.
+
+    Reads ``db.info['_scope'].project_id`` (a string, written by
+    ``get_db_with_tenant_variables``) and coerces it to a ``UUID``.  A missing,
+    empty, or malformed value yields ``None`` — i.e. the request is treated as
+    org-scoped rather than failing.  Shared by :func:`require_permission` and
+    by handlers that call :func:`authorize_object` so both resolve the project
+    scope identically.
+    """
+    scope = db.info.get("_scope")
+    project_id = getattr(scope, "project_id", None)
+    if project_id is None:
+        return None
+    if isinstance(project_id, UUID):
+        return project_id
+    try:
+        return UUID(str(project_id))
+    except (ValueError, AttributeError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -363,24 +486,22 @@ def require_permission(capability: "str | Permission"):
     """
 
     def _dependency(
+        request: Request,
         db: Session = Depends(get_tenant_db_session),
         current_user=Depends(require_current_user_or_token),
     ) -> None:
-        principal = resolve_principal(current_user)
+        principal = resolve_principal_from_request(current_user, request)
 
         # Read project_id from the ambient scope written by get_db_with_tenant_variables.
-        scope = db.info.get("_scope")
-        project_id: Optional[UUID] = getattr(scope, "project_id", None)
-        if project_id is not None and not isinstance(project_id, UUID):
-            try:
-                project_id = UUID(str(project_id))
-            except (ValueError, AttributeError):
-                project_id = None
+        project_id = project_id_from_scope(db)
 
         if not authorize(principal, capability, project_id=project_id, db=db):
+            # SP12: GitHub-style X-Accepted-Permissions header so callers
+            # know exactly which capability they are missing.
             raise HTTPException(
                 status_code=403,
                 detail=f"Permission denied: {capability}",
+                headers={"X-Accepted-Permissions": str(capability)},
             )
 
     return _dependency
@@ -391,7 +512,9 @@ __all__ = [
     "DefaultAuthorizationProvider",
     "Permission",
     "authorize",
+    "authorize_object",
     "get_authorization_provider",
+    "project_id_from_scope",
     "require_permission",
     "set_authorization_provider",
 ]

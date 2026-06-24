@@ -82,15 +82,36 @@ class PermissionAuthorizationProvider:
             )
             return False
 
-        result = self._role_has_permission(effective_role, perm_str, db)
+        role_allows = self._role_has_permission(effective_role, perm_str, db)
+        if not role_allows:
+            logger.debug(
+                "authorize(ee): principal %s role %r permission %r → deny (role)",
+                principal.user_id,
+                effective_role.name,
+                perm_str,
+            )
+            return False
+
+        # SP9: token scope intersection.  If the authenticating token carries an
+        # explicit scope set, the permission must also appear there — the token
+        # cannot exceed the owner's access and the owner cannot exceed the token's.
+        # This auto-narrows on owner downgrade: if the role check above failed,
+        # we already returned False; stale wide scopes never help.
+        if principal.scopes is not None and perm_str not in principal.scopes:
+            logger.debug(
+                "authorize(ee): principal %s permission %r → deny (out of token scopes)",
+                principal.user_id,
+                perm_str,
+            )
+            return False
+
         logger.debug(
-            "authorize(ee): principal %s role %r permission %r → %s",
+            "authorize(ee): principal %s role %r permission %r → allow",
             principal.user_id,
             effective_role.name,
             perm_str,
-            result,
         )
-        return result
+        return True
 
     # ------------------------------------------------------------------
     # Internal helpers

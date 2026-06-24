@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import ClassVar, Optional, Set
+from typing import ClassVar, List, Optional, Set
 
 from pydantic import UUID4
 
@@ -12,7 +12,10 @@ class TokenBase(Base):
     expires_at: Optional[datetime] = None
     user_id: UUID4
     organization_id: Optional[UUID4] = None
+    # Single-project boundary of the token. NULL = not project-restricted.
     project_id: Optional[UUID4] = None
+    # SP9: optional explicit permission subset. NULL = inherit owner's full access.
+    scopes: Optional[List[str]] = None
 
 
 class TokenCreate(TokenBase):
@@ -25,7 +28,9 @@ class TokenCreate(TokenBase):
 
 
 class TokenUpdate(TokenBase):
-    _IMMUTABLE_FIELDS: ClassVar[Set[str]] = {"project_id"}
+    # project_id and scopes are mint-time-only; stripped from any update payload
+    # so a token's project boundary / capability set can never be widened in place.
+    _IMMUTABLE_FIELDS: ClassVar[Set[str]] = {"project_id", "scopes"}
 
     name: Optional[str] = None
     token: Optional[str] = None
@@ -53,6 +58,7 @@ class TokenRead(TokenBase):
     last_refreshed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    scopes: Optional[List[str]] = None
 
 
 class Token(TokenBase):

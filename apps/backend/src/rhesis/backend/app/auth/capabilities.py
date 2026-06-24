@@ -154,12 +154,31 @@ class Permission:
         UPDATE = "comment:update"
         DELETE = "comment:delete"
         REACT = "comment:react"
+        #: Update a comment the caller created (object-level :own qualifier).
+        UPDATE_OWN = "comment:update:own"
+        #: Delete a comment the caller created (object-level :own qualifier).
+        DELETE_OWN = "comment:delete:own"
 
     class Task(_PermissionEnum):
         READ = "task:read"
         CREATE = "task:create"
         UPDATE = "task:update"
         DELETE = "task:delete"
+
+    # --- Architect agent (project-scoped, WebSocket-driven) -----------------
+
+    class Architect(_PermissionEnum):
+        """Architect agent sessions. Checked in the WebSocket handler, not on a
+        route — ``READ`` gates channel subscription, ``CREATE`` gates sending a
+        message that enqueues an agent run (SP11)."""
+
+        READ = "architect:read"
+        CREATE = "architect:create"
+
+    class Preflight(_PermissionEnum):
+        """Ephemeral preflight operation channel (WebSocket, SP11)."""
+
+        CREATE = "preflight:create"
 
     # --- Files (project/org) ------------------------------------------------
 
