@@ -55,14 +55,25 @@ import {
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPES } from '@/constants/test-types';
-import { applyTestDrawerFiltersToModel } from './test-filter-model';
+import {
+  applyTestDrawerFiltersToModel,
+  buildTestIdsODataFilter,
+  combineODataFilterExpressions,
+} from './test-filter-model';
 import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
+import {
+  fetchFailedTestIdsForInsights,
+  formatInsightsFailedTestsBanner,
+  type InsightsFailedTestsFilter,
+} from '@/app/(protected)/insights/utils/insights-failed-tests';
 
 interface TestsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
   onNewTest?: () => void;
   disableAddButton?: boolean;
+  insightsFailedFilter?: InsightsFailedTestsFilter | null;
+  insightsEndpointName?: string;
 }
 
 // ─── Toolbar context (passes search/filter state into the DataGrid slot) ──────
@@ -135,6 +146,8 @@ export default function TestsTable({
   onRefresh,
   onNewTest: _onNewTest,
   disableAddButton: _disableAddButton = false,
+  insightsFailedFilter = null,
+  insightsEndpointName,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -166,6 +179,13 @@ export default function TestsTable({
     useState<TestFilters>(EMPTY_TEST_FILTERS);
   const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [insightsFailedTestIds, setInsightsFailedTestIds] = useState<
+    string[] | null
+  >(null);
+  const [insightsFilterLoading, setInsightsFilterLoading] = useState(false);
+  const [insightsFilterError, setInsightsFilterError] = useState<string | null>(
+    null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Compute whether selected tests have mixed types
@@ -189,9 +209,17 @@ export default function TestsTable({
     };
   }, []);
 
+  const insightsFilterReady =
+    !insightsFailedFilter || insightsFailedTestIds !== null;
+
   // Data fetching function
   const fetchTests = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!sessionToken || !insightsFilterReady) {
+      if (insightsFailedFilter) {
+        setLoading(true);
+      }
+      return;
+    }
 
     try {
       setLoading(true);
@@ -199,8 +227,15 @@ export default function TestsTable({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testsClient = clientFactory.getTestsClient();
 
-      // Convert filter model to OData filter string
-      const filterString = combineTestFiltersToOData(filterModel);
+      const gridFilterString = combineTestFiltersToOData(filterModel);
+      const insightsIdFilter =
+        insightsFailedFilter && insightsFailedTestIds !== null
+          ? buildTestIdsODataFilter(insightsFailedTestIds)
+          : '';
+      const filterString = combineODataFilterExpressions(
+        gridFilterString,
+        insightsIdFilter
+      );
       const { sort_by, sort_order } = gridSortToApiParams(sortModel);
 
       const apiParams: Parameters<typeof testsClient.getTests>[0] = {
@@ -229,6 +264,9 @@ export default function TestsTable({
     paginationModel.pageSize,
     filterModel,
     sortModel,
+    insightsFilterReady,
+    insightsFailedFilter,
+    insightsFailedTestIds,
   ]);
 
   // Initial data fetch
@@ -294,6 +332,57 @@ export default function TestsTable({
     });
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [typeFilter]);
+
+  // Apply Insights failed-test filter from URL params
+  useEffect(() => {
+    if (!insightsFailedFilter || !sessionToken) {
+      setInsightsFailedTestIds(null);
+      setInsightsFilterError(null);
+      setInsightsFilterLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadFailedTestIds = async () => {
+      setInsightsFailedTestIds(null);
+      setInsightsFilterLoading(true);
+      setInsightsFilterError(null);
+      try {
+        const ids = await fetchFailedTestIdsForInsights(sessionToken, {
+          endpointId: insightsFailedFilter.endpointId,
+          timeRange: insightsFailedFilter.timeRange,
+          behaviorId: insightsFailedFilter.behaviorId,
+          behaviorName: insightsFailedFilter.behaviorName,
+          metricName: insightsFailedFilter.metricName,
+          topicName: insightsFailedFilter.topicName,
+          outcome: insightsFailedFilter.outcome,
+        });
+        if (!cancelled) {
+          setInsightsFailedTestIds(ids);
+        }
+      } catch {
+        if (!cancelled) {
+          setInsightsFilterError('Failed to load test cases from Insights.');
+          setInsightsFailedTestIds([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setInsightsFilterLoading(false);
+        }
+      }
+    };
+
+    void loadFailedTestIds();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    insightsFailedFilter?.endpointId,
+    insightsFailedFilter?.timeRange,
+    sessionToken,
+    insightsFailedFilter,
+  ]);
 
   // Sync drawer filters into filterModel
   useEffect(() => {
@@ -769,6 +858,19 @@ export default function TestsTable({
         </Alert>
       )}
 
+      {insightsFailedFilter && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {insightsFilterLoading
+            ? 'Loading test cases from Insights…'
+            : insightsFilterError ||
+              formatInsightsFailedTestsBanner(
+                insightsFailedFilter,
+                insightsFailedTestIds?.length ?? 0,
+                insightsEndpointName
+              )}
+        </Alert>
+      )}
+
       {selectedRows.length > 0 && (
         <Box
           sx={{
@@ -818,7 +920,7 @@ export default function TestsTable({
         toolbarSlot={TestsUnifiedToolbar}
         showToolbar={true}
         disablePaperWrapper={true}
-        persistState
+        persistState={!insightsFailedFilter}
         initialState={{
           columns: {
             columnVisibilityModel: {

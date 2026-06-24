@@ -1,255 +1,110 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Box, Button } from '@mui/material';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarProps,
+} from '@/components/common/GridToolbar';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
 import {
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  ToggleButtonGroup,
-  ToggleButton,
-  Button,
-  Typography,
-  useTheme,
-} from '@mui/material';
-import { Clear as ClearIcon } from '@mui/icons-material';
-import { SearchPill } from '@/components/common/SearchPill';
-import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
+  INSIGHTS_TIME_RANGE_OPTIONS,
+  InsightsFilters,
+  InsightsTimeRange,
+  resolveInsightsTimeRange,
+} from '../types';
+import InsightsFilterDrawer, {
+  countActiveInsightsDrawerFilters,
+  hasActiveInsightsDrawerFilters,
+  type InsightsDrawerFilters,
+} from './InsightsFilterDrawer';
 
 interface TestResultsFiltersProps {
-  onFiltersChange: (filters: Partial<TestResultsStatsOptions>) => void;
+  filters: InsightsFilters;
+  onFiltersChange: (filters: InsightsFilters) => void;
+  projectEndpoints: Endpoint[];
+  endpointsLoading: boolean;
+  searchQuery: string;
   onSearchChange: (value: string) => void;
-  initialFilters?: Partial<TestResultsStatsOptions>;
-  sessionToken: string;
-  searchPlaceholder?: string;
+  showExpandToggle?: boolean;
+  allExpanded?: boolean;
+  onToggleAll?: () => void;
 }
 
-const TIME_RANGES = [
-  { value: 1, label: '1M' },
-  { value: 3, label: '3M' },
-  { value: 6, label: '6M' },
-  { value: 12, label: '1Y' },
-];
-
 export default function TestResultsFilters({
+  filters,
   onFiltersChange,
+  projectEndpoints,
+  endpointsLoading,
+  searchQuery,
   onSearchChange,
-  initialFilters = {},
-  sessionToken,
-  searchPlaceholder = 'Search test results...',
+  showExpandToggle = false,
+  allExpanded = false,
+  onToggleAll,
 }: TestResultsFiltersProps) {
-  const theme = useTheme();
-  const [filters, setFilters] =
-    useState<Partial<TestResultsStatsOptions>>(initialFilters);
-  const [testSets, setTestSets] = useState<TestSet[]>([]);
-  const [isLoadingTestSets, setIsLoadingTestSets] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
-  const updateFilters = useCallback(
-    (newFilters: Partial<TestResultsStatsOptions>) => {
-      const updatedFilters = { ...filters, ...newFilters };
-      setFilters(updatedFilters);
-      onFiltersChange(updatedFilters);
-    },
-    [filters, onFiltersChange]
+  const drawerFilters = useMemo<InsightsDrawerFilters>(
+    () => ({ endpointId: filters.endpointId }),
+    [filters.endpointId]
   );
 
-  // Load test sets
-  const loadTestSets = useCallback(async () => {
-    if (!sessionToken) return;
+  const handleTimeRangeChange = (value: string) => {
+    onFiltersChange({
+      ...filters,
+      timeRange: value as InsightsTimeRange,
+    });
+  };
 
-    try {
-      setIsLoadingTestSets(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-
-      const response = await testSetsClient.getTestSets({
-        limit: 100,
-        has_runs: true,
-        sort_by: 'created_at',
-        sort_order: 'desc', // Sort by most recent first
-      });
-      setTestSets(response.data);
-    } catch (_error) {
-    } finally {
-      setIsLoadingTestSets(false);
+  const handleDrawerApply = (next: InsightsDrawerFilters) => {
+    if (next.endpointId) {
+      writeInsightsEndpointId(next.endpointId);
     }
-  }, [sessionToken]);
-
-  // Effect to load test sets on mount
-  useEffect(() => {
-    loadTestSets();
-  }, [loadTestSets]);
-
-  const handleTimeRangeChange = (months: number) => {
-    updateFilters({ months, start_date: undefined, end_date: undefined });
+    onFiltersChange({ ...filters, endpointId: next.endpointId });
   };
-
-  const handleTestSetChange = (testSetId: string) => {
-    const newFilters: Partial<TestResultsStatsOptions> = {
-      test_set_ids: testSetId ? [testSetId] : undefined,
-    };
-    updateFilters(newFilters);
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-    onSearchChange(value);
-  };
-
-  const clearFilters = () => {
-    const clearedFilters: Partial<TestResultsStatsOptions> = { months: 1 };
-    setFilters(clearedFilters);
-    onFiltersChange(clearedFilters);
-    setSearchValue('');
-  };
-
-  const hasActiveFilters =
-    searchValue.length > 0 ||
-    Object.keys(filters).some(
-      key =>
-        key !== 'months' &&
-        filters[key as keyof TestResultsStatsOptions] !== undefined
-    );
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-        }}
-      >
-        {/* Filter Controls */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            gap: 2,
-            alignItems: { xs: 'stretch', md: 'center' },
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-          }}
-        >
-          {/* Left side: Filters */}
+    <>
+      <GridToolbar
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Search behaviors…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveInsightsDrawerFilters(drawerFilters)}
+        activeFilterCount={countActiveInsightsDrawerFilters(drawerFilters)}
+        {...directoryToolbarProps}
+        middleContent={
           <Box
             sx={{
               display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2,
-              flex: 1,
-              alignItems: { xs: 'stretch', sm: 'center' },
+              alignItems: 'center',
+              gap: 1,
               flexWrap: 'wrap',
             }}
           >
-            <SearchPill
-              value={searchValue}
-              onChange={handleSearchChange}
-              placeholder={searchPlaceholder}
-              width={250}
+            <ToolbarPillTabs
+              tabs={INSIGHTS_TIME_RANGE_OPTIONS}
+              activeValue={resolveInsightsTimeRange(filters.timeRange)}
+              onChange={handleTimeRangeChange}
             />
-
-            {/* Time Range */}
-            <ToggleButtonGroup
-              value={filters.months || 1}
-              exclusive
-              onChange={(_, value) => value && handleTimeRangeChange(value)}
-              size="small"
-              sx={{
-                '& .MuiToggleButton-root': {
-                  px: 2,
-                  py: 0.5,
-                  textTransform: 'none',
-                  fontWeight: 500,
-                },
-                '& .MuiToggleButton-root.Mui-selected': {
-                  backgroundColor: theme.palette.primary.main,
-                  color: theme.palette.primary.contrastText,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  },
-                },
-              }}
-            >
-              {TIME_RANGES.map(range => (
-                <ToggleButton key={range.value} value={range.value}>
-                  {range.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-
-            {/* Test Set Filter */}
-            <FormControl
-              sx={{ minWidth: { xs: '100%', sm: 300, lg: 500 } }}
-              size="small"
-            >
-              <InputLabel>Test Set</InputLabel>
-              <Select
-                value={filters.test_set_ids?.[0] || ''}
-                label="Test Set"
-                onChange={e => handleTestSetChange(e.target.value)}
-                disabled={isLoadingTestSets}
-              >
-                <MenuItem value="">All Test Sets</MenuItem>
-                {testSets.map(testSet => {
-                  const testCount =
-                    testSet.attributes?.metadata?.total_tests || 0;
-                  return (
-                    <MenuItem key={testSet.id} value={testSet.id}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          width: '100%',
-                          gap: 2,
-                        }}
-                      >
-                        <span>{testSet.name}</span>
-                        {testCount > 0 && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ ml: 'auto', flexShrink: 0 }}
-                          >
-                            {testCount} tests
-                          </Typography>
-                        )}
-                      </Box>
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Right side: Reset Button */}
-          {hasActiveFilters && (
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 1,
-                flexShrink: 0,
-                alignItems: 'center',
-              }}
-            >
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ClearIcon />}
-                onClick={clearFilters}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                Reset
+            {showExpandToggle && onToggleAll && (
+              <Button size="small" variant="text" onClick={onToggleAll}>
+                {allExpanded ? 'Collapse all' : 'Expand all'}
               </Button>
-            </Box>
-          )}
-        </Box>
-      </Box>
-    </Box>
+            )}
+          </Box>
+        }
+      />
+
+      <InsightsFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        projectEndpoints={projectEndpoints}
+        endpointsLoading={endpointsLoading}
+        onApply={handleDrawerApply}
+      />
+    </>
   );
 }

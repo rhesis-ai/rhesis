@@ -18,6 +18,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
@@ -26,6 +27,15 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
+
+  const insightsFailedFilter = React.useMemo(
+    () =>
+      searchParams ? parseInsightsFailedTestsSearchParams(searchParams) : null,
+    [searchParams]
+  );
+  const [insightsEndpointName, setInsightsEndpointName] = React.useState<
+    string | undefined
+  >();
 
   useDocumentTitle('Tests');
 
@@ -69,6 +79,38 @@ export default function TestsPage() {
 
     fetchTestCount();
   }, [session?.session_token, refreshKey]);
+
+  React.useEffect(() => {
+    if (!insightsFailedFilter || !session?.session_token) {
+      setInsightsEndpointName(undefined);
+      return;
+    }
+
+    let cancelled = false;
+
+    const sessionToken = session.session_token;
+
+    const loadEndpointName = async () => {
+      try {
+        const client = new ApiClientFactory(sessionToken).getEndpointsClient();
+        const endpoint = await client.getEndpoint(
+          insightsFailedFilter.endpointId
+        );
+        if (!cancelled) {
+          setInsightsEndpointName(endpoint.name);
+        }
+      } catch {
+        if (!cancelled) {
+          setInsightsEndpointName(undefined);
+        }
+      }
+    };
+
+    void loadEndpointName();
+    return () => {
+      cancelled = true;
+    };
+  }, [insightsFailedFilter, session?.session_token]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
@@ -158,6 +200,8 @@ export default function TestsPage() {
               onRefresh={handleRefresh}
               onNewTest={handleCreateManual}
               disableAddButton={shouldDisableAddButton}
+              insightsFailedFilter={insightsFailedFilter}
+              insightsEndpointName={insightsEndpointName}
             />
           </Paper>
         )}
