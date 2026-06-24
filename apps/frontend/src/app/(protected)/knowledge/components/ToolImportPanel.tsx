@@ -91,6 +91,24 @@ function getProviderLabel(provider: string): {
       placeholder: 'Paste GitHub file or directory URL...',
     };
   }
+  if (provider === 'gitlab') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste GitLab issue or merge request URL...',
+    };
+  }
+  if (provider === 'shortcut') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste Shortcut story or epic URL...',
+    };
+  }
+  if (provider === 'asana') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste Asana task or project URL...',
+    };
+  }
   return {
     checkbox: 'Include linked items',
     placeholder: 'Paste URL...',

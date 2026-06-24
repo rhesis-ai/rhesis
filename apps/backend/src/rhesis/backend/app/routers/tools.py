@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
+    get_project_context,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -372,6 +373,7 @@ async def extract_tool_item(
     request: ExtractToolRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -379,7 +381,8 @@ async def extract_tool_item(
 
     The transport (deterministic REST call vs. MCP agent) is chosen per provider for
     the extract action — invisible to the caller.
-    Set include_children=True to recursively fetch child pages / subdirectory files.
+    Set include_children=True to recursively fetch child pages / subdirectory files
+    (REST providers only).
     Either ``id`` or ``url`` (or both) must be provided in the request body.
     """
     try:
@@ -400,7 +403,7 @@ async def extract_tool_item(
                 identifier=identifier,
                 organization_id=organization_id,
                 user_id=user_id,
-                include_children=request.include_children,
+                project_id=project_id,
             )
         return ExtractToolResponse(
             sources=[
@@ -421,6 +424,7 @@ async def test_tool_connection(
     request: TestToolConnectionRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Test a tool's credentials via a lightweight connection check."""
@@ -455,6 +459,7 @@ async def test_tool_connection(
                 provider_type_id=request.provider_type_id,
                 credentials=request.credentials,
                 tool_metadata=request.tool_metadata,
+                project_id=project_id,
             )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
