@@ -93,19 +93,19 @@ function getProviderLabel(provider: string): {
   }
   if (provider === 'gitlab') {
     return {
-      checkbox: 'Include linked items',
+      checkbox: '',
       placeholder: 'Paste GitLab issue or merge request URL...',
     };
   }
   if (provider === 'shortcut') {
     return {
-      checkbox: 'Include linked items',
+      checkbox: '',
       placeholder: 'Paste Shortcut story or epic URL...',
     };
   }
   if (provider === 'asana') {
     return {
-      checkbox: 'Include subtasks',
+      checkbox: '',
       placeholder: 'Paste Asana task or project URL...',
     };
   }
@@ -398,13 +398,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
 
     const provider = tool?.tool_provider_type?.type_value ?? 'resource';
     const providerLabels = getProviderLabel(provider);
-    const showChildrenOption = [
-      'notion',
-      'github',
-      'gitlab',
-      'shortcut',
-      'asana',
-    ].includes(provider);
+    const showChildrenOption = provider === 'notion' || provider === 'github';
 
     if (!open) return null;
 

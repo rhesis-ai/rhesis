@@ -381,7 +381,8 @@ async def extract_tool_item(
 
     The transport (deterministic REST call vs. MCP agent) is chosen per provider for
     the extract action — invisible to the caller.
-    Set include_children=True to recursively fetch child pages / subdirectory files.
+    Set include_children=True to recursively fetch child pages / subdirectory files
+    (REST providers only).
     Either ``id`` or ``url`` (or both) must be provided in the request body.
     """
     try:
@@ -402,7 +403,6 @@ async def extract_tool_item(
                 identifier=identifier,
                 organization_id=organization_id,
                 user_id=user_id,
-                include_children=request.include_children,
                 project_id=project_id,
             )
         return ExtractToolResponse(

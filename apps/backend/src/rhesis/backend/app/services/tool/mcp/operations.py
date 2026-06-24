@@ -200,7 +200,6 @@ async def mcp_extract(
     identifier: str,
     organization_id: str,
     user_id: str,
-    include_children: bool = False,
     max_iterations: int = 10,
     project_id: Optional[str] = None,
 ) -> List[FetchedSource]:
@@ -226,7 +225,6 @@ async def mcp_extract(
     for repair in (False, True):
         system_prompt = template.render(
             provider=provider,
-            include_children=include_children,
             repair=repair,
             **_mcp_template_scope_kwargs(provider, scope_context),
         )
