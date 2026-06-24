@@ -277,12 +277,12 @@ class TestNoVisibilityModel:
 class TestPublicRemoved:
     """The migration should have removed 'public' from the CHECK constraint."""
 
-    def test_public_rejected_by_db(self, test_db: Session):
+    def test_public_rejected_by_db(self, test_db: Session, test_org_id, authenticated_user_id):
         with pytest.raises(Exception):
             _insert_test_set(
                 test_db,
                 visibility="public",
-                user_id=_OWNER_ID,
-                organization_id=_ORG_ID,
+                user_id=authenticated_user_id,
+                organization_id=test_org_id,
             )
         test_db.rollback()

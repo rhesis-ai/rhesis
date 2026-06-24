@@ -318,15 +318,19 @@ class QueryBuilder:
 
         private_values = ("user", "private")
 
+        vis = self.model.visibility
         if user_id:
             self.query = self.query.filter(
                 or_(
-                    ~self.model.visibility.in_(private_values),
+                    vis.is_(None),
+                    ~vis.in_(private_values),
                     owner_col == user_id,
                 )
             )
         else:
-            self.query = self.query.filter(~self.model.visibility.in_(private_values))
+            self.query = self.query.filter(
+                or_(vis.is_(None), ~vis.in_(private_values))
+            )
 
         return self
 
