@@ -30,6 +30,10 @@ You are restricted to the following Asana workspace:
 Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid }}".
 {% endif %}
 {% endif %}
+{% if provider == "linear" %}
+Use Linear tools to retrieve the full issue, project, or document content, including
+description, acceptance criteria, and comments when available.
+{% endif %}
 {% if provider == "azure_devops" %}
 Use Azure DevOps tools to retrieve the full work item, epic, user story, or wiki page
 content, including description, acceptance criteria, and comments when available.

@@ -63,6 +63,8 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'SHORTCUT_API_TOKEN';
     case 'asana':
       return 'ASANA_ACCESS_TOKEN';
+    case 'linear':
+      return 'LINEAR_API_TOKEN';
     case 'azure_devops':
       return 'AZURE_DEVOPS_PAT';
     case 'jira':

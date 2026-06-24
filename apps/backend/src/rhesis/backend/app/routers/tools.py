@@ -124,6 +124,15 @@ def _validate_asana_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
+def _validate_linear_credentials(credentials: dict[str, str] | None) -> None:
+    token = (credentials or {}).get("LINEAR_API_TOKEN", "")
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Linear integrations require 'LINEAR_API_TOKEN'",
+        )
+
+
 def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
     if not tool_metadata or "project" not in tool_metadata:
         raise HTTPException(
@@ -182,6 +191,8 @@ def _validate_mcp_test_connection_request(
     elif provider == "asana":
         _validate_asana_credentials(credentials)
         _validate_asana_workspace_gid(tool_metadata)
+    elif provider == "linear":
+        _validate_linear_credentials(credentials)
     elif provider == "azure_devops":
         _validate_azure_devops_credentials(credentials)
         _validate_azure_devops_project(tool_metadata)
@@ -225,6 +236,8 @@ def _validate_provider_type_switch(
     elif provider_type.type_value == "asana":
         _validate_asana_credentials(tool.credentials)
         _validate_asana_workspace_gid(tool.tool_metadata)
+    elif provider_type.type_value == "linear":
+        _validate_linear_credentials(tool.credentials)
     elif provider_type.type_value == "azure_devops":
         prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
         _validate_azure_devops_credentials(prepared_credentials)
@@ -268,6 +281,8 @@ def create_tool(
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "linear":
+            _validate_linear_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
             prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
             _validate_azure_devops_credentials(prepared_credentials)
@@ -397,6 +412,8 @@ def update_tool(
             _validate_shortcut_credentials(tool.credentials)
         elif provider_type.type_value == "asana":
             _validate_asana_credentials(tool.credentials)
+        elif provider_type.type_value == "linear":
+            _validate_linear_credentials(tool.credentials)
         elif provider_type.type_value == "azure_devops":
             merged_credentials = prepare_azure_devops_credentials(
                 _merge_azure_devops_credentials_on_update(

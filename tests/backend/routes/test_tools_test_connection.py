@@ -35,6 +35,14 @@ def test_mcp_test_connection_validates_shortcut_credentials():
     assert "SHORTCUT_API_TOKEN" in exc_info.value.detail
 
 
+def test_mcp_test_connection_validates_linear_credentials():
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_mcp_test_connection_request("linear", {}, None)
+
+    assert exc_info.value.status_code == 400
+    assert "LINEAR_API_TOKEN" in exc_info.value.detail
+
+
 def test_mcp_test_connection_validates_azure_devops_credentials():
     with pytest.raises(HTTPException) as exc_info:
         _validate_mcp_test_connection_request("azure_devops", {}, {"project": "P"})
@@ -62,6 +70,7 @@ def test_mcp_test_connection_validates_azure_devops_project():
 def test_mcp_test_connection_skips_when_credentials_omitted():
     _validate_mcp_test_connection_request("asana", None, None)
     _validate_mcp_test_connection_request("shortcut", None, None)
+    _validate_mcp_test_connection_request("linear", None, None)
     _validate_mcp_test_connection_request("azure_devops", None, None)
 
 
@@ -76,3 +85,4 @@ def test_saved_credential_override_rejects_rest_providers():
 def test_saved_credential_override_allows_mcp_providers():
     _ensure_mcp_saved_credential_override("azure_devops")
     _ensure_mcp_saved_credential_override("gitlab")
+    _ensure_mcp_saved_credential_override("linear")

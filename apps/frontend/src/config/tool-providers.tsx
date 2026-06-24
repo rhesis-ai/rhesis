@@ -5,6 +5,7 @@ import {
   SiJira,
   SiGitlab,
   SiShortcut,
+  SiLinear,
 } from '@icons-pack/react-simple-icons';
 
 /**
@@ -24,6 +25,7 @@ export const EXTRACT_PROVIDERS = [
   'shortcut',
   'asana',
   'azure_devops',
+  'linear',
 ];
 
 const TOOL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
@@ -48,6 +50,8 @@ export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
   gitlab: 'Import issues, merge requests, and wiki pages from GitLab projects',
   shortcut: 'Import stories and epics from Shortcut into your knowledge base',
   asana: 'Import tasks and projects from Asana into your knowledge base',
+  linear:
+    'Import issues and project context from Linear into your knowledge base',
   azure_devops:
     'Import work items, epics, and user stories from Azure DevOps boards',
 };
@@ -93,5 +97,6 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   gitlab: <SiGitlab className="h-8 w-8" />,
   shortcut: <SiShortcut className="h-8 w-8" />,
   asana: <AsanaIcon className="h-8 w-8" />,
+  linear: <SiLinear className="h-8 w-8" />,
   azure_devops: <AzureDevOpsIcon className="h-8 w-8" />,
 };
