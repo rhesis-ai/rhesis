@@ -48,7 +48,7 @@ const getDesignTokens = (mode: PaletteMode) => {
               secondary: '#1A1A1A',
             },
             success: {
-              main: '#2E7D32',
+              main: '#38ad87',
               contrastText: '#FFFFFF',
             },
             warning: {
@@ -56,7 +56,7 @@ const getDesignTokens = (mode: PaletteMode) => {
               contrastText: '#FFFFFF',
             },
             error: {
-              main: '#C62828',
+              main: '#de3355',
               contrastText: '#FFFFFF',
             },
           }

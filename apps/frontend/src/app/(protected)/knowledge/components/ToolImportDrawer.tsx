@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Alert,
@@ -17,7 +17,11 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TOOL_PROVIDER_ICONS, REST_PROVIDERS } from '@/config/tool-providers';
-import ToolImportPanel from './ToolImportPanel';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import ToolImportPanel, {
+  ToolImportPanelHandle,
+  PanelFooterState,
+} from './ToolImportPanel';
 
 interface ToolImportDrawerProps {
   open: boolean;
@@ -35,6 +39,14 @@ export default function ToolImportDrawer({
   const [tools, setTools] = useState<Tool[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string>('');
+  const panelRef = useRef<ToolImportPanelHandle>(null);
+  const [panelFooter, setPanelFooter] = useState<PanelFooterState>({
+    primaryLabel: 'Import',
+    primaryLoading: false,
+    primaryDisabled: true,
+    isPreview: false,
+    onBack: onClose,
+  });
 
   const loadTools = useCallback(async () => {
     if (!sessionToken) return;
@@ -48,7 +60,6 @@ export default function ToolImportDrawer({
         REST_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
       );
       setTools(supported);
-      // Auto-select when there is only one option
       if (supported.length === 1) {
         setSelectedToolId(supported[0].id);
       }
@@ -68,9 +79,9 @@ export default function ToolImportDrawer({
     }
   }, [open, loadTools]);
 
-  const handleClose = () => {
-    onClose();
-  };
+  const handlePanelFooterChange = useCallback((state: PanelFooterState) => {
+    setPanelFooter(state);
+  }, []);
 
   const selectedTool = tools.find(t => t.id === selectedToolId) ?? null;
 
@@ -84,14 +95,20 @@ export default function ToolImportDrawer({
     return v.charAt(0).toUpperCase() + v.slice(1);
   };
 
+  const hasTools = !loadingTools && tools.length > 0;
+
   return (
     <BaseDrawer
       open={open}
-      onClose={handleClose}
+      onClose={panelFooter.onBack}
       title="Import from Tool"
       titleIcon={<CloudDownloadIcon color="primary" />}
       width={900}
-      closeButtonText="Cancel"
+      closeButtonText={panelFooter.isPreview ? 'Back' : 'Cancel'}
+      onSave={hasTools ? () => panelRef.current?.triggerPrimary() : undefined}
+      saveButtonText={panelFooter.primaryLabel}
+      loading={panelFooter.primaryLoading}
+      saveDisabled={panelFooter.primaryDisabled}
     >
       {loadingTools ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -107,9 +124,8 @@ export default function ToolImportDrawer({
         </Alert>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Only show the selector when there is more than one option */}
           {tools.length > 1 && (
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={drawerOutlinedFieldSx}>
               <InputLabel id="tool-select-label">Source</InputLabel>
               <Select
                 labelId="tool-select-label"
@@ -141,11 +157,13 @@ export default function ToolImportDrawer({
           )}
 
           <ToolImportPanel
+            ref={panelRef}
             open={open}
-            onClose={handleClose}
+            onClose={onClose}
             onSuccess={onSuccess}
             sessionToken={sessionToken}
             tool={selectedTool}
+            onFooterStateChange={handlePanelFooterChange}
           />
         </Box>
       )}
