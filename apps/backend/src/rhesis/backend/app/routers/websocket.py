@@ -8,17 +8,23 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
 
-from rhesis.backend.app.auth.principal import resolve_principal, resolve_principal_from_request
+from rhesis.backend.app.auth.principal import (
+    REQUEST_STATE_AUTH_KIND,
+    AuthKind,
+    Principal,
+    resolve_principal,
+    resolve_principal_from_request,
+)
 from rhesis.backend.app.auth.user_utils import (
     get_authenticated_user_with_context,
     get_secret_key,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
 from rhesis.backend.app.services.websocket import get_ws_token_service, ws_manager
 
@@ -39,6 +45,7 @@ class WebSocketTokenResponse(BaseModel):
 
 @router.post("/ws/token", response_model=WebSocketTokenResponse)
 async def get_websocket_token(
+    request: Request,
     current_user: User = Depends(get_authenticated_user_with_context),
 ) -> WebSocketTokenResponse:
     """Get a short-lived token for WebSocket connection.
@@ -49,6 +56,21 @@ async def get_websocket_token(
     Returns:
         WebSocketTokenResponse with the token and expiration time.
     """
+    # Security (SP9): a WS token carries no scopes, so it always resolves to a
+    # full-access session principal on connect. Allowing an API token to mint one
+    # would let a *scoped* rh-* token escalate to full session access over the WS
+    # transport. WS tokens are therefore session-only; API-token clients connect
+    # to /ws directly with their token (the bearer path preserves their scopes).
+    # NOTE: get_authenticated_user_with_context only flags rh-* tokens as
+    # AuthKind.TOKEN; widen this guard if M2M JWTs ever carry SP9 scopes.
+    if getattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.SESSION) == AuthKind.TOKEN:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "WebSocket tokens must be minted from a session; "
+                "connect to /ws directly with your API token instead"
+            ),
+        )
     token_service = get_ws_token_service()
     token = token_service.create_ws_token(
         user_id=str(current_user.id),
