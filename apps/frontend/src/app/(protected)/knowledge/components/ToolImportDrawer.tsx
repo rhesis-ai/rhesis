@@ -79,10 +79,6 @@ export default function ToolImportDrawer({
     }
   }, [open, loadTools]);
 
-  const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
   const handlePanelFooterChange = useCallback((state: PanelFooterState) => {
     setPanelFooter(state);
   }, []);
@@ -104,7 +100,7 @@ export default function ToolImportDrawer({
   return (
     <BaseDrawer
       open={open}
-      onClose={panelFooter.isPreview ? panelFooter.onBack : handleClose}
+      onClose={panelFooter.onBack}
       title="Import from Tool"
       titleIcon={<CloudDownloadIcon color="primary" />}
       width={900}
@@ -163,7 +159,7 @@ export default function ToolImportDrawer({
           <ToolImportPanel
             ref={panelRef}
             open={open}
-            onClose={handleClose}
+            onClose={onClose}
             onSuccess={onSuccess}
             sessionToken={sessionToken}
             tool={selectedTool}

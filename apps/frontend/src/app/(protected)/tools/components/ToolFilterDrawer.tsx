@@ -74,6 +74,8 @@ export default function ToolFilterDrawer({
               <Box
                 key={provider}
                 component="button"
+                type="button"
+                aria-pressed={draft.providers.includes(provider)}
                 onClick={() => toggleProvider(provider)}
                 sx={filterChipSx(draft.providers.includes(provider))}
               >

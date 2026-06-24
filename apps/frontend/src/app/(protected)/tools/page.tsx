@@ -141,6 +141,12 @@ export default function ToolsPage() {
     }
   };
 
+  // TODO: remove once Confluence is supported
+  const supportedProviderTypes = useMemo(
+    () => providerTypes.filter(pt => pt.type_value !== 'confluence'),
+    [providerTypes]
+  );
+
   const availableProviders = useMemo(
     () =>
       Array.from(
@@ -273,7 +279,7 @@ export default function ToolsPage() {
 
       <ToolConnectionDrawer
         open={connectionDrawerOpen}
-        providers={providerTypes}
+        providers={supportedProviderTypes}
         tool={toolToEdit}
         mode={toolToEdit ? 'edit' : 'create'}
         onClose={() => {
