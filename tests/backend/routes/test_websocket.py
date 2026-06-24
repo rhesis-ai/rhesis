@@ -43,9 +43,15 @@ def mock_ws_manager():
 
 @pytest.fixture
 def mock_authenticate_token(mock_user):
-    """Mock WebSocket token authentication."""
+    """Mock WebSocket token authentication.
+
+    ``authenticate_websocket_token`` returns a ``(user, Principal)`` tuple so the
+    endpoint can register the connection's principal for SP9 channel authz.
+    """
+    from rhesis.backend.app.auth.principal import resolve_principal
+
     with patch("rhesis.backend.app.routers.websocket.authenticate_websocket_token") as mock_auth:
-        mock_auth.return_value = mock_user
+        mock_auth.return_value = (mock_user, resolve_principal(mock_user))
         yield mock_auth
 
 
@@ -178,7 +184,11 @@ class TestAuthenticateWebSocketToken:
                 authenticate_websocket_token(mock_ws, "valid_token")
             )
 
-            assert result == mock_user
+            # Returns a (user, Principal) tuple so token scopes reach channel authz.
+            assert result is not None
+            user, principal = result
+            assert user == mock_user
+            assert principal.user_id == mock_user.id
             mock_auth.assert_called_once()
 
     def test_authenticate_with_no_token(self):
