@@ -110,14 +110,22 @@ function extractBehaviorsWithMetrics(results: TestResultDetail[]): {
     }
   }
 
-  return {
-    behaviors: Array.from(behaviorMap.values()),
-    availableMetrics: [
-      ...new Set(
-        results.flatMap(r => Object.keys(r.test_metrics?.metrics ?? {}))
+  const behaviors = Array.from(behaviorMap.values())
+    .map(behavior => ({
+      ...behavior,
+      metrics: [...behavior.metrics].sort((a, b) =>
+        a.name.localeCompare(b.name)
       ),
-    ],
-  };
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const availableMetrics = [
+    ...new Set(
+      results.flatMap(r => Object.keys(r.test_metrics?.metrics ?? {}))
+    ),
+  ].sort();
+
+  return { behaviors, availableMetrics };
 }
 
 export function useTestRunDetailData({
