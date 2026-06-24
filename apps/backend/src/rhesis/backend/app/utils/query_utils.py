@@ -328,9 +328,7 @@ class QueryBuilder:
                 )
             )
         else:
-            self.query = self.query.filter(
-                or_(vis.is_(None), ~vis.in_(private_values))
-            )
+            self.query = self.query.filter(or_(vis.is_(None), ~vis.in_(private_values)))
 
         return self
 
