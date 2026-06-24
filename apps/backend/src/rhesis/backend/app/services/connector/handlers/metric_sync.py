@@ -1,7 +1,7 @@
 """SDK metric synchronization logic."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
@@ -170,7 +170,7 @@ def _set_sdk_connection(
     data["sdk_connection"] = {
         "metric_name": metric_name,
         "accepted_params": accepted_params,
-        "last_registered": datetime.utcnow().isoformat(),
+        "last_registered": datetime.now(timezone.utc).isoformat(),
     }
     metric.evaluation_examples = json.dumps(data)
 

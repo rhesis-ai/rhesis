@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '@/utils/date';
 import {
   Box,
   Typography,
@@ -260,12 +261,6 @@ export default function TraceReviewsTab({
     const reviewPassed = isPassedStatusName(lastReview.status.name);
     hasConflict = reviewPassed !== automatedStatus.passed;
   }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleString();
-  };
 
   const getReviewStatusDisplay = (statusName: string) => {
     const isPassed = isPassedStatusName(statusName);

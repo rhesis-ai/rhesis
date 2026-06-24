@@ -3,7 +3,7 @@ Sequential execution implementation for test cases.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
@@ -42,7 +42,7 @@ def execute_tests_sequentially(
     """
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
 
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     results = []
 
     # Update test run with start information using shared utility
@@ -126,7 +126,7 @@ def execute_tests_sequentially(
             failure_result = create_failure_result(str(test.id), e)
             results.append(failure_result)
 
-    end_time = datetime.utcnow()
+    end_time = datetime.now(timezone.utc)
     execution_time = (end_time - start_time).total_seconds()
 
     logger.info(

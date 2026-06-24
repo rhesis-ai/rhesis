@@ -11,7 +11,7 @@ garak automatically invalidates the cache.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, ClassVar, Dict, List, Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -261,7 +261,7 @@ class GarakProbeCache:
             **data,
             "garak_version": garak_version,
             "schema_version": cls.SCHEMA_VERSION,
-            "cached_at": datetime.utcnow().isoformat(),
+            "cached_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # L1: Store in memory cache

@@ -31,6 +31,7 @@ import { IndividualTestStats } from '@/utils/api-client/interfaces/individual-te
 import BasePieChart from '@/components/common/BasePieChart';
 import BaseChartsGrid from '@/components/common/BaseChartsGrid';
 import { useChartColors } from '@/components/layout/BaseChartColors';
+import { formatDate } from '@/utils/date';
 
 interface TestDetailChartsProps {
   testId: string;
@@ -86,17 +87,6 @@ function LastTestRunCard({
         sx={{ fontSize: 20, mr: 0.5, color: theme.palette.text.secondary }}
       />
     );
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   // Count metric results

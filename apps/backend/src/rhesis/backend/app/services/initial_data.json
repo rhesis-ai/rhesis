@@ -599,6 +599,11 @@
         },
         {
             "type_name": "ToolProviderType",
+            "type_value": "azure_devops",
+            "description": "Azure DevOps integration"
+        },
+        {
+            "type_name": "ToolProviderType",
             "type_value": "linear",
             "description": "Linear integration"
         },

@@ -1,5 +1,6 @@
 """MCP (Model Context Protocol) client for connecting to external data sources."""
 
+import base64
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -12,6 +13,17 @@ from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
 from mcp.client.streamable_http import streamablehttp_client  # type: ignore[import-untyped]
 
 from rhesis.sdk.agents.constants import ToolMeta
+
+
+def _basic_auth_b64(value: str) -> str:
+    """Base64-encode a string for HTTP basic-auth style headers (not encryption)."""
+    return base64.b64encode(value.encode("utf-8")).decode("ascii")
+
+
+def _mcp_jinja_env() -> jinja2.Environment:
+    env = jinja2.Environment(autoescape=False)
+    env.filters["basic_auth_b64"] = _basic_auth_b64
+    return env
 
 
 class MCPClient:
@@ -237,7 +249,7 @@ class MCPClientFactory:
     @classmethod
     def from_tool_config(cls, tool_config: Dict, credentials: Dict[str, str]):
         """Create factory from MCP config with credential substitution."""
-        env = jinja2.Environment(autoescape=False)
+        env = _mcp_jinja_env()
         template = env.from_string(json.dumps(tool_config))
         rendered = template.render(**credentials)
         processed_config = json.loads(rendered)
@@ -256,7 +268,7 @@ class MCPClientFactory:
             available = [p.stem.split(".")[0] for p in templates_dir.glob("*.json.j2")]
             raise ValueError(f"Provider '{provider}' not supported. Available: {available}")
 
-        env = jinja2.Environment(autoescape=False)
+        env = _mcp_jinja_env()
         template = env.from_string(template_file.read_text())
         rendered = template.render(**credentials)
         tool_config = json.loads(rendered)

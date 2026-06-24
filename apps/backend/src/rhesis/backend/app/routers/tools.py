@@ -1,7 +1,6 @@
-import json
 import logging
 import uuid
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
+    get_project_context,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -29,6 +29,15 @@ from rhesis.backend.app.services.tool.actions import (
     route,
 )
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
+from rhesis.backend.app.services.tool.credential_merge import (
+    merge_azure_devops_credentials_on_update as _merge_azure_devops_credentials_on_update,
+    merge_gitlab_credentials_on_update as _merge_gitlab_credentials_on_update,
+    resolve_mcp_test_connection_credentials,
+)
+from rhesis.backend.app.services.tool.azure_devops import (
+    normalize_azure_devops_org,
+    prepare_azure_devops_credentials,
+)
 from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     mcp_extract,
@@ -86,30 +95,6 @@ def _validate_gitlab_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
-def _merge_gitlab_credentials_on_update(
-    existing_credentials_json: str,
-    incoming_credentials: dict[str, str],
-) -> dict[str, str]:
-    """Preserve GITLAB_API_URL when PATCH updates only the token."""
-    merged = dict(incoming_credentials)
-    if merged.get("GITLAB_API_URL", "").strip():
-        return merged
-
-    try:
-        existing_credentials = json.loads(existing_credentials_json)
-    except (json.JSONDecodeError, TypeError):
-        return merged
-
-    if not isinstance(existing_credentials, dict):
-        return merged
-
-    existing_api_url = existing_credentials.get("GITLAB_API_URL")
-    if isinstance(existing_api_url, str) and existing_api_url.strip():
-        merged["GITLAB_API_URL"] = existing_api_url.strip()
-
-    return merged
-
-
 def _validate_shortcut_credentials(credentials: dict[str, str] | None) -> None:
     token = (credentials or {}).get("SHORTCUT_API_TOKEN", "")
     if not isinstance(token, str) or not token.strip():
@@ -148,6 +133,47 @@ def _validate_linear_credentials(credentials: dict[str, str] | None) -> None:
         )
 
 
+def _validate_azure_devops_project(tool_metadata: dict | None) -> None:
+    if not tool_metadata or "project" not in tool_metadata:
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require project metadata",
+        )
+    project = tool_metadata["project"]
+    if not isinstance(project, str) or not project.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps 'project' must be a non-empty string",
+        )
+
+
+def _validate_azure_devops_credentials(credentials: dict[str, str] | None) -> None:
+    org = (credentials or {}).get("AZURE_DEVOPS_ORG", "")
+    if not isinstance(org, str) or not org.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_ORG'",
+        )
+    try:
+        normalize_azure_devops_org(org)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    email = (credentials or {}).get("AZURE_DEVOPS_EMAIL", "")
+    if not isinstance(email, str) or not email.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_EMAIL'",
+        )
+
+    token = (credentials or {}).get("AZURE_DEVOPS_PAT", "")
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Azure DevOps integrations require 'AZURE_DEVOPS_PAT'",
+        )
+
+
 def _validate_mcp_test_connection_request(
     provider: str,
     credentials: dict[str, str] | None,
@@ -167,6 +193,9 @@ def _validate_mcp_test_connection_request(
         _validate_asana_workspace_gid(tool_metadata)
     elif provider == "linear":
         _validate_linear_credentials(credentials)
+    elif provider == "azure_devops":
+        _validate_azure_devops_credentials(credentials)
+        _validate_azure_devops_project(tool_metadata)
 
 
 def _validate_provider_type_switch(
@@ -209,6 +238,11 @@ def _validate_provider_type_switch(
         _validate_asana_workspace_gid(tool.tool_metadata)
     elif provider_type.type_value == "linear":
         _validate_linear_credentials(tool.credentials)
+    elif provider_type.type_value == "azure_devops":
+        prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
+        _validate_azure_devops_credentials(prepared_credentials)
+        _validate_azure_devops_project(tool.tool_metadata)
+        tool = tool.model_copy(update={"credentials": prepared_credentials})
 
 
 @router.post("/", response_model=schemas.Tool)
@@ -250,6 +284,11 @@ def create_tool(
             _validate_asana_workspace_gid(tool.tool_metadata)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
+        elif provider_type.type_value == "azure_devops":
+            prepared_credentials = prepare_azure_devops_credentials(tool.credentials)
+            _validate_azure_devops_credentials(prepared_credentials)
+            _validate_azure_devops_project(tool.tool_metadata)
+            tool = tool.model_copy(update={"credentials": prepared_credentials})
 
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
@@ -349,6 +388,9 @@ def update_tool(
             _validate_gitlab_project(tool.tool_metadata)
         elif provider_type.type_value == "asana":
             _validate_asana_workspace_gid(tool.tool_metadata)
+        elif provider_type.type_value == "azure_devops":
+            _validate_azure_devops_project(tool.tool_metadata)
+
     if tool.credentials is not None and provider_type:
         if provider_type.type_value == "jira" and "JIRA_URL" in tool.credentials:
             try:
@@ -373,6 +415,15 @@ def update_tool(
             _validate_asana_credentials(tool.credentials)
         elif provider_type.type_value == "linear":
             _validate_linear_credentials(tool.credentials)
+        elif provider_type.type_value == "azure_devops":
+            merged_credentials = prepare_azure_devops_credentials(
+                _merge_azure_devops_credentials_on_update(
+                    existing_tool.credentials,
+                    tool.credentials,
+                )
+            )
+            _validate_azure_devops_credentials(merged_credentials)
+            tool = tool.model_copy(update={"credentials": merged_credentials})
 
     db_tool = crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
@@ -388,6 +439,7 @@ async def extract_tool_item(
     request: ExtractToolRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
@@ -395,7 +447,8 @@ async def extract_tool_item(
 
     The transport (deterministic REST call vs. MCP agent) is chosen per provider for
     the extract action — invisible to the caller.
-    Set include_children=True to recursively fetch child pages / subdirectory files.
+    Set include_children=True to recursively fetch child pages / subdirectory files
+    (REST providers only).
     Either ``id`` or ``url`` (or both) must be provided in the request body.
     """
     try:
@@ -416,7 +469,7 @@ async def extract_tool_item(
                 identifier=identifier,
                 organization_id=organization_id,
                 user_id=user_id,
-                include_children=request.include_children,
+                project_id=project_id,
             )
         return ExtractToolResponse(
             sources=[
@@ -437,16 +490,43 @@ async def test_tool_connection(
     request: TestToolConnectionRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Test a tool's credentials via a lightweight connection check."""
     try:
         organization_id, user_id = tenant_context
+        effective_tool_id = request.tool_id
+        effective_provider_type_id = request.provider_type_id
+        effective_credentials = request.credentials
+        effective_metadata = request.tool_metadata
+
+        if request.tool_id and request.credentials is not None:
+            existing_tool = crud.get_tool(
+                db=db,
+                tool_id=uuid.UUID(request.tool_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            if not existing_tool:
+                raise HTTPException(status_code=404, detail="Tool not found")
+
+            provider = existing_tool.tool_provider_type.type_value
+            effective_credentials = resolve_mcp_test_connection_credentials(
+                provider,
+                existing_tool.credentials,
+                request.credentials,
+            )
+            if effective_metadata is None:
+                effective_metadata = existing_tool.tool_metadata
+            effective_provider_type_id = existing_tool.tool_provider_type_id
+            effective_tool_id = None
+
         provider = resolve_provider(
             db,
             organization_id,
-            tool_id=request.tool_id,
-            provider_type_id=request.provider_type_id,
+            tool_id=effective_tool_id,
+            provider_type_id=effective_provider_type_id,
             user_id=user_id,
         )
         transport = route(provider, ToolAction.TEST_CONNECTION)
@@ -454,23 +534,28 @@ async def test_tool_connection(
             return await run_rest_health_check(
                 db=db,
                 organization_id=organization_id,
-                tool_id=request.tool_id,
-                provider_type_id=request.provider_type_id,
-                credentials=request.credentials,
+                tool_id=effective_tool_id,
+                provider_type_id=effective_provider_type_id,
+                credentials=effective_credentials,
                 user_id=user_id,
-                tool_metadata=request.tool_metadata,
+                tool_metadata=effective_metadata,
             )
         elif transport is Transport.MCP:
+            if provider == "azure_devops" and effective_credentials is not None:
+                effective_credentials = prepare_azure_devops_credentials(
+                    effective_credentials
+                )
             _validate_mcp_test_connection_request(
-                provider, request.credentials, request.tool_metadata
+                provider, effective_credentials, effective_metadata
             )
             return await mcp_health_check(
                 organization_id=organization_id,
                 user_id=user_id,
-                tool_id=request.tool_id,
-                provider_type_id=request.provider_type_id,
-                credentials=request.credentials,
-                tool_metadata=request.tool_metadata,
+                tool_id=effective_tool_id,
+                provider_type_id=effective_provider_type_id,
+                credentials=effective_credentials,
+                tool_metadata=effective_metadata,
+                project_id=project_id,
             )
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))

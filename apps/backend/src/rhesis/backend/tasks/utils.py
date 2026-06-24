@@ -3,7 +3,7 @@ Utility functions for task operations and common patterns.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -126,8 +126,8 @@ def increment_test_run_progress(
                 "completed_tests": completed_tests,
                 "failed_tests": failed_tests,
                 "last_completed_test_id": test_id,
-                "last_update": datetime.utcnow().isoformat(),
-                "progress_updated_at": datetime.utcnow().isoformat(),
+                "last_update": datetime.now(timezone.utc).isoformat(),
+                "progress_updated_at": datetime.now(timezone.utc).isoformat(),
             }
         )
 

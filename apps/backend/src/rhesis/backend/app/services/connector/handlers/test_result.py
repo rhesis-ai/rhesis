@@ -1,7 +1,7 @@
 """Test result message handler for SDK WebSocket connections."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -107,7 +107,7 @@ class TestResultHandler:
             from rhesis.backend.app.models.status import Status
             from rhesis.backend.app.utils.query_utils import QueryBuilder
 
-            recent_cutoff = datetime.utcnow() - timedelta(seconds=30)
+            recent_cutoff = datetime.now(timezone.utc) - timedelta(seconds=30)
 
             # First, get a sample endpoint to determine the organization
             # We'll use this to filter statuses by organization for tenant isolation

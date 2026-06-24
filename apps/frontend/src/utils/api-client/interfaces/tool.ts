@@ -27,13 +27,14 @@ export interface ToolMetadata {
     repo?: string;
     [key: string]: unknown;
   };
-  project?: {
-    namespace?: string;
-    [key: string]: unknown;
-  };
+  project?:
+    | {
+        namespace?: string;
+        [key: string]: unknown;
+      }
+    | string;
   space_key?: string;
   workspace_gid?: string;
-  team_id?: string;
   [key: string]: unknown;
 }
 

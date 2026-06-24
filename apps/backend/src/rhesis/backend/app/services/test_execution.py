@@ -6,7 +6,7 @@ Reuses existing executor logic but skips all database operations.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import uuid4
 
@@ -57,7 +57,7 @@ async def execute_test_in_place(
         ValueError: If test or endpoint not found, or invalid configuration
         Exception: If execution fails
     """
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
 
     evaluation_model = get_evaluation_model(db, user_id)
     execution_model = get_execution_model(db, user_id)

@@ -3,6 +3,7 @@
  */
 
 import { SpanNode } from './api-client/interfaces/telemetry';
+import { formatDate } from './date';
 
 /**
  * Format duration for display in table (shorter format)
@@ -178,7 +179,7 @@ export function getTreeDepth(spans: SpanNode[]): number {
  */
 export function formatTraceDate(isoDate: string): string {
   if (!isoDate) return '';
-  return new Date(isoDate).toLocaleString();
+  return formatDate(isoDate);
 }
 
 /**

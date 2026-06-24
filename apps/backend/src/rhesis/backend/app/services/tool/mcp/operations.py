@@ -23,6 +23,7 @@ def _mcp_template_scope_kwargs(
     return {
         "project_context": scope_context if provider == "gitlab" else None,
         "workspace_context": scope_context if provider == "asana" else None,
+        "azure_context": scope_context if provider == "azure_devops" else None,
     }
 
 
@@ -90,9 +91,10 @@ def _resolve_tool_client(
     user_id: str,
     tool_id: str,
     tool_metadata: Optional[Dict[str, Any]] = None,
+    project_id: Optional[str] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Build an MCP client, provider name, and optional scope context for a saved tool."""
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         return _get_mcp_tool_config(
             db, tool_id, organization_id, user_id, tool_metadata_override=tool_metadata
         )
@@ -104,9 +106,10 @@ def _resolve_params_client(
     provider_type_id: Any,
     credentials: Dict[str, str],
     tool_metadata: Optional[Dict[str, Any]] = None,
+    project_id: Optional[str] = None,
 ) -> Tuple[Any, str, Optional[Dict[str, str]]]:
     """Build an MCP client from unsaved credentials."""
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         return _get_mcp_client_from_params(
             provider_type_id,
             credentials,
@@ -198,8 +201,8 @@ async def mcp_extract(
     identifier: str,
     organization_id: str,
     user_id: str,
-    include_children: bool = False,
     max_iterations: int = 10,
+    project_id: Optional[str] = None,
 ) -> List[FetchedSource]:
     """Extract content from an MCP-backed tool as structured sources.
 
@@ -213,7 +216,9 @@ async def mcp_extract(
     if not user_id:
         raise ValueError("user_id is required")
 
-    client, provider, scope_context = _resolve_tool_client(organization_id, user_id, tool_id)
+    client, provider, scope_context = _resolve_tool_client(
+        organization_id, user_id, tool_id, project_id=project_id
+    )
     query = f"Extract the full content of: {identifier}"
     template = jinja_env.get_template("mcp_extract_prompt.jinja2")
 
@@ -221,7 +226,6 @@ async def mcp_extract(
     for repair in (False, True):
         system_prompt = template.render(
             provider=provider,
-            include_children=include_children,
             repair=repair,
             **_mcp_template_scope_kwargs(provider, scope_context),
         )
@@ -243,6 +247,7 @@ async def mcp_health_check(
     provider_type_id: Optional[Any] = None,
     credentials: Optional[Dict[str, str]] = None,
     tool_metadata: Optional[Dict[str, Any]] = None,
+    project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Test MCP credentials via a minimal read-only agent auth ping.
 
@@ -258,7 +263,11 @@ async def mcp_health_check(
 
     if tool_id:
         client, provider, scope_context = _resolve_tool_client(
-            organization_id, user_id, tool_id, tool_metadata=tool_metadata
+            organization_id,
+            user_id,
+            tool_id,
+            tool_metadata=tool_metadata,
+            project_id=project_id,
         )
     elif provider_type_id is not None and credentials is not None:
         client, provider, scope_context = _resolve_params_client(
@@ -267,6 +276,7 @@ async def mcp_health_check(
             provider_type_id,
             credentials,
             tool_metadata=tool_metadata,
+            project_id=project_id,
         )
     else:
         raise ToolConfigurationError(
