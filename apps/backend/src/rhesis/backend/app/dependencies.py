@@ -96,16 +96,6 @@ def get_project_context(
     explicit_project_id = x_project_id or request.headers.get("X-Project-Id")
     token_project_id = getattr(request.state, "api_token_project_id", None)
 
-    # If the token is project-scoped, an explicit project_id must match
-    if explicit_project_id and token_project_id and explicit_project_id != token_project_id:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                f"Project-scoped token is bound to project {token_project_id}; "
-                f"cannot override with {explicit_project_id}"
-            ),
-        )
-
     # 2. Fall back to the project bound to the API token
     project_id_str = explicit_project_id or token_project_id
 

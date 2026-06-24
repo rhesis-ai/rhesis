@@ -28,16 +28,29 @@ client = RhesisClient(
 |-----------|----------|-------------|
 | `api_key` | No | API key for authentication. Falls back to `RHESIS_API_KEY` env var. |
 | `base_url` | No | API base URL. Falls back to `RHESIS_BASE_URL` env var. Default: `https://api.rhesis.ai` |
-| `project_id` | No | Project ID for endpoint registration and tracing. Falls back to `RHESIS_PROJECT_ID` env var. |
+| `project_id` | No | Project ID for endpoint registration and tracing. Falls back to `RHESIS_PROJECT_ID` env var, then to the project bound to the API token. |
 | `environment` | No | Environment name. Falls back to `RHESIS_ENVIRONMENT` env var. Default: `development` |
+
+## Project ID Resolution
+
+The client resolves `project_id` in the following order:
+
+1. **Explicit parameter** passed to the constructor
+2. **`RHESIS_PROJECT_ID`** environment variable
+3. **Token introspection** - if the API token is scoped to a project, the client automatically resolves the project ID from the token
+
+If a project-scoped token is used and an explicit `project_id` is also provided, the values must match. A project-scoped token cannot be used to access a different project.
+
+Organization-scoped tokens (without a project boundary) require an explicit `project_id` via the constructor or environment variable.
 
 ## What It Does
 
 When you create a `RhesisClient`, it:
 
-1. **Initializes telemetry** - Sets up OpenTelemetry for tracing
-2. **Registers as default** - Becomes the default client for `@endpoint` and `@observe` decorators
-3. **Lazy-loads connector** - WebSocket connector is initialized only when `@endpoint` is used
+1. **Resolves project scope** - Determines the project from explicit config or token introspection
+2. **Initializes telemetry** - Sets up OpenTelemetry for tracing
+3. **Registers as default** - Becomes the default client for `@endpoint` and `@observe` decorators
+4. **Lazy-loads connector** - WebSocket connector is initialized only when `@endpoint` is used
 
 <Callout type="warning">
   The `RhesisClient` must be initialized before using `@observe` or `@endpoint` decorators. Without it, a `RuntimeError` is raised.
