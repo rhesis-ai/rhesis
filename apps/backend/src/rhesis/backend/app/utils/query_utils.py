@@ -297,11 +297,18 @@ class QueryBuilder:
         visibility marks them as private (``'user'`` for TestSet,
         ``'private'`` for Experiment) are visible only to their owner.
         Models without these columns are returned unfiltered.
+
+        Owner column priority: ``user_id`` > ``owner_user_id``.  Some
+        models (e.g. TestSet) also carry an ``owner_id`` column, but
+        ``user_id`` is the canonical field used by capability / ``:own``
+        checks and creation paths.  ``owner_id`` is intentionally
+        ignored here to stay aligned with the auth layer.
         """
         columns = inspect(self.model).columns.keys()
         if "visibility" not in columns:
             return self
 
+        # owner_id is intentionally not checked — see docstring.
         if "user_id" in columns:
             owner_col = self.model.user_id
         elif "owner_user_id" in columns:
