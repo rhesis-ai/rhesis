@@ -13,6 +13,7 @@ from rhesis.backend.app.auth.principal import AuthKind, resolve_principal_from_r
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
+    get_project_context,
     get_tenant_context,
     get_tenant_db_session,
 )
@@ -44,6 +45,7 @@ def create_token(
     data: dict = Body(...),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new API token.
@@ -89,6 +91,7 @@ def create_token(
         "user_id": user_id,
         "organization_id": organization_id,
         "scopes": requested_scopes,
+        "project_id": project_id,
     }
 
     token_create = TokenCreate(**token_data)
@@ -96,7 +99,6 @@ def create_token(
         db=db, token=token_create, organization_id=organization_id, user_id=user_id
     )
 
-    # Return the special response that includes the actual token value
     return TokenCreateResponse(
         id=created_token.id,
         access_token=created_token.token,
@@ -104,6 +106,7 @@ def create_token(
         token_type=created_token.token_type,
         expires_at=created_token.expires_at,
         name=created_token.name,
+        project_id=created_token.project_id,
     )
 
 

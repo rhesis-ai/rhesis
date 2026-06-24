@@ -117,9 +117,14 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                     headers["Authorization"] = auth_value
                 # Forward project scope so project-isolated resources
                 # (endpoints, etc.) resolve under the correct RLS project.
-                # Without this, app.current_project is empty and any write
-                # carrying a project_id violates the project_isolation policy.
-                project_value = request.headers.get("x-project-id", "")
+                # Prefer the explicit header; fall back to the project_id
+                # bound to the API token (set by the auth layer on
+                # request.state).  Without this, MCP clients that
+                # authenticate with a project-scoped token (e.g. Cursor)
+                # would see no project filtering on list endpoints.
+                project_value = request.headers.get("x-project-id", "") or getattr(
+                    request.state, "api_token_project_id", ""
+                )
                 if project_value:
                     headers["X-Project-Id"] = project_value
         except LookupError:
