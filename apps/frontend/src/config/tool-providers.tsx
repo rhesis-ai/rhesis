@@ -27,7 +27,7 @@ export const EXTRACT_PROVIDERS = [
 ];
 
 const TOOL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  azure_devops: 'Azure Devops',
+  azure_devops: 'Azure DevOps',
 };
 
 export function formatToolProviderDisplayName(typeValue: string): string {

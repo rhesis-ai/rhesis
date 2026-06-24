@@ -1,7 +1,10 @@
 import pytest
 from fastapi import HTTPException
 
-from rhesis.backend.app.routers.tools import _validate_mcp_test_connection_request
+from rhesis.backend.app.routers.tools import (
+    _ensure_mcp_saved_credential_override,
+    _validate_mcp_test_connection_request,
+)
 
 
 def test_mcp_test_connection_validates_asana_credentials():
@@ -60,3 +63,16 @@ def test_mcp_test_connection_skips_when_credentials_omitted():
     _validate_mcp_test_connection_request("asana", None, None)
     _validate_mcp_test_connection_request("shortcut", None, None)
     _validate_mcp_test_connection_request("azure_devops", None, None)
+
+
+def test_saved_credential_override_rejects_rest_providers():
+    with pytest.raises(HTTPException) as exc_info:
+        _ensure_mcp_saved_credential_override("github")
+
+    assert exc_info.value.status_code == 400
+    assert "MCP providers" in exc_info.value.detail
+
+
+def test_saved_credential_override_allows_mcp_providers():
+    _ensure_mcp_saved_credential_override("azure_devops")
+    _ensure_mcp_saved_credential_override("gitlab")
