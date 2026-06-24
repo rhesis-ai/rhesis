@@ -1,14 +1,11 @@
+'use client';
+
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-
-/** Figma Alert filled success surface (nodes 1299:16004, 1435:45891). */
-const FILLED_SUCCESS_BG = '#38ad87';
-
-/** Figma-aligned filled error surface used across status UI. */
-const FILLED_ERROR_BG = '#de3355';
 
 export type FilledStatusAlertSeverity = 'success' | 'error';
 
@@ -20,14 +17,16 @@ export interface FilledStatusAlertProps {
 
 /**
  * Figma-aligned filled status banner (Alert / Type=Filled / State=Success).
- * Green (#38ad87) or red background with white icon and text.
+ * Uses theme success/error palette with white icon and text.
  */
 export function FilledStatusAlert({
   severity,
   title,
   description,
 }: FilledStatusAlertProps) {
+  const theme = useTheme();
   const isSuccess = severity === 'success';
+  const palette = isSuccess ? theme.palette.success : theme.palette.error;
   const Icon = isSuccess ? CheckCircleOutlineIcon : ErrorOutlineIcon;
 
   return (
@@ -40,8 +39,8 @@ export function FilledStatusAlert({
         px: '30px',
         py: '12px',
         borderRadius: BORDER_RADIUS.xs,
-        bgcolor: isSuccess ? FILLED_SUCCESS_BG : FILLED_ERROR_BG,
-        color: '#ffffff',
+        bgcolor: palette.main,
+        color: palette.contrastText,
       }}
     >
       <Box

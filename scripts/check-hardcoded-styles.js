@@ -24,9 +24,9 @@ const THEME_VALUES = {
       secondary: ['#FD6E12', '#FDD803', '#1A1A1A'],
       background: ['#FFFFFF', '#F2F9FD', '#E4F2FA', '#C2E5F5', '#33A6CB'],
       text: ['#3D3D3D', '#1A1A1A'],
-      success: ['#2E7D32'],
+      success: ['#38ad87'],
       warning: ['#F57C00'],
-      error: ['#C62828'],
+      error: ['#de3355'],
       // GREYSCALE tokens — use GREYSCALE.light.* constants, not raw hex
       greyscale: ['#1a1c20', '#2a2e36', '#545a65', '#7f8a9b', '#cdd2da', '#f7f8f9', '#eef0f3'],
     },
