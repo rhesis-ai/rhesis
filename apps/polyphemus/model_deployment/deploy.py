@@ -44,7 +44,7 @@ def deploy_model_vllm(
         service_account: Service account email for deployment
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
-        guided_decoding_backend: Guided decoding backend
+        guided_decoding_backend: Structured outputs backend (auto, xgrammar, outlines)
 
     Returns:
         Tuple of (Model, Endpoint) objects
@@ -205,7 +205,7 @@ def deploy_models(
             rolling replacement (deploy new model, undeploy old)
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
-        guided_decoding_backend: Guided decoding backend
+        guided_decoding_backend: Structured outputs backend (auto, xgrammar, outlines)
     """
     # Validate configuration
     validate_config()
@@ -338,8 +338,8 @@ def main():
         "--guided-decoding-backend",
         type=str,
         default="auto",
-        choices=["auto", "outlines", "lm-format-enforcer"],
-        help="Guided decoding backend (default: auto)",
+        choices=["auto", "xgrammar", "outlines"],
+        help="Structured outputs backend (default: auto)",
     )
     parser.add_argument(
         "--vllm-logging-level",

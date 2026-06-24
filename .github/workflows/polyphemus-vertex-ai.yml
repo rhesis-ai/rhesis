@@ -35,14 +35,14 @@ on:
         default: false
         type: boolean
       guided_decoding_backend:
-        description: 'Guided decoding backend'
+        description: 'Structured outputs backend'
         required: false
         default: 'auto'
         type: choice
         options:
           - auto
+          - xgrammar
           - outlines
-          #- lm-format-enforcer
       vllm_logging_level:
         description: >
           vLLM log level inside the Vertex serving container (e.g. INFO).
@@ -191,12 +191,12 @@ jobs:
           if [ "${{ github.event.inputs.enforce_eager }}" = "true" ]; then
             ARGS="$ARGS --enforce-eager"
           fi
-          
+
           # Handle guided_decoding_backend
           if [ -n "${{ github.event.inputs.guided_decoding_backend }}" ]; then
             ARGS="$ARGS --guided-decoding-backend=${{ github.event.inputs.guided_decoding_backend }}"
           fi
-          
+
           echo "DEPLOY_ARGS=$ARGS" >> $GITHUB_ENV
           echo "Deployment arguments: $ARGS"
 
