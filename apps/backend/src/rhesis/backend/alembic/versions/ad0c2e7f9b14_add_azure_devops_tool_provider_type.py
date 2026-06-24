@@ -1,7 +1,7 @@
 """Add Azure DevOps ToolProviderType
 
 Revision ID: ad0c2e7f9b14
-Revises: a033c0a601a3
+Revises: a0b1c2d3e4f5
 Create Date: 2026-06-19
 
 """
@@ -16,7 +16,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "ad0c2e7f9b14"
-down_revision: Union[str, None] = "a033c0a601a3"
+down_revision: Union[str, None] = "a0b1c2d3e4f5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
