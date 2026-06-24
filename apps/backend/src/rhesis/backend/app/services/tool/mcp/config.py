@@ -39,6 +39,16 @@ def _scope_context_from_metadata(
             )
         return {"workspace_gid": workspace_gid.strip()}
 
+    if provider == "azure_devops":
+        if "project" not in tool_metadata:
+            return None
+        project = tool_metadata["project"]
+        if not isinstance(project, str) or not project.strip():
+            raise ToolConfigurationError(
+                "Azure DevOps tool has invalid project metadata; must be a non-empty string"
+            )
+        return {"project": project.strip()}
+
     return None
 
 

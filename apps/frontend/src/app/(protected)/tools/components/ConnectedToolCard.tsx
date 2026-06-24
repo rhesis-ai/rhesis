@@ -3,7 +3,10 @@ import { useTheme } from '@mui/material/styles';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 import { Tool } from '@/utils/api-client/interfaces/tool';
-import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
+import {
+  TOOL_PROVIDER_ICONS,
+  formatToolProviderDisplayName,
+} from '@/config/tool-providers';
 
 interface ConnectedToolCardProps {
   tool: Tool;
@@ -28,9 +31,7 @@ export function ConnectedToolCard({
     const providerChips: { key: string; label: string }[] = [
       {
         key: 'provider',
-        label:
-          providerName.charAt(0).toUpperCase() +
-          providerName.slice(1).toLowerCase(),
+        label: formatToolProviderDisplayName(providerName),
       },
     ];
 

@@ -31,6 +31,8 @@ jest.mock('@/components/common/NotificationContext', () => ({
 
 jest.mock('@/config/tool-providers', () => ({
   TOOL_PROVIDER_ICONS: {},
+  formatToolProviderDisplayName: (typeValue: string) =>
+    typeValue.charAt(0).toUpperCase() + typeValue.slice(1),
 }));
 
 // Mock BaseDrawer so we can assert on title, save button state, and close.
