@@ -12,6 +12,7 @@ Future targets may include:
 - Custom targets: User-defined
 """
 
+from rhesis.penelope.targets.autogen import AutoGenTarget
 from rhesis.penelope.targets.endpoint import EndpointTarget
 from rhesis.penelope.targets.langchain import LangChainTarget
 from rhesis.penelope.targets.langgraph import LangGraphTarget
@@ -21,6 +22,7 @@ __all__ = [
     "Target",
     "TargetResponse",
     "EndpointTarget",
+    "AutoGenTarget",
     "LangChainTarget",
     "LangGraphTarget",
 ]
