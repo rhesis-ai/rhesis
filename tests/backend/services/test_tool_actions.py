@@ -83,6 +83,32 @@ class TestParsing:
 _OPS = "rhesis.backend.app.services.tool.mcp.operations"
 
 
+class TestResolveToolClient:
+    def test_passes_project_id_to_tenant_session(self):
+        from unittest.mock import Mock
+
+        from rhesis.backend.app.services.tool.mcp.operations import _resolve_tool_client
+
+        with (
+            patch(f"{_OPS}.get_db_with_tenant_variables") as gdb,
+            patch(f"{_OPS}._get_mcp_tool_config", return_value=(object(), "gitlab", None)),
+        ):
+            gdb.return_value.__enter__ = Mock(return_value=Mock())
+            gdb.return_value.__exit__ = Mock(return_value=False)
+            _resolve_tool_client(
+                "org",
+                "user",
+                "tool-id",
+                project_id="b7302a7a-1290-4a9e-9d9a-4bb8cc044057",
+            )
+
+        gdb.assert_called_once_with(
+            "org",
+            "user",
+            "b7302a7a-1290-4a9e-9d9a-4bb8cc044057",
+        )
+
+
 @pytest.mark.asyncio
 class TestMcpExtract:
     _ARGS = dict(
