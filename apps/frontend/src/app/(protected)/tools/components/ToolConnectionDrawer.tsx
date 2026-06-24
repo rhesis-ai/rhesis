@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -13,13 +13,12 @@ import {
   MenuItem,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { FilledStatusAlert } from '@/components/common/FilledStatusAlert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -29,9 +28,25 @@ import {
   ToolUpdate,
 } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
-import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
+import {
+  TOOL_PROVIDER_ICONS,
+  formatToolProviderDisplayName,
+} from '@/config/tool-providers';
 import { getErrorMessage } from '@/utils/entity-error-handler';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+
+/** Resolve the provider TypeLookup for a tool in edit mode. */
+function resolveToolProvider(
+  tool: Tool | null | undefined,
+  providers: TypeLookup[]
+): TypeLookup | null {
+  const embedded = tool?.tool_provider_type;
+  if (!embedded) return null;
+  return (
+    providers.find(p => p.id === embedded.id) ??
+    providers.find(p => p.type_value === embedded.type_value) ??
+    embedded
+  );
+}
 
 /**
  * Get the credential key name for a given provider
@@ -182,156 +197,182 @@ export function ToolConnectionDrawer({
 
   const theme = useTheme();
   const isEditMode = mode === 'edit';
-  const provider = providerProp ?? selectedProvider;
+  const sortedProviders = useMemo(
+    () =>
+      [...providers].sort((a, b) =>
+        a.type_value.localeCompare(b.type_value, undefined, {
+          sensitivity: 'base',
+        })
+      ),
+    [providers]
+  );
+
+  const provider = useMemo(() => {
+    if (providerProp) return providerProp;
+    if (isEditMode && tool) {
+      return resolveToolProvider(tool, providers) ?? selectedProvider;
+    }
+    return selectedProvider;
+  }, [providerProp, isEditMode, tool, providers, selectedProvider]);
 
   // Check if provider requires authentication token
-  const providerType =
-    provider?.type_value || tool?.tool_provider_type?.type_value;
+  const providerType = provider?.type_value;
   const requiresToken = true; // All providers now require tokens
 
-  useEffect(() => {
-    if (open && !isEditMode) {
-      setSelectedProvider(providerProp ?? providers[0] ?? null);
-    }
-  }, [open, isEditMode, providerProp, providers]);
+  const providerIdsKey = useMemo(
+    () =>
+      providers
+        .map(p => p.id)
+        .sort()
+        .join(','),
+    [providers]
+  );
 
-  // Reset form when drawer opens
+  const toolProviderKey =
+    tool?.tool_provider_type?.id ?? tool?.tool_provider_type?.type_value ?? '';
+
+  // Drawer open/close and form reset — stable dependency array (no spreading).
   useEffect(() => {
-    if (open) {
-      if (providerProp) {
-        setSelectedProvider(providerProp);
+    if (!open) {
+      setSelectedProvider(providerProp ?? null);
+      return;
+    }
+
+    if (isEditMode && tool) {
+      const resolved = resolveToolProvider(tool, providers);
+      if (resolved) {
+        setSelectedProvider(resolved);
       }
 
-      const currentProviderType =
-        provider?.type_value || tool?.tool_provider_type?.type_value;
+      const currentProviderType = resolved?.type_value;
 
-      if (isEditMode && tool) {
-        // Edit mode: populate with existing tool data
-        setName(tool.name || '');
-        setDescription(tool.description || '');
-        setInitialName(tool.name || '');
-        setInitialDescription(tool.description || '');
-        setAuthToken('************');
+      setName(tool.name || '');
+      setDescription(tool.description || '');
+      setInitialName(tool.name || '');
+      setInitialDescription(tool.description || '');
+      setAuthToken('************');
 
-        // Extract repository URL from tool_metadata for GitHub
-        if (
-          currentProviderType === 'github' &&
-          tool.tool_metadata?.repository
-        ) {
-          const repo = tool.tool_metadata.repository;
-          if (repo.owner && repo.repo) {
-            const repoUrl = `https://github.com/${repo.owner}/${repo.repo}`;
-            setRepositoryUrl(repoUrl);
-            setInitialRepositoryUrl(repoUrl);
-          }
-        } else {
-          setRepositoryUrl('');
-          setInitialRepositoryUrl('');
+      if (currentProviderType === 'github' && tool.tool_metadata?.repository) {
+        const repo = tool.tool_metadata.repository;
+        if (repo.owner && repo.repo) {
+          const repoUrl = `https://github.com/${repo.owner}/${repo.repo}`;
+          setRepositoryUrl(repoUrl);
+          setInitialRepositoryUrl(repoUrl);
         }
-
-        const gitlabProject = tool.tool_metadata?.project;
-        if (
-          currentProviderType === 'gitlab' &&
-          typeof gitlabProject === 'object' &&
-          typeof gitlabProject?.namespace === 'string'
-        ) {
-          setProjectNamespace(gitlabProject.namespace);
-          setInitialProjectNamespace(gitlabProject.namespace);
-        } else {
-          setProjectNamespace('');
-          setInitialProjectNamespace('');
-        }
-        setGitlabApiUrl('');
-        setInitialGitlabApiUrl('');
-
-        const azureProjectMeta = tool.tool_metadata?.project;
-        if (
-          currentProviderType === 'azure_devops' &&
-          typeof azureProjectMeta === 'string'
-        ) {
-          setAzureProject(azureProjectMeta);
-          setInitialAzureProject(azureProjectMeta);
-        } else {
-          setAzureProject('');
-          setInitialAzureProject('');
-        }
-        // Org and email are stored in encrypted credentials; show placeholders in edit mode.
-        setAzureOrg(currentProviderType === 'azure_devops' ? '************' : '');
-        setAzureEmail(currentProviderType === 'azure_devops' ? '************' : '');
-
-        if (
-          currentProviderType === 'asana' &&
-          typeof tool.tool_metadata?.workspace_gid === 'string'
-        ) {
-          setWorkspaceGid(tool.tool_metadata.workspace_gid);
-          setInitialWorkspaceGid(tool.tool_metadata.workspace_gid);
-        } else {
-          setWorkspaceGid('');
-          setInitialWorkspaceGid('');
-        }
-
-        // Note: Jira/Confluence URL and username are stored in encrypted credentials
-        // We cannot display them in edit mode as they're encrypted
-        // Show placeholder to indicate existing values
-        setInstanceUrl('************');
-        setUsername('************');
-
-        // Extract space_key from tool_metadata if it exists (for Jira)
-        if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
-          setSelectedSpaceKey(tool.tool_metadata.space_key);
-          setInitialSpaceKey(tool.tool_metadata.space_key);
-        } else {
-          setSelectedSpaceKey('');
-          setInitialSpaceKey('');
-        }
-        setAvailableSpaces([]);
-        setShowSpaceSelector(false);
-
-        setError(null);
-        setShowAuthToken(false);
-        setLoading(false);
-        setTestResult(null);
-        setConnectionTested(false);
-        setCredentialsModified(false);
-        setScopeMetadataModified(false);
-      } else if (provider) {
-        // Create mode: reset to defaults
-        setName('');
-        setDescription('');
-        setAuthToken('');
+      } else {
         setRepositoryUrl('');
+        setInitialRepositoryUrl('');
+      }
+
+      if (
+        currentProviderType === 'gitlab' &&
+        typeof tool.tool_metadata?.project?.namespace === 'string'
+      ) {
+        setProjectNamespace(tool.tool_metadata.project.namespace);
+        setInitialProjectNamespace(tool.tool_metadata.project.namespace);
+      } else {
         setProjectNamespace('');
-        setGitlabApiUrl('');
-        setWorkspaceGid('');
-        setAzureOrg('');
-        setAzureEmail('');
+        setInitialProjectNamespace('');
+      }
+      setGitlabApiUrl('');
+      setInitialGitlabApiUrl('');
+
+      const azureProjectMeta = tool.tool_metadata?.project;
+      if (
+        currentProviderType === 'azure_devops' &&
+        typeof azureProjectMeta === 'string'
+      ) {
+        setAzureProject(azureProjectMeta);
+        setInitialAzureProject(azureProjectMeta);
+      } else {
         setAzureProject('');
         setInitialAzureProject('');
-        setInstanceUrl('');
-        // Pre-fill email with logged-in user's email for Jira/Confluence/Azure DevOps
-        const isAtlassian =
-          currentProviderType === 'jira' ||
-          currentProviderType === 'confluence';
-        const isAzureDevOps = currentProviderType === 'azure_devops';
-        setUsername(
-          isAtlassian && session?.user?.email ? session.user.email : ''
-        );
-        setAzureEmail(
-          isAzureDevOps && session?.user?.email ? session.user.email : ''
-        );
-        setSelectedSpaceKey('');
-        setAvailableSpaces([]);
-        setShowSpaceSelector(false);
-        setError(null);
-        setShowAuthToken(false);
-        setLoading(false);
-        setTestResult(null);
-        setConnectionTested(false);
-        setCredentialsModified(false);
-        setScopeMetadataModified(false);
       }
+      setAzureOrg(currentProviderType === 'azure_devops' ? '************' : '');
+      setAzureEmail(
+        currentProviderType === 'azure_devops' ? '************' : ''
+      );
+
+      if (
+        currentProviderType === 'asana' &&
+        typeof tool.tool_metadata?.workspace_gid === 'string'
+      ) {
+        setWorkspaceGid(tool.tool_metadata.workspace_gid);
+        setInitialWorkspaceGid(tool.tool_metadata.workspace_gid);
+      } else {
+        setWorkspaceGid('');
+        setInitialWorkspaceGid('');
+      }
+
+      setInstanceUrl('************');
+      setUsername('************');
+
+      if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
+        setSelectedSpaceKey(tool.tool_metadata.space_key);
+        setInitialSpaceKey(tool.tool_metadata.space_key);
+      } else {
+        setSelectedSpaceKey('');
+        setInitialSpaceKey('');
+      }
+      setAvailableSpaces([]);
+      setShowSpaceSelector(false);
+
+      setError(null);
+      setShowAuthToken(false);
+      setLoading(false);
+      setTestResult(null);
+      setConnectionTested(false);
+      setCredentialsModified(false);
+      setScopeMetadataModified(false);
+      return;
     }
-  }, [open, provider, tool, isEditMode, session?.user?.email]);
+
+    if (!isEditMode) {
+      setSelectedProvider(providerProp ?? null);
+
+      const currentProviderType = providerProp?.type_value;
+
+      setName('');
+      setDescription('');
+      setAuthToken('');
+      setRepositoryUrl('');
+      setProjectNamespace('');
+      setGitlabApiUrl('');
+      setWorkspaceGid('');
+      setAzureOrg('');
+      setAzureEmail('');
+      setAzureProject('');
+      setInitialAzureProject('');
+      setInstanceUrl('');
+      const isAtlassian =
+        currentProviderType === 'jira' || currentProviderType === 'confluence';
+      const isAzureDevOps = currentProviderType === 'azure_devops';
+      setUsername(
+        isAtlassian && session?.user?.email ? session.user.email : ''
+      );
+      setAzureEmail(
+        isAzureDevOps && session?.user?.email ? session.user.email : ''
+      );
+      setSelectedSpaceKey('');
+      setAvailableSpaces([]);
+      setShowSpaceSelector(false);
+      setError(null);
+      setShowAuthToken(false);
+      setLoading(false);
+      setTestResult(null);
+      setConnectionTested(false);
+      setCredentialsModified(false);
+      setScopeMetadataModified(false);
+    }
+  }, [
+    open,
+    isEditMode,
+    tool?.id,
+    toolProviderKey,
+    providerIdsKey,
+    providerProp,
+    session?.user?.email,
+  ]);
 
   // Reset connection test status when critical credential fields change
   // Note: name and description changes don't affect connection validity
@@ -374,7 +415,7 @@ export function ToolConnectionDrawer({
     }
   }, [
     authToken,
-    provider,
+    providerType,
     isEditMode,
     repositoryUrl,
     instanceUrl,
@@ -679,7 +720,11 @@ export function ToolConnectionDrawer({
         } else if (currentProviderType === 'gitlab') {
           credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
         } else if (currentProviderType === 'azure_devops') {
-          credentials = buildAzureDevOpsCredentials(azureOrg, azureEmail, authToken);
+          credentials = buildAzureDevOpsCredentials(
+            azureOrg,
+            azureEmail,
+            authToken
+          );
         } else {
           credentials = {
             [credentialKey]: authToken.trim(),
@@ -779,7 +824,11 @@ export function ToolConnectionDrawer({
         } else if (provider.type_value === 'gitlab') {
           credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
         } else if (provider.type_value === 'azure_devops') {
-          credentials = buildAzureDevOpsCredentials(azureOrg, azureEmail, authToken);
+          credentials = buildAzureDevOpsCredentials(
+            azureOrg,
+            azureEmail,
+            authToken
+          );
         }
         // Handle other providers
         else {
@@ -787,7 +836,6 @@ export function ToolConnectionDrawer({
             [credentialKey]: authToken.trim(),
           };
         }
-
         if (provider.type_value === 'azure_devops' && azureProject.trim()) {
           parsedMetadata = {
             ...(parsedMetadata || {}),
@@ -1132,7 +1180,11 @@ export function ToolConnectionDrawer({
           } else if (provider.type_value === 'gitlab') {
             credentials = buildGitLabCredentials(authToken, gitlabApiUrl);
           } else if (provider.type_value === 'azure_devops') {
-            credentials = buildAzureDevOpsCredentials(azureOrg, azureEmail, authToken);
+            credentials = buildAzureDevOpsCredentials(
+              azureOrg,
+              azureEmail,
+              authToken
+            );
           }
           // Handle other providers
           else {
@@ -1242,7 +1294,7 @@ export function ToolConnectionDrawer({
   );
 
   const displayName = provider?.type_value
-    ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
+    ? formatToolProviderDisplayName(provider.type_value)
     : 'Tool Provider';
 
   const basicFieldsChanged =
@@ -1254,6 +1306,14 @@ export function ToolConnectionDrawer({
       workspaceGid !== initialWorkspaceGid ||
       azureProject !== initialAzureProject ||
       selectedSpaceKey !== initialSpaceKey);
+
+  const drawerTitle = isEditMode
+    ? `Update ${displayName}`
+    : provider
+      ? `Connect ${displayName}`
+      : 'Add tool connection';
+
+  const showConnectionForm = isEditMode || Boolean(provider);
 
   const saveDisabled =
     (!provider && !tool?.tool_provider_type) ||
@@ -1293,7 +1353,7 @@ export function ToolConnectionDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      title={isEditMode ? `Update ${displayName}` : `Connect ${displayName}`}
+      title={drawerTitle}
       onSave={() => void handleSubmit()}
       saveDisabled={saveDisabled}
       saveButtonText={isEditMode ? 'Update' : 'Connect'}
@@ -1304,401 +1364,385 @@ export function ToolConnectionDrawer({
       <Stack spacing={2}>
         {!isEditMode && providers.length > 0 && (
           <FormControl fullWidth>
-            <InputLabel id="tool-provider-label">Provider</InputLabel>
+            <InputLabel id="tool-provider-label" shrink>
+              Provider
+            </InputLabel>
             <Select
               labelId="tool-provider-label"
               value={provider?.id ?? ''}
               label="Provider"
+              displayEmpty
+              notched
+              renderValue={selected => {
+                if (!selected) {
+                  return (
+                    <Typography
+                      component="span"
+                      sx={{ color: theme => theme.palette.greyscale.subtitle }}
+                    >
+                      Select a provider
+                    </Typography>
+                  );
+                }
+                const match = sortedProviders.find(p => p.id === selected);
+                return match
+                  ? formatToolProviderDisplayName(match.type_value)
+                  : '';
+              }}
               onChange={e => {
-                const next = providers.find(p => p.id === e.target.value);
+                const next = sortedProviders.find(p => p.id === e.target.value);
                 setSelectedProvider(next ?? null);
                 setConnectionTested(false);
                 setTestResult(null);
                 setError(null);
               }}
             >
-              {providers.map(p => (
+              <MenuItem value="" disabled>
+                <em>Select a provider</em>
+              </MenuItem>
+              {sortedProviders.map(p => (
                 <MenuItem key={p.id} value={p.id}>
-                  {p.type_value.charAt(0).toUpperCase() + p.type_value.slice(1)}
+                  {formatToolProviderDisplayName(p.type_value)}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
         )}
 
-        <Stack spacing={3}>
-          <TextField
-            label="Connection Name"
-            fullWidth
-            variant="outlined"
-            required
-            value={name}
-            onChange={e => setName(e.target.value)}
-          />
-          <TextField
-            label="Description"
-            fullWidth
-            multiline
-            rows={2}
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-          />
-        </Stack>
-
-        {/* Authentication */}
-        {requiresToken && (
-          <Stack spacing={3}>
-            <Typography sx={sectionHeadingSx}>Authentication</Typography>
-
-            {(providerType === 'jira' || providerType === 'confluence') && (
-              <>
-                <TextField
-                  label="Atlassian Organization URL"
-                  fullWidth
-                  required={!isEditMode}
-                  value={instanceUrl}
-                  onChange={e => setInstanceUrl(e.target.value)}
-                  onFocus={_e => {
-                    if (isEditMode && instanceUrl === '************') {
-                      setInstanceUrl('');
-                    }
-                  }}
-                  onBlur={e => {
-                    if (isEditMode && !e.target.value) {
-                      setInstanceUrl('************');
-                    }
-                  }}
-                  placeholder={
-                    providerType === 'jira'
-                      ? 'https://your-domain.atlassian.net'
-                      : 'https://your-domain.atlassian.net/wiki'
-                  }
-                />
-                <TextField
-                  label="Email"
-                  fullWidth
-                  required={!isEditMode}
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  onFocus={_e => {
-                    if (isEditMode && username === '************') {
-                      setUsername('');
-                    }
-                  }}
-                  onBlur={e => {
-                    if (isEditMode && !e.target.value) {
-                      setUsername('************');
-                    }
-                  }}
-                  placeholder="your-email@example.com"
-                />
-              </>
-            )}
-
-            {providerType === 'azure_devops' && (
-              <>
-                <TextField
-                  label="Organization name"
-                  fullWidth
-                  required={!isEditMode}
-                  value={azureOrg}
-                  onChange={e => setAzureOrg(e.target.value)}
-                  onFocus={_e => {
-                    if (isEditMode && azureOrg === '************') {
-                      setAzureOrg('');
-                    }
-                  }}
-                  onBlur={e => {
-                    if (isEditMode && !e.target.value) {
-                      setAzureOrg('************');
-                    }
-                  }}
-                  placeholder="contoso"
-                  helperText="Azure DevOps organization name (not the full URL)"
-                />
-                <TextField
-                  label="Email"
-                  fullWidth
-                  required={!isEditMode}
-                  value={azureEmail}
-                  onChange={e => setAzureEmail(e.target.value)}
-                  onFocus={_e => {
-                    if (isEditMode && azureEmail === '************') {
-                      setAzureEmail('');
-                    }
-                  }}
-                  onBlur={e => {
-                    if (isEditMode && !e.target.value) {
-                      setAzureEmail('************');
-                    }
-                  }}
-                  placeholder="your-email@example.com"
-                  helperText="Email paired with your PAT for Azure DevOps authentication"
-                />
-              </>
-            )}
-
-            <TextField
-              label={
-                providerType === 'jira' || providerType === 'confluence'
-                  ? 'API Token'
-                  : providerType === 'azure_devops'
-                    ? 'Personal Access Token'
-                    : 'Authentication token'
-              }
-              fullWidth
-              required={!isEditMode}
-              type={showAuthToken ? 'text' : 'password'}
-              value={authToken}
-              onChange={e => setAuthToken(e.target.value)}
-              onFocus={_e => {
-                if (isEditMode && authToken === '************') {
-                  setAuthToken('');
-                }
-              }}
-              onBlur={e => {
-                if (isEditMode && !e.target.value) {
-                  setAuthToken('************');
-                }
-              }}
-              helperText={
-                isEditMode
-                  ? authToken !== '************' && authToken !== ''
-                    ? 'New API token will replace the current one'
-                    : 'Click to update the API token'
-                  : undefined
-              }
-              InputProps={{
-                endAdornment:
-                  authToken && authToken !== '************' ? (
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowAuthToken(!showAuthToken)}
-                      edge="end"
-                      aria-label={
-                        showAuthToken ? 'Hide auth token' : 'Show auth token'
-                      }
-                    >
-                      {showAuthToken ? (
-                        <VisibilityOffIcon fontSize="small" />
-                      ) : (
-                        <VisibilityIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  ) : null,
-              }}
-            />
-
-            {providerType === 'github' && (
-              <TextField
-                label="Repository URL"
-                fullWidth
-                required
-                value={repositoryUrl}
-                onChange={e => setRepositoryUrl(e.target.value)}
-                placeholder="https://github.com/owner/repo"
-                helperText="Specify the GitHub repository for this connection"
-              />
-            )}
-
-            {providerType === 'gitlab' && (
-              <>
-                <TextField
-                  label="Project namespace"
-                  fullWidth
-                  required
-                  value={projectNamespace}
-                  onChange={e => setProjectNamespace(e.target.value)}
-                  placeholder="my-group/my-project"
-                  helperText="GitLab project path (group/project) or full project URL on any host"
-                />
-                <TextField
-                  label="GitLab API URL (optional)"
-                  fullWidth
-                  value={gitlabApiUrl}
-                  onChange={e => setGitlabApiUrl(e.target.value)}
-                  placeholder="https://gitlab.example.com"
-                  helperText="Leave blank for gitlab.com; use for self-managed instances"
-                />
-              </>
-            )}
-
-            {providerType === 'asana' && (
-              <TextField
-                label="Workspace GID (optional)"
-                fullWidth
-                value={workspaceGid}
-                onChange={e => setWorkspaceGid(e.target.value)}
-                placeholder="1234567890"
-                helperText="Optional Asana workspace scope for search and import"
-              />
-            )}
-
-            {providerType === 'azure_devops' && (
-              <TextField
-                label="Project"
-                fullWidth
-                required
-                value={azureProject}
-                onChange={e => setAzureProject(e.target.value)}
-                placeholder="MyProject"
-                helperText="Azure DevOps project to scope work item search and import"
-              />
-            )}
-
-            <Box>
-              <Button
-                variant="outlined"
-                size="medium"
-                onClick={handleTestConnection}
-                disabled={Boolean(
-                  testingConnection ||
-                  loading ||
-                  !authToken ||
-                  (providerType === 'github' && !repositoryUrl.trim()) ||
-                  (providerType === 'gitlab' && !projectNamespace.trim()) ||
-                  (providerType === 'azure_devops' && !azureProject.trim()) ||
-                  (!isEditMode &&
-                    providerType === 'azure_devops' &&
-                    (!azureOrg.trim() || !azureEmail.trim())) ||
-                  (!isEditMode &&
-                    (providerType === 'jira' ||
-                      providerType === 'confluence') &&
-                    (!instanceUrl || !username)) ||
-                  (isEditMode &&
-                    (providerType === 'jira' ||
-                      providerType === 'confluence') &&
-                    (instanceUrl ||
-                      username ||
-                      (authToken && authToken !== '************')) &&
-                    (!instanceUrl || !username))
-                )}
-                sx={{ minWidth: 150 }}
-              >
-                {testingConnection ? 'Testing...' : 'Test Connection'}
-              </Button>
-              {testResult && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    borderRadius: BORDER_RADIUS.xs,
-                    px: '30px',
-                    py: '12px',
-                    mt: 2,
-                    ...(testResult.is_authenticated === 'Yes'
-                      ? {
-                          backgroundColor: alpha(
-                            theme.palette.primary.main,
-                            0.12
-                          ),
-                          color: theme.palette.primary.main,
-                        }
-                      : {
-                          backgroundColor: alpha(
-                            theme.palette.error.main,
-                            0.12
-                          ),
-                          color: theme.palette.error.main,
-                        }),
-                  }}
-                >
-                  <Box
-                    sx={{
-                      flexShrink: 0,
-                      pr: '12px',
-                      pt: '7px',
-                      pb: '7px',
-                      display: 'flex',
-                    }}
-                  >
-                    {testResult.is_authenticated === 'Yes' ? (
-                      <CheckCircleIcon
-                        sx={{ fontSize: 22, color: 'inherit' }}
-                      />
-                    ) : (
-                      <ErrorIcon sx={{ fontSize: 22, color: 'inherit' }} />
-                    )}
-                  </Box>
-                  <Box
-                    sx={{
-                      flex: 1,
-                      py: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 700,
-                        lineHeight: '25px',
-                        color: 'inherit',
-                      }}
-                    >
-                      {testResult.is_authenticated === 'Yes'
-                        ? 'Connection Successful'
-                        : 'Connection Failed'}
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: 'inherit' }}>
-                      {testResult.message}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-            </Box>
-          </Stack>
-        )}
-
-        {/* Jira Space Selection */}
-        {showSpaceSelector &&
-          availableSpaces.length > 0 &&
-          providerType === 'jira' && (
+        {showConnectionForm && (
+          <>
             <Stack spacing={3}>
-              <Box>
-                <Typography sx={sectionHeadingSx}>Space Selection</Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, display: 'block' }}
-                >
-                  Select the Jira space for issue creation
-                </Typography>
-              </Box>
-              <FormControl fullWidth required>
-                <InputLabel>Jira Space</InputLabel>
-                <Select
-                  value={selectedSpaceKey}
-                  onChange={e => setSelectedSpaceKey(e.target.value)}
-                  label="Jira Space"
-                  required
-                >
-                  {availableSpaces.map(space => (
-                    <MenuItem key={space.key} value={space.key}>
-                      {space.name} ({space.key})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                label="Connection Name"
+                fullWidth
+                variant="outlined"
+                required
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+              <TextField
+                label="Description"
+                fullWidth
+                multiline
+                rows={2}
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+              />
             </Stack>
-          )}
 
-        {!isEditMode && !connectionTested && !testResult && (
-          <Alert severity="info">
-            Please test the connection before saving the tool configuration.
-          </Alert>
+            {/* Authentication */}
+            {requiresToken && (
+              <Stack spacing={3}>
+                <Typography sx={sectionHeadingSx}>Authentication</Typography>
+
+                {(providerType === 'jira' || providerType === 'confluence') && (
+                  <>
+                    <TextField
+                      label="Atlassian Organization URL"
+                      fullWidth
+                      required={!isEditMode}
+                      value={instanceUrl}
+                      onChange={e => setInstanceUrl(e.target.value)}
+                      onFocus={_e => {
+                        if (isEditMode && instanceUrl === '************') {
+                          setInstanceUrl('');
+                        }
+                      }}
+                      onBlur={e => {
+                        if (isEditMode && !e.target.value) {
+                          setInstanceUrl('************');
+                        }
+                      }}
+                      placeholder={
+                        providerType === 'jira'
+                          ? 'https://your-domain.atlassian.net'
+                          : 'https://your-domain.atlassian.net/wiki'
+                      }
+                    />
+                    <TextField
+                      label="Email"
+                      fullWidth
+                      required={!isEditMode}
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      onFocus={_e => {
+                        if (isEditMode && username === '************') {
+                          setUsername('');
+                        }
+                      }}
+                      onBlur={e => {
+                        if (isEditMode && !e.target.value) {
+                          setUsername('************');
+                        }
+                      }}
+                      placeholder="your-email@example.com"
+                    />
+                  </>
+                )}
+
+                {providerType === 'azure_devops' && (
+                  <>
+                    <TextField
+                      label="Organization name"
+                      fullWidth
+                      required={!isEditMode}
+                      value={azureOrg}
+                      onChange={e => setAzureOrg(e.target.value)}
+                      onFocus={_e => {
+                        if (isEditMode && azureOrg === '************') {
+                          setAzureOrg('');
+                        }
+                      }}
+                      onBlur={e => {
+                        if (isEditMode && !e.target.value) {
+                          setAzureOrg('************');
+                        }
+                      }}
+                      placeholder="contoso"
+                      helperText="Azure DevOps organization name (not the full URL)"
+                    />
+                    <TextField
+                      label="Email"
+                      fullWidth
+                      required={!isEditMode}
+                      value={azureEmail}
+                      onChange={e => setAzureEmail(e.target.value)}
+                      onFocus={_e => {
+                        if (isEditMode && azureEmail === '************') {
+                          setAzureEmail('');
+                        }
+                      }}
+                      onBlur={e => {
+                        if (isEditMode && !e.target.value) {
+                          setAzureEmail('************');
+                        }
+                      }}
+                      placeholder="your-email@example.com"
+                      helperText="Email paired with your PAT for Azure DevOps authentication"
+                    />
+                  </>
+                )}
+
+                <TextField
+                  label={
+                    providerType === 'jira' || providerType === 'confluence'
+                      ? 'API Token'
+                      : providerType === 'azure_devops'
+                        ? 'Personal Access Token'
+                        : 'Authentication token'
+                  }
+                  fullWidth
+                  required={!isEditMode}
+                  type={showAuthToken ? 'text' : 'password'}
+                  value={authToken}
+                  onChange={e => setAuthToken(e.target.value)}
+                  onFocus={_e => {
+                    if (isEditMode && authToken === '************') {
+                      setAuthToken('');
+                    }
+                  }}
+                  onBlur={e => {
+                    if (isEditMode && !e.target.value) {
+                      setAuthToken('************');
+                    }
+                  }}
+                  helperText={
+                    isEditMode
+                      ? authToken !== '************' && authToken !== ''
+                        ? 'New API token will replace the current one'
+                        : 'Click to update the API token'
+                      : undefined
+                  }
+                  InputProps={{
+                    endAdornment:
+                      authToken && authToken !== '************' ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowAuthToken(!showAuthToken)}
+                          edge="end"
+                          aria-label={
+                            showAuthToken
+                              ? 'Hide auth token'
+                              : 'Show auth token'
+                          }
+                        >
+                          {showAuthToken ? (
+                            <VisibilityOffIcon fontSize="small" />
+                          ) : (
+                            <VisibilityIcon fontSize="small" />
+                          )}
+                        </IconButton>
+                      ) : null,
+                  }}
+                />
+
+                {providerType === 'github' && (
+                  <TextField
+                    label="Repository URL"
+                    fullWidth
+                    required
+                    value={repositoryUrl}
+                    onChange={e => setRepositoryUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    helperText="Specify the GitHub repository for this connection"
+                  />
+                )}
+
+                {providerType === 'gitlab' && (
+                  <>
+                    <TextField
+                      label="Project namespace"
+                      fullWidth
+                      required
+                      value={projectNamespace}
+                      onChange={e => setProjectNamespace(e.target.value)}
+                      placeholder="my-group/my-project"
+                      helperText="GitLab project path (group/project) or full project URL on any host"
+                    />
+                    <TextField
+                      label="GitLab API URL (optional)"
+                      fullWidth
+                      value={gitlabApiUrl}
+                      onChange={e => setGitlabApiUrl(e.target.value)}
+                      placeholder="https://gitlab.example.com"
+                      helperText="Leave blank for gitlab.com; use for self-managed instances"
+                    />
+                  </>
+                )}
+
+                {providerType === 'asana' && (
+                  <TextField
+                    label="Workspace GID (optional)"
+                    fullWidth
+                    value={workspaceGid}
+                    onChange={e => setWorkspaceGid(e.target.value)}
+                    placeholder="1234567890"
+                    helperText="Optional Asana workspace scope for search and import"
+                  />
+                )}
+
+                {providerType === 'azure_devops' && (
+                  <TextField
+                    label="Project"
+                    fullWidth
+                    required
+                    value={azureProject}
+                    onChange={e => setAzureProject(e.target.value)}
+                    placeholder="MyProject"
+                    helperText="Azure DevOps project to scope work item search and import"
+                  />
+                )}
+
+                <Box>
+                  <Button
+                    variant="outlined"
+                    size="medium"
+                    onClick={handleTestConnection}
+                    disabled={Boolean(
+                      testingConnection ||
+                      loading ||
+                      !authToken ||
+                      (providerType === 'github' && !repositoryUrl.trim()) ||
+                      (providerType === 'gitlab' && !projectNamespace.trim()) ||
+                      (providerType === 'azure_devops' &&
+                        !azureProject.trim()) ||
+                      (!isEditMode &&
+                        providerType === 'azure_devops' &&
+                        (!azureOrg.trim() || !azureEmail.trim())) ||
+                      (!isEditMode &&
+                        (providerType === 'jira' ||
+                          providerType === 'confluence') &&
+                        (!instanceUrl || !username)) ||
+                      (isEditMode &&
+                        (providerType === 'jira' ||
+                          providerType === 'confluence') &&
+                        (instanceUrl ||
+                          username ||
+                          (authToken && authToken !== '************')) &&
+                        (!instanceUrl || !username))
+                    )}
+                    sx={{ minWidth: 150 }}
+                  >
+                    {testingConnection ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                  {testResult && (
+                    <Box sx={{ mt: 2 }}>
+                      <FilledStatusAlert
+                        severity={
+                          testResult.is_authenticated === 'Yes'
+                            ? 'success'
+                            : 'error'
+                        }
+                        title={
+                          testResult.is_authenticated === 'Yes'
+                            ? 'Connection Successful'
+                            : 'Connection Failed'
+                        }
+                        description={testResult.message}
+                      />
+                    </Box>
+                  )}
+                </Box>
+              </Stack>
+            )}
+
+            {/* Jira Space Selection */}
+            {showSpaceSelector &&
+              availableSpaces.length > 0 &&
+              providerType === 'jira' && (
+                <Stack spacing={3}>
+                  <Box>
+                    <Typography sx={sectionHeadingSx}>
+                      Space Selection
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, display: 'block' }}
+                    >
+                      Select the Jira space for issue creation
+                    </Typography>
+                  </Box>
+                  <FormControl fullWidth required>
+                    <InputLabel>Jira Space</InputLabel>
+                    <Select
+                      value={selectedSpaceKey}
+                      onChange={e => setSelectedSpaceKey(e.target.value)}
+                      label="Jira Space"
+                      required
+                    >
+                      {availableSpaces.map(space => (
+                        <MenuItem key={space.key} value={space.key}>
+                          {space.name} ({space.key})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+              )}
+
+            {!isEditMode &&
+              showConnectionForm &&
+              !connectionTested &&
+              !testResult && (
+                <Alert severity="info">
+                  Please test the connection before saving the tool
+                  configuration.
+                </Alert>
+              )}
+            {isEditMode &&
+              showConnectionForm &&
+              (credentialsModified || scopeMetadataModified) &&
+              !connectionTested &&
+              !testResult && (
+                <Alert severity="info">
+                  {credentialsModified
+                    ? 'Please test the connection with the updated credentials before saving.'
+                    : 'Please test the connection with the updated scope before saving.'}
+                </Alert>
+              )}
+          </>
         )}
-        {isEditMode &&
-          (credentialsModified || scopeMetadataModified) &&
-          !connectionTested &&
-          !testResult && (
-            <Alert severity="info">
-              {credentialsModified
-                ? 'Please test the connection with the updated credentials before saving.'
-                : 'Please test the connection with the updated scope before saving.'}
-            </Alert>
-          )}
       </Stack>
     </BaseDrawer>
   );

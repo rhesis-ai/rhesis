@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ToolConnectionDrawer } from '../ToolConnectionDrawer';
 import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import type { Tool } from '@/utils/api-client/interfaces/tool';
 
 const mockTestToolConnection = jest.fn();
 
@@ -68,6 +69,12 @@ const notionProvider: TypeLookup = {
   id: 'pt-1' as TypeLookup['id'],
   type_name: 'ToolProviderType',
   type_value: 'notion',
+};
+
+const asanaProvider: TypeLookup = {
+  id: 'pt-asana' as TypeLookup['id'],
+  type_name: 'ToolProviderType',
+  type_value: 'asana',
 };
 
 function renderDrawer(props = {}) {
@@ -140,5 +147,81 @@ describe('ToolConnectionDrawer', () => {
       );
     });
     expect(await screen.findByText('Token is valid')).toBeInTheDocument();
+  });
+
+  it('does not pre-select a provider when adding a new tool', () => {
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[asanaProvider, notionProvider]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Add tool connection')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/connection name/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/provider/i)).toHaveTextContent(
+      /select a provider/i
+    );
+  });
+
+  it('shows provider-specific fields after choosing a provider', async () => {
+    const user = userEvent.setup();
+    render(
+      <ToolConnectionDrawer
+        open
+        providers={[asanaProvider, notionProvider]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+
+    await user.click(screen.getByLabelText(/provider/i));
+    await user.click(screen.getByRole('option', { name: /notion/i }));
+
+    expect(screen.getByText('Connect Notion')).toBeInTheDocument();
+    expect(screen.getByLabelText(/connection name/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the tool provider in edit mode instead of a stale create selection', () => {
+    const notionTool: Tool = {
+      id: 'tool-1' as Tool['id'],
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+      name: 'sgsr',
+      description: 'sgpjwgwpirgjwrgo',
+      tool_provider_type_id: notionProvider.id,
+      tool_provider_type: notionProvider,
+    };
+
+    const { rerender } = render(
+      <ToolConnectionDrawer
+        open
+        providers={[asanaProvider, notionProvider]}
+        mode="create"
+        onClose={jest.fn()}
+        onConnect={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Add tool connection')).toBeInTheDocument();
+
+    rerender(
+      <ToolConnectionDrawer
+        open
+        providers={[asanaProvider, notionProvider]}
+        tool={notionTool}
+        mode="edit"
+        onClose={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Update Notion')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/workspace gid/i)).not.toBeInTheDocument();
   });
 });

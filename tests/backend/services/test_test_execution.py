@@ -5,7 +5,7 @@ These tests verify the in-place test execution functionality that runs tests
 synchronously without worker infrastructure or database persistence.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -751,7 +751,7 @@ class TestExecutionHelpers:
                 user_id=authenticated_user_id,
                 evaluation_model="gpt-4",
                 evaluate_metrics=True,
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(timezone.utc),
             )
 
         # Verify result
@@ -818,7 +818,7 @@ class TestExecutionHelpers:
                 execution_model="gpt-4",
                 evaluation_model="gpt-4",
                 evaluate_metrics=True,
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(timezone.utc),
             )
 
         # Verify result

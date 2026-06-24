@@ -50,4 +50,10 @@ def prepare_azure_devops_credentials(credentials: dict[str, str]) -> dict[str, s
     org = prepared.get("AZURE_DEVOPS_ORG", "")
     if isinstance(org, str) and org.strip():
         prepared["AZURE_DEVOPS_ORG"] = normalize_azure_devops_org(org)
+    email = prepared.get("AZURE_DEVOPS_EMAIL", "")
+    if isinstance(email, str):
+        prepared["AZURE_DEVOPS_EMAIL"] = email.strip()
+    pat = prepared.get("AZURE_DEVOPS_PAT", "")
+    if isinstance(pat, str):
+        prepared["AZURE_DEVOPS_PAT"] = pat.strip()
     return prepared

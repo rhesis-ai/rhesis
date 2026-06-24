@@ -1,7 +1,7 @@
 """Validation logic for SDK endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
@@ -91,7 +91,7 @@ async def validate_and_update_status(
 
             endpoint.endpoint_metadata["validation_error"] = {
                 "error": error_msg,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "exception_type": type(validation_error).__name__,
                 "reason": "validation_exception",
             }
@@ -159,7 +159,7 @@ async def validate_and_update_status_async(
 
                 endpoint.endpoint_metadata["validation_error"] = {
                     "error": error_msg,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "reason": "missing_request_mapping",
                 }
                 endpoint.endpoint_metadata["last_error"] = error_msg
@@ -249,7 +249,7 @@ async def validate_and_update_status_async(
 
                 endpoint.endpoint_metadata["validation_error"] = {
                     "error": error_msg,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "test_input": validation_result.get("test_input"),
                     "test_output": validation_result.get("test_output"),
                 }
@@ -288,7 +288,7 @@ async def validate_and_update_status_async(
 
             endpoint.endpoint_metadata["validation_error"] = {
                 "error": error_msg,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "exception_type": type(validation_error).__name__,
                 "reason": "async_validation_exception",
             }

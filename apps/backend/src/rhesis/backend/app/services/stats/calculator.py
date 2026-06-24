@@ -1,6 +1,6 @@
 """Main statistics calculator class with improved maintainability."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from operator import itemgetter
 from typing import Any, Dict, List, Optional, Tuple, Type
 
@@ -203,7 +203,7 @@ class StatsCalculator:
         with timer(
             f"historical stats calculation for {entity_model.__name__}", self.config.enable_timing
         ):
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=30 * months)
 
             if self.config.enable_debug_logging:
@@ -325,7 +325,7 @@ class StatsCalculator:
                 stats={},
                 history={},
                 metadata={
-                    "generated_at": datetime.utcnow().isoformat(),
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
                     "organization_id": str(organization_id) if organization_id else None,
                     "entity_type": entity_model.__name__,
                 },
@@ -409,7 +409,7 @@ class StatsCalculator:
                 stats={},
                 history={},
                 metadata={
-                    "generated_at": datetime.utcnow().isoformat(),
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
                     "organization_id": str(organization_id) if organization_id else None,
                     "entity_type": related_model.__name__,
                     "source_entity_type": entity_model.__name__,
@@ -573,7 +573,7 @@ class StatsCalculator:
 
     def _empty_stats_result(self, result: StatsResult, months: int) -> Dict:
         """Create empty stats result with proper structure"""
-        end_date = datetime.utcnow()
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=30 * months)
 
         result.history = {

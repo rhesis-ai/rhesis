@@ -1,6 +1,6 @@
 """Tests for authentication manager functionality."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import pytest
@@ -33,7 +33,7 @@ class TestAuthenticationManager:
         manager = AuthenticationManager()
 
         # Set expired token
-        sample_endpoint_oauth.last_token_expires_at = datetime.utcnow() - timedelta(hours=1)
+        sample_endpoint_oauth.last_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
 
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -207,9 +207,9 @@ class TestAuthenticationManager:
 
         assert token == "fresh-token"
         assert sample_endpoint_oauth.last_token == "fresh-token"
-        assert sample_endpoint_oauth.last_token_expires_at > datetime.utcnow()
+        assert sample_endpoint_oauth.last_token_expires_at > datetime.now(timezone.utc)
         # Check expiry is approximately 1800 seconds in the future
         time_until_expiry = (
-            sample_endpoint_oauth.last_token_expires_at - datetime.utcnow()
+            sample_endpoint_oauth.last_token_expires_at - datetime.now(timezone.utc)
         ).total_seconds()
         assert 1790 < time_until_expiry < 1810

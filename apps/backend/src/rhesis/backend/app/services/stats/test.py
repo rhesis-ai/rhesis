@@ -1,6 +1,6 @@
 """Test statistics functions for comprehensive test entity analysis."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 
 from sqlalchemy.orm import Session, joinedload
@@ -229,7 +229,7 @@ def get_individual_test_stats(
 
     # Build metadata
     metadata = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "test_id": test_id,
         "organization_id": organization_id,
         "start_date": start_date_obj.isoformat() if start_date_obj else None,
@@ -256,7 +256,7 @@ def _empty_individual_test_stats(
 ) -> Dict:
     """Return empty stats structure when no test results found for individual test."""
     metadata = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "test_id": test_id,
         "organization_id": organization_id,
         "start_date": start_date_obj.isoformat() if start_date_obj else None,

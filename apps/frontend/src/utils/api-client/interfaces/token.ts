@@ -8,6 +8,7 @@ export interface Token {
   last_refreshed_at?: string;
   user_id: string;
   organization_id?: string;
+  project_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -18,4 +19,5 @@ export interface TokenResponse {
   token_type: string;
   expires_at: string;
   name?: string;
+  project_id?: string;
 }

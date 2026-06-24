@@ -21,6 +21,7 @@ import type { ExplorerTestSet } from '@/utils/api-client/interfaces/explorer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { formatDate } from '@/utils/date';
 
 interface ExplorerGridProps {
   sessionToken: string;
@@ -171,9 +172,7 @@ export default function ExplorerGrid({
       renderCell: params => {
         if (!params.value) return '-';
         return (
-          <Typography variant="body2">
-            {new Date(params.value).toLocaleDateString()}
-          </Typography>
+          <Typography variant="body2">{formatDate(params.value)}</Typography>
         );
       },
     },

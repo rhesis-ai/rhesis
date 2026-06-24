@@ -27,7 +27,7 @@ class User(Base):
     is_email_verified = Column(Boolean, default=False)  # Email verification for sign-up
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
-    last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
+    last_login_at = Column(DateTime(timezone=True), nullable=True)  # Track when user last logged in
 
     # Native authentication columns (provider-agnostic)
     provider_type = Column(

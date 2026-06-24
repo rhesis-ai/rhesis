@@ -38,7 +38,7 @@ When a user refers to any entity by name, look it up using the appropriate `list
 
 When a user mentions an endpoint or says "test my chatbot / test my AI":
 
-1. Resolve the endpoint by name using `list_endpoints` with `$select=name,id,url,description`.
+1. Resolve the endpoint by name using `list_endpoints` with `$select=name,id,url,description`. If the endpoint isn't registered yet, create it with `create_endpoint` — resolve the target project via `list_projects` first and pass its id as `project_id` (required). Then continue.
 2. Check connectivity via `check_endpoint` before doing anything else. If it fails, report the error before proceeding.
 3. Ask which exploration mode the user prefers before running:
    - **Quick** — domain probing only. Fast; good for familiar endpoints or when the user wants to start quickly.

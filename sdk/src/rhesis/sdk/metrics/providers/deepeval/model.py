@@ -1,5 +1,3 @@
-# Import DeepEvalBaseLLM for proper custom model implementation
-
 import logging
 from typing import Any, Optional, Union
 
@@ -18,45 +16,25 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
     def load_model(self, *args, **kwargs):  # type: ignore[override]
         return self._model.load_model(*args, **kwargs)
 
-    def _convert_to_schema(self, result: dict, schema: Any) -> Any:
-        """Convert dict result to Pydantic schema instance."""
-        # When schema is provided, model always returns a dict
+    def _convert_to_schema(self, result: Any, schema: Any) -> Any:
+        # Raise TypeError on failure so DeepEval's unstructured fallback triggers.
+        if isinstance(result, schema):
+            return result
         try:
-            schema_instance = schema(**result)
-            logger.debug(f"Instantiated {schema.__name__} with keys: {list(result.keys())}")
-            return schema_instance
-        except (TypeError, ValueError) as e:
-            logger.warning(f"Failed to instantiate {schema.__name__}: {e}")
-            return result  # Return dict as fallback
+            if isinstance(result, dict) and hasattr(schema, "model_validate"):
+                return schema.model_validate(result)
+            return schema(**result)
+        except Exception as e:
+            schema_name = getattr(schema, "__name__", str(schema))
+            logger.warning(f"Failed to convert to {schema_name}: {e}")
+            raise TypeError(f"Cannot convert to {schema_name}: {e}") from e
 
     def generate(self, prompt: str, schema: Optional[Any] = None, **kwargs) -> Union[str, Any]:
-        """
-        Generate response from the model with optional structured output.
-
-        Args:
-            prompt: The prompt to generate from
-            schema: Optional Pydantic schema for structured output
-            **kwargs: Additional generation parameters
-
-        Returns:
-            Generated response (str or schema instance if schema provided)
-        """
         return run_sync(self.a_generate(prompt=prompt, schema=schema, **kwargs))
 
     async def a_generate(
         self, prompt: str, schema: Optional[Any] = None, **kwargs
     ) -> Union[str, Any]:
-        """
-        Async generate response from the model with optional structured output.
-
-        Args:
-            prompt: The prompt to generate from
-            schema: Optional Pydantic schema for structured output
-            **kwargs: Additional generation parameters
-
-        Returns:
-            Generated response (str or schema instance if schema provided)
-        """
         result = await self._model.a_generate(prompt, schema=schema, **kwargs)
         return self._convert_to_schema(result, schema) if schema else result
 

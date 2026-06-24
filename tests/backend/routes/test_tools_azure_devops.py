@@ -116,6 +116,19 @@ def test_prepare_azure_devops_credentials_normalizes_org():
     assert prepared["AZURE_DEVOPS_ORG"] == "contoso"
 
 
+def test_prepare_azure_devops_credentials_strips_email_and_pat():
+    prepared = prepare_azure_devops_credentials(
+        {
+            "AZURE_DEVOPS_ORG": "contoso",
+            "AZURE_DEVOPS_EMAIL": "  user@example.com  ",
+            "AZURE_DEVOPS_PAT": "  token  ",
+        }
+    )
+
+    assert prepared["AZURE_DEVOPS_EMAIL"] == "user@example.com"
+    assert prepared["AZURE_DEVOPS_PAT"] == "token"
+
+
 def test_validate_azure_devops_project_requires_metadata():
     with pytest.raises(HTTPException) as exc_info:
         _validate_azure_devops_project(None)

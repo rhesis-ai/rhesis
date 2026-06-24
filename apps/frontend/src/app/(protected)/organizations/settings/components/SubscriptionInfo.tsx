@@ -9,6 +9,7 @@ import {
   Event as EventIcon,
 } from '@mui/icons-material';
 import { Organization } from '@/utils/api-client/interfaces/organization';
+import { formatDate } from '@/utils/date';
 
 interface SubscriptionInfoProps {
   organization: Organization;
@@ -17,19 +18,6 @@ interface SubscriptionInfoProps {
 export default function SubscriptionInfo({
   organization,
 }: SubscriptionInfoProps) {
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'Not set';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return 'Invalid date';
-    }
-  };
-
   const isExpired = organization.subscription_ends_at
     ? new Date(organization.subscription_ends_at) < new Date()
     : false;

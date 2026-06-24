@@ -439,8 +439,9 @@ export class BaseApiClient {
       }
     });
 
-    const path =
+    const rawPath =
       API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const path = rawPath.endsWith('/') ? rawPath : `${rawPath}/`;
     const queryString = queryParams.toString();
     const url = joinUrl(
       this.baseUrl,

@@ -311,7 +311,8 @@ class ExtractToolRequest(BaseModel):
     """Request to extract content from a tool item.
 
     Either 'id' or 'url' (or both) must be provided.
-    Set include_children=True to recursively extract child pages/files.
+    Set include_children=True to recursively extract child pages/files
+    (REST providers only — ignored for MCP-backed tools).
     """
 
     id: Optional[str] = None

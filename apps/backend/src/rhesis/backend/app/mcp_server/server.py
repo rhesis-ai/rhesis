@@ -115,6 +115,18 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                 auth_value = request.headers.get("authorization", "")
                 if auth_value:
                     headers["Authorization"] = auth_value
+                # Forward project scope so project-isolated resources
+                # (endpoints, etc.) resolve under the correct RLS project.
+                # Prefer the explicit header; fall back to the project_id
+                # bound to the API token (set by the auth layer on
+                # request.state).  Without this, MCP clients that
+                # authenticate with a project-scoped token (e.g. Cursor)
+                # would see no project filtering on list endpoints.
+                project_value = request.headers.get("x-project-id", "") or getattr(
+                    request.state, "api_token_project_id", ""
+                )
+                if project_value:
+                    headers["X-Project-Id"] = project_value
         except LookupError:
             pass
 
@@ -127,11 +139,13 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                     str(arguments.pop(param["name"])),
                 )
 
-        # 2. Query params: pop from arguments
+        # 2. Query params: pop from arguments (agent sees sanitized names,
+        #    e.g. "filter" for the "$filter" alias — see build_input_schema)
         query: Dict[str, Any] = {}
         for param in op["parameters"]:
-            if param.get("in") == "query" and param["name"] in arguments:
-                query[param["name"]] = arguments.pop(param["name"])
+            client_name = param["name"].lstrip("$")
+            if param.get("in") == "query" and client_name in arguments:
+                query[param["name"]] = arguments.pop(client_name)
 
         # Apply default_query and page_size peek-ahead. Both are declared in
         # mcp_tools.yaml and enforced here regardless of what the agent passed.

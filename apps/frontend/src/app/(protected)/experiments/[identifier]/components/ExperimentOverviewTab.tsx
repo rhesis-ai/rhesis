@@ -28,6 +28,7 @@ import {
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { formatDate } from '@/utils/date';
 
 interface IdentityDraft {
   description: string;
@@ -252,9 +253,7 @@ export default function ExperimentOverviewTab({
             <ViewField
               label="Last Saved"
               value={
-                latestVersion
-                  ? new Date(latestVersion.created_at).toLocaleString()
-                  : undefined
+                latestVersion ? formatDate(latestVersion.created_at) : undefined
               }
             />
           </Grid>

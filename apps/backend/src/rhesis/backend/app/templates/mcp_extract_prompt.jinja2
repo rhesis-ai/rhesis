@@ -41,10 +41,6 @@ Scope all Azure DevOps tool calls to project "{{ azure_context.project }}".
 Do not access content outside this project!
 {% endif %}
 {% endif %}
-{% if include_children %}
-Also extract every child page / nested item and return each as a separate entry.
-{% endif %}
-
 Return ONLY a JSON array. Each element is an object with these fields:
 - id: a stable identifier for the item (page id, file path, issue key, ...)
 - title: the item's title or name
