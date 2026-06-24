@@ -1,7 +1,7 @@
 """Add Linear ToolProviderType
 
 Revision ID: c9d0e1f2a3b4
-Revises: ad0c2e7f9b14
+Revises: f0a1b2c3d4e5
 Create Date: 2026-06-19
 
 """
@@ -16,7 +16,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "c9d0e1f2a3b4"
-down_revision: Union[str, None] = "ad0c2e7f9b14"
+down_revision: Union[str, None] = "f0a1b2c3d4e5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
