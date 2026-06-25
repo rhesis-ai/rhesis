@@ -116,7 +116,7 @@
     "tmp": ">=0.2.6",
     "js-yaml": ">=4.2.0",
     "@opentelemetry/core": ">=2.8.0",
-    "@babel/core": ">=7.29.6"
+    "@babel/core": ">=7.29.6 <8"
   },
   "devDependencies": {
     "@axe-core/react": "^4.7.0",
