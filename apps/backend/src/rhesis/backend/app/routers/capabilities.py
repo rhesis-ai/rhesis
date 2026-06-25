@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import get_all_capabilities
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize
+from rhesis.backend.app.auth.rbac import effective_permissions
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 
@@ -73,8 +73,4 @@ def get_my_permissions(
         Sorted list of ``"resource:action"`` strings.
     """
     principal = resolve_principal_from_request(current_user, request)
-    return [
-        cap
-        for cap in get_all_capabilities()
-        if authorize(principal, cap, project_id=project_id, db=db)
-    ]
+    return effective_permissions(principal, project_id=project_id, db=db)

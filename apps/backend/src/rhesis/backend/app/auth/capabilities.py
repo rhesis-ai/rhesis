@@ -29,7 +29,8 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Optional
+from typing import Iterable, Optional
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,19 @@ class Permission:
         """M2M API client management — EE only."""
 
         MANAGE = "api_clients:manage"
+
+
+class ResourceType(_PermissionEnum):
+    """Resource identifiers — the prefix of a ``resource:action`` capability.
+
+    Used to tag object-level affordance computation (``permitted_actions_for`` /
+    ``populate_permitted_actions``) instead of bare string literals. Each value
+    matches the prefix of the corresponding :class:`Permission` sub-enum. Add a
+    member when a resource gains object-level (``:own``) affordances.
+    """
+
+    COMMENT = "comment"
+    EXPERIMENT = "experiment"
 
 
 # ---------------------------------------------------------------------------
@@ -475,6 +489,54 @@ def reset_capabilities() -> None:
     _capability_cache = None
 
 
+# ---------------------------------------------------------------------------
+# Object-level affordances — project effective caps onto a single object
+# ---------------------------------------------------------------------------
+
+
+def permitted_actions_for(
+    effective_caps: Iterable[str],
+    obj: object,
+    resource_type: str,
+    *,
+    current_user_id: Optional[UUID],
+) -> list[str]:
+    """Project a caller's effective capabilities onto one object instance.
+
+    Given the caller's already-computed effective capability set (the same set
+    returned by ``GET /me/permissions``), return the **full capability strings**
+    the caller may exercise on *obj*:
+
+    - ``{resource_type}:{action}`` → permitted unconditionally.
+    - ``{resource_type}:{action}:own`` → permitted iff the caller owns the object
+      (``getattr(obj, "user_id") == current_user_id``); the ``:own`` qualifier is
+      collapsed to the base capability (``comment:update:own`` → ``comment:update``).
+
+    The output uses the **same full-capability vocabulary** as the scope-level
+    ``GET /me/permissions`` feed, so a frontend ``can(subject, capability)`` check
+    is identical whether the subject is an object (this list) or a scope (the
+    ``/me/permissions`` list). Collection-scoped ``create`` and the implied
+    ``read`` are excluded — this lists object-level *action* affordances.
+
+    There is deliberately **no per-resource registry** — the capability string is
+    the schema, and ownership is uniform.
+    """
+    owner_id = getattr(obj, "user_id", None)
+    is_owner = current_user_id is not None and owner_id == current_user_id
+    caps_out: set[str] = set()
+    for cap in effective_caps:
+        parts = cap.split(":")
+        if len(parts) < 2 or parts[0] != resource_type:
+            continue
+        action = parts[1]
+        if action in ("create", "read"):
+            continue
+        qualifier = parts[2] if len(parts) > 2 else None
+        if qualifier is None or (qualifier == "own" and is_owner):
+            caps_out.add(f"{resource_type}:{action}")
+    return sorted(caps_out)
+
+
 __all__ = [
     "Permission",
     "build_capability_map",
@@ -482,6 +544,8 @@ __all__ = [
     "enumerate_permission_enum",
     "get_all_capabilities",
     "get_capability_for_route",
+    "permitted_actions_for",
     "register_capabilities",
     "reset_capabilities",
+    "ResourceType",
 ]
