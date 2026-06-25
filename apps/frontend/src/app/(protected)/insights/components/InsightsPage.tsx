@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -24,6 +24,8 @@ import {
   InsightsBehaviorOption,
 } from '../utils/insights-filter-utils';
 import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
+import InsightsEmptyState from './InsightsEmptyState';
+import { resolveInsightsPageView } from '../utils/insights-page-view';
 
 interface InsightsPageProps {
   sessionToken: string;
@@ -191,6 +193,15 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const failedCount = summary?.failed ?? 0;
   const fabLoading = endpointsLoading || insightsLoading;
 
+  const pageView = resolveInsightsPageView({
+    endpointsLoading,
+    projectEndpointCount: projectEndpoints.length,
+    endpointId: filters.endpointId,
+    insightsLoading,
+    error,
+    noRuns,
+  });
+
   return (
     <PageLayout
       title="Insights"
@@ -212,41 +223,52 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
           gap: 0,
         }}
       >
-        <TestResultsFilters
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          projectEndpoints={projectEndpoints}
-          endpointsLoading={endpointsLoading}
-          behaviorOptions={behaviorOptions}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          showExpandToggle={
-            !fabLoading &&
-            expandableRowIndices.length > 0 &&
-            projectEndpoints.length > 0
-          }
-          allExpanded={allExpanded}
-          onToggleAll={handleToggleAll}
-        />
+        {pageView === 'loading-endpoints' ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+            <CircularProgress />
+          </Box>
+        ) : pageView === 'empty-no-endpoints' ? (
+          <InsightsEmptyState variant="no-endpoints" />
+        ) : pageView === 'empty-no-test-results' ? (
+          <InsightsEmptyState variant="no-test-results" />
+        ) : (
+          <>
+            <TestResultsFilters
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              projectEndpoints={projectEndpoints}
+              endpointsLoading={endpointsLoading}
+              behaviorOptions={behaviorOptions}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              showExpandToggle={
+                !fabLoading &&
+                expandableRowIndices.length > 0 &&
+                projectEndpoints.length > 0
+              }
+              allExpanded={allExpanded}
+              onToggleAll={handleToggleAll}
+            />
 
-        <BehaviorInsightsView
-          sessionToken={sessionToken}
-          filters={filters}
-          insights={{
-            summary,
-            columns: filteredColumns,
-            loading: insightsLoading,
-            error,
-            noRuns,
-          }}
-          searchQuery={searchQuery}
-          endpointName={selectedEndpointName}
-          endpointsLoading={endpointsLoading}
-          noEndpoints={!endpointsLoading && projectEndpoints.length === 0}
-          columnRows={columnRows}
-          expandedRows={expandedRows}
-          onRowToggle={handleRowToggle}
-        />
+            <BehaviorInsightsView
+              sessionToken={sessionToken}
+              filters={filters}
+              insights={{
+                summary,
+                columns: filteredColumns,
+                loading: insightsLoading,
+                error,
+                noRuns,
+              }}
+              searchQuery={searchQuery}
+              endpointName={selectedEndpointName}
+              endpointsLoading={endpointsLoading}
+              columnRows={columnRows}
+              expandedRows={expandedRows}
+              onRowToggle={handleRowToggle}
+            />
+          </>
+        )}
       </Box>
     </PageLayout>
   );
