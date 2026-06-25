@@ -275,17 +275,20 @@ def _safe_fallback_span(span: ReadableSpan) -> ReadableSpan:
 
 def _build_maf_batch_lookups(
     spans: Sequence[ReadableSpan],
-) -> tuple[dict[int, str], dict[int, ReadableSpan]]:
+) -> tuple[dict[int, str], dict[int, ReadableSpan], dict[int, str]]:
     """Index MAF spans in the batch by ``span_id`` for parent-chain walks.
 
     Returns:
-        ``(agent_by_span_id, span_by_id)`` where:
+        ``(agent_by_span_id, span_by_id, agent_by_parent_span_id)`` where:
 
         - ``agent_by_span_id`` maps an ``invoke_agent`` span's id to its
           ``gen_ai.agent.name`` value.
         - ``span_by_id`` maps every MAF span's id to the span itself so the
           parent-chain walker can hop across intermediate non-agent spans
           (the ``chat`` span typically sits between the agent and the tool).
+        - ``agent_by_parent_span_id`` maps an agent span's parent id to its
+          ``gen_ai.agent.name`` so sibling spans (e.g. ``chat``) can resolve
+          their caller in HandoffBuilder workflows.
     """
     agent_by_span_id: dict[int, str] = {}
     span_by_id: dict[int, ReadableSpan] = {}
