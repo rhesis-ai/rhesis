@@ -3,7 +3,6 @@
 import * as React from 'react';
 import {
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -159,16 +158,12 @@ export default function TestSetHeaderActions({
           disabled={testCount === 0}
         />
         {isGarakTestSet && (
-          <Button
-            variant="outlined"
-            startIcon={
-              isSyncing ? <CircularProgress size={16} /> : <RefreshIcon />
-            }
+          <Fab
+            icon={<RefreshIcon sx={{ fontSize: 28 }} />}
+            tooltip="Sync from Garak"
             onClick={handleGarakSyncPreview}
-            disabled={isSyncing}
-          >
-            {isSyncing ? 'Syncing…' : 'Sync from Garak'}
-          </Button>
+            loading={isSyncing}
+          />
         )}
       </FabGroup>
 

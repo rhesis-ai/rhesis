@@ -36,8 +36,13 @@ function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+export type InsightsRunContextFilters = Pick<
+  InsightsFilters,
+  'endpointId' | 'timeRange'
+>;
+
 export function buildInsightsFailedTestsUrl(
-  filters: InsightsFilters,
+  filters: InsightsRunContextFilters,
   scope?: InsightsFailedTestsScope
 ): string {
   const params = new URLSearchParams({
@@ -173,7 +178,7 @@ const TEST_RUN_ID_CHUNK = 15;
  */
 export async function fetchFailedTestIdsForInsights(
   sessionToken: string,
-  filters: InsightsFilters & InsightsFailedTestsScope
+  filters: InsightsRunContextFilters & InsightsFailedTestsScope
 ): Promise<string[]> {
   if (!filters.endpointId) {
     return [];

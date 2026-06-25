@@ -13,6 +13,6 @@ export const dynamic = 'force-dynamic';
 export function GET(request: NextRequest) {
   return proxyToBackend(request, {
     backendPath: '/auth/providers',
-    timeoutMs: 5000,
+    timeoutMs: 15_000,
   });
 }

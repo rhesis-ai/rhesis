@@ -18,6 +18,7 @@ describe('normalizeInsightsFilters', () => {
       {
         timeRange: '1m',
         endpointId: 'ep-1',
+        behaviorIds: [],
       }
     );
   });
