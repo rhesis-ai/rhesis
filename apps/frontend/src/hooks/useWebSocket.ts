@@ -110,7 +110,9 @@ export function useWebSocket(
     // Subscribe to all specified channels
     options.channels.forEach(entry => {
       const { channel, projectId } =
-        typeof entry === 'string' ? { channel: entry, projectId: undefined } : entry;
+        typeof entry === 'string'
+          ? { channel: entry, projectId: undefined }
+          : entry;
       subscribeToChannel(channel, projectId);
     });
 
