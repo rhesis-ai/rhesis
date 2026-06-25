@@ -10,6 +10,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { type NavigationPageItem } from '@/types/navigation';
 import { useCan } from '@/components/common/Can';
+import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { CAPABILITY_LABELS } from '@/constants/capabilities';
 import { isActive, collapsedNavItemSx } from './sidebar-utils';
 
@@ -106,11 +107,16 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
     : `/${item.segment}`;
   const active = isActive(pathname, fullPath);
   const permitted = useCan(item.requiredPermission ?? '');
+  const { loading: permsLoading } = useAmbientPermissions();
 
-  // Items with requiredPermission render locked when permission is absent.
-  // useCan returns false while the scope set loads (fail-closed), so no flash.
-  if (item.requiredPermission && !permitted) {
-    return <LockedNavItem item={item} collapsed={collapsed} />;
+  if (item.requiredPermission) {
+    // While the RBAC status / scope set is still resolving, hide the item rather
+    // than flashing it locked (community) or unlocked (EE). Render the lock/show
+    // decision only once it can be made definitively.
+    if (permsLoading) return null;
+    if (!permitted) {
+      return <LockedNavItem item={item} collapsed={collapsed} />;
+    }
   }
 
   const button = (
