@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Alert, Paper } from '@mui/material';
+import { Box, Alert, Paper, Button } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
@@ -11,6 +11,7 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isExtractProvider } from '@/config/tool-providers';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
@@ -24,6 +25,7 @@ export default function KnowledgeClientWrapper({
 }: KnowledgeClientWrapperProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [sourceCount, setSourceCount] = useState<number | null>(null);
+  const [hasImportTools, setHasImportTools] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [toolImportDrawerOpen, setToolImportDrawerOpen] = useState(false);
 
@@ -39,18 +41,28 @@ export default function KnowledgeClientWrapper({
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
         const sourcesClient = apiFactory.getSourcesClient();
-        const response = await sourcesClient.getSources({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
+        const toolsClient = apiFactory.getToolsClient();
+        const [response, toolsResponse] = await Promise.all([
+          sourcesClient.getSources({
+            skip: 0,
+            limit: 1,
+            sort_by: 'created_at',
+            sort_order: 'desc',
+          }),
+          toolsClient.getTools({ limit: 100 }).catch(() => ({ data: [] })),
+        ]);
         const count = Array.isArray(response)
           ? response.length
           : (response?.pagination?.totalCount ?? 0);
         setSourceCount(count);
+        setHasImportTools(
+          (toolsResponse.data || []).some(t =>
+            isExtractProvider(t.tool_provider_type?.type_value ?? '')
+          )
+        );
       } catch {
         setSourceCount(0);
+        setHasImportTools(false);
       }
     };
     fetchCount();
@@ -110,13 +122,32 @@ export default function KnowledgeClientWrapper({
       >
         <Box sx={{ mt: 2, mb: 2 }}>
           {sourceCount === 0 ? (
-            <EntityEmptyState
-              icon={MenuBookIcon}
-              title="No knowledge sources yet"
-              description="Upload files or import from tool connections to use as context for test generation and evaluation."
-              actionLabel="Upload source"
-              onAction={() => setUploadDrawerOpen(true)}
-            />
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+              }}
+            >
+              <EntityEmptyState
+                icon={MenuBookIcon}
+                title="No knowledge sources yet"
+                description="Upload files or import from tool connections to use as context for test generation and evaluation."
+                actionLabel="Upload source"
+                onAction={() => setUploadDrawerOpen(true)}
+              />
+              {hasImportTools && (
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudDownloadIcon />}
+                  onClick={() => setToolImportDrawerOpen(true)}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Import from tool
+                </Button>
+              )}
+            </Box>
           ) : (
             <Paper
               sx={{

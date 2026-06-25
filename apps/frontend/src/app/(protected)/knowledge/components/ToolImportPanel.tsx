@@ -109,6 +109,18 @@ function getProviderLabel(provider: string): {
       placeholder: 'Paste Asana task or project URL...',
     };
   }
+  if (provider === 'linear') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste Linear issue or project URL...',
+    };
+  }
+  if (provider === 'azure_devops') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste Azure DevOps work item or wiki URL...',
+    };
+  }
   return {
     checkbox: 'Include linked items',
     placeholder: 'Paste URL...',

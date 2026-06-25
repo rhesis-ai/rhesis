@@ -18,7 +18,7 @@ import { Tool } from '@/utils/api-client/interfaces/tool';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TOOL_PROVIDER_ICONS,
-  EXTRACT_PROVIDERS,
+  isExtractProvider,
 } from '@/config/tool-providers';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import ToolImportPanel, {
@@ -60,7 +60,7 @@ export default function ToolImportDrawer({
         .getToolsClient()
         .getTools({ limit: 100 });
       const supported = (response.data || []).filter(t =>
-        EXTRACT_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
+        isExtractProvider(t.tool_provider_type?.type_value ?? '')
       );
       setTools(supported);
       if (supported.length === 1) {

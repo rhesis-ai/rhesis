@@ -26,7 +26,13 @@ export const EXTRACT_PROVIDERS = [
   'asana',
   'azure_devops',
   'linear',
-];
+] as const;
+
+export type ExtractProvider = (typeof EXTRACT_PROVIDERS)[number];
+
+export function isExtractProvider(typeValue: string): typeValue is ExtractProvider {
+  return (EXTRACT_PROVIDERS as readonly string[]).includes(typeValue);
+}
 
 const TOOL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   azure_devops: 'Azure DevOps',
