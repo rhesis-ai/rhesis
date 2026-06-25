@@ -7,7 +7,7 @@ reflects what is supported.  Any stale 'public' rows are migrated to
 'organization' as a defensive measure.
 
 Revision ID: b1c2d3e4f5a6
-Revises: a0b1c2d3e4f5
+Revises: c9d0e1f2a3b4
 Create Date: 2026-06-24
 """
 
@@ -16,7 +16,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "b1c2d3e4f5a6"
-down_revision: Union[str, None] = "a0b1c2d3e4f5"
+down_revision: Union[str, None] = "c9d0e1f2a3b4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
