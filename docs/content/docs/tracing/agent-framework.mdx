@@ -1,0 +1,192 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Microsoft Agent Framework
+
+Zero-config tracing for [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (MAF) agents and workflows.
+
+## Overview
+
+Microsoft Agent Framework already emits OpenTelemetry spans for agents, model calls, tools, and multi-agent workflows. Rhesis turns those spans into first-class traces with a single call: enable MAF's instrumentation, translate its GenAI spans into the Rhesis [semantic conventions](/tracing/semantic-conventions), and synthesize agent handoff events for the Graph View. Your agent code does not change.
+
+<Mermaid chart={`flowchart LR
+    AI["auto_instrument('agent_framework')"] --> MAF["Microsoft Agent Framework"]
+    MAF --> SPANS["GenAI spans (gen_ai.*)"]
+    SPANS --> TR["Rhesis translator"]
+    TR --> T["ai.* / function.* traces"]`} />
+
+## Installation
+
+Install the SDK with the `agent-framework` extra:
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install "rhesis-sdk[agent-framework]"`}
+</CodeBlock>
+
+<Callout type="warning">
+  Install the `agent-framework` **extra of rhesis-sdk**, not the bare `agent-framework` meta-package. The meta-package pulls in optional stubs that can shadow the real `agent_framework` module and break instrumentation detection.
+</Callout>
+
+## Quick Start
+
+Create the `RhesisClient` first (it installs the OpenTelemetry tracer provider and Rhesis exporter), then call `auto_instrument`. After that, use MAF exactly as you normally would.
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+from agent_framework import ChatAgent
+from agent_framework.openai import OpenAIChatClient
+
+# 1. Initialize Rhesis (sets up tracing). Required before auto_instrument().
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+# 2. Enable Microsoft Agent Framework auto-instrumentation
+auto_instrument("agent_framework")  # alias: auto_instrument("maf")
+
+# 3. Use MAF normally - every agent, model, and tool call is traced
+agent = ChatAgent(
+    chat_client=OpenAIChatClient(),
+    instructions="You are a helpful travel assistant.",
+)
+
+result = await agent.run("Plan me a relaxed day trip to Lisbon.")
+print(result.text)`}
+</CodeBlock>
+
+<Callout type="info">
+  **Order matters.** `auto_instrument()` must run **after** `RhesisClient` is created. If no Rhesis tracer provider is active, the call returns an empty list and MAF spans are not translated.
+</Callout>
+
+`auto_instrument()` with no arguments auto-detects every installed framework (including MAF). Pass `"agent_framework"` (or `"maf"`) to enable it explicitly. The call returns the list of frameworks that were instrumented:
+
+<CodeBlock filename="app.py" language="python">
+{`enabled = auto_instrument("agent_framework")
+assert "agent_framework" in enabled  # ["agent_framework"]`}
+</CodeBlock>
+
+## What Gets Traced
+
+Once enabled, MAF operations are captured automatically and mapped onto the Rhesis schema:
+
+- **Agents** - each agent activation becomes an `ai.agent.invoke` span
+- **Model calls** - chat completions become `ai.llm.invoke` spans with token counts
+- **Tools** - tool executions become `ai.tool.invoke` spans with `ai.tool.input` / `ai.tool.output` events
+- **Handoffs** - control passing between agents is recorded as `ai.agent.handoff` spans
+- **Embeddings** - embedding calls become `ai.embedding.generate` spans
+- **Workflows** - `HandoffBuilder` / workflow orchestration becomes `function.workflow.*` spans
+
+### Operation Mapping
+
+| MAF operation (`gen_ai.operation.name`) | Rhesis span name |
+|---|---|
+| `chat` | `ai.llm.invoke` |
+| `invoke_agent` | `ai.agent.invoke` |
+| `create_agent` | `ai.agent.invoke` |
+| `execute_tool` | `ai.tool.invoke` |
+| `embeddings` | `ai.embedding.generate` |
+| `workflow.*`, `executor.*` | `function.workflow.*` |
+
+Spans that don't match a known operation fall back to `function.maf.<name>` so they always pass backend validation, with the original name preserved on the `gen_ai.original_span_name` attribute.
+
+## Multi-Agent Handoffs
+
+MAF's `HandoffBuilder` workflows route work between agents. With current MAF builds, a handoff is expressed as a tool call inside the chat span rather than a separate tool span, so Rhesis reads the model output and **synthesizes** an `ai.agent.handoff` span for each transition. These render as edges in the [Graph View](/tracing/multi-agent#trace-visualization).
+
+<Mermaid chart={`flowchart TD
+    subgraph Trace["Trace: Plan a day trip"]
+        C["ai.agent.invoke\\n(trip_coordinator)"]
+        H1["ai.agent.handoff\\n(coordinator -> sightseeing_scout)"]
+        S["ai.agent.invoke\\n(sightseeing_scout)"]
+        TS["ai.tool.invoke\\n(find_sightseeing)"]
+        H2["ai.agent.handoff\\n(coordinator -> logistics_planner)"]
+        L["ai.agent.invoke\\n(logistics_planner)"]
+        TL["ai.tool.invoke\\n(estimate_travel)"]
+    end
+
+    C --> H1 --> S --> TS
+    C --> H2 --> L --> TL`} />
+
+Each handoff span carries `ai.agent.handoff.to` and, when it can be resolved, `ai.agent.handoff.from`. See the [Multi-Agent Tracing](/tracing/multi-agent) page for the full span reference.
+
+## Content Capture and Privacy
+
+By default, the integration captures message content (prompts, completions, tool arguments and results) so traces show what each agent actually sent and received.
+
+To omit message content - for example in production or regulated environments - set `RHESIS_DISABLE_CONTENT_CAPTURE` before initializing:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_DISABLE_CONTENT_CAPTURE=1`}
+</CodeBlock>
+
+Accepted truthy values: `1`, `true`, `yes`, `on` (case-insensitive). When disabled, spans are still exported with structural metadata (model, provider, token counts, agent names, operation types), but no prompt, completion, or tool input/output payloads are recorded.
+
+## Workflow Span Verbosity
+
+To keep traces readable, the integration trims low-value workflow infrastructure spans (`edge_group.*` and `message.send`) by default while keeping the structural `executor.*` spans that parent agent activations.
+
+To keep every workflow span (useful when debugging the orchestration layer itself), set:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_MAF_VERBOSE_WORKFLOW_SPANS=1`}
+</CodeBlock>
+
+## Combining with Decorators
+
+Auto-instrumentation composes with `@endpoint` and `@observe`. Wrap your entry point with `@endpoint` so Rhesis can run tests against it; MAF spans created inside are nested under the endpoint span automatically:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.telemetry import auto_instrument
+
+client = RhesisClient(api_key="your-api-key", project_id="your-project-id")
+auto_instrument("agent_framework")
+
+@endpoint()
+async def chat(input: str, conversation_id: str = None) -> dict:
+    # MAF agent/tool/handoff spans are nested under this endpoint span
+    result = await travel_workflow.run(input)
+    return {"output": result.text, "conversation_id": conversation_id}`}
+</CodeBlock>
+
+<Callout type="warning">
+  Do not call `agent_framework.observability.configure_otel_providers()` (or `setup_observability()`) after creating the `RhesisClient`. Doing so replaces the Rhesis tracer provider and spans will no longer reach Rhesis. `auto_instrument("agent_framework")` already enables MAF instrumentation against the Rhesis provider for you.
+</Callout>
+
+## Worked Example: Travel Agent
+
+The repository ships a runnable multi-agent MAF demo - a `HandoffBuilder` workflow with a coordinator and three specialists - built specifically to produce agent, LLM, tool, and handoff traces in Rhesis. See [`agents/travel-agent`](https://github.com/rhesis-ai/rhesis/tree/main/agents/travel-agent) and its [architecture notes](https://github.com/rhesis-ai/rhesis/blob/main/agents/travel-agent/docs/architecture.md).
+
+## Migrating from AutoGen
+
+AutoGen 0.2 has been folded into the unified Microsoft Agent Framework. The legacy `auto_instrument("autogen")` path is now a no-op placeholder - use `auto_instrument("agent_framework")` instead, which covers the full `ChatAgent` / tool / workflow surface.
+
+## Disabling
+
+Turn instrumentation off (restores the original exporter) with:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import disable_auto_instrument
+
+disable_auto_instrument()`}
+</CodeBlock>
+
+## Supported Frameworks
+
+| Framework | Extra | Status |
+|---|---|---|
+| LangChain | `langchain` | Supported |
+| LangGraph | `langgraph` | Supported |
+| Microsoft Agent Framework | `agent-framework` | Supported |
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [Auto-Instrumentation](/tracing/auto-instrumentation) - zero-config tracing for LangChain and LangGraph
+  - [Multi-Agent Tracing](/tracing/multi-agent) - agent and handoff spans
+  - [Setup](/tracing/setup) - initial configuration
+  - [Connector](/sdk/connector) - register functions as endpoints
+</Callout>
