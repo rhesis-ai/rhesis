@@ -5,9 +5,9 @@ import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
+  filterDrawerSelectSx,
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import {
   behaviorIdsFromCheckedSelection,
@@ -42,13 +42,7 @@ export function countActiveInsightsDrawerFilters(
   return count;
 }
 
-const selectSx = {
-  borderRadius: BORDER_RADIUS.sm,
-  fontSize: 14,
-  '& .MuiOutlinedInput-notchedOutline': {
-    borderRadius: BORDER_RADIUS.sm,
-  },
-};
+const selectSx = filterDrawerSelectSx;
 
 interface InsightsFilterDrawerProps {
   open: boolean;
