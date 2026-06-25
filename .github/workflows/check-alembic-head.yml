@@ -30,15 +30,48 @@ jobs:
 
       - name: Check alembic down_revision points to main HEAD
         run: |
-            # Get main's heads
-            git checkout origin/main
-            MAIN_HEADS=$(cd apps/backend/src/rhesis/backend && uv run alembic heads)
+          VERSIONS_DIR="apps/backend/src/rhesis/backend/alembic/versions"
+          ALEMBIC_DIR="apps/backend/src/rhesis/backend"
 
-            # Get PR's heads
-            git checkout -
-            PR_HEADS=$(cd apps/backend/src/rhesis/backend && uv run alembic heads | wc -l)
+          # Get new migration files added in this PR
+          NEW_MIGRATIONS=$(git diff --name-only --diff-filter=A origin/main...HEAD -- "$VERSIONS_DIR")
 
-            if [ "$PR_HEADS" -ne 1 ]; then
-            echo "Multiple heads detected. Main head: $MAIN_HEADS"
-            exit 1
+          if [ -z "$NEW_MIGRATIONS" ]; then
+            echo "No new migrations in this PR — nothing to check."
+            exit 0
+          fi
+
+          echo "New migration(s) found:"
+          echo "$NEW_MIGRATIONS"
+
+          # Get main's current head revision via worktree (no branch switching)
+          git worktree add /tmp/main-worktree origin/main
+          MAIN_HEAD=$(
+            cd /tmp/main-worktree/"$ALEMBIC_DIR" && \
+            "$GITHUB_WORKSPACE/apps/backend/.venv/bin/alembic" heads 2>/dev/null | \
+            grep -E "^\w+ \(head\)" | awk '{print $1}'
+          )
+          git worktree remove --force /tmp/main-worktree
+
+          echo "Main HEAD: $MAIN_HEAD"
+
+          # Check each new migration's down_revision points to main's HEAD
+          FAILED=0
+          for f in $NEW_MIGRATIONS; do
+            DOWN_REV=$(grep "^down_revision" "$f" | grep -oE "['\"][a-f0-9]+['\"]" | tr -d "'\"" | head -1)
+            if [ "$DOWN_REV" != "$MAIN_HEAD" ]; then
+              echo ""
+              echo "Conflict: $(basename $f)"
+              echo "  down_revision : $DOWN_REV"
+              echo "  main HEAD     : $MAIN_HEAD"
+              FAILED=1
+            else
+              echo "OK: $(basename $f) -> $DOWN_REV"
             fi
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "Fix: rebase your migration's down_revision onto the current HEAD on main."
+            exit 1
+          fi
