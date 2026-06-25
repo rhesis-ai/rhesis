@@ -438,6 +438,213 @@ def test_synthesize_tool_io_events_skips_missing_attributes():
 
 
 # ---------------------------------------------------------------------------
+# extract_handoff_targets_from_messages: chat-output handoff detection
+# ---------------------------------------------------------------------------
+
+
+def _chat_output_attrs(messages: Any) -> dict[str, Any]:
+    """Build chat-span attrs with ``gen_ai.output.messages`` as a JSON string.
+
+    MAF serializes output messages as JSON text (see
+    ``agent_framework.observability``), so we exercise the string path here.
+    """
+    import json as _json
+
+    return {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(messages),
+    }
+
+
+def test_extract_handoff_targets_parses_tool_call_parts():
+    """A ``handoff_to_<x>`` tool_call part yields the stripped target id."""
+    attrs = _chat_output_attrs(
+        [
+            {
+                "role": "assistant",
+                "parts": [
+                    {"type": "text", "content": "Routing to the specialist."},
+                    {
+                        "type": "tool_call",
+                        "id": "call-1",
+                        "name": "handoff_to_destination_finder",
+                        "arguments": "{}",
+                    },
+                ],
+            }
+        ]
+    )
+    assert mapping.extract_handoff_targets_from_messages(attrs) == ["destination_finder"]
+
+
+def test_extract_handoff_targets_accepts_decoded_list():
+    """The helper also tolerates an already-decoded list (not just JSON text)."""
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: [
+            {
+                "role": "assistant",
+                "parts": [
+                    {"type": "tool_call", "name": "handoff_to_specialist", "arguments": "{}"}
+                ],
+            }
+        ],
+    }
+    assert mapping.extract_handoff_targets_from_messages(attrs) == ["specialist"]
+
+
+def test_extract_handoff_targets_ignores_real_tool_calls():
+    """Non-handoff tool calls (real domain tools) must be ignored."""
+    attrs = _chat_output_attrs(
+        [
+            {
+                "role": "assistant",
+                "parts": [
+                    {"type": "tool_call", "name": "get_random_destination", "arguments": "{}"}
+                ],
+            }
+        ]
+    )
+    assert mapping.extract_handoff_targets_from_messages(attrs) == []
+
+
+def test_extract_handoff_targets_skips_non_chat_spans():
+    """Only chat spans carry the model's handoff decision."""
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "invoke_agent",
+        mapping.GEN_AI_OUTPUT_MESSAGES: '[{"role": "assistant", "parts": '
+        '[{"type": "tool_call", "name": "handoff_to_x"}]}]',
+    }
+    assert mapping.extract_handoff_targets_from_messages(attrs) == []
+
+
+def test_extract_handoff_targets_empty_without_output_messages():
+    """No output messages (e.g. content capture disabled) -> no targets."""
+    assert mapping.extract_handoff_targets_from_messages(
+        {mapping.GEN_AI_OPERATION_NAME: "chat"}
+    ) == []
+
+
+# ---------------------------------------------------------------------------
+# is_low_value_workflow_span: span-noise classification
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("edge_group.process SomeEdge", True),
+        ("edge_group.process", True),
+        ("message.send", True),
+        ("message.send Foo", True),
+        # Structural spans must be kept.
+        ("executor.process coordinator", False),
+        ("workflow.run", False),
+        ("workflow.build", False),
+        ("invoke_agent coordinator", False),
+        ("chat gpt-4", False),
+        ("execute_tool calc", False),
+        (None, False),
+        ("", False),
+    ],
+)
+def test_is_low_value_workflow_span(name, expected):
+    assert mapping.is_low_value_workflow_span(name) is expected
+
+
+# ---------------------------------------------------------------------------
+# synthesize_message_events: attribute-based GenAI message convention
+# ---------------------------------------------------------------------------
+
+
+def test_synthesize_message_events_builds_prompt_and_completion():
+    """System + input messages -> ai.prompt; output -> a single ai.completion."""
+    import json as _json
+
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_SYSTEM_INSTRUCTIONS: _json.dumps(
+            [{"type": "text", "content": "You are helpful."}]
+        ),
+        mapping.GEN_AI_INPUT_MESSAGES: _json.dumps(
+            [{"role": "user", "parts": [{"type": "text", "content": "Hi there"}]}]
+        ),
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(
+            [{"role": "assistant", "parts": [{"type": "text", "content": "Hello!"}]}]
+        ),
+    }
+    events = mapping.synthesize_message_events(attrs)
+
+    prompts = [a for n, a in events if n == "ai.prompt"]
+    completions = [a for n, a in events if n == "ai.completion"]
+
+    assert {p[AIAttributes.PROMPT_ROLE] for p in prompts} == {"system", "user"}
+    assert any(p[AIAttributes.PROMPT_CONTENT] == "You are helpful." for p in prompts)
+    assert any(p[AIAttributes.PROMPT_CONTENT] == "Hi there" for p in prompts)
+    assert len(completions) == 1
+    assert completions[0][AIAttributes.COMPLETION_CONTENT] == "Hello!"
+
+
+def test_synthesize_message_events_skips_non_chat_spans():
+    """Only chat spans get LLM message translation (avoids duplicate content)."""
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "invoke_agent",
+        mapping.GEN_AI_INPUT_MESSAGES: (
+            '[{"role":"user","parts":[{"type":"text","content":"x"}]}]'
+        ),
+    }
+    assert mapping.synthesize_message_events(attrs) == []
+
+
+def test_synthesize_message_events_tolerates_decoded_lists_and_bad_json():
+    """Already-decoded lists are accepted; malformed JSON is skipped, not raised."""
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_INPUT_MESSAGES: [
+            {"role": "user", "parts": [{"type": "text", "content": "decoded"}]}
+        ],
+        mapping.GEN_AI_OUTPUT_MESSAGES: "not json{",
+    }
+    events = mapping.synthesize_message_events(attrs)
+    assert [n for n, _ in events] == ["ai.prompt"]
+    assert events[0][1][AIAttributes.PROMPT_CONTENT] == "decoded"
+
+
+def test_synthesize_message_events_stringifies_non_text_parts():
+    """Non-text parts (tool calls, blobs) are JSON-encoded so they stay visible."""
+    import json as _json
+
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_INPUT_MESSAGES: _json.dumps(
+            [
+                {
+                    "role": "assistant",
+                    "parts": [
+                        {
+                            "type": "tool_call",
+                            "id": "c1",
+                            "name": "lookup",
+                            "arguments": {"q": "x"},
+                        }
+                    ],
+                }
+            ]
+        ),
+    }
+    events = mapping.synthesize_message_events(attrs)
+    assert len(events) == 1
+    content = events[0][1][AIAttributes.PROMPT_CONTENT]
+    assert "tool_call" in content
+    assert "lookup" in content
+
+
+def test_synthesize_message_events_empty_when_no_attributes():
+    """A chat span with no message attributes (capture off) yields nothing."""
+    assert mapping.synthesize_message_events({mapping.GEN_AI_OPERATION_NAME: "chat"}) == []
+
+
+# ---------------------------------------------------------------------------
 # Agent.run() emits translated agent + LLM spans
 # ---------------------------------------------------------------------------
 
@@ -641,6 +848,87 @@ async def test_handoff_workflow_emits_function_workflow_spans(
         assert validate_span_name(name), f"workflow span name rejected: {name!r}"
 
 
+@pytest.mark.asyncio
+async def test_handoff_workflow_emits_synthesized_agent_handoff_spans(
+    captured_spans,
+    integration,
+    reset_observability_settings,
+    reset_llm_observation_flag,
+    session_provider,
+):
+    """A real ``HandoffBuilder`` handoff must produce an ``ai.agent.handoff`` span.
+
+    MAF short-circuits ``handoff_to_*`` tool calls (no ``execute_tool`` span),
+    so the handoff is only visible in the chat span's ``gen_ai.output.messages``.
+    The integration must synthesize the ``ai.agent.handoff`` span (with
+    ``from``/``to``) the Graph View needs to connect agents. Sensitive-data
+    capture must be on for MAF to record output messages.
+    """
+    pytest.importorskip("agent_framework_orchestrations")
+    from agent_framework.orchestrations import HandoffBuilder
+
+    enable_instrumentation(enable_sensitive_data=True)
+    provider, _captured, _bsp = session_provider
+
+    # Coordinator hands off to the specialist via the auto-generated handoff
+    # tool; the specialist replies with plain text and the run winds down.
+    coord_client = DeterministicChatClient(
+        [
+            _function_call_response(
+                call_id="handoff-1",
+                name="handoff_to_specialist",
+                arguments={},
+                model="gpt-4-mini",
+            ),
+            _text_response("All done.", model="gpt-4-mini"),
+        ],
+        model="gpt-4-mini",
+    )
+    spec_client = DeterministicChatClient(
+        [_text_response("Specialist done.", model="gpt-4-mini")],
+        model="gpt-4-mini",
+    )
+    coordinator = Agent(
+        client=coord_client,
+        instructions="You are the coordinator.",
+        name="coordinator",
+        require_per_service_call_history_persistence=True,
+    )
+    specialist = Agent(
+        client=spec_client,
+        instructions="You are the specialist.",
+        name="specialist",
+        require_per_service_call_history_persistence=True,
+    )
+
+    workflow = (
+        HandoffBuilder(
+            name="test_handoff_edges",
+            participants=[coordinator, specialist],
+        )
+        .with_start_agent(coordinator)
+        .add_handoff(coordinator, [specialist])
+        .add_handoff(specialist, [coordinator])
+        .with_autonomous_mode(turn_limits={"coordinator": 1, "specialist": 1})
+        .build()
+    )
+
+    async for _event in workflow.run("Route me to the specialist", stream=True):
+        pass
+
+    spans = _drain_spans(provider, captured_spans)
+    handoffs = [s for s in spans if s.name == "ai.agent.handoff"]
+    assert handoffs, (
+        "no ai.agent.handoff span synthesized from chat output; "
+        f"got {[s.name for s in spans]!r}"
+    )
+    targets = {s.attributes.get(AIAttributes.AGENT_HANDOFF_TO) for s in handoffs}
+    assert "specialist" in targets
+    # The calling agent should resolve from the enclosing invoke_agent span.
+    froms = {s.attributes.get(AIAttributes.AGENT_HANDOFF_FROM) for s in handoffs}
+    assert "coordinator" in froms
+
+
 # ---------------------------------------------------------------------------
 # Dedup processor: real-MAF span emission
 # ---------------------------------------------------------------------------
@@ -742,12 +1030,315 @@ async def test_dedup_processor_preserves_outer_observe_llm_flag(
 
 
 # ---------------------------------------------------------------------------
+# Cross-batch handoff from_agent resolution
+# ---------------------------------------------------------------------------
+
+
+class _FakeCtx:
+    """Minimal stand-in for an OTel ``SpanContext`` (only ``span_id``)."""
+
+    def __init__(self, span_id: int) -> None:
+        self.span_id = span_id
+
+
+class _FakeScope:
+    """Instrumentation scope that ``_is_maf_span`` accepts."""
+
+    name = mapping.INSTRUMENTATION_SCOPE_PREFIX
+
+
+class _FakeSpan:
+    """Lightweight ReadableSpan-ish object for ancestry/exporter unit tests.
+
+    Carries just enough surface (``context``/``parent``/``name``/
+    ``attributes``/``events``/``instrumentation_scope``) for the registry to
+    index it and for :class:`MAFTranslatingExporter` to translate it.
+    """
+
+    def __init__(self, *, span_id, name, parent_id=None, attributes=None, events=()):
+        self.context = _FakeCtx(span_id)
+        self.parent = _FakeCtx(parent_id) if parent_id is not None else None
+        self.name = name
+        self.attributes = attributes or {}
+        self.events = tuple(events)
+        self.instrumentation_scope = _FakeScope()
+
+
+def test_handoff_ancestry_registry_resolves_parent_chain():
+    """The registry hops tool -> chat -> invoke_agent to find the caller."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._HandoffAncestryRegistry()
+    agent = _FakeSpan(span_id=10, name="invoke_agent coordinator")
+    chat = _FakeSpan(span_id=20, name="chat gpt-4", parent_id=10)
+    tool = _FakeSpan(span_id=30, name="execute_tool handoff_to_specialist", parent_id=20)
+    for span in (agent, chat, tool):
+        reg.record(span)
+
+    assert reg.find_ancestor_agent(tool) == "coordinator"
+
+
+def test_handoff_ancestry_registry_returns_none_without_agent_ancestor():
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._HandoffAncestryRegistry()
+    chat = _FakeSpan(span_id=21, name="chat gpt-4")
+    tool = _FakeSpan(span_id=31, name="execute_tool handoff_to_specialist", parent_id=21)
+    reg.record(chat)
+    reg.record(tool)
+
+    assert reg.find_ancestor_agent(tool) is None
+
+
+def test_handoff_exporter_resolves_from_agent_across_batches():
+    """A handoff tool span exported WITHOUT its agent parent in the batch must
+    still resolve ``ai.agent.handoff.from`` via the start-time registry.
+
+    This is the cross-batch regression: under ``BatchSpanProcessor`` the child
+    tool span ends (and exports) before its ``invoke_agent`` parent, so the
+    batch-local walk alone cannot see the caller.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    agent = _FakeSpan(span_id=110, name="invoke_agent coordinator")
+    chat = _FakeSpan(span_id=120, name="chat gpt-4", parent_id=110)
+    tool_attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "execute_tool",
+        mapping.GEN_AI_TOOL_NAME: "handoff_to_specialist",
+    }
+    tool = _FakeSpan(
+        span_id=130,
+        name="execute_tool handoff_to_specialist",
+        parent_id=120,
+        attributes=tool_attrs,
+    )
+    # Populate the shared registry exactly as the dedup processor's on_start
+    # would, for all three spans (parents start before children).
+    for span in (agent, chat, tool):
+        tr_mod._handoff_ancestry.record(span)
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner)
+    # Export ONLY the tool span -> its invoke_agent parent is "in a prior batch".
+    exporter.export([tool])
+
+    out = captured_inner.get_finished_spans()
+    assert len(out) == 1
+    translated = out[0]
+    assert translated.name == "ai.agent.handoff"
+    assert translated.attributes[AIAttributes.AGENT_HANDOFF_TO] == "specialist"
+    assert translated.attributes[AIAttributes.AGENT_HANDOFF_FROM] == "coordinator"
+
+
+# ---------------------------------------------------------------------------
+# Chat-output handoff synthesis (primary path for current MAF)
+# ---------------------------------------------------------------------------
+
+
+class _RichCtx:
+    """SpanContext stand-in carrying the fields synthesis needs."""
+
+    def __init__(self, trace_id: int, span_id: int, trace_flags=None) -> None:
+        self.trace_id = trace_id
+        self.span_id = span_id
+        self.trace_flags = trace_flags
+
+
+class _FakeChatSpan:
+    """A chat-span stand-in rich enough for handoff synthesis + translation."""
+
+    def __init__(self, *, span_id, trace_id, parent_id=None, attributes=None, name="chat gpt-4"):
+        self.context = _RichCtx(trace_id, span_id)
+        self.parent = _RichCtx(trace_id, parent_id) if parent_id is not None else None
+        self.name = name
+        self.attributes = attributes or {}
+        self.events = ()
+        self.instrumentation_scope = _FakeScope()
+        self.start_time = 1_000
+        self.end_time = 2_000
+        self.resource = None
+
+
+def test_synthesize_handoff_spans_builds_directed_edge():
+    """A chat span with a handoff target yields an ``ai.agent.handoff`` span."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    chat = _FakeChatSpan(span_id=520, trace_id=999, parent_id=510)
+    spans = tr_mod.synthesize_handoff_spans(chat, "trip_coordinator", ["destination_finder"])
+
+    assert len(spans) == 1
+    handoff = spans[0]
+    assert handoff.name == "ai.agent.handoff"
+    assert handoff.attributes[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_AGENT_HANDOFF
+    assert handoff.attributes[AIAttributes.AGENT_HANDOFF_FROM] == "trip_coordinator"
+    assert handoff.attributes[AIAttributes.AGENT_HANDOFF_TO] == "destination_finder"
+    # Shares the chat span's trace, gets a fresh span id, and is parented to the
+    # chat span's parent (the enclosing invoke_agent), i.e. a sibling of chat.
+    assert handoff.context.trace_id == 999
+    assert handoff.context.span_id != 520
+    assert handoff.parent is chat.parent
+
+
+def test_synthesize_handoff_spans_omits_from_when_unknown():
+    """Without a resolved caller we still emit the span with only ``to``."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    chat = _FakeChatSpan(span_id=521, trace_id=1000)
+    spans = tr_mod.synthesize_handoff_spans(chat, None, ["specialist"])
+
+    assert len(spans) == 1
+    assert spans[0].attributes[AIAttributes.AGENT_HANDOFF_TO] == "specialist"
+    assert AIAttributes.AGENT_HANDOFF_FROM not in spans[0].attributes
+
+
+def test_synthesize_handoff_spans_empty_targets():
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    chat = _FakeChatSpan(span_id=522, trace_id=1001)
+    assert tr_mod.synthesize_handoff_spans(chat, "a", []) == []
+
+
+def test_exporter_synthesizes_handoff_from_chat_output_messages():
+    """A chat span whose output carries a ``handoff_to_*`` tool call must
+    cause the exporter to emit an extra ``ai.agent.handoff`` span with both
+    ``from`` (resolved via the ancestry registry) and ``to`` populated.
+    """
+    import json as _json
+
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    # Record the enclosing invoke_agent so from_agent resolves.
+    agent = _FakeSpan(span_id=610, name="invoke_agent trip_coordinator")
+    tr_mod._handoff_ancestry.record(agent)
+
+    chat_attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(
+            [
+                {
+                    "role": "assistant",
+                    "parts": [
+                        {
+                            "type": "tool_call",
+                            "id": "c1",
+                            "name": "handoff_to_destination_finder",
+                            "arguments": "{}",
+                        }
+                    ],
+                }
+            ]
+        ),
+    }
+    chat = _FakeChatSpan(span_id=620, trace_id=4242, parent_id=610, attributes=chat_attrs)
+    tr_mod._handoff_ancestry.record(chat)
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner)
+    exporter.export([chat])
+
+    out = captured_inner.get_finished_spans()
+    names = [s.name for s in out]
+    # The chat span itself (translated to ai.llm.invoke) plus the synthesized
+    # handoff span.
+    assert "ai.llm.invoke" in names
+    handoffs = [s for s in out if s.name == "ai.agent.handoff"]
+    assert len(handoffs) == 1
+    assert handoffs[0].attributes[AIAttributes.AGENT_HANDOFF_TO] == "destination_finder"
+    assert handoffs[0].attributes[AIAttributes.AGENT_HANDOFF_FROM] == "trip_coordinator"
+
+
+def test_exporter_drops_low_value_workflow_spans_by_default():
+    """edge_group / message.send routing spans are dropped unless verbose."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    edge = _FakeSpan(span_id=710, name="edge_group.process FanOutEdgeGroup")
+    msg = _FakeSpan(span_id=711, name="message.send")
+    keep = _FakeSpan(span_id=712, name="executor.process coordinator")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner, verbose_workflow_spans=False)
+    exporter.export([edge, msg, keep])
+
+    names = [s.name for s in captured_inner.get_finished_spans()]
+    assert any(n.startswith("function.workflow.executor.process") for n in names)
+    assert all("edge_group" not in n for n in names)
+    assert all("message.send" not in n for n in names)
+
+
+def test_exporter_keeps_low_value_workflow_spans_when_verbose():
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    edge = _FakeSpan(span_id=720, name="edge_group.process")
+    msg = _FakeSpan(span_id=721, name="message.send")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner, verbose_workflow_spans=True)
+    exporter.export([edge, msg])
+
+    names = [s.name for s in captured_inner.get_finished_spans()]
+    assert "function.workflow.edge_group.process" in names
+    assert "function.workflow.message.send" in names
+
+
+def test_verbose_workflow_spans_env_default(monkeypatch):
+    """The exporter honors ``RHESIS_MAF_VERBOSE_WORKFLOW_SPANS`` by default."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    monkeypatch.delenv("RHESIS_MAF_VERBOSE_WORKFLOW_SPANS", raising=False)
+    assert tr_mod.MAFTranslatingExporter(InMemorySpanExporter())._verbose_workflow_spans is False
+
+    monkeypatch.setenv("RHESIS_MAF_VERBOSE_WORKFLOW_SPANS", "1")
+    assert tr_mod.MAFTranslatingExporter(InMemorySpanExporter())._verbose_workflow_spans is True
+
+
+# ---------------------------------------------------------------------------
 # Lifecycle: enable / disable / idempotency / non-Rhesis provider
 # ---------------------------------------------------------------------------
 
 
 def test_integration_singleton_is_stable():
     assert get_integration() is get_integration()
+
+
+@pytest.mark.parametrize(
+    "env_value, expected",
+    [
+        (None, True),
+        ("1", False),
+        ("true", False),
+        ("TRUE", False),
+        ("yes", False),
+        ("on", False),
+        ("0", True),
+        ("false", True),
+        ("", True),
+    ],
+)
+def test_content_capture_opt_out_env(monkeypatch, env_value, expected):
+    """Content capture defaults on; only truthy opt-out values disable it."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import integration as integ_mod
+
+    if env_value is None:
+        monkeypatch.delenv(integ_mod._DISABLE_CONTENT_CAPTURE_ENV, raising=False)
+    else:
+        monkeypatch.setenv(integ_mod._DISABLE_CONTENT_CAPTURE_ENV, env_value)
+
+    assert integ_mod._content_capture_enabled() is expected
+
+
+def test_integration_enable_turns_on_sensitive_data(
+    session_provider, reset_llm_observation_flag, reset_observability_settings, monkeypatch
+):
+    """``enable()`` opts MAF into content capture by default."""
+    monkeypatch.delenv("RHESIS_DISABLE_CONTENT_CAPTURE", raising=False)
+    OBSERVABILITY_SETTINGS.enable_sensitive_data = False
+
+    integ = MAFIntegration()
+    try:
+        assert integ.enable() is True
+        assert OBSERVABILITY_SETTINGS.enable_sensitive_data is True
+    finally:
+        integ.disable()
 
 
 def test_integration_enable_idempotent_and_disable_neutralizes_dedup(

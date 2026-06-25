@@ -29,6 +29,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 from opentelemetry import trace
@@ -42,6 +43,7 @@ from opentelemetry.sdk.trace.export import (
 from rhesis.sdk.telemetry.integrations.agent_framework.translator import (
     MAFLLMDedupSpanProcessor,
     MAFTranslatingExporter,
+    _verbose_workflow_spans_enabled,
 )
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
 
@@ -57,6 +59,29 @@ _WRAPPABLE_PROCESSORS: tuple[type[SpanProcessor], ...] = (
     BatchSpanProcessor,
     SimpleSpanProcessor,
 )
+
+# Opt-out env var for message/tool content capture. When truthy, the
+# integration disables MAF's ``enable_sensitive_data`` so prompts, completions,
+# and tool arguments/results are NOT captured into spans.
+_DISABLE_CONTENT_CAPTURE_ENV = "RHESIS_DISABLE_CONTENT_CAPTURE"
+
+# Truthy string values for the opt-out env var.
+_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def _content_capture_enabled() -> bool:
+    """Return whether MAF should capture message/tool content into spans.
+
+    Defaults to ``True`` because the whole point of the Rhesis integration is
+    to ship prompts/completions/tool I/O to the backend so they render in the
+    trace UI. Privacy-sensitive deployments can opt out by setting
+    ``RHESIS_DISABLE_CONTENT_CAPTURE`` to a truthy value (``1``/``true``/
+    ``yes``/``on``).
+    """
+    raw = os.getenv(_DISABLE_CONTENT_CAPTURE_ENV)
+    if raw is None:
+        return True
+    return raw.strip().lower() not in _TRUTHY_ENV_VALUES
 
 
 class MAFIntegration(BaseIntegration):
@@ -129,7 +154,11 @@ class MAFIntegration(BaseIntegration):
         Steps:
 
         1. Verify MAF is installed.
-        2. Call ``enable_instrumentation()`` to flip MAF's internal switch.
+        2. Call ``enable_instrumentation(enable_sensitive_data=...)`` to flip
+           MAF's internal switch. Content capture (prompts, completions, tool
+           I/O) defaults to on so the trace UI shows messages; set the
+           ``RHESIS_DISABLE_CONTENT_CAPTURE`` env var to a truthy value to opt
+           out for privacy-sensitive deployments.
         3. Wrap each existing OTLP exporter on the global ``TracerProvider``
            with :class:`MAFTranslatingExporter` so MAF spans are rewritten to
            the Rhesis ``ai.*`` schema before export.
@@ -154,8 +183,14 @@ class MAFIntegration(BaseIntegration):
             logger.warning("agent_framework.observability is not importable: %s", exc)
             return False
 
+        capture_content = _content_capture_enabled()
         try:
-            enable_instrumentation()
+            # ``enable_sensitive_data`` gates MAF's capture of prompts,
+            # completions, and tool arguments/results into spans (see
+            # ``agent_framework.observability.OBSERVABILITY_SETTINGS``). Without
+            # it the spans reach the backend empty and the trace UI shows no
+            # messages. Default to on; honor the opt-out env var.
+            enable_instrumentation(enable_sensitive_data=capture_content)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to enable MAF instrumentation: %s", exc)
             return False
@@ -181,7 +216,12 @@ class MAFIntegration(BaseIntegration):
 
         self._callback = self._dedup_processor
         self._enabled = True
-        logger.info("✓ Observing agent_framework (Microsoft Agent Framework)")
+        logger.info(
+            "✓ Observing agent_framework (Microsoft Agent Framework); content capture %s; "
+            "workflow infra spans %s",
+            "enabled" if capture_content else f"disabled via {_DISABLE_CONTENT_CAPTURE_ENV}",
+            "kept" if _verbose_workflow_spans_enabled() else "trimmed (edge_group/message.send)",
+        )
         return True
 
     def disable(self) -> None:
@@ -235,6 +275,8 @@ class MAFIntegration(BaseIntegration):
             logger.debug("Could not introspect provider span processors", exc_info=True)
             return
 
+        verbose_workflow_spans = _verbose_workflow_spans_enabled()
+
         wrapped_count = 0
         already_wrapped_count = 0
         for child in children:
@@ -247,7 +289,10 @@ class MAFIntegration(BaseIntegration):
                 already_wrapped_count += 1
                 continue
             try:
-                _set_processor_exporter(child, MAFTranslatingExporter(current))
+                _set_processor_exporter(
+                    child,
+                    MAFTranslatingExporter(current, verbose_workflow_spans=verbose_workflow_spans),
+                )
                 self._patched_processors.append((child, current))
                 wrapped_count += 1
                 logger.debug(

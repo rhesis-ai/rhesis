@@ -23,6 +23,13 @@ from rhesis.telemetry.schemas import AIOperationType
 
 INSTRUMENTATION_SCOPE_PREFIX = "agent_framework"
 
+# MAF's HandoffBuilder workflow implements agent-to-agent handoffs as
+# auto-generated tool calls named ``handoff_to_<target_agent>``. These are
+# scheduling primitives, not real domain tools — we recognise them so the
+# translator can re-emit them as ``ai.agent.handoff`` spans that the Rhesis
+# Graph View knows how to connect.
+HANDOFF_TOOL_PREFIX = "handoff_to_"
+
 GEN_AI_OPERATION_NAME = "gen_ai.operation.name"
 GEN_AI_PROVIDER_NAME = "gen_ai.provider.name"
 GEN_AI_SYSTEM = "gen_ai.system"
@@ -42,6 +49,21 @@ GEN_AI_AGENT_NAME = "gen_ai.agent.name"
 GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
 GEN_AI_AGENT_ID = "gen_ai.agent.id"
 GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
+
+# Newer MAF (and the current OTel GenAI semantic conventions) record message
+# content as span *attributes* carrying JSON arrays, rather than as the legacy
+# per-message span *events* (``gen_ai.user.message`` etc.). The shape is::
+#
+#     gen_ai.input.messages    -> [{"role": "user", "parts": [{"type": "text",
+#                                   "content": "..."}, ...]}, ...]
+#     gen_ai.output.messages   -> same shape (last item may carry finish_reason)
+#     gen_ai.system_instructions -> [{"type": "text", "content": "..."}, ...]
+#
+# We translate these into synthetic ``ai.prompt`` / ``ai.completion`` events so
+# the Rhesis trace UI (which reads those events) renders the messages.
+GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
+GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
+GEN_AI_SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
 
 # MAF operation values (gen_ai.operation.name)
 OP_CHAT = "chat"
@@ -306,6 +328,262 @@ def _to_json_text(value: Any) -> str:
         return json.dumps(value, default=str, ensure_ascii=False)
     except (TypeError, ValueError):
         return str(value)
+
+
+def is_handoff_tool_span(attributes: Mapping[str, Any]) -> bool:
+    """Return True if this MAF span is a synthetic ``handoff_to_*`` tool call.
+
+    MAF's ``HandoffBuilder`` workflow models agent-to-agent handoffs as
+    auto-generated tool calls of the form ``handoff_to_<target_agent>``.
+    These are emitted as ordinary ``execute_tool`` spans, but they don't
+    represent real domain tools — they're scheduling artefacts. Recognising
+    them lets the translator re-emit them as ``ai.agent.handoff`` spans so
+    multi-agent UIs (e.g. the Rhesis Graph View) can draw the right edges.
+    """
+    if attributes.get(GEN_AI_OPERATION_NAME) != OP_EXECUTE_TOOL:
+        return False
+    tool_name = attributes.get(GEN_AI_TOOL_NAME)
+    return isinstance(tool_name, str) and tool_name.startswith(HANDOFF_TOOL_PREFIX)
+
+
+def handoff_target_name(attributes: Mapping[str, Any]) -> str:
+    """Extract the destination agent name from a handoff tool span.
+
+    ``handoff_to_math_specialist`` -> ``math_specialist``. Falls back to the
+    raw tool name when the prefix is unexpectedly missing, and to an empty
+    string when ``gen_ai.tool.name`` is absent.
+    """
+    tool_name = attributes.get(GEN_AI_TOOL_NAME)
+    if not isinstance(tool_name, str):
+        return ""
+    if tool_name.startswith(HANDOFF_TOOL_PREFIX):
+        return tool_name[len(HANDOFF_TOOL_PREFIX) :]
+    return tool_name
+
+
+def extract_handoff_targets_from_messages(attributes: Mapping[str, Any]) -> list[str]:
+    """Extract handoff target agent ids from a chat span's output messages.
+
+    MAF's ``HandoffBuilder`` short-circuits ``handoff_to_*`` tool calls via
+    ``_AutoHandoffMiddleware`` (it raises ``MiddlewareTermination`` before the
+    function-invocation span is ever created), so no ``execute_tool
+    handoff_to_*`` span is emitted. The only place the handoff is observable is
+    the chat span's ``gen_ai.output.messages`` attribute, where the model's
+    handoff decision is recorded as an assistant ``tool_call`` part::
+
+        [{"role": "assistant",
+          "parts": [{"type": "tool_call",
+                     "name": "handoff_to_<target>", "arguments": "{}"}]}]
+
+    This helper decodes those output messages and returns the stripped target
+    agent ids (``handoff_to_destination_finder`` -> ``destination_finder``) so
+    the translator can synthesize ``ai.agent.handoff`` spans the Graph View can
+    connect.
+
+    Only applies to chat spans (``gen_ai.operation.name == "chat"``). Returns
+    an empty list for non-chat spans, when no output messages are present
+    (e.g. content capture disabled), or when no handoff tool calls are found.
+    """
+    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+        return []
+
+    messages = _coerce_message_list(attributes.get(GEN_AI_OUTPUT_MESSAGES))
+    if not messages:
+        return []
+
+    targets: list[str] = []
+    for message in messages:
+        if not isinstance(message, Mapping):
+            continue
+        parts = message.get("parts")
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            if not isinstance(part, Mapping):
+                continue
+            if part.get("type") != "tool_call":
+                continue
+            name = part.get("name")
+            if isinstance(name, str) and name.startswith(HANDOFF_TOOL_PREFIX):
+                target = name[len(HANDOFF_TOOL_PREFIX) :].strip()
+                if target:
+                    targets.append(target)
+    return targets
+
+
+# Original MAF span-name prefixes for low-value workflow infrastructure spans.
+# These are routing/transport primitives that carry no agent/chat/tool payload
+# and never *parent* a meaningful span (edge-group and message-send spans use
+# OTel links rather than nesting for causality — see
+# ``agent_framework.observability.create_edge_group_processing_span``). Dropping
+# them sharply reduces span volume for fan-out topologies (e.g. MAF's
+# ``HandoffBuilder`` broadcasts to every participant each superstep) without
+# orphaning children. Note: ``executor.process`` is deliberately NOT here — it
+# is the structural parent of ``invoke_agent`` spans.
+_LOW_VALUE_WORKFLOW_PREFIXES: tuple[str, ...] = (
+    "edge_group.",
+    "message.send",
+)
+
+
+def is_low_value_workflow_span(original_name: str | None) -> bool:
+    """Return True for MAF workflow spans safe to drop as noise.
+
+    Matches the *original* (pre-translation) MAF span name against
+    :data:`_LOW_VALUE_WORKFLOW_PREFIXES`. The translator uses this to skip
+    forwarding edge-group / message-send routing spans unless the caller opts
+    back in (see ``RHESIS_MAF_VERBOSE_WORKFLOW_SPANS``).
+    """
+    if not original_name:
+        return False
+    return any(original_name.startswith(prefix) for prefix in _LOW_VALUE_WORKFLOW_PREFIXES)
+
+
+def translate_handoff_attributes(
+    attributes: Mapping[str, Any],
+    *,
+    from_agent: str | None,
+) -> dict[str, Any]:
+    """Build the attribute set for a synthetic ``ai.agent.handoff`` span.
+
+    Preserves every original ``gen_ai.*`` attribute (passthrough) and stamps
+    the Rhesis handoff attributes on top:
+
+    - ``ai.operation.type`` = ``agent.handoff``
+    - ``ai.agent.handoff.to`` = parsed destination agent
+    - ``ai.agent.handoff.from`` = the agent that emitted the handoff tool
+      call, when known (caller resolves this from the OTel parent chain).
+
+    ``from_agent`` is optional because in adversarial cases (e.g. the
+    invoke_agent ancestor span is in a different export batch) we may not
+    have it. We still emit the span with ``to`` set so the trace tree stays
+    debuggable; the Graph View needs both ``from`` and ``to`` to draw an
+    edge but the underlying span and event data are still useful.
+    """
+    translated: dict[str, Any] = dict(attributes)
+    translated[AIAttributes.OPERATION_TYPE] = AIAttributes.OPERATION_AGENT_HANDOFF
+    to_agent = handoff_target_name(attributes)
+    if to_agent:
+        translated.setdefault(AIAttributes.AGENT_HANDOFF_TO, to_agent)
+    if from_agent:
+        translated.setdefault(AIAttributes.AGENT_HANDOFF_FROM, from_agent)
+    return translated
+
+
+def _coerce_message_list(value: Any) -> list[Any] | None:
+    """Decode a ``gen_ai.*.messages`` attribute into a list, defensively.
+
+    MAF stores the value as a JSON-encoded string, but tolerate an
+    already-decoded ``list`` too. Returns ``None`` when the value is missing,
+    malformed, or not a list so callers can skip it without raising.
+    """
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (ValueError, TypeError):
+            return None
+        return parsed if isinstance(parsed, list) else None
+    return None
+
+
+def _join_message_parts(parts: Any) -> str:
+    """Render a message's ``parts`` list into a single display string.
+
+    Text and reasoning parts are concatenated verbatim; non-text parts (tool
+    calls, blobs, ...) are JSON-encoded so they remain visible rather than
+    dropped. Falls back to an empty string for unexpected shapes.
+    """
+    if isinstance(parts, str):
+        return parts
+    if not isinstance(parts, list):
+        return _to_json_text(parts) if parts is not None else ""
+
+    chunks: list[str] = []
+    for part in parts:
+        if isinstance(part, Mapping):
+            part_type = part.get("type")
+            if part_type in ("text", "reasoning"):
+                content = part.get("content")
+                if content is not None:
+                    chunks.append(content if isinstance(content, str) else _to_json_text(content))
+                continue
+            chunks.append(_to_json_text(part))
+        elif isinstance(part, str):
+            chunks.append(part)
+        elif part is not None:
+            chunks.append(_to_json_text(part))
+    return "".join(chunks)
+
+
+def synthesize_message_events(
+    attributes: Mapping[str, Any],
+) -> list[tuple[str, dict[str, Any]]]:
+    """Build ``ai.prompt`` / ``ai.completion`` events from MAF message attrs.
+
+    Translates the attribute-based GenAI message convention
+    (``gen_ai.system_instructions`` / ``gen_ai.input.messages`` /
+    ``gen_ai.output.messages``) into the span events the Rhesis trace UI reads.
+    Only applies to chat spans (``gen_ai.operation.name == "chat"``) so we do
+    not duplicate LLM content onto agent/tool spans.
+
+    Returns an empty list when this is not a chat span or no message attributes
+    are present (e.g. content capture disabled).
+    """
+    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+        return []
+
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    system_instructions = _coerce_message_list(attributes.get(GEN_AI_SYSTEM_INSTRUCTIONS))
+    if system_instructions:
+        content = _join_message_parts(system_instructions)
+        if content:
+            events.append(
+                (
+                    "ai.prompt",
+                    {
+                        AIAttributes.PROMPT_ROLE: "system",
+                        AIAttributes.PROMPT_CONTENT: content,
+                    },
+                )
+            )
+
+    input_messages = _coerce_message_list(attributes.get(GEN_AI_INPUT_MESSAGES))
+    for message in input_messages or ():
+        if not isinstance(message, Mapping):
+            continue
+        content = _join_message_parts(message.get("parts"))
+        if not content:
+            continue
+        role = message.get("role")
+        events.append(
+            (
+                "ai.prompt",
+                {
+                    AIAttributes.PROMPT_ROLE: role if isinstance(role, str) else "user",
+                    AIAttributes.PROMPT_CONTENT: content,
+                },
+            )
+        )
+
+    output_messages = _coerce_message_list(attributes.get(GEN_AI_OUTPUT_MESSAGES))
+    if output_messages:
+        completion_chunks: list[str] = []
+        for message in output_messages:
+            if not isinstance(message, Mapping):
+                continue
+            content = _join_message_parts(message.get("parts"))
+            if content:
+                completion_chunks.append(content)
+        joined = "\n".join(completion_chunks).strip()
+        if joined:
+            events.append(("ai.completion", {AIAttributes.COMPLETION_CONTENT: joined}))
+
+    return events
 
 
 def synthesize_tool_io_events(

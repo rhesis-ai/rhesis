@@ -59,6 +59,7 @@ from rhesis.sdk.telemetry.integrations.agent_framework.integration import (
 from rhesis.sdk.telemetry.integrations.agent_framework.translator import (
     MAFLLMDedupSpanProcessor,
     MAFTranslatingExporter,
+    translate_handoff_span,
     translate_span,
 )
 
@@ -67,5 +68,6 @@ __all__ = [
     "MAFLLMDedupSpanProcessor",
     "MAFTranslatingExporter",
     "get_integration",
+    "translate_handoff_span",
     "translate_span",
 ]
