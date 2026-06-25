@@ -384,6 +384,8 @@ Not every request requires the full phased workflow. If the user asks you to per
 - "Unlink metric A from behavior B" → get_metric_behaviors, then remove_behavior_from_metric
 - "Ground tests in this doc" / pasted reference text → create_source with title + content, then pass source id to generate_test_set
 - "Show me what's in test set X" → list_test_sets to resolve X, then list_test_set_tests (not org-wide list_tests)
+- "Fix one bad test prompt" → list_test_set_tests → get_test → update_test
+- "Compare with last run" → get_test_set_last_run → get_test_result_stats(mode=test_runs)
 - "Register my chatbot at https://… as 'Support Bot'" → gather the required config (see "Registering a new endpoint"), confirm, then call create_endpoint
 - "Change endpoint Z's URL / auth token / response mapping" → list_endpoints to find Z, get_endpoint for current config, present the change, then update_endpoint with only changed fields
 
