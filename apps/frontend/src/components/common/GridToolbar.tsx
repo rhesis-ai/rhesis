@@ -28,6 +28,8 @@ export interface GridToolbarProps {
   activeFilterCount?: number;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
+  /** When false, hides the search pill (e.g. insights empty state toolbar). */
+  showSearch?: boolean;
   sx?: SxProps<Theme>;
 }
 
@@ -225,6 +227,7 @@ export function GridToolbar({
   activeFilterCount,
   middleContent,
   rightContent,
+  showSearch = true,
   sx,
 }: GridToolbarProps) {
   // Figma grid-card default: 30px all around. Directory pages and drawers
@@ -248,27 +251,34 @@ export function GridToolbar({
           activeFilterCount={activeFilterCount}
         />
       ) : null}
-      {searchFullWidth ? (
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+      {showSearch ? (
+        searchFullWidth ? (
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <SearchPill
+              value={searchQuery}
+              onChange={onSearchChange}
+              placeholder={searchPlaceholder}
+              width="100%"
+              variant={searchVariant}
+            />
+          </Box>
+        ) : (
           <SearchPill
             value={searchQuery}
             onChange={onSearchChange}
             placeholder={searchPlaceholder}
-            width="100%"
+            width={searchWidth}
             variant={searchVariant}
           />
-        </Box>
-      ) : (
-        <SearchPill
-          value={searchQuery}
-          onChange={onSearchChange}
-          placeholder={searchPlaceholder}
-          width={searchWidth}
-          variant={searchVariant}
-        />
-      )}
+        )
+      ) : null}
       {middleContent}
-      {!middleContent && !searchFullWidth && <Box sx={{ flex: 1 }} />}
+      {!middleContent && !searchFullWidth && showSearch && (
+        <Box sx={{ flex: 1 }} />
+      )}
+      {!middleContent && !searchFullWidth && !showSearch && (
+        <Box sx={{ flex: 1 }} />
+      )}
       {rightContent ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {rightContent}

@@ -1,11 +1,13 @@
 export type InsightsPageView =
   | 'loading-endpoints'
+  | 'endpoints-error'
   | 'empty-no-endpoints'
   | 'empty-no-test-results'
   | 'content';
 
 interface ResolveInsightsPageViewInput {
   endpointsLoading: boolean;
+  endpointsError: string | null;
   projectEndpointCount: number;
   endpointId: string;
   insightsLoading: boolean;
@@ -15,6 +17,7 @@ interface ResolveInsightsPageViewInput {
 
 export function resolveInsightsPageView({
   endpointsLoading,
+  endpointsError,
   projectEndpointCount,
   endpointId,
   insightsLoading,
@@ -23,6 +26,10 @@ export function resolveInsightsPageView({
 }: ResolveInsightsPageViewInput): InsightsPageView {
   if (endpointsLoading) {
     return 'loading-endpoints';
+  }
+
+  if (endpointsError) {
+    return 'endpoints-error';
   }
 
   if (projectEndpointCount === 0) {

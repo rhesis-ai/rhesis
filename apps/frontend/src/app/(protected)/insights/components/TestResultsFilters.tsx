@@ -32,6 +32,11 @@ interface TestResultsFiltersProps {
   showExpandToggle?: boolean;
   allExpanded?: boolean;
   onToggleAll?: () => void;
+  /**
+   * `compact` keeps endpoint/time controls (filter drawer + time range) but
+   * hides behavior search — used on the no-test-results empty state.
+   */
+  variant?: 'full' | 'compact';
 }
 
 export default function TestResultsFilters({
@@ -45,7 +50,9 @@ export default function TestResultsFilters({
   showExpandToggle = false,
   allExpanded = false,
   onToggleAll,
+  variant = 'full',
 }: TestResultsFiltersProps) {
+  const isCompact = variant === 'compact';
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const drawerFilters = useMemo<InsightsDrawerFilters>(
@@ -80,6 +87,7 @@ export default function TestResultsFilters({
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
         searchPlaceholder="Search behaviors…"
+        showSearch={!isCompact}
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveInsightsDrawerFilters(drawerFilters)}
         activeFilterCount={countActiveInsightsDrawerFilters(drawerFilters)}

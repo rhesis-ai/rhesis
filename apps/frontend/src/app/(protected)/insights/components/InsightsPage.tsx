@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -40,6 +40,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [endpointsLoading, setEndpointsLoading] = useState(true);
+  const [endpointsError, setEndpointsError] = useState<string | null>(null);
 
   const projectEndpoints = useMemo(
     () =>
@@ -121,33 +122,31 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     });
   }, []);
 
-  useEffect(() => {
+  const loadEndpoints = useCallback(async () => {
     if (!sessionToken) return;
 
-    let mounted = true;
+    setEndpointsLoading(true);
+    setEndpointsError(null);
 
-    const loadEndpoints = async () => {
-      setEndpointsLoading(true);
-      try {
-        const client = new ApiClientFactory(sessionToken).getEndpointsClient();
-        const response = await client.getEndpoints({
-          limit: 100,
-          sort_by: 'name',
-          sort_order: 'asc',
-        });
-        if (mounted) setEndpoints(response.data);
-      } catch {
-        if (mounted) setEndpoints([]);
-      } finally {
-        if (mounted) setEndpointsLoading(false);
-      }
-    };
-
-    void loadEndpoints();
-    return () => {
-      mounted = false;
-    };
+    try {
+      const client = new ApiClientFactory(sessionToken).getEndpointsClient();
+      const response = await client.getEndpoints({
+        limit: 100,
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
+      setEndpoints(response.data);
+    } catch {
+      setEndpoints([]);
+      setEndpointsError('Failed to load endpoints. Please try again.');
+    } finally {
+      setEndpointsLoading(false);
+    }
   }, [sessionToken]);
+
+  useEffect(() => {
+    void loadEndpoints();
+  }, [loadEndpoints]);
 
   useEffect(() => {
     if (endpointsLoading) return;
@@ -195,12 +194,23 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
 
   const pageView = resolveInsightsPageView({
     endpointsLoading,
+    endpointsError,
     projectEndpointCount: projectEndpoints.length,
     endpointId: filters.endpointId,
     insightsLoading,
     error,
     noRuns,
   });
+
+  const filterBarProps = {
+    filters,
+    onFiltersChange: handleFiltersChange,
+    projectEndpoints,
+    endpointsLoading,
+    behaviorOptions,
+    searchQuery,
+    onSearchChange: setSearchQuery,
+  } as const;
 
   return (
     <PageLayout
@@ -227,20 +237,30 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
             <CircularProgress />
           </Box>
+        ) : pageView === 'endpoints-error' ? (
+          <Box sx={{ mt: 2 }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={loadEndpoints}>
+                  Retry
+                </Button>
+              }
+            >
+              {endpointsError}
+            </Alert>
+          </Box>
         ) : pageView === 'empty-no-endpoints' ? (
           <InsightsEmptyState variant="no-endpoints" />
         ) : pageView === 'empty-no-test-results' ? (
-          <InsightsEmptyState variant="no-test-results" />
+          <>
+            <TestResultsFilters {...filterBarProps} variant="compact" />
+            <InsightsEmptyState variant="no-test-results" />
+          </>
         ) : (
           <>
             <TestResultsFilters
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              projectEndpoints={projectEndpoints}
-              endpointsLoading={endpointsLoading}
-              behaviorOptions={behaviorOptions}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
+              {...filterBarProps}
               showExpandToggle={
                 !fabLoading &&
                 expandableRowIndices.length > 0 &&
