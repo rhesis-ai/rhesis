@@ -185,6 +185,30 @@ Retrieve conversation history for a specific session.
 
 Delete a conversation session and its history.
 
+### Session storage
+
+When `BROKER_URL` is configured, chatbot session history is stored in Redis DB
+`4` using keys prefixed with `chatbot:session:`. Each session is stored as a
+Redis list, and reads or writes refresh the session TTL.
+
+If `BROKER_URL` is not set, the chatbot uses an in-memory session store. That is
+useful for local development, but it is single-process only and does not survive
+process restarts.
+
+| Redis DB | Purpose |
+| --- | --- |
+| `0` | Celery broker |
+| `1` | Celery result backend |
+| `2` | Garak probe cache |
+| `3` | Conversation linking and trace metric debounce |
+| `4` | Chatbot sessions |
+| `5` | Permission cache |
+
+<Callout type="info">
+  Use Redis-backed sessions for multi-replica chatbot deployments so conversation
+  history is shared across workers.
+</Callout>
+
 ## Parameter Awareness
 
 The default chatbot is a parameter-aware endpoint. It uses **[Parameters & Experiments](/docs/experiments/parameter-schema)** to manage its system prompt, use case, model, temperature, and output mode.

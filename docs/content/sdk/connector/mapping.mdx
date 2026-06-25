@@ -10,11 +10,11 @@ Use standard field names for automatic detection:
 
 <CodeBlock filename="auto_mapping.py" language="python">
 {`@endpoint()
-def chat(input: str, session_id: str = None) -> dict:
+def chat(input: str, conversation_id: str = None) -> dict:
     """Standard names auto-detect."""
     return {
         "output": process_message(input),
-        "session_id": session_id,
+        "conversation_id": conversation_id,
     }`}
 </CodeBlock>
 
@@ -23,7 +23,7 @@ def chat(input: str, session_id: str = None) -> dict:
 | Direction | Field | Description |
 |-----------|-------|-------------|
 | Request | `input` | The user query or test prompt |
-| Request | `session_id` | Conversation tracking identifier |
+| Request | `conversation_id` | Conversation tracking identifier |
 | Request | `context` | Additional context provided with the request |
 | Request | `metadata` | Structured metadata passed to the endpoint |
 | Request | `tool_calls` | Tool call data passed to the endpoint |
@@ -31,7 +31,10 @@ def chat(input: str, session_id: str = None) -> dict:
 | Response | `context` | Retrieval context (e.g., RAG sources) |
 | Response | `metadata` | Structured response metadata (e.g., confidence scores) |
 | Response | `tool_calls` | Tool/function calls made during response generation |
-| Response | `session_id` | Session identifier for conversation tracking |
+| Response | `conversation_id` | Conversation identifier for multi-turn tracking |
+
+`session_id` remains supported as a legacy alias for existing endpoints and
+mappings.
 
 ## Manual Mapping
 
@@ -41,11 +44,11 @@ For custom parameter names or complex structures, provide explicit mappings:
 {`@endpoint(
     request_mapping={
         "user_query": "{{ input }}",
-        "conv_id": "{{ session_id }}",
+        "conv_id": "{{ conversation_id }}",
     },
     response_mapping={
         "output": "$.result.text",
-        "session_id": "$.conv_id",
+        "conversation_id": "$.conv_id",
     },
 )
 def chat(user_query: str, conv_id: str = None) -> dict:
@@ -58,7 +61,7 @@ def chat(user_query: str, conv_id: str = None) -> dict:
 Request mapping transforms incoming Rhesis request fields to your function parameters.
 
 - Use Jinja2 template syntax: `{{ variable_name }}`
-- Maps standard Rhesis request fields (`input`, `session_id`, `context`, `metadata`, `tool_calls`) to your function parameters
+- Maps standard Rhesis request fields (`input`, `conversation_id`, `context`, `metadata`, `tool_calls`) to your function parameters
 - Custom fields from the request are passed through automatically
 - Example: `"user_message": "{{ input }}"` maps the Rhesis `input` field to your function's `user_message` parameter
 
@@ -68,7 +71,7 @@ Request mapping transforms incoming Rhesis request fields to your function param
 {`@endpoint(
     request_mapping={
         "user_message": "{{ input }}",
-        "conv_id": "{{ session_id }}",
+        "conv_id": "{{ conversation_id }}",
     }
 )
 def chat(user_message: str, conv_id: str = None) -> dict:
@@ -84,7 +87,7 @@ For functions that accept complex types (like Pydantic models), mapping keys sho
     request_mapping={
         "request": {
             "messages": [{"role": "user", "content": "{{ input }}"}],
-            "context": {"conversation_id": "{{ session_id }}"},
+            "context": {"conversation_id": "{{ conversation_id }}"},
         },
     }
 )
@@ -109,7 +112,7 @@ Use JSONPath expressions (starting with `$`) for direct field extraction:
 {`@endpoint(
     response_mapping={
         "output": "$.choices[0].message.content",       # Nested extraction
-        "session_id": "$.conv_id",                      # Top-level field
+        "conversation_id": "$.conv_id",                 # Top-level field
         "context": "$.sources",                         # Array field
         "metadata": "$.usage",                          # Structured metadata
         "tool_calls": "$.choices[0].message.tool_calls",# Tool call data

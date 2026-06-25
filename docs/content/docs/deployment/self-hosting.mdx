@@ -187,6 +187,22 @@ The backend container startup process:
 3. Runs all pending migrations
 4. Starts the FastAPI application
 
+### Database roles for production
+
+Use separate database credentials for runtime traffic and migrations when your
+Postgres provider supports it:
+
+| Variable | Purpose |
+| --- | --- |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_DRIVER` | Shared database connection components |
+| `APP_DB_USER`, `APP_DB_PASS` | Runtime backend and worker database role |
+| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | Migration or administrative database role |
+
+If `ADMIN_DB_*` is not set, migrations fall back to the app credentials for
+single-role setups. On managed Postgres, the admin role does not need to be a
+PostgreSQL superuser; RLS-aware migrations set the required tenant session
+variables during backfills.
+
 ## Environment Configuration
 
 ### Required Environment Variables
