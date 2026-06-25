@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-25
+
+### Added
+- **Role-Based Access Control (RBAC):** Implemented a comprehensive RBAC system featuring a Policy Decision Point (PDP), Policy Enforcement Point (PEP) backstops, Redis-backed permission caching, role CRUD APIs, and token scope intersection enforcement.
+- **Microsoft Agent Framework (MAF) Integration:** Added telemetry integration supporting span translation for agents, tools, and handoff workflows, accompanied by a multi-agent travel demo.
+- **MCP Tool Integrations:** Added Model Context Protocol (MCP) integrations for Linear, Azure DevOps, Asana, Shortcut, and GitLab.
+- **Agent Endpoint Management Tools:** Exposed `create_endpoint` and `update_endpoint` via MCP, allowing agents to dynamically register and patch endpoint configurations.
+- **Knowledge Imports:** Enabled importing knowledge directly from MCP extract providers (GitLab, Shortcut, Asana).
+- **Token Project Auto-Resolution:** Added a `/tokens/current` endpoint to automatically resolve `project_id` and `organization_id` from project-scoped API tokens.
+- **Object-Level Permissions:** Added object-level ownership capabilities (e.g., `:own` qualifiers) to restrict comment updates and deletions to their creators.
+
+### Changed
+- **Timezone Standardization:** Standardized timezone handling across the database and backend by migrating `TIMESTAMP` columns to `TIMESTAMPZ` (UTC) and updating SQLAlchemy models to use timezone-aware datetimes.
+- **Performance Optimizations:** Optimized test run serialization by
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Added

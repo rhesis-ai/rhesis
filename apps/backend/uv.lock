@@ -6501,7 +6501,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.9.0"
+version = "0.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6716,6 +6716,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-framework-core", marker = "extra == 'all'", specifier = ">=1.1.0" },
+    { name = "agent-framework-core", marker = "extra == 'microsoft-agent-framework'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'all'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'microsoft-agent-framework'", specifier = ">=1.1.0" },
     { name = "ipykernel", specifier = ">=6.0.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "jupyter", specifier = ">=1.0.0" },
@@ -6737,7 +6741,7 @@ requires-dist = [
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
 ]
-provides-extras = ["langchain", "langgraph", "all"]
+provides-extras = ["langchain", "langgraph", "microsoft-agent-framework", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -6755,7 +6759,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.9.0"
+version = "0.10.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

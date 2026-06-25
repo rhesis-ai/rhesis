@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-25
+
+### Added
+
+- **MCP Tool Integrations**: Added frontend connection UI, credential validation, and edit flows for Linear, Azure DevOps, Asana, Shortcut, and GitLab Model Context Protocol (MCP) tools.
+- **Knowledge Import**: Enabled importing knowledge directly from MCP extract providers (GitLab, Shortcut, Asana) within the Knowledge import drawer.
+- **vLLM Provider Support**:
+
 ## [0.9.0] - 2026-06-11
 
 ### Added

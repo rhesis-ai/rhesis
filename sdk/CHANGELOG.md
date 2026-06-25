@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-25
+
+### Added
+- **Microsoft Agent Framework (MAF) Integration**: Added full telemetry integration for MAF (`auto_instrument("agent_framework")` or `"maf"`), capturing agent invocations, tool calls, and `HandoffBuilder` workflows. Includes a new `[agent-framework]` installation extra, a multi-agent travel demo, and a Penelope execution target.
+- **Automatic Project ID Resolution**: The SDK now automatically resolves the `project_id` from project-scoped API tokens during `RhesisClient`
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Added

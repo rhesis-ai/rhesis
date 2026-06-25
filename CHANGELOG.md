@@ -13,6 +13,33 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-25
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.10.0**
+- **Frontend 0.10.0**
+- **SDK 0.10.0**
+
+### Summary of Changes
+
+**Backend v0.10.0:**
+*Point 3 (Telemetry/SDK)*: New Microsoft Agent Framework (MAF) telemetry integration
+
+**Frontend v0.10.0:**
+- Redesigned the Insights tab into a behavior-centric pass rate view with behavior columns, metric/
+
+**SDK v0.10.0:**
+- **Microsoft Agent Framework (MAF) Integration**: Added comprehensive telemetry integration for MAF via `
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Platform Release
