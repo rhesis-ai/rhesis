@@ -375,7 +375,7 @@ Aggregated statistics for test results. Use for single-run analysis and multi-ru
 - `test_runs` — per-run pass/fail summary; pass multiple `test_run_ids` to compare runs side by side
 - `summary` — lightweight overall totals only
 
-**For single-run analysis:** `mode=all` with `test_run_id`  
+**For single-run analysis:** `mode=all` with `test_run_id`
 **For multi-run comparison:** `mode=test_runs` with `test_run_ids`
 
 **Key parameters:**
@@ -387,15 +387,93 @@ Aggregated statistics for test results. Use for single-run analysis and multi-ru
 
 ---
 
-### `get_test_run_stats`
-Run-level analytics: run volume, status distribution, most-run test sets, top executors, monthly trends.
-
-Use for **operational questions** ("how many runs this month?"). For pass/fail outcomes, use `get_test_result_stats` instead.
-
-**Modes:** `summary` (default), `status`, `results`, `test_sets`, `executors`, `timeline`, `all`
-
 **Key parameters:**
 - `mode`
 - `endpoint_ids`, `test_set_ids` — optional filters
 - `months` — history window (default 6)
 - `start_date`, `end_date`
+
+---
+
+## Inspection (get-by-id)
+
+### `get_test_set`
+Get one test set by UUID, nano_id, or slug.
+
+**CHAIN:** after `generate_test_set` / `get_job_status` → then `list_test_set_tests` to verify prompts.
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `list_test_set_tests`
+List tests inside a single test set.
+
+**CHAIN:** prefer over org-wide `list_tests` when you have the test set ID.
+
+**Default `$select`:** `id,prompt,behavior,category,topic`
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `get_endpoint`
+Full endpoint config including mappings and auth.
+
+**CHAIN:** after `list_endpoints` when you need `request_mapping` / `response_mapping` details.
+
+**Key parameters:** `endpoint_id` (required)
+
+---
+
+### `get_metric`
+Full metric including `evaluation_prompt`.
+
+**CHAIN:** before `update_metric` or `improve_metric`.
+
+**Key parameters:** `metric_id` (required)
+
+---
+
+## Entity mutation (additional)
+
+### `update_test_set`
+Update test set metadata only (name, description). Does not regenerate tests.
+
+**Key parameters:** `test_set_id` (required); send only fields to change.
+
+---
+
+### `update_metric`
+Direct field edits on a metric. Does not change behavior links.
+
+**CHAIN:** `get_metric` first. For NL refactors use `improve_metric` instead.
+
+**Key parameters:** `metric_id` (required)
+
+---
+
+### `remove_behavior_from_metric`
+Unlink a behavior from a metric. Inverse of `add_behavior_to_metric`.
+
+**CHAIN:** confirm link via `get_metric_behaviors` first.
+
+**Key parameters:** `metric_id`, `behavior_id` (required)
+
+---
+
+### `create_source`
+Create a knowledge source for grounding single-turn `generate_test_set`.
+
+**Patterns:**
+- Pasted text: `title` + `content` (Manual type — copy `source_type_id` from `list_sources`)
+- URL: `title` + `url` (Website type)
+- File uploads: UI only (not available via MCP)
+
+**CHAIN:** `create_source` → `generate_test_set` with `sources: [{"id": "…"}]`
+
+---
+
+## Playbooks
+
+See `references/entity-model.md` for the full entity graph and tool chains by intent.
