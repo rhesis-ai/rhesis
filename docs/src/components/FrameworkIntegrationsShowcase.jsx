@@ -460,7 +460,8 @@ export function ObservabilitySection() {
         >
           Auto-instrumentation
         </a>{' '}
-        works out of the box for LangChain, LangGraph, and Microsoft Agent Framework; connect any Python app using the{' '}
+        works out of the box for LangChain, LangGraph, and Microsoft Agent Framework; connect any
+        Python app using the{' '}
         <a
           href="/sdk/connector"
           style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
