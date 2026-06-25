@@ -1,12 +1,13 @@
 import logging
-import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -27,11 +28,12 @@ logger = logging.getLogger(__name__)
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)
 
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/tasks",
     tags=["tasks"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="task",
 )
 
 
@@ -63,7 +65,7 @@ def create_task(
 
         # Send email notification if task has an assignee
         if created_task.assignee_id:
-            frontend_url = os.getenv("FRONTEND_URL")
+            frontend_url = get_frontend_settings().url
             send_task_assignment_notification(db=db, task=created_task, frontend_url=frontend_url)
 
         # Track feature usage
@@ -216,7 +218,7 @@ def update_task(
 
         # Send email notification if assignee was changed to a new user
         if assignee_changed and updated_task.assignee_id:
-            frontend_url = os.getenv("FRONTEND_URL")
+            frontend_url = get_frontend_settings().url
             send_task_assignment_notification(db=db, task=updated_task, frontend_url=frontend_url)
 
         # Track feature usage

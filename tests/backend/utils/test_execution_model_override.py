@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
 
 
@@ -70,7 +70,7 @@ class TestGetExecutionModelWithOverride:
             db=mock_db,
             model_id="model-789",
             organization_id=str(mock_user.organization_id),
-            default_model=DEFAULT_EXECUTION_MODEL,
+            default_model=get_model_settings().execution_model,
             user=mock_user,
         )
         assert result is mock_llm
@@ -149,7 +149,7 @@ class TestGetEvaluationModelWithOverride:
             db=mock_db,
             model_id="model-789",
             organization_id=str(mock_user.organization_id),
-            default_model=DEFAULT_EVALUATION_MODEL,
+            default_model=get_model_settings().evaluation_model,
             user=mock_user,
         )
         assert result is mock_llm

@@ -6,7 +6,6 @@ import { TYPE_NAMES, TEST_TYPES } from '@/constants/test-types';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import {
   TextField,
-  Typography,
   Stack,
   FormControl,
   FormHelperText,
@@ -39,9 +38,6 @@ export default function TestSetDrawer({
   const [description, setDescription] = React.useState(
     testSet?.description || ''
   );
-  const [shortDescription, setShortDescription] = React.useState(
-    testSet?.short_description || ''
-  );
   const [testSetTypes, setTestSetTypes] = React.useState<TypeLookup[]>([]);
   const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
     string | undefined
@@ -53,7 +49,6 @@ export default function TestSetDrawer({
     if (open) {
       setName(testSet?.name || '');
       setDescription(testSet?.description || '');
-      setShortDescription(testSet?.short_description || '');
       if (testSet) {
         setSelectedTestSetTypeId(testSet.test_set_type_id);
       } else {
@@ -79,20 +74,22 @@ export default function TestSetDrawer({
           sort_order: 'asc',
         });
 
-        setTestSetTypes(types);
+        const selectableTypes = types.filter(
+          t => t.type_value?.toLowerCase() !== 'mixed'
+        );
 
-        if (!testSet && types.length > 0) {
-          const singleTurnType = types.find(
+        setTestSetTypes(selectableTypes);
+
+        if (!testSet && selectableTypes.length > 0) {
+          const singleTurnType = selectableTypes.find(
             t => t.type_value === TEST_TYPES.SINGLE_TURN
           );
-          if (singleTurnType) {
-            setSelectedTestSetTypeId(singleTurnType.id);
-          } else {
-            setSelectedTestSetTypeId(types[0].id);
-          }
+          setSelectedTestSetTypeId(
+            singleTurnType ? singleTurnType.id : selectableTypes[0].id
+          );
         }
-      } catch (err) {
-        console.error('Failed to fetch test set types:', err);
+      } catch (_err) {
+        // Silently fail — user can still select a type manually
       }
     };
 
@@ -133,9 +130,7 @@ export default function TestSetDrawer({
       const testSetData = {
         name: trimmedName,
         description: description.trim(),
-        short_description: shortDescription.trim(),
-        priority: 1, // Default to Medium priority
-        visibility: 'organization' as const,
+        priority: 1,
         is_published: false,
         attributes: {},
         test_set_type_id: selectedTestSetTypeId as UUID | undefined,
@@ -166,71 +161,51 @@ export default function TestSetDrawer({
       onSave={handleSave}
     >
       <Stack spacing={3}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Test Set Details
-          </Typography>
+        <TextField
+          label="Name"
+          value={name}
+          onChange={e => {
+            setName(e.target.value);
+            if (nameError) setNameError('');
+          }}
+          fullWidth
+          required
+          disabled={loading}
+          error={!!nameError}
+          helperText={
+            nameError || 'A clear, descriptive name for this test set'
+          }
+        />
 
-          <Stack spacing={2}>
-            <TextField
-              label="Name"
-              value={name}
-              onChange={e => {
-                setName(e.target.value);
-                if (nameError) setNameError('');
-              }}
-              required
-              fullWidth
-              disabled={loading}
-              error={!!nameError}
-              helperText={
-                nameError || 'A clear, descriptive name for this test set'
-              }
-            />
+        <FormControl fullWidth required disabled={loading} error={!!typeError}>
+          <InputLabel id="test-set-type-label">Test Set Type</InputLabel>
+          <Select
+            labelId="test-set-type-label"
+            label="Test Set Type"
+            value={selectedTestSetTypeId || ''}
+            onChange={e => {
+              setSelectedTestSetTypeId(e.target.value);
+              if (typeError) setTypeError('');
+            }}
+          >
+            {testSetTypes.map(type => (
+              <MenuItem key={type.id} value={type.id}>
+                {type.type_value}
+              </MenuItem>
+            ))}
+          </Select>
+          {typeError && <FormHelperText>{typeError}</FormHelperText>}
+        </FormControl>
 
-            <FormControl
-              fullWidth
-              disabled={loading}
-              required
-              error={!!typeError}
-            >
-              <InputLabel>Test Set Type</InputLabel>
-              <Select
-                value={selectedTestSetTypeId || ''}
-                onChange={e => {
-                  setSelectedTestSetTypeId(e.target.value);
-                  if (typeError) setTypeError('');
-                }}
-                label="Test Set Type"
-              >
-                {testSetTypes.map(type => (
-                  <MenuItem key={type.id} value={type.id}>
-                    {type.type_value}
-                  </MenuItem>
-                ))}
-              </Select>
-              {typeError && <FormHelperText>{typeError}</FormHelperText>}
-            </FormControl>
-
-            <TextField
-              label="Short Description"
-              value={shortDescription}
-              onChange={e => setShortDescription(e.target.value)}
-              fullWidth
-              disabled={loading}
-            />
-
-            <TextField
-              label="Description"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              multiline
-              rows={4}
-              fullWidth
-              disabled={loading}
-            />
-          </Stack>
-        </Stack>
+        <TextField
+          label="Description"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          multiline
+          rows={4}
+          fullWidth
+          disabled={loading}
+        />
       </Stack>
     </BaseDrawer>
   );

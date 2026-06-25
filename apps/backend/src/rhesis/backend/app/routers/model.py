@@ -3,6 +3,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -28,11 +29,12 @@ logger = logging.getLogger(__name__)
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/models",
     tags=["models"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="model",
 )
 
 

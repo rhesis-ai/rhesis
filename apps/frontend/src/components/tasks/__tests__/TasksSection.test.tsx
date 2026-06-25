@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { ThemeProvider } from '@mui/material/styles';
+import lightTheme from '@/styles/theme';
 import { TasksSection } from '../TasksSection';
 import { ApiClientFactory } from '../../../utils/api-client/client-factory';
 
@@ -24,6 +26,10 @@ jest.mock('../../../components/common/NotificationContext', () => ({
 const mockApiClientFactory = ApiClientFactory as jest.MockedClass<
   typeof ApiClientFactory
 >;
+
+function wrap(ui: React.ReactElement) {
+  return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
+}
 
 describe('TasksSection - Infinite Loading Fix', () => {
   const mockTasksClient = {
@@ -58,7 +64,7 @@ describe('TasksSection - Infinite Loading Fix', () => {
       totalCount: 0,
     });
 
-    const { rerender } = render(<TasksSection {...defaultProps} />);
+    const { rerender } = wrap(<TasksSection {...defaultProps} />);
 
     // Wait for initial fetch
     await waitFor(() => {
@@ -66,9 +72,21 @@ describe('TasksSection - Infinite Loading Fix', () => {
     });
 
     // Rerender multiple times with same props
-    rerender(<TasksSection {...defaultProps} />);
-    rerender(<TasksSection {...defaultProps} />);
-    rerender(<TasksSection {...defaultProps} />);
+    rerender(
+      <ThemeProvider theme={lightTheme}>
+        <TasksSection {...defaultProps} />
+      </ThemeProvider>
+    );
+    rerender(
+      <ThemeProvider theme={lightTheme}>
+        <TasksSection {...defaultProps} />
+      </ThemeProvider>
+    );
+    rerender(
+      <ThemeProvider theme={lightTheme}>
+        <TasksSection {...defaultProps} />
+      </ThemeProvider>
+    );
 
     // Should still only have one fetch - no infinite loop
     await waitFor(() => {
@@ -77,11 +95,11 @@ describe('TasksSection - Infinite Loading Fix', () => {
   });
 
   it('should set loading to false when required props are missing', async () => {
-    render(<TasksSection {...defaultProps} sessionToken="" />);
+    wrap(<TasksSection {...defaultProps} sessionToken="" />);
 
     // Should show empty state, not loading spinner
     await waitFor(() => {
-      expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/no task created yet/i)).toBeInTheDocument();
     });
 
     // Should not have attempted to fetch
@@ -94,14 +112,14 @@ describe('TasksSection - Infinite Loading Fix', () => {
       totalCount: 0,
     });
 
-    render(<TasksSection {...defaultProps} />);
+    wrap(<TasksSection {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/no task created yet/i)).toBeInTheDocument();
     });
   });
 
-  it('should refetch when entity changes', async () => {
+  it('should refetch when refreshKey changes', async () => {
     mockTasksClient.getTasks.mockResolvedValue({
       data: [],
       totalCount: 0,
@@ -113,8 +131,31 @@ describe('TasksSection - Infinite Loading Fix', () => {
       expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(1);
     });
 
+    rerender(<TasksSection {...defaultProps} refreshKey={1} />);
+
+    await waitFor(() => {
+      expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('should refetch when entity changes', async () => {
+    mockTasksClient.getTasks.mockResolvedValue({
+      data: [],
+      totalCount: 0,
+    });
+
+    const { rerender } = wrap(<TasksSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(1);
+    });
+
     // Change entity ID - should trigger new fetch
-    rerender(<TasksSection {...defaultProps} entityId="test-456" />);
+    rerender(
+      <ThemeProvider theme={lightTheme}>
+        <TasksSection {...defaultProps} entityId="test-456" />
+      </ThemeProvider>
+    );
 
     await waitFor(() => {
       expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(2);

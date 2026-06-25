@@ -5,10 +5,13 @@
 # How it works:
 #   1. Terraform detects that named.conf content has changed (via SHA hash trigger)
 #   2. Provisioner pushes the new config to the VM through IAP
-#   3. Restarts named service to apply changes
+#   3. Config is written atomically: decode → validate (named-checkconf) → rename
+#      into place. The live named.conf is never truncated before validation passes,
+#      so a flaky connection or bad content cannot leave an empty/corrupt config.
 #
 # Note: Zone file is NOT overwritten on update to preserve dynamic records.
-# Only named.conf (TSIG keys, ACLs, options) is updated.
+# If the zone file is missing (e.g. first run with bind9_config_update before
+# cloud-init wrote it), it is seeded from the template before named starts.
 
 resource "terraform_data" "bind9_config_update" {
   count = length(var.bind9_tsig_keys) > 0 ? 1 : 0
@@ -21,13 +24,36 @@ resource "terraform_data" "bind9_config_update" {
     command     = <<-EOT
       set -e
 
-      ZONE="${var.region}-a"
+      ZONE="${google_compute_instance.wireguard.zone}"
       PROJECT="${var.project_id}"
 
       # Write base64 config to a temp file
       tmpfile=$(mktemp)
       trap 'rm -f "$tmpfile"' EXIT
       printf '%s' '${base64encode(local.bind9_named_conf)}' > "$tmpfile"
+
+      # Verify the local temp file is non-empty before transferring
+      if [ ! -s "$tmpfile" ]; then
+        echo "ERROR: base64-encoded named.conf is empty — aborting to protect live config"
+        exit 1
+      fi
+
+      # OS Login issues a fresh short-lived SSH certificate on every gcloud call.
+      # Transient API hiccups or propagation delays on a newly created VM can cause
+      # individual calls to fail even after an earlier call succeeded. This helper
+      # retries any gcloud ssh/scp command up to 10 times with a 10-second backoff.
+      gcloud_retry() {
+        local attempt
+        for attempt in $(seq 1 10); do
+          if "$@"; then
+            return 0
+          fi
+          echo "SSH/SCP failed (attempt $attempt/10), retrying in 10s..."
+          sleep 10
+        done
+        echo "ERROR: command failed after 10 attempts: $*"
+        return 1
+      }
 
       # Wait for VM to accept SSH
       for i in $(seq 1 30); do
@@ -41,30 +67,58 @@ resource "terraform_data" "bind9_config_update" {
         sleep 10
       done
 
-      # Remove any stale file from a previous failed run
-      gcloud compute ssh wireguard-server \
+      # Remove any stale file from a previous failed run.
+      # Uses named.conf.tf.b64 (not named.conf.b64) to avoid colliding with
+      # the identically-named temp file that cloud-init writes during first boot.
+      gcloud_retry gcloud compute ssh wireguard-server \
         --zone="$ZONE" --project="$PROJECT" \
         --tunnel-through-iap \
-        --command="sudo rm -f /tmp/named.conf.b64" 2>/dev/null || true
+        --command="sudo rm -f /tmp/named.conf.tf.b64 /tmp/named.conf.new" 2>/dev/null || true
 
-      # Copy base64-encoded config to server
-      gcloud compute scp "$tmpfile" wireguard-server:/tmp/named.conf.b64 \
-        --zone="$ZONE" --project="$PROJECT" \
-        --tunnel-through-iap
+      # Copy base64-encoded config to server via SSH stdin pipe.
+      # gcloud compute scp crashes on some gcloud/Python versions with
+      # TypeError: quote_from_bytes() expected bytes — use ssh+stdin instead.
+      for scp_attempt in $(seq 1 10); do
+        if cat "$tmpfile" | gcloud compute ssh wireguard-server \
+          --zone="$ZONE" --project="$PROJECT" \
+          --tunnel-through-iap \
+          --command="cat > /tmp/named.conf.tf.b64"; then
+          break
+        fi
+        if [ "$scp_attempt" = "10" ]; then
+          echo "ERROR: config upload failed after 10 attempts"
+          exit 1
+        fi
+        echo "SSH upload failed (attempt $scp_attempt/10), retrying in 10s..."
+        sleep 10
+      done
 
-      # Decode config, install bind9 if needed, restart named
-      gcloud compute ssh wireguard-server \
+      # Atomic config update on the VM:
+      #   1. Decode into a staging file (/tmp/named.conf.new) — never touching the live config
+      #   2. Guard: reject empty decode result
+      #   3. Validate the staging file with named-checkconf
+      #   4. Only then atomically replace the live named.conf
+      #   5. Seed zone file if missing (preserves dynamic records when it already exists)
+      #   6. Restart named
+      gcloud_retry gcloud compute ssh wireguard-server \
         --zone="$ZONE" --project="$PROJECT" \
         --tunnel-through-iap \
         --command="sudo bash -c '\
+          set -e && \
           apt-get install -y -qq bind9 > /dev/null 2>&1 || true && \
           systemctl stop dnsmasq 2>/dev/null || true && \
           systemctl disable dnsmasq 2>/dev/null || true && \
-          base64 -d /tmp/named.conf.b64 > /etc/bind/named.conf && \
-          rm /tmp/named.conf.b64 && \
+          base64 -d /tmp/named.conf.tf.b64 > /tmp/named.conf.new && \
+          rm /tmp/named.conf.tf.b64 && \
+          [ -s /tmp/named.conf.new ] || { echo \"ERROR: decoded named.conf is empty\"; rm -f /tmp/named.conf.new; exit 1; } && \
+          named-checkconf /tmp/named.conf.new && \
+          mv /tmp/named.conf.new /etc/bind/named.conf && \
           mkdir -p /var/lib/bind && \
           chown -R bind:bind /var/lib/bind && \
-          named-checkconf && \
+          if [ ! -f /var/lib/bind/rhesis.ai.zone ]; then \
+            printf %s ${base64encode(local.bind9_rhesis_ai_zone_file)} | base64 -d > /var/lib/bind/rhesis.ai.zone && \
+            chown bind:bind /var/lib/bind/rhesis.ai.zone; \
+          fi && \
           systemctl enable named && \
           systemctl restart named && \
           echo \"BIND9 config updated and reloaded successfully\"'"

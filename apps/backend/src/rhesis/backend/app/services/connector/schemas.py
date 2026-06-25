@@ -5,9 +5,9 @@
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 @dataclass(frozen=True)
@@ -17,11 +17,19 @@ class WebSocketConnectionContext:
     Created at connection time from the authenticated user. The organization_id
     and user_id cannot be overridden by subsequent messages — they are derived
     solely from the authentication token.
+
+    token_project_id: optional project UUID stored on the API token itself.
+    When present it serves as an alternate authorization path in
+    _authorize_and_register: a token explicitly scoped to a project may connect
+    the connector for that project even if the token owner lacks a
+    ProjectMembership row (e.g. tokens created before the membership migration
+    ran the backfill).
     """
 
     connection_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     user_id: str = ""
     organization_id: str = ""
+    token_project_id: Optional[str] = None
 
 
 class FunctionMetadata(BaseModel):
@@ -60,6 +68,26 @@ class ExecuteTestMessage(BaseModel):
     test_run_id: str
     function_name: str
     inputs: Dict[str, Any]
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    parameter_version: Optional[str] = None
+    parameter_experiment_id: Optional[str] = None
+    parameter_source: Optional[Literal["environment", "experiment_id", "version"]] = None
+    parameter_source_environment: Optional[str] = None
+    parameter_schema: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_parameter_provenance(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "parameter_source_environment" not in data and "parameter_source_label" in data:
+            data = {
+                **data,
+                "parameter_source_environment": data.get("parameter_source_label"),
+            }
+        if data.get("parameter_source") == "label":
+            data = {**data, "parameter_source": "environment"}
+        return data
 
 
 class ExecuteMetricMessage(BaseModel):

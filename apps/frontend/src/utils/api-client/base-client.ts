@@ -1,7 +1,9 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
+import { getBaseUrl } from '../url-resolver';
 import { PaginationParams, PaginatedResponse } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';
+import { readActiveProjectId } from '../active-project';
 
 /** API error response structure from backend */
 export interface ApiErrorData {
@@ -41,11 +43,18 @@ export class BaseApiClient {
   protected baseUrl: string;
   protected sessionToken?: string;
   protected retryConfig: RetryConfig;
+  protected projectId?: string;
 
-  constructor(sessionToken?: string, retryConfig: Partial<RetryConfig> = {}) {
-    this.baseUrl = API_CONFIG.baseUrl;
+  constructor(
+    sessionToken?: string,
+    retryConfig: Partial<RetryConfig> = {},
+    projectId?: string
+  ) {
+    // Resolve at instantiation so client bundles never keep a server-side URL.
+    this.baseUrl = getBaseUrl();
     this.sessionToken = sessionToken;
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
+    this.projectId = projectId;
   }
 
   protected getHeaders(): HeadersInit {
@@ -53,6 +62,12 @@ export class BaseApiClient {
 
     if (this.sessionToken) {
       headers['Authorization'] = `Bearer ${this.sessionToken}`;
+    }
+
+    // Inject project scope: explicit projectId > cookie
+    const activeProject = this.projectId ?? readActiveProjectId();
+    if (activeProject) {
+      headers['X-Project-Id'] = activeProject;
     }
 
     return headers;
@@ -424,8 +439,9 @@ export class BaseApiClient {
       }
     });
 
-    const path =
+    const rawPath =
       API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const path = rawPath.endsWith('/') ? rawPath : `${rawPath}/`;
     const queryString = queryParams.toString();
     const url = joinUrl(
       this.baseUrl,

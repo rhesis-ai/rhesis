@@ -6,7 +6,7 @@ to ensure consistent behavior and results.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
@@ -46,7 +46,7 @@ def update_test_run_start(
             "execution_mode": execution_mode.value,
             "started_at": start_time.isoformat(),
             "total_tests": total_tests,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             **extra_attributes,
         }
     )
@@ -124,6 +124,7 @@ def trigger_results_collection(
             if test_config.organization_id
             else None,
             "user_id": str(test_config.user_id) if test_config.user_id else None,
+            "project_id": str(test_config.project_id) if test_config.project_id else None,
             "test_run_id": test_run_id,  # Pass test_run_id in headers
         }
     )

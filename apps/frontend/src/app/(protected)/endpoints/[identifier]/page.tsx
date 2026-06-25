@@ -1,30 +1,25 @@
 'use client';
 
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import EndpointDetail from '../components/EndpointDetail';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { PageContainer } from '@toolpad/core';
-import { useEffect, useState } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
+import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
+import { use, useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { EndpointDetailProvider } from './components/EndpointDetailContext';
+import EndpointDetailView from './components/EndpointDetailView';
+import EndpointHeaderActions from './components/EndpointHeaderActions';
 
-// Update the interface to match Next.js generated types
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export default function EndpointPage({ params }: PageProps) {
-  // Use the params Promise
-  const [identifier, setIdentifier] = useState<string>('');
-
-  useEffect(() => {
-    // Resolve the params Promise when component mounts
-    params.then(resolvedParams => {
-      setIdentifier(resolvedParams.identifier);
-    });
-  }, [params]);
+  const { identifier } = use(params);
 
   const { data: session, status } = useSession();
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
@@ -32,41 +27,45 @@ export default function EndpointPage({ params }: PageProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Set document title dynamically
   useDocumentTitle(endpoint?.name || null);
 
   useEffect(() => {
     const fetchEndpoint = async () => {
       try {
-        if (status === 'loading') return; // Wait for session to load
-        if (!identifier) return; // Wait for identifier to be resolved
+        if (status === 'loading') return;
+        if (!identifier) return;
 
         if (!session) {
           throw new Error('No session available');
         }
 
-        // Add UUID validation
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(identifier)) {
           throw new Error('Invalid endpoint identifier format');
         }
 
-        // Get session token from the correct property
         const sessionToken = session.session_token || '';
         const apiFactory = new ApiClientFactory(sessionToken);
         const endpointsClient = apiFactory.getEndpointsClient();
         const data = await endpointsClient.getEndpoint(identifier);
         setEndpoint(data);
 
-        // Fetch project name if endpoint has a project_id
         if (data.project_id) {
           try {
             const projectsClient = apiFactory.getProjectsClient();
             const project = await projectsClient.getProject(data.project_id);
             setProjectName(project.name);
-          } catch (error) {
-            console.error('Error fetching project:', error);
+            setEndpoint(prev =>
+              prev
+                ? { ...prev, project: { ...prev.project, name: project.name } }
+                : prev
+            );
+          } catch (projectErr) {
+            console.error(
+              '[EndpointPage] Failed to fetch project name:',
+              projectErr
+            );
           }
         }
       } catch (err) {
@@ -124,17 +123,39 @@ export default function EndpointPage({ params }: PageProps) {
   const breadcrumbs =
     endpoint.project_id && projectName
       ? [
-          { title: 'Projects', path: '/projects' },
-          { title: projectName, path: `/projects/${endpoint.project_id}` },
-          { title: endpoint.name },
+          { label: 'Projects', href: '/projects' },
+          { label: projectName, href: `/projects/${endpoint.project_id}` },
+          { label: endpoint.name },
         ]
-      : [{ title: 'Endpoints', path: '/endpoints' }, { title: endpoint.name }];
+      : [{ label: 'Endpoints', href: '/endpoints' }, { label: endpoint.name }];
+
+  const metadataStrip = (
+    <DetailMetadataStrip
+      items={[
+        { label: 'created by:', value: '—' },
+        {
+          label: 'created on:',
+          value: endpoint.endpoint_metadata?.created_at
+            ? format(
+                new Date(endpoint.endpoint_metadata.created_at),
+                'dd/MM/yyyy'
+              )
+            : '—',
+        },
+      ]}
+    />
+  );
 
   return (
-    <PageContainer title={endpoint.name} breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
-        <EndpointDetail endpoint={endpoint} />
-      </Box>
-    </PageContainer>
+    <EndpointDetailProvider endpoint={endpoint}>
+      <PageLayout
+        title={endpoint.name}
+        breadcrumbs={breadcrumbs}
+        metadata={metadataStrip}
+        actions={<EndpointHeaderActions />}
+      >
+        <EndpointDetailView />
+      </PageLayout>
+    </EndpointDetailProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -43,6 +44,7 @@ interface ProviderInfo {
   type: 'oauth' | 'credentials';
   enabled: boolean;
   registration_enabled?: boolean;
+  login_url?: string;
 }
 
 interface PasswordPolicy {
@@ -111,11 +113,19 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     }
   }, []);
 
-  // Fetch available providers from backend
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        const response = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        const searchParams = new URLSearchParams(window.location.search);
+        const org = searchParams.get('org');
+        // Use the Next.js proxy route (/api/auth-config) so the browser makes a
+        // same-origin request — avoids CORS when the frontend runs on localhost
+        // against a remote backend (e.g. dev-api.rhesis.ai).
+        let url = '/api/auth-config';
+        if (org) {
+          url += `?org=${encodeURIComponent(org)}`;
+        }
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error('Failed to fetch providers');
         }
@@ -153,19 +163,23 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     return true;
   };
 
-  const handleOAuthLogin = async (providerName: string) => {
+  const handleOAuthLogin = async (provider: ProviderInfo) => {
     if (!checkTerms()) return;
 
-    // Get return_to from URL params or default to dashboard
     const searchParams = new URLSearchParams(window.location.search);
-    const returnTo = searchParams.get('return_to') || '/dashboard';
+    const returnTo = searchParams.get('return_to') || '/architect';
 
-    // Redirect to backend OAuth endpoint
+    if (provider.login_url) {
+      const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
+      loginUrl.searchParams.set('return_to', returnTo);
+      window.location.href = loginUrl.toString();
+      return;
+    }
+
     const loginUrl = new URL(
-      `${getClientApiBaseUrl()}/auth/login/${providerName}`
+      `${getClientApiBaseUrl()}/auth/login/${provider.name}`
     );
     loginUrl.searchParams.set('return_to', returnTo);
-
     window.location.href = loginUrl.toString();
   };
 
@@ -245,7 +259,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
         // Redirect to dashboard or return_to URL
         const searchParams = new URLSearchParams(window.location.search);
-        const returnTo = searchParams.get('return_to') || '/dashboard';
+        const returnTo = searchParams.get('return_to') || '/architect';
         window.location.href = returnTo;
       }
     } catch (err) {
@@ -294,6 +308,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         return <GitHubIcon />;
       case 'email':
         return <EmailIcon />;
+      case 'sso':
+        return <LockIcon />;
       default:
         return null;
     }
@@ -701,7 +717,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   fullWidth
                   size="large"
                   startIcon={getProviderIcon(provider.name)}
-                  onClick={() => handleOAuthLogin(provider.name)}
+                  onClick={() => handleOAuthLogin(provider)}
                   sx={{
                     height: 46,
                     borderRadius: '10px', // Intentional: button border radius

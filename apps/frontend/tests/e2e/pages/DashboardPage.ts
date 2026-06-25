@@ -2,7 +2,7 @@ import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
- * Page Object for the Dashboard page (/dashboard).
+ * @deprecated Dashboard merged into Insights. /dashboard redirects to /insights.
  */
 export class DashboardPage extends BasePage {
   constructor(page: Page) {
@@ -13,9 +13,9 @@ export class DashboardPage extends BasePage {
     await this.page.goto('/dashboard');
   }
 
-  /** Assert the dashboard page loaded successfully. */
+  /** Assert redirect to insights completed. */
   async expectLoaded() {
-    await expect(this.page).toHaveURL(/\/dashboard/);
+    await expect(this.page).toHaveURL(/\/insights/);
     await this.expectNoErrors();
   }
 

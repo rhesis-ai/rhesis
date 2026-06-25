@@ -8,6 +8,225 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.9.0] - 2026-06-11
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.9.0**
+- **Frontend 0.9.0**
+- **SDK 0.9.0**
+- **Polyphemus 0.4.0**
+
+### Summary
+
+This release delivers a **major UI redesign** aligned with the Figma design system, an **endpoint creation wizard** with interactive test-and-map flows, **project-level isolation** with ambient request scope, and **OWASP LLM Top 10 red-teaming** via the new `OWASPSynthesizer`. The SDK connector architecture was refactored around `EndpointContext`, replacing local backend execution.
+
+### Featured Capabilities
+
+**Endpoint Creation Wizard**
+
+Endpoint setup is now guided end-to-end from the UI:
+
+- **Interactive test-and-map UI**: probe live endpoints, inspect responses, and build request/response mappings in a wizard flow
+- **Streamlined configuration**: reduces manual JSON mapping work when onboarding new endpoints
+
+**Design System Refresh**
+
+The platform UI was rebuilt across major surfaces:
+
+- **Figma-aligned redesign**: Experiments, Test Runs, Explorer, Playground, Project, Tasks, Tokens, and Organization settings
+- **Support drawer**: in-app help and resources from the sidebar
+- **Multi-step model provider flow**: clearer connection and configuration steps for LLM providers
+- **Persistent project selection**: the project switcher remembers your default project across sessions
+
+**Project Isolation and Security**
+
+Multi-tenant safety was strengthened at the project boundary:
+
+- **Ambient request scope**: organization, user, and project context is stamped automatically on ORM queries and writes
+- **Project-container scoping**: backend routes and Celery tasks respect project-level isolation consistently
+- **Behavior tags**: tag and group behaviors for easier organization and filtering
+
+**OWASP Red-Teaming and Connector Refactor**
+
+SDK testing and execution workflows gained new primitives:
+
+- **`OWASPSynthesizer`**: generate tests aligned with the OWASP LLM Top 10 for security red-teaming
+- **`EndpointContext`**: unified connector execution model replacing local backend execution paths
+- **Architect observability**: improved multi-turn traces and conversation views in the agent workflow
+
+### Backend Highlights
+- Added endpoint creation wizard with interactive test-and-map UI
+- Implemented project-level isolation, ambient scope, and security hardening
+- Added behavior tags, Redis chatbot sessions, and structured production logging
+- Centralized configuration under `BACKEND_ENV` and separated application from administrative database credentials
+- Fixed test execution reliability, tenant scope in Celery tasks, RLS migration requirements, and single-turn metric evaluation failures
+
+### Frontend Highlights
+- Redesigned all major pages and components to match the Figma design system
+- Added endpoint creation wizard, behavior tags, support drawer, and multi-step model provider flow
+- Persisted default project selection in the project switcher
+- Fixed traces page empty state, race conditions, endpoints grid, and sidebar display issues
+
+### SDK Highlights
+- Added `OWASPSynthesizer` for OWASP LLM Top 10 red-teaming
+- Refactored connector execution with `EndpointContext`, replacing local backend execution
+- Fixed `system_prompt` stripping, event loop blocking in batch execution, and single-turn metric evaluation failures
+
+### Polyphemus Highlights
+- Pinned `uv` to version `0.11.19` in Docker service images
+- Fixed Docker build reliability by switching `uv` source to `mirror.gcr.io`
+
+## [0.8.0] - 2026-05-21
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.8.0**
+- **Frontend 0.8.0**
+- **SDK 0.8.0**
+- **Polyphemus 0.3.0**
+
+### Summary
+
+This release introduces **parameter management and experiments** with environment-based routing, **Test Explorer** for adaptive test-tree workflows, **per-organization OIDC SSO** in the Enterprise Edition, and a **file storage migration** from Postgres `bytea` columns to object storage. Architect agent UX, file handling across invocation paths, and security hardening round out the release.
+
+### Featured Capabilities
+
+**Parameters and Experiments**
+
+Project-scoped configuration is now a first-class workflow:
+
+- **Parameter schemas**: define project-level parameter types and defaults
+- **Versioned experiments**: pin parameter values per experiment version and select them at test-run time
+- **Environment routing**: route parameter values by deployment environment (formerly "Labels")
+- **Unified injection**: resolve values via `{{ params.* }}` in request mappings, replacing the legacy `@endpoint(parameters=...)` approach
+- **SDK facade**: `Parameters.get()` resolves context, environment, and label precedence
+
+**Test Explorer**
+
+Adaptive testing surfaces were expanded and renamed:
+
+- **Explorer APIs**: create, import, export, list, and delete Explorer sessions through `/explorer` endpoints
+- **Tree operations**: manage topics and tests in an interactive adaptive test tree
+- **Default embedding model**: `rhesis/rhesis-embedding` is the platform default
+
+**File Storage Migration**
+
+All file content moved from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). This eliminates Cloud Run memory crashes from multi-MB file buffers and brings consistent streaming upload/download semantics.
+
+**Breaking changes:**
+
+- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
+- `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
+- `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
+
+**New file features:**
+
+- `GET /files/{id}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px)
+- `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported)
+- `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes
+- `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`)
+- ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching
+
+**Deployment:** Apply Alembic revision `9b25f353e9c8` (adds storage columns), deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
+
+**IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
+
+**Enterprise SSO**
+
+Per-organization OIDC SSO landed in the Enterprise Edition:
+
+- **Keycloak integration**: provider configuration, user provisioning, and slug-based login URLs
+- **RFC 8693 token exchange**: API Clients let external services exchange Keycloak access tokens for Rhesis JWTs
+- **Feature gating**: capabilities are toggled through a central `FeatureRegistry` and license provider
+
+### Backend Highlights
+- Added parameter management, experiments, and environment-based parameter routing
+- Added Test Explorer endpoints and services for adaptive testing
+- Migrated file storage from `bytea` to object storage (GCS/S3/local)
+- Implemented per-organization OIDC SSO, token exchange, and API Clients in the Enterprise Edition
+- Resolved 56 Dependabot alerts and improved Redis backend stability
+
+### Frontend Highlights
+- Added parameter schema editor, experiment detail page, and experiment selector for test execution
+- Enhanced Test Explorer UI for building and evaluating adaptive test sets
+- Improved Architect agent UX with plan tracking, task progress events, and typo-tolerant entity resolution
+- Added file handling support across invocation paths, including image extraction and vision-based description
+
+### SDK Highlights
+- Added `Parameters.get()` facade and `Experiment` entity with `@endpoint` parameter injection
+- Unified parameter injection via `{{ params.* }}` in request mappings
+- Migrated file attachments to object storage with streaming uploads and `FileReference` support
+- Added image source type extraction and consolidated file extraction with vision fallback
+
+### Polyphemus Highlights
+- Hardened adversarial robustness with a system primer injected on every request
+- Streamlined dependencies by splitting backend packages into core and optional extras
+- Addressed security vulnerabilities across direct and transitive dependencies
+- Improved batch error handling by logging item failures instead of silently swallowing them
+
+## [0.7.1] - 2026-05-07
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.7.1**
+- **Frontend 0.7.1**
+- **SDK 0.7.1**
+
+### Summary
+
+This release refines **Rhesis Architect** and **Test Explorer** workflows with live task progress, typo-tolerant entity resolution, an async endpoint exploration API, broader Agent Skill installation support, and safer plan execution behavior.
+
+### Featured Capabilities
+
+**Architect UX and Plan Reliability**
+
+Architect now keeps long-running background progress inside the active streaming bubble:
+
+- **Task progress events**: `architect.task_progress` carries awaited-task updates from workers to the chat UI
+- **Unified progress trail**: background task rows render alongside regular tool activity and collapse after completion with a `Done.` marker
+- **Plan progress guidance**: the agent tracks ready and blocked prerequisites before test-set generation
+- **Scoped confirmation UI**: **Accept** and **Change** actions appear only when a tool was blocked in the current turn
+
+**Endpoint Exploration and Agent Skill**
+
+Endpoint discovery is easier to run from external agents and automations:
+
+- **Async exploration API**: `POST /endpoints/{endpoint_id}/explore` launches Penelope exploration and returns a `task_id` for `GET /jobs/{task_id}`
+- **Exploration strategies**: supports `domain_probing`, `capability_mapping`, `boundary_discovery`, `comprehensive`, or a custom goal
+- **Agent Skill installer**: `npx skills add rhesis-ai/rhesis` installs the Rhesis skill across compatible AI interfaces
+
+**Explorer and Embeddings**
+
+Test Explorer naming and APIs are now the primary surface for adaptive test-tree workflows:
+
+- **Explorer routes and clients**: create, import, export, list, and delete Explorer sessions through `/explorer` APIs
+- **Default embedding model**: `rhesis/rhesis-embedding` is the default embedding model across the platform
+- **Embedding job safety**: embedding creation defers text generation until post-commit and skips unchanged or userless records
+
+### Backend Highlights
+- Added `ARCHITECT_TASK_PROGRESS` WebSocket event type and worker publication path
+- Added async endpoint exploration route backed by `run_exploration_task`
+- Added Rhesis Agent Skill support and updated MCP tools including `list_sources` and `explore_endpoint`
+- Renamed adaptive testing surfaces to Explorer and added tree operation endpoints
+- Split backend dependencies and unified backend/worker Dockerfile stages
+
+### Frontend Highlights
+- Integrated Architect task progress into the streaming bubble
+- Collapsed completed progress trails and restored the `Done.` marker
+- Prevented streaming output bleed across Architect sessions
+- Added Explorer UI/API client updates for the renamed workflow
+- Removed unused public Auth0 and app URL environment configuration
+
+### SDK Highlights
+- Added typo-tolerant Architect entity resolution using exact, contains, token, and suggestion fallback tiers
+- Strengthened `save_plan` validation and prohibited mid-creation plan rewrites
+- Improved plan progress tracking and behavior-metric mapping reconciliation
+- Added dependency constraints for `aiohttp` and `langchain-openai`
+
 ## [0.7.0] - 2026-04-23
 
 ### Platform Release
@@ -25,6 +244,19 @@ This release introduces the **Rhesis Architect** workflow for conversational tes
 
 **Rhesis Architect (Backend + Frontend + SDK)**
 
+Architect (Telemachus) turns the testing workflow into a single chat: describe a goal, approve a plan, watch it execute.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/M-x-Bjbgl2g"
+    title="Day 2: Architect (Telemachus) - Release 0.7.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
 Architect is now available as a full product workflow:
 
 - **Conversational planning and execution**: multi-phase agent flow for discovery, planning, creation, and execution
@@ -33,6 +265,19 @@ Architect is now available as a full product workflow:
 - **Safety controls**: explicit confirmation flow for mutating operations and scoped write-guards
 
 **Agent Tooling via MCP**
+
+The Rhesis Agent Skill brings the full testing workflow into Claude Code, Cursor, and 40+ other AI tools with a single install.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/_YYj98Lu5rU"
+    title="Day 1: Rhesis Agent Skill - Release 0.7.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
 
 Agent tools are now delivered through a dedicated MCP architecture:
 
@@ -329,6 +574,19 @@ This release introduces **file attachments across tests, traces, and playground 
 
 **File Attachments Across Test Workflows**
 
+Multi-file Testing lets you attach up to 10 images, PDFs, or audio files to a test; in multi-turn flows, Penelope picks when each file enters the conversation.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/odq3GW5qspY"
+    title="Day 5: Multi-file Testing - Release 0.6.8"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
 File support is now available end-to-end across execution and debugging flows:
 
 - **Test and Test Result Attachments**: Upload, list, download, and remove files linked to tests and test results
@@ -464,6 +722,19 @@ This release introduces **Polyphemus access control with delegation tokens**, **
 
 **Polyphemus Access Control**
 
+Polyphemus is an uncensored language model for adversarial test generation — prompt injection, jailbreaks, hate speech, and scenarios safety-aligned models will not generate.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/gjLV7lnDjKw"
+    title="Day 3: Polyphemus - Release 0.6.6"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
 Secure, governed access to Polyphemus models:
 
 - **Request/Grant Workflow**: Users can request access to Polyphemus, admins can grant or revoke it
@@ -548,6 +819,19 @@ Comprehensive metric evaluation in live multi-turn execution:
 - **Pass/Fail Determination**: All evaluated metrics contribute to overall pass/fail outcomes
 
 **Adaptive Testing**
+
+Test Explorer is an interactive workspace for discovering new tests: seed a few, score them, and let Explorer rank diverse suggestions.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/4E1vD7UiHqU"
+    title="Day 4: Test Explorer - Release 0.6.5"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
 
 New tools for building and managing adaptive test suites:
 

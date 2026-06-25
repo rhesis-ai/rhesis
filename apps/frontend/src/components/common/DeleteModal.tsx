@@ -107,7 +107,9 @@ export function DeleteModal({
           : undefined
       }
     >
-      <DialogTitle id="delete-dialog-title">{defaultTitle}</DialogTitle>
+      <DialogTitle id="delete-dialog-title" sx={{ typography: 'h5' }}>
+        {defaultTitle}
+      </DialogTitle>
       <DialogContent>
         {warningMessage && (
           <Alert severity="warning" sx={{ mb: 2 }}>

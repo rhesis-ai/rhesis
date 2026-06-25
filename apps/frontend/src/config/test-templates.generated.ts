@@ -13,23 +13,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CampaignIcon from '@mui/icons-material/Campaign';
-import { TestTemplate } from '@/app/(protected)/tests/new-generated/components/shared/types';
-
-// Icon mapping for YAML references
-const _iconMap: Record<string, React.ComponentType<object>> = {
-  BalanceIcon,
-  LanguageIcon,
-  VerifiedUserIcon,
-  PrivacyTipIcon,
-  RecordVoiceOverIcon,
-  PublicIcon,
-  MenuBookIcon,
-  FavoriteIcon,
-  LightbulbIcon,
-  TroubleshootIcon,
-  AccountBalanceIcon,
-  CampaignIcon,
-};
+import { TestTemplate } from '@/app/(protected)/test-sets/new-generated/components/shared/types';
 
 // Generated templates from YAML
 export const TEMPLATES: TestTemplate[] = [

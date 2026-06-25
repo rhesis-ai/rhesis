@@ -118,8 +118,8 @@ export default function BaseTable<T = object>({
 
       <TableContainer
         component={Paper}
+        elevation={1}
         sx={{
-          boxShadow: 1,
           borderRadius: theme.shape.borderRadius,
           overflow: 'hidden',
           bgcolor: 'background.paper',
@@ -152,12 +152,9 @@ export default function BaseTable<T = object>({
         ) : (
           <Table sx={{ minWidth: 650 }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor: 'grey.50' }}>
+              <TableRow>
                 {columns.map(column => (
-                  <TableCell
-                    key={column.id}
-                    sx={{ fontWeight: 'bold', color: 'text.primary' }}
-                  >
+                  <TableCell key={column.id} variant="head">
                     {column.label}
                   </TableCell>
                 ))}
@@ -175,12 +172,9 @@ export default function BaseTable<T = object>({
                   <React.Fragment key={rowKey}>
                     <TableRow
                       sx={{
-                        '&:nth-of-type(odd)': { backgroundColor: 'grey.50' },
-                        '&:hover': {
-                          backgroundColor: 'grey.100',
-                          cursor: onRowClick ? 'pointer' : 'default',
-                        },
-                        transition: 'background-color 0.2s',
+                        cursor: onRowClick ? 'pointer' : 'default',
+                        transition: 'background-color 0.15s',
+                        position: 'relative',
                         ...(rowHighlight?.[index] && {
                           outline: `2px solid ${rowHighlight[index].color}`,
                           outlineOffset: '-1px',

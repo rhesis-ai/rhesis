@@ -8,17 +8,10 @@ import BehaviorCard from '../BehaviorCard';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 
 const mockDeleteBehavior = jest.fn().mockResolvedValue(undefined);
-const mockAddBehaviorToMetric = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@/utils/api-client/behavior-client', () => ({
   BehaviorClient: jest.fn().mockImplementation(() => ({
     deleteBehavior: mockDeleteBehavior,
-  })),
-}));
-
-jest.mock('@/utils/api-client/metrics-client', () => ({
-  MetricsClient: jest.fn().mockImplementation(() => ({
-    addBehaviorToMetric: mockAddBehaviorToMetric,
   })),
 }));
 
@@ -31,19 +24,43 @@ jest.mock('@/components/common/EntityCard', () => ({
   default: ({
     title,
     description,
-    topRightActions,
-    captionText,
+    onDelete,
+    chipSections,
   }: {
     title: string;
     description: string;
-    topRightActions: React.ReactNode;
-    captionText: string;
+    onDelete?: () => void;
+    chipSections?: Array<{
+      label?: string;
+      chips: Array<{ key: string; label: string }>;
+      emptyText?: string;
+    }>;
   }) => (
     <div data-testid="entity-card">
       <h3>{title}</h3>
       <p>{description}</p>
-      <span data-testid="caption">{captionText}</span>
-      <div data-testid="top-right-actions">{topRightActions}</div>
+      {chipSections?.map((section, idx) => (
+        <div
+          key={section.label ?? `section-${idx}`}
+          data-testid={`chip-section-${(section.label ?? `section-${idx}`).toLowerCase()}`}
+        >
+          {section.label && <h4>{section.label}</h4>}
+          {section.chips.length > 0 ? (
+            section.chips.map(chip => (
+              <span key={chip.key} data-testid={`chip-${chip.key}`}>
+                {chip.label}
+              </span>
+            ))
+          ) : (
+            <span data-testid="chip-empty">{section.emptyText}</span>
+          )}
+        </div>
+      ))}
+      {onDelete && (
+        <button aria-label="delete behavior" onClick={onDelete}>
+          delete
+        </button>
+      )}
     </div>
   ),
 }));
@@ -70,16 +87,6 @@ jest.mock('@/components/common/DeleteModal', () => ({
     ) : null,
 }));
 
-jest.mock('@/components/common/SelectMetricsDialog', () => ({
-  __esModule: true,
-  default: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
-    open ? (
-      <div data-testid="select-metrics-dialog">
-        <button onClick={onClose}>close-metrics</button>
-      </div>
-    ) : null,
-}));
-
 function makeBehavior(overrides = {}): BehaviorWithMetrics {
   return {
     id: 'b1',
@@ -102,9 +109,6 @@ function makeBehavior(overrides = {}): BehaviorWithMetrics {
 
 const DEFAULT_PROPS = {
   behavior: makeBehavior(),
-  onEdit: jest.fn(),
-  onDuplicate: jest.fn(),
-  onViewMetrics: jest.fn(),
   onRefresh: jest.fn(),
   sessionToken: 'tok',
 };
@@ -130,21 +134,6 @@ describe('BehaviorCard', () => {
   it('renders the behavior description', () => {
     renderCard();
     expect(screen.getByText('Detects jailbreak attempts')).toBeInTheDocument();
-  });
-
-  it('shows "No metrics assigned" caption when there are no metrics', () => {
-    renderCard();
-    expect(screen.getByTestId('caption')).toHaveTextContent(
-      'No metrics assigned'
-    );
-  });
-
-  it('shows metric count caption when metrics exist', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      behavior: makeBehavior({ metrics: [{ id: 'm1', name: 'Metric A' }] }),
-    });
-    expect(screen.getByTestId('caption')).toHaveTextContent('1 Metric');
   });
 
   it('shows delete button when there are no metrics', () => {
@@ -197,31 +186,61 @@ describe('BehaviorCard', () => {
     expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument();
   });
 
-  it('calls onEdit when the edit button is clicked', async () => {
-    const user = userEvent.setup();
-    const onEdit = jest.fn();
-    renderCard({ ...DEFAULT_PROPS, onEdit });
+  it('renders a Tags section with each tag chip when tags are present', () => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      behavior: makeBehavior({
+        tags: [
+          { id: 't1', name: 'Marketing' },
+          { id: 't2', name: 'US 1' },
+        ],
+      }),
+    });
 
-    await user.click(screen.getByRole('button', { name: /edit behavior/i }));
-    expect(onEdit).toHaveBeenCalled();
+    const section = screen.getByTestId('chip-section-tags');
+    expect(section).toBeInTheDocument();
+    expect(section).toHaveTextContent('Marketing');
+    expect(section).toHaveTextContent('US 1');
   });
 
-  it('calls onDuplicate when the duplicate button is clicked', async () => {
-    const user = userEvent.setup();
-    const onDuplicate = jest.fn();
-    renderCard({ ...DEFAULT_PROPS, onDuplicate });
-
-    await user.click(
-      screen.getByRole('button', { name: /duplicate behavior/i })
-    );
-    expect(onDuplicate).toHaveBeenCalled();
+  it('renders Tags section empty text when behavior has no tags', () => {
+    renderCard();
+    const section = screen.getByTestId('chip-section-tags');
+    expect(section).toBeInTheDocument();
+    expect(section).toHaveTextContent('No tags assigned');
   });
 
-  it('opens the metrics dialog when the add metric button is clicked', async () => {
-    const user = userEvent.setup();
+  it('caps visible tag chips at 5 and shows a +N more pill', () => {
+    const manyTags = Array.from({ length: 7 }, (_, i) => ({
+      id: `t${i + 1}`,
+      name: `Tag ${i + 1}`,
+    }));
+    renderCard({
+      ...DEFAULT_PROPS,
+      behavior: makeBehavior({ tags: manyTags }),
+    });
+
+    const section = screen.getByTestId('chip-section-tags');
+    expect(section).toHaveTextContent('Tag 1');
+    expect(section).toHaveTextContent('Tag 5');
+    expect(section).not.toHaveTextContent('Tag 6');
+    expect(section).toHaveTextContent('+2 more');
+  });
+
+  it('does not render edit, duplicate, view metrics or add metric icons', () => {
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /add metric/i }));
-    expect(screen.getByTestId('select-metrics-dialog')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /edit behavior/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /duplicate behavior/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /view metrics/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /add metric/i })
+    ).not.toBeInTheDocument();
   });
 });

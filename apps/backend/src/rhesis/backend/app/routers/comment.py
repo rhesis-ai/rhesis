@@ -1,10 +1,13 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.dependencies import (
@@ -12,17 +15,19 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for Comment
 CommentDetailSchema = create_detailed_schema(schemas.Comment, models.Comment)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/comments",
     tags=["comments"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="comment",
 )
 
 """
@@ -108,7 +113,7 @@ def read_comments(
     return comments
 
 
-@router.get("/{comment_id}")
+@router.get("/{comment_id}", response_model=CommentDetailSchema)
 def read_comment(
     comment_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -129,6 +134,7 @@ def read_comment(
 def update_comment(
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -142,8 +148,12 @@ def update_comment(
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    # Check if user owns the comment
-    if db_comment.user_id != current_user.id:
+    # SP10: object-level ownership check via PDP.
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
     return crud.update_comment(
@@ -158,6 +168,7 @@ def update_comment(
 @router.delete("/{comment_id}", response_model=schemas.Comment)
 def delete_comment(
     comment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -171,8 +182,12 @@ def delete_comment(
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    # Check if user owns the comment
-    if db_comment.user_id != current_user.id:
+    # SP10: object-level ownership check via PDP.
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.Comment.DELETE_OWN, db_comment, project_id=project_id, db=db
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
     return crud.delete_comment(
@@ -222,7 +237,7 @@ def read_comments_by_entity(
     return comments
 
 
-@router.post("/{comment_id}/emoji/{emoji}")
+@router.post("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
 def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
@@ -290,7 +305,7 @@ def add_emoji_reaction(
     return updated_comment
 
 
-@router.delete("/{comment_id}/emoji/{emoji}")
+@router.delete("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
 def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,

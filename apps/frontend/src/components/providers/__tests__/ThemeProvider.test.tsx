@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ThemeContextProvider, { ColorModeContext } from '../ThemeProvider';
@@ -104,21 +104,5 @@ describe('ThemeContextProvider', () => {
     expect(document.documentElement.getAttribute('data-theme-mode')).toBe(
       'dark'
     );
-  });
-
-  it('hides children until mounted (visibility hidden then visible)', async () => {
-    const { container } = render(
-      <ThemeContextProvider>
-        <span data-testid="child">content</span>
-      </ThemeContextProvider>
-    );
-    // After all layout effects run (jsdom runs them synchronously), the div should be visible
-    const wrapper = container.querySelector(
-      'div[suppresshydrationwarning]'
-    ) as HTMLElement;
-    if (wrapper) {
-      // After mount, visibility is 'visible'
-      expect(wrapper.style.visibility).toBe('visible');
-    }
   });
 });

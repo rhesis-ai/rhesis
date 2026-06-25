@@ -1,16 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import {
   Box,
   IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Skeleton,
   Tooltip,
+  Typography,
   type Theme,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -19,7 +15,11 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  useFileThumbnail,
+  useFileContentUrl,
+  useThumbnailObjectUrl,
+} from '@/hooks/useFileQueries';
 
 interface FileAttachmentListProps {
   files: FileResponse[];
@@ -36,8 +36,7 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-/** Renders a single image thumbnail fetched with auth headers. */
-function AuthImage({
+function ThumbnailImage({
   fileId,
   filename,
   sessionToken,
@@ -46,41 +45,14 @@ function AuthImage({
   filename: string;
   sessionToken: string;
 }) {
-  const [src, setSrc] = useState<string | null>(null);
+  const { data: blob, isLoading } = useFileThumbnail(fileId, 144, sessionToken);
+  const src = useThumbnailObjectUrl(blob);
 
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const factory = new ApiClientFactory(sessionToken);
-        const client = factory.getFilesClient();
-        const blob = await client.getFileContent(fileId);
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setSrc(objectUrl);
-      } catch {
-        // Silently fail — no thumbnail
-      }
-    };
-
-    load();
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [fileId, sessionToken]);
-
-  if (!src) {
+  if (isLoading || !src) {
     return (
       <Skeleton
         variant="rounded"
-        sx={(theme: Theme) => ({
-          width: theme.spacing(4.5),
-          height: theme.spacing(4.5),
-        })}
+        sx={{ width: 48, height: 48, flexShrink: 0 }}
       />
     );
   }
@@ -90,22 +62,143 @@ function AuthImage({
       component="img"
       src={src}
       alt={filename}
-      sx={(theme: Theme) => ({
-        width: theme.spacing(4.5),
-        height: theme.spacing(4.5),
+      sx={{
+        width: 48,
+        height: 48,
         objectFit: 'cover',
-        borderRadius: `${theme.shape.borderRadius}px`,
-      })}
+        borderRadius: '8px',
+        flexShrink: 0,
+      }}
     />
   );
 }
 
-function getFileIcon(contentType: string) {
+function getFileTypeIcon(contentType: string) {
   if (contentType === 'application/pdf')
-    return <PictureAsPdfIcon fontSize="small" />;
+    return <PictureAsPdfIcon sx={{ fontSize: 32 }} />;
   if (contentType.startsWith('audio/'))
-    return <AudioFileIcon fontSize="small" />;
-  return <InsertDriveFileIcon fontSize="small" />;
+    return <AudioFileIcon sx={{ fontSize: 32 }} />;
+  return <InsertDriveFileIcon sx={{ fontSize: 32 }} />;
+}
+
+function FileRow({
+  file,
+  sessionToken,
+  onDelete,
+}: {
+  file: FileResponse;
+  sessionToken: string;
+  onDelete?: (fileId: string) => void;
+}) {
+  const isImage = file.content_type.startsWith('image/');
+  const contentUrl = useFileContentUrl(file.id);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        borderTop: '1px solid #cdd2da',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Thumbnail cell: px=16, py=12 */}
+      <Box sx={{ px: '16px', py: '12px', flexShrink: 0 }}>
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: '#cdd2da',
+            borderRadius: '8px',
+            overflow: 'hidden',
+          }}
+        >
+          {isImage ? (
+            <ThumbnailImage
+              fileId={file.id}
+              filename={file.filename}
+              sessionToken={sessionToken}
+            />
+          ) : (
+            getFileTypeIcon(file.content_type)
+          )}
+        </Box>
+      </Box>
+
+      {/* Filename cell: p=12, flex-grow */}
+      <Box sx={{ flex: '1 0 0', minWidth: 0, p: '12px' }}>
+        <Typography
+          sx={{
+            fontSize: 14,
+            lineHeight: '22px',
+            color: '#2a2e36',
+            wordBreak: 'break-word',
+          }}
+        >
+          {file.filename}
+        </Typography>
+      </Box>
+
+      {/* File size cell: p=12, right-aligned, bold */}
+      <Box
+        sx={{
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          p: '12px',
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: '22px',
+            color: '#2a2e36',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {formatFileSize(file.size_bytes)}
+        </Typography>
+      </Box>
+
+      {/* Actions cell: 80px, p=12 */}
+      <Box
+        sx={{
+          width: 80,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: '10px',
+          p: '12px',
+        }}
+      >
+        {contentUrl && (
+          <Tooltip title="Download">
+            <IconButton
+              size="small"
+              component="a"
+              href={contentUrl}
+              download={file.filename}
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        {onDelete && (
+          <Tooltip title="Delete file">
+            <IconButton size="small" onClick={() => onDelete(file.id)}>
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+    </Box>
+  );
 }
 
 export default function FileAttachmentList({
@@ -114,25 +207,6 @@ export default function FileAttachmentList({
   isLoading = false,
   onDelete,
 }: FileAttachmentListProps) {
-  const handleDownload = useCallback(
-    async (file: FileResponse) => {
-      try {
-        const factory = new ApiClientFactory(sessionToken);
-        const client = factory.getFilesClient();
-        const blob = await client.getFileContent(file.id);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = file.filename;
-        link.click();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Failed to download file:', err);
-      }
-    },
-    [sessionToken]
-  );
-
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -140,7 +214,7 @@ export default function FileAttachmentList({
           <Skeleton
             key={i}
             variant="rounded"
-            sx={(theme: Theme) => ({ height: theme.spacing(6) })}
+            sx={(theme: Theme) => ({ height: theme.spacing(7) })}
           />
         ))}
       </Box>
@@ -150,72 +224,15 @@ export default function FileAttachmentList({
   if (files.length === 0) return null;
 
   return (
-    <List dense disablePadding>
-      {files.map(file => {
-        const isImage = file.content_type.startsWith('image/');
-
-        return (
-          <ListItem
-            key={file.id}
-            disablePadding
-            secondaryAction={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Tooltip title="Download">
-                  <IconButton
-                    edge="end"
-                    size="small"
-                    onClick={() => handleDownload(file)}
-                  >
-                    <DownloadIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                {onDelete && (
-                  <Tooltip title="Delete file">
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => onDelete(file.id)}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-            }
-          >
-            <ListItemButton
-              dense
-              onClick={() => handleDownload(file)}
-              sx={(theme: Theme) => ({
-                borderRadius: `${theme.shape.borderRadius}px`,
-              })}
-            >
-              <ListItemIcon
-                sx={(theme: Theme) => ({ minWidth: theme.spacing(6) })}
-              >
-                {isImage ? (
-                  <AuthImage
-                    fileId={file.id}
-                    filename={file.filename}
-                    sessionToken={sessionToken}
-                  />
-                ) : (
-                  getFileIcon(file.content_type)
-                )}
-              </ListItemIcon>
-              <ListItemText
-                primary={file.filename}
-                secondary={formatFileSize(file.size_bytes)}
-                primaryTypographyProps={{
-                  variant: 'body2',
-                  noWrap: true,
-                }}
-                secondaryTypographyProps={{ variant: 'caption' }}
-              />
-            </ListItemButton>
-          </ListItem>
-        );
-      })}
-    </List>
+    <Box>
+      {files.map(file => (
+        <FileRow
+          key={file.id}
+          file={file}
+          sessionToken={sessionToken}
+          onDelete={onDelete}
+        />
+      ))}
+    </Box>
   );
 }

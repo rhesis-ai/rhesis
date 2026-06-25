@@ -1,20 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession, signIn } from 'next-auth/react';
-import {
-  Box,
-  Paper,
-  Stepper,
-  Step,
-  StepLabel,
-  Typography,
-  Container,
-} from '@mui/material';
+import { signIn } from 'next-auth/react';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
 import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
+import WelcomeVideoStep from './WelcomeVideoStep';
+import OnboardingShell from './OnboardingShell';
+import { ONBOARDING_STEP_COUNT } from './onboarding-steps';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { UUID } from 'crypto';
@@ -41,14 +34,10 @@ interface OnboardingPageClientProps {
   userId: UUID;
 }
 
-const steps = ['Organization Details', 'Invite Team', 'Finish'];
-
 export default function OnboardingPageClient({
   sessionToken,
   userId,
 }: OnboardingPageClientProps) {
-  const _router = useRouter();
-  const { data: _session, update: _update } = useSession();
   const notifications = useNotifications();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -67,15 +56,23 @@ export default function OnboardingPageClient({
   ).getOrganizationsClient();
   const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
 
+  const completingRef = React.useRef(false);
+
   const handleNext = () => {
-    setActiveStep(prevActiveStep => prevActiveStep + 1);
+    setActiveStep(prev => Math.min(prev + 1, ONBOARDING_STEP_COUNT - 1));
   };
 
   const handleBack = () => {
-    setActiveStep(prevActiveStep => prevActiveStep - 1);
+    setActiveStep(prev => Math.max(prev - 1, 0));
   };
 
   const handleComplete = async () => {
+    if (completingRef.current || isSubmitting) {
+      return;
+    }
+
+    completingRef.current = true;
+
     try {
       setIsSubmitting(true);
 
@@ -98,6 +95,7 @@ export default function OnboardingPageClient({
         organization =
           await organizationsClient.createOrganization(organizationData);
       } catch (orgError: unknown) {
+        completingRef.current = false;
         setIsSubmitting(false);
         notifications.show(
           orgError instanceof Error
@@ -120,6 +118,7 @@ export default function OnboardingPageClient({
       try {
         response = await usersClient.updateUser(userId, userUpdate);
       } catch (userError: unknown) {
+        completingRef.current = false;
         setIsSubmitting(false);
         notifications.show(
           userError instanceof Error
@@ -131,7 +130,6 @@ export default function OnboardingPageClient({
       }
 
       if ('session_token' in response) {
-        // Use NextAuth to set the httpOnly session cookie server-side.
         const signInResult = await signIn('credentials', {
           session_token: response.session_token,
           refresh_token:
@@ -143,7 +141,6 @@ export default function OnboardingPageClient({
           throw new Error('Failed to establish session after onboarding');
         }
 
-        // Create invited users and send invitation emails now that we have the organization
         try {
           const validEmails = formData.invites
             .filter(invite => invite.email.trim())
@@ -161,7 +158,7 @@ export default function OnboardingPageClient({
                 email: email,
                 organization_id: organization.id as UUID,
                 is_active: true,
-                send_invite: true, // This will trigger the invitation email
+                send_invite: true,
               };
 
               try {
@@ -171,7 +168,6 @@ export default function OnboardingPageClient({
               } catch (error: unknown) {
                 let errorMessage = 'Unknown error';
 
-                // Extract meaningful error messages
                 if (error instanceof Error) {
                   errorMessage = error.message;
                 } else if (
@@ -193,27 +189,23 @@ export default function OnboardingPageClient({
               }
             });
 
-            // Create all users in parallel
             const createdUsers = await Promise.all(createUserPromises);
             const successCount = createdUsers.filter(
               user => user !== null
             ).length;
             const failedCount = validEmails.length - successCount;
 
-            // Provide detailed feedback
             if (successCount > 0 && failedCount === 0) {
               notifications.show(
                 `Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}!`,
                 { severity: 'success' }
               );
             } else if (successCount > 0 && failedCount > 0) {
-              setIsSubmitting(false);
               notifications.show(
                 `Successfully invited ${successCount} team member${successCount === 1 ? '' : 's'}. ${failedCount} invitation${failedCount === 1 ? '' : 's'} failed.`,
                 { severity: 'warning' }
               );
 
-              // Show specific errors for failed invitations
               const failedInvitations = invitationResults.filter(
                 result => !result.success
               );
@@ -224,7 +216,6 @@ export default function OnboardingPageClient({
                 );
               });
             } else if (failedCount > 0) {
-              setIsSubmitting(false);
               notifications.show(
                 `Failed to send all ${failedCount} invitation${failedCount === 1 ? '' : 's'}. Please try again.`,
                 { severity: 'error' }
@@ -232,7 +223,6 @@ export default function OnboardingPageClient({
             }
           }
         } catch (error: unknown) {
-          setIsSubmitting(false);
           const errorMessage =
             error instanceof Error
               ? error.message
@@ -240,7 +230,6 @@ export default function OnboardingPageClient({
           notifications.show(`Warning: ${errorMessage}`, {
             severity: 'warning',
           });
-          // Don't block onboarding completion for user creation errors
         }
 
         try {
@@ -255,12 +244,13 @@ export default function OnboardingPageClient({
               severity: 'success',
             });
             await new Promise(resolve => setTimeout(resolve, 1000));
-            window.location.href = '/dashboard';
+            window.location.href = '/architect';
             return;
           } else {
             throw new Error('Failed to initialize organization data');
           }
         } catch (initError: unknown) {
+          completingRef.current = false;
           setIsSubmitting(false);
           setOnboardingStatus('idle');
           notifications.show(
@@ -275,6 +265,7 @@ export default function OnboardingPageClient({
         throw new Error('Invalid response from user update');
       }
     } catch (error: unknown) {
+      completingRef.current = false;
       setIsSubmitting(false);
       setOnboardingStatus('idle');
       notifications.show(
@@ -316,6 +307,13 @@ export default function OnboardingPageClient({
         return (
           <FinishStep
             formData={formData}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 3:
+        return (
+          <WelcomeVideoStep
             onComplete={handleComplete}
             onBack={handleBack}
             isSubmitting={isSubmitting}
@@ -328,36 +326,6 @@ export default function OnboardingPageClient({
   };
 
   return (
-    <Container maxWidth="md">
-      <Box py={4}>
-        {/* Header */}
-        <Box textAlign="center" mb={4}>
-          <Typography variant="h4" component="h1" gutterBottom color="primary">
-            Welcome to Rhesis
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Let&apos;s get your workspace set up in just a few steps
-          </Typography>
-        </Box>
-
-        {/* Stepper */}
-        <Box mb={4}>
-          <Paper variant="outlined" elevation={0}>
-            <Box p={3}>
-              <Stepper activeStep={activeStep} alternativeLabel>
-                {steps.map(label => (
-                  <Step key={label}>
-                    <StepLabel>{label}</StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
-            </Box>
-          </Paper>
-        </Box>
-
-        {/* Step Content */}
-        <Box>{renderStep()}</Box>
-      </Box>
-    </Container>
+    <OnboardingShell activeStep={activeStep}>{renderStep()}</OnboardingShell>
   );
 }

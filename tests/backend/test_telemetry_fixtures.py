@@ -7,6 +7,7 @@ telemetry state in tests and ensure proper test isolation.
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_telemetry_settings
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
     track_feature_usage,
@@ -87,33 +88,48 @@ class TestTelemetryFixtures:
 class TestTelemetryDeploymentTypes:
     """Tests for different deployment type configurations"""
 
+    @pytest.fixture(autouse=True)
+    def clean_telemetry_settings_cache(self):
+        get_telemetry_settings.cache_clear()
+        yield
+        get_telemetry_settings.cache_clear()
+
     def test_cloud_deployment_enabled(self, monkeypatch):
         """Test that cloud deployment always has telemetry enabled"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "cloud")
-        # Need to re-evaluate the function
+        get_telemetry_settings.cache_clear()
+
         assert is_telemetry_enabled() is True
 
     def test_self_hosted_default_enabled(self, monkeypatch):
         """Test that self-hosted deployment has telemetry enabled by default"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
         monkeypatch.delenv("OTEL_RHESIS_TELEMETRY_ENABLED", raising=False)
+        get_telemetry_settings.cache_clear()
+
         assert is_telemetry_enabled() is True
 
     def test_self_hosted_can_enable(self, monkeypatch):
         """Test that self-hosted deployment can enable telemetry via env var"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
         monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "true")
+        get_telemetry_settings.cache_clear()
+
         assert is_telemetry_enabled() is True
 
     def test_self_hosted_can_disable(self, monkeypatch):
         """Test that self-hosted deployment can disable telemetry via env var"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "self-hosted")
         monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "false")
+        get_telemetry_settings.cache_clear()
+
         assert is_telemetry_enabled() is False
 
     def test_unknown_deployment_disabled(self, monkeypatch):
         """Test that unknown deployment types have telemetry disabled"""
         monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "unknown")
+        get_telemetry_settings.cache_clear()
+
         assert is_telemetry_enabled() is False
 
 

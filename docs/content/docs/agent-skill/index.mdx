@@ -20,10 +20,23 @@ The Rhesis Agent Skill packages the platform's domain knowledge into a portable 
 The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
 
 <CodeBlock language="bash">
-{`npx skills add rhesis-ai/rhesis -g`}
+{`npx skills add rhesis-ai/rhesis`}
 </CodeBlock>
 
-The CLI detects your installed agents and places the skill accordingly. After installing the skill, connect the MCP server for your specific agent (see below).
+The CLI detects your installed agents and asks where to place the skill. Add `-g` for a global install, or omit it for a project-level install.
+
+<CodeBlock language="bash">
+{`# Global install — available in all projects
+npx skills add rhesis-ai/rhesis -g
+
+# Install only for selected agents
+npx skills add rhesis-ai/rhesis -a cursor -a claude-code -g
+
+# Preview install targets without writing files
+npx skills add rhesis-ai/rhesis --list`}
+</CodeBlock>
+
+After installing the skill, connect the MCP server for your specific agent. The skill instructions and MCP connection are separate for most agents.
 
 ## Install in Claude Code
 
@@ -76,24 +89,19 @@ For self-hosted backends, replace `https://api.rhesis.ai/mcp` with `http://local
 
 ### Install the skill
 
-Clone the repo and symlink the skill directory:
+Use the universal installer:
 
 <CodeBlock language="bash">
-{`# Clone (sparse — only the skills directory)
-git clone --filter=blob:none --sparse https://github.com/rhesis-ai/rhesis.git rhesis-skills
-cd rhesis-skills && git sparse-checkout set skills/rhesis
-
-# Symlink for user-level (all projects)
-ln -s "$(pwd)/skills/rhesis" ~/.cursor/skills/rhesis`}
+{`npx skills add rhesis-ai/rhesis -a cursor -g`}
 </CodeBlock>
 
-Cursor loads the skill automatically on next session.
+Cursor loads the skill automatically on the next session. If you prefer a project-level install, omit `-g` and run the command from the project where the skill should be available.
 
 ## Usage
 
 Once installed, interact with your AI interface naturally:
 
-```
+```text
 "I want to test my travel chatbot. The endpoint is called 'travel-agent-v2'."
 ```
 
@@ -108,7 +116,7 @@ The skill guides the full workflow:
 
 You can also use it for direct operations:
 
-```
+```text
 "List my existing test sets"
 "Improve the Safety Compliance metric — make the threshold stricter"
 "Compare my last two test runs"
@@ -141,6 +149,7 @@ Use the native Architect for maximum structural control. Use this skill when you
 
 **Skill not activating (Cursor)**
 
+- Run `npx skills list` and confirm `rhesis` appears at the expected install path
 - Verify `~/.cursor/skills/rhesis/SKILL.md` exists
 - Try explicitly invoking: type `/rhesis` in the chat
 

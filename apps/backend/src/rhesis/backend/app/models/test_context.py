@@ -4,10 +4,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class TestContext(Base, OrganizationAndUserMixin):
+class TestContext(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "test_context"
 
     test_id = Column(GUID(), ForeignKey("test.id"), nullable=False)

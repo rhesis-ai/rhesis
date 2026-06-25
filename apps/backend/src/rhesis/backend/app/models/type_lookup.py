@@ -6,10 +6,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class TypeLookup(Base, OrganizationAndUserMixin):
+class TypeLookup(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "type_lookup"
     type_name = Column(String)  # 'CategoryType', 'ResponsePatternType', 'EntityType', etc.
     type_value = Column(String)  # 'TYPE_A', 'TYPE_B', etc.
@@ -35,9 +35,6 @@ class TypeLookup(Base, OrganizationAndUserMixin):
     )
     task_priorities = relationship("Task", back_populates="priority")
     sources = relationship("Source", back_populates="source_type")
-    tool_types = relationship(
-        "Tool", foreign_keys="[Tool.tool_type_id]", back_populates="tool_type"
-    )
     tool_provider_types = relationship(
         "Tool", foreign_keys="[Tool.tool_provider_type_id]", back_populates="tool_provider_type"
     )

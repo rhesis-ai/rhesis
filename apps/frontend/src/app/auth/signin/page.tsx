@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
-import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
-import { lightTheme } from '@/styles/theme';
+import AuthPageShell from '@/components/auth/AuthPageShell';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
@@ -81,7 +79,7 @@ export default function SignIn() {
           }
 
           setStatus('Authentication successful, redirecting...');
-          const returnTo = searchParams.get('return_to') || '/dashboard';
+          const returnTo = searchParams.get('return_to') || '/architect';
           window.location.href = returnTo;
           return;
         }
@@ -103,41 +101,26 @@ export default function SignIn() {
   }, [searchParams]);
 
   return (
-    <ThemeProvider theme={lightTheme}>
+    <AuthPageShell>
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
           gap: 2,
-          bgcolor: 'background.default',
-          position: 'relative',
+          py: 2,
         }}
       >
-        <BackgroundDecoration />
-        <Box
-          sx={{
-            position: 'relative',
-            zIndex: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <CircularProgress />
-          <Typography variant="body1" align="center">
-            {status}
+        <CircularProgress />
+        <Typography variant="body1" align="center">
+          {status}
+        </Typography>
+        {error ? (
+          <Typography color="error" align="center">
+            {error}
           </Typography>
-          {error && (
-            <Typography color="error" align="center">
-              {error}
-            </Typography>
-          )}
-        </Box>
+        ) : null}
       </Box>
-    </ThemeProvider>
+    </AuthPageShell>
   );
 }

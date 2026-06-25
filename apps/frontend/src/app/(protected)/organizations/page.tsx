@@ -8,5 +8,5 @@ export default async function OrganizationRedirectPage({
   params: _params,
 }: PageProps) {
   // Redirect to dashboard
-  redirect('/dashboard');
+  redirect('/architect');
 }

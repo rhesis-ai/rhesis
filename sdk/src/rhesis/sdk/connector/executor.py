@@ -64,6 +64,7 @@ class TestExecutor:
         func: Callable,
         inputs: dict[str, Any],
         serializer: TypeSerializer,
+        endpoint_context: Any | None = None,
     ) -> dict[str, Any]:
         """
         Prepare inputs by converting dicts to typed objects based on type hints.
@@ -71,14 +72,22 @@ class TestExecutor:
         All values flow through the serializer, which decides whether to
         construct typed objects based on the parameter's type annotation.
 
+        Parameters whose type annotation is
+        :class:`~rhesis.sdk.context.EndpointContext` are injected from
+        ``endpoint_context`` rather than from the wire inputs.  This
+        keeps tenant identity out of the business-input namespace.
+
         Args:
             func: Function to prepare inputs for
             inputs: Raw input dictionary
             serializer: TypeSerializer instance to use
+            endpoint_context: Optional EndpointContext to inject
 
         Returns:
             Dictionary with prepared inputs (typed objects where applicable)
         """
+        from rhesis.sdk.context import EndpointContext
+
         sig = inspect.signature(func)
         prepared = {}
         has_var_keyword = False
@@ -96,10 +105,22 @@ class TestExecutor:
             if param.kind == inspect.Parameter.VAR_KEYWORD:
                 continue  # Handle **kwargs separately below
 
+            # EndpointContext parameters are ALWAYS injected by the platform, never
+            # from wire inputs.  This is enforced unconditionally so that an attacker
+            # who controls the inputs dict cannot fabricate a context with arbitrary
+            # tenant identity -- even when endpoint_context has not been set yet.
+            if param.annotation is EndpointContext:
+                if endpoint_context is not None:
+                    prepared[name] = endpoint_context
+                # Never fall through to wire-input handling for this type.
+                continue
+
             if name not in inputs:
                 continue
 
             value = inputs[name]
+            if value is None and param.default is not inspect.Parameter.empty:
+                continue
             # Let the serializer handle everything uniformly
             prepared[name] = serializer.load(value, param.annotation)
 
@@ -133,6 +154,7 @@ class TestExecutor:
         function_name: str,
         inputs: dict[str, Any],
         serializers: dict | None = None,
+        endpoint_context: Any | None = None,
     ) -> dict[str, Any]:
         """
         Execute a function with given inputs.
@@ -143,6 +165,8 @@ class TestExecutor:
             inputs: Function input parameters
             serializers: Optional function-specific custom serializers.
                 Format: {Type: {"dump": callable, "load": callable}}
+            endpoint_context: Optional :class:`~rhesis.sdk.context.EndpointContext`
+                to inject into functions that declare a parameter of that type.
 
         Returns:
             Dictionary with execution results:
@@ -190,7 +214,12 @@ class TestExecutor:
 
             try:
                 # Prepare inputs: convert dicts to typed objects based on type hints
-                prepared_inputs = self._prepare_inputs(func, inputs, serializer)
+                prepared_inputs = self._prepare_inputs(
+                    func,
+                    inputs,
+                    serializer,
+                    endpoint_context=endpoint_context,
+                )
 
                 # Execute function (sync or async)
                 if asyncio.iscoroutinefunction(func):

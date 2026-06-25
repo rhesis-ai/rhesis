@@ -1,0 +1,31 @@
+{{- if and .Values.docs.enabled .Values.docs.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: docs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: docs
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: docs
+  minReplicas: {{ .Values.docs.hpa.minReplicas }}
+  maxReplicas: {{ .Values.docs.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.docs.hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.docs.hpa.targetMemoryUtilizationPercentage }}
+{{- end }}

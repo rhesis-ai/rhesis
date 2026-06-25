@@ -1,0 +1,10 @@
+# Rhesis CODEOWNERS
+#
+# Changes to the Enterprise Edition folder require review from a Rhesis AI
+# maintainer. External contributors may submit patches but must accept that
+# those patches fall under the ee/LICENSE (Rhesis Enterprise License) terms.
+#
+# See CONTRIBUTING.md for the full contributor policy.
+
+apps/frontend/ @nicolai-rhesis
+ee/ @rhesis-ai/maintainers

@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TokensGrid from '../TokensGrid';
 
@@ -53,6 +52,11 @@ jest.mock('@/components/common/BaseDataGrid', () => ({
   ),
 }));
 
+jest.mock('@/components/common/GridBadge', () => ({
+  __esModule: true,
+  default: ({ label }: { label: string }) => <span>{label}</span>,
+}));
+
 jest.mock('../RefreshTokenModal', () => ({
   __esModule: true,
   default: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
@@ -65,7 +69,6 @@ jest.mock('../RefreshTokenModal', () => ({
 
 const onRefreshToken = jest.fn().mockResolvedValue(undefined);
 const onDeleteToken = jest.fn().mockResolvedValue(undefined);
-const onCreateToken = jest.fn();
 
 function makeToken(id: string) {
   return {
@@ -86,7 +89,7 @@ describe('TokensGrid', () => {
     jest.clearAllMocks();
   });
 
-  it('shows a loading spinner when loading=true and no tokens', () => {
+  it('renders the grid (via BaseDataGrid) even when loading=true and no tokens', () => {
     render(
       <TokensGrid
         tokens={[]}
@@ -96,58 +99,9 @@ describe('TokensGrid', () => {
         totalCount={0}
       />
     );
-    expect(
-      document.querySelector('.MuiCircularProgress-root')
-    ).toBeInTheDocument();
-  });
-
-  it('shows empty state when not loading and no tokens', () => {
-    render(
-      <TokensGrid
-        tokens={[]}
-        loading={false}
-        onRefreshToken={onRefreshToken}
-        onDeleteToken={onDeleteToken}
-        totalCount={0}
-      />
-    );
-    expect(screen.getByText(/no api tokens yet/i)).toBeInTheDocument();
-  });
-
-  it('renders a Create API Token button in the empty state', () => {
-    render(
-      <TokensGrid
-        tokens={[]}
-        loading={false}
-        onRefreshToken={onRefreshToken}
-        onDeleteToken={onDeleteToken}
-        onCreateToken={onCreateToken}
-        totalCount={0}
-      />
-    );
-    const createBtns = screen.getAllByRole('button', {
-      name: /create api token/i,
-    });
-    expect(createBtns.length).toBeGreaterThan(0);
-  });
-
-  it('calls onCreateToken when the empty state button is clicked', async () => {
-    const user = userEvent.setup();
-    render(
-      <TokensGrid
-        tokens={[]}
-        loading={false}
-        onRefreshToken={onRefreshToken}
-        onDeleteToken={onDeleteToken}
-        onCreateToken={onCreateToken}
-        totalCount={0}
-      />
-    );
-    const createBtns = screen.getAllByRole('button', {
-      name: /create api token/i,
-    });
-    await user.click(createBtns[0]);
-    expect(onCreateToken).toHaveBeenCalled();
+    // BaseDataGrid is mocked to render a <table>; loading state is handled
+    // internally by BaseDataGrid (not by a standalone spinner in TokensGrid).
+    expect(document.querySelector('table')).toBeInTheDocument();
   });
 
   it('renders token names in the data grid', () => {

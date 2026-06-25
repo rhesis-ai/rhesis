@@ -1,10 +1,6 @@
 import os
 from enum import Enum
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 # Entity Types Enum - Unified for all entities including comments
 class EntityType(Enum):
@@ -101,28 +97,9 @@ SUCCESS_ASSOCIATIONS_REMOVED = "Successfully removed {count} test associations"
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_PRIORITY = 1
 
-# Model-related defaults
-# Can be overridden via environment variables for flexible deployment
-# Format: "provider/model_name" (e.g., "rhesis/rhesis-default")
-DEFAULT_GENERATION_MODEL = os.getenv(
-    "DEFAULT_GENERATION_MODEL", "rhesis/rhesis-default"
-)  # Default model for test generation
-DEFAULT_EVALUATION_MODEL = os.getenv(
-    "DEFAULT_EVALUATION_MODEL", "rhesis/rhesis-default"
-)  # Default model for evaluation (language-model-as-a-judge)
-DEFAULT_EXECUTION_MODEL = os.getenv(
-    "DEFAULT_EXECUTION_MODEL", "rhesis/rhesis-default"
-)  # Default model for multi-turn test execution (Penelope)
-DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005")
-
 DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
     os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
 )  # Seconds to wait before evaluating conversation-level metrics
-
-# Rhesis API configuration
-# Required for Rhesis system models to work
-RHESIS_API_KEY = os.getenv("RHESIS_API_KEY", "your-rhesis-api-key")
-RHESIS_BASE_URL = os.getenv("RHESIS_BASE_URL", "https://api.rhesis.ai")
 
 # Test Result Status Mappings
 # These define how test result status names map to passed/failed/error categories

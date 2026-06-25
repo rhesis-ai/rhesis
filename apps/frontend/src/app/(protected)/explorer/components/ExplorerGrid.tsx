@@ -1,54 +1,74 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useContext } from 'react';
 import {
   GridColDef,
   GridPaginationModel,
   GridRowParams,
   GridRowSelectionModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import GridToolbar from '@/components/common/GridToolbar';
 import { useRouter } from 'next/navigation';
-import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-  Typography,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Box, Typography } from '@mui/material';
+import GridBadge from '@/components/common/GridBadge';
 import DeleteIcon from '@mui/icons-material/Delete';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
-import type {
-  ExplorerTestSet,
-  ImportExplorerTestSetResponse,
-} from '@/utils/api-client/interfaces/explorer';
-import ImportExplorerTestSetDialog from './ImportExplorerTestSetDialog';
+import type { ExplorerTestSet } from '@/utils/api-client/interfaces/explorer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { useSession } from 'next-auth/react';
+import { formatDate } from '@/utils/date';
 
 interface ExplorerGridProps {
-  testSets: ExplorerTestSet[];
-  loading: boolean;
-  sessionToken?: string;
+  sessionToken: string;
+  refreshKey?: number;
+  onRefresh?: () => void;
+}
+
+interface ExplorerToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+}
+
+const ExplorerToolbarContext = React.createContext<ExplorerToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+});
+
+function ExplorerUnifiedToolbar() {
+  const { searchQuery, setSearchQuery } = useContext(ExplorerToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search sessions…"
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
 }
 
 export default function ExplorerGrid({
-  testSets: initialTestSets,
-  loading,
   sessionToken,
+  refreshKey = 0,
+  onRefresh,
 }: ExplorerGridProps) {
   const router = useRouter();
-  const { data: session } = useSession();
   const notifications = useNotifications();
-  const [rows, setRows] = useState<ExplorerTestSet[]>(initialTestSets);
+  const [allRows, setAllRows] = useState<ExplorerTestSet[]>([]);
+  const [rows, setRows] = useState<ExplorerTestSet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -56,17 +76,51 @@ export default function ExplorerGrid({
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    setRows(initialTestSets);
-  }, [initialTestSets]);
+    let cancelled = false;
+
+    const loadSessions = async () => {
+      setLoading(true);
+      try {
+        const client = new ApiClientFactory(sessionToken).getExplorerClient();
+        const sessions = await client.getExplorerTestSets();
+        if (!cancelled) {
+          setAllRows(sessions);
+        }
+      } catch {
+        if (!cancelled) {
+          setAllRows([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadSessions();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken, refreshKey]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setRows(allRows);
+      return;
+    }
+    const q = searchQuery.toLowerCase();
+    setRows(
+      allRows.filter(
+        r =>
+          r.name?.toLowerCase().includes(q) ||
+          (r.description ?? '').toLowerCase().includes(q)
+      )
+    );
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery, allRows]);
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -108,7 +162,7 @@ export default function ExplorerGrid({
       renderCell: params => {
         const status = params.value;
         if (!status) return '-';
-        return <Chip label={status} size="small" variant="outlined" />;
+        return <GridBadge label={status} />;
       },
     },
     {
@@ -118,9 +172,7 @@ export default function ExplorerGrid({
       renderCell: params => {
         if (!params.value) return '-';
         return (
-          <Typography variant="body2">
-            {new Date(params.value).toLocaleDateString()}
-          </Typography>
+          <Typography variant="body2">{formatDate(params.value)}</Typography>
         );
       },
     },
@@ -128,46 +180,6 @@ export default function ExplorerGrid({
 
   const handleRowClick = (params: GridRowParams) => {
     router.push(`/explorer/${params.id}`);
-  };
-
-  const handleOpenDialog = () => {
-    setName('');
-    setDescription('');
-    setSubmitError(null);
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    if (!submitting) setDialogOpen(false);
-  };
-
-  const handleCreate = async () => {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setSubmitError('Name is required');
-      return;
-    }
-    const token = sessionToken || session?.session_token;
-    if (!token) {
-      setSubmitError('Not authenticated');
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const client = new ApiClientFactory(token).getExplorerClient();
-      const created = await client.createExplorerTestSet(
-        trimmedName,
-        description.trim() || undefined
-      );
-      setDialogOpen(false);
-      router.refresh();
-      router.push(`/explorer/${created.id}?openSettings=1`);
-    } catch (err) {
-      setSubmitError((err as Error).message);
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const handleDeleteTestSets = () => {
@@ -180,12 +192,10 @@ export default function ExplorerGrid({
 
   const handleExportSelected = useCallback(async () => {
     if (selectedRows.length !== 1) return;
-    const token = sessionToken || session?.session_token;
-    if (!token) return;
 
     setIsExporting(true);
     try {
-      const client = new ApiClientFactory(token).getExplorerClient();
+      const client = new ApiClientFactory(sessionToken).getExplorerClient();
       const result = await client.exportRegularTestSetFromExplorer(
         String(selectedRows[0])
       );
@@ -210,41 +220,14 @@ export default function ExplorerGrid({
     } finally {
       setIsExporting(false);
     }
-  }, [
-    notifications,
-    router,
-    selectedRows,
-    session?.session_token,
-    sessionToken,
-  ]);
-
-  const handleImportedExplorerSet = useCallback(
-    (result: ImportExplorerTestSetResponse) => {
-      const { imported, skipped, test_set: created } = result;
-      const parts = [`Imported ${imported} test(s)`];
-      if (skipped > 0) {
-        parts.push(`skipped ${skipped}`);
-      }
-      notifications.show(parts.join(', '), {
-        severity: 'success',
-        autoHideDuration: 5000,
-      });
-      setImportDialogOpen(false);
-      router.refresh();
-      router.push(`/explorer/${created.id}?openSettings=1`);
-    },
-    [notifications, router]
-  );
+  }, [notifications, router, selectedRows, sessionToken]);
 
   const handleDeleteConfirm = async () => {
     if (selectedRows.length === 0) return;
 
-    const token = sessionToken || session?.session_token;
-    if (!token) return;
-
     try {
       setIsDeleting(true);
-      const client = new ApiClientFactory(token).getExplorerClient();
+      const client = new ApiClientFactory(sessionToken).getExplorerClient();
       await Promise.all(
         selectedRows.map(id => client.deleteExplorerTestSet(String(id)))
       );
@@ -255,9 +238,9 @@ export default function ExplorerGrid({
       );
 
       const removed = new Set(selectedRows.map(String));
-      setRows(prev => prev.filter(r => !removed.has(String(r.id))));
+      setAllRows(prev => prev.filter(r => !removed.has(String(r.id))));
       setSelectedRows([]);
-      router.refresh();
+      onRefresh?.();
     } catch {
       notifications.show('Failed to delete sessions', {
         severity: 'error',
@@ -269,9 +252,9 @@ export default function ExplorerGrid({
     }
   };
 
-  const authToken = sessionToken || session?.session_token;
-
   const getActionButtons = () => {
+    if (selectedRows.length === 0) return [];
+
     const buttons: {
       label: string;
       icon: React.ReactNode;
@@ -286,22 +269,7 @@ export default function ExplorerGrid({
         | 'warning';
       onClick: () => void;
       disabled?: boolean;
-    }[] = [
-      {
-        label: 'New session',
-        icon: <AddIcon />,
-        variant: 'contained' as const,
-        onClick: handleOpenDialog,
-        disabled: !authToken,
-      },
-      {
-        label: 'Load Test Set',
-        icon: <UploadFileIcon />,
-        variant: 'outlined' as const,
-        onClick: () => setImportDialogOpen(true),
-        disabled: !authToken,
-      },
-    ];
+    }[] = [];
 
     if (selectedRows.length === 1) {
       buttons.push({
@@ -309,57 +277,31 @@ export default function ExplorerGrid({
         icon: <IosShareOutlinedIcon />,
         variant: 'outlined' as const,
         onClick: () => void handleExportSelected(),
-        disabled: !authToken || isExporting,
+        disabled: isExporting,
       });
     }
 
-    if (selectedRows.length > 0) {
-      buttons.push({
-        label: selectedRows.length > 1 ? 'Delete sessions' : 'Delete session',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: handleDeleteTestSets,
-      });
-    }
+    buttons.push({
+      label: selectedRows.length > 1 ? 'Delete sessions' : 'Delete session',
+      icon: <DeleteIcon />,
+      variant: 'outlined' as const,
+      color: 'error' as const,
+      onClick: handleDeleteTestSets,
+    });
 
     return buttons;
   };
 
   return (
-    <Box>
-      {rows.length === 0 ? (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            No explorer sessions yet. Start with New session or load an existing
-            test set.
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              onClick={handleOpenDialog}
-              disabled={!authToken}
-              startIcon={<AddIcon />}
-            >
-              New session
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setImportDialogOpen(true)}
-              disabled={!authToken}
-              startIcon={<UploadFileIcon />}
-            >
-              Load Test Set
-            </Button>
-          </Box>
-        </Box>
-      ) : (
+    <ExplorerToolbarContext.Provider value={{ searchQuery, setSearchQuery }}>
+      <Box>
         <BaseDataGrid
           columns={columns}
           rows={rows}
           loading={loading}
           getRowId={row => row.id}
           showToolbar={true}
+          toolbarSlot={ExplorerUnifiedToolbar}
           actionButtons={getActionButtons()}
           onRowClick={handleRowClick}
           paginationModel={paginationModel}
@@ -374,70 +316,16 @@ export default function ExplorerGrid({
           onRowSelectionModelChange={setSelectedRows}
           rowSelectionModel={selectedRows}
         />
-      )}
-      <DeleteModal
-        open={deleteModalOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        isLoading={isDeleting}
-        title="Delete explorer sessions"
-        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
-        itemType="explorer sessions"
-      />
-      <Dialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>New session</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Name"
-            fullWidth
-            required
-            value={name}
-            onChange={e => setName(e.target.value)}
-            error={!!submitError && !name.trim()}
-          />
-          <TextField
-            margin="dense"
-            label="Description"
-            fullWidth
-            multiline
-            minRows={2}
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-          />
-          {submitError && (
-            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
-              {submitError}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreate}
-            variant="contained"
-            disabled={submitting}
-          >
-            {submitting ? 'Creating…' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {authToken ? (
-        <ImportExplorerTestSetDialog
-          open={importDialogOpen}
-          onClose={() => setImportDialogOpen(false)}
-          onImported={handleImportedExplorerSet}
-          sessionToken={authToken}
+        <DeleteModal
+          open={deleteModalOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          isLoading={isDeleting}
+          title="Delete explorer sessions"
+          message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
+          itemType="explorer sessions"
         />
-      ) : null}
-    </Box>
+      </Box>
+    </ExplorerToolbarContext.Provider>
   );
 }

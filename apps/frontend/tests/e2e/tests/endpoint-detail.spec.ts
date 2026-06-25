@@ -23,6 +23,7 @@ test.describe('Endpoint Detail @sanity', () => {
 
   test('endpoint detail renders heading and tabs @mocked', async ({ page }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/endpoints',
       FIXTURE_ID,
@@ -31,6 +32,7 @@ test.describe('Endpoint Detail @sanity', () => {
 
     const detail = new EndpointDetailPage(page);
     await detail.goto(FIXTURE_ID);
+    await mock.waitForProjectGate();
     await detail.expectHeadingVisible();
     await detail.expectTabsVisible();
   });
@@ -39,6 +41,7 @@ test.describe('Endpoint Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/endpoints',
       FIXTURE_ID,
@@ -46,6 +49,7 @@ test.describe('Endpoint Detail @sanity', () => {
     );
 
     await page.goto(`/endpoints/${FIXTURE_ID}`);
+    await mock.waitForProjectGate();
     await page.waitForLoadState('networkidle');
 
     // The page must render main content without crashing.
@@ -59,6 +63,7 @@ test.describe('Endpoint Detail @sanity', () => {
     page,
   }) => {
     const mock = new MockApiHelper(page);
+    await mock.mockLayoutPrerequisites();
     await mock.mockDetail(
       '/endpoints',
       FIXTURE_ID,
@@ -67,6 +72,7 @@ test.describe('Endpoint Detail @sanity', () => {
 
     const detail = new EndpointDetailPage(page);
     await detail.goto(FIXTURE_ID);
+    await mock.waitForProjectGate();
     await detail.expectBasicInfoVisible();
   });
 

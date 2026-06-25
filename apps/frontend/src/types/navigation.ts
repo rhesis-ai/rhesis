@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { type Theme } from '@mui/material/styles';
 import { type Session } from 'next-auth';
+import { type Project } from '@/utils/api-client/interfaces/project';
 
 export interface NavigationPageItem {
   kind: 'page';
@@ -9,12 +10,13 @@ export interface NavigationPageItem {
   icon?: React.ReactNode;
   action?: React.ReactNode;
   children?: NavigationPageItem[];
-  requireSuperuser?: boolean;
 }
 
 export interface NavigationHeaderItem {
   kind: 'header';
   title: string;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 }
 
 export interface NavigationDividerItem {
@@ -27,7 +29,6 @@ export interface NavigationLinkItem {
   href: string;
   icon?: React.ReactNode;
   external?: boolean;
-  requireSuperuser?: boolean;
 }
 
 export interface NavigationActionItem {
@@ -35,7 +36,6 @@ export interface NavigationActionItem {
   title: string;
   icon?: React.ReactNode;
   action: string; // Action identifier to handle in the UI
-  requireSuperuser?: boolean;
 }
 
 export type NavigationItem =
@@ -72,4 +72,5 @@ export interface LayoutProps {
   branding: BrandingProps;
   authentication: AuthenticationProps;
   theme: Theme;
+  initialActiveProject?: Project | null;
 }

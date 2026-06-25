@@ -6,10 +6,10 @@ from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class Tool(Base, OrganizationAndUserMixin):
+class Tool(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "tool"
 
     # Basic information
@@ -17,7 +17,6 @@ class Tool(Base, OrganizationAndUserMixin):
     description = Column(Text, nullable=True)
 
     # Tool configuration
-    tool_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
     tool_provider_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=False)
     status_id = Column(GUID(), ForeignKey("status.id"), nullable=True)
 
@@ -28,7 +27,6 @@ class Tool(Base, OrganizationAndUserMixin):
     tool_metadata = Column(JSONB, nullable=True, default=None)
 
     # Relationships
-    tool_type = relationship("TypeLookup", foreign_keys=[tool_type_id], back_populates="tool_types")
     tool_provider_type = relationship(
         "TypeLookup", foreign_keys=[tool_provider_type_id], back_populates="tool_provider_types"
     )

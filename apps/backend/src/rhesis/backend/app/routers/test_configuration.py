@@ -1,18 +1,20 @@
 import uuid as uuid_lib
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
@@ -31,11 +33,12 @@ TestConfigurationDetailSchema = create_detailed_schema(
     schemas.TestConfiguration, models.TestConfiguration
 )
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/test_configurations",
     tags=["test_configurations"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="test_configuration",
 )
 
 
@@ -179,9 +182,10 @@ def delete_test_configuration(
     )
 
 
-@router.post("/{test_configuration_id}/execute")
+@router.post("/{test_configuration_id}/execute", **capability(Permission.TestRun.EXECUTE))
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
+    execution_request: schemas.TestConfigurationExecutionRequest = None,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -201,6 +205,26 @@ def execute_test_configuration_endpoint(
         )
         if db_test_configuration is None:
             raise HTTPException(status_code=404, detail="Test configuration not found")
+
+        # Update test configuration with parameter references if provided
+        if execution_request:
+            parameters_ref = {}
+            if execution_request.experiment_id is not None:
+                parameters_ref["experiment_id"] = str(execution_request.experiment_id)
+            if execution_request.version and str(execution_request.version).strip():
+                parameters_ref["version"] = str(execution_request.version).strip()
+            if execution_request.environment is not None:
+                parameters_ref["environment"] = str(execution_request.environment)
+
+            if parameters_ref:
+                attrs = (
+                    dict(db_test_configuration.attributes)
+                    if db_test_configuration.attributes
+                    else {}
+                )
+                attrs["parameters_ref"] = parameters_ref
+                db_test_configuration.attributes = attrs
+                db.commit()
 
         # Pre-generate the Celery task ID so it can be stored in the test
         # run record before the task is dispatched.  This guarantees the
@@ -228,6 +252,7 @@ def execute_test_configuration_endpoint(
                 test_run_id=str(test_run.id),
                 current_user=current_user,
                 task_id=celery_task_id,
+                db=db,
             )
         except Exception as exc:
             # Mark the queued test run as failed so it doesn't stay stuck

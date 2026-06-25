@@ -38,10 +38,16 @@ class LocalToolProvider(MCPTool):
     goes straight through httpx ASGITransport.
     """
 
-    def __init__(self, fastapi_app: Any, auth_token: str):
+    def __init__(
+        self,
+        fastapi_app: Any,
+        auth_token: str,
+        project_id: str | None = None,
+    ):
         # Skip MCPTool.__init__ — we don't have an MCP client.
         self._app = fastapi_app
         self._auth_header = f"Bearer {auth_token}"
+        self._project_id = project_id
         self._tool_defs: List[Dict[str, Any]] = []
         self._operation_map: Dict[str, dict] = {}
         self._confirmation_map: Dict[str, bool] = {}
@@ -96,6 +102,8 @@ class LocalToolProvider(MCPTool):
 
         arguments = dict(kwargs)
         headers = {"Authorization": self._auth_header}
+        if self._project_id:
+            headers["X-Project-Id"] = self._project_id
 
         # Path params
         path = op["path"]
@@ -106,11 +114,13 @@ class LocalToolProvider(MCPTool):
                     str(arguments.pop(param["name"])),
                 )
 
-        # Query params
+        # Query params (agent sees sanitized names, e.g. "filter" for the
+        # "$filter" alias — see build_input_schema)
         query: Dict[str, Any] = {}
         for param in op["parameters"]:
-            if param.get("in") == "query" and param["name"] in arguments:
-                query[param["name"]] = arguments.pop(param["name"])
+            client_name = param["name"].lstrip("$")
+            if param.get("in") == "query" and client_name in arguments:
+                query[param["name"]] = arguments.pop(client_name)
 
         # Apply default_query and page_size peek-ahead.
         query, current_skip, page_size = apply_query_overrides(query, op)

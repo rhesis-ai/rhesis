@@ -1,45 +1,47 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Tooltip } from '@mui/material';
+import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
-import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
+// Side-effect import: registers EE features into core's extension
+// registries at module load. The actual @rhesis/ee-frontend import is
+// contained in ee_bootstrap.ts (the only file allowed to do so). This
+// pulls EE registrations into the server bundle; the same module is also
+// pulled into the client bundle via consumers like the organization
+// settings page, so registry state is populated wherever it is read.
+import '../ee_bootstrap';
 import {
-  DashboardIcon,
   ScienceIcon,
-  AppsIcon,
+  BiotechIcon,
   VpnKeyIcon,
-  BusinessIcon,
-  GroupIcon,
-  PlayArrowIcon,
+  TestRunsIcon,
   AssessmentIcon,
   CategoryIcon,
   AutoGraphIcon,
   SmartToyIcon,
-  ApiIcon,
-  TerminalIcon,
-  AssignmentIcon,
-  SettingsIcon,
-  MenuBookIcon,
-  BoltIcon,
-  PsychologyIcon,
-  GitHubIcon,
-  DescriptionIcon,
-  CodeIcon,
-  TimelineIcon,
-  ChatIcon,
+  EndpointsIcon,
+  TasksIcon,
+  KnowledgeIcon,
+  BehaviorsIcon,
+  KidStarIcon,
+  ForumIcon,
+  TracesIcon,
+  PlaygroundIcon,
   AccountTreeIcon,
   EngineeringIcon,
+  BuildIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
-import { ApiClientFactory } from '../utils/api-client/client-factory';
+import { createServerApiFactory } from '../utils/api-client/server-factory';
+import { getServerActiveProjectId } from '../utils/server-active-project';
 import {
   type NavigationItem,
   type BrandingProps,
   type AuthenticationProps,
 } from '../types/navigation';
+import { type Project } from '../utils/api-client/interfaces/project';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 
@@ -49,16 +51,16 @@ export const dynamic = 'force-dynamic';
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(
   session: Session | null
-): Promise<NavigationItem[]> {
+): Promise<{ items: NavigationItem[]; organizationName: string }> {
   'use server';
 
   // Default organization name if no org found
-  let organizationName = 'Organization';
+  let organizationName = 'Rhesis AI';
 
   // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
     try {
-      const clientFactory = new ApiClientFactory(session.session_token);
+      const clientFactory = await createServerApiFactory(session.session_token);
       const organizationsClient = clientFactory.getOrganizationsClient();
       const organization = await organizationsClient.getOrganization(
         session.user.organization_id
@@ -76,105 +78,52 @@ async function getNavigationItems(
     }
   }
 
-  return [
-    // Organization Section
+  const navItems = [
     {
       kind: 'page',
-      segment: 'organizations',
-      title: (
-        <Tooltip
-          placement="top"
-          // sidebar is 240px, px to rem conversion => 240/16=15, so from 16 characters we display ellipsis+tooltip
-          title={organizationName.length < 15 ? '' : organizationName}
-        >
-          <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {organizationName}
-          </Box>
-        </Tooltip>
-      ),
-      icon: <BusinessIcon key="org-icon" />,
-      children: [
-        {
-          kind: 'page',
-          segment: 'settings',
-          title: 'Settings',
-          icon: <SettingsIcon key="settings-icon" />,
-        },
-        {
-          kind: 'page',
-          segment: 'team',
-          title: 'Team',
-          icon: <GroupIcon key="team-icon" />,
-        },
-      ],
+      segment: 'architect',
+      title: 'Architect',
+      icon: <EngineeringIcon key="architect-icon" />,
     },
-    // Dashboard
-    {
-      kind: 'page',
-      segment: 'dashboard',
-      title: 'Dashboard',
-      icon: <DashboardIcon key="dashboard-icon" />,
-    },
-    // Requirements Section
+    // DEFINE section — core definition items
     {
       kind: 'header',
-      title: 'Requirements',
-    },
-    {
-      kind: 'page',
-      segment: 'projects',
-      title: 'Projects',
-      icon: <AppsIcon key="projects-icon" />,
+      title: 'Define',
     },
     {
       kind: 'page',
       segment: 'knowledge',
       title: 'Knowledge',
-      icon: <MenuBookIcon key="knowledge-icon" />,
+      icon: <KnowledgeIcon key="knowledge-icon" />,
     },
     {
       kind: 'page',
       segment: 'behaviors',
       title: 'Behaviors',
-      icon: <PsychologyIcon key="behaviors-icon" />,
+      icon: <BehaviorsIcon key="behaviors-icon" />,
     },
     {
       kind: 'page',
       segment: 'metrics',
       title: 'Metrics',
       icon: <AutoGraphIcon key="metrics-icon" />,
-      requireSuperuser: true,
     },
-    // Testing Section
+    // GENERATE section — creation and exploration tools
     {
       kind: 'header',
-      title: 'Testing',
+      title: 'Generate',
     },
     {
       kind: 'page',
-      segment: 'architect',
-      title: 'Architect',
-      icon: <EngineeringIcon key="architect-icon" />,
-      action: <BetaBadge />,
+      segment: 'playground',
+      title: 'Playground',
+      icon: <PlaygroundIcon key="playground-icon" />,
     },
     {
       kind: 'page',
       segment: 'explorer',
       title: 'Explorer',
       icon: <AccountTreeIcon key="explorer-icon" />,
-      action: <BetaBadge />,
-    },
-    {
-      kind: 'page',
-      segment: 'generation',
-      title: 'Generation',
-      icon: <BoltIcon key="generation-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'playground',
-      title: 'Playground',
-      icon: <ChatIcon key="playground-icon" />,
     },
     {
       kind: 'page',
@@ -188,93 +137,93 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
     },
-    // Results Section
+    // IMPROVE section — analysis and iteration
     {
       kind: 'header',
-      title: 'Results',
+      title: 'Improve',
     },
     {
       kind: 'page',
-      segment: 'test-results',
-      title: 'Overview',
-      icon: <AssessmentIcon key="test-results-icon" />,
+      segment: 'insights',
+      title: 'Insights',
+      icon: <AssessmentIcon key="insights-icon" />,
     },
     {
       kind: 'page',
       segment: 'test-runs',
       title: 'Test Runs',
-      icon: <PlayArrowIcon key="test-runs-icon" />,
+      icon: <TestRunsIcon key="test-runs-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'experiments',
+      title: 'Experiments',
+      icon: <BiotechIcon key="experiments-icon" />,
     },
     {
       kind: 'page',
       segment: 'traces',
       title: 'Traces',
-      icon: <TimelineIcon key="traces-icon" />,
+      icon: <TracesIcon key="traces-icon" />,
     },
     {
       kind: 'page',
       segment: 'tasks',
       title: 'Tasks',
-      icon: <AssignmentIcon key="tasks-icon" />,
+      icon: <TasksIcon key="tasks-icon" />,
     },
-    // Development Section
+    // CONNECT section — tools and infrastructure (collapsible, collapsed by default)
     {
       kind: 'header',
-      title: 'Development',
+      title: 'CONNECT',
+      collapsible: true,
+      defaultCollapsed: true,
     },
     {
       kind: 'page',
       segment: 'endpoints',
       title: 'Endpoints',
-      icon: <ApiIcon key="endpoints-icon" />,
+      icon: <EndpointsIcon key="endpoints-icon" />,
     },
     {
       kind: 'page',
       segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon key="models-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',
-      segment: 'mcp',
-      title: 'MCP',
-      icon: <TerminalIcon key="mcp-icon" />,
-      requireSuperuser: true,
+      segment: 'tools',
+      title: 'Tools',
+      icon: <BuildIcon key="tool-icon" />,
     },
     {
       kind: 'page',
       segment: 'tokens',
-      title: 'API Tokens',
+      title: 'API',
       icon: <VpnKeyIcon key="tokens-icon" />,
     },
-    // Divider before external links
+    // Divider before footer links
     {
       kind: 'divider',
     },
-    // External Links
+    // Footer external links (rendered as a white card in the sidebar)
     {
       kind: 'link',
-      title: '⭐ Star Rhesis',
+      title: 'Star Rhesis',
       href: 'https://github.com/rhesis-ai/rhesis',
-      icon: <GitHubIcon key="star-icon" className="star-rhesis-icon" />,
+      icon: <KidStarIcon key="star-icon" />,
       external: true,
     },
     {
-      kind: 'link',
-      title: 'Documentation',
-      href: 'https://docs.rhesis.ai',
-      icon: <DescriptionIcon key="docs-icon" />,
-      external: true,
+      kind: 'action',
+      title: 'Support',
+      action: 'support',
+      icon: <ForumIcon key="support-icon" />,
     },
-    {
-      kind: 'link',
-      title: 'SDK Reference',
-      href: 'https://rtd.rhesis.ai',
-      icon: <CodeIcon key="sdk-icon" />,
-      external: true,
-    },
-  ] as NavigationItem[];
+  ];
+
+  return { items: navItems as NavigationItem[], organizationName };
 }
 
 export const metadata: Metadata = {
@@ -288,12 +237,6 @@ export const metadata: Metadata = {
   },
 };
 
-const BRANDING: BrandingProps = {
-  title: '',
-  logo: <ThemeAwareLogo />,
-  homeUrl: '/dashboard',
-};
-
 const AUTHENTICATION: AuthenticationProps = {
   signIn: handleSignIn,
   signOut: handleSignOut,
@@ -301,43 +244,57 @@ const AUTHENTICATION: AuthenticationProps = {
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
+  const themeCookie = (await cookies()).get('theme-mode')?.value;
+  const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
 
   // Get navigation with dynamic organization name
-  const navigation = await getNavigationItems(session);
+  const { items: navigation, organizationName } =
+    await getNavigationItems(session);
+
+  const branding: BrandingProps = {
+    title: organizationName,
+    logo: <ThemeAwareLogo />,
+    homeUrl: '/architect',
+  };
+  const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
+    apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
+  }).replace(/</g, '\\u003c')};`;
+
+  // Fetch the active project server-side so the sidebar can render the
+  // project name on first paint without a flash.
+  let initialActiveProject: Project | null = null;
+  const projectId = await getServerActiveProjectId();
+  if (projectId && session?.session_token) {
+    try {
+      const factory = await createServerApiFactory(session.session_token);
+      initialActiveProject = await factory
+        .getProjectsClient()
+        .getProject(projectId);
+    } catch {
+      // Ignore — client will fetch on mount
+    }
+  }
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var THEME_MODE_KEY = 'theme-mode';
-                  var storedMode = localStorage.getItem(THEME_MODE_KEY);
-                  var mode;
-
-                  if (storedMode) {
-                    mode = storedMode;
-                  } else {
-                    var darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                    mode = darkModeQuery.matches ? 'dark' : 'light';
-                  }
-
-                  document.documentElement.setAttribute('data-theme-mode', mode);
-                } catch (e) {}
-              })();
-            `,
+            __html: runtimeEnvScript,
           }}
         />
       </head>
       <body suppressHydrationWarning>
-        <ThemeContextProvider disableTransitionOnChange>
+        <ThemeContextProvider
+          disableTransitionOnChange
+          initialMode={initialThemeMode}
+        >
           <LayoutContent
             session={session}
             navigation={navigation}
-            branding={BRANDING}
+            branding={branding}
             authentication={AUTHENTICATION}
+            initialActiveProject={initialActiveProject}
           >
             {props.children}
           </LayoutContent>

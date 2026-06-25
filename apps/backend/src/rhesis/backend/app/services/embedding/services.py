@@ -54,10 +54,11 @@ class EmbeddingService(AsyncService):
             model_id=str(model_id),
             searchable_text=searchable_text,
             current_user=SimpleNamespace(id=user_id, organization_id=organization_id),
+            db=self.db,
         )
 
-    def _resolve_model_id(self, user_id: str, model_id: str = None) -> str:
-        """Resolve embedding configuration from user settings or defaults."""
+    def resolve_model_id(self, user_id: str, model_id: str | None = None) -> str:
+        """Resolve embedding model ID from explicit value or user settings."""
 
         # 1. Use explicit model_id if provided
         if model_id:
@@ -85,7 +86,7 @@ class EmbeddingService(AsyncService):
     ) -> bool:
         """Enqueue embedding generation using entity identity and precomputed searchable text."""
         try:
-            resolved_model_id = self._resolve_model_id(str(user_id), model_id)
+            resolved_model_id = self.resolve_model_id(str(user_id), model_id)
             was_async, _ = self.execute_with_fallback(
                 resolved_model_id,
                 entity_type=entity_type,

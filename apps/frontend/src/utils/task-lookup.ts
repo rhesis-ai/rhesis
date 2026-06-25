@@ -54,12 +54,7 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
     const apiStatuses = await statusClient.getStatuses({ entity_type: 'Task' });
 
     // Convert API statuses to task statuses and filter for specific options
-    const allowedStatusNames = [
-      'Open',
-      'In Progress',
-      'Completed',
-      'Cancelled',
-    ];
+    const allowedStatusNames = ['Open', 'In Progress', 'Completed'];
     const statuses: Status[] = apiStatuses
       .filter((status: ApiStatus) => allowedStatusNames.includes(status.name))
       .map((status: ApiStatus) => ({
@@ -67,7 +62,12 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
         name: status.name,
         description: status.description,
         entity_type_id: status.entity_type,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          allowedStatusNames.indexOf(a.name) -
+          allowedStatusNames.indexOf(b.name)
+      );
 
     taskDataCache.set(cacheKey, statuses);
     return statuses;
@@ -90,12 +90,6 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
         id: '550e8400-e29b-41d4-a716-446655440003',
         name: 'Completed',
         description: 'Task is completed',
-        entity_type_id: 'Task',
-      },
-      {
-        id: '550e8400-e29b-41d4-a716-446655440004',
-        name: 'Cancelled',
-        description: 'Task is cancelled',
         entity_type_id: 'Task',
       },
     ];
@@ -138,7 +132,12 @@ export async function getPriorities(
         type_name: priority.type_name,
         type_value: priority.type_value,
         description: priority.description,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          allowedPriorityValues.indexOf(a.type_value) -
+          allowedPriorityValues.indexOf(b.type_value)
+      );
 
     taskDataCache.set(cacheKey, priorities);
     return priorities;
@@ -214,7 +213,9 @@ export async function getStatusesForTask(
           return [...allStatuses, additionalStatus];
         }
       }
-    } catch (_error) {}
+    } catch (error) {
+      console.error('Failed to fetch specific status for task:', error);
+    }
   }
 
   return allStatuses;
@@ -250,7 +251,9 @@ export async function getPrioritiesForTask(
           return [...allPriorities, additionalPriority];
         }
       }
-    } catch (_error) {}
+    } catch (error) {
+      console.error('Failed to fetch specific priority for task:', error);
+    }
   }
 
   return allPriorities;

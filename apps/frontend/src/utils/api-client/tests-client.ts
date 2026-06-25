@@ -15,6 +15,7 @@ import {
   ConversationTestExtractionResponse,
   PriorityLevel,
 } from './interfaces/tests';
+import { TestSet } from './interfaces/test-set';
 import { StatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import {
@@ -98,6 +99,29 @@ export class TestsClient extends BaseApiClient {
       ...response,
       data: response.data.map(test => this.convertTestPriority(test)),
     };
+  }
+
+  async getAllTests(
+    params?: Omit<PaginationParams & { filter?: string }, 'skip' | 'limit'>
+  ): Promise<TestDetail[]> {
+    const pageSize = 100;
+    const allData: TestDetail[] = [];
+    let skip = 0;
+    let totalCount = Infinity;
+
+    while (skip < totalCount) {
+      const response = await this.getTests({
+        ...params,
+        skip,
+        limit: pageSize,
+      });
+      if (response.data.length === 0) break;
+      allData.push(...response.data);
+      totalCount = response.pagination.totalCount;
+      skip += pageSize;
+    }
+
+    return allData;
   }
 
   async getTest(id: string): Promise<TestDetail> {
@@ -231,6 +255,21 @@ export class TestsClient extends BaseApiClient {
         method: 'POST',
         body: JSON.stringify(request),
       }
+    );
+  }
+
+  async getLinkedTestSets(
+    testId: string,
+    params: PaginationParams = {
+      skip: 0,
+      limit: 50,
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    }
+  ): Promise<PaginatedResponse<TestSet>> {
+    return this.fetchPaginated<TestSet>(
+      `${API_ENDPOINTS.tests}/${testId}/test_sets`,
+      params as PaginationParams & Record<string, unknown>
     );
   }
 }

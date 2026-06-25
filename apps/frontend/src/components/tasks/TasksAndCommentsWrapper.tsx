@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Paper, Divider } from '@mui/material';
+import React, { useCallback, useState } from 'react';
+import { Box } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
 import { TasksSection } from './TasksSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { TaskCreationDrawer } from './TaskCreationDrawer';
 
 interface TasksAndCommentsWrapperProps {
   entityType: EntityType;
@@ -16,7 +16,6 @@ interface TasksAndCommentsWrapperProps {
   currentUserId: string;
   currentUserName: string;
   currentUserPicture?: string;
-  elevation?: number;
   onCountsChange?: () => void;
   additionalMetadata?: Record<string, unknown>;
 }
@@ -28,22 +27,26 @@ export function TasksAndCommentsWrapper({
   currentUserId,
   currentUserName,
   currentUserPicture,
-  elevation = 1,
   onCountsChange,
   additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
-  const router = useRouter();
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [pendingCommentId, setPendingCommentId] = useState<
+    string | undefined
+  >();
+  const [isCreating, setIsCreating] = useState(false);
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
   const { createTask, deleteTask } = useTasks({
     entityType,
     entityId,
-    autoFetch: false, // TasksSection will handle fetching
+    autoFetch: false,
   });
 
   const handleCreateTask = useCallback(
     async (taskData: Record<string, unknown>) => {
       try {
-        // Merge additional metadata into task_metadata if available
+        setIsCreating(true);
         const baseTask = taskData as unknown as TaskCreate;
         const enrichedTaskData: TaskCreate = {
           ...baseTask,
@@ -57,15 +60,20 @@ export function TasksAndCommentsWrapper({
             : {}),
         };
         await createTask(enrichedTaskData);
-        // Notify parent that counts have changed
+        setCreateDrawerOpen(false);
+        setPendingCommentId(undefined);
+        setTasksRefreshKey(key => key + 1);
         await onCountsChange?.();
-      } catch (_error) {}
+      } catch {
+        // Errors surfaced by useTasks
+      } finally {
+        setIsCreating(false);
+      }
     },
     [createTask, onCountsChange, additionalMetadata]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
-    // Navigate to the task detail page
     window.open(`/tasks/${taskId}`, '_blank');
   }, []);
 
@@ -73,79 +81,74 @@ export function TasksAndCommentsWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-        // Notify parent that counts have changed
+        setTasksRefreshKey(key => key + 1);
         await onCountsChange?.();
-      } catch (_error) {}
+      } catch {
+        // Errors surfaced by useTasks
+      }
     },
     [deleteTask, onCountsChange]
   );
 
-  const handleCreateTaskFromComment = useCallback(
-    (commentId: string) => {
-      // Navigate to create task page with entity and comment info
-      const params = new URLSearchParams({
-        entityType,
-        entityId,
-        commentId,
-      });
-      // Add additional metadata as query params
-      if (additionalMetadata) {
-        Object.entries(additionalMetadata).forEach(([key, value]) => {
-          params.append(key, String(value));
-        });
-      }
-      const finalUrl = `/tasks/create?${params.toString()}`;
-      router.push(finalUrl);
-    },
-    [router, entityType, entityId, additionalMetadata]
-  );
+  const handleOpenCreateDrawer = useCallback((commentId?: string) => {
+    setPendingCommentId(commentId);
+    setCreateDrawerOpen(true);
+  }, []);
 
-  const handleCreateTaskFromEntity = useCallback(() => {
-    // Navigate to create task page with entity info
-    const params = new URLSearchParams({
-      entityType,
-      entityId,
-    });
-    // Add additional metadata as query params
-    if (additionalMetadata) {
-      Object.entries(additionalMetadata).forEach(([key, value]) => {
-        params.append(key, String(value));
-      });
+  const handleCloseCreateDrawer = useCallback(() => {
+    if (!isCreating) {
+      setCreateDrawerOpen(false);
+      setPendingCommentId(undefined);
     }
-    const finalUrl = `/tasks/create?${params.toString()}`;
-    router.push(finalUrl);
-  }, [router, entityType, entityId, additionalMetadata]);
+  }, [isCreating]);
 
   return (
-    <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
-      {/* Tasks Section */}
-      <TasksSection
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '30px',
+          '& .MuiPaper-root': { mb: 0 },
+        }}
+      >
+        <TasksSection
+          entityType={entityType}
+          entityId={entityId}
+          sessionToken={sessionToken}
+          onCreateTask={handleCreateTask}
+          onEditTask={handleEditTask}
+          onDeleteTask={handleDeleteTask}
+          onOpenCreateDrawer={handleOpenCreateDrawer}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          refreshKey={tasksRefreshKey}
+        />
+
+        <CommentsWrapper
+          entityType={entityType}
+          entityId={entityId}
+          sessionToken={sessionToken}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+          onCreateTask={commentId => handleOpenCreateDrawer(commentId)}
+          onCreateTaskFromEntity={() => handleOpenCreateDrawer()}
+          onCountsChange={onCountsChange}
+        />
+      </Box>
+
+      <TaskCreationDrawer
+        open={createDrawerOpen}
+        onClose={handleCloseCreateDrawer}
+        onSubmit={handleCreateTask}
         entityType={entityType}
         entityId={entityId}
-        sessionToken={sessionToken}
-        onCreateTask={handleCreateTask}
-        onEditTask={handleEditTask}
-        onDeleteTask={handleDeleteTask}
-        onNavigateToCreate={handleCreateTaskFromEntity}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
+        isLoading={isCreating}
+        commentId={pendingCommentId}
       />
-
-      {/* Divider between Tasks and Comments */}
-      <Divider sx={{ my: 3 }} />
-
-      {/* Comments Section with Task Creation Integration */}
-      <CommentsWrapper
-        entityType={entityType}
-        entityId={entityId}
-        sessionToken={sessionToken}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserPicture={currentUserPicture}
-        onCreateTask={handleCreateTaskFromComment}
-        onCreateTaskFromEntity={handleCreateTaskFromEntity}
-        onCountsChange={onCountsChange}
-      />
-    </Paper>
+    </>
   );
 }

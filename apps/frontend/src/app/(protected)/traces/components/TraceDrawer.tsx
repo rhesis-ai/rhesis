@@ -1,26 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  IconButton,
-  Chip,
-  Stack,
-  Tabs,
-  Tab,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import FolderIcon from '@mui/icons-material/Folder';
-import ApiIcon from '@mui/icons-material/Api';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import HubIcon from '@mui/icons-material/Hub';
-import ForumIcon from '@mui/icons-material/Forum';
+import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
 import SpanSequenceView from './SpanSequenceView';
@@ -30,6 +11,8 @@ import ConversationTraceView from './ConversationTraceView';
 import TraceReviewDrawer from './TraceReviewDrawer';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import DetailTabNav from '@/components/common/DetailTabNav';
+import { GridBadge } from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TraceDetailResponse,
@@ -41,6 +24,9 @@ import {
   toMentionId,
 } from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { experimentHref } from '@/utils/experiment-links';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface TraceDrawerProps {
   open: boolean;
@@ -53,6 +39,61 @@ interface TraceDrawerProps {
   currentUserName?: string;
   currentUserPicture?: string;
   onTraceUpdated?: () => void;
+}
+
+function TraceMetadataRow({
+  label,
+  href,
+  children,
+}: {
+  label: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
+  const pillSx = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    px: '10px',
+    py: '2px',
+    borderRadius: BORDER_RADIUS.pill,
+    border: '1px solid',
+    borderColor: 'greyscale.border',
+    fontSize: 12,
+    lineHeight: '18px',
+    color: 'greyscale.body',
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+    ...(href
+      ? {
+          '&:hover': {
+            borderColor: 'primary.main',
+            color: 'primary.main',
+          },
+        }
+      : {}),
+  } as const;
+
+  return (
+    <Box sx={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <Typography
+        sx={{
+          fontSize: 12,
+          lineHeight: '18px',
+          color: 'greyscale.body',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </Typography>
+      {href ? (
+        <Box component={Link} href={href} target="_blank" sx={pillSx}>
+          {children}
+        </Box>
+      ) : (
+        <Box sx={pillSx}>{children}</Box>
+      )}
+    </Box>
+  );
 }
 
 export default function TraceDrawer({
@@ -70,11 +111,16 @@ export default function TraceDrawer({
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [experimentInfo, setExperimentInfo] = useState<{
+    id: string;
+    name: string;
+    version: string;
+  } | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
 
   // Resizable drawer width state
-  const [drawerWidth, setDrawerWidth] = useState(60); // viewport percentage
+  const [drawerWidth, setDrawerWidth] = useState(85); // viewport percentage
   const [isResizingDrawer, setIsResizingDrawer] = useState(false);
 
   // Tab index computation for optional conversation tab
@@ -84,14 +130,46 @@ export default function TraceDrawer({
     trace?.root_spans?.some(
       s => s.trace_metrics && Object.keys(s.trace_metrics).length > 0
     ) ?? false;
-  const tabIndices = useMemo(() => {
-    const offset = showConversationTab ? 1 : 0;
-    return {
-      tree: 0 + offset,
-      sequence: 1 + offset,
-      graph: 2 + offset,
-    };
+
+  const viewTabs = useMemo(() => {
+    const tabs: {
+      key: string;
+      label: string;
+      id: string;
+      'aria-controls': string;
+    }[] = [];
+    if (showConversationTab) {
+      tabs.push({
+        key: 'conversation',
+        label: 'Conversation',
+        id: 'span-hierarchy-tab-conversation',
+        'aria-controls': 'span-hierarchy-tabpanel-conversation',
+      });
+    }
+    tabs.push(
+      {
+        key: 'tree',
+        label: 'Tree',
+        id: 'span-hierarchy-tab-tree',
+        'aria-controls': 'span-hierarchy-tabpanel-tree',
+      },
+      {
+        key: 'sequence',
+        label: 'Sequence',
+        id: 'span-hierarchy-tab-sequence',
+        'aria-controls': 'span-hierarchy-tabpanel-sequence',
+      },
+      {
+        key: 'graph',
+        label: 'Graph',
+        id: 'span-hierarchy-tab-graph',
+        'aria-controls': 'span-hierarchy-tabpanel-graph',
+      }
+    );
+    return tabs;
   }, [showConversationTab]);
+
+  const activeViewKey = viewTabs[viewTab]?.key ?? 'tree';
 
   // Resizable split pane state
   const [leftPanelWidth, setLeftPanelWidth] = useState(60); // percentage
@@ -107,7 +185,7 @@ export default function TraceDrawer({
     setSelectedSpan(null);
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory(sessionToken, projectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
@@ -120,8 +198,7 @@ export default function TraceDrawer({
         setSelectedSpan(data.root_spans[spanIndex]);
 
         if (initialTurnIndex !== undefined) {
-          const offset = data.conversation_id ? 1 : 0;
-          setViewTab(0 + offset);
+          setViewTab(data.conversation_id ? 1 : 0);
         }
       }
     } catch (err: unknown) {
@@ -138,7 +215,7 @@ export default function TraceDrawer({
     if (!traceId || !projectId) return;
 
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
+      const clientFactory = new ApiClientFactory(sessionToken, projectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
@@ -280,6 +357,36 @@ export default function TraceDrawer({
       fetchTrace();
     }
   }, [open, traceId, projectId, fetchTrace]);
+
+  // Fetch experiment info from test run attributes
+  useEffect(() => {
+    const fetchExperimentInfo = async () => {
+      if (!trace?.test_run?.id || !sessionToken || !projectId) {
+        setExperimentInfo(null);
+        return;
+      }
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken, projectId);
+        const testRunsClient = clientFactory.getTestRunsClient();
+        const testRun = await testRunsClient.getTestRun(trace.test_run.id);
+        if (testRun?.experiment_id) {
+          const attrs = testRun.attributes as
+            | Record<string, unknown>
+            | undefined;
+          setExperimentInfo({
+            id: testRun.experiment_id,
+            name: (attrs?.parameter_experiment_name as string) || 'Unknown',
+            version: (attrs?.parameter_version as string) || '',
+          });
+        } else {
+          setExperimentInfo(null);
+        }
+      } catch {
+        setExperimentInfo(null);
+      }
+    };
+    fetchExperimentInfo();
+  }, [trace?.test_run?.id, sessionToken, projectId]);
 
   // Add keyboard shortcut for ESC key
   useEffect(() => {
@@ -426,134 +533,103 @@ export default function TraceDrawer({
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
+          gap: '40px',
           overflow: 'hidden',
+          minHeight: 0,
         }}
       >
-        {/* Header */}
         <Box
           sx={{
-            p: 2,
-            borderBottom: 1,
-            borderColor: 'divider',
             display: 'flex',
             flexDirection: 'column',
-            gap: 1,
+            gap: '20px',
+            flexShrink: 0,
           }}
         >
           <Box
             sx={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography variant="h6">Trace Details</Typography>
-            <IconButton onClick={onClose}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-
-          {/* Context Information */}
-          <Box
-            sx={{
-              display: 'flex',
               flexWrap: 'wrap',
-              gap: 1,
+              gap: '30px',
               alignItems: 'center',
             }}
           >
-            {/* Project */}
             {trace.project && (
-              <Chip
-                icon={<FolderIcon />}
-                label={`Project: ${trace.project.name}`}
-                component={Link}
+              <TraceMetadataRow
+                label="Project:"
                 href={`/projects/${trace.project.id}`}
-                target="_blank"
-                clickable
-                size="small"
-                variant="outlined"
-              />
+              >
+                {trace.project.name}
+              </TraceMetadataRow>
             )}
-
-            {/* Endpoint (if available) */}
             {trace.endpoint && (
-              <Chip
-                icon={<ApiIcon />}
-                label={`Endpoint: ${trace.endpoint.name}`}
-                component={Link}
+              <TraceMetadataRow
+                label="Endpoint:"
                 href={`/endpoints/${trace.endpoint.id}`}
-                target="_blank"
-                clickable
-                size="small"
-                variant="outlined"
-              />
+              >
+                {trace.endpoint.name}
+              </TraceMetadataRow>
             )}
-
-            {/* Test Run (if from test execution) */}
             {trace.test_run && (
-              <Chip
-                icon={<PlayArrowIcon />}
-                label={`Test Run: ${trace.test_run.name || trace.test_run.nano_id || trace.test_run.id}`}
-                component={Link}
+              <TraceMetadataRow
+                label="Test Run:"
                 href={`/test-runs/${trace.test_run.id}`}
-                target="_blank"
-                clickable
-                size="small"
-                variant="outlined"
-              />
+              >
+                {trace.test_run.name ||
+                  trace.test_run.nano_id ||
+                  trace.test_run.id}
+              </TraceMetadataRow>
             )}
-
-            {/* Test (if from test execution) */}
             {trace.test && (
-              <Chip
-                icon={<AssignmentIcon />}
-                label={`Test: ${trace.test.nano_id || trace.test.id}`}
-                component={Link}
-                href={`/tests/${trace.test.id}`}
-                target="_blank"
-                clickable
-                size="small"
-                variant="outlined"
-              />
+              <TraceMetadataRow label="Test:" href={`/tests/${trace.test.id}`}>
+                {trace.test.nano_id || trace.test.id}
+              </TraceMetadataRow>
+            )}
+            {experimentInfo && (
+              <TraceMetadataRow
+                label="Experiment:"
+                href={experimentHref(experimentInfo.id, experimentInfo.version)}
+              >
+                {experimentInfo.name}
+                {experimentInfo.version
+                  ? ` (${shortVersion(experimentInfo.version)})`
+                  : ''}
+              </TraceMetadataRow>
             )}
           </Box>
 
-          {/* Trace Metrics */}
-          <Stack direction="row" spacing={1}>
-            <Chip
-              label={`${trace.span_count} spans`}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={formatDuration(trace.duration_ms)}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={trace.environment}
-              size="small"
-              variant="outlined"
-              color="default"
-            />
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <GridBadge label={`${trace.span_count} spans`} size="grid" />
+            <GridBadge label={formatDuration(trace.duration_ms)} size="grid" />
+            <GridBadge label={trace.environment} size="grid" />
             {trace.error_count > 0 && (
-              <Chip
+              <GridBadge
                 label={`${trace.error_count} errors`}
-                size="small"
-                color="error"
-                variant="outlined"
+                size="grid"
+                sx={{
+                  bgcolor: 'error.main',
+                  color: 'error.contrastText',
+                }}
               />
             )}
-          </Stack>
+          </Box>
         </Box>
 
-        {/* Content - Split Layout */}
-        <Box
+        <Paper
           ref={containerRef}
-          sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}
+          elevation={0}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            overflow: 'hidden',
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: theme =>
+              theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            bgcolor: 'background.paper',
+          }}
         >
-          {/* Left: Span Tree */}
           <Box
             sx={{
               width: `${leftPanelWidth}%`,
@@ -563,124 +639,42 @@ export default function TraceDrawer({
               flexShrink: 0,
             }}
           >
-            {/* Tabs Header */}
-            <Box
-              sx={{
-                borderBottom: 1,
-                borderColor: 'divider',
-                px: theme => theme.spacing(2),
-                pt: theme => theme.spacing(2),
-                pb: theme => theme.spacing(2),
-                mb: theme => theme.spacing(1),
-              }}
-            >
-              <Tabs
-                value={viewTab}
-                onChange={(_, newValue) => setViewTab(newValue)}
+            <Box sx={{ flexShrink: 0, px: '30px', pt: '30px' }}>
+              <DetailTabNav
+                tabs={viewTabs}
+                activeIndex={viewTab}
+                onChange={setViewTab}
                 aria-label="span hierarchy tabs"
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{
-                  minHeight: 'auto',
-                  '& .MuiTab-root': {
-                    minHeight: 'auto',
-                    fontSize: theme => theme.typography.subtitle2.fontSize,
-                    fontWeight: theme => theme.typography.subtitle2.fontWeight,
-                    textTransform: 'none',
-                    py: theme => theme.spacing(1.25),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    backgroundColor: 'transparent !important',
-                    color: theme => theme.palette.text.secondary,
-                    '& .MuiSvgIcon-root': {
-                      color: 'inherit',
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: 'transparent !important',
-                      color: theme => theme.palette.text.primary,
-                      '& .MuiSvgIcon-root': {
-                        color: theme => theme.palette.text.primary,
-                      },
-                    },
-                    '&:hover': {
-                      backgroundColor: 'transparent !important',
-                    },
-                  },
-                  '& .MuiTabs-indicator': {
-                    display: 'none',
-                  },
-                  '& .MuiTabs-flexContainer': {
-                    backgroundColor: 'transparent',
-                  },
-                }}
-              >
-                {showConversationTab && (
-                  <Tab
-                    icon={<ForumIcon fontSize="small" />}
-                    iconPosition="start"
-                    label="Conversation"
-                    id="span-hierarchy-tab-conversation"
-                    aria-controls="span-hierarchy-tabpanel-conversation"
-                  />
-                )}
-                <Tab
-                  icon={<AccountTreeIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Tree View"
-                  id="span-hierarchy-tab-tree"
-                  aria-controls="span-hierarchy-tabpanel-tree"
-                />
-                <Tab
-                  icon={<TimelineIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Sequence View"
-                  id="span-hierarchy-tab-sequence"
-                  aria-controls="span-hierarchy-tabpanel-sequence"
-                />
-                <Tab
-                  icon={<HubIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Graph View"
-                  id="span-hierarchy-tab-graph"
-                  aria-controls="span-hierarchy-tabpanel-graph"
-                />
-              </Tabs>
+                tabGap="20px"
+                scrollable
+              />
             </Box>
 
-            {/* Tab Content - wrapped in error boundary for resilience */}
             <ErrorBoundary>
               <Box
                 sx={{
                   flex: 1,
                   overflow:
-                    viewTab === tabIndices.tree ||
-                    (showConversationTab && viewTab === 0)
+                    activeViewKey === 'tree' || activeViewKey === 'conversation'
                       ? 'auto'
                       : 'hidden',
-                  p:
-                    viewTab === tabIndices.tree ? theme => theme.spacing(2) : 0,
+                  px: activeViewKey === 'tree' ? '30px' : 0,
+                  pb: '30px',
+                  minHeight: 0,
                 }}
               >
-                {showConversationTab && (
-                  <Box
-                    sx={{
-                      display: viewTab === 0 ? 'block' : 'none',
-                      height: '100%',
-                    }}
-                  >
-                    <ConversationTraceView
-                      trace={trace}
-                      sessionToken={sessionToken}
-                      onSpanSelect={handleSpanSelect}
-                      rootSpans={trace.root_spans}
-                      onReviewTurn={
-                        hasTraceMetrics ? handleReviewTurn : undefined
-                      }
-                    />
-                  </Box>
+                {activeViewKey === 'conversation' && (
+                  <ConversationTraceView
+                    trace={trace}
+                    sessionToken={sessionToken}
+                    onSpanSelect={handleSpanSelect}
+                    rootSpans={trace.root_spans}
+                    onReviewTurn={
+                      hasTraceMetrics ? handleReviewTurn : undefined
+                    }
+                  />
                 )}
-                {viewTab === tabIndices.tree && (
+                {activeViewKey === 'tree' && (
                   <SpanTreeView
                     spans={trace.root_spans}
                     selectedSpan={selectedSpan}
@@ -688,7 +682,7 @@ export default function TraceDrawer({
                     isConversationTrace={isConversationTrace}
                   />
                 )}
-                {viewTab === tabIndices.sequence && (
+                {activeViewKey === 'sequence' && (
                   <SpanSequenceView
                     spans={trace.root_spans}
                     selectedSpan={selectedSpan}
@@ -697,7 +691,7 @@ export default function TraceDrawer({
                     rootSpans={trace.root_spans}
                   />
                 )}
-                {viewTab === tabIndices.graph && (
+                {activeViewKey === 'graph' && (
                   <SpanGraphView
                     spans={trace.root_spans}
                     selectedSpan={selectedSpan}
@@ -710,7 +704,6 @@ export default function TraceDrawer({
             </ErrorBoundary>
           </Box>
 
-          {/* Draggable Divider */}
           <Box
             onMouseDown={handleMouseDown}
             sx={{
@@ -738,12 +731,13 @@ export default function TraceDrawer({
             }}
           />
 
-          {/* Right: Span Details */}
           <Box
             sx={{
               flex: 1,
-              overflow: 'auto',
+              overflow: 'hidden',
               minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             <SpanDetailsPanel
@@ -765,7 +759,7 @@ export default function TraceDrawer({
               selectedTurnNumber={selectedTurnNumber}
             />
           </Box>
-        </Box>
+        </Paper>
       </Box>
     );
   };
@@ -777,8 +771,17 @@ export default function TraceDrawer({
       width={`${drawerWidth}%`}
       showHeader={false}
       closeButtonText="Close"
+      contentLayout="fill"
     >
-      <Box sx={{ position: 'relative', height: '100%' }}>
+      <Box
+        sx={{
+          position: 'relative',
+          height: '100%',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Drawer width resize handle */}
         <Box
           onMouseDown={handleDrawerResizeStart}

@@ -21,7 +21,6 @@ import {
   ListItemText,
   FormHelperText,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
 import DownloadIcon from '@mui/icons-material/Download';
 import { createEndpoint } from '@/actions/endpoints';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -31,66 +30,9 @@ import { useSession } from 'next-auth/react';
 import { auth } from '@/auth';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { readActiveProjectId } from '@/utils/active-project';
 
-// Import icons for project icon rendering
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DevicesIcon from '@mui/icons-material/Devices';
-import WebIcon from '@mui/icons-material/Web';
-import StorageIcon from '@mui/icons-material/Storage';
-import CodeIcon from '@mui/icons-material/Code';
-import DataObjectIcon from '@mui/icons-material/DataObject';
-import CloudIcon from '@mui/icons-material/Cloud';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
-import ChatIcon from '@mui/icons-material/Chat';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import SearchIcon from '@mui/icons-material/Search';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
-import SchoolIcon from '@mui/icons-material/School';
-import ScienceIcon from '@mui/icons-material/Science';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-
-// Map of icon names to components for easy lookup
-const ICON_MAP: Record<string, React.ComponentType> = {
-  SmartToy: SmartToyIcon,
-  Devices: DevicesIcon,
-  Web: WebIcon,
-  Storage: StorageIcon,
-  Code: CodeIcon,
-  DataObject: DataObjectIcon,
-  Cloud: CloudIcon,
-  Analytics: AnalyticsIcon,
-  ShoppingCart: ShoppingCartIcon,
-  Terminal: TerminalIcon,
-  VideogameAsset: VideogameAssetIcon,
-  Chat: ChatIcon,
-  Psychology: PsychologyIcon,
-  Dashboard: DashboardIcon,
-  Search: SearchIcon,
-  AutoFixHigh: AutoFixHighIcon,
-  PhoneIphone: PhoneIphoneIcon,
-  School: SchoolIcon,
-  Science: ScienceIcon,
-  AccountTree: AccountTreeIcon,
-};
-
-const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
-
-// Get appropriate icon based on project type or use case
-const getProjectIcon = (project: Project) => {
-  // Check if a specific project icon was selected during creation
-  if (project?.icon && ICON_MAP[project.icon]) {
-    const IconComponent = ICON_MAP[project.icon];
-    return <IconComponent />;
-  }
-
-  // Fall back to a default icon
-  return <SmartToyIcon />;
-};
+import { getProjectIcon, ENVIRONMENTS } from './endpoint-icon-utils';
 
 export default function SwaggerEndpointForm() {
   const router = useRouter();
@@ -115,12 +57,13 @@ export default function SwaggerEndpointForm() {
     project_id: '',
   });
 
-  // Set project_id from URL parameter if provided
+  // Set project_id from URL parameter, then fall back to active project cookie
   useEffect(() => {
-    if (projectIdFromUrl) {
+    const resolved = projectIdFromUrl || readActiveProjectId() || '';
+    if (resolved) {
       setFormData(prev => ({
         ...prev,
-        project_id: projectIdFromUrl,
+        project_id: resolved,
       }));
     }
   }, [projectIdFromUrl]);
@@ -192,11 +135,6 @@ export default function SwaggerEndpointForm() {
     e.preventDefault();
     setError(null);
 
-    if (!formData.project_id) {
-      setError('Please select a project');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       await createEndpoint(formData as unknown as Omit<Endpoint, 'id'>);
@@ -244,7 +182,7 @@ export default function SwaggerEndpointForm() {
             >
               Cancel
             </Button>
-            <LoadingButton
+            <Button
               type="submit"
               variant="contained"
               color="primary"
@@ -252,7 +190,7 @@ export default function SwaggerEndpointForm() {
               disabled={projects.length === 0 && !loadingProjects}
             >
               Create Endpoint
-            </LoadingButton>
+            </Button>
           </Box>
         </Box>
 
@@ -311,7 +249,7 @@ export default function SwaggerEndpointForm() {
                       onChange={e => setSwaggerUrl(e.target.value)}
                       placeholder="https://api.example.com/swagger.json"
                     />
-                    <LoadingButton
+                    <Button
                       variant="outlined"
                       onClick={handleImportSpecification}
                       loading={isLoading}
@@ -320,7 +258,7 @@ export default function SwaggerEndpointForm() {
                       sx={{ minWidth: '200px' }}
                     >
                       Import
-                    </LoadingButton>
+                    </Button>
                   </Box>
                 </Grid>
               </Grid>
@@ -333,89 +271,62 @@ export default function SwaggerEndpointForm() {
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={12}>
-                  {projects.length === 0 && !loadingProjects ? (
-                    <Alert
-                      severity="warning"
-                      action={
-                        <Button
-                          color="inherit"
-                          size="small"
-                          component="a"
-                          href="/projects/create-new"
-                        >
-                          Create Project
-                        </Button>
-                      }
+                  <FormControl fullWidth>
+                    <InputLabel id="project-select-label">
+                      Project (optional — defaults to active project)
+                    </InputLabel>
+                    <Select
+                      labelId="project-select-label"
+                      id="project-select"
+                      value={formData.project_id}
+                      onChange={e => handleChange('project_id', e.target.value)}
+                      label="Project (optional — defaults to active project)"
+                      disabled={loadingProjects}
+                      renderValue={selected => {
+                        const selectedProject = projects.find(
+                          p => p.id === selected
+                        );
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {selectedProject && (
+                              <Box
+                                sx={{
+                                  mr: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                {getProjectIcon(selectedProject)}
+                              </Box>
+                            )}
+                            {selectedProject?.name || 'Active project'}
+                          </Box>
+                        );
+                      }}
                     >
-                      No projects available. Please create a project first.
-                    </Alert>
-                  ) : (
-                    <FormControl
-                      fullWidth
-                      required
-                      error={Boolean(error && !formData.project_id)}
-                    >
-                      <InputLabel id="project-select-label">
-                        Select Project
-                      </InputLabel>
-                      <Select
-                        labelId="project-select-label"
-                        id="project-select"
-                        value={formData.project_id}
-                        onChange={e =>
-                          handleChange('project_id', e.target.value)
-                        }
-                        label="Select Project"
-                        disabled={loadingProjects}
-                        required
-                        renderValue={selected => {
-                          const selectedProject = projects.find(
-                            p => p.id === selected
-                          );
-                          return (
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {selectedProject && (
-                                <Box
-                                  sx={{
-                                    mr: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                  }}
-                                >
-                                  {getProjectIcon(selectedProject)}
-                                </Box>
-                              )}
-                              {selectedProject?.name || 'No project selected'}
-                            </Box>
-                          );
-                        }}
-                      >
-                        {loadingProjects ? (
-                          <MenuItem disabled>
-                            <CircularProgress size={20} sx={{ mr: 1 }} />
-                            Loading projects...
+                      {loadingProjects ? (
+                        <MenuItem disabled value={formData.project_id || ''}>
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                          Loading projects...
+                        </MenuItem>
+                      ) : (
+                        projects.map(project => (
+                          <MenuItem key={project.id} value={project.id}>
+                            <ListItemIcon>
+                              {getProjectIcon(project)}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={project.name}
+                              secondary={project.description}
+                            />
                           </MenuItem>
-                        ) : (
-                          projects.map(project => (
-                            <MenuItem key={project.id} value={project.id}>
-                              <ListItemIcon>
-                                {getProjectIcon(project)}
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={project.name}
-                                secondary={project.description}
-                              />
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                      {error && !formData.project_id && (
-                        <FormHelperText error>
-                          A project is required
-                        </FormHelperText>
+                        ))
                       )}
-                    </FormControl>
-                  )}
+                    </Select>
+                    <FormHelperText>
+                      Leave unset to use the currently active project
+                    </FormHelperText>
+                  </FormControl>
                 </Grid>
               </Grid>
             </Grid>

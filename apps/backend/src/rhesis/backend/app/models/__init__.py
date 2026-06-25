@@ -10,15 +10,17 @@ from .demographic import Demographic
 from .dimension import Dimension
 from .embedding import Embedding
 from .endpoint import Endpoint
+from .experiment import Experiment
 from .file import File
 from .guid import GUID
 from .metric import Metric, behavior_metric_association
-from .mixins import TagsMixin
+from .mixins import ProjectMixin, TagsMixin
 from .model import Model
 from .organization import Organization
 
 # Import models with dependencies
 from .project import Project
+from .project_membership import ProjectMembership
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
 from .refresh_token import RefreshToken
@@ -60,6 +62,7 @@ __all__ = [
     "Comment",
     "Embedding",
     "Endpoint",
+    "Experiment",
     "File",
     "GUID",
     "Metric",
@@ -85,10 +88,12 @@ __all__ = [
     "Tag",
     "TaggedItem",
     "TagsMixin",
+    "ProjectMixin",
     "Token",
     "RefreshToken",
     "Organization",
     "Project",
+    "ProjectMembership",
     "Task",
     "Test",
     "TestContext",
@@ -105,3 +110,8 @@ __all__ = [
 from .soft_delete_events import setup_soft_delete_listener
 
 setup_soft_delete_listener()
+
+# Set up ambient scope event listeners (auto-filter + auto-stamp)
+from .scope_events import setup_scope_listeners
+
+setup_scope_listeners()

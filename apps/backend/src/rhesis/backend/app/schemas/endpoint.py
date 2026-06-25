@@ -89,7 +89,7 @@ class EndpointBase(Base):
     response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
-    project_id: UUID4  # Required field
+    project_id: Optional[UUID4] = None  # Inferred from X-Project-Id session scope when omitted
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
@@ -173,6 +173,19 @@ class EndpointTestRequest(Base):
         return v
 
 
+class EndpointMappingTestRequest(Base):
+    """Test draft mappings against a stored endpoint using its stored credentials.
+
+    The endpoint's URL, method, headers, and auth are taken from the database.
+    Only the mappings and input data are supplied by the caller.
+    """
+
+    request_mapping: Dict[str, Any]
+    response_mapping: Dict[str, str]
+    input_data: Dict[str, Any]
+    response_format: Optional[EndpointResponseFormat] = None
+
+
 class Endpoint(Base):
     """Response schema - excludes sensitive write-only fields"""
 
@@ -213,6 +226,7 @@ class Endpoint(Base):
     disable_tracing: bool = False
 
     auth_type: Optional[EndpointAuthType] = None
+    has_auth_token: bool = False
     # Sensitive fields excluded from response:
     # auth_token, client_secret, last_token, last_token_expires_at
     # These can be set via Create/Update but are never returned

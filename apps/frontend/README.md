@@ -2,6 +2,15 @@
 
 Next.js app for the Rhesis web UI (TypeScript, Material UI, NextAuth). Dependencies are listed in `package.json` and installed with **npm**. The production **Dockerfile** uses **Node 24**; use a compatible Node locally.
 
+## Design System (UI Revamp — 2026-05)
+
+The UI was migrated to a Figma-aligned design system in `feat/frontend-ui-revamp`. Key changes:
+
+- **Tokens** — `src/styles/theme.ts` now includes a `greyscale` palette ramp (`title`, `body`, `subtitle`, `border`, `surface1/2`), Figma typography variants (`bodyLReg`, `bodyMReg`, `bodyMBold`, `bodySReg`, `captionBold`), and full elevation scale (`ELEVATION.xs/s/m/l/xl`). See `src/styles/rhesis-theme-usage.md` for usage examples.
+- **Layout shell** — Toolpad `DashboardLayout` replaced by `AppShell` + `Sidebar` (CSS-grid, 240px collapsible sidebar, `NavigationItemsContext`). No more `@toolpad/core` dependency.
+- **Shared components** — `Fab`, `GridToolbar`, `PageLayout` are new. `BaseTable`, `BaseDataGrid`, `BaseDrawer`, `SearchPill`, `FilterButton`, `StatusChip` updated for Figma spec.
+- **Pages** — All 45 protected pages migrated from `PageContainer` to `PageLayout`. Typography tokens applied throughout.
+
 ## Setup
 
 From `apps/frontend`:
@@ -16,10 +25,10 @@ From the repository root, `./rh dev init` creates `apps/frontend/.env.local` (se
 
 ## Run
 
-- **Repository root:** `./rh dev frontend` — runs `apps/frontend/start.sh`, which starts the dev server (`npm run dev` in development).
-- **This directory:** `npm run dev` (or `./start.sh`).
+- **Repository root:** `./rh dev frontend` — runs `apps/frontend/start.sh`, which starts `npm run dev:turbo`.
+- **This directory:** `npm run dev:turbo` (or `./start.sh`, which runs the same command).
 
-The dev server binds to port **3000** (see `package.json` `dev` script: `next dev … -p 3000`).
+The dev server binds to port **3000** (see `package.json` `dev:turbo` script: `next dev --turbo … -p 3000`). Use `npm run dev` for the webpack-based dev server instead.
 
 ## Contributing
 

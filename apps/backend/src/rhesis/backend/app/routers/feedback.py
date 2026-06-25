@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
+from rhesis.backend.app.routers.base import RhesisRouter
 from pydantic import BaseModel, Field
 
 from rhesis.backend.app.utils.rate_limit import FEEDBACK_RATE_LIMIT, limiter
@@ -9,7 +10,7 @@ from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/feedback", tags=["feedback"])
+router = RhesisRouter(prefix="/feedback", tags=["feedback"], resource="feedback")
 
 
 class FeedbackRequest(BaseModel):

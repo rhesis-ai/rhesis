@@ -1,7 +1,5 @@
 import React from 'react';
-import type { Theme } from '@mui/material/styles';
 import { SvgIcon } from '@mui/material';
-import { AutoGraphIcon, PsychologyIcon } from '@/components/icons';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import FaceIcon from '@mui/icons-material/Face';
 import StorageIcon from '@mui/icons-material/Storage';
@@ -46,12 +44,9 @@ interface MetricCardProps {
   metricScope?: string[];
   usedIn?: string[];
   showUsage?: boolean;
+  onDelete?: () => void;
+  onClick?: () => void;
 }
-
-const _getMetricIcon = (_type: string) => {
-  // Use the same icon as in the navbar for consistency
-  return <AutoGraphIcon />;
-};
 
 const getBackendIcon = (backend: string) => {
   switch (backend.toLowerCase()) {
@@ -133,6 +128,8 @@ export default function MetricCard({
   type: _type,
   usedIn,
   showUsage = false,
+  onDelete,
+  onClick,
 }: MetricCardProps) {
   // Safely handle capitalization with fallbacks for empty/undefined values
   const capitalizedScoreType = scoreType
@@ -148,12 +145,11 @@ export default function MetricCard({
   // First section: behaviors (if showing usage)
   if (showUsage && usedIn && usedIn.length > 0) {
     chipSections.push({
+      label: 'Behaviors',
       chips: [
         ...usedIn.slice(0, 3).map((behaviorName, index) => ({
           key: `behavior-${index}`,
-          icon: <PsychologyIcon fontSize="small" />,
           label: behaviorName,
-          maxWidth: (theme: Theme) => theme.spacing(19),
         })),
         ...(usedIn.length > 3
           ? [
@@ -164,6 +160,7 @@ export default function MetricCard({
             ]
           : []),
       ],
+      emptyText: 'No behaviors assigned',
     });
   }
 
@@ -198,21 +195,18 @@ export default function MetricCard({
 
   if (metricPropertyChips.length > 0) {
     chipSections.push({
+      label: 'Details',
       chips: metricPropertyChips,
     });
   }
 
   return (
     <EntityCard
-      icon={<AutoGraphIcon fontSize="medium" />}
       title={title}
       description={description}
-      captionText={
-        showUsage && usedIn && usedIn.length > 0
-          ? `${usedIn.length} ${usedIn.length === 1 ? 'Behavior' : 'Behaviors'}`
-          : undefined
-      }
       chipSections={chipSections}
+      onDelete={onDelete}
+      onClick={onClick}
     />
   );
 }

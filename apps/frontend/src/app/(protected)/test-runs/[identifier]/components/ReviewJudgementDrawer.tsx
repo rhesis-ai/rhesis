@@ -1,28 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
-  Typography,
   ToggleButton,
   ToggleButtonGroup,
-  Stack,
-  Chip,
-  useTheme,
+  Typography,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
-import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import {
-  TestResultDetail,
-  REVIEW_TARGET_TYPES,
-  REVIEW_TARGET_LABELS,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
-import StatusChip from '@/components/common/StatusChip';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import MentionTextInput, {
   MentionOption,
@@ -53,159 +43,95 @@ export default function ReviewJudgementDrawer({
   mentionableMetrics = [],
   mentionableTurns = [],
 }: ReviewJudgementDrawerProps) {
-  const theme = useTheme();
-  const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
+  const [selectedStatusId, setSelectedStatusId] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Infer target from comment text
+  // Infer review target from mention syntax in comment text
   const inferredTarget: InferredTarget = useMemo(
     () => inferReviewTarget(reason),
     [reason]
   );
 
-  const targetLabel = useMemo(
-    () => REVIEW_TARGET_LABELS[inferredTarget.type] ?? inferredTarget.type,
-    [inferredTarget]
+  const passStatus = useMemo(
+    () => findStatusByCategory(statuses, 'passed'),
+    [statuses]
+  );
+  const failStatus = useMemo(
+    () => findStatusByCategory(statuses, 'failed'),
+    [statuses]
   );
 
-  // Calculate automated status of the targeted item
-  const getOriginalStatus = useCallback((): 'passed' | 'failed' => {
-    if (!test) return 'failed';
-
-    if (
-      inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
-      inferredTarget.reference
-    ) {
-      const metrics = test.test_metrics?.metrics || {};
-      const metric = Object.entries(metrics).find(
-        ([name]) => name === inferredTarget.reference
-      );
-      return metric?.[1]?.is_successful ? 'passed' : 'failed';
-    }
-
-    if (
-      inferredTarget.type === REVIEW_TARGET_TYPES.TURN &&
-      inferredTarget.reference
-    ) {
-      const turns = test.test_output?.conversation_summary || [];
-      const turnNum = parseInt(inferredTarget.reference.replace(/\D/g, ''), 10);
-      const turn = turns.find((t: { turn: number }) => t.turn === turnNum);
-      return turn?.success ? 'passed' : 'failed';
-    }
-
-    const metrics = test.test_metrics?.metrics || {};
-    const metricValues = Object.values(metrics);
-    const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return totalMetrics > 0 && passedMetrics === totalMetrics
-      ? 'passed'
-      : 'failed';
-  }, [test, inferredTarget]);
-
-  const originalStatus = getOriginalStatus();
-
-  // Fetch statuses for TestResult entity type
+  // Fetch statuses for TestResult entity type when first opened
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!sessionToken || statuses.length > 0) return;
-
+      if (!open || !sessionToken || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
         const statusClient = clientFactory.getStatusClient();
-        const fetchedStatuses = await statusClient.getStatuses({
+        const fetched = await statusClient.getStatuses({
           entity_type: 'TestResult',
         });
-        setStatuses(fetchedStatuses);
+        setStatuses(fetched);
       } catch (_err) {
         setError('Failed to load status options');
       } finally {
         setLoadingStatuses(false);
       }
     };
-
     fetchStatuses();
-  }, [sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length]);
 
-  // Reset form when drawer opens or test changes
+  // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
+  // from deps so parent state resets don't clear a form the user is actively filling)
   useEffect(() => {
-    if (open && test) {
-      const metrics = test.test_metrics?.metrics || {};
-      const metricValues = Object.values(metrics);
-      const allPassed =
-        metricValues.length > 0 && metricValues.every(m => m.is_successful);
-      const defaultOriginal = allPassed ? 'passed' : 'failed';
-      setNewStatus(
-        initialStatus ?? (defaultOriginal === 'passed' ? 'failed' : 'passed')
-      );
-      setReason(initialComment ?? '');
-      setError('');
-    }
-  }, [open, test, initialComment, initialStatus]);
+    if (!open) return;
+    setReason(initialComment ?? '');
+    setError('');
+    setSelectedStatusId('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  const handleStatusChange = (
-    _event: React.MouseEvent<HTMLElement>,
-    value: 'passed' | 'failed' | null
-  ) => {
-    if (value !== null) {
-      setNewStatus(value);
-      setError('');
-    }
-  };
+  // Pre-select initial status once statuses are available and nothing is selected yet
+  useEffect(() => {
+    if (!open || selectedStatusId || statuses.length === 0 || !initialStatus)
+      return;
+    const matching = findStatusByCategory(statuses, initialStatus);
+    if (matching) setSelectedStatusId(String(matching.id));
+  }, [open, statuses, initialStatus, selectedStatusId]);
 
   const handleSave = async () => {
-    // Validation
     if (!reason.trim()) {
-      setError('Please provide a reason for the review.');
+      setError('Please provide a comment for your review.');
       return;
     }
 
     if (reason.trim().length < 10) {
-      setError('Reason must be at least 10 characters long.');
+      setError('Comment must be at least 10 characters long.');
+      return;
+    }
+
+    if (!selectedStatusId) {
+      setError('Please select a status for this review.');
       return;
     }
 
     if (!test || !sessionToken) return;
 
-    // For test_result targets without an existing review, prevent matching original
-    // For metric/turn targets, always allow (they're specific overrides)
-    if (inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT) {
-      const hasExistingReview = !!test.last_review;
-      if (newStatus === originalStatus && !hasExistingReview) {
-        setError(
-          'New status must be different from the automated result. ' +
-            'Use "Confirm Review" to agree with the automated result.'
-        );
-        return;
-      }
-    }
-
-    // Find the status ID for the new status using centralized utility
-    const targetStatus = findStatusByCategory(
-      statuses,
-      newStatus === 'passed' ? 'passed' : 'failed'
-    );
-
-    if (!targetStatus) {
-      setError('Could not find appropriate status. Please try again.');
-      return;
-    }
-
     try {
       setSubmitting(true);
       setError('');
 
-      // Create the review via API
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
 
       await testResultsClient.createReview(
         test.id,
-        targetStatus.id,
+        selectedStatusId,
         reason.trim(),
         inferredTarget
       );
@@ -225,145 +151,103 @@ export default function ReviewJudgementDrawer({
     onClose();
   };
 
-  if (!test) return null;
+  const isSaveDisabled =
+    !selectedStatusId ||
+    reason.trim().length < 10 ||
+    submitting ||
+    loadingStatuses;
 
-  const metrics = test.test_metrics?.metrics || {};
-  const metricValues = Object.values(metrics);
-  const totalMetrics = metricValues.length;
-  const passedMetrics = metricValues.filter(m => m.is_successful).length;
+  if (!test) return null;
 
   return (
     <BaseDrawer
       open={open}
       onClose={handleCancel}
-      title="Provide Test Review"
-      titleIcon={<RateReviewOutlinedIcon />}
+      title="Create Review"
       onSave={handleSave}
       anchor="right"
-      saveButtonText={submitting ? 'Saving...' : 'Submit Review'}
+      saveButtonText="Save"
+      saveDisabled={isSaveDisabled}
       error={error}
-      width={theme.spacing(75)}
       loading={submitting || loadingStatuses}
     >
-      <Stack spacing={3}>
-        {/* Review Target Indicator */}
-        <Box>
-          <Typography variant="body2" fontWeight={600} gutterBottom>
-            Review Target
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <Chip
-              icon={<TrackChangesIcon />}
-              label={targetLabel}
-              size="small"
-              color={
-                inferredTarget.type === REVIEW_TARGET_TYPES.METRIC
-                  ? 'secondary'
-                  : inferredTarget.type === REVIEW_TARGET_TYPES.TURN
-                    ? 'info'
-                    : 'default'
-              }
-              variant="outlined"
-            />
-          </Box>
-        </Box>
-
-        {/* Automated Status of Target */}
-        <Box>
-          <Typography variant="body2" fontWeight={600} gutterBottom>
-            Current Automated Status
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <StatusChip
-              passed={originalStatus === 'passed'}
-              label={originalStatus === 'passed' ? 'Passed' : 'Failed'}
-              size="small"
-              variant="filled"
-            />
-            {inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT && (
-              <Typography variant="body2" color="text.secondary">
-                {passedMetrics}/{totalMetrics} metrics passed
-              </Typography>
-            )}
-            {inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
-              inferredTarget.reference && (
-                <Typography variant="body2" color="text.secondary">
-                  Score: {metrics[inferredTarget.reference]?.score ?? 'N/A'}
-                </Typography>
-              )}
-          </Box>
-        </Box>
-
-        {/* New Status Selection */}
-        <Box>
-          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-            New Status *
-          </Typography>
-          <ToggleButtonGroup
-            value={newStatus}
-            exclusive
-            onChange={handleStatusChange}
-            aria-label="test status"
-            size="small"
-            fullWidth
-          >
+      {/* Pass / Fail toggle */}
+      <Box>
+        <Typography
+          variant="body2"
+          sx={{ mb: 1, fontWeight: 500, color: 'text.secondary' }}
+        >
+          New Status
+        </Typography>
+        <ToggleButtonGroup
+          value={selectedStatusId}
+          exclusive
+          onChange={(_, val) => {
+            if (val !== null) {
+              setSelectedStatusId(val);
+              setError('');
+            }
+          }}
+          fullWidth
+          disabled={loadingStatuses}
+          sx={{ height: 44 }}
+        >
+          {passStatus && (
             <ToggleButton
-              value="passed"
-              aria-label="passed"
+              value={String(passStatus.id)}
               sx={{
+                flex: 1,
+                gap: 1,
+                fontWeight: 500,
                 '&.Mui-selected': {
-                  backgroundColor: theme.palette.success.main,
-                  color: theme.palette.success.contrastText,
-                  '& .MuiSvgIcon-root': { color: 'inherit' },
-                  '&:hover': {
-                    backgroundColor: theme.palette.success.dark,
-                  },
+                  bgcolor: 'success.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'success.dark' },
+                  '& .MuiSvgIcon-root': { color: '#fff' },
                 },
               }}
             >
-              <CheckCircleOutlineIcon
-                sx={{ mr: 1, fontSize: 'body2.fontSize' }}
-              />
+              <CheckCircleOutlineIcon sx={{ fontSize: 18 }} />
               Pass
             </ToggleButton>
+          )}
+          {failStatus && (
             <ToggleButton
-              value="failed"
-              aria-label="failed"
+              value={String(failStatus.id)}
               sx={{
+                flex: 1,
+                gap: 1,
+                fontWeight: 500,
                 '&.Mui-selected': {
-                  backgroundColor: theme.palette.error.main,
-                  color: theme.palette.error.contrastText,
-                  '& .MuiSvgIcon-root': { color: 'inherit' },
-                  '&:hover': {
-                    backgroundColor: theme.palette.error.dark,
-                  },
+                  bgcolor: 'error.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'error.dark' },
+                  '& .MuiSvgIcon-root': { color: '#fff' },
                 },
               }}
             >
-              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 'body2.fontSize' }} />
+              <CancelOutlinedIcon sx={{ fontSize: 18 }} />
               Fail
             </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+          )}
+        </ToggleButtonGroup>
+      </Box>
 
-        {/* Review Comments */}
-        <MentionTextInput
-          label="Review Comments *"
-          value={reason}
-          onChange={val => {
-            setReason(val);
-            setError('');
-          }}
-          placeholder="Explain your review decision... Type @ to mention"
-          mentionableMetrics={mentionableMetrics}
-          mentionableTurns={mentionableTurns}
-          error={!!error}
-          helperText={
-            error || `${reason.length} characters (minimum 10 required)`
-          }
-          minRows={4}
-        />
-      </Stack>
+      {/* Comment field */}
+      <MentionTextInput
+        label="Comment"
+        value={reason}
+        onChange={val => {
+          setReason(val);
+          setError('');
+        }}
+        placeholder="Explain your review decision... Type @ to mention"
+        mentionableMetrics={mentionableMetrics}
+        mentionableTurns={mentionableTurns}
+        error={!!error && !selectedStatusId}
+        helperText="Add a comment to support your review decision"
+        minRows={4}
+      />
     </BaseDrawer>
   );
 }

@@ -14,7 +14,7 @@ from rhesis.sdk.models.utils import validate_llm_response
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_API_BASE = "http://0.0.0.0:4000"
+DEFAULT_API_BASE = "http://localhost:4000"
 DEFAULT_REQUEST_TIMEOUT = int(os.getenv("LITELLM_PROXY_TIMEOUT", "300"))
 
 
@@ -28,7 +28,7 @@ class LiteLLMProxy(BaseLLM):
     Args:
         model_name: The model name as configured in the proxy (e.g. "gemini").
         api_base: Base URL of the LiteLLM Proxy server.
-            Defaults to LITELLM_PROXY_BASE_URL env var or http://0.0.0.0:4000.
+            Defaults to LITELLM_PROXY_BASE_URL env var or http://localhost:4000.
         api_key: Optional API key for the proxy.
             Defaults to LITELLM_PROXY_API_KEY env var.
 

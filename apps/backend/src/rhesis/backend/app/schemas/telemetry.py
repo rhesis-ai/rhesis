@@ -149,6 +149,11 @@ class TraceSummary(BaseModel):
     project_id: str
     environment: str
     conversation_id: Optional[str] = None
+    conversation_input: Optional[str] = Field(
+        default=None,
+        description="Input message for the (root) turn, sourced from the "
+        "`rhesis.conversation.input` span attribute when present.",
+    )
     start_time: datetime
     duration_ms: float
     span_count: int

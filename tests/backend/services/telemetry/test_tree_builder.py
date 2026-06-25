@@ -1,6 +1,6 @@
 """Tests for span tree builder."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.services.telemetry.tree_builder import (
@@ -17,7 +17,7 @@ def create_mock_span(
     start_offset_ms: int = 0,
 ) -> Trace:
     """Helper to create mock Trace object."""
-    base_time = datetime.utcnow()
+    base_time = datetime.now(timezone.utc)
 
     span = Trace()
     span.span_id = span_id
@@ -184,7 +184,7 @@ def test_attributes_and_events_preserved():
         create_mock_span("root", None, "function.root", 0),
     ]
     spans[0].attributes = {"custom.key": "custom.value", "function.name": "root"}
-    spans[0].events = [{"name": "test_event", "timestamp": datetime.utcnow()}]
+    spans[0].events = [{"name": "test_event", "timestamp": datetime.now(timezone.utc)}]
 
     tree = build_span_tree(spans)
 

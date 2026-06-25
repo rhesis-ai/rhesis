@@ -122,7 +122,7 @@ jobs:
         id: set_env
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
 
           # Get commit SHA (short version for URLs)
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
@@ -239,7 +239,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          REGION="${{ secrets.REGION || 'us-central1' }}"
           echo "REGION=$REGION" >> $GITHUB_ENV
           
           # Get commit SHA (short version) - use build output if available, otherwise compute from github.sha
@@ -385,13 +385,12 @@ jobs:
           POLYPHEMUS_PROJECT_ID=${{ env.PROJECT_ID }},
           POLYPHEMUS_LOCATION=${{ env.REGION }},
           POLYPHEMUS_DEFAULT_MODEL=${{ secrets.POLYPHEMUS_DEFAULT_MODEL }},
-          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
-          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
-          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
-          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
-          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
-          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          DB_DRIVER=${{ secrets.DB_DRIVER }},
+          DB_HOST=${{ secrets.DB_HOST }},
+          DB_PORT=${{ secrets.DB_PORT }},
+          DB_NAME=${{ secrets.DB_NAME }},
+          APP_DB_USER=${{ secrets.APP_DB_USER }},
+          APP_DB_PASS=${{ secrets.APP_DB_PASS }},
           DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL }}
@@ -424,13 +423,12 @@ jobs:
           POLYPHEMUS_PROJECT_ID=${{ env.PROJECT_ID }},
           POLYPHEMUS_LOCATION=${{ env.REGION }},
           POLYPHEMUS_DEFAULT_MODEL=${{ secrets.POLYPHEMUS_DEFAULT_MODEL }},
-          SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
-          SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
-          SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
-          SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
-          SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
-          SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
+          DB_DRIVER=${{ secrets.DB_DRIVER }},
+          DB_HOST=${{ secrets.DB_HOST }},
+          DB_PORT=${{ secrets.DB_PORT }},
+          DB_NAME=${{ secrets.DB_NAME }},
+          APP_DB_USER=${{ secrets.APP_DB_USER }},
+          APP_DB_PASS=${{ secrets.APP_DB_PASS }},
           DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL }}

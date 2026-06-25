@@ -4,10 +4,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin
+from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMixin, TagsMixin
 
 
-class Task(Base, ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin):
+class Task(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin, TagsMixin):
     __tablename__ = "task"
 
     # Core fields
@@ -26,7 +26,7 @@ class Task(Base, ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin):
     entity_type = Column(String, nullable=True)  # "Test", "TestSet", "TestRun", "Comment"
 
     # Timestamps
-    completed_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Metadata
     task_metadata = Column(JSON)

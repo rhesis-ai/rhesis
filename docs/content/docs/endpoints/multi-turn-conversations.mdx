@@ -151,7 +151,7 @@ If your API returns a conversation or session identifier, map it to
 ### How It Works
 
 - **Automatic detection**: Rhesis identifies a stateless endpoint when the
-  request body template contains `\{\{ messages \}\}`.
+  request body template contains `{{ messages }}`.
 - **History management**: During multi-turn test execution, Rhesis accumulates
   the full conversation history (user messages and assistant responses) and sends
   it as the `messages` array with each request.
@@ -255,7 +255,7 @@ conversation.
 | **Server manages context** | Yes | No |
 | **Request body includes** | `conversation_id` + `input` | `messages` array + `conversation_id` |
 | **Response mapping includes** | `conversation_id` from API | `conversation_id` from API (if returned) |
-| **Detected by** | Conversation field in response mapping | `\{\{ messages \}\}` in request template |
+| **Detected by** | Conversation field in response mapping | `{{ messages }}` in request template |
 | **Example providers** | Custom chatbots, managed services | OpenAI, Anthropic, Google AI |
 | **Rhesis manages** | Conversation ID tracking | Full message history + conversation ID tracking |
 

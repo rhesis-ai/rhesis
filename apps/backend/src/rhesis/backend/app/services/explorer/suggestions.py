@@ -47,7 +47,7 @@ def _suggestions_response_model(num_suggestions: int) -> type[BaseModel]:
 
 def _get_generation_model(db: Session, user_id: str):
     """Get the user's configured generation model for suggestion generation."""
-    from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+    from rhesis.backend.app.config.settings import get_model_settings
     from rhesis.backend.app.utils.user_model_utils import (
         get_user_generation_model,
     )
@@ -61,7 +61,7 @@ def _get_generation_model(db: Session, user_id: str):
 
     from rhesis.sdk.models.factory import get_model
 
-    return get_model(DEFAULT_GENERATION_MODEL)
+    return get_model(get_model_settings().generation_model)
 
 
 def _resolve_llm_model(model_or_provider: Any):
@@ -73,75 +73,15 @@ def _resolve_llm_model(model_or_provider: Any):
     return model_or_provider
 
 
-class _IncrementalJsonArrayParser:
-    """Extract complete JSON objects from a streaming JSON response.
+from rhesis.backend.app.services.streaming_utils import (
+    IncrementalJsonArrayParser,
+)
+from rhesis.backend.app.services.streaming_utils import (
+    ndjson as _ndjson,
+)
 
-    Designed for structured output shaped like ``{"suggestions": [{...}, ...]}``.
-    Feeds token chunks incrementally and yields each complete object in the
-    top-level array as soon as its closing brace is detected.  Correctly
-    handles escaped characters and strings containing braces.
-    """
-
-    def __init__(self):
-        self._buffer: str = ""
-        self._pos: int = 0
-        self._in_array: bool = False
-        self._brace_depth: int = 0
-        self._in_string: bool = False
-        self._escape_next: bool = False
-        self._obj_start: int = -1
-
-    def feed(self, chunk: str) -> List[dict]:
-        """Append *chunk* to the internal buffer and return any newly complete objects."""
-        self._buffer += chunk
-        results: List[dict] = []
-
-        while self._pos < len(self._buffer):
-            c = self._buffer[self._pos]
-
-            if self._escape_next:
-                self._escape_next = False
-                self._pos += 1
-                continue
-
-            if c == "\\" and self._in_string:
-                self._escape_next = True
-                self._pos += 1
-                continue
-
-            if c == '"':
-                self._in_string = not self._in_string
-                self._pos += 1
-                continue
-
-            if self._in_string:
-                self._pos += 1
-                continue
-
-            if not self._in_array:
-                if c == "[":
-                    self._in_array = True
-            else:
-                if c == "{":
-                    if self._brace_depth == 0:
-                        self._obj_start = self._pos
-                    self._brace_depth += 1
-                elif c == "}":
-                    self._brace_depth -= 1
-                    if self._brace_depth == 0 and self._obj_start >= 0:
-                        obj_str = self._buffer[self._obj_start : self._pos + 1]
-                        try:
-                            results.append(json.loads(obj_str))
-                        except json.JSONDecodeError:
-                            logger.warning(
-                                "Failed to parse streamed JSON object: %.120s",
-                                obj_str,
-                            )
-                        self._obj_start = -1
-
-            self._pos += 1
-
-        return results
+# Keep the private alias for backward compatibility within this module
+_IncrementalJsonArrayParser = IncrementalJsonArrayParser
 
 
 def _build_suggestion_prompt(
@@ -274,8 +214,9 @@ async def _generate_suggestions_stream(
     yield {"type": "meta", "num_examples_used": sample_size}
 
     try:
-        token_stream = await model.a_generate(
-            prompt=prompt_text, schema=response_model, stream=True
+        token_stream = model.generate_stream(
+            prompt=prompt_text,
+            schema=response_model,
         )
     except Exception as e:
         logger.error("LLM streaming generation failed: %s", e, exc_info=True)
@@ -418,11 +359,6 @@ async def generate_suggestions(
     }
 
 
-def _ndjson(event: Dict[str, Any]) -> bytes:
-    """Encode a single NDJSON event."""
-    return (json.dumps(event) + "\n").encode("utf-8")
-
-
 async def suggestion_pipeline_stream(
     db: Session,
     test_set_identifier: str,
@@ -456,9 +392,13 @@ async def suggestion_pipeline_stream(
       - ``{"type": "eval_summary", "evaluated": int, "total": int}``
       - ``{"type": "done"}``
     """
-    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.database import _SCOPE_KEY, get_db_with_tenant_variables
     from rhesis.backend.app.dependencies import get_endpoint_service
     from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
+
+    # Propagate the active project scope to inner sessions spawned for async parallel work.
+    _outer_scope = db.info.get(_SCOPE_KEY)
+    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
 
     pipeline_t0 = time.monotonic()
 
@@ -593,7 +533,7 @@ async def suggestion_pipeline_stream(
         logger.info("[%s] idx=%02d output_start", _ts(), index)
         async with output_semaphore:
             try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
                     raw = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,
@@ -768,6 +708,7 @@ async def invoke_endpoint_for_suggestions_stream(
       - {"type": "summary", "generated": int, "total": int}
     """
     from rhesis.backend.app.database import (
+        _SCOPE_KEY,
         get_db_with_tenant_variables,
     )
     from rhesis.backend.app.dependencies import get_endpoint_service
@@ -775,13 +716,16 @@ async def invoke_endpoint_for_suggestions_stream(
         process_endpoint_result,
     )
 
+    _outer_scope = db.info.get(_SCOPE_KEY)
+    _project_id = str(_outer_scope.project_id) if _outer_scope and _outer_scope.project_id else ""
+
     svc = get_endpoint_service()
     semaphore = asyncio.Semaphore(10)
 
     async def _invoke_one(index: int, input_text: str) -> tuple:
         async with semaphore:
             try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                with get_db_with_tenant_variables(organization_id, user_id, _project_id) as task_db:
                     result = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,

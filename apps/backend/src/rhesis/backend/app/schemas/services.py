@@ -99,6 +99,7 @@ class GenerateTestsRequest(BaseModel):
     name: Optional[str] = None  # Used only for bulk generation to name the test set
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value
     model_id: Optional[UUID4] = None  # Override user's default generation model for this request
+    project_id: Optional[UUID4] = None  # Required for bulk generation via /test_sets/generate
 
     @field_validator("test_type", mode="before")
     @classmethod
@@ -177,12 +178,6 @@ class GenerateEmbeddingRequest(BaseModel):
     text: str
 
 
-class TestConfigRequest(BaseModel):
-    prompt: str
-    project_id: Optional[UUID4] = None
-    previous_messages: Optional[List[IterationMessage]] = None
-
-
 class TestConfigItem(BaseModel):
     name: str
     description: str
@@ -192,6 +187,37 @@ class TestConfigItem(BaseModel):
 class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
+    categories: List[TestConfigItem]
+
+
+class TestPipelineRequest(BaseModel):
+    """Unified streaming request for config + test generation pipeline."""
+
+    prompt: str
+    project_id: Optional[UUID4] = None
+    previous_messages: Optional[List[IterationMessage]] = None
+    test_type: str = "single_turn"
+    num_tests: int = Field(default=5, ge=1, le=20)
+    sources: Optional[List[SourceData]] = None
+    model_id: Optional[UUID4] = None
+    config: Optional[TestConfigResponse] = None
+
+
+class TestConfigRequest(BaseModel):
+    prompt: str
+    project_id: Optional[UUID4] = None
+    previous_messages: Optional[List[IterationMessage]] = None
+
+
+class BehaviorsResponse(BaseModel):
+    behaviors: List[TestConfigItem]
+
+
+class TopicsResponse(BaseModel):
+    topics: List[TestConfigItem]
+
+
+class CategoriesResponse(BaseModel):
     categories: List[TestConfigItem]
 
 
@@ -242,32 +268,6 @@ class ItemResult(BaseModel):
     title: str
 
 
-class SearchMCPRequest(BaseModel):
-    """Request to search MCP server."""
-
-    query: str
-    tool_id: str
-
-
-class ExtractMCPRequest(BaseModel):
-    """Request to extract MCP item content.
-
-    Either 'id' or 'url' (or both) must be provided.
-    The agent will use whichever is more appropriate for the provider.
-    """
-
-    id: Optional[str] = None
-    url: Optional[str] = None
-    tool_id: str
-
-    @model_validator(mode="after")
-    def validate_id_or_url(self):
-        """Ensure at least one of id or url is provided."""
-        if not self.id and not self.url:
-            raise ValueError("Either 'id' or 'url' must be provided")
-        return self
-
-
 class QueryMCPRequest(BaseModel):
     """General-purpose request to query MCP server with custom task."""
 
@@ -277,36 +277,24 @@ class QueryMCPRequest(BaseModel):
     max_iterations: Optional[int] = 10
 
 
-class ExtractMCPResponse(BaseModel):
-    """Response containing extracted content from MCP item."""
-
-    content: str
-
-
-class ToolCall(BaseModel):
-    """Tool call in agent execution."""
-
+class _ToolCall(BaseModel):
     tool_name: str
     arguments: Dict[str, Any]
 
 
-class ToolResult(BaseModel):
-    """Result from tool execution."""
-
+class _ToolResult(BaseModel):
     tool_name: str
     success: bool
     content: Optional[str] = None
     error: Optional[str] = None
 
 
-class ExecutionStep(BaseModel):
-    """Single step in agent execution history."""
-
+class _ExecutionStep(BaseModel):
     iteration: int
     reasoning: str
     action: str
-    tool_calls: List[ToolCall]
-    tool_results: List[ToolResult]
+    tool_calls: List[_ToolCall]
+    tool_results: List[_ToolResult]
 
 
 class QueryMCPResponse(BaseModel):
@@ -316,15 +304,51 @@ class QueryMCPResponse(BaseModel):
     success: bool
     iterations_used: int
     max_iterations_reached: bool
-    execution_history: List[ExecutionStep]
+    execution_history: List[_ExecutionStep]
 
 
-class TestMCPConnectionRequest(BaseModel):
-    """Request to test MCP connection authentication.
+class ExtractToolRequest(BaseModel):
+    """Request to extract content from a tool item.
+
+    Either 'id' or 'url' (or both) must be provided.
+    Set include_children=True to recursively extract child pages/files
+    (REST providers only — ignored for MCP-backed tools).
+    """
+
+    id: Optional[str] = None
+    url: Optional[str] = None
+    include_children: bool = False
+
+    @model_validator(mode="after")
+    def validate_id_or_url(self):
+        if not self.id and not self.url:
+            raise ValueError("Either 'id' or 'url' must be provided")
+        return self
+
+
+class ExtractedSource(BaseModel):
+    """A single extracted source."""
+
+    id: Optional[str] = None
+    title: Optional[str] = None
+    content: str
+    url: Optional[str] = None
+
+
+class ExtractToolResponse(BaseModel):
+    """Response from tool extract endpoint.
+
+    sources contains all extracted pages — more than one when include_children=True.
+    """
+
+    sources: List[ExtractedSource]
+
+
+class TestToolConnectionRequest(BaseModel):
+    """Request to test tool connection credentials.
 
     Either tool_id (for existing tools) OR provider_type_id + credentials
     (for non-existent tools) must be provided.
-    For custom providers, tool_metadata is required when using provider_type_id.
     """
 
     tool_id: Optional[str] = None
@@ -334,29 +358,30 @@ class TestMCPConnectionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_request(self):
-        """Ensure either tool_id OR (provider_type_id + credentials) is provided."""
+        """Ensure a valid tool connection test request shape."""
         has_tool_id = self.tool_id is not None
-        has_params = self.provider_type_id is not None and self.credentials is not None
+        has_unsaved_params = self.provider_type_id is not None and self.credentials is not None
 
-        if not has_tool_id and not has_params:
+        if not has_tool_id and not has_unsaved_params:
             raise ValueError(
                 "Either 'tool_id' OR ('provider_type_id' + 'credentials') must be provided"
             )
 
-        if has_tool_id and has_params:
+        if has_unsaved_params and has_tool_id:
             raise ValueError(
-                "Cannot provide both 'tool_id' and parameter-based fields. Use one approach."
+                "Cannot combine 'tool_id' with 'provider_type_id'. "
+                "Use 'tool_id' with optional 'credentials' to retest a saved tool."
             )
 
         return self
 
 
-class TestMCPConnectionResponse(BaseModel):
-    """Response from MCP connection authentication test."""
+class TestToolConnectionResponse(BaseModel):
+    """Response from a tool connection test."""
 
     is_authenticated: str  # "Yes" or "No"
     message: str
-    additional_metadata: Optional[Dict[str, Any]] = None  # For provider-specific data like spaces
+    additional_metadata: Optional[Dict[str, Any]] = None
 
 
 class CreateJiraTicketFromTaskRequest(BaseModel):

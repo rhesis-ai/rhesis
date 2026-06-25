@@ -1,11 +1,11 @@
 import logging
-import os
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from celery import Task
 
+from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import (
     get_db_with_tenant_variables,
 )
@@ -78,21 +78,22 @@ class BaseTask(Task):
     # Report started status
     track_started = True
 
-    def get_tenant_context(self) -> Tuple[Optional[str], Optional[str]]:
+    def get_tenant_context(self) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
         Get tenant context from task request in a consistent way.
 
         Returns:
-            Tuple of (organization_id, user_id)
+            Tuple of (organization_id, user_id, project_id)
         """
         request = getattr(self, "request", None)
         if not request:
-            return None, None
+            return None, None, None
 
         organization_id = getattr(request, "organization_id", None)
         user_id = getattr(request, "user_id", None)
+        project_id = getattr(request, "project_id", None)
 
-        return organization_id, user_id
+        return organization_id, user_id, project_id
 
     def log_with_context(self, level: str, message: str, **kwargs):
         """
@@ -103,7 +104,7 @@ class BaseTask(Task):
             message: The message to log
             **kwargs: Additional context to include in the log
         """
-        organization_id, user_id = self.get_tenant_context()
+        organization_id, user_id, _ = self.get_tenant_context()
         task_id = getattr(self.request, "id", "unknown") if hasattr(self, "request") else "unknown"
 
         context_info = {
@@ -126,12 +127,16 @@ class BaseTask(Task):
         """
         Get a database session with tenant context automatically set.
 
-        Automatically sets PostgreSQL session variables for RLS using the same
-        centralized logic as the router dependencies.
+        Sets PostgreSQL session variables for RLS and stores the RequestScope on
+        Session.info, which the auto-filter / auto-stamp listeners read. (Scope is
+        stored on the session rather than a ContextVar so it is visible regardless
+        of which thread issues the queries.)
         """
-        organization_id, user_id = self.get_tenant_context()
+        organization_id, user_id, project_id = self.get_tenant_context()
 
-        with get_db_with_tenant_variables(organization_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(
+            organization_id or "", user_id or "", project_id or ""
+        ) as db:
             yield db
 
     def validate_params(self, args, kwargs):
@@ -155,7 +160,10 @@ class BaseTask(Task):
     def on_success(self, retval, task_id, args, kwargs):
         """Log successful task completion with context information."""
         self.log_with_context(
-            "info", "Task completed successfully", task_result_type=type(retval).__name__
+            "info",
+            "Task completed successfully",
+            task_result_type=type(retval).__name__,
+            execution_time=self._get_execution_time() or "Unknown",
         )
 
         # Send email notification for successful completion if enabled
@@ -173,7 +181,8 @@ class BaseTask(Task):
                     email_kwargs.update(filtered_retval)
                     self.log_with_context(
                         "debug",
-                        f"Passing {len(filtered_retval)} variables from task result to email template",
+                        f"Passing {len(filtered_retval)} variables from task result"
+                        " to email template",
                     )
 
                 self._send_task_completion_email("success", **email_kwargs)
@@ -185,8 +194,6 @@ class BaseTask(Task):
                     error=str(e),
                     exception_type=type(e).__name__,
                 )
-        else:
-            self.log_with_context("debug", "Email notification disabled for this task type")
 
         return super().on_success(retval, task_id, args, kwargs)
 
@@ -197,13 +204,15 @@ class BaseTask(Task):
 
         retries = getattr(self.request, "retries", 0)
 
-        # Only send email notification if task permanently failed (not retrying) and email is enabled
+        # Only send email notification if task permanently failed (not retrying)
+        # and email is enabled
         if isinstance(exc, TestExecutionError) or retries >= self.max_retries:
             self.log_with_context(
                 "error",
                 f"Task permanently failed after {retries} attempts",
                 error=str(exc),
                 exception_type=type(exc).__name__,
+                execution_time=self._get_execution_time() or "Unknown",
             )
             # Send email notification for permanent failure if enabled
             if self.send_email_notification_flag:
@@ -225,6 +234,7 @@ class BaseTask(Task):
                 f"Task failed (will retry, attempt {retries}/{self.max_retries})",
                 error=str(exc),
                 exception_type=type(exc).__name__,
+                execution_time=self._get_execution_time() or "Unknown",
             )
 
         return super().on_failure(exc, task_id, args, kwargs, einfo)
@@ -232,7 +242,7 @@ class BaseTask(Task):
     def before_start(self, task_id, args, kwargs):
         """Add organization_id and user_id to task request context."""
         # Store task start time for execution time calculation
-        self.request.custom_start_time = datetime.utcnow()
+        self.request.custom_start_time = datetime.now(timezone.utc)
 
         # Get tenant context from headers (preferred) or kwargs (fallback)
         headers = getattr(self.request, "headers", {}) or {}
@@ -243,6 +253,8 @@ class BaseTask(Task):
                 self.request.organization_id = headers["organization_id"]
             if "user_id" in headers:
                 self.request.user_id = headers["user_id"]
+            if "project_id" in headers:
+                self.request.project_id = headers["project_id"]
 
         # Fallback: Copy context from kwargs to request object (for backward compatibility)
         # This preserves tenant context for retries if it was passed via kwargs
@@ -250,11 +262,33 @@ class BaseTask(Task):
             self.request.organization_id = kwargs["organization_id"]
         if "user_id" in kwargs:
             self.request.user_id = kwargs["user_id"]
+        if "project_id" in kwargs:
+            self.request.project_id = kwargs["project_id"]
 
         # Do a soft validation (warning only)
         self.validate_params(args, kwargs)
 
         return super().before_start(task_id, args, kwargs)
+
+    def _get_execution_time(self) -> Optional[str]:
+        """Return formatted task execution duration, if start time is available."""
+        from rhesis.backend.tasks.utils import format_execution_time
+
+        if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
+            try:
+                duration = (
+                    datetime.now(timezone.utc) - self.request.custom_start_time
+                ).total_seconds()
+                return format_execution_time(duration)
+            except Exception:
+                pass
+        elif hasattr(self.request, "time_start") and self.request.time_start:
+            try:
+                duration = datetime.now(timezone.utc).timestamp() - self.request.time_start
+                return format_execution_time(duration)
+            except Exception:
+                pass
+        return None
 
     def _get_user_info(
         self, user_id: str, organization_id: str = None
@@ -303,94 +337,28 @@ class BaseTask(Task):
             from rhesis.backend.notifications import EmailTemplate, email_service
 
             # Get user context
-            organization_id, user_id = self.get_tenant_context()
-
-            self.log_with_context(
-                "debug",
-                "Email notification process started",
-                status=status,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
+            organization_id, user_id, _ = self.get_tenant_context()
 
             if not user_id:
-                self.log_with_context("debug", "No user context available for email notification")
                 return
 
             # Get user information
-            self.log_with_context("debug", f"Looking up user information for user_id: {user_id}")
             user_email, user_name = self._get_user_info(user_id, organization_id)
 
             if not user_email:
                 self.log_with_context("warning", f"No email found for user {user_id}")
                 return
 
-            self.log_with_context("debug", f"Found user email: {user_email}, name: {user_name}")
-
             # Skip placeholder emails (these are internal users without real emails)
             if "placeholder.rhesis.ai" in user_email:
-                self.log_with_context(
-                    "debug", f"Skipping notification for placeholder email: {user_email}"
-                )
                 return
 
-            # Calculate execution time using our custom start time or Celery's time_start
-            execution_time = None
-
-            # Try our custom start time first (most reliable)
-            if hasattr(self.request, "custom_start_time") and self.request.custom_start_time:
-                try:
-                    duration = (datetime.utcnow() - self.request.custom_start_time).total_seconds()
-                    from rhesis.backend.tasks.utils import format_execution_time
-
-                    execution_time = format_execution_time(duration)
-                    self.log_with_context(
-                        "debug", f"Calculated execution time from custom timing: {execution_time}"
-                    )
-                except Exception as e:
-                    self.log_with_context(
-                        "warning",
-                        "Failed to calculate execution time from custom timing",
-                        error=str(e),
-                    )
-            # Fallback to Celery's time_start if available
-            elif hasattr(self.request, "time_start") and self.request.time_start:
-                try:
-                    duration = datetime.utcnow().timestamp() - self.request.time_start
-                    from rhesis.backend.tasks.utils import format_execution_time
-
-                    execution_time = format_execution_time(duration)
-                    self.log_with_context(
-                        "debug", f"Calculated execution time from Celery timing: {execution_time}"
-                    )
-                except Exception as e:
-                    self.log_with_context(
-                        "warning",
-                        "Failed to calculate execution time from Celery timing",
-                        error=str(e),
-                    )
-            else:
-                self.log_with_context(
-                    "debug",
-                    "No start time available for execution time calculation",
-                )
-
-            # Log final execution time
-            self.log_with_context("debug", f"Final calculated execution time: {execution_time}")
+            execution_time = self._get_execution_time()
 
             # Get frontend URL for links
-            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
-            self.log_with_context("debug", f"Using frontend URL: {frontend_url}")
-
-            # Check if email service is configured
-            self.log_with_context(
-                "debug", f"Email service configured: {email_service.is_configured}"
-            )
+            frontend_url = get_frontend_settings().url
 
             if not email_service.is_configured:
-                self.log_with_context(
-                    "warning", "Email service not configured - skipping email notification"
-                )
                 return
 
             # Get template and subject from decorator or use defaults
@@ -409,7 +377,8 @@ class BaseTask(Task):
                 "frontend_url": frontend_url,
             }
 
-            # Add any additional variables from the task result (but don't override with None values)
+            # Add any additional variables from the task result
+            # (but don't override with None values)
             for key, value in kwargs.items():
                 if value is not None:
                     template_variables[key] = value
@@ -417,7 +386,6 @@ class BaseTask(Task):
             # Special handling for execution_time - ensure we have a reasonable fallback
             if template_variables.get("execution_time") is None:
                 template_variables["execution_time"] = "Unknown"
-                self.log_with_context("debug", "Using fallback execution time: Unknown")
 
             # Build subject
             if subject_template:
@@ -434,8 +402,6 @@ class BaseTask(Task):
             else:
                 subject = f"Task Completed: {self.get_display_name()} - {status.title()}"
 
-            # Send the email using centralized approach
-            self.log_with_context("info", f"Sending {status} email notification to {user_email}")
             success = email_service.send_email(
                 template=template,
                 recipient_email=user_email,
@@ -446,10 +412,16 @@ class BaseTask(Task):
 
             if success:
                 self.log_with_context(
-                    "info", f"Email notification sent successfully to {user_email}"
+                    "info",
+                    f"Task completion email sent ({status})",
+                    recipient_email=user_email,
                 )
             else:
-                self.log_with_context("error", f"Email notification failed to send to {user_email}")
+                self.log_with_context(
+                    "error",
+                    f"Task completion email failed ({status})",
+                    recipient_email=user_email,
+                )
 
         except Exception as e:
             # Don't fail the task if email sending fails - just log the error
@@ -507,3 +479,7 @@ class SilentTask(BaseTask):
     """Base task class with email notifications disabled (for background/parallel tasks)."""
 
     send_email_notification_flag = False
+
+    def on_success(self, retval, task_id, args, kwargs):
+        """Skip generic completion logging; callers log task-specific outcomes."""
+        return super(BaseTask, self).on_success(retval, task_id, args, kwargs)

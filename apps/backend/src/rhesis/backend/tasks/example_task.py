@@ -10,7 +10,7 @@ This module demonstrates how to use the task system, including:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import UUID
 
@@ -47,7 +47,7 @@ def process_data(self, data: dict):
     when launched with task_launcher.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context("info", "Processing data", data_keys=list(data.keys()) if data else [])
 
@@ -64,7 +64,7 @@ def echo(self, message: str):
     context information from the task request.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context("info", "Echo task executed", message_length=len(message))
     return f"Message: {message}, Organization: {org_id}, User: {user_id}"
@@ -85,10 +85,10 @@ def get_test_set_count(self):
     Uses get_db_with_tenant_variables for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     # Use tenant-aware database session with explicit organization_id and user_id
-    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
         # Use the crud utility which will respect the tenant context
         test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
         count = len(test_sets)
@@ -113,13 +113,13 @@ def get_test_configuration(self, test_configuration_id: str):
     Uses get_db_with_tenant_variables for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     # Convert string ID to UUID
     config_id = UUID(test_configuration_id)
 
     # Use tenant-aware database session with explicit organization_id and user_id
-    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
         # The crud function will use the properly configured session
         # which has the tenant context already set
         test_config = crud.get_test_configuration(
@@ -155,12 +155,12 @@ def manual_db_example(self):
     control over the session lifecycle.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     results = {}
 
     # Use tenant-aware database session with explicit organization_id and user_id
-    with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+    with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
         # The session already has tenant context set
         test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
         results["test_set_count"] = len(test_sets)
@@ -229,7 +229,7 @@ def example_task(self, name: str, delay_seconds: int = 5):
     return {
         "name": name,
         "duration": delay_seconds,
-        "completed_at": datetime.utcnow().isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
         "message": f"Task '{name}' completed successfully",
     }
 
@@ -254,7 +254,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
     )
 
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     try:
         # Get test configuration
@@ -265,7 +265,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
             raise ValueError(f"Invalid test configuration ID: {test_config_id}")
 
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             test_config = crud.get_test_configuration(
                 db, test_config_uuid, organization_id=org_id, user_id=user_id
             )
@@ -294,7 +294,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
             "test_set_id": test_set_id,
             "endpoint_id": endpoint_id,
             "attributes": test_config.attributes or {},
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self.log_with_context(

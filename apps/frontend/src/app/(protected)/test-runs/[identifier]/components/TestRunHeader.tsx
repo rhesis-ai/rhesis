@@ -24,14 +24,21 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import Link from 'next/link';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  PassFailStats,
+  TestResultDetail,
+} from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { experimentHref } from '@/utils/experiment-links';
+import { BiotechIcon } from '@/components/icons';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
   testResults: TestResultDetail[];
+  overallStats?: PassFailStats;
   loading?: boolean;
   onRefresh?: () => void;
 }
@@ -137,6 +144,7 @@ function SummaryCard({
 export default function TestRunHeader({
   testRun,
   testResults,
+  overallStats,
   loading: _loading = false,
   onRefresh,
 }: TestRunHeaderProps) {
@@ -150,40 +158,45 @@ export default function TestRunHeader({
 
   // Calculate statistics
   const stats = useMemo(() => {
-    const total = testResults.length;
-
-    // Count passed, failed, and execution errors
-    let passed = 0;
-    let failed = 0;
-    let executionErrors = 0;
+    let total: number;
+    let passed: number;
+    let failed: number;
+    let executionErrors: number;
     let totalTurns = 0;
     let testsWithTurnData = 0;
 
-    testResults.forEach(result => {
-      // Use unified status determination for both single-turn and multi-turn tests
-      // This checks test_metrics.metrics[].is_successful which is set by backend
-      // for both single-turn (SDK metrics) and multi-turn (Penelope metrics)
-      const status = getEffectiveTestResultStatus(result);
+    if (overallStats) {
+      total = overallStats.total;
+      passed = overallStats.passed;
+      failed = overallStats.failed;
+      executionErrors = total - passed - failed;
+    } else {
+      total = testResults.length;
+      passed = 0;
+      failed = 0;
+      executionErrors = 0;
 
-      if (status === 'Error') {
-        executionErrors++;
-      } else if (status === 'Pass') {
-        passed++;
-      } else if (status === 'Fail') {
-        failed++;
-      }
-
-      // For multi-turn tests, track turn depth
-      if (isMultiTurn && result.test_output) {
-        const turns =
-          result.test_output.turns_used ||
-          result.test_output.stats?.total_turns;
-        if (turns) {
-          totalTurns += turns;
-          testsWithTurnData++;
+      testResults.forEach(result => {
+        const status = getEffectiveTestResultStatus(result);
+        if (status === 'Error') {
+          executionErrors++;
+        } else if (status === 'Pass') {
+          passed++;
+        } else if (status === 'Fail') {
+          failed++;
         }
-      }
-    });
+
+        if (isMultiTurn && result.test_output) {
+          const turns =
+            result.test_output.turns_used ||
+            result.test_output.stats?.total_turns;
+          if (turns) {
+            totalTurns += turns;
+            testsWithTurnData++;
+          }
+        }
+      });
+    }
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
     const avgTurnDepth =
@@ -289,7 +302,7 @@ export default function TestRunHeader({
       statusColor,
       statusLabel,
     };
-  }, [testResults, testRun, isMultiTurn]);
+  }, [testResults, testRun, isMultiTurn, overallStats]);
 
   const totalExpected =
     testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
@@ -338,31 +351,125 @@ export default function TestRunHeader({
             md: 3,
           }}
         >
-          <SummaryCard
-            title="Tests Executed"
-            value={
-              totalExpected ? `${stats.total}/${totalExpected}` : stats.total
-            }
-            subtitle={
-              isMultiTurn
-                ? `Avg ${stats.avgTurnDepth} turns`
-                : stats.executionErrors > 0
-                  ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
-                  : `${stats.passed} passed, ${stats.failed} failed`
-            }
-            icon={
-              isInProgress && onRefresh ? (
-                <Tooltip title="Refresh">
-                  <IconButton size="small" onClick={onRefresh}>
-                    <RefreshIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <PlayCircleOutlineIcon />
-              )
-            }
-            color="primary"
-          />
+          <Card
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  fontWeight={500}
+                >
+                  Tests Executed
+                </Typography>
+                <Box
+                  sx={{
+                    color: theme.palette.primary.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {isInProgress && onRefresh ? (
+                    <Tooltip title="Refresh">
+                      <IconButton size="small" onClick={onRefresh}>
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <PlayCircleOutlineIcon />
+                  )}
+                </Box>
+              </Box>
+
+              <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+                {totalExpected
+                  ? `${stats.total}/${totalExpected}`
+                  : stats.total}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {isMultiTurn
+                  ? `Avg ${stats.avgTurnDepth} turns`
+                  : stats.executionErrors > 0
+                    ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
+                    : `${stats.passed} passed, ${stats.failed} failed`}
+              </Typography>
+
+              {testRun.experiment_id && (
+                <Link
+                  href={experimentHref(
+                    testRun.experiment_id,
+                    typeof testRun.attributes?.parameter_version === 'string'
+                      ? testRun.attributes.parameter_version
+                      : undefined
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mt: 1,
+                      '&:hover': {
+                        '& .experiment-name': {
+                          color: theme.palette.primary.main,
+                          textDecoration: 'underline',
+                        },
+                      },
+                    }}
+                  >
+                    <BiotechIcon
+                      sx={{ fontSize: 16, color: 'text.secondary' }}
+                    />
+                    <Typography
+                      variant="body2"
+                      className="experiment-name"
+                      sx={{
+                        transition: 'color 0.2s',
+                        color: 'text.secondary',
+                        fontWeight: 200,
+                      }}
+                    >
+                      {(testRun.attributes
+                        ?.parameter_experiment_name as string) || 'Experiment'}
+                    </Typography>
+                    {typeof testRun.attributes?.parameter_version ===
+                      'string' && (
+                      <Chip
+                        label={shortVersion(
+                          testRun.attributes?.parameter_version as string
+                        )}
+                        size="small"
+                        variant="outlined"
+                        sx={{ ml: 0.5 }}
+                      />
+                    )}
+                    <OpenInNewIcon
+                      sx={{
+                        fontSize: 12,
+                        color: 'text.disabled',
+                      }}
+                    />
+                  </Box>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Duration Card */}
@@ -408,7 +515,6 @@ export default function TestRunHeader({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  mb: 2,
                 }}
               >
                 <Typography
@@ -440,118 +546,6 @@ export default function TestRunHeader({
                   sx={{ fontWeight: 600 }}
                 />
               </Box>
-
-              {testRun.test_configuration?.test_set?.id ? (
-                <Link
-                  href={`/test-sets/${testRun.test_configuration.test_set.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      '&:hover': {
-                        '& .test-set-name': {
-                          color: theme.palette.primary.main,
-                          textDecoration: 'underline',
-                        },
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle1"
-                      className="test-set-name"
-                      sx={{
-                        transition: 'color 0.2s',
-                        color: 'text.secondary',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {testRun.test_configuration.test_set.name ||
-                        'Unknown Test Set'}
-                    </Typography>
-                    <OpenInNewIcon
-                      sx={{
-                        fontSize: 14,
-                        color: 'text.disabled',
-                      }}
-                    />
-                  </Box>
-                </Link>
-              ) : (
-                <Typography
-                  variant="subtitle1"
-                  color="text.secondary"
-                  fontWeight={500}
-                >
-                  {testRun.test_configuration?.test_set?.name ||
-                    'Unknown Test Set'}
-                </Typography>
-              )}
-
-              {testRun.test_configuration?.endpoint?.id ? (
-                <Link
-                  href={`/endpoints/${testRun.test_configuration.endpoint.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      mt: 1,
-                      '&:hover': {
-                        '& .endpoint-name': {
-                          color: theme.palette.primary.main,
-                          textDecoration: 'underline',
-                        },
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      className="endpoint-name"
-                      sx={{
-                        transition: 'color 0.2s',
-                        color: 'text.secondary',
-                        fontWeight: 200,
-                      }}
-                    >
-                      Endpoint:{' '}
-                      {testRun.test_configuration?.endpoint?.name ||
-                        (typeof testRun.attributes?.environment === 'string'
-                          ? testRun.attributes.environment
-                          : null) ||
-                        'development'}
-                    </Typography>
-                    <OpenInNewIcon
-                      sx={{
-                        fontSize: 12,
-                        color: 'text.disabled',
-                      }}
-                    />
-                  </Box>
-                </Link>
-              ) : (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  fontWeight={500}
-                  sx={{ display: 'block', mt: 1 }}
-                >
-                  Endpoint:{' '}
-                  {testRun.test_configuration?.endpoint?.name ||
-                    (typeof testRun.attributes?.environment === 'string'
-                      ? testRun.attributes.environment
-                      : null) ||
-                    'development'}
-                </Typography>
-              )}
             </CardContent>
           </Card>
         </Grid>

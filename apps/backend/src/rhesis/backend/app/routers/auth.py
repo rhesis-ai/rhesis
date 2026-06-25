@@ -13,6 +13,7 @@ from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
+from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.refresh_token_utils import (
     create_refresh_token,
@@ -24,6 +25,7 @@ from rhesis.backend.app.auth.session_invalidation import (
     invalidate_user_sessions,
     is_session_valid,
 )
+from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
@@ -46,7 +48,10 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
-from rhesis.backend.app.constants import RHESIS_BASE_URL
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_frontend_settings,
+)
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
@@ -99,6 +104,7 @@ class ProviderInfo(BaseModel):
     type: str  # 'oauth' or 'credentials'
     enabled: bool
     registration_enabled: Optional[bool] = None
+    login_url: Optional[str] = None
 
 
 class PasswordPolicyResponse(BaseModel):
@@ -114,6 +120,7 @@ class ProvidersResponse(BaseModel):
 
     providers: List[ProviderInfo]
     password_policy: PasswordPolicyResponse
+    quick_start: bool = False
 
 
 class VerifyEmailRequest(BaseModel):
@@ -179,27 +186,30 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
+def _get_api_base_url() -> str:
+    return get_application_settings().api_base_url
+
+
 def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
     Never uses any request-derived data. Uses three independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
-    2. RHESIS_BASE_URL explicitly configured for localhost
-    3. ENVIRONMENT or BACKEND_ENV set to 'local'
+    2. API_BASE_URL explicitly configured for localhost
+    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
         return True
 
-    # Signal 2: RHESIS_BASE_URL points to a local address
-    parsed_host = urlparse(RHESIS_BASE_URL).hostname or ""
+    # Signal 2: API_BASE_URL points to a local address
+    parsed_host = urlparse(_get_api_base_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
-    # Signal 3: Environment variables indicate local deployment
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
-    if env == "local" or backend_env == "local":
+    # Signal 3: BACKEND_ENV explicitly set to local
+    settings = get_application_settings()
+    if settings.is_local:
         return True
 
     return False
@@ -212,7 +222,7 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     listening port to preserve session cookie domain alignment. Only
     whitelisted local hostnames (localhost, 127.0.0.1, ::1) are
     accepted; any other value falls back to 'localhost'. For
-    production, uses RHESIS_BASE_URL.
+    production, uses API_BASE_URL.
     """
     if is_running_locally():
         # Local: use request hostname to match session cookie domain
@@ -227,7 +237,7 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
         base_url = f"http://{hostname}:{port}"
     else:
         # Production: always use configured base URL
-        base_url = RHESIS_BASE_URL.rstrip("/")
+        base_url = _get_api_base_url().rstrip("/")
 
     callback_url = f"{base_url}/auth/callback"
 
@@ -251,7 +261,7 @@ def _is_legacy_auth0_enabled() -> bool:
 
 def _get_frontend_url() -> str:
     """Get the frontend URL for building email links."""
-    return os.getenv("FRONTEND_URL", "http://localhost:3000")
+    return get_frontend_settings().url
 
 
 def _get_email_service():
@@ -266,24 +276,71 @@ def _get_email_service():
 # =============================================================================
 
 
+def _resolve_org_by_id_or_slug(db: Session, org: str):
+    """Resolve an organization by UUID or slug, returning ``None`` if not found.
+
+    Both lookup keys live on core-managed columns of the
+    :class:`~rhesis.backend.app.models.organization.Organization` model,
+    so this helper has no EE-specific concerns. Slug comparison is
+    case-insensitive to match the way SSO admins typically configure URLs.
+    """
+    from uuid import UUID as _UUID
+
+    from rhesis.backend.app.models.organization import Organization
+
+    try:
+        _UUID(org)
+        return db.query(Organization).filter(Organization.id == org).first()
+    except ValueError:
+        return db.query(Organization).filter(Organization.slug == org.lower()).first()
+
+
 @router.get("/providers", response_model=ProvidersResponse)
-async def get_providers():
+async def get_providers(
+    request: Request,
+    org: Optional[str] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Get list of enabled authentication providers.
 
     Returns information about all configured and enabled authentication
     providers. The frontend uses this to dynamically render login options.
     Includes password policy (min/max length) for client-side validation.
+
+    When ``org`` is provided, the organisation is resolved by UUID or
+    slug and passed to any provider enrichers registered via
+    :func:`~rhesis.backend.app.auth.provider_hooks.register_provider_enricher`.
+    EE features (SSO, etc.) plug in at this point — core has no
+    feature-specific knowledge here.
     """
     ProviderRegistry.initialize()
     providers = ProviderRegistry.get_provider_info()
     policy = get_password_policy()
+
+    organization = None
+    if org:
+        # Failures in org lookup are non-fatal: enrichers run with
+        # organization=None and produce a base provider list.
+        try:
+            organization = _resolve_org_by_id_or_slug(db, org)
+        except Exception as exc:
+            logger.warning(
+                "Unexpected error resolving org %r for /auth/providers: %s", org, exc, exc_info=True
+            )
+
+    providers = apply_enrichers(providers, organization)
+
     return ProvidersResponse(
         providers=[ProviderInfo(**p) for p in providers],
         password_policy=PasswordPolicyResponse(
             min_length=policy.min_length,
             max_length=policy.max_length,
             min_strength_score=policy.min_strength_score,
+        ),
+        quick_start=is_quick_start_enabled(
+            hostname=request.url.hostname,
+            headers=dict(request.headers),
         ),
     )
 
@@ -387,15 +444,22 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Find or create user
         user = find_or_create_user_from_auth(db, auth_user)
 
+        # Capture values from pre-auth session before regeneration
+        original_frontend = request.session.get("original_frontend")
+        return_to = request.session.get("return_to", "/architect")
+
         # Set up session and create tokens
-        request.session["user_id"] = str(user.id)
         clear_user_logout(str(user.id))
         session_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
 
-        # Clear provider from session
-        request.session.pop("auth_provider", None)
+        # Regenerate session to prevent session fixation
+        regenerate_session(request, {"user_id": str(user.id)})
+        # Restore redirect context for build_redirect_url
+        if original_frontend:
+            request.session["original_frontend"] = original_frontend
+        request.session["return_to"] = return_to
 
         # Track login activity
         if is_telemetry_enabled():
@@ -1089,7 +1153,7 @@ async def exchange_code(body: ExchangeCodeRequest):
     instead of the long-lived tokens, limiting exposure
     in browser history and server logs.
     """
-    tokens = verify_auth_code(body.code)
+    tokens = await verify_auth_code(body.code)
     return tokens
 
 
@@ -1098,28 +1162,133 @@ async def exchange_code(body: ExchangeCodeRequest):
 # =============================================================================
 
 
+#: Single response detail used for every 401 emitted by /auth/refresh.
+#: We deliberately do not vary the string by failure reason because the
+#: variants ("token not found" / "token expired" / "reuse detected" /
+#: "user inactive" / "wrong client secret") would each be an oracle a
+#: caller with a stolen refresh token could probe to learn whether the
+#: token ever existed, whether they tripped reuse detection, etc.
+#: Distinct reasons are still recorded in structured logs and the audit
+#: trail; only the HTTP body is uniform.
+_REFRESH_INVALID_DETAIL = "Invalid refresh token"
+
+
+def _refresh_invalid() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=_REFRESH_INVALID_DETAIL,
+    )
+
+
 @router.post("/refresh")
 async def refresh_tokens(
     body: RefreshTokenRequest,
+    request: Request,
     db: Session = Depends(get_db_session),
 ):
     """Exchange a valid refresh token for a new access + refresh token pair.
 
     The old refresh token is revoked (rotation).  If a revoked token
     is presented, the entire token family is revoked (reuse detection).
+
+    Token-exchange refresh tokens (rows with a non-null ``client_id``)
+    are subject to additional checks:
+
+    - HTTP Basic ``Authorization`` is **required** -- the same
+      AuthClient that minted the refresh token must re-authenticate
+      to use it. Without this, a stolen refresh token alone would be
+      sufficient to mint new access tokens.
+    - The Basic credential's client_id must match the refresh token
+      row's ``client_id``. Mismatch is an attempted lateral move.
+    - The minted access token preserves the original
+      ``azp`` / ``aud`` / ``scope`` / ``epoch`` so that scope cannot
+      escalate across rotation and revocation via ``token_epoch``
+      keeps applying to refreshed tokens.
+    - The bound user MUST still be active. A disabled user's refresh
+      token is rejected even if everything else is valid -- otherwise
+      ``DELETE /users/{id}`` (or the soft-disable equivalent) would
+      not actually cut access until the access token expired and the
+      user got a fresh one through SSO.
+
+    Every 401 returns the same generic detail string regardless of the
+    underlying reason; differentiating them in the response body would
+    let a caller with a stolen token probe whether the token ever
+    existed, whether they tripped reuse detection, etc. Detailed
+    reasons go to structured logs and the audit stream.
+
+    UI / SSO refresh tokens (``client_id`` IS NULL) keep the legacy
+    behaviour unchanged otherwise: no Basic auth required, plain
+    session JWT minted.
     """
     from rhesis.backend.app import crud
+    from rhesis.backend.app.auth.refresh_client_hook import (
+        get_refresh_client_minter,
+    )
 
-    old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
+    # ``verify_and_rotate_refresh_token`` raises HTTPException with
+    # variant detail strings (kept for backward compatibility with
+    # other call sites). For /auth/refresh we replace the response
+    # body with the uniform "invalid" string while still letting the
+    # function's structured logs capture the precise reason.
+    try:
+        old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
+    except HTTPException as exc:
+        # Keep 503 / 5xx as-is (those aren't oracles); collapse 401s.
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise _refresh_invalid() from exc
+        raise
 
     user = crud.get_user(db, str(old_token.user_id))
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+        # User vanished between mint and refresh (unusual; would
+        # require the user to be hard-deleted). Same uniform 401.
+        logger.warning(
+            "Refresh: user %s for token family %s no longer exists",
+            old_token.user_id,
+            old_token.family_id,
         )
+        raise _refresh_invalid()
 
-    access_token = create_session_token(user)
+    # is_active is the operator-facing kill switch. Honouring it on
+    # refresh closes the gap between "admin disabled this user" and
+    # "all of that user's sessions actually stop working".
+    if not getattr(user, "is_active", True):
+        logger.warning(
+            "Refresh: rejected for inactive user %s (family %s)",
+            old_token.user_id,
+            old_token.family_id,
+        )
+        raise _refresh_invalid()
+
+    # Token-exchange-issued tokens carry a client binding that the
+    # refresh request MUST re-prove. The check itself lives in EE
+    # (because AuthClient is an EE concept) and is invoked here via
+    # a hook the EE bootstrap registers. UI / SSO refresh tokens
+    # have NULL client_id and skip the hook entirely.
+    if old_token.client_id is not None:
+        minter = get_refresh_client_minter()
+        if minter is None:
+            # A token-exchange-issued refresh exists in the DB but the
+            # EE module is not loaded -- inconsistent deployment state.
+            # Fail closed with 503; do not silently fall back to the
+            # unbound minter, which would erase the client binding.
+            logger.error(
+                "Refresh token client_id=%s presented but EE refresh hook "
+                "is not registered; rejecting",
+                old_token.client_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Token refresh temporarily unavailable",
+            )
+        try:
+            access_token = minter(db, request, old_token, user)
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+                raise _refresh_invalid() from exc
+            raise
+    else:
+        access_token = create_session_token(user)
     db.commit()
 
     return {
@@ -1181,7 +1350,7 @@ async def logout(
 
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = get_frontend_settings().url
     frontend_env = os.getenv("FRONTEND_ENV", "development")
 
     # Check if this is an API call (from frontend middleware)
@@ -1321,7 +1490,7 @@ async def demo_redirect(request: Request):
             request.session["original_frontend"] = origin
 
         callback_url = get_callback_url(request)
-        request.session["return_to"] = "/dashboard"
+        request.session["return_to"] = "/architect"
 
         if not os.getenv("AUTH0_DOMAIN"):
             raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")

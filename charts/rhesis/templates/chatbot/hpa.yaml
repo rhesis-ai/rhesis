@@ -1,0 +1,31 @@
+{{- if and .Values.chatbot.enabled .Values.chatbot.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: chatbot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: chatbot
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chatbot
+  minReplicas: {{ .Values.chatbot.hpa.minReplicas }}
+  maxReplicas: {{ .Values.chatbot.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.chatbot.hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.chatbot.hpa.targetMemoryUtilizationPercentage }}
+{{- end }}

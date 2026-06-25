@@ -40,7 +40,6 @@ Requirements:
 - Python environment with access to rhesis.backend.worker
 """
 
-import os
 import sys
 import time
 from datetime import datetime
@@ -194,7 +193,7 @@ def list_all_retrying_tasks():
 
 
 def main():
-    print(f"Environment loaded - BROKER_URL: {bool(os.getenv('BROKER_URL'))}")
+    print(f"Broker configured: {bool(celery_app.conf.broker_url)}")
     print(f"Timestamp: {datetime.now().isoformat()}")
     
     if len(sys.argv) < 2:

@@ -64,12 +64,12 @@ data:
   # 🗄️ DATABASE INTERNAL CONFIGURATION
   # =============================================================================
   # Database connection settings (non-sensitive)
-  SQLALCHEMY_DB_HOST: "postgres"
-  SQLALCHEMY_DB_DRIVER: "postgresql"
-  SQLALCHEMY_DB_PORT: "5432"
-  SQLALCHEMY_DB_NAME: "rhesis-db"
-  SQLALCHEMY_DB_USER: "rhesis-user"
-  # Note: SQLALCHEMY_DATABASE_URL is constructed from these + secrets
+  DB_HOST: "postgres"
+  DB_DRIVER: "postgresql"
+  DB_PORT: "5432"
+  DB_NAME: "rhesis-db"
+  APP_DB_USER: "rhesis-user"
+  # Note: the application builds its database URL from these + APP_DB_PASS (secret)
 
   # =============================================================================
   # 🔴 REDIS INTERNAL CONFIGURATION
@@ -77,7 +77,7 @@ data:
   # Redis connection settings (non-sensitive)
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
-  # Note: REDIS_URL, BROKER_URL, CELERY_RESULT_BACKEND are constructed from these + secrets
+  # Note: BROKER_URL and CELERY_RESULT_BACKEND are constructed from these + secrets
 
   # =============================================================================
   # 🌐 SERVICE CONFIGURATION
@@ -102,7 +102,7 @@ data:
   BACKEND_URL: "http://backend:8080"
 
   # Frontend URLs (public-facing)
-  NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+  API_BASE_URL: "http://localhost:8080"
   NEXTAUTH_URL: "http://localhost:3000"
 
 

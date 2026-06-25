@@ -1,20 +1,23 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Box, Button, Typography, Paper } from '@mui/material';
-import { EditIcon, DeleteIcon } from '@/components/icons';
-import ProjectContent from '../components/ProjectContent';
-import ProjectEditDrawer from './edit-drawer';
-import ProjectEndpoints from './components/ProjectEndpoints';
-import ProjectTraceMetrics from './components/ProjectTraceMetrics';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { EditIcon } from '@/components/icons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useActivePage } from '@toolpad/core/useActivePage';
-import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import {
+  PageLayout,
+  type BreadcrumbItem,
+} from '@/components/layout/PageLayout';
+import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import ProjectEditDrawer from './edit-drawer';
+import ProjectDetailTabs from './components/ProjectDetailTabs';
+import { format } from 'date-fns';
 
 interface ClientWrapperProps {
   project: Project;
@@ -30,9 +33,6 @@ export default function ClientWrapper({
   const router = useRouter();
   const params = useParams<{ identifier: string }>();
   const searchParams = useSearchParams();
-  const activePage = useActivePage();
-
-  // Enable onboarding tour if tour parameter is present
   const tourId = searchParams.get('tour');
   useOnboardingTour(tourId === 'endpoint' ? 'endpoint' : undefined);
 
@@ -43,24 +43,31 @@ export default function ClientWrapper({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const notifications = useNotifications();
 
-  // Create dynamic breadcrumbs based on the current project (reactive to currentProject changes)
   const title = currentProject.name || `Project ${params.identifier}`;
+  const breadcrumbs: BreadcrumbItem[] = [
+    { label: 'Projects', href: '/projects' },
+    { label: title },
+  ];
 
-  // Create fallback breadcrumbs when activePage is null (reactive to currentProject changes)
-  let breadcrumbs: Breadcrumb[] = [];
-  if (activePage) {
-    const path = `${activePage.path}/${params.identifier}`;
-    breadcrumbs = [...activePage.breadcrumbs, { title, path }];
-  } else {
-    // Fallback breadcrumbs
-    breadcrumbs = [
-      { title: 'Projects', path: '/projects' },
-      { title, path: `/projects/${params.identifier}` },
-    ];
-  }
+  const createdAt = currentProject.created_at ?? currentProject.createdAt;
+  const metadataStrip = (
+    <DetailMetadataStrip
+      items={[
+        {
+          label: 'created by:',
+          value:
+            currentProject.owner?.name || currentProject.owner?.email || '—',
+        },
+        {
+          label: 'created on:',
+          value: createdAt ? format(new Date(createdAt), 'dd/MM/yyyy') : '—',
+        },
+      ]}
+    />
+  );
 
   const handleUpdateProject = useCallback(
-    async (updatedProject: Partial<Project>) => {
+    async (updatedProject: Partial<Project>): Promise<boolean> => {
       setIsUpdating(true);
       try {
         const apiFactory = new ApiClientFactory(sessionToken);
@@ -70,7 +77,6 @@ export default function ClientWrapper({
           updatedProject
         );
 
-        // Preserve the owner object from currentProject if response doesn't include it
         const updatedProjectWithOwner = {
           ...response,
           owner: response.owner || currentProject.owner,
@@ -78,29 +84,22 @@ export default function ClientWrapper({
         };
 
         setCurrentProject(updatedProjectWithOwner);
-        setIsDrawerOpen(false);
         notifications.show('Project updated successfully', {
           severity: 'success',
         });
+        return true;
       } catch (error) {
         notifications.show(
           error instanceof Error ? error.message : 'Failed to update project',
           { severity: 'error' }
         );
+        return false;
       } finally {
         setIsUpdating(false);
       }
     },
     [projectId, sessionToken, notifications, currentProject]
   );
-
-  const handleDeleteClick = () => {
-    setDeleteConfirmOpen(true);
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteConfirmOpen(false);
-  };
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
@@ -123,77 +122,38 @@ export default function ClientWrapper({
     }
   };
 
+  const pageActions = (
+    <FabGroup>
+      <Fab
+        icon={<EditIcon sx={{ fontSize: 28 }} />}
+        tooltip="Edit project"
+        onClick={() => setIsDrawerOpen(true)}
+        disabled={isUpdating || isDeleting}
+      />
+      <Fab
+        icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+        tooltip="Delete project"
+        onClick={() => setDeleteConfirmOpen(true)}
+        loading={isDeleting}
+        disabled={isUpdating}
+      />
+    </FabGroup>
+  );
+
   return (
-    <PageContainer title={title} breadcrumbs={breadcrumbs}>
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          mb: 3,
-        }}
-      >
-        <Button
-          variant="contained"
-          startIcon={<EditIcon />}
-          onClick={() => setIsDrawerOpen(true)}
-          disabled={isUpdating || isDeleting}
-          sx={{ mr: 2 }}
-        >
-          Edit Project
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={handleDeleteClick}
-          disabled={isUpdating || isDeleting}
-        >
-          Delete
-        </Button>
-      </Box>
+    <PageLayout
+      title={title}
+      breadcrumbs={breadcrumbs}
+      metadata={metadataStrip}
+      actions={pageActions}
+    >
+      <ProjectDetailTabs
+        project={currentProject}
+        projectId={projectId}
+        sessionToken={sessionToken}
+        onProjectUpdate={handleUpdateProject}
+      />
 
-      {/* Project Overview */}
-      <ProjectContent project={currentProject} />
-
-      {/* Endpoints Section */}
-      <Box sx={{ mt: 3 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            mb: 2,
-            fontWeight: 600,
-            color: 'text.primary',
-          }}
-        >
-          Endpoints
-        </Typography>
-        <ProjectEndpoints projectId={projectId} sessionToken={sessionToken} />
-      </Box>
-
-      {/* Trace Metrics Section */}
-      <Box sx={{ mt: 3 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            mb: 2,
-            fontWeight: 600,
-            color: 'text.primary',
-          }}
-        >
-          Trace Metrics
-        </Typography>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <ProjectTraceMetrics
-            project={currentProject}
-            sessionToken={sessionToken}
-            onProjectUpdate={handleUpdateProject}
-          />
-        </Paper>
-      </Box>
-
-      {/* Edit Drawer */}
       <ProjectEditDrawer
         project={currentProject}
         sessionToken={sessionToken}
@@ -202,16 +162,15 @@ export default function ClientWrapper({
         onSave={handleUpdateProject}
       />
 
-      {/* Delete Confirmation Dialog */}
       <DeleteModal
         open={deleteConfirmOpen}
-        onClose={handleDeleteCancel}
+        onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
         itemType="project"
         itemName={currentProject.name}
         title="Delete Project"
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

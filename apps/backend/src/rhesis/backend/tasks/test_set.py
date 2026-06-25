@@ -2,11 +2,19 @@ import logging
 from typing import Any, List, Optional, Union
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestSetType
+from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
-from rhesis.backend.app.services.test_set import bulk_create_test_set
+from rhesis.backend.app.services.test import bulk_create_tests
+from rhesis.backend.app.services.test_set import (
+    bulk_create_test_set,
+    generate_test_set_attributes,
+    load_defaults,
+)
+from rhesis.backend.app.utils.user_model_utils import (
+    get_generation_model_with_override,
+)
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, email_notification
@@ -34,7 +42,7 @@ def count_test_sets(self):
     for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     self.log_with_context("info", "Starting count_test_sets task")
 
@@ -44,15 +52,17 @@ def count_test_sets(self):
         self.log_with_context("info", "Starting database queries")
 
         # Use tenant-aware database session with explicit organization_id and user_id
-        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+        with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
             # Get all test sets with the proper tenant context
             test_sets = crud.get_test_sets(db, organization_id=org_id, user_id=user_id)
             total_count = len(test_sets)
             self.log_with_context("info", "Total test sets counted", total_count=total_count)
 
             # Get counts by visibility
-            public_count = db.query(TestSet).filter(TestSet.visibility == "public").count()
-            private_count = db.query(TestSet).filter(TestSet.visibility == "private").count()
+            org_visible_count = (
+                db.query(TestSet).filter(TestSet.visibility == "organization").count()
+            )
+            user_only_count = db.query(TestSet).filter(TestSet.visibility == "user").count()
 
             published_count = db.query(TestSet).filter(TestSet.is_published).count()
             unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
@@ -60,8 +70,8 @@ def count_test_sets(self):
         self.log_with_context(
             "info",
             "Visibility counts retrieved",
-            public_count=public_count,
-            private_count=private_count,
+            organization_count=org_visible_count,
+            user_only_count=user_only_count,
         )
         self.log_with_context(
             "info",
@@ -72,7 +82,7 @@ def count_test_sets(self):
 
         result = {
             "total_count": total_count,
-            "by_visibility": {"public": public_count, "private": private_count},
+            "by_visibility": {"organization": org_visible_count, "user": user_only_count},
             "by_status": {"published": published_count, "unpublished": unpublished_count},
             "organization_id": org_id,
             "user_id": user_id,
@@ -82,8 +92,8 @@ def count_test_sets(self):
             "info",
             "Task completed successfully",
             total_count=total_count,
-            public_count=public_count,
-            private_count=private_count,
+            org_visible_count=org_visible_count,
+            user_only_count=user_only_count,
         )
         return result
 
@@ -177,70 +187,27 @@ def _save_test_set_to_database(
     return db_test_set
 
 
-def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
-    """
-    Fetch user's configured generation model from database.
+def _resolve_generation_model(
+    self, org_id: str, user_id: str, project_id: str = "", model_id: Optional[str] = None
+) -> Union[str, Any]:
+    """Fetch the generation model for this task run.
 
-    Args:
-        org_id: Organization ID
-        user_id: User ID
-
-    Returns:
-        Either the user's configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
+    Uses model_id as an explicit override when provided; otherwise returns the
+    user's configured default. project_id is required so project-scoped models
+    are visible to the ORM auto-filter.
     """
-    self.log_with_context("info", "Fetching user's configured generation model")
-    with get_db_with_tenant_variables(org_id, user_id) as db:
+    with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
         user = crud.get_user(db, user_id=user_id)
-        if user:
-            from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+        if not user:
+            raise ValueError(f"User not found: {user_id}")
 
-            model = get_user_generation_model(db, user)
-            self.log_with_context(
-                "info",
-                "Using user's configured model",
-                model_type=type(model).__name__ if not isinstance(model, str) else "string",
-            )
-            return model
-        else:
-            # Fallback to default if user not found
-            self.log_with_context(
-                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
-            )
-            return DEFAULT_GENERATION_MODEL
-
-
-def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union[str, Any]:
-    """
-    Fetch a specific model by ID for per-request override.
-
-    Args:
-        org_id: Organization ID
-        user_id: User ID
-        model_id: Model UUID to fetch
-
-    Returns:
-        Either a configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
-    """
-    self.log_with_context("info", "Fetching per-request override model", model_id=model_id)
-    with get_db_with_tenant_variables(org_id, user_id) as db:
-        user = crud.get_user(db, user_id=user_id)
-        if user:
-            from rhesis.backend.app.utils.user_model_utils import (
-                get_generation_model_with_override,
-            )
-
-            model = get_generation_model_with_override(db, user, model_id=model_id)
-            self.log_with_context(
-                "info",
-                "Using per-request override model",
-                model_type=type(model).__name__ if not isinstance(model, str) else "string",
-            )
-            return model
-        else:
-            self.log_with_context(
-                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
-            )
-            return DEFAULT_GENERATION_MODEL
+        model = get_generation_model_with_override(db, user, model_id=model_id)
+        self.log_with_context(
+            "info",
+            "Resolved generation model",
+            model_type=type(model).__name__ if not isinstance(model, str) else "string",
+        )
+        return model
 
 
 def _build_task_result(
@@ -271,6 +238,155 @@ def _build_task_result(
     }
 
 
+def _attach_tests_to_existing_test_set(
+    self,
+    sdk_test_set,
+    test_set_id: str,
+    org_id: str,
+    user_id: str,
+    extra_metadata: Optional[dict] = None,
+):
+    """Attach generated tests to a pre-created TestSet row.
+
+    Used when the router has already created the TestSet row up front so the
+    frontend can redirect immediately.  This function:
+    1. Converts SDK Test objects to TestData schemas
+    2. Bulk-creates tests and links them to the existing test set
+    3. Recomputes the test set's attributes from its tests
+    4. Stamps generation.status = 'completed'
+
+    Args:
+        sdk_test_set: The SDK TestSet containing generated tests
+        test_set_id: UUID string of the pre-created TestSet row
+        org_id: Organization UUID string
+        user_id: User UUID string
+        extra_metadata: Optional additional metadata to merge
+
+    Returns:
+        The updated TestSet ORM model
+    """
+    if not sdk_test_set.tests:
+        raise ValueError("No tests to save. Please add tests to the test set first.")
+
+    from rhesis.backend.app.schemas.test_set import TestData
+
+    # Resolve test_set_type string
+    if sdk_test_set.test_set_type:
+        test_set_type_value = TestSetType.get_value(
+            TestSetType.from_string(sdk_test_set.test_set_type)
+        )
+    else:
+        test_set_type_value = TestSetType.SINGLE_TURN.value
+
+    converted_tests = []
+    for test in sdk_test_set.tests:
+        if isinstance(test, dict):
+            test_dict = test.copy()
+        else:
+            test_dict = test.model_dump(exclude={"id", "endpoint"})
+        test_dict["behavior"] = test_dict.get("behavior") or ""
+        test_dict["category"] = test_dict.get("category") or ""
+        test_dict["topic"] = test_dict.get("topic") or ""
+        converted_tests.append(TestData(**test_dict))
+
+    defaults = load_defaults()
+
+    import uuid as _uuid
+
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    test_set_uuid = _uuid.UUID(test_set_id)
+    with self.get_db_session() as db:
+        with bypass_tenant_filter():
+            db_test_set = db.query(TestSet).filter(TestSet.id == test_set_uuid).first()
+        if db_test_set is None:
+            raise ValueError(f"TestSet with id {test_set_id!r} not found in database")
+
+        bulk_create_tests(
+            db=db,
+            tests_data=converted_tests,
+            organization_id=org_id,
+            user_id=user_id,
+            test_set_id=test_set_id,
+            test_type_value=test_set_type_value,
+        )
+
+        db.refresh(db_test_set)
+
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        license_type = get_or_create_type_lookup(
+            db=db,
+            type_name="LicenseType",
+            type_value=defaults["test_set"]["license_type"],
+            organization_id=org_id,
+            user_id=user_id,
+        )
+
+        new_attributes = generate_test_set_attributes(
+            db=db,
+            test_set=db_test_set,
+            defaults=defaults,
+            license_type=license_type,
+        )
+
+        # Preserve and update generation metadata
+        existing_generation = (
+            (db_test_set.attributes or {}).get("metadata", {}).get("generation", {})
+        )
+        merged_generation = {**existing_generation, "status": "completed"}
+        new_attributes.setdefault("metadata", {})["generation"] = merged_generation
+
+        if extra_metadata:
+            new_attributes["metadata"] = {**new_attributes.get("metadata", {}), **extra_metadata}
+
+        db_test_set.attributes = new_attributes
+
+    self.log_with_context(
+        "info",
+        "Tests attached to existing test set successfully",
+        test_set_id=str(db_test_set.id),
+        tests_attached=len(sdk_test_set.tests),
+    )
+    return db_test_set
+
+
+def _mark_test_set_generation_failed(
+    self,
+    test_set_id: str,
+    org_id: str,
+    user_id: str,
+    error_message: str,
+) -> None:
+    """Update the pre-created TestSet to mark generation as failed."""
+    import uuid as _uuid
+
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    test_set_uuid = _uuid.UUID(test_set_id)
+    try:
+        with self.get_db_session() as db:
+            with bypass_tenant_filter():
+                db_test_set = db.query(TestSet).filter(TestSet.id == test_set_uuid).first()
+            if db_test_set is None:
+                return
+            attrs = dict(db_test_set.attributes or {})
+            metadata = dict(attrs.get("metadata", {}))
+            generation = dict(metadata.get("generation", {}))
+            generation["status"] = "failed"
+            generation["error"] = error_message
+            metadata["generation"] = generation
+            attrs["metadata"] = metadata
+            db_test_set.attributes = attrs
+    except Exception as mark_err:
+        self.log_with_context(
+            "warning",
+            "Could not mark test set generation as failed",
+            test_set_id=test_set_id,
+            error=str(mark_err),
+        )
+
+
 @email_notification(
     template=EmailTemplate.TASK_COMPLETION,
     subject_template="Test Set Generation Complete: {task_name} - {status}",
@@ -291,11 +407,18 @@ def generate_and_save_test_set(
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
     metadata: Optional[dict] = None,
     model_id: Optional[str] = None,
+    test_set_id: Optional[str] = None,
 ):
     """
     Generate and save test set using ConfigSynthesizer.
 
-    This task uses the SAME logic as the services endpoint for consistency.
+    When ``test_set_id`` is supplied the row already exists (created by the router
+    so the frontend can redirect immediately).  In that case the task attaches the
+    generated tests to the existing row and marks generation.status = 'completed'.
+    On failure it marks generation.status = 'failed'.
+
+    When ``test_set_id`` is *not* supplied (legacy callers such as Garak import)
+    the task creates a new row as before.
 
     Args:
         config: GenerationConfig as dict (will be converted to GenerationConfig)
@@ -303,15 +426,14 @@ def generate_and_save_test_set(
         batch_size: Batch size for generation (default: 20)
         sources: Optional list of SourceData dicts with IDs
         name: Optional custom name for test set
-        metadata: Optional extra metadata dict to merge into the saved test set's
-                  metadata. Useful for attaching structured labels (e.g. garak_tags,
-                  garak_module) from callers that know more context than the synthesizer.
+        metadata: Optional extra metadata dict to merge
         model_id: Optional model UUID to override the user's default generation model
+        test_set_id: Optional UUID of a pre-created TestSet row
 
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
     """
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, project_id = self.get_tenant_context()
 
     # Parse config
     generation_config = GenerationConfig(**config)
@@ -333,11 +455,7 @@ def generate_and_save_test_set(
                 user_id=user_id,
             )
 
-    # Get model: use per-request override if provided, otherwise user's default
-    if model_id:
-        model = _get_override_model(self, org_id, user_id, model_id)
-    else:
-        model = _get_model_for_user(self, org_id, user_id)
+    model = _resolve_generation_model(self, org_id, user_id, project_id or "", model_id)
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
@@ -415,14 +533,27 @@ def generate_and_save_test_set(
 
         # Save to database
         self.update_state(state="PROGRESS", meta={"status": "Saving to database"})
-        db_test_set = _save_test_set_to_database(
-            self,
-            test_set,
-            org_id,
-            user_id,
-            custom_name=name,
-            extra_metadata=metadata,
-        )
+
+        if test_set_id:
+            # Attach tests to the pre-created row
+            db_test_set = _attach_tests_to_existing_test_set(
+                self,
+                test_set,
+                test_set_id=test_set_id,
+                org_id=org_id,
+                user_id=user_id,
+                extra_metadata=metadata,
+            )
+        else:
+            # Legacy path: create a new row (used by Garak import and direct callers)
+            db_test_set = _save_test_set_to_database(
+                self,
+                test_set,
+                org_id,
+                user_id,
+                custom_name=name,
+                extra_metadata=metadata,
+            )
 
         # Build and return result
         result = _build_task_result(
@@ -449,6 +580,9 @@ def generate_and_save_test_set(
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
 
+        if test_set_id:
+            _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, error_msg)
+
         # Check for various model configuration issues
         if any(
             keyword in error_msg_lower
@@ -474,6 +608,9 @@ def generate_and_save_test_set(
         self.log_with_context("error", "Configuration error", error=error_msg)
         raise ValueError(f"Test set generation failed: {error_msg}")
     except Exception as e:
-        self.log_with_context("error", "Task failed", error=str(e))
+        error_msg = str(e)
+        self.log_with_context("error", "Task failed", error=error_msg)
+        if test_set_id:
+            _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, error_msg)
         # The task will be automatically retried due to BaseTask settings
-        raise Exception(f"Test set generation and save failed: {str(e)}")
+        raise Exception(f"Test set generation and save failed: {error_msg}")

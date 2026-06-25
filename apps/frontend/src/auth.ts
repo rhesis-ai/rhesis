@@ -67,6 +67,7 @@ export const authConfig: NextAuthConfig = {
             picture: imageUrl || null,
             organization_id: data.user.organization_id,
             is_email_verified: data.user.is_email_verified ?? true,
+            is_superuser: data.user.is_superuser ?? false,
             session_token: sessionToken,
             refresh_token: refreshToken || undefined,
           };

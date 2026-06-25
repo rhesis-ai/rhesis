@@ -20,7 +20,7 @@ export default function ThemeAwareLogo() {
         alt="Rhesis AI Logo"
         width={130}
         height={35}
-        style={{ width: 'auto' }}
+        style={{ width: 'auto', height: '35px' }}
         priority
       />
     </Box>

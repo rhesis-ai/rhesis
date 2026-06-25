@@ -1,28 +1,98 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Chip,
-  Box,
-  IconButton,
-  Tooltip,
-  Typography,
-  Button,
-  Paper,
-  useTheme,
-  CircularProgress,
-} from '@mui/material';
+import React, { useContext, useState } from 'react';
+import { Box, Tooltip, IconButton } from '@mui/material';
 import {
   GridPaginationModel,
   type GridRenderCellParams,
+  type GridColDef,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { DeleteIcon, VpnKeyIcon } from '@/components/icons';
+import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
-import AddIcon from '@mui/icons-material/Add';
+import GridBadge from '@/components/common/GridBadge';
+import {
+  ROW_ACTIONS_CLASS,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
+
+// ── Toolbar status filter options ────────────────────────────────────────────
+
+export type TokenStatusFilter = 'all' | 'active' | 'expired';
+
+export const STATUS_OPTIONS: { value: TokenStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+];
+
+// ── Toolbar context (passes search/filter state into the DataGrid slot) ──────
+
+export interface TokensToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  statusFilter: TokenStatusFilter;
+  setStatusFilter: (v: TokenStatusFilter) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
+}
+
+export const TokensToolbarContext = React.createContext<TokensToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  statusFilter: 'all',
+  setStatusFilter: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
+});
+
+function TokensUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+    activeFilterCount,
+  } = useContext(TokensToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search tokens…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={STATUS_OPTIONS}
+          activeValue={statusFilter}
+          onChange={v => setStatusFilter(v as TokenStatusFilter)}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
+
+// ── Grid component ────────────────────────────────────────────────────────────
 
 interface TokensGridProps {
   tokens: Token[];
@@ -32,7 +102,6 @@ interface TokensGridProps {
   ) => Promise<void>;
   onDeleteToken: (tokenId: string) => Promise<void>;
   loading: boolean;
-  onCreateToken?: () => void;
   totalCount: number;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
@@ -43,7 +112,6 @@ export default function TokensGrid({
   onRefreshToken,
   onDeleteToken,
   loading,
-  onCreateToken,
   totalCount,
   onPaginationModelChange,
   paginationModel = {
@@ -51,7 +119,6 @@ export default function TokensGrid({
     pageSize: 10,
   },
 }: TokensGridProps) {
-  const _theme = useTheme();
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
@@ -60,32 +127,13 @@ export default function TokensGrid({
     setRefreshModalOpen(true);
   };
 
-  // Custom toolbar with right-aligned button
-  const customToolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        width: '100%',
-      }}
-    >
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={onCreateToken}
-      >
-        Create API Token
-      </Button>
-    </Box>
-  );
-
-  const columns = [
+  const columns: GridColDef[] = [
     {
       field: 'name',
       headerName: 'Name',
       flex: 1,
       renderCell: (params: GridRenderCellParams) => (
-        <span style={{ fontWeight: 'medium' }}>{params.row.name}</span>
+        <span style={{ fontWeight: 500 }}>{params.row.name}</span>
       ),
     },
     {
@@ -109,46 +157,37 @@ export default function TokensGrid({
       field: 'expires',
       headerName: 'Expires',
       flex: 1,
-      renderCell: (params: GridRenderCellParams) =>
-        params.row.expires_at ? (
-          <Chip
-            label={formatDistanceToNow(new Date(params.row.expires_at), {
-              addSuffix: true,
-            })}
-            size="small"
-            variant="outlined"
-            sx={{
-              borderColor:
-                new Date(params.row.expires_at) > new Date()
-                  ? 'success.light'
-                  : 'error.light',
-              color:
-                new Date(params.row.expires_at) > new Date()
-                  ? 'success.main'
-                  : 'error.main',
-              bgcolor: 'transparent',
-            }}
-          />
-        ) : (
-          <Chip
-            label="Never"
-            size="small"
-            variant="outlined"
-            sx={{
-              borderColor: 'success.light',
-              color: 'success.main',
-              bgcolor: 'transparent',
-            }}
-          />
-        ),
+      renderCell: (params: GridRenderCellParams) => (
+        <GridBadge
+          label={
+            params.row.expires_at
+              ? formatDistanceToNow(new Date(params.row.expires_at), {
+                  addSuffix: true,
+                })
+              : 'Never'
+          }
+        />
+      ),
     },
     {
       field: 'actions',
-      headerName: 'Actions',
-      flex: 0.5,
+      headerName: '',
+      width: 88,
       sortable: false,
+      disableColumnMenu: true,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => (
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box
+          className={ROW_ACTIONS_CLASS}
+          sx={{
+            display: 'flex',
+            gap: '4px',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
           <Tooltip title="Invalidate and refresh">
             <IconButton
               size="small"
@@ -156,8 +195,13 @@ export default function TokensGrid({
                 e.stopPropagation();
                 handleRefreshClick(params.row.id);
               }}
+              sx={{
+                p: 0.5,
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main', bgcolor: 'action.hover' },
+              }}
             >
-              <RefreshIcon />
+              <RefreshIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete Token">
@@ -167,125 +211,39 @@ export default function TokensGrid({
                 e.stopPropagation();
                 onDeleteToken(params.row.id);
               }}
+              sx={{
+                p: 0.5,
+                color: 'text.secondary',
+                '&:hover': { color: 'error.main', bgcolor: 'action.hover' },
+              }}
             >
-              <DeleteIcon />
+              <DeleteIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
         </Box>
       ),
-    },
+    } as GridColDef,
   ];
-
-  // Show loading state during initial load
-  if (loading && tokens.length === 0) {
-    return (
-      <Paper
-        elevation={2}
-        sx={{
-          width: '100%',
-          mb: 2,
-          textAlign: 'center',
-          py: 8,
-          px: 3,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <CircularProgress />
-      </Paper>
-    );
-  }
-
-  // Show empty state when not loading and no tokens exist
-  if (tokens.length === 0) {
-    return (
-      <Paper
-        elevation={2}
-        sx={{
-          width: '100%',
-          mb: 2,
-          textAlign: 'center',
-          py: 8,
-          px: 3,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 2,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            mb: 2,
-          }}
-        >
-          <VpnKeyIcon
-            sx={{
-              fontSize: 60,
-              color: 'primary.main',
-              opacity: 0.7,
-            }}
-          />
-        </Box>
-
-        <Typography
-          variant="h5"
-          sx={{
-            color: 'text.primary',
-            fontWeight: 500,
-          }}
-        >
-          No API tokens yet
-        </Typography>
-
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{
-            maxWidth: 550,
-            mx: 'auto',
-          }}
-        >
-          Create your first API token to start interacting with the Rhesis API.
-          Tokens allow you to authenticate your applications and build powerful
-          integrations.
-        </Typography>
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onCreateToken}
-          size="large"
-          sx={{ mt: 2 }}
-        >
-          Create API Token
-        </Button>
-      </Paper>
-    );
-  }
 
   return (
     <>
-      <Paper sx={{ width: '100%', mb: 2, overflow: 'hidden' }}>
-        <Box sx={{ p: 2 }}>
-          <BaseDataGrid
-            columns={columns}
-            rows={tokens}
-            loading={loading}
-            getRowId={row => (row as Token).id}
-            density="standard"
-            paginationModel={paginationModel}
-            onPaginationModelChange={onPaginationModelChange}
-            serverSidePagination={true}
-            totalRows={totalCount}
-            pageSizeOptions={[10, 25, 50]}
-            disablePaperWrapper={true}
-            customToolbarContent={customToolbar}
-          />
-        </Box>
-      </Paper>
+      <BaseDataGrid
+        columns={columns}
+        rows={tokens}
+        loading={loading}
+        getRowId={row => (row as Token).id}
+        density="standard"
+        paginationModel={paginationModel}
+        onPaginationModelChange={onPaginationModelChange}
+        serverSidePagination={false}
+        totalRows={totalCount}
+        pageSizeOptions={[10, 25, 50]}
+        disablePaperWrapper={true}
+        toolbarSlot={TokensUnifiedToolbar}
+        persistState
+        storageKey="tokens-grid"
+        sx={rowActionsHoverSx}
+      />
       <RefreshTokenModal
         open={refreshModalOpen}
         onClose={() => setRefreshModalOpen(false)}

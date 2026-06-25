@@ -16,7 +16,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -28,13 +28,14 @@ import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import type { UUID } from 'crypto';
 import {
   formatFileSize,
-  formatDate,
   getFileExtension,
   truncateFilename,
 } from '@/constants/knowledge';
-import SourceTags from './SourceTags';
+import { formatDate } from '@/utils/date';
+import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 
 interface SourcePreviewClientWrapperProps {
@@ -139,12 +140,12 @@ export default function SourcePreviewClientWrapper({
 
   // Determine the type to display
   const getDisplayType = (): string | null => {
-    // First check source_metadata.source_type (for MCP imports like Notion)
+    // First check source_metadata.source_type (for tool imports like Notion)
     if (localSource.source_metadata?.source_type) {
       return localSource.source_metadata.source_type;
     }
 
-    // Check if this is a Tool source type (MCP/API imports)
+    // Check if this is a Tool source type (tool imports)
     if (
       localSource.source_type?.type_value === 'Tool' &&
       localSource.source_metadata?.provider
@@ -230,21 +231,21 @@ export default function SourcePreviewClientWrapper({
     setLocalSource(updatedSource);
   };
 
-  const handleUpdateFromMCP = async () => {
+  const handleUpdateFromTool = async () => {
     if (!sessionToken || isUpdating) return;
 
-    // Check if this is an MCP source
+    // Check if this is a tool source
     if (localSource.source_type?.type_value !== 'Tool') {
       return;
     }
 
     const metadata = localSource.source_metadata || {};
-    const mcpToolId = metadata.mcp_tool_id;
-    const mcpId = metadata.mcp_id;
-    const mcpUrl = metadata.url;
+    const toolId = metadata.mcp_tool_id;
+    const sourceId = metadata.mcp_id;
+    const sourceUrl = metadata.url;
 
-    if (!mcpToolId || (!mcpId && !mcpUrl)) {
-      notifications.show('Missing MCP source information', {
+    if (!toolId || (!sourceId && !sourceUrl)) {
+      notifications.show('Missing tool source information', {
         severity: 'error',
         autoHideDuration: 3000,
       });
@@ -257,17 +258,17 @@ export default function SourcePreviewClientWrapper({
       const servicesClient = clientFactory.getServicesClient();
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Extract content from MCP (will fail with 404 if tool is deleted)
+      // Extract content from tool (will fail with 404 if tool is deleted)
       const extractOptions: { url?: string; id?: string } = {};
-      if (mcpUrl) {
-        extractOptions.url = mcpUrl;
-      } else if (mcpId) {
-        extractOptions.id = mcpId;
+      if (sourceUrl) {
+        extractOptions.url = sourceUrl;
+      } else if (sourceId) {
+        extractOptions.id = sourceId;
       }
 
-      const extractResult = await servicesClient.extractMCP(
-        extractOptions,
-        mcpToolId
+      const extractResult = await servicesClient.extractTool(
+        toolId,
+        extractOptions
       );
 
       // Connection is valid, reset invalid state
@@ -275,7 +276,7 @@ export default function SourcePreviewClientWrapper({
 
       // Update source with new content
       await sourcesClient.updateSource(localSource.id, {
-        content: extractResult.content,
+        content: extractResult.sources[0]?.content ?? '',
       });
 
       // Refetch updated source (refetch pattern - no useEffect sync needed)
@@ -308,9 +309,9 @@ export default function SourcePreviewClientWrapper({
         setIsConnectionInvalid(true);
         // Show user-friendly message for deleted tools, keeping backend message for debugging
         const userFriendlyMessage = isDeletedToolError
-          ? 'The MCP tool associated with this source is no longer available. Please re-import the source.'
+          ? 'The tool associated with this source is no longer available. Please re-import the source.'
           : backendMessage ||
-            'The MCP tool associated with this source is no longer available. Please re-import the source.';
+            'The tool associated with this source is no longer available. Please re-import the source.';
         notifications.show(userFriendlyMessage, {
           severity: 'error',
           autoHideDuration: 5000,
@@ -323,7 +324,7 @@ export default function SourcePreviewClientWrapper({
           errObj?.data?.detail ||
           (error instanceof Error
             ? error.message
-            : 'Failed to update source from MCP');
+            : 'Failed to update source from tool');
 
         notifications.show(errorMessage, {
           severity: 'error',
@@ -403,11 +404,11 @@ export default function SourcePreviewClientWrapper({
   }, [sessionToken, localSource, collectFieldValues, notifications]);
 
   return (
-    <PageContainer
+    <PageLayout
       title={displayTitle}
       breadcrumbs={[
-        { title: 'Knowledge', path: '/knowledge' },
-        { title: displayTitle, path: `/knowledge/${localSource.id}` },
+        { label: 'Knowledge', href: '/knowledge' },
+        { label: displayTitle, href: `/knowledge/${localSource.id}` },
       ]}
     >
       <Stack direction="column" spacing={3}>
@@ -445,7 +446,7 @@ export default function SourcePreviewClientWrapper({
                             <RefreshIcon />
                           )
                         }
-                        onClick={handleUpdateFromMCP}
+                        onClick={handleUpdateFromTool}
                         variant="outlined"
                         size="small"
                         disabled={isUpdating || isConnectionInvalid}
@@ -685,17 +686,14 @@ export default function SourcePreviewClientWrapper({
               </Box>
             </>
           )}
-
-          {/* Tags - always visible at bottom */}
-          <InfoRow label="Tags">
-            <SourceTags
-              onUpdate={handleTagsUpdate}
-              sessionToken={sessionToken}
-              source={localSource}
-              disableEdition={isEditing === 'general'}
-            />
-          </InfoRow>
         </Paper>
+
+        <SourceTagsCard
+          sessionToken={sessionToken}
+          source={localSource}
+          userId={currentUserId ? (currentUserId as UUID) : undefined}
+          onUpdate={handleTagsUpdate}
+        />
 
         {/* Extracted Content Section */}
         {content && (
@@ -805,6 +803,6 @@ export default function SourcePreviewClientWrapper({
           />
         </Paper>
       </Stack>
-    </PageContainer>
+    </PageLayout>
   );
 }

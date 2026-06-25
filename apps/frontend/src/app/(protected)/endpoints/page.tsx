@@ -1,91 +1,158 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { Box } from '@mui/material';
-import EndpointsGrid from './components/EndpointsGrid';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
-import { useState, useCallback } from 'react';
-import { GridPaginationModel } from '@mui/x-data-grid';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
+import EndpointsIcon from '@/components/EndpointsIcon';
+import EndpointsGrid from './components/EndpointsGrid';
+import EndpointCreateDrawer from './components/EndpointCreateDrawer';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function EndpointsPage() {
-  const { data: session } = useSession();
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
+  const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
+  const [createProjectId, setCreateProjectId] = React.useState<
+    string | undefined
+  >();
 
-  const fetchEndpoints = useCallback(async () => {
-    if (!session?.session_token) {
-      setError('No session token available');
-      return;
-    }
+  useDocumentTitle('Endpoints');
 
-    try {
-      setLoading(true);
-      const skip = paginationModel.page * paginationModel.pageSize;
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const endpointsClient = apiFactory.getEndpointsClient();
-      const response = await endpointsClient.getEndpoints({
-        skip,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
-
-      setEndpoints(response.data);
-      setTotalCount(response.pagination.totalCount);
-      setError(null);
-    } catch (error) {
-      setError((error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [session, paginationModel]);
-
-  const handleEndpointDeleted = useCallback(() => {
-    fetchEndpoints();
-  }, [fetchEndpoints]);
+  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
-    fetchEndpoints();
-  }, [fetchEndpoints]);
+    const fetchCount = async () => {
+      if (!sessionToken) return;
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const endpointsClient = apiFactory.getEndpointsClient();
+        const response = await endpointsClient.getEndpoints({
+          skip: 0,
+          limit: 1,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        });
+        setEndpointCount(response.pagination?.totalCount ?? 0);
+      } catch {
+        setEndpointCount(0);
+      }
+    };
+    fetchCount();
+  }, [sessionToken, refreshKey]);
 
-  const handlePaginationModelChange = (newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  };
+  const handleRefresh = React.useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
-  if (error) {
+  React.useEffect(() => {
+    if (searchParams.get('create') !== '1') return;
+
+    const projectId = searchParams.get('projectId') ?? undefined;
+    setCreateProjectId(projectId || undefined);
+    setCreateDrawerOpen(true);
+    router.replace('/endpoints', { scroll: false });
+  }, [searchParams, router]);
+
+  const handleCreate = React.useCallback(() => {
+    setCreateProjectId(undefined);
+    setCreateDrawerOpen(true);
+  }, []);
+
+  const handleCreateSuccess = React.useCallback(() => {
+    setCreateDrawerOpen(false);
+    setCreateProjectId(undefined);
+    handleRefresh();
+  }, [handleRefresh]);
+
+  if (status === 'loading') {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">Error loading endpoints: {error}</Typography>
-      </Box>
+      <PageLayout title="Endpoints" breadcrumbs={[]}>
+        <Box sx={{ p: 3 }}>
+          <Typography>Loading...</Typography>
+        </Box>
+      </PageLayout>
+    );
+  }
+
+  if (!sessionToken) {
+    return (
+      <PageLayout title="Endpoints" breadcrumbs={[]}>
+        <Box sx={{ p: 3 }}>
+          <Typography color="error">No session token available</Typography>
+        </Box>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Endpoints" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Connect the Rhesis platform to your application under test via
-          endpoints to enable comprehensive testing and evaluation workflows.
-        </Typography>
-      </Box>
-      <EndpointsGrid
-        endpoints={endpoints}
-        loading={loading}
-        totalCount={totalCount}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        onEndpointDeleted={handleEndpointDeleted}
+    <>
+      <PageLayout
+        title="Endpoints"
+        description="Connect the Rhesis platform to your application under test via endpoints to enable comprehensive testing and evaluation workflows."
+        breadcrumbs={[]}
+        actions={
+          <FabGroup>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="New Endpoint"
+              onClick={handleCreate}
+              data-tour="create-endpoint-button"
+            />
+          </FabGroup>
+        }
+      >
+        <Box sx={{ mt: 2, mb: 2 }}>
+          {endpointCount === 0 ? (
+            <EntityEmptyState
+              card
+              icon={EndpointsIcon}
+              title="No endpoints yet"
+              description="Create your first endpoint to connect your application under test and start running tests and evaluations."
+              actionLabel="Create endpoint"
+              onAction={handleCreate}
+              enrichment={getEntityEmptyStateEnrichment('endpoints')}
+            />
+          ) : (
+            <Paper
+              sx={{
+                width: '100%',
+                borderRadius: BORDER_RADIUS.md,
+                boxShadow: ELEVATION.xs,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
+                overflow: 'hidden',
+              }}
+            >
+              <EndpointsGrid
+                sessionToken={sessionToken}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            </Paper>
+          )}
+        </Box>
+      </PageLayout>
+
+      <EndpointCreateDrawer
+        open={createDrawerOpen}
+        onClose={() => {
+          setCreateDrawerOpen(false);
+          setCreateProjectId(undefined);
+        }}
+        onCreated={handleCreateSuccess}
+        projectId={createProjectId}
       />
-    </PageContainer>
+    </>
   );
 }

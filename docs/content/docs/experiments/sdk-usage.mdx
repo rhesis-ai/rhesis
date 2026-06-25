@@ -1,0 +1,211 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# SDK Usage
+
+<Callout type="default">
+  How your application code reads parameter values, with the right caching and override semantics for production.
+</Callout>
+
+## The simple case
+
+Retrieving configuration in your application code should be simple and unobtrusive. In the typical case, fetching parameter values is a single line:
+
+<CodeBlock filename="resolve_params.py" language="python">
+{`from rhesis.sdk import Parameters
+
+# Resolves against the 'default' environment (accepts name or UUID)
+params = Parameters.get("Customer Support")
+
+# Use dot access — types are resolved automatically from the schema
+response = llm.chat(
+    model=params.model, 
+    temperature=params.temperature
+)`}
+</CodeBlock>
+
+You can also start from a `Project` entity:
+
+<CodeBlock filename="from_entity.py" language="python">
+{`from rhesis.sdk.entities import Projects
+
+project = Projects.pull(name="Customer Support")
+params = project.parameters()
+params.model  # "gpt-4o"`}
+</CodeBlock>
+
+Production code typically looks just like this — no wrappers, no fallbacks, no special-casing for tests. Tests "just work" because of the contextvar precedence (covered in [Connector Injection](/docs/experiments/connector-injection)).
+
+## Retrieval modes
+
+There are three ways to call `Parameters.get()`, depending on your use case:
+
+**By Environment (live config):**
+
+<CodeBlock filename="by_environment.py" language="python">
+{`# Evaluates the pointer and returns whatever it currently targets
+params = Parameters.get("Customer Support", environment="production")`}
+</CodeBlock>
+
+**By Version (Immutable pin):**
+
+<CodeBlock filename="by_version.py" language="python">
+{`# Fetches an exact, immutable snapshot. Useful for deploy-time pinning.
+params = Parameters.get("Customer Support", version="v3")`}
+</CodeBlock>
+
+**By Experiment ID (Latest draft):**
+
+<CodeBlock filename="by_experiment.py" language="python">
+{`# Fetches the newest version of a specific experiment. 
+# Useful for staging a candidate before promoting it.
+params = Parameters.get("Customer Support", experiment_id="exp_...")`}
+</CodeBlock>
+
+## Accessing values
+
+The `ResolvedParameters` object returned by `Parameters.get()` supports dot access and dictionary access. Values are unwrapped to native Python types automatically based on the schema:
+
+<CodeBlock filename="access.py" language="python">
+{`params = Parameters.get("Customer Support")
+
+# Dot access (recommended)
+params.model          # "gpt-4o"
+params.temperature    # 0.7
+params.system_prompt  # "You are a helpful assistant..."
+
+# Dictionary access
+params["model"]
+params.get("temperature", 0.7)`}
+</CodeBlock>
+
+### Explicit typed accessors
+
+For cases where you want runtime type validation, typed accessors are also available. These raise `TypeError` on a type mismatch:
+
+- `params.get_text("system_prompt")`
+- `params.get_string("model")`
+- `params.get_number("temperature")`
+- `params.get_integer("max_tokens")`
+- `params.get_boolean("use_streaming")`
+- `params.get_enum("use_case")`
+- `params.get_model_ref("primary_model")`
+- `params.get_secret_ref("api_key")`
+
+You can provide a default value as the second argument: `params.get_number("temperature", 0.7)`.
+
+## Resolution order (Policy)
+
+The `Parameters.get()` method resolves values using a strict precedence order (first match wins):
+
+1. **Connector Contextvar:** Injected by the platform during a test run. This wins unconditionally so tests cannot accidentally hit the network for live configuration.
+2. **Environment Variables:** `RHESIS_PARAMETERS_PIN` or `RHESIS_PARAMETERS_ENVIRONMENT` (legacy: `RHESIS_PARAMETERS_LABEL`). Lets ops pin a deploy without code changes.
+3. **Explicit Kwargs:** `version` > `experiment_id` > `environment` > implicit `environment='default'`. Lets application code be explicit.
+4. **HTTP API Fetch:** If none of the above short-circuit the resolution, it fetches from the Rhesis API.
+
+The order is "innermost wins" — overrides closer to the running call beat global settings.
+
+## Caching, with intent
+
+The SDK implements an in-process cache so production code can call `Parameters.get()` on every request without paying constant network costs.
+
+- **Version entries** are cached forever, because versions are immutable by definition.
+- **Environment and Experiment ID entries** are cached with a Time-To-Live (TTL), defaulting to 60 seconds. Since the underlying version an environment points to can change, stale entries trigger a refresh on the next access.
+
+You can manually invalidate the cache during testing using `Parameters.invalidate(...)`.
+
+## Environment Variable Overrides
+
+The SDK respects environment variables as a deployment primitive. 
+
+- `RHESIS_PARAMETERS_PIN=v3` pins the application to an immutable version regardless of environment movement. This acts as a production safety net or staged rollout mechanism.
+- `RHESIS_PARAMETERS_ENVIRONMENT=production` switches the application to a non-default environment without requiring code changes.
+
+This gives operators a code-free escape hatch to manage configuration rollouts.
+
+## Error handling & graceful degradation
+
+By default, `Parameters.get()` fails loudly. It raises `RhesisAPIError` on backend failure (for example an unbound environment) and `KeyError` when you read a parameter name that is not present in the resolved map.
+
+Failing loudly is the default behavior because silently serving stale configuration in production is often worse than a noisy error. 
+
+However, if your application requires graceful degradation, you must implement it yourself. The chatbot demo application provides an example of a try/except wrapper that falls back to environment defaults:
+
+<CodeBlock filename="graceful_degradation.py" language="python">
+{`def _resolve_chatbot_params() -> dict:
+    try:
+        params = Parameters.get("Chatbot Demo", environment="default")
+        return {
+            "model": params.model,
+            "temperature": params.get("temperature", 0.7),
+        }
+    except Exception:
+        logger.exception("SDK Parameters.get() failed, using fallbacks")
+        return {
+            "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
+            "temperature": 0.7,
+        }`}
+</CodeBlock>
+
+## Authoring experiments programmatically
+
+You can author experiments entirely through the SDK using the `Experiment` entity:
+
+<CodeBlock filename="author_experiment.py" language="python">
+{`from rhesis.sdk.entities import Experiment
+
+# 1. Create the empty experiment shell
+exp = Experiment(
+    name="high-temp", 
+    project_id="customer-support", 
+    description="hotter sampling"
+)
+exp.push()
+
+# 2. Save values (creates a new immutable Version)
+exp.commit(
+    values={"model": "gpt-4o", "temperature": 0.9},
+    message="bump temp"
+)
+
+# 3. Flip visibility to shared (opens it up to the team)
+exp.share()
+
+# 4. Move an environment to point at the new version (the deploy step)
+exp.promote(environment="default")`}
+</CodeBlock>
+
+### Running experiments against test sets
+
+Once you have an experiment, you can execute it directly against a test set and endpoint:
+
+<CodeBlock filename="run_experiment.py" language="python">
+{`from rhesis.sdk.entities import Experiment, TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Tests")
+endpoint = Endpoints.pull(name="GPT-4o")
+
+# Run with the experiment's latest version
+result = exp.run(test_set, endpoint)
+
+# Or inline new parameter values — commits automatically, then executes
+result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})`}
+</CodeBlock>
+
+You can also pass an `Experiment` object to `TestSet.execute()`:
+
+<CodeBlock filename="execute_with_experiment.py" language="python">
+{`# Pass an Experiment object directly
+result = test_set.execute(endpoint, experiment=exp)
+
+# Inline parameters — commits a new version, then executes with it
+result = test_set.execute(
+    endpoint, experiment=exp, parameters={"temperature": 0.9}
+)
+
+# Raw experiment_id still works (resolves to latest version on the backend)
+result = test_set.execute(endpoint, experiment_id="<uuid>")`}
+</CodeBlock>
+
+<Callout type="default">
+  When you pass only ``experiment_id`` without a ``version``, the backend automatically resolves to the experiment's latest version. You don't need to look up the version identifier yourself.
+</Callout>

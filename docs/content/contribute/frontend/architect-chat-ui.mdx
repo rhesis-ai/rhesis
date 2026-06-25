@@ -45,6 +45,7 @@ The frontend event enum in `utils/websocket/types.ts` includes Architect-specifi
 - `architect.stream_start`
 - `architect.text_chunk`
 - `architect.stream_end`
+- `architect.task_progress`
 - `architect.error`
 
 ### Payloads tracked in UI state
@@ -57,6 +58,8 @@ The frontend event enum in `utils/websocket/types.ts` includes Architect-specifi
 - plan markdown snapshot
 - `isAwaitingTask` flag
 - `autoApproveAll` toggle state
+
+`architect.task_progress` payloads are routed into the same `StreamingState` shape used for tool calls. The hook ignores progress for other sessions, requires both `task_id` and `label`, and only attaches updates when a waiting bubble has been registered from an `architect.response` payload with `awaiting_task: true`.
 
 ## Confirmation and auto-approve behavior
 
@@ -83,9 +86,12 @@ The UI also includes an **Auto-approve** switch. When enabled:
 - thinking dots during `architect.thinking`
 - active tool rows during `architect.tool_start`
 - completed tool rows with success/failure and duration on `architect.tool_end`
+- awaited background task rows during `architect.task_progress`
 - optional per-tool reasoning sections
 
 `ToolCallList` prioritizes active tools at the top and collapses completed tools when activity is ongoing.
+
+Task progress uses the Celery task ID as the row key. `started` and `progress` statuses render as active rows; `completed` and `failed` statuses move the row into completed activity. If `step` and `total` are present, the UI appends them to the label as progress counts.
 
 ## File attachment handling
 

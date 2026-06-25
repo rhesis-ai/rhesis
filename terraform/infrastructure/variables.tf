@@ -51,3 +51,62 @@ variable "wireguard_peers" {
   default = []
 }
 
+# GCS: backend file storage (all enabled envs) + CNPG backup buckets (stg/prd only).
+# Names must match STORAGE_SERVICE_URI and CNPG backup settings in GitHub/Secret Manager.
+variable "gcs" {
+  description = <<-EOT
+    GCS file-storage buckets for each environment when applying the root stack (single project).
+    Per-env applies (terraform/infrastructure/envs/{dev,stg,prd}) create buckets in each env's
+    GCP project instead — see file_storage_bucket_name in each env's variables.tf.
+    CNPG backup buckets are set only for stg and prd; dev does not get a backup bucket
+    (Bitnami PostgreSQL in dev, CNPG in stg/prd).
+  EOT
+  type = object({
+    dev = object({
+      file_storage_bucket_name = string
+      force_destroy            = optional(bool, false)
+      file_storage_iam_members = optional(list(object({
+        member = string
+        role   = string
+      })), [])
+    })
+    stg = object({
+      file_storage_bucket_name = string
+      cnpg_backup_bucket_name  = string
+      force_destroy            = optional(bool, false)
+      file_storage_iam_members = optional(list(object({
+        member = string
+        role   = string
+      })), [])
+      cnpg_backup_iam_members = optional(list(object({
+        member = string
+        role   = string
+      })), [])
+    })
+    prd = object({
+      file_storage_bucket_name = string
+      cnpg_backup_bucket_name  = string
+      force_destroy            = optional(bool, false)
+      file_storage_iam_members = optional(list(object({
+        member = string
+        role   = string
+      })), [])
+      cnpg_backup_iam_members = optional(list(object({
+        member = string
+        role   = string
+      })), [])
+    })
+  })
+  default = {
+    dev = { file_storage_bucket_name = "sources-files-rhesis-dev" }
+    stg = {
+      file_storage_bucket_name = "sources-files-rhesis-stg"
+      cnpg_backup_bucket_name  = "cnpg-backup-rhesis-stg"
+    }
+    prd = {
+      file_storage_bucket_name = "sources-files-rhesis-prd"
+      cnpg_backup_bucket_name  = "cnpg-backup-rhesis-prd"
+    }
+  }
+}
+

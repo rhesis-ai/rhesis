@@ -3,8 +3,26 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import EndpointDetail from '../EndpointDetail';
+import { Box } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
+import { lightTheme } from '@/styles/theme';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { EndpointDetailProvider } from '../../[identifier]/components/EndpointDetailContext';
+import EndpointDetailView from '../../[identifier]/components/EndpointDetailView';
+import EndpointHeaderActions from '../../[identifier]/components/EndpointHeaderActions';
+
+function renderEndpointDetail(endpoint: Endpoint) {
+  return render(
+    <ThemeProvider theme={lightTheme}>
+      <EndpointDetailProvider endpoint={endpoint}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <EndpointHeaderActions />
+        </Box>
+        <EndpointDetailView />
+      </EndpointDetailProvider>
+    </ThemeProvider>
+  );
+}
 
 // ---- Mocks ----
 
@@ -24,9 +42,17 @@ jest.mock('next-auth/react', () => ({
   useSession: () => ({ data: { session_token: 'tok' } }),
 }));
 
+jest.mock('@/auth', () => ({
+  auth: jest.fn().mockResolvedValue({ session_token: 'tok' }),
+}));
+
+const mockDeleteEndpoint = jest.fn();
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getProjectsClient: () => ({ getProjects: jest.fn().mockResolvedValue([]) }),
+    getEndpointsClient: () => ({
+      deleteEndpoint: (...args: unknown[]) => mockDeleteEndpoint(...args),
+    }),
   })),
 }));
 
@@ -94,7 +120,7 @@ describe('EndpointDetail', () => {
   });
 
   it('renders the endpoint name and action buttons', () => {
-    render(<EndpointDetail endpoint={baseEndpoint} />);
+    renderEndpointDetail(baseEndpoint);
 
     expect(screen.getByText('My Endpoint')).toBeInTheDocument();
     expect(
@@ -103,24 +129,26 @@ describe('EndpointDetail', () => {
     expect(
       screen.getByRole('button', { name: /duplicate/i })
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /delete endpoint/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /^edit$/i }).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows Playground, Duplicate, Edit in correct order', () => {
-    render(<EndpointDetail endpoint={baseEndpoint} />);
+  it('shows Playground, Duplicate, and per-card Edit actions on overview', () => {
+    renderEndpointDetail(baseEndpoint);
 
-    const buttons = screen
-      .getAllByRole('button')
-      .filter(btn =>
-        ['Playground', 'Duplicate', 'Edit'].some(label =>
-          btn.textContent?.includes(label)
-        )
-      );
-
-    expect(buttons).toHaveLength(3);
-    expect(buttons[0]).toHaveTextContent('Playground');
-    expect(buttons[1]).toHaveTextContent('Duplicate');
-    expect(buttons[2]).toHaveTextContent('Edit');
+    expect(
+      screen.getByRole('button', { name: /playground/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /duplicate/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /^edit$/i }).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   describe('Duplicate endpoint', () => {
@@ -135,7 +163,7 @@ describe('EndpointDetail', () => {
         data: duplicatedEndpoint,
       });
 
-      render(<EndpointDetail endpoint={baseEndpoint} />);
+      renderEndpointDetail(baseEndpoint);
 
       const duplicateBtn = screen.getByRole('button', { name: /duplicate/i });
       await userEvent.click(duplicateBtn);
@@ -175,7 +203,7 @@ describe('EndpointDetail', () => {
         data: { ...alreadyCopied, id: 'ep-4', name: 'My Endpoint (Copy 2)' },
       });
 
-      render(<EndpointDetail endpoint={alreadyCopied} />);
+      renderEndpointDetail(alreadyCopied);
 
       await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
 
@@ -196,7 +224,7 @@ describe('EndpointDetail', () => {
         data: { ...copy3, id: 'ep-5', name: 'My Endpoint (Copy 4)' },
       });
 
-      render(<EndpointDetail endpoint={copy3} />);
+      renderEndpointDetail(copy3);
 
       await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
 
@@ -215,7 +243,7 @@ describe('EndpointDetail', () => {
         data: { ...baseEndpoint, id: 'ep-new' },
       });
 
-      render(<EndpointDetail endpoint={baseEndpoint} />);
+      renderEndpointDetail(baseEndpoint);
 
       await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
 
@@ -230,7 +258,7 @@ describe('EndpointDetail', () => {
         data: { ...baseEndpoint, id: 'ep-new' },
       });
 
-      render(<EndpointDetail endpoint={baseEndpoint} />);
+      renderEndpointDetail(baseEndpoint);
 
       await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
 
@@ -248,7 +276,7 @@ describe('EndpointDetail', () => {
         error: 'Name already taken',
       });
 
-      render(<EndpointDetail endpoint={baseEndpoint} />);
+      renderEndpointDetail(baseEndpoint);
 
       await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
 
@@ -266,7 +294,7 @@ describe('EndpointDetail', () => {
     it('shows error notification when createEndpoint throws', async () => {
       mockCreateEndpoint.mockRejectedValue(new Error('Network failure'));
 
-      render(<EndpointDetail endpoint={baseEndpoint} />);
+      renderEndpointDetail(baseEndpoint);
 
       await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
 
@@ -281,49 +309,94 @@ describe('EndpointDetail', () => {
     });
   });
 
-  describe('action buttons visibility', () => {
-    it('hides Duplicate and Playground when in edit mode', async () => {
-      render(<EndpointDetail endpoint={baseEndpoint} />);
+  describe('per-card edit', () => {
+    it('keeps Playground and Duplicate visible while a card is in edit mode', async () => {
+      renderEndpointDetail(baseEndpoint);
 
-      // Enter edit mode
-      await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+      const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
+      await userEvent.click(editButtons[0]);
 
-      // Save and Cancel should appear
       expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: /cancel/i })
       ).toBeInTheDocument();
-
-      // Duplicate and Playground should not be visible
-      expect(
-        screen.queryByRole('button', { name: /duplicate/i })
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /playground/i })
-      ).not.toBeInTheDocument();
-    });
-
-    it('restores action buttons when cancelling edit mode', async () => {
-      render(<EndpointDetail endpoint={baseEndpoint} />);
-
-      await userEvent.click(screen.getByRole('button', { name: /edit/i }));
-      await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-
       expect(
         screen.getByRole('button', { name: /duplicate/i })
       ).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: /playground/i })
       ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
+    });
+
+    it('only puts the edited card into edit mode', async () => {
+      renderEndpointDetail(baseEndpoint);
+
+      const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
+      await userEvent.click(editButtons[0]);
+
+      expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+      expect(screen.queryAllByRole('button', { name: /save/i })).toHaveLength(
+        1
+      );
+    });
+
+    it('exits edit mode and restores Edit button', async () => {
+      renderEndpointDetail(baseEndpoint);
+
+      const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
+      await userEvent.click(editButtons[0]);
+      await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+      expect(
+        screen.getAllByRole('button', { name: /^edit$/i }).length
+      ).toBeGreaterThanOrEqual(1);
+      expect(
+        screen.queryByRole('button', { name: /save/i })
+      ).not.toBeInTheDocument();
     });
   });
 
   it('navigates to playground with endpoint ID', async () => {
-    render(<EndpointDetail endpoint={baseEndpoint} />);
+    renderEndpointDetail(baseEndpoint);
 
     await userEvent.click(screen.getByRole('button', { name: /playground/i }));
 
     expect(mockPush).toHaveBeenCalledWith('/playground?endpointId=ep-1');
+  });
+
+  describe('Delete endpoint', () => {
+    it('deletes endpoint and navigates to endpoints list', async () => {
+      mockDeleteEndpoint.mockResolvedValue(undefined);
+      const standalone = { ...baseEndpoint, project_id: undefined };
+      renderEndpointDetail(standalone);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /delete endpoint/i })
+      );
+      await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+
+      await waitFor(() => {
+        expect(mockDeleteEndpoint).toHaveBeenCalledWith('ep-1');
+      });
+      expect(mockPush).toHaveBeenCalledWith('/endpoints');
+      expect(mockShow).toHaveBeenCalledWith('Endpoint deleted', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+    });
+
+    it('navigates to project when endpoint belongs to a project', async () => {
+      mockDeleteEndpoint.mockResolvedValue(undefined);
+      renderEndpointDetail(baseEndpoint);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /delete endpoint/i })
+      );
+      await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/projects/proj-1');
+      });
+    });
   });
 });

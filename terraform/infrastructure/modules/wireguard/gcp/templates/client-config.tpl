@@ -1,6 +1,7 @@
 [Interface]
 PrivateKey = ${peer_private_key}
 Address = ${peer_ip}/32
+DNS = ${server_tunnel_ip}
 
 [Peer]
 PublicKey = ${server_public_key}

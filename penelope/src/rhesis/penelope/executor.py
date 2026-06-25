@@ -11,6 +11,7 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
+from rhesis.penelope._file_compat import json_default as _json_default
 from rhesis.penelope.context import TestState
 from rhesis.penelope.prompts import FIRST_TURN_PROMPT, SUBSEQUENT_TURN_PROMPT
 from rhesis.penelope.schemas import (
@@ -136,49 +137,34 @@ class TurnExecutor:
         self.enable_transparency = enable_transparency
         self.workflow_manager = WorkflowManager()
 
-    def execute_turn(
-        self,
-        state: TestState,
-        tools: List[Tool],
-        system_prompt: str,
-        on_tool_start: Optional[Any] = None,
-        on_tool_end: Optional[Any] = None,
-    ) -> bool:
-        """
-        Execute one turn of the agent loop.
+    # ------------------------------------------------------------------
+    # Shared helpers (used by both execute_turn and a_execute_turn)
+    # ------------------------------------------------------------------
 
-        Args:
-            state: Current test state
-            tools: Available tools
-            system_prompt: System prompt for the LLM
-
-        Returns:
-            True if turn executed successfully, False if should stop
-        """
-        # Check execution progress and warn if approaching limits
+    def _maybe_warn_progress(self, state: TestState) -> None:
+        """Emit warning logs when execution count hits 60% / 80% of limit."""
         total_executions = len(state.all_executions)
-        if state.context.max_tool_executions is not None:
-            threshold_60 = int(state.context.max_tool_executions * 0.6)
-            threshold_80 = int(state.context.max_tool_executions * 0.8)
+        if state.context.max_tool_executions is None:
+            return
+        threshold_60 = int(state.context.max_tool_executions * 0.6)
+        threshold_80 = int(state.context.max_tool_executions * 0.8)
+        if total_executions == threshold_60:
+            logger.warning(
+                f"Execution count at {total_executions} "
+                f"(60% of limit {state.context.max_tool_executions}). "
+                f"Check if agent is making progress towards the goal."
+            )
+        elif total_executions == threshold_80:
+            logger.warning(
+                f"Execution count at {total_executions} "
+                f"(80% of limit {state.context.max_tool_executions}). "
+                f"Approaching maximum tool executions. "
+                f"Consider increasing max_tool_executions if this is a complex test."
+            )
 
-            if total_executions == threshold_60:
-                logger.warning(
-                    f"Execution count at {total_executions} "
-                    f"(60% of limit {state.context.max_tool_executions}). "
-                    f"Check if agent is making progress towards the goal."
-                )
-            elif total_executions == threshold_80:
-                logger.warning(
-                    f"Execution count at {total_executions} "
-                    f"(80% of limit {state.context.max_tool_executions}). "
-                    f"Approaching maximum tool executions. "
-                    f"Consider increasing max_tool_executions if this is a complex test."
-                )
-
-        # Build conversation history (native Pydantic messages)
+    def _build_llm_prompt(self, state: TestState, tools: List[Tool]) -> str:
+        """Assemble the full user-prompt string sent to the model."""
         conversation_messages = state.get_conversation_messages()
-
-        # Create user prompt for this turn
         if state.current_turn == 0:
             user_prompt = FIRST_TURN_PROMPT.render()
         else:
@@ -188,276 +174,353 @@ class TurnExecutor:
                 max_turns=state.context.max_turns,
             )
 
-        # Add workflow guidance to the prompt
         workflow_guidance = self.workflow_manager.get_tool_guidance(tools)
         if workflow_guidance:
             user_prompt += f"\n\nWORKFLOW GUIDANCE:\n{workflow_guidance}"
 
-        # Get model response
+        if conversation_messages:
+            from rhesis.penelope.config import PenelopeConfig
+
+            max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
+            context_messages = conversation_messages[-max_messages:] if max_messages > 0 else []
+            for msg in context_messages:
+                user_prompt += f"\n\n{msg.role}: {msg.content}"
+        return user_prompt
+
+    @staticmethod
+    def _parse_response(
+        state: TestState, response: Any
+    ) -> Optional[tuple[str, List[Dict[str, Any]]]]:
+        """Validate the LLM response and return ``(reasoning, tool_calls)``.
+
+        Returns ``None`` after recording a finding when the response is
+        invalid; callers should propagate ``False`` to abort the turn.
+        """
+        if not isinstance(response, dict):
+            logger.error(f"Expected dict response, got {type(response)}")
+            state.add_finding(f"Error: Invalid model response type - {type(response)}")
+            return None
         try:
-            # Build messages for the model
-            if conversation_messages:
-                from rhesis.penelope.config import PenelopeConfig
+            tool_calls_data = ResponseParser.parse_tool_calls(response)
+        except ValueError as e:
+            logger.error(f"Invalid response format: {e}")
+            state.add_finding(f"Error: Invalid response format - {str(e)}")
+            return None
+        return response.get("reasoning", ""), tool_calls_data
 
-                prompt = user_prompt
-                max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-                context_messages = conversation_messages[-max_messages:] if max_messages > 0 else []
-                for msg in context_messages:
-                    prompt += f"\n\n{msg.role}: {msg.content}"
+    def _prepare_tool_call(
+        self,
+        state: TestState,
+        tool_call_data: Dict[str, Any],
+        total_calls: int,
+        index: int,
+    ) -> tuple[str, Dict[str, Any]]:
+        """Normalise a tool-call dict and inject conversation_id / files.
+
+        Mutates ``tool_call_data`` in place when correcting common mistakes
+        (e.g. ``send_message`` → ``send_message_to_target``).
+        """
+        action_name = tool_call_data.get("tool_name", "")
+        params_obj = tool_call_data.get("parameters", {})
+
+        if action_name == "send_message":
+            logger.warning("Correcting 'send_message' to 'send_message_to_target'")
+            state.add_finding(
+                "LLM used invalid tool name 'send_message' - "
+                "corrected to 'send_message_to_target'. "
+                "This indicates the LLM may not be following tool documentation properly."
+            )
+            action_name = "send_message_to_target"
+            tool_call_data["tool_name"] = "send_message_to_target"
+
+        if hasattr(params_obj, "model_dump"):
+            action_params = params_obj.model_dump(exclude_none=True)
+        elif isinstance(params_obj, dict):
+            action_params = params_obj
+        else:
+            logger.warning(f"Unexpected parameters type: {type(params_obj)}")
+            action_params = {}
+
+        if action_name == "send_message_to_target" and state.conversation_id:
+            from rhesis.penelope.conversation import extract_conversation_id
+
+            if not extract_conversation_id(action_params):
+                action_params["conversation_id"] = state.conversation_id
+                logger.debug("Injected conversation_id into params")
             else:
-                prompt = user_prompt
+                logger.debug("Using existing conversation_id from params")
 
-            # Debug logging for LLM input (without prompt content)
+        # Inject files only when Penelope explicitly requests it via
+        # include_files=True.  The decision is left entirely to Penelope so
+        # that test instructions (e.g. "first ask the chatbot to request a
+        # file before sending it") are respected.
+        if action_name == "send_message_to_target":
+            explicit_include = action_params.pop("include_files", None)
+            if explicit_include is True and state.context.files:
+                action_params["files"] = state.context.files
+                logger.debug(
+                    "Injected %d file(s) into params (explicit=True)",
+                    len(state.context.files),
+                )
+
+        if self.verbose:
+            param_keys = list(action_params.keys()) if action_params else []
+            logger.debug(
+                f"Tool call {index + 1}/{total_calls} - "
+                f"Tool: {action_name}, Param keys: {param_keys}"
+            )
+
+        if not action_name:
+            logger.warning("Structured output missing tool_name")
+            action_name = "no_action"
+            action_params = {}
+
+        return action_name, action_params
+
+    @staticmethod
+    def _build_assistant_message(
+        state: TestState,
+        action_name: str,
+        action_params: Dict[str, Any],
+        reasoning: str,
+        index: int,
+    ) -> tuple[AssistantMessage, str]:
+        """Build the AssistantMessage + tool_call_id for one tool call."""
+        total_executions = len(state.current_turn_executions) + sum(
+            len(turn.executions) for turn in state.turns
+        )
+        tool_call_id = ToolCallIdGenerator.generate_id(total_executions, action_name)
+        message = AssistantMessage(
+            content=reasoning if index == 0 else f"Continuing with {action_name}",
+            tool_calls=[
+                MessageToolCall(
+                    id=tool_call_id,
+                    type="function",
+                    function=FunctionCall(
+                        name=action_name,
+                        arguments=json.dumps(action_params, default=_json_default),
+                    ),
+                )
+            ],
+        )
+        return message, tool_call_id
+
+    def _find_tool_and_validate(
+        self,
+        state: TestState,
+        tools: List[Tool],
+        action_name: str,
+        action_params: Dict[str, Any],
+    ) -> tuple[Optional[Tool], bool]:
+        """Look up the tool and run workflow validation.
+
+        Returns ``(tool, ok)``.  When ``ok`` is False the caller must abort
+        the whole turn (workflow validation hard-fails).  When ``tool`` is
+        None the tool was not found and the caller should record an
+        unknown-tool error.
+        """
+        for tool in tools:
+            if tool.name != action_name:
+                continue
+            is_valid, validation_reason = self.workflow_manager.validate_tool_usage(
+                tool, **action_params
+            )
+            if not is_valid:
+                logger.error(f"Workflow validation failed: {validation_reason}")
+                state.add_finding(f"Workflow validation blocked execution: {validation_reason}")
+                return None, False
+            return tool, True
+        return None, True
+
+    @staticmethod
+    def _unknown_tool_result(state: TestState, action_name: str, tools: List[Tool]) -> dict:
+        available_tools = [tool.name for tool in tools]
+        error_msg = f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
+        if action_name == "send_message":
+            error_msg += ". Did you mean 'send_message_to_target'?"
+        elif action_name == "analyze_response":
+            error_msg += ". Analysis tools must be explicitly registered."
+
+        state.add_finding(
+            f"LLM used unknown tool '{action_name}'. "
+            f"This indicates the LLM is not following "
+            f"tool documentation properly. Available tools: {', '.join(available_tools)}"
+        )
+        return {"success": False, "output": {}, "error": error_msg}
+
+    @staticmethod
+    def _tool_result_to_dict(tool_result: Any) -> dict:
+        return {
+            "success": tool_result.success,
+            "output": tool_result.output,
+            "error": tool_result.error,
+            "metadata": tool_result.metadata,
+        }
+
+    @staticmethod
+    def _maybe_run_callback(name: str, callback: Optional[Any], *args: Any) -> None:
+        if not callback:
+            return
+        try:
+            callback(*args)
+        except Exception as e:
+            logger.error(f"Error in {name} callback: {e}")
+
+    def _record_execution(
+        self,
+        state: TestState,
+        reasoning: str,
+        index: int,
+        action_name: str,
+        assistant_message: AssistantMessage,
+        tool_call_id: str,
+        tool_result_dict: dict,
+        tool_result: Any,
+    ) -> Any:
+        """Commit the tool message + execution to state and update workflow.
+
+        Returns the completed Turn when this execution closed a turn, else None.
+        """
+        tool_message = ToolMessage(
+            tool_call_id=tool_call_id,
+            name=action_name,
+            content=json.dumps(tool_result_dict),
+        )
+
+        turn_result = state.add_execution(
+            reasoning=reasoning if index == 0 else f"Tool execution: {action_name}",
+            assistant_message=assistant_message,
+            tool_message=tool_message,
+        )
+
+        if state.current_turn_executions:
+            latest_execution = state.current_turn_executions[-1]
+            self.workflow_manager.record_tool_execution(latest_execution)
+        elif turn_result is not None:
+            self.workflow_manager.record_tool_execution(turn_result.target_interaction)
+
+        if (
+            turn_result is not None
+            and tool_result
+            and tool_result.success
+            and hasattr(tool_result, "output")
+        ):
+            from rhesis.penelope.conversation import extract_conversation_id
+
+            conversation_id = extract_conversation_id(tool_result.output)
+            if conversation_id and state.conversation_id != conversation_id:
+                old_conversation_id = state.conversation_id
+                state.conversation_id = conversation_id
+                logger.debug(
+                    "Updated conversation_id: %s -> %s",
+                    old_conversation_id,
+                    conversation_id,
+                )
+
+        if self.verbose and self.enable_transparency:
+            current_total = len(state.current_turn_executions) + sum(
+                len(turn.executions) for turn in state.turns
+            )
+            display_turn(
+                current_total,
+                reasoning if index == 0 else f"Tool: {action_name}",
+                action_name,
+                tool_result_dict,
+            )
+
+        return turn_result
+
+    def _analysis_tool_args(self, action_params: Dict[str, Any]) -> tuple[Any, Dict[str, Any]]:
+        """Split params for AnalysisTool.execute_with_validation(context, **rest)."""
+        context = self.workflow_manager.state.get_analysis_context()
+        filtered_params = {k: v for k, v in action_params.items() if k != "context"}
+        return context, filtered_params
+
+    # ------------------------------------------------------------------
+    # Public sync / async entry points
+    # ------------------------------------------------------------------
+
+    def execute_turn(
+        self,
+        state: TestState,
+        tools: List[Tool],
+        system_prompt: str,
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
+    ) -> bool:
+        """Execute one turn of the agent loop (sync)."""
+        self._maybe_warn_progress(state)
+        prompt = self._build_llm_prompt(state, tools)
+
+        try:
             logger.debug(
                 "Sending to LLM: model=%s, prompt_len=%d, system_len=%d",
                 self.model.get_model_name(),
                 len(prompt),
                 len(system_prompt),
             )
-
             response = self.model.generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                schema=ToolCall,  # Use Pydantic schema for structured output
+                prompt=prompt, system_prompt=system_prompt, schema=ToolCall
             )
-
         except Exception as e:
             logger.error(f"Model generation failed: {e}")
             state.add_finding(f"Error: Model generation failed - {str(e)}")
             return False
 
-        # Extract values from structured response (no parsing needed!)
-        # Type narrowing: response should be dict when schema is provided
-        if not isinstance(response, dict):
-            logger.error(f"Expected dict response, got {type(response)}")
-            state.add_finding(f"Error: Invalid model response type - {type(response)}")
+        parsed = self._parse_response(state, response)
+        if parsed is None:
             return False
-
-        reasoning = response.get("reasoning", "")
-
-        # Parse and validate tool calls
-        try:
-            tool_calls_data = ResponseParser.parse_tool_calls(response)
-        except ValueError as e:
-            logger.error(f"Invalid response format: {e}")
-            state.add_finding(f"Error: Invalid response format - {str(e)}")
-            return False
-
-        # Execute all tool calls in sequence
-        completed_turn = None
+        reasoning, tool_calls_data = parsed
 
         for i, tool_call_data in enumerate(tool_calls_data):
-            action_name = tool_call_data.get("tool_name", "")
-            params_obj = tool_call_data.get("parameters", {})
+            action_name, action_params = self._prepare_tool_call(
+                state, tool_call_data, len(tool_calls_data), i
+            )
+            assistant_message, tool_call_id = self._build_assistant_message(
+                state, action_name, action_params, reasoning, i
+            )
 
-            # Fix common tool name mistakes and document them
-            if action_name == "send_message":
-                logger.warning("Correcting 'send_message' to 'send_message_to_target'")
-                state.add_finding(
-                    "LLM used invalid tool name 'send_message' - "
-                    "corrected to 'send_message_to_target'. "
-                    "This indicates the LLM may not be following tool documentation properly."
-                )
-                action_name = "send_message_to_target"
-                tool_call_data["tool_name"] = "send_message_to_target"
+            tool, ok = self._find_tool_and_validate(state, tools, action_name, action_params)
+            if not ok:
+                return False
 
-            # Convert Pydantic model to dict if needed
-            if hasattr(params_obj, "model_dump"):
-                action_params = params_obj.model_dump(exclude_none=True)
-            elif isinstance(params_obj, dict):
-                action_params = params_obj
+            if tool is None:
+                tool_result = None
+                tool_result_dict = self._unknown_tool_result(state, action_name, tools)
             else:
-                logger.warning(f"Unexpected parameters type: {type(params_obj)}")
-                action_params = {}
-
-            # Inject conversation_id from test state if not provided
-            # and this is a target interaction
-            if action_name == "send_message_to_target" and state.conversation_id:
-                from rhesis.penelope.conversation import extract_conversation_id
-
-                # Only inject if no conversation ID is already present
-                if not extract_conversation_id(action_params):
-                    action_params["conversation_id"] = state.conversation_id
-                    logger.debug("Injected conversation_id into params")
-                else:
-                    logger.debug("Using existing conversation_id from params")
-
-            # Inject files when include_files=True and files are available
-            if action_name == "send_message_to_target":
-                if action_params.pop("include_files", False) and state.context.files:
-                    action_params["files"] = state.context.files
-                    logger.debug("Injected %d file(s) into params", len(state.context.files))
-
-            if self.verbose:
-                param_keys = list(action_params.keys()) if action_params else []
-                logger.debug(
-                    f"Tool call {i + 1}/{len(tool_calls_data)} - "
-                    f"Tool: {action_name}, Param keys: {param_keys}"
-                )
-
-            # With structured output, we should always have an action
-            if not action_name:
-                logger.warning("Structured output missing tool_name")
-                action_name = "no_action"
-                action_params = {}
-
-            # Create assistant message with tool_calls (Pydantic)
-            # Use total execution count for unique IDs
-            total_executions = len(state.current_turn_executions) + sum(
-                len(turn.executions) for turn in state.turns
-            )
-            tool_call_id = ToolCallIdGenerator.generate_id(total_executions, action_name)
-            assistant_message = AssistantMessage(
-                content=reasoning
-                if i == 0
-                else f"Continuing with {action_name}",  # Only first gets full reasoning
-                tool_calls=[
-                    MessageToolCall(
-                        id=tool_call_id,
-                        type="function",
-                        function=FunctionCall(
-                            name=action_name,
-                            arguments=json.dumps(action_params),
-                        ),
-                    )
-                ],
-            )
-
-            # Find and execute the tool
-            tool_result = None
-            for tool in tools:
-                if tool.name == action_name:
-                    # Validate tool usage with workflow manager
-                    is_valid, validation_reason = self.workflow_manager.validate_tool_usage(
-                        tool, **action_params
-                    )
-                    if not is_valid:
-                        logger.error(f"Workflow validation failed: {validation_reason}")
-                        state.add_finding(
-                            f"Workflow validation blocked execution: {validation_reason}"
-                        )
-                        return False  # Stop the agent loop immediately
-
-                    if on_tool_start:
-                        try:
-                            on_tool_start(action_name, action_params, reasoning if i == 0 else "")
-                        except Exception as e:
-                            logger.error(f"Error in on_tool_start callback: {e}")
-
-                    if self.verbose:
-                        param_keys = list(action_params.keys()) if action_params else []
-                        logger.info(f"Executing tool: {action_name} (params: {param_keys})")
-
-                    t0 = time.monotonic()
-
-                    # Execute with enhanced validation for analysis tools
-                    if isinstance(tool, AnalysisTool):
-                        context = self.workflow_manager.state.get_analysis_context()
-                        # Remove context from action_params to avoid duplicate argument
-                        filtered_params = {k: v for k, v in action_params.items() if k != "context"}
-                        tool_result = tool.execute_with_validation(context, **filtered_params)
-                    else:
-                        tool_result = tool.execute(**action_params)
-
-                    duration_ms = round((time.monotonic() - t0) * 1000)
-
-                    if on_tool_end:
-                        try:
-                            on_tool_end(action_name, tool_result, duration_ms)
-                        except Exception as e:
-                            logger.error(f"Error in on_tool_end callback: {e}")
-
-                    break
-
-            if tool_result is None:
-                # Tool not found - provide helpful suggestions
-                available_tools = [tool.name for tool in tools]
-                error_msg = (
-                    f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
-                )
-
-                # Special case for common mistakes
-                if action_name == "send_message":
-                    error_msg += ". Did you mean 'send_message_to_target'?"
-                elif action_name == "analyze_response":
-                    error_msg += ". Analysis tools must be explicitly registered."
-
-                # Add finding for unknown tool usage
-                state.add_finding(
-                    f"LLM used unknown tool '{action_name}'. "
-                    f"This indicates the LLM is not following "
-                    f"tool documentation properly. Available tools: {', '.join(available_tools)}"
-                )
-
-                tool_result_dict = {
-                    "success": False,
-                    "output": {},
-                    "error": error_msg,
-                }
-            else:
-                tool_result_dict = {
-                    "success": tool_result.success,
-                    "output": tool_result.output,
-                    "error": tool_result.error,
-                    "metadata": tool_result.metadata,
-                }
-
-            # Create tool response message (Pydantic)
-            tool_message = ToolMessage(
-                tool_call_id=tool_call_id,
-                name=action_name,
-                content=json.dumps(tool_result_dict),
-            )
-
-            # Add execution to state (may complete a turn)
-            turn_result = state.add_execution(
-                reasoning=reasoning if i == 0 else f"Tool execution: {action_name}",
-                assistant_message=assistant_message,
-                tool_message=tool_message,
-            )
-
-            # Record tool execution in workflow manager immediately after adding to state
-            if state.current_turn_executions:
-                latest_execution = state.current_turn_executions[-1]
-                self.workflow_manager.record_tool_execution(latest_execution)
-            elif turn_result is not None:
-                # If a turn was completed, record the target interaction
-                self.workflow_manager.record_tool_execution(turn_result.target_interaction)
-
-            # Track if any execution completed a turn
-            if turn_result is not None:
-                completed_turn = turn_result
-
-                # Extract and update conversation ID from target interaction
-                if tool_result and tool_result.success and hasattr(tool_result, "output"):
-                    from rhesis.penelope.conversation import extract_conversation_id
-
-                    # Try to extract conversation ID from tool output
-                    conversation_id = extract_conversation_id(tool_result.output)
-                    if conversation_id:
-                        old_conversation_id = state.conversation_id
-                        state.conversation_id = conversation_id
-                        if old_conversation_id != conversation_id:
-                            logger.debug(
-                                "Updated conversation_id: %s -> %s",
-                                old_conversation_id,
-                                conversation_id,
-                            )
-
-            # Display execution if verbose
-            if self.verbose and self.enable_transparency:
-                current_total = len(state.current_turn_executions) + sum(
-                    len(turn.executions) for turn in state.turns
-                )
-                display_turn(
-                    current_total,
-                    reasoning if i == 0 else f"Tool: {action_name}",
+                self._maybe_run_callback(
+                    "on_tool_start",
+                    on_tool_start,
                     action_name,
-                    tool_result_dict,
+                    action_params,
+                    reasoning if i == 0 else "",
                 )
+                if self.verbose:
+                    param_keys = list(action_params.keys()) if action_params else []
+                    logger.info(f"Executing tool: {action_name} (params: {param_keys})")
+                t0 = time.monotonic()
+                if isinstance(tool, AnalysisTool):
+                    context, filtered_params = self._analysis_tool_args(action_params)
+                    tool_result = tool.execute_with_validation(context, **filtered_params)
+                else:
+                    tool_result = tool.execute(**action_params)
+                duration_ms = round((time.monotonic() - t0) * 1000)
+                self._maybe_run_callback(
+                    "on_tool_end", on_tool_end, action_name, tool_result, duration_ms
+                )
+                tool_result_dict = self._tool_result_to_dict(tool_result)
 
-            # Stop executing tools if a turn was completed (target interaction occurred)
-            if completed_turn is not None:
+            turn_result = self._record_execution(
+                state,
+                reasoning,
+                i,
+                action_name,
+                assistant_message,
+                tool_call_id,
+                tool_result_dict,
+                tool_result,
+            )
+            if turn_result is not None:
                 break
 
         return True
@@ -467,251 +530,90 @@ class TurnExecutor:
         state: TestState,
         tools: List[Tool],
         system_prompt: str,
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
     ) -> bool:
+        """Execute one turn of the agent loop (async).
+
+        Uses ``await model.a_generate`` and ``await tool.a_execute`` for native
+        async execution on the event loop.  Mirrors ``execute_turn`` exactly
+        apart from those two await points and the ``asyncio.to_thread``
+        wrapping of the sync ``AnalysisTool.execute_with_validation``.
         """
-        Async version of execute_turn.
-
-        Uses await self.model.a_generate() and await tool.a_execute() for native
-        async execution on the event loop.
-        """
-        total_executions = len(state.all_executions)
-        if state.context.max_tool_executions is not None:
-            threshold_60 = int(state.context.max_tool_executions * 0.6)
-            threshold_80 = int(state.context.max_tool_executions * 0.8)
-
-            if total_executions == threshold_60:
-                logger.warning(
-                    f"Execution count at {total_executions} "
-                    f"(60% of limit {state.context.max_tool_executions}). "
-                    f"Check if agent is making progress towards the goal."
-                )
-            elif total_executions == threshold_80:
-                logger.warning(
-                    f"Execution count at {total_executions} "
-                    f"(80% of limit {state.context.max_tool_executions}). "
-                    f"Approaching maximum tool executions. "
-                    f"Consider increasing max_tool_executions if this is a complex test."
-                )
-
-        conversation_messages = state.get_conversation_messages()
-
-        if state.current_turn == 0:
-            user_prompt = FIRST_TURN_PROMPT.render()
-        else:
-            user_prompt = SUBSEQUENT_TURN_PROMPT.render(
-                current_turn=state.current_turn + 1,
-                min_turns=state.context.min_turns,
-                max_turns=state.context.max_turns,
-            )
-
-        workflow_guidance = self.workflow_manager.get_tool_guidance(tools)
-        if workflow_guidance:
-            user_prompt += f"\n\nWORKFLOW GUIDANCE:\n{workflow_guidance}"
+        self._maybe_warn_progress(state)
+        prompt = self._build_llm_prompt(state, tools)
 
         try:
-            if conversation_messages:
-                from rhesis.penelope.config import PenelopeConfig
-
-                prompt = user_prompt
-                max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-                context_messages = conversation_messages[-max_messages:] if max_messages > 0 else []
-                for msg in context_messages:
-                    prompt += f"\n\n{msg.role}: {msg.content}"
-            else:
-                prompt = user_prompt
-
             logger.debug(
                 "Sending to LLM (async): model=%s, prompt_len=%d, system_len=%d",
                 self.model.get_model_name(),
                 len(prompt),
                 len(system_prompt),
             )
-
             response = await self.model.a_generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                schema=ToolCall,
+                prompt=prompt, system_prompt=system_prompt, schema=ToolCall
             )
-
         except Exception as e:
             logger.error(f"Model generation failed: {e}")
             state.add_finding(f"Error: Model generation failed - {str(e)}")
             return False
 
-        if not isinstance(response, dict):
-            logger.error(f"Expected dict response, got {type(response)}")
-            state.add_finding(f"Error: Invalid model response type - {type(response)}")
+        parsed = self._parse_response(state, response)
+        if parsed is None:
             return False
-
-        reasoning = response.get("reasoning", "")
-
-        try:
-            tool_calls_data = ResponseParser.parse_tool_calls(response)
-        except ValueError as e:
-            logger.error(f"Invalid response format: {e}")
-            state.add_finding(f"Error: Invalid response format - {str(e)}")
-            return False
-
-        completed_turn = None
+        reasoning, tool_calls_data = parsed
 
         for i, tool_call_data in enumerate(tool_calls_data):
-            action_name = tool_call_data.get("tool_name", "")
-            params_obj = tool_call_data.get("parameters", {})
+            action_name, action_params = self._prepare_tool_call(
+                state, tool_call_data, len(tool_calls_data), i
+            )
+            assistant_message, tool_call_id = self._build_assistant_message(
+                state, action_name, action_params, reasoning, i
+            )
 
-            if action_name == "send_message":
-                logger.warning("Correcting 'send_message' to 'send_message_to_target'")
-                state.add_finding(
-                    "LLM used invalid tool name 'send_message' - "
-                    "corrected to 'send_message_to_target'. "
-                    "This indicates the LLM may not be following tool documentation properly."
-                )
-                action_name = "send_message_to_target"
-                tool_call_data["tool_name"] = "send_message_to_target"
+            tool, ok = self._find_tool_and_validate(state, tools, action_name, action_params)
+            if not ok:
+                return False
 
-            if hasattr(params_obj, "model_dump"):
-                action_params = params_obj.model_dump(exclude_none=True)
-            elif isinstance(params_obj, dict):
-                action_params = params_obj
+            if tool is None:
+                tool_result = None
+                tool_result_dict = self._unknown_tool_result(state, action_name, tools)
             else:
-                logger.warning(f"Unexpected parameters type: {type(params_obj)}")
-                action_params = {}
-
-            if action_name == "send_message_to_target" and state.conversation_id:
-                from rhesis.penelope.conversation import extract_conversation_id
-
-                if not extract_conversation_id(action_params):
-                    action_params["conversation_id"] = state.conversation_id
-                    logger.debug("Injected conversation_id into params")
-                else:
-                    logger.debug("Using existing conversation_id from params")
-
-            if action_name == "send_message_to_target":
-                if action_params.pop("include_files", False) and state.context.files:
-                    action_params["files"] = state.context.files
-                    logger.debug("Injected %d file(s) into params", len(state.context.files))
-
-            if not action_name:
-                logger.warning("Structured output missing tool_name")
-                action_name = "no_action"
-                action_params = {}
-
-            total_executions = len(state.current_turn_executions) + sum(
-                len(turn.executions) for turn in state.turns
-            )
-            tool_call_id = ToolCallIdGenerator.generate_id(total_executions, action_name)
-            assistant_message = AssistantMessage(
-                content=reasoning if i == 0 else f"Continuing with {action_name}",
-                tool_calls=[
-                    MessageToolCall(
-                        id=tool_call_id,
-                        type="function",
-                        function=FunctionCall(
-                            name=action_name,
-                            arguments=json.dumps(action_params),
-                        ),
-                    )
-                ],
-            )
-
-            tool_result = None
-            for tool in tools:
-                if tool.name == action_name:
-                    is_valid, validation_reason = self.workflow_manager.validate_tool_usage(
-                        tool, **action_params
-                    )
-                    if not is_valid:
-                        logger.error(f"Workflow validation failed: {validation_reason}")
-                        state.add_finding(
-                            f"Workflow validation blocked execution: {validation_reason}"
-                        )
-                        return False
-
-                    if isinstance(tool, AnalysisTool):
-                        context = self.workflow_manager.state.get_analysis_context()
-                        filtered_params = {k: v for k, v in action_params.items() if k != "context"}
-                        tool_result = await asyncio.to_thread(
-                            tool.execute_with_validation, context, **filtered_params
-                        )
-                    else:
-                        tool_result = await tool.a_execute(**action_params)
-                    break
-
-            if tool_result is None:
-                available_tools = [tool.name for tool in tools]
-                error_msg = (
-                    f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
-                )
-                if action_name == "send_message":
-                    error_msg += ". Did you mean 'send_message_to_target'?"
-                elif action_name == "analyze_response":
-                    error_msg += ". Analysis tools must be explicitly registered."
-
-                state.add_finding(
-                    f"LLM used unknown tool '{action_name}'. "
-                    f"This indicates the LLM is not following "
-                    f"tool documentation properly. Available tools: {', '.join(available_tools)}"
-                )
-
-                tool_result_dict = {
-                    "success": False,
-                    "output": {},
-                    "error": error_msg,
-                }
-            else:
-                tool_result_dict = {
-                    "success": tool_result.success,
-                    "output": tool_result.output,
-                    "error": tool_result.error,
-                    "metadata": tool_result.metadata,
-                }
-
-            tool_message = ToolMessage(
-                tool_call_id=tool_call_id,
-                name=action_name,
-                content=json.dumps(tool_result_dict),
-            )
-
-            turn_result = state.add_execution(
-                reasoning=reasoning if i == 0 else f"Tool execution: {action_name}",
-                assistant_message=assistant_message,
-                tool_message=tool_message,
-            )
-
-            if state.current_turn_executions:
-                latest_execution = state.current_turn_executions[-1]
-                self.workflow_manager.record_tool_execution(latest_execution)
-            elif turn_result is not None:
-                self.workflow_manager.record_tool_execution(turn_result.target_interaction)
-
-            if turn_result is not None:
-                completed_turn = turn_result
-
-                if tool_result and tool_result.success and hasattr(tool_result, "output"):
-                    from rhesis.penelope.conversation import extract_conversation_id
-
-                    conversation_id = extract_conversation_id(tool_result.output)
-                    if conversation_id:
-                        old_conversation_id = state.conversation_id
-                        state.conversation_id = conversation_id
-                        if old_conversation_id != conversation_id:
-                            logger.debug(
-                                "Updated conversation_id: %s -> %s",
-                                old_conversation_id,
-                                conversation_id,
-                            )
-
-            if self.verbose and self.enable_transparency:
-                current_total = len(state.current_turn_executions) + sum(
-                    len(turn.executions) for turn in state.turns
-                )
-                display_turn(
-                    current_total,
-                    reasoning if i == 0 else f"Tool: {action_name}",
+                self._maybe_run_callback(
+                    "on_tool_start",
+                    on_tool_start,
                     action_name,
-                    tool_result_dict,
+                    action_params,
+                    reasoning if i == 0 else "",
                 )
+                if self.verbose:
+                    param_keys = list(action_params.keys()) if action_params else []
+                    logger.info(f"Executing tool (async): {action_name} (params: {param_keys})")
+                t0 = time.monotonic()
+                if isinstance(tool, AnalysisTool):
+                    context, filtered_params = self._analysis_tool_args(action_params)
+                    tool_result = await asyncio.to_thread(
+                        tool.execute_with_validation, context, **filtered_params
+                    )
+                else:
+                    tool_result = await tool.a_execute(**action_params)
+                duration_ms = round((time.monotonic() - t0) * 1000)
+                self._maybe_run_callback(
+                    "on_tool_end", on_tool_end, action_name, tool_result, duration_ms
+                )
+                tool_result_dict = self._tool_result_to_dict(tool_result)
 
-            if completed_turn is not None:
+            turn_result = self._record_execution(
+                state,
+                reasoning,
+                i,
+                action_name,
+                assistant_message,
+                tool_call_id,
+                tool_result_dict,
+                tool_result,
+            )
+            if turn_result is not None:
                 break
 
         return True

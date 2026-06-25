@@ -31,6 +31,7 @@ describe('isPublicPath', () => {
 
   it('rejects protected paths', () => {
     expect(isPublicPath('/dashboard')).toBe(false);
+    expect(isPublicPath('/insights')).toBe(false);
     expect(isPublicPath('/projects')).toBe(false);
     expect(isPublicPath('/test-runs')).toBe(false);
     expect(isPublicPath('/settings')).toBe(false);

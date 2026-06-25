@@ -1,0 +1,273 @@
+# Authorization (RBAC)
+
+This page documents the backend's role-based access control (RBAC) system: how
+every allow/deny decision is made, where it is enforced, and how to extend it.
+For *authentication* (who the caller is) see
+[Backend Authentication](/contribute/backend/authentication); for tenant data
+isolation see [Multi-tenancy](/contribute/backend/multi-tenancy).
+
+## Mental model: one decision point, one enforcement point
+
+RBAC follows the policy-engine pattern of a single **PDP** (Policy Decision
+Point) and a single **PEP** (Policy Enforcement Point):
+
+- **PDP** — `authorize()` in `app/auth/rbac.py`. Every allow/deny decision in
+  the platform flows through it. Nothing else should contain scattered ownership
+  or role checks.
+- **PEP** — `apply_authz_backstop()` in `app/main.py`. After all routers are
+  registered it injects a permission check on every non-exempt HTTP route, so
+  individual handlers do not need to remember to call the PDP.
+
+The rule of thumb: if you find yourself writing `if user.id == obj.user_id` or
+`if role == "admin"` in a router or service, it belongs in the PDP instead.
+
+## The Principal
+
+A request's identity is resolved **once** into a `Principal`
+(`app/auth/principal.py`) so the PDP never branches on user-vs-token:
+
+```python
+@dataclass(frozen=True)
+class Principal:
+    user_id: UUID
+    organization_id: Optional[UUID]          # None only during onboarding
+    kind: Literal["session", "token"]        # browser/JWT vs rh-* API token
+    scopes: Optional[frozenset[str]] = None  # EE token scoping (SP9)
+    token_project_id: Optional[UUID] = None  # single-project token boundary
+```
+
+Build one with `resolve_principal(user, scopes=..., token_project_id=..., kind=...)`.
+When `organization_id` is `None`, every decision fails closed (deny).
+
+## The PDP — `authorize()`
+
+```python
+authorize(principal, permission, *, project_id, db) -> bool
+```
+
+- `permission` is a `Permission` enum member or a raw `resource:action` string,
+  e.g. `Permission.TestSet.READ` / `"test_set:read"`.
+- `project_id` is the target project for project-scoped permissions, or `None`
+  for org-scoped ones (`organization:update`, `project:create`, ...).
+- Results are cached in Redis (45 s TTL) keyed by
+  `(user_id, org_id, project_id, permission)` — no cross-org pollution. The
+  cache is busted on membership/role writes.
+- Fail-closed: any exception in the active provider returns `False`.
+
+### Providers
+
+`authorize()` delegates to the active `AuthorizationProvider`. One is installed
+per process; EE swaps it in at bootstrap.
+
+**Community — `DefaultAuthorizationProvider`** (`app/auth/rbac.py`):
+
+1. No organization on the principal → deny.
+2. Caller is the org owner (`organization.owner_id == user_id`) → allow anything.
+3. `project_id` given and caller has a `project_membership` row → allow.
+4. `project_id` given, no membership → deny.
+5. `project_id` is `None` and the permission is in `_OWNER_ONLY_CAPABILITIES`
+   (org admin, SSO, API clients, role/recycle management) → deny.
+6. `project_id` is `None`, otherwise → allow (the ORM scope already limits rows
+   to the caller's org).
+
+`role_id` on the membership is ignored in community mode; it is honored by EE.
+
+**EE — `PermissionAuthorizationProvider`** (`ee/backend/.../rbac/provider.py`):
+
+1. RBAC not licensed for the org → delegate to the community provider.
+2. Resolve the effective role: a project membership's `role_id` overrides the
+   org membership's `role_id` (override, not union).
+3. No role at either tier → deny.
+4. Role lacks the permission → deny.
+5. Token carries `scopes` and the permission is not in them → deny (SP9).
+6. Otherwise → allow.
+
+Built-in role permission sets are computed from code
+(`permissions_for_built_in_role`), not from stored `role_permission` rows; custom
+roles resolve through the `role_permission` join.
+
+## The PEP — backstop and `require_permission`
+
+`apply_authz_backstop()` walks every `APIRoute` and injects a parameterless
+`require_permission(capability)` dependency, resolving the capability from the
+route (see the catalog below). Routes in `PUBLIC_ROUTES` (no auth) and
+`AUTHZ_EXEMPT_ROUTES` (authenticated but deliberately exempt, e.g. onboarding)
+are skipped. A route with no resolvable capability is left ungated and the CI
+drift guard (`tests/backend/security/test_authz_coverage.py`) fails the build —
+so coverage cannot silently regress.
+
+On denial the dependency raises `403` with a GitHub-style
+`X-Accepted-Permissions` header naming the missing capability:
+
+```
+HTTP/1.1 403 Forbidden
+X-Accepted-Permissions: test_set:delete
+{"detail": "Permission denied: test_set:delete"}
+```
+
+`project_id` for the check is read from the ambient request scope via the shared
+`project_id_from_scope(db)` helper (also used by object-level checks), which
+coerces `db.info['_scope'].project_id` to a `UUID` or `None`.
+
+## The capability catalog
+
+Capabilities are `resource:action` strings (`app/auth/capabilities.py`).
+
+- `RhesisRouter` stamps `x-rhesis-resource` on every route; the HTTP verb maps
+  to an action (`GET→read`, `POST→create`, `PUT/PATCH→update`, `DELETE→delete`).
+- Non-CRUD routes carry an explicit override via `**capability(...)`:
+
+```python
+@router.post("/{test_configuration_id}/execute", **capability(Permission.TestRun.EXECUTE))
+def execute_test_configuration_endpoint(...): ...
+```
+
+`register_capabilities(app)` (called once from `main.py`) builds the catalog as
+the union of route-derived capabilities and every member of the `Permission`
+enum (some capabilities are checked in service code rather than gated on a
+route — `member:manage`, `role:manage`, `recycle:view`, ...).
+
+### Migration discipline (locked)
+
+The `permission` table is **migration-managed, not synced at startup**. When you
+add or remove a capability — a new router, a new `**capability()` override, a
+changed HTTP method — you must add a follow-up data migration that inserts or
+retires the affected row(s), chained off the current head. For example the
+object-level comment capabilities were added by
+`alembic/versions/8e9f0a1b2c3d_add_own_comment_capabilities.py`:
+
+```python
+INSERT INTO permission (id, name, display_name, resource_type, action, scope,
+                        is_retired, created_at, updated_at)
+VALUES (gen_random_uuid(), 'comment:update:own', 'Update own comment',
+        'comment', 'update:own', 'project', false, now(), now())
+ON CONFLICT (name) DO NOTHING
+```
+
+`tests/backend/security/test_capability_catalog.py` fails CI if the code catalog
+and the DB catalog disagree, and prints exactly which rows to insert or retire.
+
+## Built-in roles
+
+Five built-in roles ship globally (`organization_id IS NULL`), seeded by
+migration. Their permission sets are computed from code
+(`ee/.../rbac/models.py:permissions_for_built_in_role`) and nest
+`Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None`:
+
+| Role | Level | Permissions |
+|------|-------|-------------|
+| Owner | 100 | Everything |
+| Admin | 80 | Everything except `role:manage`, `role:read`, `sso:manage`, `api_clients:manage` |
+| Member | 60 | Viewer + create/update/delete/execute/generate/import/react on every project-scoped resource |
+| Viewer | 40 | Every `:read` except `role:read`/`token:read`, plus `recycle:view` |
+| None | 0 | Nothing |
+
+> **Cut-over note.** When RBAC is activated for an existing org, the backfill
+> migration (`371c3c3cd787`) assigns the org owner the **Owner** role and **every
+> other existing member the Admin role** — intentionally, so no current user
+> loses access at the moment RBAC turns on. New members invited afterwards are
+> seeded as **Member** (see `ee/.../rbac/default_role.py`), not Admin. Tighten
+> existing members from Admin to Member via the role-management API after
+> cut-over if least-privilege is required.
+
+## Object-level ownership (`:own`)
+
+Some resources have creator semantics: a user may edit only the comments they
+wrote. Rather than scattered `obj.user_id == user.id` checks, use the single
+helper `authorize_object()`:
+
+```python
+principal = resolve_principal(current_user)
+project_id = project_id_from_scope(db)
+if not authorize_object(
+    principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
+):
+    raise HTTPException(403, "Not authorized to update this comment")
+```
+
+`authorize_object()` enforces strict ownership **first** (`obj.user_id ==
+principal.user_id`) and only then delegates the `:own`-qualified capability to
+the PDP. There is no admin bypass — even an org owner is denied another user's
+comment. `:own`-qualified capabilities (`comment:update:own`,
+`comment:delete:own`) are granted to Owner/Admin/Member but not Viewer.
+
+## Token scoping (EE, SP9)
+
+`rh-*` API tokens may carry an explicit `scopes` list (JSONB on the `token`
+table). The EE provider intersects `principal.scopes` with the role's
+permissions, so a token can only ever narrow access, never widen it:
+
+- At creation, requested scopes must be a subset of the issuer's own effective
+  permissions (`scopes ⊆ issuer`, enforced in `routers/token.py`).
+- Auto-narrow on downgrade is free: the role check runs first, so a stale wide
+  scope on a downgraded user's token cannot re-grant a removed permission.
+- The community provider ignores scopes entirely.
+
+**M2M / token-exchange JWT clients** are narrowed by their **service user's
+role**, not by capability scopes. Their JWT branch does not populate
+`principal.scopes`, so the intersection is not applied. This is by design
+(Decision A, locked): assign the service user a low-privilege role (Viewer or a
+custom role) to restrict M2M access. Per-token capability narrowing below the
+service user's role is available for `rh-*` tokens only. If a concrete
+requirement for sub-role M2M narrowing appears, the hybrid option (optional
+`rbac_scopes` on `AuthClient`) can be added without changing the PDP.
+
+## Non-HTTP enforcement surfaces
+
+**Celery.** Tasks are authorized at **enqueue time**, not execution time: the
+HTTP route that calls `.delay()` / `task_launcher()` is gated by the PEP
+backstop, so a caller without permission never reaches the enqueue. When a
+route's action differs from its verb (e.g. executing a test configuration),
+give it an explicit `**capability()` so the gate is semantically correct.
+
+**WebSocket.** `ChannelAuthorizer`
+(`app/services/websocket/authorization.py`) authorizes each subscription with
+true per-project separation:
+
+- `user:\{id\}` / `org:\{id\}` channels must match the caller's own user / org.
+- Protected resource channels (`test_run:\{id\}`, `test_set:\{id\}`,
+  `architect:\{id\}`, `project:\{id\}`) resolve the resource's owning project and
+  call `authorize()` against *that* project. The lookup bypasses the ORM
+  auto-filter but applies an explicit `organization_id` filter, so a resource
+  not visible in the caller's org is denied (fail-closed — this also blocks
+  cross-org subscription).
+- `preflight:\{id\}` channels are ephemeral (no persisted row); they fall back to
+  an org-scoped check.
+
+## RBAC ships dark
+
+`DefaultLicenseProvider` returns `False` for `FeatureName.RBAC`, so on deploy
+every org delegates to the community provider and behaviour is unchanged. The
+EE catalog, role tables, and provider deploy inert until a license provider
+turns RBAC on for an org. See [Feature gating](/contribute/backend/architecture)
+and the EE `bootstrap()`.
+
+## Adding a new gated capability
+
+1. Add the member to the right nested class in `Permission`
+   (`app/auth/capabilities.py`).
+2. Gate it: for CRUD routes the `RhesisRouter` resource stamp is enough; for
+   non-CRUD routes add `**capability(Permission.X.Y)`; for service-code checks
+   call `authorize(...)` directly.
+3. Add a data migration that inserts the `permission` row, chained off the
+   current head.
+4. If a built-in role should hold it, confirm `permissions_for_built_in_role`
+   already covers it (project-scoped CRUD/action verbs are automatic) or adjust
+   that function.
+5. Run `tests/backend/security/test_capability_catalog.py` (drift guard) and add
+   a deny-first test.
+
+## Testing
+
+Deny-first is mandatory: every new capability or guard gets a negative test.
+
+- `tests/backend/security/test_deny_matrix.py` — auto-generated from the
+  `Permission` enum; asserts a no-role EE principal is denied for **every**
+  declared capability, plus the `X-Accepted-Permissions` header.
+- `tests/backend/security/test_capability_catalog.py` — catalog/DB drift guard.
+- `tests/backend/security/test_authz_coverage.py` — every route maps to a
+  capability or is explicitly exempt.
+- `tests/backend/auth/test_authorize_object.py` — object-level `:own`.
+- `tests/backend/ee/rbac/test_sp9_token_scoping.py` — token scope intersection.
+- `tests/backend/services/websocket/test_sp11_channel_authz.py` — per-project
+  WebSocket channel authorization.

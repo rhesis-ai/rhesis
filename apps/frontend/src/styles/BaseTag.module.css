@@ -1,18 +1,22 @@
 /* Tag chip styling */
 .baseTag {
-  height: 24px;
+  height: 26px !important;
   max-width: 200px;
+  border-radius: 4px !important;
+  padding: 0 !important;
 }
 
 .baseTag :global(.MuiChip-label) {
-  padding: 0px 10px;
-  font-size: 0.8125rem;
+  padding: 0 2px 0 10px;
+  font-size: 0.875rem;
+  line-height: 22px;
 }
 
 .baseTag :global(.MuiChip-deleteIcon) {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 4px 0 2px !important;
 }
 
 /* Field container styling */
@@ -62,25 +66,27 @@
 }
 
 .modalTag {
-  height: 24px;
+  height: 26px !important;
   max-width: 200px;
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
+  border-radius: 4px !important;
+  padding: 0 !important;
 }
 
 .modalTag :global(.MuiChip-label) {
-  padding: 0px 10px;
+  padding: 0 2px 0 10px;
   font-size: 0.875rem;
-  line-height: 1.4375;
+  line-height: 22px;
   font-weight: 400;
   display: flex;
   align-items: center;
 }
 
 .modalTag :global(.MuiChip-deleteIcon) {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  margin: 0 4px 0 -4px;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 4px 0 2px !important;
 }

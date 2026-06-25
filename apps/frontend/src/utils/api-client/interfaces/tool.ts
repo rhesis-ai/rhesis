@@ -27,7 +27,14 @@ export interface ToolMetadata {
     repo?: string;
     [key: string]: unknown;
   };
+  project?:
+    | {
+        namespace?: string;
+        [key: string]: unknown;
+      }
+    | string;
   space_key?: string;
+  workspace_gid?: string;
   [key: string]: unknown;
 }
 
@@ -37,7 +44,6 @@ export interface Tool {
   updated_at: string;
   name: string;
   description?: string;
-  tool_type_id: UUID;
   tool_provider_type_id: UUID;
   status_id?: UUID;
   tool_metadata?: ToolMetadata;
@@ -45,7 +51,6 @@ export interface Tool {
   user_id?: UUID;
 
   // Relationships
-  tool_type?: TypeLookup;
   tool_provider_type?: TypeLookup;
   status?: Status;
   user?: User;
@@ -54,7 +59,6 @@ export interface Tool {
 export interface ToolCreate {
   name: string;
   description?: string;
-  tool_type_id: UUID;
   tool_provider_type_id: UUID;
   status_id?: UUID;
   credentials: Record<string, unknown>;
@@ -66,7 +70,6 @@ export interface ToolCreate {
 export interface ToolUpdate {
   name?: string;
   description?: string;
-  tool_type_id?: UUID;
   tool_provider_type_id?: UUID;
   status_id?: UUID;
   credentials?: Record<string, unknown>;

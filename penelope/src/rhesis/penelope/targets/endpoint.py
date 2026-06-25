@@ -9,7 +9,7 @@ Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from rhesis.sdk.entities import Endpoint
 from rhesis.sdk.targets import Target, TargetResponse
@@ -114,7 +114,7 @@ class EndpointTarget(Target):
         self,
         message: str,
         conversation_id: Optional[str] = None,
-        files: Optional[List[Dict[str, str]]] = None,
+        files: Optional[List] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """

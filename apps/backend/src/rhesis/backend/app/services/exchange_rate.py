@@ -6,7 +6,7 @@ Caches rates for 24 hours and provides fallback to environment variable or defau
 
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -45,7 +45,7 @@ class ExchangeRateService:
             rate = self._fetch_rate_from_api()
             if rate:
                 self._usd_to_eur_rate = rate
-                self._last_fetch = datetime.utcnow()
+                self._last_fetch = datetime.now(timezone.utc)
                 logger.info(f"Fetched fresh exchange rate: 1 USD = {rate:.4f} EUR")
                 return rate
         except Exception as e:
@@ -64,7 +64,7 @@ class ExchangeRateService:
             "(from USD_TO_EUR_RATE env var or default)"
         )
         self._usd_to_eur_rate = fallback_rate
-        self._last_fetch = datetime.utcnow()
+        self._last_fetch = datetime.now(timezone.utc)
         return fallback_rate
 
     def _is_cache_valid(self) -> bool:
@@ -72,7 +72,7 @@ class ExchangeRateService:
         if not self._usd_to_eur_rate or not self._last_fetch:
             return False
 
-        age = datetime.utcnow() - self._last_fetch
+        age = datetime.now(timezone.utc) - self._last_fetch
         return age < self._cache_duration
 
     def _fetch_rate_from_api(self) -> Optional[float]:
@@ -163,7 +163,7 @@ class ExchangeRateService:
             rate = await self._fetch_rate_from_api_async()
             if rate:
                 self._usd_to_eur_rate = rate
-                self._last_fetch = datetime.utcnow()
+                self._last_fetch = datetime.now(timezone.utc)
                 logger.info(f"Fetched fresh exchange rate: 1 USD = {rate:.4f} EUR")
                 return rate
         except Exception as e:
@@ -181,7 +181,7 @@ class ExchangeRateService:
             "(from USD_TO_EUR_RATE env var or default)"
         )
         self._usd_to_eur_rate = fallback_rate
-        self._last_fetch = datetime.utcnow()
+        self._last_fetch = datetime.now(timezone.utc)
         return fallback_rate
 
     def refresh_rate(self) -> None:

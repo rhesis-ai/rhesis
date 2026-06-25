@@ -1,6 +1,6 @@
 # Import existing routers
-from .explorer import router as explorer_router
 from .architect import router as architect_router
+from .capabilities import router as capabilities_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
 from .category import router as category_router
@@ -9,6 +9,9 @@ from .connector import router as connector_router
 from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
+from .experiments import router as experiments_router
+from .explorer import router as explorer_router
+from .features import router as features_router
 from .feedback import router as feedback_router
 from .file import router as file_router
 from .file_import import router as file_import_router
@@ -21,6 +24,13 @@ from .job import router as task_router
 from .metric import router as metric_router
 from .model import router as model_router
 from .organization import router as organization_router
+from .parameters import (
+    project_experiments_router as project_experiments_router,
+)
+from .parameters import (
+    router as parameters_router,
+)
+from .preflight import router as preflight_router
 from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
@@ -29,6 +39,10 @@ from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
 from .source import router as source_router
+
+# EE-feature routers are not imported here; they are registered by
+# ``rhesis.backend.app.ee_bootstrap.bootstrap_ee`` from the optional
+# ``rhesis-backend-ee`` package.
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router
@@ -74,6 +88,8 @@ __all__ = [
     "home",
     "services",
     "organization",
+    "parameters",
+    "experiments",
     "project",
     "type_lookup",
     "test",
@@ -83,10 +99,13 @@ __all__ = [
     "task",
     "task_management",
     "garak",
+    "capabilities",
+    "features",
     "file",
     "file_import",
     "explorer",
     "architect",
+    "preflight",
 ]
 
 # Export all routers for use in main.py
@@ -119,6 +138,10 @@ routers = sorted(
         home_router,
         services_router,
         organization_router,
+        preflight_router,
+        parameters_router,
+        project_experiments_router,
+        experiments_router,
         project_router,
         test_router,
         test_context_router,
@@ -130,12 +153,14 @@ routers = sorted(
         tools_router,
         recycle_router,
         garak_router,
+        features_router,
         feedback_router,
         file_router,
         file_import_router,
         websocket_router,
         explorer_router,
         architect_router,
+        capabilities_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

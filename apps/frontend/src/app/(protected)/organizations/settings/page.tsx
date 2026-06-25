@@ -1,16 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
-import { alpha } from '@mui/material/styles';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { Alert, Box, CircularProgress } from '@mui/material';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Organization } from '@/utils/api-client/interfaces/organization';
-import OrganizationDetailsForm from './components/OrganizationDetailsForm';
-import ContactInformationForm from './components/ContactInformationForm';
-import DangerZone from './components/DangerZone';
+import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
+import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
@@ -18,7 +16,6 @@ export default function OrganizationSettingsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get organization name for breadcrumbs
   const organizationName = organization?.name || 'Organization';
 
   const fetchOrganization = useCallback(
@@ -59,88 +56,66 @@ export default function OrganizationSettingsPage() {
   }, [fetchOrganization]);
 
   const handleUpdate = useCallback(() => {
-    // Silently refresh organization data without showing loading spinner
     fetchOrganization(false);
   }, [fetchOrganization]);
 
   const breadcrumbs = [
-    { title: organizationName, path: '/organizations' },
-    { title: 'Organization Settings', path: '/organizations/settings' },
+    { label: organizationName, href: '/organizations' },
+    { label: 'Organization Settings', href: '/organizations/settings' },
   ];
+
+  const pageHeader = {
+    title: 'Organization Settings',
+    description:
+      "Manage your organization's profile, contact details, and security settings.",
+    breadcrumbs,
+  };
 
   if (initialLoading) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout {...pageHeader}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (error) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout {...pageHeader}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (!organization) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout {...pageHeader}>
         <Alert severity="warning" sx={{ mb: 3 }}>
           No organization found. Please contact support.
         </Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
-      {/* Basic Information Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Basic Information
-        </Typography>
-        <OrganizationDetailsForm
+    <PageLayout {...pageHeader}>
+      <OrgSettingsProvider
+        value={{
+          organization,
+          sessionToken: session?.session_token || '',
+          onUpdate: handleUpdate,
+        }}
+      >
+        <OrganizationSettingsTabs
           organization={organization}
           sessionToken={session?.session_token || ''}
           onUpdate={handleUpdate}
         />
-      </Paper>
-
-      {/* Contact Information Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Contact Information
-        </Typography>
-        <ContactInformationForm
-          organization={organization}
-          sessionToken={session?.session_token || ''}
-          onUpdate={handleUpdate}
-        />
-      </Paper>
-
-      {/* Danger Zone Section */}
-      <Paper sx={{ p: 3 }}>
-        <Box
-          sx={{
-            border: '1px solid',
-            borderColor: 'error.light',
-            borderRadius: theme => theme.shape.borderRadius,
-            p: 3,
-            backgroundColor: theme => alpha(theme.palette.error.main, 0.05),
-          }}
-        >
-          <DangerZone
-            organization={organization}
-            sessionToken={session?.session_token || ''}
-          />
-        </Box>
-      </Paper>
-    </PageContainer>
+      </OrgSettingsProvider>
+    </PageLayout>
   );
 }

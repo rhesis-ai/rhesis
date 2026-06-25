@@ -1,0 +1,102 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# API Clients (Token Exchange)
+
+## Overview
+
+The **API Clients** feature lets a tenant integrate machine-to-machine workloads with Rhesis without minting long-lived Rhesis API tokens by hand. The integration ships its own OIDC access token (issued by the tenant's IdP, validated against the tenant's SSO config) and trades it via [RFC 8693 token exchange](https://datatracker.ietf.org/doc/html/rfc8693) for a short-lived Rhesis JWT.
+
+Two sister flows exist:
+
+- **`POST /auth/token-exchange`** -- accepts a Keycloak (or other OIDC) access token plus client credentials, returns a Rhesis access token bound to those credentials.
+- **`POST /auth/refresh`** -- when refreshing a token-exchange-minted refresh token, requires the same `AuthClient` to re-authenticate via HTTP Basic.
+
+This page is the contributor reference; for end-user setup see the corresponding section under `docs/`.
+
+## Why this exists
+
+Before this feature, an integration had three options, each unsatisfying:
+
+1. **Use a Rhesis API token** (issued from `/tokens/`). Long-lived, opaque to the customer's IdP, can't be revoked from Keycloak, and surfaces in the customer's audit trail as "shared secret" rather than "user X via app Y".
+2. **Use SSO with the user's actual session.** Requires a real browser on the integration side -- impossible for backend workers.
+3. **Pretend to be a user via the SSO callback.** Requires forging the OIDC dance entirely server-side, defeats the audit trail.
+
+Token exchange solves all three: the IdP-issued subject token *is* the integration's identity, Rhesis trusts it because the SSO config already trusts the IdP, and the resulting Rhesis JWT carries claims (`azp`, `scope`, `epoch`) that bind it to the issuing client and let it be revoked coarsely via secret rotation.
+
+## Where things live
+
+| Concern | Module |
+|---|---|
+| `AuthClient` ORM model + secret hashing + constant-time auth | `ee/backend/src/rhesis/backend/ee/api_clients/clients.py` |
+| CRUD HTTP API (org-scoped) | `ee/backend/src/rhesis/backend/ee/api_clients/router.py` |
+| Pydantic request / response shapes | `ee/backend/src/rhesis/backend/ee/api_clients/schemas.py` |
+| Audit log (`auth_client.*`, `token_exchange.*`) | `ee/backend/src/rhesis/backend/ee/api_clients/audit.py` |
+| `/auth/token-exchange` orchestrator (pure, no FastAPI) | `ee/backend/src/rhesis/backend/ee/sso/token_exchange/exchange.py` |
+| `/auth/token-exchange` HTTP router | `ee/backend/src/rhesis/backend/ee/sso/token_exchange/router.py` |
+| `/auth/refresh` client-bound minter (registered into core via hook) | `ee/backend/src/rhesis/backend/ee/api_clients/refresh_minter.py` |
+| Cache headers middleware (`Cache-Control: no-store` etc.) | `ee/backend/src/rhesis/backend/ee/api_clients/cache_headers.py` |
+| Refresh-client minter hook (single-slot, declared in core) | `apps/backend/src/rhesis/backend/app/auth/refresh_client_hook.py` |
+
+The orchestrator deliberately has zero FastAPI imports. The router does the parsing, header munging, and exception-to-status-code mapping; the orchestrator runs the security checks and returns a value object. This split lets the orchestrator be unit-tested without a `TestClient`.
+
+## Feature gating
+
+`FeatureName.API_CLIENTS` is registered in `ee/backend/src/rhesis/backend/ee/__init__.py:bootstrap()` with a runtime check that requires SSO to also be enabled for the org -- because the token-exchange flow can't validate a subject token without an `SSOConfig`. The CRUD endpoints check this with `Depends(require_feature(FeatureName.API_CLIENTS))`; the `/auth/token-exchange` data-plane endpoint enforces it inside the orchestrator (after org resolution, before client authentication) because the gate is per-resolved-org, not per-route. A feature-disabled org's exchange request is rejected with `invalid_target` / `feature_unavailable` regardless of whether a matching `auth_client` row exists, so the response cannot be probed for client existence.
+
+The frontend mirror lives at `apps/frontend/src/constants/features.ts`.
+
+## Security checks (in order)
+
+The `run_token_exchange` orchestrator runs these in a fixed order; reordering changes the timing-oracle surface area or skips a security check entirely.
+
+1. **Request-shape validation.** `grant_type`, `subject_token_type`, `requested_token_type`, `audience` shape, and presence of `client_id` / `client_secret`. Rejection here returns `invalid_request` without authenticating any client.
+2. **Org resolution.** The `audience` parameter (`rhesis:org:<slug>`) resolves to an `Organization`; missing / inactive / no-SSO-config orgs return `invalid_target`. The org is resolved BEFORE client authentication so the `(organization_id, client_id)` lookup in step 4 hits the right row even when two tenants share a `client_id` (the unique constraint on `auth_client` is per-org).
+3. **Feature availability.** `FeatureRegistry.is_available(FeatureName.API_CLIENTS, org)` MUST return `True` for the resolved org. The check runs before client authentication so a feature-disabled org returns the same uniform `invalid_target` whether or not a matching `auth_client` row exists -- the response cannot be probed for client existence. License enforcement plugs in here without further changes to the orchestrator.
+4. **Client authentication.** `authenticate_client(db, org_id, client_id, secret)` does a constant-time lookup (always hashes against a dummy when the row is missing) and `hmac.compare_digest` on the decrypted hash. Failure returns `invalid_client` (HTTP 401). Because the lookup is org-scoped, attacker A5 (cross-org mint) is denied at this layer rather than via a separate post-auth check.
+5. **Subject-token validation.** Goes through the shared `verify_oidc_jwt` helper (algorithm allowlist, header preflight, issuer match, JWKS rotation). The `audience` claim is checked when the AuthClient declares `expected_subject_audience`.
+6. **Subject-token client binding.** `claims["azp"]` MUST equal `AuthClient.expected_subject_azp`. This is the only mitigation against attacker A3 (a co-tenant integration replaying its own valid Keycloak token here).
+7. **Subject-token replay protection.** `claim_token_jti(jti, ttl=min(remaining, 600))` against Redis. Reuse returns `invalid_grant`. If Redis is down we **fail open** with a warning log -- matching the existing `auth_code` policy. The `/health` endpoint surfaces `redis_replay_store: degraded` so operators see it.
+8. **User resolution.** Wraps the SSO callback's `find_or_create_sso_user` so domain allowlist, cross-org collision, auto-provision gate, and `is_active` checks all run in one place.
+9. **Scope validation.** Each requested scope MUST be in `AuthClient.allowed_scopes`. If the caller omits `scope`, we use `default_scope` (validated to be a member of `allowed_scopes` at creation time).
+10. **JWT mint.** `create_session_token(user, azp=..., aud=RHESIS_TOKEN_AUDIENCE, scope=..., jti=..., epoch=AuthClient.token_epoch)`. The `epoch` claim is what makes coarse client-level revocation work: bumping `token_epoch` invalidates every previously-issued token via the `iat >= epoch` check on verify. `verify_jwt_token` rejects any `azp`-bearing token that lacks `epoch` so a buggy or compromised mint path cannot produce a non-revocable token.
+11. **Refresh token (only when `offline_access` is in scope).** Persisted with `client_id` and `scope` so the refresh path can preserve them on rotation and require Basic auth.
+
+Every rejection emits exactly one `token_exchange.denied` audit event with a stable `reason_code`; success emits one `token_exchange.success`. The HTTP body is always minimal (`{"error": "<rfc6749_code>"}`) so it cannot serve as a probe oracle.
+
+## Refresh flow
+
+`POST /auth/refresh` in core (`apps/backend/src/rhesis/backend/app/routers/auth.py`) fans out:
+
+- **`RefreshToken.client_id IS NULL`** (UI / SSO refresh tokens): legacy behaviour unchanged. No Basic auth required, plain session JWT minted.
+- **`RefreshToken.client_id IS NOT NULL`** (token-exchange-minted): delegates to the EE-registered minter via `get_refresh_client_minter()`. The minter requires HTTP Basic, verifies the credential matches the row's `client_id`, calls `authenticate_client`, and re-mints with the AuthClient's *current* `token_epoch` (so a secret rotation invalidates the chain on the next refresh).
+
+If the EE minter is not registered (Community-only deployment) but a client-bound refresh token is presented, the endpoint returns 503 -- silently falling back to the unbound minter would erase the client binding.
+
+## Coarse revocation
+
+`AuthClient.token_epoch` is a `BigInteger` updated whenever the secret rotates (via `POST /organizations/{id}/auth-clients/{id}/rotate`). The `epoch` claim embedded in every issued JWT is checked against the AuthClient row at verify time only when `azp` is present (`iat >= epoch`). Bumping the epoch therefore invalidates every previously issued JWT for that client -- no DB lookup at verify time, no cache to flush.
+
+## Data at rest
+
+`AuthClient.client_secret_hash` is wrapped in `EncryptedString()` (Fernet, `DB_ENCRYPTION_KEY`) for defense in depth: the value is already a one-way SHA-256 hash, so encrypting it doesn't add cryptographic strength, but it does mean a database dump alone cannot be replayed against the application. The application-side comparison decrypts the hash and uses `hmac.compare_digest`. Plaintext secrets are never persisted; the one-shot creation response is the only time a caller sees the raw value.
+
+Other `AuthClient` fields (e.g. `name`, `expected_subject_azp`) are kept plaintext because they aren't secrets and are queried for indexing or display.
+
+## Cache headers
+
+`TokenEndpointCacheHeadersMiddleware` (registered in EE bootstrap, scoped to `/auth/token-exchange` and `/auth/refresh`) stamps `Cache-Control: no-store`, `Pragma: no-cache`, `X-Content-Type-Options: nosniff` on every response from those paths regardless of status. RFC 6749 §5.1 requires this on token endpoints; doing it in middleware (rather than per-handler) catches the FastAPI-emitted 422 / 429 / 405 paths that no handler-side code ever runs through.
+
+## Audit log
+
+Two event families share `audit.py`:
+
+- `AuthClientLifecycleEvent` -- `auth_client.{created,rotated,disabled,enabled,deleted}`
+- `TokenExchangeEvent` -- `token_exchange.{success,denied}`
+
+Forbidden fields (anywhere in audit output): raw email, raw `subject_token` / `access_token` / `refresh_token`, plaintext `client_secret`, full `client_secret_hash`. Email is hashed via HMAC-SHA256 using `AUDIT_HASH_KEY` (separate from `JWT_SECRET_KEY` so it can rotate independently). EE bootstrap refuses to start in production if `AUDIT_HASH_KEY` is unset.
+
+## Cross-references
+
+- See [Authentication](./authentication) for the broader auth model (sessions, refresh chains, SSO callback).
+- See [Database field encryption](./database-field-encryption) for how `EncryptedString` works under the hood.
+- See [Security](./security) for the threat-model conventions (S1, A3, A5 references above).

@@ -11,6 +11,7 @@ from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.deepeval.model import DeepEvalModelWrapper
+from rhesis.sdk.metrics.utils import resilient_evaluation
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -22,13 +23,6 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         config: MetricConfig,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
-        """
-        Initialize DeepEval conversational metric.
-
-        Args:
-            config: Metric configuration
-            model: Language model for evaluation
-        """
         super().__init__(config=config, model=model)
         self._deepeval_model = DeepEvalModelWrapper(self._model)
         self._metric = None  # Will be set by child classes
@@ -58,20 +52,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
     def _to_deepeval_format(
         self, conversation: ConversationHistory, chatbot_role: Optional[str] = None, **kwargs: Any
     ) -> ConversationalTestCase:
-        """
-        Convert standard message format to DeepEval format.
-
-        Iterates over the original messages to preserve ``tool_calls`` data,
-        mapping Rhesis ``tool_calls`` to DeepEval's ``tools_called`` field.
-
-        Args:
-            conversation: Conversation in standard format
-            chatbot_role: Optional role for the chatbot
-            **kwargs: Additional parameters for ConversationalTestCase
-
-        Returns:
-            DeepEval ConversationalTestCase
-        """
+        """Convert standard message format to DeepEval format."""
         deepeval_turns = []
         for msg in conversation.messages:
             role, content, _ = ConversationHistory._msg_attrs(msg)
@@ -84,16 +65,14 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
                     turn_kwargs["tools_called"] = tc
             deepeval_turns.append(DeepEvalTurn(**turn_kwargs))  # type: ignore
 
-        # Build test case parameters
         test_case_params: Dict[str, Any] = {"turns": deepeval_turns}
         if chatbot_role:
             test_case_params["chatbot_role"] = chatbot_role
-
-        # Add any additional kwargs
         test_case_params.update(kwargs)
 
         return ConversationalTestCase(**test_case_params)
 
+    @resilient_evaluation
     def evaluate(
         self,
         conversation_history: ConversationHistory,
@@ -103,44 +82,33 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         chatbot_role: Optional[str] = None,
         **kwargs: Any,
     ) -> MetricResult:
-        """
-        Evaluate conversation using DeepEval metric.
-
-        Args:
-            conversation_history: Conversation to evaluate
-            goal: Optional goal (used by some metrics)
-            instructions: Optional instructions (used by some metrics)
-            context: Optional context (used by some metrics)
-            chatbot_role: Optional chatbot role (required for Role Adherence)
-            **kwargs: Additional parameters
-
-        Returns:
-            MetricResult with DeepEval evaluation
-        """
         if self._metric is None:
             raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
 
-        # Convert to DeepEval format, passing chatbot_role if provided
+        if conversation_history is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires conversation_history to evaluate. "
+                "No conversation history was provided."
+            )
+
         test_case = self._to_deepeval_format(
             conversation_history, chatbot_role=chatbot_role, **kwargs
         )
 
-        # Run DeepEval's measure method
         self._metric.measure(test_case)
 
-        # Extract results
         return MetricResult(
             score=self._metric.score,
             details={
                 "reason": getattr(self._metric, "reason", ""),
                 "is_successful": self._metric.is_successful(),
                 "threshold": getattr(self._metric, "threshold", None),
-                # DeepEval-specific details
                 "verdicts": getattr(self._metric, "verdicts", []),
                 "window_size": getattr(self._metric, "window_size", None),
             },
         )
 
+    @resilient_evaluation
     async def a_evaluate(
         self,
         conversation_history: ConversationHistory,
@@ -157,6 +125,12 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         """
         if self._metric is None:
             raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
+
+        if conversation_history is None:
+            raise ValueError(
+                f"{self.__class__.__name__} requires conversation_history to evaluate. "
+                "No conversation history was provided."
+            )
 
         metric_copy = copy.copy(self._metric)
 

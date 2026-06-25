@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -66,13 +67,15 @@ class ConnectorManager:
         self._executor = TestExecutor()
         self._tracer = Tracer(
             api_key=api_key,
-            project_id=project_id or "",
+            project_id=project_id,
             environment=environment,
             base_url=base_url,
         )
 
         self._connection: WebSocketConnection | None = None
         self._connection_id: str | None = None
+        self._organization_id: str | None = None
+        self._user_id: str | None = None
         self._initialized = False
 
     def initialize(self) -> None:
@@ -112,6 +115,22 @@ class ConnectorManager:
     def connection_id(self) -> str | None:
         """The server-assigned connection ID, available after connect."""
         return self._connection_id
+
+    def _build_endpoint_context(self):
+        """Build an ``EndpointContext`` from the connection's identity.
+
+        Returns ``None`` if the server has not yet sent identity fields
+        (e.g. connecting to an older backend).
+        """
+        if not self._organization_id or not self._user_id:
+            return None
+        from rhesis.sdk.context import EndpointContext
+
+        return EndpointContext(
+            organization_id=self._organization_id,
+            user_id=self._user_id,
+            project_id=self.project_id or "",
+        )
 
     def _ensure_connection(self) -> None:
         """Ensure WebSocket connection is started (if not already)."""
@@ -220,7 +239,12 @@ class ConnectorManager:
             cid = message.get("connection_id")
             if cid:
                 self._connection_id = cid
-            logger.debug(f"Connected (connection_id={self._connection_id})")
+            self._organization_id = message.get("organization_id")
+            self._user_id = message.get("user_id")
+            logger.debug(
+                f"Connected (connection_id={self._connection_id}, "
+                f"org={self._organization_id}, user={self._user_id})"
+            )
         elif message_type == MessageType.REGISTERED.value:
             logger.debug(f"Received acknowledgment: {message_type}")
         else:
@@ -233,6 +257,12 @@ class ConnectorManager:
         Args:
             message: Test execution message
         """
+        from rhesis.sdk.models.parameters import (
+            ParameterSchema,
+            ResolvedParameters,
+            validate_values_against_schema,
+        )
+
         try:
             test_msg = ExecuteTestMessage(**message)
             function_name = test_msg.function_name
@@ -240,6 +270,25 @@ class ConnectorManager:
             inputs = test_msg.inputs
 
             logger.info(f"Executing test for function: {function_name}")
+
+            resolved_params = None
+            if test_msg.parameter_experiment_id and test_msg.parameter_schema:
+                try:
+                    schema = ParameterSchema.model_validate(test_msg.parameter_schema)
+                    typed_values = validate_values_against_schema(test_msg.parameters, schema)
+                    src = test_msg.parameter_source or "version"
+                    if src == "label":
+                        src = "environment"
+                    resolved_params = ResolvedParameters(
+                        values=typed_values,
+                        experiment_id=uuid.UUID(str(test_msg.parameter_experiment_id)),
+                        version=test_msg.parameter_version or "",
+                        source=src,
+                        source_environment=test_msg.parameter_source_environment,
+                        schema=schema,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to parse resolved parameters: {e}")
 
             # Validate function exists
             if not self._registry.has(function_name):
@@ -266,9 +315,47 @@ class ConnectorManager:
                 )
                 return
 
-            result = await self._executor.execute(
-                func, function_name, inputs, serializers=serializers
-            )
+            from rhesis.sdk.decorators._state import _parameters_context
+
+            token = _parameters_context.set(resolved_params)
+            try:
+                # Legacy path: merge resolved parameter values into inputs
+                # when the endpoint declares parameters=True or a list.
+                # Deprecated: use {{ params.* }} in request_mapping instead.
+                expects_params = metadata.get("parameters", False)
+                if expects_params and resolved_params:
+                    import warnings
+
+                    warnings.warn(
+                        f"@endpoint(parameters=...) on '{function_name}' is "
+                        f"deprecated. Use '{{{{ params.<name> }}}}' in "
+                        f"request_mapping instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    native = resolved_params.as_native()
+                    if isinstance(expects_params, list):
+                        native = {k: v for k, v in native.items() if k in expects_params}
+                    for k, v in native.items():
+                        if k in inputs and inputs[k] != v:
+                            logger.warning(
+                                "Parameter %r overrides input (param=%r, input=%r)",
+                                k,
+                                v,
+                                inputs[k],
+                            )
+                        inputs[k] = v
+
+                endpoint_context = self._build_endpoint_context()
+                result = await self._executor.execute(
+                    func,
+                    function_name,
+                    inputs,
+                    serializers=serializers,
+                    endpoint_context=endpoint_context,
+                )
+            finally:
+                _parameters_context.reset(token)
 
             # Send result
             await self._send_test_result(

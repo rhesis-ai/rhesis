@@ -12,32 +12,19 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MarkdownContent from '@/components/common/MarkdownContent';
+import { countProgress, isPlanComplete } from '@/utils/architect/plan';
+
+export { countProgress, isPlanComplete };
 
 interface PlanDisplayProps {
   plan: string;
-}
-
-function countProgress(plan: string): { done: number; total: number } {
-  const lines = plan.split('\n');
-  let total = 0;
-  let done = 0;
-  for (const line of lines) {
-    if (line.startsWith('- [x] ') || line.startsWith('- [ ] ')) {
-      // Skip existing/reused items — they carry a *(status)* tag and are
-      // already present, so they don't belong in the "to-do" count.
-      if (/\*\([^)]+\)\*/.test(line)) continue;
-      total++;
-      if (line.startsWith('- [x] ')) done++;
-    }
-  }
-  return { done, total };
 }
 
 export default function PlanDisplay({ plan }: PlanDisplayProps) {
   const [expanded, setExpanded] = useState(false);
   const { done, total } = useMemo(() => countProgress(plan), [plan]);
   const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-  const isComplete = total > 0 && done === total;
+  const isComplete = isPlanComplete(plan);
 
   return (
     <Box

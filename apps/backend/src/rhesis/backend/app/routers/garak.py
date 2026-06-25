@@ -9,6 +9,7 @@ import logging
 import random
 
 from fastapi import APIRouter, Depends, HTTPException
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -41,10 +42,11 @@ from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/garak",
     tags=["garak"],
     responses={404: {"description": "Not found"}},
+    resource="garak",
 )
 
 
@@ -395,6 +397,7 @@ async def generate_dynamic_probe(
     request: GarakGenerateRequest,
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
+    db: Session = Depends(get_tenant_db_session),
 ):
     """
     Generate a test set from a **dynamic** Garak probe using the user's LLM.
@@ -443,6 +446,7 @@ async def generate_dynamic_probe(
         task_result = task_launcher(
             generate_and_save_test_set,
             current_user=current_user,
+            db=db,
             config=config.model_dump(),
             num_tests=num_tests,
             name=test_set_name,

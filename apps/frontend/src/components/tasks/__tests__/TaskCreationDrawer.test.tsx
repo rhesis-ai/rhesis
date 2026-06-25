@@ -120,7 +120,7 @@ describe('TaskCreationDrawer', () => {
 
     await user.type(screen.getByLabelText(/task title/i), 'My New Task');
 
-    const submitBtn = screen.getByRole('button', { name: /create task/i });
+    const submitBtn = screen.getByRole('button', { name: /save/i });
     await user.click(submitBtn);
 
     await waitFor(() => {
@@ -138,7 +138,7 @@ describe('TaskCreationDrawer', () => {
     const user = userEvent.setup();
     render(<TaskCreationDrawer {...DEFAULT_PROPS} />);
 
-    const submitBtn = screen.getByRole('button', { name: /create task/i });
+    const submitBtn = screen.getByRole('button', { name: /save/i });
     await user.click(submitBtn);
 
     expect(DEFAULT_PROPS.onSubmit).not.toHaveBeenCalled();
@@ -150,7 +150,7 @@ describe('TaskCreationDrawer', () => {
 
     const titleInput = screen.getByLabelText(/task title/i);
     await user.type(titleInput, 'Task to reset');
-    await user.click(screen.getByRole('button', { name: /create task/i }));
+    await user.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(titleInput).toHaveValue(''));
   });

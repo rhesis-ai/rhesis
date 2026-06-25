@@ -55,14 +55,13 @@ spec:
             - secretRef:
                 name: {{ .Values.secrets.existingSecret }}
           env:
-            # Construct database URL from individual components + secrets
-            - name: SQLALCHEMY_DATABASE_URL
-              value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
             # Construct Redis URLs from individual components + secrets
-            - name: REDIS_URL
-              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
             - name: BROKER_URL
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            {{- if .Values.redis.readHost }}
+            - name: BROKER_READ_URL
+              value: "redis://:$(REDIS_PASSWORD)@{{ .Values.redis.readHost }}:{{ .Values.redis.readPort | default .Values.redis.port | default "6379" }}/0"
+            {{- end }}
             - name: CELERY_RESULT_BACKEND
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
             {{- if .Values.backend.env }}

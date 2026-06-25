@@ -1,6 +1,6 @@
 """Test result statistics using the v_test_result_stats database view."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 from sqlalchemy import func
@@ -323,7 +323,7 @@ def get_test_result_stats(
 
     total_tests = overall_pass_rates.get("total", 0)
     metadata = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
         "test_run_id": test_run_id,
         "period": f"Last {months} months",

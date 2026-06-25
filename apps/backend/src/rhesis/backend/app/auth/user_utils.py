@@ -8,6 +8,12 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
+from rhesis.backend.app.auth.principal import (
+    REQUEST_STATE_API_TOKEN_PROJECT_ID,
+    REQUEST_STATE_API_TOKEN_SCOPES,
+    REQUEST_STATE_AUTH_KIND,
+    AuthKind,
+)
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.database import get_db
@@ -68,10 +74,12 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
 
     # If no user found or emails don't match, create new user
     if not user:
-        # Normalize email and verify domain can receive mail
+        # OAuth providers verify email ownership themselves; skip MX deliverability
+        # check to avoid DNS failures in split-horizon environments where the
+        # internal BIND9 zone only carries subdomain A records (no apex MX).
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
-        normalized_email = validate_and_normalize_email(email, check_deliverability=True)
+        normalized_email = validate_and_normalize_email(email, check_deliverability=False)
 
         user_data = UserCreate(
             email=normalized_email,
@@ -81,7 +89,6 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             auth0_id=auth0_id,
             picture=user_profile["picture"],
             is_active=True,
-            is_superuser=False,
             is_email_verified=True,  # Auth0/IdP has verified the email
             last_login_at=current_time,
         )
@@ -138,8 +145,10 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         user.is_email_verified = True
         return user
 
-    # Verify domain can receive mail before creating a new account
-    normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=True)
+    # OAuth providers verify email ownership themselves; skip MX deliverability
+    # check to avoid DNS failures in split-horizon environments where the
+    # internal BIND9 zone only carries subdomain A records (no apex MX).
+    normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=False)
 
     # Create new user
     logger.info(f"Creating new user: {normalized_email} via {auth_user.provider_type}")
@@ -152,7 +161,6 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         provider_type=auth_user.provider_type,
         external_provider_id=auth_user.external_id,
         is_active=True,
-        is_superuser=False,
         is_email_verified=True,  # OAuth/credentials auth confirms email ownership
         last_login_at=current_time,
     )
@@ -303,6 +311,31 @@ async def get_authenticated_user_with_context(
                         # Access all attributes we need within transaction context
                         organization_id = user.organization_id
 
+                        # Store token's project_id on request state so
+                        # get_project_context can use it as a fallback
+                        if token.project_id is not None:
+                            setattr(
+                                request.state,
+                                REQUEST_STATE_API_TOKEN_PROJECT_ID,
+                                str(token.project_id),
+                            )
+
+                        # SP9: store the token's explicit permission scopes on
+                        # request state so the PEP backstop can include them in
+                        # the Principal.  None means "inherit owner's full access".
+                        token_scopes = getattr(token, "scopes", None)
+                        if token_scopes is not None:
+                            setattr(
+                                request.state,
+                                REQUEST_STATE_API_TOKEN_SCOPES,
+                                frozenset(token_scopes),
+                            )
+
+                        # Always mark the auth kind as a token so resolve_principal
+                        # callers can set kind correctly even when the token carries
+                        # no scopes and no project_id (unscoped rh-* tokens).
+                        setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
+
                         if without_context:
                             # without_context allows users without organization
                             request.state.user = user
@@ -393,7 +426,7 @@ async def require_current_user_or_token_without_context(
     return user
 
 
-async def authenticate_websocket(websocket: WebSocket) -> User:
+async def authenticate_websocket(websocket: WebSocket) -> tuple["User", str | None]:
     """
     Authenticate WebSocket connection using Bearer token.
 
@@ -405,7 +438,13 @@ async def authenticate_websocket(websocket: WebSocket) -> User:
         websocket: The WebSocket connection to authenticate
 
     Returns:
-        User: Authenticated user with organization_id
+        Tuple of (User, token_project_id):
+        - User: Authenticated user with organization_id
+        - token_project_id: The project_id scoped to the API token, or None.
+          When present this can be used as an alternate authorization path so
+          that a token explicitly scoped to a project can connect the connector
+          even if the token owner lacks a ProjectMembership row (e.g. tokens
+          created before the membership migration ran).
 
     Raises:
         HTTPException: If authentication fails or user lacks organization
@@ -443,4 +482,11 @@ async def authenticate_websocket(websocket: WebSocket) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
         )
 
-    return user
+    # Harvest the token-scoped project_id that get_authenticated_user_with_context
+    # stored on the mock request state (only set for rh- API tokens that carry a
+    # project_id; None for JWT tokens and unscoped API tokens).
+    token_project_id: str | None = getattr(
+        mock_request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None
+    )
+
+    return user, token_project_id

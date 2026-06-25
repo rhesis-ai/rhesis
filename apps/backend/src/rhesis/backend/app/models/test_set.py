@@ -6,7 +6,14 @@ from sqlalchemy.orm import Session, relationship
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
-from .mixins import ActivityTrackableMixin, CommentsMixin, CountsMixin, TagsMixin, TasksMixin
+from .mixins import (
+    ActivityTrackableMixin,
+    CommentsMixin,
+    CountsMixin,
+    ProjectMixin,
+    TagsMixin,
+    TasksMixin,
+)
 from .test import test_test_set_association
 
 # Association table for test_set and metric
@@ -48,7 +55,9 @@ prompt_test_set_association = Table(
 )
 
 
-class TestSet(Base, ActivityTrackableMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
+class TestSet(
+    Base, ActivityTrackableMixin, ProjectMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin
+):
     __tablename__ = "test_set"
     name = Column(String, nullable=False)
     description = Column(Text)
@@ -67,9 +76,7 @@ class TestSet(Base, ActivityTrackableMixin, TagsMixin, CommentsMixin, TasksMixin
     priority = Column(Integer, default=0)
 
     __table_args__ = (
-        CheckConstraint(
-            "visibility IN ('public', 'organization', 'user')", name="test_set_visibility_check"
-        ),
+        CheckConstraint("visibility IN ('organization', 'user')", name="test_set_visibility_check"),
     )
 
     # Relationship to subscriptions

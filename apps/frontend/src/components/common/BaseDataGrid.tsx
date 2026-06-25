@@ -25,7 +25,9 @@ import {
   CircularProgress,
   TextField,
   InputAdornment,
+  Menu,
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import IconButton from '@mui/material/IconButton';
@@ -40,17 +42,27 @@ import {
   GridToolbar,
   GridToolbarQuickFilter,
   useGridApiRef,
+  useGridApiContext,
+  useGridSelector,
+  gridPaginationModelSelector,
+  gridRowCountSelector,
   GridFilterModel,
   GridSortModel,
   GridInitialState,
   GridRowParams,
   GridCellParams,
+  GridColumnMenu,
+  type GridColumnMenuProps,
+  type GridToolbarProps,
 } from '@mui/x-data-grid';
 import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useGridStateStorage } from '@/hooks/useGridStateStorage';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface FilterOption {
   value: string;
@@ -114,10 +126,26 @@ interface BaseDataGridProps {
   disableRowSelectionOnClick?: boolean;
   onRowSelectionModelChange?: (selectionModel: GridRowSelectionModel) => void;
   rowSelectionModel?: GridRowSelectionModel;
+  /**
+   * Per-row predicate that gates checkbox selection. Useful when some
+   * rows in a grid aren't deletable (e.g. always-on overlay rows or
+   * inline draft rows) and shouldn't appear "selectable" in a bulk
+   * delete workflow. When omitted, every row is selectable — the MUI
+   * default.
+   */
+  isRowSelectable?: (params: GridRowParams) => boolean;
   // Filter related props
   filters?: FilterConfig[];
   filterHandler?: (filteredRows: GridRowModel[]) => void;
   customToolbarContent?: ReactNode;
+  /**
+   * Extra content rendered inside the DataGrid's built-in toolbar, immediately
+   * to the right of the standard Columns / Filters / Density / Export buttons
+   * (and to the left of the search input). Use this for filter toggles that
+   * conceptually belong next to the grid's existing filter UI rather than
+   * alongside the page-level action buttons.
+   */
+  gridToolbarExtra?: ReactNode;
   // Server-side filtering props
   serverSideFiltering?: boolean;
   filterModel?: GridFilterModel;
@@ -129,6 +157,13 @@ interface BaseDataGridProps {
   // Link related props
   linkPath?: string;
   linkField?: string;
+  /**
+   * Derive a detail-page URL from a row. When provided, grid rows support
+   * right-click → "Open in new tab", middle-click, and Cmd/Ctrl+click in
+   * addition to the standard left-click navigation. Falls back to
+   * `linkPath`/`linkField` if not set.
+   */
+  getRowUrl?: (row: GridRowModel) => string | undefined;
   // Server-side pagination props
   serverSidePagination?: boolean;
   totalRows?: number;
@@ -138,47 +173,311 @@ interface BaseDataGridProps {
   pageSizeOptions?: number[];
   // Quick filter props
   enableQuickFilter?: boolean;
+  // Custom toolbar slot (overrides default CustomToolbarWithFilters when serverSideFiltering=true)
+  toolbarSlot?: React.ComponentType;
   // Styling props
   disablePaperWrapper?: boolean;
+  /** Hide column resize handles (enabled by default). */
+  disableColumnResize?: boolean;
+  /**
+   * Grow the grid to fit all rows (no internal vertical scroll). Default true.
+   * Set false to give the grid a fixed/flex height so its rows scroll
+   * internally and the header + pagination footer stay pinned.
+   */
+  autoHeight?: boolean;
   // Initial state props
   initialState?: GridInitialState;
   // State persistence props
   persistState?: boolean;
   storageKey?: string;
   hideFooter?: boolean;
+  /**
+   * Hide rows-per-page selector when total row count is below this value.
+   * Set to 0 to always show the selector. Default: 10.
+   */
+  hideRowsPerPageBelow?: number;
 }
 
-// Create a styled version of DataGrid with bold headers
-const StyledDataGrid = styled(DataGrid)({
+/**
+ * Reconcile a persisted column order with the current column definitions.
+ *
+ * Without this, a column added to `columns` after a user already has a
+ * persisted `orderedFields` is appended at the end by MUI (it isn't in the
+ * saved order). This keeps the user's relative ordering for known fields while
+ * slotting any brand-new field next to the neighbour it's defined after.
+ */
+function reconcileOrderedFields(
+  persistedOrder: string[],
+  columnFields: string[]
+): string[] {
+  const result = [...persistedOrder];
+  const present = new Set(persistedOrder);
+
+  columnFields.forEach((field, idx) => {
+    if (present.has(field)) return;
+
+    // Find the nearest preceding defined column that's already in the order.
+    let insertAfter: string | null = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (present.has(columnFields[i])) {
+        insertAfter = columnFields[i];
+        break;
+      }
+    }
+
+    let insertIndex: number;
+    if (insertAfter !== null) {
+      insertIndex = result.indexOf(insertAfter) + 1;
+    } else {
+      // No preceding defined column yet — insert before the first one present
+      // (keeps it after special leading fields like the selection checkbox).
+      const firstPresentColField = columnFields.find(f => present.has(f));
+      insertIndex = firstPresentColField
+        ? result.indexOf(firstPresentColField)
+        : result.length;
+    }
+
+    result.splice(insertIndex, 0, field);
+    present.add(field);
+  });
+
+  return result;
+}
+
+// Create a styled version of DataGrid with Figma-aligned borders and headers
+const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
+  border: 'none',
+  // Column header: white bg, bold text, bottom divider matching Figma
   '& .MuiDataGrid-columnHeaders': {
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor: theme.palette.background.paper,
     fontWeight: 'bold',
   },
   '& .MuiDataGrid-columnHeaderTitle': {
-    fontWeight: 800,
+    fontWeight: 700,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   '& .MuiDataGrid-columnHeader': {
     fontWeight: 'bold',
+  },
+  // Right-align header titles for numeric columns to match cell alignment
+  '& .MuiDataGrid-columnHeader--alignRight .MuiDataGrid-columnHeaderTitle': {
+    textAlign: 'right',
+    width: '100%',
+  },
+  '& .MuiDataGrid-cell': {
+    display: 'flex',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderColor: theme.palette.greyscale.border,
+  },
+  // Clip typography in cells — avoids breaking chip/stack renderers (I1)
+  '& .MuiDataGrid-cell .MuiTypography-root': {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%',
+  },
+  // Numeric cells right-align by default (MUI sets align="right" on type:"number")
+  '& .MuiDataGrid-cell--textRight': {
+    justifyContent: 'flex-end',
+  },
+  // Figma: 30px horizontal inset for first/last column, aligned with the
+  // toolbar and pagination footer (both use px: '30px').
+  // Use MUI's own --first/--last classes for headers (reliable, avoids the
+  // scrollbar-filler div that breaks :first/:last-of-type selectors).
+  // Use :first-child for cells (no element precedes the first cell in a row).
+  // The trailing empty filler cell gets paddingRight via :last-of-type which
+  // creates the visual 30px right gap at the grid edge.
+  '&& .MuiDataGrid-columnHeader--first': {
+    paddingLeft: theme.spacing(3.75),
+  },
+  '&& .MuiDataGrid-columnHeader--last': {
+    paddingRight: theme.spacing(3.75),
+  },
+  '&& .MuiDataGrid-cell:first-child': {
+    paddingLeft: theme.spacing(3.75),
+  },
+  '&& .MuiDataGrid-cell:last-of-type': {
+    paddingRight: theme.spacing(3.75),
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
   },
   '& .MuiDataGrid-row:hover': {
     cursor: 'pointer',
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor:
+      theme.palette.mode === 'light' ? '#f7f8f9' : 'rgba(255,255,255,0.04)',
   },
-  '& .MuiDataGrid-cell': {
-    display: 'flex',
-    alignItems: 'center', // This ensures vertical centering of all cell content
-    overflow: 'hidden',
+  // Faint row separator above the footer
+  '& .MuiDataGrid-footerContainer': {
+    borderTop: `1px solid ${theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider}`,
   },
-  border: 'none',
-});
+}));
 
 function QuickFilterToolbar() {
   return (
-    <Box sx={{ p: 1, display: 'flex', justifyContent: 'flex-end' }}>
+    <Box
+      sx={{
+        px: '30px',
+        py: '16px',
+        display: 'flex',
+        justifyContent: 'flex-end',
+      }}
+    >
       <GridToolbarQuickFilter debounceMs={300} />
+    </Box>
+  );
+}
+
+// Column menu that only shows sort actions (no Filter, no Hide/Manage columns).
+function SortOnlyColumnMenu(props: GridColumnMenuProps) {
+  if (props.colDef?.sortable === false) {
+    return null;
+  }
+
+  return (
+    <GridColumnMenu
+      {...props}
+      slots={{
+        columnMenuFilterItem: null,
+        columnMenuColumnsItem: null,
+      }}
+    />
+  );
+}
+
+// Context to pass pageSizeOptions into the DataGrid footer slot
+const PaginationSizeContext = React.createContext<number[]>([10, 25, 50]);
+
+/** When row count is below this value, hide the rows-per-page selector in the footer. */
+const HideRowsPerPageBelowContext = React.createContext<number | undefined>(
+  undefined
+);
+
+function FigmaPaginationFooter() {
+  const theme = useTheme();
+  const textColor = theme.palette.greyscale.body;
+  const mutedBorderColor = theme.palette.greyscale.border;
+
+  const apiRef = useGridApiContext();
+  const paginationModel = useGridSelector(apiRef, gridPaginationModelSelector);
+  const rowCount = useGridSelector(apiRef, gridRowCountSelector);
+  const pageSizeOptions = React.useContext(PaginationSizeContext);
+  const hideRowsPerPageBelow = React.useContext(HideRowsPerPageBelowContext);
+
+  const { page, pageSize } = paginationModel;
+  const from = rowCount === 0 ? 0 : page * pageSize + 1;
+  const to = Math.min((page + 1) * pageSize, rowCount);
+  const isFirst = page === 0;
+  const isLast = rowCount === 0 || to >= rowCount;
+  const showRowsPerPage =
+    (hideRowsPerPageBelow ?? 0) <= 0 || rowCount >= (hideRowsPerPageBelow ?? 0);
+
+  const navBtnSx = (active: boolean): SxProps<Theme> => ({
+    border: '2px solid',
+    borderColor: active ? 'primary.main' : mutedBorderColor,
+    borderRadius: BORDER_RADIUS.sm,
+    p: '9px',
+    width: 38,
+    height: 38,
+    flexShrink: 0,
+    color: active ? 'primary.main' : mutedBorderColor,
+    '&.Mui-disabled': {
+      borderColor: mutedBorderColor,
+      color: mutedBorderColor,
+      opacity: 1,
+    },
+    '&:hover': {
+      bgcolor: active ? 'rgba(0, 128, 175, 0.06)' : 'transparent',
+    },
+    '& .MuiSvgIcon-root': { fontSize: 16 },
+  });
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: showRowsPerPage ? 'space-between' : 'flex-end',
+        px: '30px',
+        py: '16px',
+      }}
+    >
+      {showRowsPerPage ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <Typography
+            sx={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: textColor,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Rows per page:
+          </Typography>
+          <Select
+            value={pageSize}
+            onChange={e =>
+              apiRef.current.setPaginationModel({
+                page: 0,
+                pageSize: Number(e.target.value),
+              })
+            }
+            variant="standard"
+            disableUnderline
+            sx={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: textColor,
+              '& .MuiSelect-icon': { color: textColor },
+            }}
+          >
+            {pageSizeOptions.map(opt => (
+              <MenuItem key={opt} value={opt} sx={{ fontSize: 14 }}>
+                {opt}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      ) : null}
+
+      {/* Prev / range / Next */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+        <IconButton
+          onClick={() =>
+            apiRef.current.setPaginationModel({ page: page - 1, pageSize })
+          }
+          disabled={isFirst}
+          aria-label="Previous page"
+          sx={navBtnSx(!isFirst)}
+        >
+          <ArrowBackIosNewIcon />
+        </IconButton>
+
+        <Typography
+          sx={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: textColor,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {from}–{to} of {rowCount}
+        </Typography>
+
+        <IconButton
+          onClick={() =>
+            apiRef.current.setPaginationModel({ page: page + 1, pageSize })
+          }
+          disabled={isLast}
+          aria-label="Next page"
+          sx={navBtnSx(!isLast)}
+        >
+          <ArrowForwardIosIcon />
+        </IconButton>
+      </Box>
     </Box>
   );
 }
@@ -189,7 +488,7 @@ export default function BaseDataGrid({
   title,
   loading = false,
   getRowId,
-  showToolbar: _showToolbar = true,
+  showToolbar: _showToolbar = false,
   onRowClick,
   density,
   sx: _sx,
@@ -204,9 +503,11 @@ export default function BaseDataGrid({
   disableRowSelectionOnClick,
   onRowSelectionModelChange,
   rowSelectionModel,
+  isRowSelectable,
   filters,
   filterHandler,
   customToolbarContent,
+  gridToolbarExtra,
   serverSideFiltering = false,
   filterModel,
   onFilterModelChange,
@@ -215,21 +516,36 @@ export default function BaseDataGrid({
   onSortModelChange,
   linkPath,
   linkField = 'id',
+  getRowUrl,
   serverSidePagination = false,
   totalRows,
   paginationModel,
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
   enableQuickFilter = false,
+  toolbarSlot,
   disablePaperWrapper = false,
+  disableColumnResize = false,
+  autoHeight = true,
   initialState,
   persistState = false,
   storageKey,
   hideFooter = false,
+  hideRowsPerPageBelow = 10,
 }: BaseDataGridProps) {
   const _theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
+
+  const gridColumns = React.useMemo(
+    () =>
+      columns.map(col =>
+        col.field === 'actions' ? { ...col, hideable: false } : col
+      ),
+    [columns]
+  );
+
+  const hasActionsColumn = gridColumns.some(col => col.field === 'actions');
 
   // Grid state persistence
   const {
@@ -260,10 +576,16 @@ export default function BaseDataGrid({
         columnVisibilityModel: {
           ...initialState.columns?.columnVisibilityModel,
           ...persistedState.columns?.columnVisibilityModel,
+          ...(hasActionsColumn && { actions: true }),
         },
-        // Deep merge orderedFields only if persisted (user reordered columns)
+        // Deep merge orderedFields only if persisted (user reordered columns).
+        // Reconcile against the current columns so a newly added column lands
+        // next to its defined neighbour instead of being appended at the end.
         ...(persistedState.columns?.orderedFields && {
-          orderedFields: persistedState.columns.orderedFields,
+          orderedFields: reconcileOrderedFields(
+            persistedState.columns.orderedFields,
+            columns.map(col => col.field)
+          ),
         }),
         // Deep merge dimensions only if persisted (user resized columns)
         ...(persistedState.columns?.dimensions && {
@@ -288,7 +610,7 @@ export default function BaseDataGrid({
       // Density: persisted overrides initial
       ...(persistedState.density && { density: persistedState.density }),
     };
-  }, [persistState, persistedState, initialState]);
+  }, [persistState, persistedState, initialState, columns, hasActionsColumn]);
 
   // Save state callback - memoized to avoid unnecessary re-subscriptions
   const handleStateChange = useCallback(() => {
@@ -437,19 +759,89 @@ export default function BaseDataGrid({
       }));
     };
 
-  const handleRowClickWithLink = (params: GridRowParams) => {
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    url: string;
+  } | null>(null);
+
+  const resolveRowUrl = useCallback(
+    (params: GridRowParams): string | undefined => {
+      if (getRowUrl) return getRowUrl(params.row);
+      if (linkPath) {
+        const fieldValue = params.row[linkField];
+        return fieldValue ? `${linkPath}/${fieldValue}` : undefined;
+      }
+      return undefined;
+    },
+    [getRowUrl, linkPath, linkField]
+  );
+
+  const handleRowClickWithLink = (
+    params: GridRowParams,
+    event?: React.MouseEvent
+  ) => {
+    const url = resolveRowUrl(params);
+
+    if (url && event && (event.metaKey || event.ctrlKey)) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     if (onRowClick) {
       onRowClick(params);
       return;
     }
 
-    if (linkPath) {
-      const fieldValue = params.row[linkField];
-      if (fieldValue) {
-        router.push(`${linkPath}/${fieldValue}`);
-      }
+    if (url) {
+      router.push(url);
     }
   };
+
+  const handleContainerContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const rowEl = (event.target as HTMLElement).closest(
+        '[data-id]'
+      ) as HTMLElement | null;
+      if (!rowEl) return;
+
+      const rowId = rowEl.dataset.id;
+      if (!rowId) return;
+
+      const row = apiRef.current.getRow(rowId);
+      if (!row) return;
+
+      const url = resolveRowUrl({ id: rowId, row } as GridRowParams);
+      if (!url) return;
+
+      event.preventDefault();
+      setContextMenu({ mouseX: event.clientX, mouseY: event.clientY, url });
+    },
+    [resolveRowUrl, apiRef]
+  );
+
+  const handleContainerAuxClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.button !== 1) return;
+      const rowEl = (event.target as HTMLElement).closest(
+        '[data-id]'
+      ) as HTMLElement | null;
+      if (!rowEl) return;
+
+      const rowId = rowEl.dataset.id;
+      if (!rowId) return;
+
+      const row = apiRef.current.getRow(rowId);
+      if (!row) return;
+
+      const url = resolveRowUrl({ id: rowId, row } as GridRowParams);
+      if (!url) return;
+
+      event.preventDefault();
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
+    [resolveRowUrl, apiRef]
+  );
 
   const handleToggle = (index: number) => {
     setOpenStates(prev => {
@@ -488,11 +880,13 @@ export default function BaseDataGrid({
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const onFilterModelChangeRef = useRef(onFilterModelChange);
   const filterModelRef = useRef(filterModel);
+  const gridToolbarExtraRef = useRef(gridToolbarExtra);
 
   // Keep callback refs up to date without causing re-renders
   useEffect(() => {
     onFilterModelChangeRef.current = onFilterModelChange;
     filterModelRef.current = filterModel;
+    gridToolbarExtraRef.current = gridToolbarExtra;
   });
 
   // Sync input value with external filterModel changes (e.g., "Clear All Filters")
@@ -581,20 +975,25 @@ export default function BaseDataGrid({
    * Created once and stored in ref to prevent remounting and focus loss.
    * The input manages its own value via DOM, avoiding React state/re-render complexity.
    */
-  const CustomToolbarWithFiltersRef = useRef<React.ComponentType | null>(null);
+  const CustomToolbarWithFiltersRef =
+    useRef<React.JSXElementConstructor<GridToolbarProps> | null>(null);
   if (!CustomToolbarWithFiltersRef.current) {
     CustomToolbarWithFiltersRef.current = function CustomToolbar() {
       return (
         <Box
           sx={{
-            p: 1,
+            px: '30px',
+            py: '16px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             gap: 2,
           }}
         >
-          <GridToolbar />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <GridToolbar />
+            {gridToolbarExtraRef.current}
+          </Box>
           <TextField
             inputRef={quickFilterInputRef}
             size="small"
@@ -641,295 +1040,373 @@ export default function BaseDataGrid({
     );
   }
 
+  // Consolidated slots — computed once, used in both DataGrid render paths
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resolvedSlots: Record<string, React.ComponentType<any>> = {
+    columnMenu: SortOnlyColumnMenu,
+  };
+  if (!hideFooter) {
+    resolvedSlots.footer = FigmaPaginationFooter;
+  }
+  if (toolbarSlot) {
+    resolvedSlots.toolbar = toolbarSlot;
+  } else if (serverSideFiltering) {
+    resolvedSlots.toolbar = CustomToolbarWithFilters;
+  } else if (enableQuickFilter) {
+    resolvedSlots.toolbar = QuickFilterToolbar;
+  }
+
+  const dataGridSx: SxProps<Theme> = [
+    disableColumnResize && {
+      '& .MuiDataGrid-columnSeparator': {
+        display: 'none',
+      },
+    },
+    ...(Array.isArray(_sx) ? _sx : _sx ? [_sx] : []),
+  ].filter(Boolean) as SxProps<Theme>;
+
+  const hasHeaderContent = !!(
+    title ||
+    (filters && filters.length > 0) ||
+    (actionButtons && actionButtons.length > 0) ||
+    customToolbarContent
+  );
+
+  const hasRowUrl = !!(getRowUrl || linkPath);
+
   return (
     <>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          mb: 2,
-          gap: 2,
-        }}
-      >
-        {title && (
-          <Typography variant="h6" component="h1">
-            {title}
-          </Typography>
-        )}
+      {hasHeaderContent && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+            alignItems: 'center',
+            mb: 2,
+            gap: 2,
+          }}
+        >
+          {title && (
+            <Typography variant="h6" component="h1">
+              {title}
+            </Typography>
+          )}
 
-        {filters && filters.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {filters.map(filter => (
-              <FormControl
-                key={filter.name}
-                variant="outlined"
-                size="small"
-                sx={{ minWidth: 150 }}
-              >
-                <InputLabel id={`${filter.name}-label`}>
-                  {filter.label}
-                </InputLabel>
-                <Select
-                  labelId={`${filter.name}-label`}
-                  id={filter.name}
-                  value={filterValues[filter.name] || filter.defaultValue}
-                  onChange={handleFilterChange(filter.name)}
-                  label={filter.label}
+          {filters && filters.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {filters.map(filter => (
+                <FormControl
+                  key={filter.name}
+                  variant="outlined"
+                  size="small"
+                  sx={{ minWidth: 150 }}
                 >
-                  {filter.options.map(option => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            ))}
-          </Box>
-        )}
+                  <InputLabel id={`${filter.name}-label`}>
+                    {filter.label}
+                  </InputLabel>
+                  <Select
+                    labelId={`${filter.name}-label`}
+                    id={filter.name}
+                    value={filterValues[filter.name] || filter.defaultValue}
+                    onChange={handleFilterChange(filter.name)}
+                    label={filter.label}
+                  >
+                    {filter.options.map(option => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ))}
+            </Box>
+          )}
 
-        {actionButtons && actionButtons.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {actionButtons.map((button, index) => {
-              if (button.splitButton) {
-                const options = button.splitButton.options; // Extract options to satisfy TypeScript
-                return (
-                  <React.Fragment key={button.label}>
-                    <ButtonGroup
+          {actionButtons && actionButtons.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {actionButtons.map((button, index) => {
+                if (button.splitButton) {
+                  const options = button.splitButton.options; // Extract options to satisfy TypeScript
+                  return (
+                    <React.Fragment key={button.label}>
+                      <ButtonGroup
+                        variant={button.variant || 'contained'}
+                        color={button.color || 'primary'}
+                        ref={buttonRefs.current[index]}
+                        aria-label="split button"
+                        disabled={button.disabled}
+                      >
+                        <Button
+                          onClick={button.onClick}
+                          startIcon={button.icon}
+                          disabled={button.disabled}
+                        >
+                          {button.label}
+                        </Button>
+                        <Button
+                          size="small"
+                          aria-controls={
+                            openStates[index] ? 'split-button-menu' : undefined
+                          }
+                          aria-expanded={openStates[index] ? 'true' : undefined}
+                          aria-label="select option"
+                          aria-haspopup="menu"
+                          onClick={() => handleToggle(index)}
+                          disabled={button.disabled}
+                        >
+                          <ArrowDropDownIcon />
+                        </Button>
+                      </ButtonGroup>
+                      <Popper
+                        sx={{
+                          zIndex: 1,
+                        }}
+                        open={openStates[index]}
+                        anchorEl={buttonRefs.current[index].current}
+                        role={undefined}
+                        transition
+                        disablePortal
+                      >
+                        {({ TransitionProps, placement }) => (
+                          <Grow
+                            {...TransitionProps}
+                            style={{
+                              transformOrigin:
+                                placement === 'bottom'
+                                  ? 'center top'
+                                  : 'center bottom',
+                            }}
+                          >
+                            <Paper>
+                              <ClickAwayListener
+                                onClickAway={event => handleClose(event, index)}
+                              >
+                                <MenuList id="split-button-menu" autoFocusItem>
+                                  {options.map(option => (
+                                    <MenuItem
+                                      key={option.label}
+                                      disabled={option.disabled}
+                                      onClick={() =>
+                                        handleMenuItemClick(
+                                          option.onClick,
+                                          index
+                                        )
+                                      }
+                                    >
+                                      {option.label}
+                                    </MenuItem>
+                                  ))}
+                                </MenuList>
+                              </ClickAwayListener>
+                            </Paper>
+                          </Grow>
+                        )}
+                      </Popper>
+                    </React.Fragment>
+                  );
+                }
+
+                return button.href ? (
+                  <Link
+                    key={button.label}
+                    href={button.href}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Button
                       variant={button.variant || 'contained'}
                       color={button.color || 'primary'}
-                      ref={buttonRefs.current[index]}
-                      aria-label="split button"
+                      startIcon={button.icon}
+                      data-tour={button.dataTour}
                       disabled={button.disabled}
                     >
-                      <Button
-                        onClick={button.onClick}
-                        startIcon={button.icon}
-                        disabled={button.disabled}
-                      >
-                        {button.label}
-                      </Button>
-                      <Button
-                        size="small"
-                        aria-controls={
-                          openStates[index] ? 'split-button-menu' : undefined
-                        }
-                        aria-expanded={openStates[index] ? 'true' : undefined}
-                        aria-label="select option"
-                        aria-haspopup="menu"
-                        onClick={() => handleToggle(index)}
-                        disabled={button.disabled}
-                      >
-                        <ArrowDropDownIcon />
-                      </Button>
-                    </ButtonGroup>
-                    <Popper
-                      sx={{
-                        zIndex: 1,
-                      }}
-                      open={openStates[index]}
-                      anchorEl={buttonRefs.current[index].current}
-                      role={undefined}
-                      transition
-                      disablePortal
-                    >
-                      {({ TransitionProps, placement }) => (
-                        <Grow
-                          {...TransitionProps}
-                          style={{
-                            transformOrigin:
-                              placement === 'bottom'
-                                ? 'center top'
-                                : 'center bottom',
-                          }}
-                        >
-                          <Paper>
-                            <ClickAwayListener
-                              onClickAway={event => handleClose(event, index)}
-                            >
-                              <MenuList id="split-button-menu" autoFocusItem>
-                                {options.map(option => (
-                                  <MenuItem
-                                    key={option.label}
-                                    disabled={option.disabled}
-                                    onClick={() =>
-                                      handleMenuItemClick(option.onClick, index)
-                                    }
-                                  >
-                                    {option.label}
-                                  </MenuItem>
-                                ))}
-                              </MenuList>
-                            </ClickAwayListener>
-                          </Paper>
-                        </Grow>
-                      )}
-                    </Popper>
-                  </React.Fragment>
-                );
-              }
-
-              return button.href ? (
-                <Link
-                  key={button.label}
-                  href={button.href}
-                  style={{ textDecoration: 'none' }}
-                >
+                      {button.label}
+                    </Button>
+                  </Link>
+                ) : (
                   <Button
+                    key={button.label}
                     variant={button.variant || 'contained'}
                     color={button.color || 'primary'}
+                    onClick={button.onClick}
                     startIcon={button.icon}
                     data-tour={button.dataTour}
                     disabled={button.disabled}
                   >
                     {button.label}
                   </Button>
-                </Link>
-              ) : (
-                <Button
-                  key={button.label}
-                  variant={button.variant || 'contained'}
-                  color={button.color || 'primary'}
-                  onClick={button.onClick}
-                  startIcon={button.icon}
-                  data-tour={button.dataTour}
-                  disabled={button.disabled}
-                >
-                  {button.label}
-                </Button>
-              );
-            })}
-          </Box>
+                );
+              })}
+            </Box>
+          )}
+          {customToolbarContent}
+        </Box>
+      )}
+
+      <Box
+        onContextMenu={hasRowUrl ? handleContainerContextMenu : undefined}
+        onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
+      >
+        {disablePaperWrapper ? (
+          <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
+            <PaginationSizeContext.Provider value={pageSizeOptions}>
+              <StyledDataGrid
+                apiRef={apiRef}
+                rows={serverSidePagination ? rows : filteredRows}
+                columns={gridColumns}
+                getRowId={getRowId}
+                {...(autoHeight && { autoHeight: true })}
+                pagination
+                hideFooter={hideFooter}
+                paginationMode={serverSidePagination ? 'server' : 'client'}
+                rowCount={serverSidePagination ? totalRows : undefined}
+                paginationModel={paginationModel}
+                onPaginationModelChange={onPaginationModelChange}
+                pageSizeOptions={pageSizeOptions}
+                checkboxSelection={checkboxSelection}
+                disableVirtualization={false}
+                loading={loading}
+                slots={resolvedSlots}
+                sx={dataGridSx}
+                onRowClick={
+                  enableEditing
+                    ? undefined
+                    : hasRowUrl || onRowClick
+                      ? handleRowClickWithLink
+                      : undefined
+                }
+                disableMultipleRowSelection={disableMultipleRowSelection}
+                {...(density && { density })}
+                {...(mergedInitialState && {
+                  initialState: mergedInitialState,
+                })}
+                {...(serverSideFiltering && {
+                  filterMode: 'server',
+                  filterModel,
+                  onFilterModelChange,
+                })}
+                {...(sortingMode === 'server' && {
+                  sortingMode: 'server',
+                  sortModel,
+                  onSortModelChange,
+                })}
+                {...(enableEditing && {
+                  editMode,
+                  processRowUpdate,
+                  onProcessRowUpdateError,
+                  isCellEditable,
+                })}
+                {...(onRowSelectionModelChange && {
+                  onRowSelectionModelChange,
+                })}
+                {...(rowSelectionModel !== undefined && {
+                  rowSelectionModel,
+                })}
+                {...(isRowSelectable && { isRowSelectable })}
+                {...(disableRowSelectionOnClick && {
+                  disableRowSelectionOnClick,
+                })}
+              />
+            </PaginationSizeContext.Provider>
+          </HideRowsPerPageBelowContext.Provider>
+        ) : (
+          <Paper
+            elevation={0}
+            sx={{
+              width: '100%',
+              borderRadius: BORDER_RADIUS.md,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
+              boxShadow: ELEVATION.xs,
+              overflow: 'hidden',
+            }}
+          >
+            <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
+              <PaginationSizeContext.Provider value={pageSizeOptions}>
+                <StyledDataGrid
+                  apiRef={apiRef}
+                  rows={serverSidePagination ? rows : filteredRows}
+                  columns={gridColumns}
+                  getRowId={getRowId}
+                  {...(autoHeight && { autoHeight: true })}
+                  pagination
+                  hideFooter={hideFooter}
+                  paginationMode={serverSidePagination ? 'server' : 'client'}
+                  rowCount={serverSidePagination ? totalRows : undefined}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={onPaginationModelChange}
+                  pageSizeOptions={pageSizeOptions}
+                  checkboxSelection={checkboxSelection}
+                  disableVirtualization={false}
+                  loading={loading}
+                  slots={resolvedSlots}
+                  sx={dataGridSx}
+                  onRowClick={
+                    enableEditing
+                      ? undefined
+                      : hasRowUrl || onRowClick
+                        ? handleRowClickWithLink
+                        : undefined
+                  }
+                  disableMultipleRowSelection={disableMultipleRowSelection}
+                  {...(density && { density })}
+                  {...(mergedInitialState && {
+                    initialState: mergedInitialState,
+                  })}
+                  {...(serverSideFiltering && {
+                    filterMode: 'server',
+                    filterModel,
+                    onFilterModelChange,
+                  })}
+                  {...(sortingMode === 'server' && {
+                    sortingMode: 'server',
+                    sortModel,
+                    onSortModelChange,
+                  })}
+                  {...(enableEditing && {
+                    editMode,
+                    processRowUpdate,
+                    onProcessRowUpdateError,
+                    isCellEditable,
+                  })}
+                  {...(onRowSelectionModelChange && {
+                    onRowSelectionModelChange,
+                  })}
+                  {...(rowSelectionModel !== undefined && {
+                    rowSelectionModel,
+                  })}
+                  {...(isRowSelectable && { isRowSelectable })}
+                  {...(disableRowSelectionOnClick && {
+                    disableRowSelectionOnClick,
+                  })}
+                />
+              </PaginationSizeContext.Provider>
+            </HideRowsPerPageBelowContext.Provider>
+          </Paper>
         )}
-        {customToolbarContent}
       </Box>
 
-      {disablePaperWrapper ? (
-        <StyledDataGrid
-          apiRef={apiRef}
-          rows={serverSidePagination ? rows : filteredRows}
-          columns={columns}
-          getRowId={getRowId}
-          autoHeight
-          pagination
-          hideFooter={hideFooter}
-          paginationMode={serverSidePagination ? 'server' : 'client'}
-          rowCount={serverSidePagination ? totalRows : undefined}
-          paginationModel={paginationModel}
-          onPaginationModelChange={onPaginationModelChange}
-          pageSizeOptions={pageSizeOptions}
-          checkboxSelection={checkboxSelection}
-          disableVirtualization={false}
-          loading={loading}
-          onRowClick={
-            enableEditing
-              ? undefined
-              : linkPath || onRowClick
-                ? handleRowClickWithLink
-                : undefined
-          }
-          disableMultipleRowSelection={disableMultipleRowSelection}
-          {...(density && { density })}
-          {...(mergedInitialState && { initialState: mergedInitialState })}
-          {...(serverSideFiltering && {
-            filterMode: 'server',
-            filterModel,
-            onFilterModelChange,
-            slots: { toolbar: CustomToolbarWithFilters },
-          })}
-          {...(sortingMode === 'server' && {
-            sortingMode: 'server',
-            sortModel,
-            onSortModelChange,
-          })}
-          {...(enableQuickFilter &&
-            !serverSideFiltering && {
-              slots: { toolbar: QuickFilterToolbar },
-            })}
-          {...(enableEditing && {
-            editMode,
-            processRowUpdate,
-            onProcessRowUpdateError,
-            isCellEditable,
-          })}
-          {...(onRowSelectionModelChange && {
-            onRowSelectionModelChange,
-          })}
-          {...(rowSelectionModel !== undefined && {
-            rowSelectionModel,
-          })}
-          {...(disableRowSelectionOnClick && {
-            disableRowSelectionOnClick,
-          })}
-        />
-      ) : (
-        <Paper
-          elevation={1}
-          sx={{
-            width: '100%',
-            borderRadius: theme => theme.shape.borderRadius * 0.5,
-            overflow: 'hidden',
-          }}
-        >
-          <StyledDataGrid
-            apiRef={apiRef}
-            rows={serverSidePagination ? rows : filteredRows}
-            columns={columns}
-            getRowId={getRowId}
-            autoHeight
-            pagination
-            hideFooter={hideFooter}
-            paginationMode={serverSidePagination ? 'server' : 'client'}
-            rowCount={serverSidePagination ? totalRows : undefined}
-            paginationModel={paginationModel}
-            onPaginationModelChange={onPaginationModelChange}
-            pageSizeOptions={pageSizeOptions}
-            checkboxSelection={checkboxSelection}
-            disableVirtualization={false}
-            loading={loading}
-            onRowClick={
-              enableEditing
-                ? undefined
-                : linkPath || onRowClick
-                  ? handleRowClickWithLink
-                  : undefined
+      <Menu
+        open={contextMenu !== null}
+        onClose={() => setContextMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem
+          onClick={() => {
+            if (contextMenu) {
+              window.open(contextMenu.url, '_blank', 'noopener,noreferrer');
             }
-            disableMultipleRowSelection={disableMultipleRowSelection}
-            {...(density && { density })}
-            {...(mergedInitialState && { initialState: mergedInitialState })}
-            {...(serverSideFiltering && {
-              filterMode: 'server',
-              filterModel,
-              onFilterModelChange,
-              slots: { toolbar: CustomToolbarWithFilters },
-            })}
-            {...(sortingMode === 'server' && {
-              sortingMode: 'server',
-              sortModel,
-              onSortModelChange,
-            })}
-            {...(enableQuickFilter &&
-              !serverSideFiltering && {
-                slots: { toolbar: QuickFilterToolbar },
-              })}
-            {...(enableEditing && {
-              editMode,
-              processRowUpdate,
-              onProcessRowUpdateError,
-              isCellEditable,
-            })}
-            {...(onRowSelectionModelChange && {
-              onRowSelectionModelChange,
-            })}
-            {...(rowSelectionModel !== undefined && {
-              rowSelectionModel,
-            })}
-            {...(disableRowSelectionOnClick && {
-              disableRowSelectionOnClick,
-            })}
-          />
-        </Paper>
-      )}
+            setContextMenu(null);
+          }}
+          sx={{ gap: 1 }}
+        >
+          <OpenInNewIcon fontSize="small" />
+          Open in new tab
+        </MenuItem>
+      </Menu>
     </>
   );
 }

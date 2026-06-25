@@ -1,0 +1,12 @@
+import pytest
+from fastapi import HTTPException
+
+from rhesis.backend.app.routers.tools import _validate_shortcut_credentials
+
+
+def test_validate_shortcut_credentials_requires_token():
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_shortcut_credentials({})
+
+    assert exc_info.value.status_code == 400
+    assert "SHORTCUT_API_TOKEN" in exc_info.value.detail

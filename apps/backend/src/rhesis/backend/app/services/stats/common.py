@@ -1,6 +1,6 @@
 """Shared utilities for statistics functions."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 
@@ -16,7 +16,7 @@ def parse_date_range(
         start_date_obj = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         end_date_obj = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
     else:
-        end_date_obj = datetime.utcnow()
+        end_date_obj = datetime.now(timezone.utc)
         start_date_obj = end_date_obj - timedelta(days=30 * months)
     return start_date_obj, end_date_obj
 
@@ -59,7 +59,7 @@ def build_metadata(
 ) -> Dict[str, Any]:
     """Build the standard metadata dict attached to every stats response."""
     metadata = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
         "period": f"Last {months} months",
         "start_date": start_date_obj.isoformat(),

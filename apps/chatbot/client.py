@@ -4,8 +4,11 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Import endpoint module first to initialize RhesisClient
 # This ensures only ONE tracer provider exists (critical for proper trace nesting)
@@ -14,12 +17,101 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
 from pydantic import BaseModel, field_validator
+from session_store import create_session_store
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from rhesis.sdk import endpoint
-from rhesis.sdk.services import DocumentExtractor
+from rhesis.sdk import Parameters, endpoint
+from rhesis.sdk.services.extractor import extract_with_vision_fallback
+
+CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
+PARAMETERS_ENVIRONMENT = os.getenv(
+    "RHESIS_PARAMETERS_ENVIRONMENT",
+    os.getenv("RHESIS_PARAMETERS_LABEL", "default"),
+)
+
+ABSENT_STRING_VALUES = {"", "none", "null", "undefined"}
+
+
+def _is_absent_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip().lower() in ABSENT_STRING_VALUES:
+        return True
+    return False
+
+
+def _optional_string(value: Any) -> Optional[str]:
+    if _is_absent_value(value):
+        return None
+    return str(value)
+
+
+def _float_or_default(value: Any, default: float) -> float:
+    if _is_absent_value(value):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _int_or_default(value: Any, default: int) -> int:
+    if _is_absent_value(value):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_defaults() -> dict:
+    """Return parameter defaults sourced entirely from environment variables."""
+    return {
+        "system_prompt": None,
+        "use_case": os.getenv("DEFAULT_USE_CASE", "insurance"),
+        "model": os.getenv("DEFAULT_GENERATION_MODEL"),
+        "temperature": float(os.getenv("DEFAULT_TEMPERATURE", "0.7")),
+        "max_tokens": int(os.getenv("DEFAULT_MAX_TOKENS", "1024")),
+        "output_mode": os.getenv("DEFAULT_OUTPUT_MODE", "text"),
+        "context_strategy": os.getenv("DEFAULT_CONTEXT_STRATEGY", "heuristic"),
+    }
+
+
+def _resolve_chatbot_params() -> dict:
+    """Resolve chatbot params from the Rhesis SDK, falling back to env defaults.
+
+    Skips the SDK entirely when RHESIS_API_KEY is not configured so the
+    chatbot can operate as a standalone service with no Rhesis dependency.
+    """
+    from rhesis.sdk.config import get_api_key
+
+    try:
+        api_key = get_api_key()
+    except Exception:
+        api_key = None
+
+    if not api_key:
+        logger.debug("RHESIS_API_KEY not set; using env defaults for chatbot parameters")
+        return _env_defaults()
+
+    try:
+        params = Parameters.get(
+            project=CHATBOT_PROJECT, environment=PARAMETERS_ENVIRONMENT
+        )
+        return {
+            "system_prompt": params.get_text("system_prompt") or params.get_string("system_prompt"),
+            "use_case": params.get_enum("use_case"),
+            "model": params.get_string("model") or os.getenv("DEFAULT_GENERATION_MODEL"),
+            "temperature": params.get_number("temperature", 0.7),
+            "max_tokens": params.get_integer("max_tokens", 1024),
+            "output_mode": params.get_enum("output_mode", "text"),
+            "context_strategy": params.get_enum("context_strategy", "heuristic"),
+        }
+    except Exception:
+        logger.warning("SDK Parameters.get() failed; using env defaults", exc_info=True)
+        return _env_defaults()
 
 # Configure logging
 logging.basicConfig(
@@ -45,9 +137,8 @@ CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
 
 # Session management configuration
 SESSION_TIMEOUT_HOURS = int(os.getenv("SESSION_TIMEOUT_HOURS", "24"))  # Default 24 hours
-SESSION_CLEANUP_INTERVAL_MINUTES = int(
-    os.getenv("SESSION_CLEANUP_INTERVAL_MINUTES", "60")
-)  # Default 60 minutes
+SESSION_TTL_SECONDS = SESSION_TIMEOUT_HOURS * 60 * 60
+session_store = create_session_store(ttl_seconds=SESSION_TTL_SECONDS)
 
 # HTTP Bearer token security
 security = HTTPBearer(auto_error=False)  # auto_error=False allows optional auth
@@ -79,76 +170,14 @@ def get_rate_limit_identifier(request: Request) -> str:
 limiter = Limiter(key_func=get_rate_limit_identifier)
 
 
-# Session storage with metadata
-class SessionData:
-    """Session data with metadata for garbage collection."""
-
-    def __init__(self, messages: List[dict] = None):
-        self.messages = messages or []
-        self.last_accessed = datetime.utcnow()
-        self.created_at = datetime.utcnow()
-
-    def update_access_time(self):
-        """Update the last accessed timestamp."""
-        self.last_accessed = datetime.utcnow()
-
-    def is_stale(self, timeout_hours: int) -> bool:
-        """Check if session is stale based on last access time."""
-        age = datetime.utcnow() - self.last_accessed
-        return age > timedelta(hours=timeout_hours)
-
-
-# Store chat sessions with metadata
-sessions: Dict[str, SessionData] = {}
-
-
-async def cleanup_stale_sessions():
-    """Background task to periodically clean up stale sessions."""
-    while True:
-        try:
-            await asyncio.sleep(SESSION_CLEANUP_INTERVAL_MINUTES * 60)
-
-            # Find stale sessions
-            stale_session_ids = [
-                session_id
-                for session_id, session_data in sessions.items()
-                if session_data.is_stale(SESSION_TIMEOUT_HOURS)
-            ]
-
-            # Remove stale sessions
-            for session_id in stale_session_ids:
-                del sessions[session_id]
-
-            if stale_session_ids:
-                logger.info(
-                    f"🧹 Cleaned up {len(stale_session_ids)} stale sessions. "
-                    f"Active sessions: {len(sessions)}"
-                )
-            else:
-                logger.debug(f"🧹 Session cleanup: {len(sessions)} active sessions, 0 stale")
-
-        except Exception as e:
-            logger.error(f"❌ Error in session cleanup task: {e}")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager to run background tasks."""
-    # Start cleanup task
-    cleanup_task = asyncio.create_task(cleanup_stale_sessions())
-    logger.info(
-        f"🚀 Started session cleanup task (interval: {SESSION_CLEANUP_INTERVAL_MINUTES}min, "
-        f"timeout: {SESSION_TIMEOUT_HOURS}h)"
-    )
+    """Lifespan context manager for app startup and shutdown."""
+    logger.info("🚀 Chatbot session TTL configured for %sh", SESSION_TIMEOUT_HOURS)
 
     yield
 
-    # Cleanup on shutdown
-    cleanup_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        logger.info("🛑 Session cleanup task cancelled")
+    await session_store.close()
 
 
 def verify_api_key(
@@ -327,20 +356,26 @@ def get_available_use_cases() -> List[str]:
                 use_cases.append(use_case_name)
         return sorted(use_cases)
     except Exception:
-        return ["echo", "insurance"]  # Default fallback
+        return ["echo", "insurance", "travel"]  # Default fallback
 
 
 class FileInput(BaseModel):
     filename: str
     content_type: Optional[str] = None
     data: str  # base64-encoded file content
+    extracted_text: Optional[str] = None  # pre-extracted text from Rhesis backend
 
 
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-    use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
-    mode: Optional[str] = "text"  # Output mode: "text" or "json"
+    system_prompt: Optional[str] = None
+    use_case: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    mode: Optional[str] = None  # Output mode: "text" or "json"
+    context_strategy: Optional[str] = None
     files: Optional[List[FileInput]] = None
     rhesis: Optional[dict] = None
 
@@ -361,15 +396,48 @@ class ChatResponse(BaseModel):
     tool_calls: Optional[List[dict]] = None
 
 
+def _get_vision_model():
+    """Return a BaseLLM instance for vision extraction, or None on failure."""
+    from rhesis.sdk.models.factory import get_language_model
+
+    model_name = os.getenv("DEFAULT_GENERATION_MODEL")
+    if model_name:
+        try:
+            model = get_language_model(model_name)
+            logger.info("Using vision model '%s' for file extraction", model_name)
+            return model
+        except Exception as exc:
+            logger.warning(
+                "Could not initialise vision model '%s' for extraction: %s — falling back",
+                model_name,
+                exc,
+            )
+    return None
+
+
 def extract_file_content(file_input: FileInput) -> dict:
-    """Extract text content from a base64-encoded file using the SDK's DocumentExtractor.
+    """Extract text content from a file for injection into the prompt.
+
+    Uses pre-extracted text from the Rhesis backend when available (preferred),
+    otherwise delegates to ``extract_with_vision_fallback`` which applies the
+    same text-layer → vision-model strategy used everywhere in the platform.
 
     Returns:
         Dict with 'filename' and 'content' keys.
     """
+    if file_input.extracted_text:
+        return {"filename": file_input.filename, "content": file_input.extracted_text}
+
     file_bytes = base64.b64decode(file_input.data)
-    extractor = DocumentExtractor()
-    content = extractor.extract_from_bytes(file_bytes, file_input.filename)
+    content = extract_with_vision_fallback(
+        file_bytes,
+        file_input.filename,
+        file_input.content_type or "",
+        model=_get_vision_model(),
+    )
+
+    if not content or not content.strip():
+        content = "[File content could not be extracted]"
     return {"filename": file_input.filename, "content": content}
 
 
@@ -379,10 +447,15 @@ def extract_file_content(file_input: FileInput) -> dict:
     request_mapping={
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
-        "use_case": "{{ use_case | default('insurance') }}",
-        "mode": "{{ mode | default('text') }}",
+        "system_prompt": "{{ params.system_prompt | default(none) }}",
+        "model": "{{ params.model | default(none) }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+        "max_tokens": "{{ params.max_tokens | default(1024) }}",
+        "output_mode": "{{ params.output_mode | default(mode | default('text')) }}",
+        "context_strategy": "{{ params.context_strategy | default('heuristic') }}",
+        "use_case": "{{ params.use_case | default('insurance') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
-        "file_contents": "{{ file_contents | default(none) }}",
+        "files": "{{ files }}",
         "rhesis": {
             "test_id": "{{ test_id | default(none) }}",
             "test_configuration_id": "{{ test_configuration_id | default(none) }}",
@@ -399,10 +472,17 @@ def extract_file_content(file_input: FileInput) -> dict:
 )
 async def chat(
     message: str,
+    *,
     session_id: Optional[str] = None,
+    system_prompt: Optional[str] = None,
     use_case: str = "insurance",
-    mode: str = "text",
+    model: Optional[str] = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+    output_mode: str = "text",
+    context_strategy: str = "heuristic",
     conversation_history: Optional[List[dict]] = None,
+    files: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
     rhesis: Optional[dict] = None,
 ) -> ChatResponse:
@@ -419,30 +499,93 @@ async def chat(
         use_case: Use case for system prompt
         conversation_history: Explicit conversation history; when ``None``
             the history is looked up from the in-memory session store.
+        files: Raw file dicts from the backend (each has filename, content_type,
+            data, and extracted_text). Takes precedence over file_contents.
         file_contents: Extracted file contents as list of dicts with
-            'filename' and 'content' keys.
+            'filename' and 'content' keys (legacy / direct HTTP path).
         rhesis: Optional dict with test execution context
             (test_id, test_run_id, test_configuration_id).
 
     Returns:
         ChatResponse with message, session_id, context, and metadata
     """
+    system_prompt = _optional_string(system_prompt)
+    model = _optional_string(model)
+    use_case = _optional_string(use_case) or "insurance"
+    output_mode = _optional_string(output_mode) or "text"
+    context_strategy = _optional_string(context_strategy) or "heuristic"
+    temperature = _float_or_default(temperature, 0.7)
+    max_tokens = _int_or_default(max_tokens, 1024)
+
     # Resolve session – reuse existing or create new
     session_id = session_id or str(uuid.uuid4())
-    if session_id not in sessions:
-        sessions[session_id] = SessionData()
-        logger.info(f"Created new session: {session_id}")
-    sessions[session_id].update_access_time()
 
     # Use explicit history if provided, otherwise fetch from session.
     # The isinstance guard is necessary because Jinja2 renders
     # ``{{ conversation_history | default(none) }}`` as the *string*
     # ``"None"`` rather than Python ``None``.
     if not isinstance(conversation_history, list):
-        conversation_history = sessions[session_id].messages.copy()
+        try:
+            conversation_history = await session_store.get(session_id)
+        except Exception:
+            logger.warning("Session store unavailable; starting fresh conversation", exc_info=True)
+            conversation_history = []
 
-    # Same guard: Jinja2 renders ``{{ file_contents | default(none) }}`` as
-    # the string "None" rather than Python None when no files are present.
+    # Derive file_contents from enriched files when present (connector path).
+    # Each file dict from the backend carries an ``extracted_text`` field set
+    # by _enrich_files_with_extraction; use that directly.
+    if isinstance(files, list) and files:
+        logger.info(
+            "Received %d file(s) via connector: %s",
+            len(files),
+            [
+                {"name": f.get("filename"), "has_text": bool(f.get("extracted_text"))}
+                for f in files
+                if isinstance(f, dict)
+            ],
+        )
+        derived = []
+        for f in files:
+            if not isinstance(f, dict):
+                continue
+            filename = f.get("filename", "unknown")
+            extracted = f.get("extracted_text") or ""
+            if extracted.strip():
+                derived.append({"filename": filename, "content": extracted})
+            else:
+                # Extraction produced no text — fall back to local extraction.
+                # If local extraction also yields nothing, use an explicit
+                # placeholder so the LLM knows a file was attached but its
+                # content could not be read (prevents hallucination).
+                fallback_content = None
+                try:
+                    file_input = FileInput(
+                        filename=filename,
+                        content_type=f.get("content_type"),
+                        data=f.get("data", ""),
+                        extracted_text=None,
+                    )
+                    result = extract_file_content(file_input)
+                    if result.get("content", "").strip():
+                        fallback_content = result["content"]
+                        logger.info("Local fallback extraction succeeded for %s", filename)
+                    else:
+                        logger.info(
+                            "Local fallback returned no text for %s; using placeholder",
+                            filename,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Local fallback extraction failed for %s: %s", filename, exc
+                    )
+                derived.append({
+                    "filename": filename,
+                    "content": fallback_content or "[File content could not be extracted]",
+                })
+        file_contents = derived or None
+
+    # Guard: when no files are present the template renders to an empty string;
+    # also handles legacy "None" string from older request mappings.
     if not isinstance(file_contents, list):
         file_contents = None
 
@@ -462,73 +605,92 @@ async def chat(
 
     # Echo use case: return input directly without any LLM call
     if use_case == "echo":
-        sessions[session_id].messages.append({"role": "user", "content": message})
-        sessions[session_id].messages.append({"role": "assistant", "content": message})
+        try:
+            await session_store.append(
+                session_id,
+                [
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": message},
+                ],
+            )
+        except Exception:
+            logger.warning("Failed to persist echo exchange to session store", exc_info=True)
         return ChatResponse(
             message=message,
             session_id=session_id,
             context=[],
-            metadata={"use_case": "echo", "mode": mode},
+            metadata={"use_case": "echo", "output_mode": output_mode},
             tool_calls=[],
         )
 
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
-    response_generator = endpoint_module.get_response_generator(use_case)
+    response_generator = endpoint_module.get_response_generator(
+        use_case,
+        system_prompt_override=system_prompt,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        context_strategy=context_strategy,
+    )
     tool_calls = []
 
-    # Generate context using the instance
-    context_fragments = await response_generator.generate_context(message)
-    tool_calls.append(
-        {
-            "name": "generate_context",
-            "arguments": {"message": message},
-            "result": context_fragments,
-        }
+    async def _collect_response():
+        chunks = []
+        async for chunk in response_generator.stream_assistant_response(
+            message,
+            conversation_history=conversation_history,
+            file_contents=file_contents,
+            mode=output_mode,
+        ):
+            chunks.append(chunk)
+        return chunks
+
+    context_fragments, intent_result, chunks = await asyncio.gather(
+        response_generator.generate_context(message),
+        response_generator.recognize_intent(message),
+        _collect_response(),
     )
 
-    # Recognize intent from the current message
-    intent_result = await response_generator.recognize_intent(message)
-    tool_calls.append(
-        {
-            "name": "recognize_intent",
-            "arguments": {"message": message},
-            "result": intent_result,
-        }
-    )
-
-    # Get assistant response using the same instance
-    chunks = []
-    async for chunk in response_generator.stream_assistant_response(
-        message,
-        conversation_history=conversation_history,
-        file_contents=file_contents,
-        mode=mode,
-    ):
-        chunks.append(chunk)
-
-    if mode == "json":
-        # In JSON mode, the generator yields dicts
+    if output_mode == "json":
         response_message = chunks[0] if chunks else {}
     else:
         response_message = "".join(chunks)
 
-    tool_calls.append(
+    tool_calls.extend([
+        {
+            "name": "generate_context",
+            "arguments": {"message": message},
+            "result": context_fragments,
+        },
+        {
+            "name": "recognize_intent",
+            "arguments": {"message": message},
+            "result": intent_result,
+        },
         {
             "name": "generate_response",
             "arguments": {
                 "message": message,
-                "mode": mode,
+                "output_mode": output_mode,
                 "has_file_contents": file_contents is not None,
                 "history_length": len(conversation_history),
             },
             "result": {"length": len(str(response_message))},
-        }
-    )
+        },
+    ])
 
     # Persist the exchange in the session store
-    sessions[session_id].messages.append({"role": "user", "content": message})
-    sessions[session_id].messages.append({"role": "assistant", "content": response_message})
+    try:
+        await session_store.append(
+            session_id,
+            [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": response_message},
+            ],
+        )
+    except Exception:
+        logger.warning("Failed to persist exchange to session store", exc_info=True)
 
     # Return Pydantic model
     return ChatResponse(
@@ -537,7 +699,7 @@ async def chat(
         context=context_fragments,
         metadata={
             "use_case": use_case,
-            "mode": mode,
+            "output_mode": output_mode,
             "intent": intent_result,
             "rhesis": rhesis,
         },
@@ -584,13 +746,35 @@ async def chat_endpoint(
             f"Chat request received - Auth tier: {auth['tier']}, "
             f"Message: {chat_request.message[:50]}..."
         )
+        
+        # Resolve parameters from Rhesis (or fallback to env/defaults).
+        # Run in a thread executor because Parameters.get() uses synchronous
+        # requests and would otherwise block the async event loop.
+        loop = asyncio.get_event_loop()
+        params = await loop.run_in_executor(None, _resolve_chatbot_params)
+        request_param_overrides = {
+            "system_prompt": chat_request.system_prompt,
+            "model": chat_request.model,
+            "temperature": chat_request.temperature,
+            "max_tokens": chat_request.max_tokens,
+            "context_strategy": chat_request.context_strategy,
+        }
+        params.update(
+            {
+                key: value
+                for key, value in request_param_overrides.items()
+                if not _is_absent_value(value)
+            }
+        )
 
         # Validate use case exists, default to insurance if not
-        # "echo" is a built-in use case that does not require a prompt file
-        use_case = chat_request.use_case or "insurance"
+        # The request payload overrides the resolved parameter if provided
+        use_case = chat_request.use_case or params.get("use_case") or "insurance"
         available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
             use_case = "insurance"
+            
+        output_mode = chat_request.mode or params.get("output_mode", "text")
 
         # Extract file contents if provided
         file_contents = None
@@ -606,8 +790,13 @@ async def chat_endpoint(
         result = await chat(
             message=chat_request.message,
             session_id=chat_request.session_id,
+            system_prompt=params.get("system_prompt"),
             use_case=use_case,
-            mode=chat_request.mode or "text",
+            model=params.get("model"),
+            temperature=params.get("temperature", 0.7),
+            max_tokens=params.get("max_tokens", 1024),
+            output_mode=output_mode,
+            context_strategy=params.get("context_strategy", "heuristic"),
             file_contents=file_contents,
             rhesis=chat_request.rhesis,
         )
@@ -625,16 +814,12 @@ async def chat_endpoint(
 async def get_session(
     request: Request, session_id: str, auth: dict = Depends(check_rate_limit_chatbot)
 ):
-    if session_id not in sessions:
+    if not await session_store.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Update access time when retrieving session
-    sessions[session_id].update_access_time()
-
     return {
-        "messages": sessions[session_id].messages,
-        "created_at": sessions[session_id].created_at.isoformat(),
-        "last_accessed": sessions[session_id].last_accessed.isoformat(),
+        "messages": await session_store.get(session_id),
+        "ttl_hours": SESSION_TIMEOUT_HOURS,
     }
 
 
@@ -642,9 +827,8 @@ async def get_session(
 async def delete_session(
     request: Request, session_id: str, auth: dict = Depends(check_rate_limit_chatbot)
 ):
-    if session_id not in sessions:
+    if not await session_store.delete(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
-    del sessions[session_id]
     logger.info(f"🗑️ Manually deleted session: {session_id}")
     return {"message": "Session deleted"}
 

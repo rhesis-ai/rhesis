@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import {
   AutoConfigureRequest,
   AutoConfigureResult,
@@ -22,7 +22,7 @@ export async function autoConfigureEndpoint(
       throw new Error('No session token available');
     }
 
-    const apiFactory = new ApiClientFactory(session.session_token);
+    const apiFactory = await createServerApiFactory(session.session_token);
     const endpointsClient = apiFactory.getEndpointsClient();
     const result = await endpointsClient.autoConfigure(payload);
 

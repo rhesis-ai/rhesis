@@ -11,23 +11,23 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  Chip,
   Stack,
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
-import WifiIcon from '@mui/icons-material/Wifi';
-import WifiOffIcon from '@mui/icons-material/WifiOff';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab } from '@/components/common/Fab';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import PlaygroundIcon from '@/components/PlaygroundIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
 
 interface EndpointOption {
@@ -52,13 +52,12 @@ function ChatPlaceholder({
 }) {
   return (
     <Paper
-      elevation={1}
+      elevation={0}
       sx={{
+        ...playgroundPanelSx,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: theme => theme.shape.borderRadius,
-        overflow: 'hidden',
       }}
     >
       {(label || onSplit) && (
@@ -69,16 +68,15 @@ function ChatPlaceholder({
             justifyContent: label ? 'space-between' : 'flex-end',
             px: 1.5,
             minHeight: theme => theme.spacing(4),
-            bgcolor: 'action.hover',
+            bgcolor: theme => theme.palette.greyscale.surface1,
             borderBottom: 1,
-            borderColor: 'divider',
+            borderColor: theme => theme.palette.greyscale.border,
           }}
         >
           {label && (
             <Typography
-              variant="caption"
-              color="text.secondary"
-              fontWeight="medium"
+              variant="captionBold"
+              sx={{ color: theme => theme.palette.greyscale.label }}
             >
               {label}
             </Typography>
@@ -87,7 +85,7 @@ function ChatPlaceholder({
             <IconButton
               size="small"
               onClick={onClose}
-              sx={{ color: 'text.secondary', p: 0.25 }}
+              sx={{ color: theme => theme.palette.greyscale.label, p: 0.25 }}
             >
               <CloseIcon fontSize="inherit" />
             </IconButton>
@@ -97,7 +95,7 @@ function ChatPlaceholder({
               <IconButton
                 size="small"
                 onClick={onSplit}
-                sx={{ color: 'text.secondary', p: 0.25 }}
+                sx={{ color: theme => theme.palette.greyscale.label, p: 0.25 }}
               >
                 <AddIcon fontSize="small" />
               </IconButton>
@@ -114,17 +112,17 @@ function ChatPlaceholder({
         }}
       >
         <Stack spacing={1} alignItems="center">
-          <ChatBubbleOutlineIcon
+          <PlaygroundIcon
             sx={{
               fontSize: theme => theme.typography.h3.fontSize,
-              color: 'text.disabled',
+              color: 'primary.main',
             }}
           />
-          <Typography variant="h6" color="text.secondary">
+          <Typography
+            variant="h6"
+            sx={{ color: 'primary.main', fontWeight: 600 }}
+          >
             Select an endpoint to start chatting
-          </Typography>
-          <Typography variant="body2" color="text.disabled">
-            Choose an endpoint from the dropdown above
           </Typography>
         </Stack>
       </Box>
@@ -140,7 +138,6 @@ function ChatPlaceholder({
  */
 export default function PlaygroundClient() {
   const { data: session } = useSession();
-  const { isConnected } = useWebSocket();
   const searchParams = useSearchParams();
 
   const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
@@ -242,6 +239,12 @@ export default function PlaygroundClient() {
     loadEndpoints();
   }, [loadEndpoints]);
 
+  const handleReset = useCallback(() => {
+    setSelectedEndpointId(null);
+    setSelectedProjectId(null);
+    setIsSplit(false);
+  }, []);
+
   const handleEndpointChange = (
     event: React.ChangeEvent<HTMLInputElement> | { target: { value: string } }
   ) => {
@@ -276,38 +279,24 @@ export default function PlaygroundClient() {
     }
   };
 
-  return (
-    <PageContainer title="Playground" breadcrumbs={[]}>
-      {/* Description with connection status */}
-      <Box
-        sx={{
-          mb: 3,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography color="text.secondary">
-          Chat with your endpoints interactively to test their responses.
-        </Typography>
-        <Chip
-          icon={isConnected ? <WifiIcon /> : <WifiOffIcon />}
-          label={isConnected ? 'Connected' : 'Disconnected'}
-          color={isConnected ? 'success' : 'default'}
-          variant="outlined"
-          size="small"
-        />
-      </Box>
+  const hasActiveSession = !!(selectedEndpointId || isSplit);
 
+  return (
+    <PageLayout
+      title="Playground"
+      description="Chat with your endpoints interactively to test their responses and generate test cases from your conversations."
+      breadcrumbs={[]}
+      actions={
+        <Fab
+          icon={<RestartAltIcon />}
+          tooltip="Reset playground"
+          onClick={handleReset}
+          disabled={!hasActiveSession}
+        />
+      }
+    >
       {/* Endpoint Selector */}
-      <Paper
-        elevation={1}
-        sx={{
-          p: 2,
-          borderRadius: theme => theme.shape.borderRadius,
-          mb: 2,
-        }}
-      >
+      <Paper elevation={0} sx={{ ...playgroundPanelSx, p: 2, mb: 2 }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <CircularProgress size={20} />
@@ -348,7 +337,13 @@ export default function PlaygroundClient() {
                       width: '100%',
                     }}
                   >
-                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        flexGrow: 1,
+                        color: theme => theme.palette.greyscale.body,
+                      }}
+                    >
                       {option.projectName} › {option.endpointName}
                     </Typography>
                     <Typography
@@ -357,10 +352,10 @@ export default function PlaygroundClient() {
                         ml: 2,
                         px: 1,
                         py: 0.25,
-                        borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        bgcolor: 'action.hover',
+                        borderRadius: BORDER_RADIUS.pill,
+                        bgcolor: theme => theme.palette.greyscale.surface2,
                         color: getEnvironmentColor(option.environment),
-                        fontWeight: 'medium',
+                        fontWeight: 600,
                       }}
                     >
                       {formatEnvironment(option.environment)}
@@ -415,6 +410,6 @@ export default function PlaygroundClient() {
             <ChatPlaceholder label="Chat 2" onClose={() => setIsSplit(false)} />
           ))}
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

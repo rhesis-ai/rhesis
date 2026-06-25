@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.services.cache import RedisBackedCache
 
 
@@ -190,6 +191,165 @@ class TestRedisBackedCacheWithMockRedis:
         failing.set.side_effect = RuntimeError("redis down")
         failing.get.side_effect = RuntimeError("redis down")
         cache._redis = failing
+        cache._redis_read = failing
 
         cache._set("memk", "memv")
         assert cache._get("memk") == "memv"
+
+
+@pytest.mark.unit
+class TestRedisBackedCacheReadReplica:
+    """Tests for BROKER_READ_URL read replica routing."""
+
+    @pytest.fixture(autouse=True)
+    def clear_redis_settings_cache(self):
+        get_redis_settings.cache_clear()
+        yield
+        get_redis_settings.cache_clear()
+
+    def test_separate_read_client_when_broker_read_url_set(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._redis is write_client
+        assert cache._redis_read is read_client
+        assert cache._has_separate_read is True
+
+    def test_reads_go_to_read_client_writes_to_primary(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+        read_client.get.return_value = "from-replica"
+        read_client.mget.return_value = ["a", "b"]
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._get("k") == "from-replica"
+        read_client.get.assert_called_once_with("k")
+        write_client.get.assert_not_called()
+
+        assert cache._mget(["a", "b"]) == ["a", "b"]
+        read_client.mget.assert_called_once_with(["a", "b"])
+        write_client.mget.assert_not_called()
+
+        cache._set("w", "v")
+        write_client.set.assert_called_once_with("w", "v", ex=60)
+        read_client.set.assert_not_called()
+
+        cache._delete("d")
+        write_client.delete.assert_called_once_with("d")
+        read_client.delete.assert_not_called()
+
+    def test_read_replica_failure_at_init_falls_back_to_primary(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        write_client.get.return_value = "from-primary"
+
+        call_count = {"n": 0}
+
+        def from_url_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return write_client
+            raise ConnectionError("replica unreachable")
+
+        with (
+            patch("redis.Redis.from_url", side_effect=from_url_side_effect),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://bad-replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._redis is write_client
+        assert cache._redis_read is write_client
+        assert cache._has_separate_read is False
+        assert cache._get("k") == "from-primary"
+
+    def test_get_replica_failure_retries_primary(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        write_client.get.return_value = "from-primary"
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+        read_client.get.side_effect = ConnectionError("replica down")
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._has_separate_read is True
+        result = cache._get("k")
+        assert result == "from-primary"
+        assert cache._has_separate_read is False
+        assert cache._redis_read is write_client
+        write_client.get.assert_called_once_with("k")
+
+    def test_mget_replica_failure_retries_primary(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        write_client.mget.return_value = ["v1", "v2"]
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+        read_client.mget.side_effect = ConnectionError("replica down")
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._has_separate_read is True
+        result = cache._mget(["a", "b"])
+        assert result == ["v1", "v2"]
+        assert cache._has_separate_read is False
+        write_client.mget.assert_called_once_with(["a", "b"])
+
+    def test_close_with_separate_read_client(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        cache.close()
+
+        write_client.close.assert_called_once()
+        read_client.close.assert_called_once()
+        assert cache._redis is None
+        assert cache._redis_read is None
+        assert cache._has_separate_read is False

@@ -31,14 +31,16 @@ function show_usage() {
   echo -e "${BLUE}Environment-specific Variables:${NC}"
   echo "  Note: All environments (dev, stg, prd, test) use environment-specific secrets"
   echo "  # Backend variables"
-  echo "  SQLALCHEMY_DATABASE_URL       Full database URL"
-  echo "  SQLALCHEMY_DB_MODE            Database mode"
-  echo "  SQLALCHEMY_DB_DRIVER          Database driver"
-  echo "  SQLALCHEMY_DB_USER            Database user"
-  echo "  SQLALCHEMY_DB_PASS            Database password"
-  echo "  SQLALCHEMY_DB_HOST            Database host"
-  echo "  SQLALCHEMY_DB_NAME            Database name"
+  echo "  DB_DRIVER                     Database driver (e.g. postgresql)"
+  echo "  DB_HOST                       Database host (or Cloud SQL Unix socket path)"
+  echo "  DB_PORT                       Database port (default: 5432)"
+  echo "  DB_NAME                       Database name"
+  echo "  APP_DB_USER                   Application database user"
+  echo "  APP_DB_PASS                   Application database password"
+  echo "  ADMIN_DB_USER                 Migration/admin database user (optional; falls back to APP_DB_USER)"
+  echo "  ADMIN_DB_PASS                 Migration/admin database password (required when ADMIN_DB_USER is set)"
   echo "  LOG_LEVEL                     Logging level"
+  echo "  AUDIT_HASH_KEY                HMAC key for API client audit log email hashing (EE)"
   echo "  JWT_SECRET_KEY                JWT secret key"
   echo "  SESSION_SECRET_KEY            Session secret key"
   echo "  JWT_ALGORITHM                 JWT algorithm"
@@ -75,6 +77,8 @@ function show_usage() {
   echo "  CLOUDSQL_INSTANCE             Cloud SQL instance name"
   echo "  VPC_CONNECTOR_NAME            VPC connector name"
   echo "  RHESIS_CONNECTOR_DISABLED      Rhesis connector disabled (true or false)"
+  echo "  RHESIS_LICENSE_PRIVATE_KEY     Rhesis license private key (Base64 encoded)"
+  echo "  RHESIS_LICENSE_KID             Rhesis license key ID"
   echo ""
   echo "  # Analytics Database (Telemetry Processor)"
   echo "  ANALYTICS_DATABASE_URL        Full analytics database URL (alternative to individual vars)"
@@ -94,6 +98,7 @@ function show_usage() {
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
+  echo "  BROKER_READ_URL               Redis read replica URL (optional, falls back to BROKER_URL)"
   echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
   echo "  CELERY_WORKER_CONCURRENCY     Worker concurrency (number of threads)"
   echo "  CELERY_WORKER_PREFETCH_MULTIPLIER Worker prefetch multiplier"
@@ -105,7 +110,8 @@ function show_usage() {
   echo "  # Frontend variables"
   echo "  NEXTAUTH_URL                  NextAuth URL"
   echo "  NEXTAUTH_SECRET               NextAuth secret"
-  echo "  NEXT_PUBLIC_API_BASE_URL      API base URL for frontend"
+  echo "  API_BASE_URL                  API base URL for frontend"
+  echo "  NEXT_PUBLIC_SUPPORT_EMAIL     Support email for frontend"
   echo "  BACKEND_URL                   Backend URL for frontend"
   echo "  FRONTEND_ENV                  Frontend environment"
   echo "  BACKEND_ENV                   Backend environment"
@@ -227,14 +233,17 @@ function set_repo_secret() {
 # Service environment variables
 SERVICE_VARS=(
   # Backend variables
-  "SQLALCHEMY_DATABASE_URL"
-  "SQLALCHEMY_DB_MODE"
-  "SQLALCHEMY_DB_DRIVER"
-  "SQLALCHEMY_DB_USER"
-  "SQLALCHEMY_DB_PASS"
-  "SQLALCHEMY_DB_HOST"
-  "SQLALCHEMY_DB_NAME"
+  "DB_DRIVER"
+  "DB_HOST"
+  "DB_PORT"
+  "DB_NAME"
+  "APP_DB_USER"
+  "APP_DB_PASS"
+  "ADMIN_DB_USER"
+  "ADMIN_DB_PASS"
   "DB_ENCRYPTION_KEY"
+  "SSO_ENCRYPTION_KEY"
+  "AUDIT_HASH_KEY"
   "LOG_LEVEL"
   "JWT_SECRET_KEY"
   "SESSION_SECRET_KEY"
@@ -274,6 +283,8 @@ SERVICE_VARS=(
   "REGION"
   "CLOUDSQL_INSTANCE"
   "RHESIS_CONNECTOR_DISABLED"
+  "RHESIS_LICENSE_PRIVATE_KEY"
+  "RHESIS_LICENSE_KID"
   # Analytics Database (Telemetry Processor)
   "ANALYTICS_DATABASE_URL"
   "ANALYTICS_DB_USER"
@@ -293,6 +304,7 @@ SERVICE_VARS=(
 
   # Celery worker variables
   "BROKER_URL"
+  "BROKER_READ_URL"
   "CELERY_RESULT_BACKEND"
   "CELERY_WORKER_CONCURRENCY"
   "CELERY_WORKER_PREFETCH_MULTIPLIER"
@@ -304,7 +316,8 @@ SERVICE_VARS=(
   # Frontend variables
   "NEXTAUTH_URL"
   "NEXTAUTH_SECRET"
-  "NEXT_PUBLIC_API_BASE_URL"
+  "API_BASE_URL"
+  "NEXT_PUBLIC_SUPPORT_EMAIL"
   "BACKEND_URL"
   "FRONTEND_ENV"
   "AUTH_SECRET"
@@ -390,14 +403,14 @@ for env in "${ENV_ARRAY[@]}"; do
     fi
 
     # Set default API URL if not provided
-    if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
+    if [[ -z "${!env_upper}_API_BASE_URL" ]]; then
       if [[ "$env" == "prd" ]]; then
         api_url="https://api.rhesis.ai"
       else
         api_url="https://$env-api.rhesis.ai"
       fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
-      set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
+      echo -e "${YELLOW}Warning:${NC} ${env_upper}_API_BASE_URL not set, using default: $api_url"
+      set_secret "$env" "API_BASE_URL" "$api_url"
     fi
 
     # Set default log level if not provided

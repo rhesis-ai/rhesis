@@ -1,9 +1,10 @@
 """Redis client for SDK RPC communication between workers and backend."""
 
 import logging
-import os
 
 import redis.asyncio as redis
+
+from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,13 @@ class RedisConnectionManager:
             return
 
         try:
-            redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
-            self._client = await redis.from_url(redis_url, decode_responses=True, encoding="utf-8")
+            redis_url = get_redis_settings().broker_url
+            self._client = await redis.from_url(
+                redis_url,
+                decode_responses=True,
+                encoding="utf-8",
+                max_connections=3,
+            )
             # Actually test the connection - from_url() doesn't connect until first use
             await self._client.ping()
             self._initialized = True

@@ -18,8 +18,8 @@ test.describe('Endpoints — CRUD @crud', () => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
-    await page.goto('/endpoints/new');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/endpoints?create=1');
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
 
     // Verify page loaded without errors
     await expect(page.locator('body')).not.toContainText(
@@ -27,22 +27,25 @@ test.describe('Endpoints — CRUD @crud', () => {
     );
     await expect(page.locator('body')).not.toContainText('Application error');
 
-    // The "Basic Information" tab should be visible (default tab).
-    // Use name-attribute selectors — more reliable than getByLabel for
-    // MUI required TextFields whose label renders as "Name *".
+    // Create page should show required fields.
+    // name attributes on TextFields keep selectors stable for e2e.
     const nameField = page.locator('input[name="name"]');
-    const urlField = page.locator('input[name="url"]');
 
     await expect(nameField).toBeVisible({ timeout: 15_000 });
-    await expect(urlField).toBeVisible({ timeout: 15_000 });
-
-    // Fill required text fields
     await nameField.fill(UNIQUE_NAME);
+
+    // URL field is on the Connection tab
+    await page.getByRole('tab', { name: /connection/i }).click();
+    const urlField = page.locator('input[name="url"]');
+    await expect(urlField).toBeVisible({ timeout: 15_000 });
     await urlField.fill(TEST_URL);
 
-    // Verify values were accepted
-    await expect(nameField).toHaveValue(UNIQUE_NAME);
+    // Verify URL value was accepted on the Connection tab
     await expect(urlField).toHaveValue(TEST_URL);
+
+    // Switch back to Overview to verify the name field (tab panels unmount on switch)
+    await page.getByRole('tab', { name: /overview/i }).click();
+    await expect(nameField).toHaveValue(UNIQUE_NAME);
   });
 
   test('can create an endpoint when a project is available', async ({
@@ -51,16 +54,16 @@ test.describe('Endpoints — CRUD @crud', () => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
-    await page.goto('/endpoints/new');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/endpoints?create=1');
+    await expect(page).toHaveURL(/\/endpoints\/?$/);
 
-    // Fill required text fields
+    // Fill required text fields — URL field is on the Connection tab
     await page.locator('input[name="name"]').fill(UNIQUE_NAME);
+    await page.getByRole('tab', { name: /connection/i }).click();
     await page.locator('input[name="url"]').fill(TEST_URL);
 
-    // The project select (#project-select) is required
-    // Wait to see if any project options are available
-    const projectSelectTrigger = page.locator('#project-select');
+    // Project is optional in the create drawer; select one when available
+    const projectSelectTrigger = page.getByLabel(/project/i);
     const hasProjectSelect = await projectSelectTrigger
       .isVisible()
       .catch(() => false);

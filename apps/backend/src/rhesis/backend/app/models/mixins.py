@@ -1,5 +1,6 @@
 import functools
 import logging
+from typing import Any
 
 from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
@@ -226,6 +227,21 @@ class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
     pass
 
 
+class ProjectMixin:
+    """Mixin for project-level multi-tenancy.
+
+    Adds a nullable project_id FK so entities can be scoped to a project.
+    NULL means the entity is org-wide and visible in every project's view
+    (the auto-filter listener applies ``project_id = :pid OR project_id IS NULL``).
+    """
+
+    project_id = Column(GUID(), ForeignKey("project.id"), nullable=True, index=True)
+
+    @declared_attr
+    def project(cls):
+        return relationship("Project", foreign_keys=[cls.project_id])
+
+
 class ReviewsMixin:
     """Mixin providing human-review properties over a JSONB reviews column.
 
@@ -337,14 +353,10 @@ class EmbeddableMixin:
     1. Indexed for full-text search (via Embedding.searchable_text -> tsv column)
     2. Used as source for generating vector embeddings
 
-    The searchable text will be:
-    - Stored in Embedding.searchable_text
-    - Hashed to Embedding.text_hash (to detect changes)
-    - Converted to tsvector in Embedding.tsv (for PostgreSQL full-text search)
-    - Vectorized and stored in Embedding.embedding_{dimension} columns
-
-    The mixin also provides a polymorphic `embeddings` relationship that automatically
-    filters by the entity's class name.
+    The searchable text is always captured at insert/update time (while the
+    SQLAlchemy instance is still in memory) and passed directly to the embedding
+    worker. No DB reload is performed after commit, which avoids RLS visibility
+    and transaction snapshot race conditions.
     """
 
     @declared_attr
@@ -353,9 +365,11 @@ class EmbeddableMixin:
         return relationship(
             "Embedding",
             primaryjoin=(
+                # foreign() wraps entity_id, the referencing side, not the parent id. Works anyways
                 f"and_(Embedding.entity_id == foreign({cls.__name__}.id), "
                 f"Embedding.entity_type == '{cls.__name__}')"
             ),
+            # this likely overrides the foreign() above
             foreign_keys="[Embedding.entity_id]",
             viewonly=True,
             uselist=True,
@@ -385,23 +399,83 @@ _PENDING_EMBEDDING_JOBS_KEY = "pending_embedding_jobs"
 
 
 def _queue_embedding_after_commit(target) -> None:
+    """
+    Queue an embedding job to run after the current transaction commits.
+
+    The searchable text is always captured here, while the SQLAlchemy instance
+    is still in memory. If to_searchable_text() fails, the job is not enqueued
+    at all — we fail loudly rather than falling back to a DB reload after commit.
+    """
     session = object_session(target)
     if session is None:
-        return
-    if target.organization_id is None or target.user_id is None:
-        logger.warning(
-            f"Skipping embedding for {target.__class__.__name__} {target.id}: "
-            "organization_id or user_id is None"
+        logger.debug(
+            "Deferred embedding: skip queue (no session) for %s",
+            getattr(target, "id", None),
         )
         return
+
+    if target.organization_id is None or target.user_id is None:
+        logger.warning(
+            "Skipping embedding for %s %s: organization_id or user_id is None",
+            target.__class__.__name__,
+            target.id,
+        )
+        return
+
+    if not hasattr(target, "to_searchable_text"):
+        logger.warning(
+            "Skipping embedding for %s %s: to_searchable_text() not implemented",
+            target.__class__.__name__,
+            target.id,
+        )
+        return
+
+    try:
+        searchable_text = target.to_searchable_text()
+    except Exception as exc:
+        logger.error(
+            "Skipping embedding for %s id=%s: to_searchable_text() failed at queue time: %s",
+            target.__class__.__name__,
+            target.id,
+            exc,
+        )
+        return
+
+    if not (searchable_text or "").strip():
+        logger.info(
+            "Deferred embedding: skipping queue for %s id=%s (empty searchable text)",
+            target.__class__.__name__,
+            getattr(target, "id", None),
+        )
+        return
+
+    job: dict[str, Any] = {
+        "entity_type": target.__class__.__name__,
+        "entity_id": str(target.id),
+        "user_id": str(target.user_id),
+        "organization_id": str(target.organization_id),
+        "project_id": str(target.project_id) if getattr(target, "project_id", None) else None,
+        "searchable_text": searchable_text,
+    }
+
     pending = session.info.setdefault(_PENDING_EMBEDDING_JOBS_KEY, [])
-    pending.append(
-        {
-            "entity_type": target.__class__.__name__,
-            "entity_id": str(target.id),
-            "user_id": str(target.user_id),
-            "organization_id": str(target.organization_id),
-        }
+    pending.append(job)
+
+    nested_tx = (
+        session.in_nested_transaction() if hasattr(session, "in_nested_transaction") else False
+    )
+    logger.debug(
+        "Deferred embedding: queued after_commit job for %s id=%s org=%s user=%s project=%s "
+        "(session id=%s, pending_count=%s, in_transaction=%s, nested=%s)",
+        job["entity_type"],
+        job["entity_id"],
+        job["organization_id"],
+        job["user_id"],
+        job["project_id"],
+        id(session),
+        len(pending),
+        session.in_transaction(),
+        nested_tx,
     )
 
 
@@ -411,6 +485,12 @@ def _process_pending_embedding_jobs(session: Session) -> None:
     if not jobs:
         return
 
+    logger.info(
+        "Deferred embedding: after_commit running %d job(s) (committed session id=%s)",
+        len(jobs),
+        id(session),
+    )
+
     from rhesis.backend.app.database import get_db_with_tenant_variables
     from rhesis.backend.app.services.embedding.services import EmbeddingService
 
@@ -419,41 +499,20 @@ def _process_pending_embedding_jobs(session: Session) -> None:
             with get_db_with_tenant_variables(
                 job["organization_id"],
                 job["user_id"],
+                job.get("project_id") or "",
             ) as db:
-                from rhesis.backend.app import models
-
-                model_class = getattr(models, job["entity_type"], None)
-                if model_class is None:
-                    logger.warning(
-                        "Skipping deferred embedding: unknown entity type %s",
-                        job["entity_type"],
-                    )
-                    continue
-
-                entity = db.query(model_class).filter(model_class.id == job["entity_id"]).first()
-                if entity is None:
-                    logger.warning(
-                        "Skipping deferred embedding: entity not found %s %s",
-                        job["entity_type"],
-                        job["entity_id"],
-                    )
-                    continue
-
-                if not hasattr(entity, "to_searchable_text"):
-                    logger.warning(
-                        "Skipping deferred embedding: %s does not implement to_searchable_text",
-                        job["entity_type"],
-                    )
-                    continue
-
-                searchable_text = entity.to_searchable_text()
                 embedding_service = EmbeddingService(db)
                 embedding_service.enqueue_embedding(
                     entity_type=job["entity_type"],
                     entity_id=job["entity_id"],
-                    searchable_text=searchable_text,
+                    searchable_text=job["searchable_text"],
                     user_id=job["user_id"],
                     organization_id=job["organization_id"],
+                )
+                logger.info(
+                    "Deferred embedding: enqueue_embedding submitted for %s id=%s",
+                    job["entity_type"],
+                    job["entity_id"],
                 )
         except Exception as e:
             logger.error(
@@ -468,31 +527,64 @@ def _process_pending_embedding_jobs(session: Session) -> None:
 @event.listens_for(EmbeddableMixin, "after_insert", propagate=True)
 def on_entity_insert(mapper, connection, target):
     if getattr(target, "user_id", None) is None:
-        logger.warning(
-            f"Skipping embedding for {target.__class__.__name__} {target.id}: user_id is None"
+        # Expected for telemetry traces and other service-generated rows that
+        # carry no user context; downgraded from WARNING to avoid log noise.
+        logger.debug(
+            "Skipping embedding for %s %s: user_id is None",
+            target.__class__.__name__,
+            target.id,
         )
         return
 
+    logger.debug(
+        "Deferred embedding: after_insert hook for %s id=%s",
+        target.__class__.__name__,
+        getattr(target, "id", None),
+    )
     try:
         _queue_embedding_after_commit(target)
     except Exception as e:
-        logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
+        logger.error(
+            "Error enqueuing embedding for %s %s: %s",
+            target.__class__.__name__,
+            target.id,
+            e,
+        )
 
 
 @event.listens_for(EmbeddableMixin, "after_update", propagate=True)
 def on_entity_update(mapper, connection, target):
     if getattr(target, "user_id", None) is None:
-        logger.warning(
-            f"Skipping embedding for {target.__class__.__name__} {target.id}: user_id is None"
+        logger.debug(
+            "Skipping embedding for %s %s: user_id is None",
+            target.__class__.__name__,
+            target.id,
         )
         return
 
+    logger.debug(
+        "Deferred embedding: after_update hook for %s id=%s",
+        target.__class__.__name__,
+        getattr(target, "id", None),
+    )
     try:
         _queue_embedding_after_commit(target)
     except Exception as e:
-        logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
+        logger.error(
+            "Error enqueuing embedding for %s %s: %s",
+            target.__class__.__name__,
+            target.id,
+            e,
+        )
 
 
 @event.listens_for(Session, "after_soft_rollback")
 def _clear_pending_embedding_jobs(session: Session, transaction) -> None:
+    pending = session.info.get(_PENDING_EMBEDDING_JOBS_KEY)
+    if pending:
+        logger.info(
+            "Deferred embedding: dropped %d pending job(s) on soft rollback (session id=%s)",
+            len(pending),
+            id(session),
+        )
     session.info.pop(_PENDING_EMBEDDING_JOBS_KEY, None)

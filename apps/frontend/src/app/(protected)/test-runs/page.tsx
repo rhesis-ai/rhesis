@@ -1,66 +1,132 @@
 'use client';
 
 import * as React from 'react';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
+import { PlayArrowIcon } from '@/components/icons';
 import TestRunsGrid from './components/TestRunsGrid';
-import TestRunCharts from './components/TestRunCharts';
+import RunDrawer from '@/components/common/RunDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [testRunCount, setTestRunCount] = React.useState<number | null>(null);
+  const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
 
-  // Set document title
   useDocumentTitle('Test Runs');
+
+  const sessionToken = session?.session_token ?? '';
+
+  React.useEffect(() => {
+    const fetchCount = async () => {
+      if (!sessionToken) return;
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const testRunsClient = apiFactory.getTestRunsClient();
+        const response = await testRunsClient.getTestRuns({
+          skip: 0,
+          limit: 1,
+        });
+        setTestRunCount(response.pagination?.totalCount ?? 0);
+      } catch {
+        setTestRunCount(0);
+      }
+    };
+    fetchCount();
+  }, [sessionToken, refreshKey]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
-  // Handle loading state
+  const handleCreateSuccess = React.useCallback(() => {
+    setCreateDrawerOpen(false);
+    handleRefresh();
+  }, [handleRefresh]);
+
   if (status === 'loading') {
     return (
-      <PageContainer title="Test Runs" breadcrumbs={[]}>
+      <PageLayout title="Test Runs" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
-  // Handle no session state
-  if (!session?.session_token) {
+  if (!sessionToken) {
     return (
-      <PageContainer title="Test Runs" breadcrumbs={[]}>
+      <PageLayout title="Test Runs" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Test Runs" breadcrumbs={[]}>
-      {/* Charts Section */}
-      <TestRunCharts
-        sessionToken={session.session_token}
-        key={`charts-${refreshKey}`}
-      />
-
-      {/* Table Section */}
-      <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
-        <Box sx={{ p: 2 }}>
-          <TestRunsGrid
-            sessionToken={session.session_token}
-            onRefresh={handleRefresh}
-            key={`grid-${refreshKey}`}
-          />
+    <>
+      <PageLayout
+        title="Test Runs"
+        description="Executions of your test sets against AI endpoints. Track status, results, and history of each run."
+        breadcrumbs={[]}
+        actions={
+          <FabGroup>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="New Test Run"
+              onClick={() => setCreateDrawerOpen(true)}
+            />
+          </FabGroup>
+        }
+      >
+        <Box sx={{ mt: 2, mb: 2 }}>
+          {testRunCount === 0 ? (
+            <EntityEmptyState
+              card
+              icon={PlayArrowIcon}
+              title="No test runs yet"
+              description="Execute a test set against an AI endpoint to start your first test run. Test runs measure quality, safety, and reliability of your AI endpoints."
+              actionLabel="Create test run"
+              onAction={() => setCreateDrawerOpen(true)}
+              enrichment={getEntityEmptyStateEnrichment('test-runs')}
+            />
+          ) : (
+            <Paper
+              sx={{
+                width: '100%',
+                borderRadius: BORDER_RADIUS.md,
+                boxShadow: ELEVATION.xs,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
+                overflow: 'hidden',
+              }}
+            >
+              <TestRunsGrid
+                sessionToken={sessionToken}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            </Paper>
+          )}
         </Box>
-      </Paper>
-    </PageContainer>
+      </PageLayout>
+
+      <RunDrawer
+        mode="newTestRun"
+        open={createDrawerOpen}
+        onClose={() => setCreateDrawerOpen(false)}
+        sessionToken={sessionToken}
+        onSuccess={handleCreateSuccess}
+      />
+    </>
   );
 }

@@ -3,11 +3,12 @@
 import asyncio
 import json
 import logging
-import os
 import threading
 from typing import Any, Dict
 
 import redis.asyncio as redis
+
+from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class SDKRpcClient:
             RuntimeError: If Redis connection fails
         """
         try:
-            redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+            redis_url = get_redis_settings().broker_url
             logger.info("🔌 Initializing RPC client with Redis")
             self._redis = await redis.from_url(redis_url, decode_responses=True)
             logger.info("✅ RPC client connected to Redis successfully")
@@ -97,6 +98,7 @@ class SDKRpcClient:
         function_name: str,
         inputs: Dict[str, Any],
         timeout: float = 30.0,
+        execute_extras: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """
         Send RPC request to backend with direct worker routing and await result.
@@ -127,7 +129,10 @@ class SDKRpcClient:
             "function_name": function_name,
             "inputs": inputs,
         }
+        if execute_extras:
+            request.update(execute_extras)
         dispatch_context = f"({function_name})"
+        logger.debug(f"Sending RPC request to {request}")
         return await self._send_and_await(
             routing_key=routing_key,
             request=request,
@@ -162,6 +167,8 @@ class SDKRpcClient:
             "metric_name": metric_name,
             "inputs": inputs,
         }
+
+        logger.debug(f"Sending RPC request to {request}")
         return await self._send_and_await(
             routing_key=routing_key,
             request=request,
@@ -202,6 +209,56 @@ class SDKRpcClient:
             timeout=timeout,
             disconnected_details=f"No worker for connection {connection_id}",
             dispatch_log_context=dispatch_context,
+        )
+
+    async def send_and_await_metric_by_org(
+        self,
+        organization_id: str,
+        metric_run_id: str,
+        metric_name: str,
+        inputs: Dict[str, Any],
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """Org-scoped metric dispatch.
+
+        Resolves ``ws:metric:{organization_id}:{metric_name}`` -> ``connection_id``
+        in Redis, then forwards through :meth:`send_and_await_metric_by_connection`
+        which handles the worker lookup and direct dispatch.
+
+        Used when the SDK is connected without a ``project_id``
+        (metrics-only registration). The Redis key is written by the
+        backend at registration time and refreshed by the connection's
+        heartbeat loop.
+
+        Returns:
+            Result dictionary or error dict.
+        """
+        if not self._redis:
+            logger.error("Redis not initialized for RPC call")
+            return {"error": "send_failed", "details": "Redis not initialized"}
+
+        metric_key = f"ws:metric:{organization_id}:{metric_name}"
+        try:
+            connection_id = await self._redis.get(metric_key)
+        except Exception as e:
+            logger.error(f"Failed to check routing for {metric_key}: {e}")
+            return {"error": "send_failed", "details": f"Failed to check routing: {e}"}
+
+        if not connection_id:
+            logger.error(f"SDK connection unavailable for {metric_key}")
+            return {
+                "error": "sdk_disconnected",
+                "details": (
+                    f"No SDK registered metric '{metric_name}' for organization {organization_id}"
+                ),
+            }
+
+        return await self.send_and_await_metric_by_connection(
+            connection_id=connection_id,
+            metric_run_id=metric_run_id,
+            metric_name=metric_name,
+            inputs=inputs,
+            timeout=timeout,
         )
 
     async def _send_and_await(

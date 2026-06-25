@@ -31,6 +31,7 @@ export const SUPPORTED_PROVIDERS = [
   'gemini',
   'vertex_ai',
   'ollama',
+  'vllm',
   'anthropic',
   'groq',
   'mistral',
@@ -51,6 +52,44 @@ export const SUPPORTED_PROVIDERS = [
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
 
 export const EMBEDDING_PROVIDERS = ['openai', 'gemini', 'vertex_ai'];
+
+// Providers that support GET /models/provider/{name} model listing.
+// Keep aligned with _LISTABLE_LLM_PROVIDERS and _LISTABLE_EMBEDDING_PROVIDERS in
+// sdk/src/rhesis/sdk/models/factory.py
+export const LANGUAGE_MODEL_LISTABLE_PROVIDERS = [
+  'anthropic',
+  'azure',
+  'azure_ai',
+  'cohere',
+  'gemini',
+  'groq',
+  'meta_llama',
+  'mistral',
+  'ollama',
+  'openai',
+  'openrouter',
+  'perplexity',
+  'replicate',
+  'together_ai',
+  'vertex_ai',
+] as const;
+
+export const EMBEDDING_MODEL_LISTABLE_PROVIDERS = [
+  'openai',
+  'gemini',
+  'vertex_ai',
+] as const;
+
+export function providerSupportsModelListing(
+  provider: string,
+  modelType: 'language' | 'embedding'
+): boolean {
+  const listable =
+    modelType === 'embedding'
+      ? EMBEDDING_MODEL_LISTABLE_PROVIDERS
+      : LANGUAGE_MODEL_LISTABLE_PROVIDERS;
+  return (listable as readonly string[]).includes(provider);
+}
 
 // Providers that require custom endpoint URLs (self-hosted or local)
 export const PROVIDERS_REQUIRING_ENDPOINT = [
@@ -91,9 +130,8 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <Image
       src="/logos/polyphemus-logo-favicon-transparent.svg"
       alt="Polyphemus"
-      width={32}
-      height={32}
-      style={{ width: '32px', height: '32px' }}
+      width={20}
+      height={20}
     />
   ),
   replicate: <SiReplicate className="h-8 w-8" />,
@@ -101,9 +139,8 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <Image
       src="/logos/rhesis-logo-favicon-transparent.svg"
       alt="Rhesis"
-      width={32}
-      height={32}
-      style={{ width: '32px', height: '32px' }}
+      width={20}
+      height={20}
     />
   ),
   together_ai: (

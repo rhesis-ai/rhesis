@@ -120,6 +120,12 @@ variable "env_nics" {
   default = []
 }
 
+variable "gke_public_endpoints" {
+  description = "Map of env name to GKE cluster public endpoint IP (for stg/prd public endpoint kubectl access)"
+  type        = map(string)
+  default     = {}
+}
+
 variable "bind9_tsig_keys" {
   description = "TSIG keys for BIND9 dynamic update (env → {keyname, secret})"
   type = map(object({
@@ -127,4 +133,10 @@ variable "bind9_tsig_keys" {
     secret  = string
   }))
   default = {}
+}
+
+variable "bind9_allowed_names" {
+  description = "Per-environment list of DNS hostnames each TSIG key may update. Keys must match bind9_tsig_keys env names. Each entry generates a subdomain grant covering the hostname and its sub-names (TXT ownership, ACME challenge records)."
+  type        = map(list(string))
+  default     = {}
 }

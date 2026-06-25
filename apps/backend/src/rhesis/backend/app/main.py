@@ -10,7 +10,7 @@ using the `Base` object from the `database` module.
 import logging
 import os
 import time
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 # Initialize OpenTelemetry FIRST, before any OpenTelemetry imports
 from rhesis.backend.telemetry import initialize_telemetry
@@ -27,7 +27,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
-from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
+from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
+from rhesis.backend.app.auth.user_utils import (
+    require_current_user,
+    require_current_user_or_token,
+    require_current_user_or_token_without_context,
+)
+from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
@@ -44,109 +50,163 @@ logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
-# Public routes don't need any authentication
-public_routes = [
-    "/",
-    "/auth/login",
-    "/auth/login/{provider}",
-    "/auth/login/email",
-    "/auth/callback",
-    "/auth/logout",
-    "/auth/providers",
-    "/auth/register",
-    "/auth/verify-email",
-    "/auth/resend-verification",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-    "/auth/magic-link",
-    "/auth/magic-link/verify",
-    "/auth/exchange-code",
-    "/auth/refresh",
-    "/auth/verify",
-    "/auth/demo",
-    "/auth/local-login",
-    "/home",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-]
-
-# Routes that accept both session and token auth
-token_enabled_routes = [
-    "/api/",
-    "/tokens/",
-    "/tasks/",
-    "/test_sets/",
-    "/topics/",
-    "/prompts/",
-    "/test_configurations/",
-    "/test_results/",
-    "/test_runs/",
-    "/services/",
-    "/organizations/",
-    "/demographics/",
-    "/dimensions/",
-    "/tags/",
-    "/users/",
-    "/statuses/",
-    "/risks/",
-    "/projects/",
-    "/tests/",
-    "/test-contexts/",
-    "/comments/",
-    "/sources/",
-    "/models/",
-    "/connector/",
-    "/explorer/",
-]
+# PUBLIC_ROUTES lives in rhesis.backend.app.auth.public_routes so EE can
+# extend it from its bootstrap (e.g. to register its own public callback
+# paths) before `app.include_router` runs for the EE routers.
 
 
-def is_websocket_route(route: APIRoute) -> bool:
+def _inject_route_dependency(route: APIRoute, dependency) -> None:
+    """Insert *dependency* as the first dependency on an already-registered route.
+
+    Shared by :func:`apply_auth_backstop` (authentication) and
+    :func:`apply_authz_backstop` (authorization).  Both rewrite a route's
+    resolved ``dependant`` *after* registration rather than at decoration time:
+    ``include_router`` copies each route with its own ``route_class``, so
+    ``FastAPI(route_class=...)`` does not propagate to copied routes.  Rewriting
+    the dependant post-hoc is the reliable way to cover every route, including
+    those added by EE.
+
+    ``get_parameterless_sub_dependant`` is what FastAPI uses internally for
+    ``dependencies=[...]`` entries; inserting at index 0 makes the backstop run
+    before the handler's own dependencies.
     """
-    Check if a route is a WebSocket endpoint.
+    from fastapi.dependencies.utils import get_parameterless_sub_dependant
 
-    WebSocket routes need special handling because they cannot use
-    FastAPI's dependency injection system in the same way as HTTP routes.
-    They must accept the connection first, then handle authentication manually.
+    sub_dependant = get_parameterless_sub_dependant(depends=dependency, path=route.path_format)
+    route.dependant.dependencies.insert(0, sub_dependant)
+    route.dependencies.insert(0, dependency)
 
-    Args:
-        route: The APIRoute to check
 
-    Returns:
-        True if this is a WebSocket route, False otherwise
+def apply_authz_backstop(app: FastAPI) -> None:
+    """Inject a permission check on every non-exempt HTTP route.
+
+    Mirrors :func:`apply_auth_backstop` exactly, but for *authorization* rather
+    than authentication.  Called **after** :func:`apply_auth_backstop` and
+    :func:`~rhesis.backend.app.auth.capabilities.register_capabilities` so all
+    routes (core + EE) are registered and the capability map is warm.
+
+    For each :class:`~fastapi.routing.APIRoute`:
+
+    1. Skip routes in :data:`~rhesis.backend.app.auth.public_routes.PUBLIC_ROUTES`
+       — no auth, so no authz either.
+    2. Skip routes in
+       :data:`~rhesis.backend.app.auth.public_routes.AUTHZ_EXEMPT_ROUTES`
+       — authenticated but deliberately exempt (onboarding, bootstrap).
+    3. Resolve the route's capability via
+       :func:`~rhesis.backend.app.auth.capabilities.get_capability_for_route`.
+       If ``None`` (unmapped or in the deriver skip-list), leave the route
+       unchanged — the CI drift guard (:mod:`tests.backend.security.test_authz_coverage`)
+       will flag these as failures.
+    4. Inject one parameterless ``require_permission(capability)`` sub-dependant
+       using the same mechanism as :func:`apply_auth_backstop`
+       (``get_parameterless_sub_dependant`` + ``route.dependant.dependencies.insert``).
+       Because FastAPI deduplicates dependency results per request, the extra
+       ``require_current_user_or_token`` call inside ``require_permission``
+       resolves only once even when the handler also declares it.
+
+    WebSocket routes (``APIWebSocketRoute``) and mounts are skipped; they
+    authenticate and authorise manually in their handlers.
     """
-    import inspect
+    from rhesis.backend.app.auth.capabilities import get_capability_for_route
+    from rhesis.backend.app.auth.public_routes import AUTHZ_EXEMPT_ROUTES, PUBLIC_ROUTES
+    from rhesis.backend.app.auth.rbac import require_permission
 
-    # Check if the route has a dependant with a callable
-    if not hasattr(route, "dependant") or not route.dependant:
-        return False
+    for route in app.router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        path: str = route.path
+        if path in PUBLIC_ROUTES:
+            continue
+        methods: set[str] = route.methods or set()
+        if any((m, path) in AUTHZ_EXEMPT_ROUTES for m in methods):
+            continue
+        cap = get_capability_for_route(route)
+        if cap is None:
+            # Unmapped route — the drift guard in test_authz_coverage.py will flag this.
+            continue
+        _inject_route_dependency(route, Depends(require_permission(cap)))
 
-    if not hasattr(route.dependant, "call") or not route.dependant.call:
-        return False
 
-    # Get the function signature
-    try:
-        sig = inspect.signature(route.dependant.call)
-        # WebSocket routes have a 'websocket' parameter of type WebSocket
-        return "websocket" in sig.parameters
-    except (ValueError, TypeError):
-        return False
+# Authentication dependencies the backstop recognizes as "already protected".
+#
+# A route that declares any of these — directly or transitively via a tenant
+# dependency such as ``get_tenant_db_session`` (which itself depends on
+# ``require_current_user_or_token``) — is already authenticated. The backstop
+# must NOT inject ``require_current_user_or_token`` on top of these, because
+# some routes intentionally use a *weaker* policy: onboarding routes
+# (``POST /organizations/``, ``PUT /users/{id}``) use
+# ``require_current_user_or_token_without_context`` so a brand-new user who has
+# no organization yet can create one. Blindly stacking the org-requiring
+# variant on top breaks onboarding with a 403 ("User is not associated with an
+# organization").
+_AUTH_DEPENDENCY_CALLS = frozenset(
+    {
+        require_current_user_or_token,
+        require_current_user_or_token_without_context,
+        require_current_user,
+    }
+)
 
 
-class AuthenticatedAPIRoute(APIRoute):
-    def get_dependencies(self):
-        # WebSocket routes handle authentication manually in the endpoint
-        if is_websocket_route(self):
-            return []
+def _dependant_has_auth(dependant, seen: set | None = None) -> bool:
+    """Recursively check whether a route's dependant tree declares any auth dependency.
 
-        if self.path in public_routes:
-            # No auth required
-            return []
-        elif any(self.path.startswith(route) for route in token_enabled_routes):
-            # Both session and token auth accepted
-            return [Depends(require_current_user_or_token)]
-        # Default to session-only auth
-        return [Depends(require_current_user)]
+    Walks the sub-dependency graph so transitive auth (e.g. a route depending on
+    ``get_tenant_db_session`` -> ``get_tenant_context`` -> ``require_current_user_or_token``)
+    is detected, not just auth declared directly on the handler.
+    """
+    if seen is None:
+        seen = set()
+    for sub in dependant.dependencies:
+        call = getattr(sub, "call", None)
+        if call in _AUTH_DEPENDENCY_CALLS:
+            return True
+        if call is not None and id(call) not in seen:
+            seen.add(id(call))
+            if _dependant_has_auth(sub, seen):
+                return True
+    return False
+
+
+def apply_auth_backstop(app: FastAPI) -> None:
+    """Append a baseline auth dependency to routes that declare none.
+
+    Defense-in-depth backstop: every HTTP route whose exact path is **not** in
+    :data:`PUBLIC_ROUTES` and that does **not** already declare an
+    authentication dependency gets ``require_current_user_or_token`` injected,
+    guaranteeing that no route is ever accidentally exposed without
+    authentication.
+
+    Routes that already declare an auth dependency are left untouched so their
+    own (possibly weaker) policy remains authoritative. This matters for
+    onboarding: ``POST /organizations/`` and ``PUT /users/{id}`` use
+    ``require_current_user_or_token_without_context`` so a brand-new user with
+    no organization can create one. Stacking the org-requiring
+    ``require_current_user_or_token`` on top of those would reject onboarding
+    with a 403 even though the route is correctly authenticated.
+
+    Post-hoc injection (see :func:`_inject_route_dependency`) is used rather than
+    a custom ``route_class`` because ``include_router`` copies routes with their
+    own class and ``FastAPI(route_class=...)`` does not propagate.
+
+    WebSocket routes (``APIWebSocketRoute``) and mounts are skipped; they
+    authenticate manually in their handlers.
+
+    Must be called **after** all routers (core + EE) and app-level routes are
+    registered.
+    """
+    backstop = Depends(require_current_user_or_token)
+    for route in app.router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if route.path in PUBLIC_ROUTES:
+            continue
+        # Skip routes that already authenticate themselves (directly or via a
+        # tenant dependency). Injecting on top would override an intentionally
+        # weaker policy such as the context-free auth used during onboarding.
+        if _dependant_has_auth(route.dependant):
+            continue
+        _inject_route_dependency(route, backstop)
 
 
 def get_api_description():
@@ -185,9 +245,41 @@ async def lifespan(app: FastAPI):
     """
     set_logger()
 
-    # Startup: Initialize local environment if enabled
+    # Apply fail-fast Celery broker settings for the web process.
+    # Must happen before any Celery task is published from an HTTP handler.
+    from rhesis.backend.celery.core import apply_web_context_overrides
+
+    apply_web_context_overrides()
+
+    # Set anyio threadpool size for async-to-thread offloading.
+    # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
+    try:
+        from anyio import to_thread
+
+        await to_thread.run_sync(lambda: None)  # warm the thread limiter
+
+        limiter = to_thread.current_default_thread_limiter()
+        limiter.total_tokens = int(os.getenv("ANYIO_THREADPOOL_SIZE", "100"))
+    except Exception as _tp_err:
+        logger.warning(f"Could not configure anyio thread limiter: {_tp_err}")
+
+    # Startup: Initialize local environment + run any registered startup hooks.
+    # Hooks must be idempotent; failures abort startup so misconfiguration is loud.
+    # The RBAC catalog is now seeded by Alembic data migrations, not a startup hook,
+    # so this block primarily handles quick-start/local seeding via
+    # initialize_local_environment.
+    #
+    # Both calls share a single get_db() transaction deliberately: if either
+    # fails the whole block rolls back atomically, avoiding a half-initialised
+    # DB state.
+    #
+    # This block must complete and commit before the lifespan yield below so that
+    # DB state is consistent before the first request is served.
+    from rhesis.backend.app.startup_hooks import run_startup_hooks
+
     with get_db() as db:
         initialize_local_environment(db)
+        run_startup_hooks(db)
 
     # Pre-fetch exchange rate on startup (non-blocking async)
     from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate_async
@@ -226,6 +318,13 @@ async def lifespan(app: FastAPI):
 
     init_conv_cache()
     init_metrics_cache()
+
+    # Initialize permission cache (Redis DB 5, in-memory fallback — SP5)
+    from rhesis.backend.app.services.permission_cache import (
+        initialize_cache as init_permission_cache,
+    )
+
+    init_permission_cache()
 
     # Initialize WebSocket Redis subscriber (optional, doesn't fail startup)
     from rhesis.backend.app.services.websocket import start_redis_subscriber, ws_manager
@@ -275,48 +374,61 @@ async def lifespan(app: FastAPI):
     # StreamableHTTPSessionManager.run() can only be called once per
     # instance, so create a fresh one each time the lifespan starts
     # (matters for test suites that restart the app multiple times).
-    mcp_ctx = None
-    mcp_server_obj = getattr(app.state, "mcp_server", None)
-    if mcp_server_obj is not None:
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-        from mcp.server.transport_security import TransportSecuritySettings
+    #
+    # Use ``AsyncExitStack`` (not manual ``__aenter__``/``__aexit__``)
+    # so the MCP context manager is entered and exited within a single
+    # ``async with`` frame. ``StreamableHTTPSessionManager.run()`` wraps
+    # an ``anyio.create_task_group()`` whose cancel scope is bound to the
+    # asyncio task that entered it. Splitting enter/exit across the
+    # ``yield`` of ``@asynccontextmanager`` makes the cleanup run via
+    # ``agen.athrow()`` from a different task on SIGINT, which trips
+    # anyio's "exit cancel scope in a different task" check.
+    async with AsyncExitStack() as stack:
+        mcp_server_obj = getattr(app.state, "mcp_server", None)
+        if mcp_server_obj is not None:
+            from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+            from mcp.server.transport_security import TransportSecuritySettings
 
-        fresh_sm = StreamableHTTPSessionManager(
-            app=mcp_server_obj,
-            stateless=True,
-            security_settings=TransportSecuritySettings(
-                enable_dns_rebinding_protection=False,
-            ),
-        )
-        app.state.mcp_session_manager = fresh_sm
-        mcp_ctx = fresh_sm.run()
-        await mcp_ctx.__aenter__()
-        logger.info("MCP session manager started")
+            fresh_sm = StreamableHTTPSessionManager(
+                app=mcp_server_obj,
+                stateless=True,
+                security_settings=TransportSecuritySettings(
+                    enable_dns_rebinding_protection=False,
+                ),
+            )
+            app.state.mcp_session_manager = fresh_sm
+            await stack.enter_async_context(fresh_sm.run())
+            logger.info("MCP session manager started")
 
-    yield  # Application is running
+        try:
+            yield  # Application is running
+        finally:
+            # Shutdown order: MCP first (via stack.aclose()), then Redis/Garak/WS.
+            # MCP is drained before Redis so any in-flight MCP frames that write
+            # to Redis complete cleanly.
+            # ``AsyncExitStack`` is used (not manual __aenter__/__aexit__) so
+            # the MCP cancel scope is exited from the same asyncio task that
+            # entered it, avoiding anyio's "exit cancel scope in a different
+            # task" check on SIGINT.
+            await stack.aclose()
 
-    # Shutdown MCP session manager
-    if mcp_ctx is not None:
-        await mcp_ctx.__aexit__(None, None, None)
+            # Shutdown: Clean up Redis connections
+            if redis_manager.is_available:
+                await redis_manager.close()
 
-    # Shutdown: Clean up Redis connections
-    if redis_manager.is_available:
-        await redis_manager.close()
+            # Close Garak cache Redis connection
+            await GarakProbeCache.close()
 
-    # Close Garak cache Redis connection
-    await GarakProbeCache.close()
+            # Stop WebSocket Redis subscriber
+            from rhesis.backend.app.services.websocket import stop_redis_subscriber
 
-    # Stop WebSocket Redis subscriber
-    from rhesis.backend.app.services.websocket import stop_redis_subscriber
-
-    await stop_redis_subscriber()
+            await stop_redis_subscriber()
 
 
 app = FastAPI(
     title="Rhesis Backend",
     description=get_api_description(),
     version=__version__,
-    route_class=AuthenticatedAPIRoute,
     lifespan=lifespan,
 )
 
@@ -408,17 +520,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 # Configure CORS
+_frontend_settings = get_frontend_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://frontend:3000",
-        "https://app.rhesis.ai",
-        "https://dev-app.rhesis.ai",
-        "https://dev-api.rhesis.ai",
-        "https://stg-app.rhesis.ai",
-        "https://stg-api.rhesis.ai",
-    ],
+    allow_origins=_frontend_settings.cors_origins,
+    allow_origin_regex=_frontend_settings.loopback_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -426,7 +532,7 @@ app.add_middleware(
 )
 
 # Get session secret securely without default fallback in production
-session_secret = os.getenv("SESSION_SECRET_KEY")
+session_secret = get_auth_settings().session_secret_key
 
 from rhesis.backend.app.routers.auth import is_running_locally
 
@@ -460,6 +566,24 @@ app.add_middleware(HTTPSRedirectMiddleware)
 
 # Add telemetry middleware
 app.add_middleware(TelemetryMiddleware)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "0"
+
+        if request.scope.get("scheme") == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        return response
+
+
+# Outermost middleware -- runs first on every response
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -497,15 +621,32 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 # app.add_middleware(LoggingMiddleware)
 
 
-# Include routers with custom route class
+# Include routers. The baseline auth dependency is applied post-hoc by
+# apply_auth_backstop(app) at the end of this module, once every router
+# (core + EE) and app-level route has been registered.
 for router in routers:
-    router.route_class = AuthenticatedAPIRoute
     app.include_router(router)
 
 # Mount MCP server for agent tool access
 from rhesis.backend.app.mcp_server import setup_mcp_server
 
 setup_mcp_server(app)
+
+# Bootstrap Enterprise Edition features (no-op when ee extra is not installed).
+#
+# This intentionally runs at module load time rather than inside the lifespan
+# handler because `bootstrap_ee` calls `app.include_router(...)`. FastAPI
+# generates the OpenAPI schema lazily on first request; registering routes
+# inside lifespan (after schema generation could have already been triggered)
+# produces subtle schema-caching issues in some environments. Keeping it here
+# guarantees routes and their docs are visible from the very first request.
+#
+# The call is safe at import time because `ee_bootstrap.bootstrap_ee` wraps
+# the EE import in `try/except ImportError`, so it is a no-op in Community
+# mode or in any test environment where the `ee` extra is not installed.
+from rhesis.backend.app.ee_bootstrap import bootstrap_ee
+
+bootstrap_ee(app)
 
 
 @app.get("/", include_in_schema=True)
@@ -546,4 +687,54 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    """Liveness + lightweight dependency surfacing.
+
+    The endpoint stays 200 even when a non-fatal dependency is
+    degraded; orchestrators rely on this for liveness, not readiness.
+    Per-dependency status appears in the body so dashboards and
+    on-call can see which subsystem flapped without paging.
+
+    The Redis replay store ("redis_replay_store") is surfaced because
+    a Redis outage degrades:
+
+    - magic link / password reset single-use enforcement (already in
+      core); and
+    - subject-token replay protection in /auth/token-exchange (EE).
+
+    Both fall back to fail-open on outage, so the body field lets
+    operators correlate replay-protection gaps with infra incidents.
+    """
+    try:
+        from rhesis.backend.app.services.connector.redis_client import (
+            redis_manager,
+        )
+
+        redis_status = "ok" if redis_manager.is_available else "degraded"
+    except Exception:
+        # Surfacing the fact that the probe itself failed is more
+        # useful than swallowing the error -- it points at a config
+        # problem (e.g. missing env var) rather than a Redis outage.
+        redis_status = "unknown"
+
+    return {
+        "status": "ok",
+        "redis_replay_store": redis_status,
+    }
+
+
+# Defense-in-depth: append the baseline auth dependency to every non-public
+# route. Runs last so it covers core routers, EE routers, and the app-level
+# routes (/, /health) defined above.
+apply_auth_backstop(app)
+
+# Derive and cache the capability catalog from the now-complete route table.
+# Must run after apply_auth_backstop so EE routes are already registered.
+from rhesis.backend.app.auth.capabilities import register_capabilities
+
+register_capabilities(app)
+
+# PEP backstop: inject require_permission(capability) on every non-exempt route.
+# Must run after register_capabilities so the capability map is warm (though the
+# backstop derives caps independently via get_capability_for_route, keeping both
+# in sync with the same deriver is belt-and-suspenders).
+apply_authz_backstop(app)

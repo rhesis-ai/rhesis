@@ -28,8 +28,8 @@ def embedding_model(test_db: Session, test_org_id: str, authenticated_user_id: s
 
     if not provider_type:
         provider_type = TypeLookup(
+            type_name="ProviderType",
             type_value="openai",
-            type_category="provider",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -209,61 +209,7 @@ class TestEmbeddingGenerator:
                 "00000000-0000-0000-0000-000000000000", "InvalidType", test_org_id
             )
 
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
-    def test_generate_embedding_vector_success(self, mock_get_model, test_db):
-        """Test successful embedding vector generation."""
-        generator = EmbeddingGenerator(test_db)
-
-        mock_embedder = Mock()
-        mock_embedder.generate.return_value = [0.1] * 768
-        mock_get_model.return_value = mock_embedder
-
-        result = generator._generate_embedding_vector(
-            searchable_text="Test text",
-            provider="openai",
-            model_name="text-embedding-3-small",
-            api_key="test-key",
-            dimension=768,
-        )
-
-        assert len(result) == 768
-        assert all(isinstance(x, float) for x in result)
-        mock_embedder.generate.assert_called_once_with("Test text")
-
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
-    def test_generate_embedding_vector_model_creation_error(self, mock_get_model, test_db):
-        """Test error when embedding model creation fails."""
-        generator = EmbeddingGenerator(test_db)
-        mock_get_model.side_effect = ValueError("Invalid provider")
-
-        with pytest.raises(ValueError, match="Failed to create embedder"):
-            generator._generate_embedding_vector(
-                searchable_text="Test text",
-                provider="invalid",
-                model_name="test-model",
-                api_key="test-key",
-                dimension=768,
-            )
-
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
-    def test_generate_embedding_vector_generation_error(self, mock_get_model, test_db):
-        """Test error when embedding generation fails."""
-        generator = EmbeddingGenerator(test_db)
-
-        mock_embedder = Mock()
-        mock_embedder.generate.side_effect = Exception("API error")
-        mock_get_model.return_value = mock_embedder
-
-        with pytest.raises(ValueError, match="Failed to generate embedding"):
-            generator._generate_embedding_vector(
-                searchable_text="Test text",
-                provider="openai",
-                model_name="text-embedding-3-small",
-                api_key="test-key",
-                dimension=768,
-            )
-
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_generate_creates_new_embedding(
         self,
         mock_get_model,
@@ -299,7 +245,7 @@ class TestEmbeddingGenerator:
         assert embedding.dimension == 768
         assert len(embedding.embedding) == 768
 
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_generate_with_entity_provided(
         self,
         mock_get_model,
@@ -328,7 +274,7 @@ class TestEmbeddingGenerator:
         assert result["status"] == "success"
         assert "embedding_id" in result
 
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_generate_returns_existing_embedding(
         self,
         mock_get_model,
@@ -364,7 +310,7 @@ class TestEmbeddingGenerator:
         assert result1["embedding_id"] == result2["embedding_id"]
         assert mock_embedder.generate.call_count == 1
 
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_generate_marks_old_embeddings_stale(
         self,
         mock_get_model,
@@ -453,7 +399,34 @@ class TestEmbeddingGenerator:
                 model_id="00000000-0000-0000-0000-000000000000",
             )
 
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
+    @pytest.mark.parametrize("empty_text", ["", "   ", "\n\t"])
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    def test_generate_skips_when_searchable_text_empty(
+        self,
+        mock_get_model,
+        test_db,
+        test_entity,
+        embedding_model,
+        test_org_id,
+        authenticated_user_id,
+        empty_text,
+    ):
+        """No embedder or model resolution when precomputed text is empty."""
+        generator = EmbeddingGenerator(test_db)
+
+        result = generator.generate(
+            entity_id=str(test_entity.id),
+            entity_type="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            model_id=str(embedding_model.id),
+            searchable_text=empty_text,
+        )
+
+        assert result == {"status": "skipped_empty_text", "embedding_id": None}
+        mock_get_model.assert_not_called()
+
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_generate_different_dimensions(
         self,
         mock_get_model,
@@ -474,6 +447,17 @@ class TestEmbeddingGenerator:
             )
             .first()
         )
+
+        if not provider_type:
+            provider_type = TypeLookup(
+                type_name="ProviderType",
+                type_value="openai",
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+            test_db.add(provider_type)
+            test_db.commit()
+            test_db.refresh(provider_type)
 
         dimensions_to_test = [384, 768, 1024, 1536]
 

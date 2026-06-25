@@ -216,7 +216,8 @@ export default function MentionTextInput({
     mentionElements.forEach(el => {
       const text = el.textContent?.trim();
       if (text && mentionTypeMap.has(text)) {
-        const type = mentionTypeMap.get(text)!;
+        const type = mentionTypeMap.get(text);
+        if (!type) return;
         const color = typeColors[type];
         el.style.backgroundColor = alpha(
           color,

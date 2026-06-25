@@ -25,6 +25,7 @@ from rhesis.backend.app.auth.user_utils import (
     get_authenticated_user_with_context,
     get_current_user,
 )
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.models.token import Token
 from rhesis.backend.app.models.user import User
 
@@ -32,19 +33,31 @@ from rhesis.backend.app.models.user import User
 class TestGetSecretKey:
     """Test get_secret_key function"""
 
-    def test_get_secret_key_success(self):
-        """Test successful retrieval of JWT secret key"""
-        with patch("os.getenv", return_value="test-secret-key"):
-            secret_key = get_secret_key()
-            assert secret_key == "test-secret-key"
+    @pytest.fixture(autouse=True)
+    def clear_auth_settings_cache(self):
+        get_auth_settings.cache_clear()
+        yield
+        get_auth_settings.cache_clear()
 
-    def test_get_secret_key_missing(self):
+    def test_get_secret_key_success(self, monkeypatch):
+        """Test successful retrieval of JWT secret key"""
+        monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-key")
+        get_auth_settings.cache_clear()
+
+        secret_key = get_secret_key()
+
+        assert secret_key == "test-secret-key"
+
+    def test_get_secret_key_missing(self, monkeypatch):
         """Test HTTPException when JWT_SECRET_KEY is not configured"""
-        with patch("os.getenv", return_value=None):
-            with pytest.raises(HTTPException) as exc_info:
-                get_secret_key()
-            assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-            assert "JWT_SECRET_KEY not configured" in str(exc_info.value.detail)
+        monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+        get_auth_settings.cache_clear()
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_secret_key()
+
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "JWT_SECRET_KEY not configured" in str(exc_info.value.detail)
 
 
 class TestGetCurrentUser:
@@ -163,6 +176,11 @@ class TestVerifyJwtToken:
                 options={
                     "verify_exp": True,
                     "verify_iat": True,
+                    # Audience is verified manually inside
+                    # ``verify_jwt_token`` only when ``azp`` is
+                    # present, so PyJWT's own audience check is
+                    # disabled to avoid double-enforcing it.
+                    "verify_aud": False,
                     "require": ["exp", "iat"],
                 },
             )
@@ -218,6 +236,63 @@ class TestVerifyJwtToken:
         ):
             with pytest.raises(JWTError):
                 verify_jwt_token(token, secret_key)
+
+    def test_verify_jwt_token_rejects_azp_without_epoch(self):
+        """An azp-bearing token MUST carry epoch.
+
+        Coarse client-level revocation rests entirely on the
+        ``iat >= epoch`` comparison; a token minted with ``azp`` but
+        without ``epoch`` would silently bypass that check and
+        survive any secret rotation. ``verify_jwt_token`` rejects
+        rather than fail-open.
+        """
+        from rhesis.backend.app.auth.token_utils import RHESIS_TOKEN_AUDIENCE
+
+        token = "valid.jwt.token"
+        secret_key = "test-secret"
+        payload = {
+            "sub": "user123",
+            "type": "session",
+            "azp": "brain-prod",
+            "aud": RHESIS_TOKEN_AUDIENCE,
+            "scope": "full",
+            "jti": "some-uuid",
+            "exp": 9999999999,
+            "iat": 1000000000,
+            # Note: NO ``epoch`` -- the rejection under test.
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=payload,
+        ):
+            with pytest.raises(JWTError):
+                verify_jwt_token(token, secret_key)
+
+    def test_verify_jwt_token_accepts_azp_with_epoch(self):
+        """Sanity check: azp + epoch + matching aud is the happy path."""
+        from rhesis.backend.app.auth.token_utils import RHESIS_TOKEN_AUDIENCE
+
+        token = "valid.jwt.token"
+        secret_key = "test-secret"
+        payload = {
+            "sub": "user123",
+            "type": "session",
+            "azp": "brain-prod",
+            "aud": RHESIS_TOKEN_AUDIENCE,
+            "scope": "full",
+            "jti": "some-uuid",
+            "epoch": 1000000000,
+            "exp": 9999999999,
+            "iat": 1000000001,
+            "user": {"email": "u@example.com"},
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=payload,
+        ):
+            assert verify_jwt_token(token, secret_key) == payload
 
 
 class TestValidateToken:

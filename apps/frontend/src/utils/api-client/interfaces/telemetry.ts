@@ -114,6 +114,7 @@ export interface TraceSummary {
   project_id: string;
   environment: string;
   conversation_id?: string;
+  conversation_input?: string;
   start_time: string;
   duration_ms: number;
   span_count: number;
@@ -241,6 +242,9 @@ export interface TraceQueryParams {
   project_id?: string; // Optional - shows all projects if not specified
   conversation_id?: string;
   environment?: string;
+  /** Case-insensitive search across trace ID, operations, endpoint metadata, conversation text */
+  search?: string;
+  /** Exact root span name (legacy API); prefer `search` in the UI */
   span_name?: string;
   status_code?: string;
   start_time_after?: string;

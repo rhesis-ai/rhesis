@@ -1,25 +1,32 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Box,
-  TextField,
-  Button,
-  Alert,
-  CircularProgress,
-  Grid,
-} from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
+import React, { useMemo } from 'react';
+import { Grid, TextField } from '@mui/material';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { validateEmail, validatePhone } from '@/utils/validation';
-import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
+import EditableSection from '@/components/common/EditableSection';
+import ViewField from '@/components/common/ViewField';
 
 interface ContactInformationFormProps {
   organization: Organization;
   sessionToken: string;
   onUpdate: () => void;
+}
+
+interface ContactDraft {
+  email: string;
+  phone: string;
+  address: string;
+}
+
+function draftFromOrganization(org: Organization): ContactDraft {
+  return {
+    email: org.email || '',
+    phone: org.phone || '',
+    address: org.address || '',
+  };
 }
 
 export default function ContactInformationForm({
@@ -28,77 +35,31 @@ export default function ContactInformationForm({
   onUpdate,
 }: ContactInformationFormProps) {
   const notifications = useNotifications();
-  const [formData, setFormData] = useState({
-    email: organization.email || '',
-    phone: organization.phone || '',
-    address: organization.address || '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const initialValue = useMemo(
+    () => draftFromOrganization(organization),
+    [organization]
+  );
 
-  const { hasChanges, resetChanges } = useFormChangeDetection({
-    initialData: {
-      email: organization.email || '',
-      phone: organization.phone || '',
-      address: organization.address || '',
-    },
-    currentData: formData,
-  });
-
-  const handleChange =
-    (field: keyof typeof formData) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData({ ...formData, [field]: e.target.value });
-      setError(null);
-      // Clear field error on change
-      if (fieldErrors[field]) {
-        setFieldErrors({ ...fieldErrors, [field]: '' });
-      }
-    };
-
-  const handleBlur = (field: 'email' | 'phone') => () => {
-    const value = formData[field];
-    if (value) {
-      const validation =
-        field === 'email' ? validateEmail(value) : validatePhone(value);
-      if (!validation.isValid) {
-        setFieldErrors({ ...fieldErrors, [field]: validation.message || '' });
-      }
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    if (!hasChanges) {
-      setSaving(false);
-      return;
-    }
-
-    // Validate email and phone before submitting
+  const handleSave = async (draft: ContactDraft) => {
     const errors: Record<string, string> = {};
 
-    if (formData.email) {
-      const emailValidation = validateEmail(formData.email);
+    if (draft.email) {
+      const emailValidation = validateEmail(draft.email);
       if (!emailValidation.isValid) {
         errors.email = emailValidation.message || '';
       }
     }
 
-    if (formData.phone) {
-      const phoneValidation = validatePhone(formData.phone);
+    if (draft.phone) {
+      const phoneValidation = validatePhone(draft.phone);
       if (!phoneValidation.isValid) {
         errors.phone = phoneValidation.message || '';
       }
     }
 
     if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      setSaving(false);
-      return;
+      notifications.show(Object.values(errors)[0], { severity: 'error' });
+      throw new Error('validation');
     }
 
     try {
@@ -106,45 +67,92 @@ export default function ContactInformationForm({
       const organizationsClient = apiFactory.getOrganizationsClient();
 
       await organizationsClient.updateOrganization(organization.id, {
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined,
+        email: draft.email || undefined,
+        phone: draft.phone || undefined,
+        address: draft.address || undefined,
       });
 
       notifications.show('Contact information updated successfully', {
         severity: 'success',
       });
-      resetChanges();
       onUpdate();
     } catch (err: unknown) {
-      setError(
+      if (err instanceof Error && err.message === 'validation') {
+        throw err;
+      }
+      notifications.show(
         err instanceof Error
           ? err.message
-          : 'Failed to update contact information'
+          : 'Failed to update contact information',
+        { severity: 'error' }
       );
-    } finally {
-      setSaving(false);
+      throw err;
     }
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+    <EditableSection
+      title="Contact Information"
+      initialValue={initialValue}
+      onSave={handleSave}
+    >
+      {({ draft, setDraft, isEditing }) => (
+        <ContactFields
+          draft={draft}
+          setDraft={setDraft}
+          isEditing={isEditing}
+        />
       )}
-      <Grid container spacing={3}>
-        <Grid
-          size={{
-            xs: 12,
-            md: 6,
-          }}
-        >
+    </EditableSection>
+  );
+}
+
+function ContactFields({
+  draft,
+  setDraft,
+  isEditing,
+}: {
+  draft: ContactDraft;
+  setDraft: (next: ContactDraft | ((p: ContactDraft) => ContactDraft)) => void;
+  isEditing: boolean;
+}) {
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>(
+    {}
+  );
+
+  const handleChange =
+    (field: keyof ContactDraft) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      setDraft(prev => ({ ...prev, [field]: e.target.value }));
+      if (fieldErrors[field]) {
+        setFieldErrors(prev => ({ ...prev, [field]: '' }));
+      }
+    };
+
+  const handleBlur = (field: 'email' | 'phone') => () => {
+    const value = draft[field];
+    if (value) {
+      const validation =
+        field === 'email' ? validateEmail(value) : validatePhone(value);
+      if (!validation.isValid) {
+        setFieldErrors(prev => ({
+          ...prev,
+          [field]: validation.message || '',
+        }));
+      }
+    }
+  };
+
+  const gridSpacing = isEditing ? 2 : '50px';
+  const columnSpacing = isEditing ? 2 : '30px';
+
+  return (
+    <Grid container columnSpacing={columnSpacing} rowSpacing={gridSpacing}>
+      <Grid size={{ xs: 12, md: 6 }}>
+        {isEditing ? (
           <TextField
             fullWidth
             label="Email"
-            value={formData.email}
+            value={draft.email}
             onChange={handleChange('email')}
             onBlur={handleBlur('email')}
             placeholder="contact@example.com"
@@ -153,56 +161,57 @@ export default function ContactInformationForm({
               fieldErrors.email || 'Primary contact email for your organization'
             }
           />
-        </Grid>
+        ) : (
+          <ViewField
+            label="Email"
+            value={draft.email}
+            helperText="Primary contact email for your organization"
+          />
+        )}
+      </Grid>
 
-        <Grid
-          size={{
-            xs: 12,
-            md: 6,
-          }}
-        >
+      <Grid size={{ xs: 12, md: 6 }}>
+        {isEditing ? (
           <TextField
             fullWidth
             label="Phone"
-            value={formData.phone}
+            value={draft.phone}
             onChange={handleChange('phone')}
             onBlur={handleBlur('phone')}
             placeholder="+1 (555) 123-4567"
             error={!!fieldErrors.phone}
             helperText={fieldErrors.phone || 'Primary contact phone number'}
           />
-        </Grid>
+        ) : (
+          <ViewField
+            label="Phone"
+            value={draft.phone}
+            helperText="Primary contact phone number"
+          />
+        )}
+      </Grid>
 
-        <Grid size={12}>
+      <Grid size={12}>
+        {isEditing ? (
           <TextField
             fullWidth
             label="Address"
-            value={formData.address}
+            value={draft.address}
             onChange={handleChange('address')}
             multiline
             rows={3}
             placeholder="123 Main St, City, State, ZIP"
             helperText="Physical address of your organization"
           />
-        </Grid>
-
-        <Grid size={12}>
-          <Button
-            type="submit"
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-            disabled={saving || !hasChanges}
-            sx={{
-              '&.Mui-disabled': {
-                backgroundColor: 'action.disabledBackground',
-                color: 'action.disabled',
-              },
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </Grid>
+        ) : (
+          <ViewField
+            label="Address"
+            value={draft.address}
+            helperText="Physical address of your organization"
+            multiline
+          />
+        )}
       </Grid>
-    </Box>
+    </Grid>
   );
 }

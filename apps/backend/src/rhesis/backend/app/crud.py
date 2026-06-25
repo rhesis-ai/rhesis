@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy import and_, cast, desc, func, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
@@ -75,10 +75,16 @@ def get_session_variables(db: Session):
 
 # Endpoint CRUD
 def get_endpoint(
-    db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str
+    db: Session,
+    endpoint_id: uuid.UUID,
+    organization_id: str,
+    user_id: str,
+    project_id: str = None,
 ) -> Optional[models.Endpoint]:
     """Get endpoint with relationships eagerly loaded."""
-    return get_item_detail(db, models.Endpoint, endpoint_id, organization_id, user_id)
+    return get_item_detail(
+        db, models.Endpoint, endpoint_id, organization_id, user_id, project_id=project_id
+    )
 
 
 def get_endpoints(
@@ -127,6 +133,30 @@ def delete_endpoint(
 ) -> Optional[models.Endpoint]:
     return delete_item(
         db, models.Endpoint, endpoint_id, organization_id=organization_id, user_id=user_id
+    )
+
+
+# Experiment CRUD
+def get_experiments(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Experiment]:
+    return get_items_detail(
+        db,
+        models.Experiment,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -475,7 +505,7 @@ def get_test_set(
     return (
         QueryBuilder(db, models.TestSet)
         .with_organization_filter(organization_id)  # Add organization filtering
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.TestSet.id == test_set_id))
         .first()
     )
@@ -499,9 +529,21 @@ def get_test_sets(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        .with_joinedloads()
+        # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
+        # Excludes collection relationships (prompts, tests, metrics, test_configurations,
+        # comments, tags) because those produce cartesian-product joins or lazy fan-out
+        # and the list endpoint does not serialize them.
+        .with_joined(
+            "status",
+            "license_type",
+            "test_set_type",
+            "user",
+            "owner",
+            "assignee",
+            "organization",
+        )
         .with_organization_filter(organization_id)  # Apply organization filtering
-        .with_visibility_filter()  # This already handles public visibility correctly
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -590,9 +632,19 @@ def get_test_set_by_nano_id_or_slug(
     """
     return (
         QueryBuilder(db, models.TestSet)
-        .with_joinedloads()
+        # See get_test_sets() for rationale: load only the M2O relationships that
+        # TestSetDetailSchema serializes.
+        .with_joined(
+            "status",
+            "license_type",
+            "test_set_type",
+            "user",
+            "owner",
+            "assignee",
+            "organization",
+        )
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(
                 (models.TestSet.nano_id == identifier) | (models.TestSet.slug == identifier)
@@ -627,6 +679,66 @@ def resolve_test_set(
         return None
 
 
+def get_test_sets_for_test(
+    db: Session,
+    test_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    organization_id: str = None,
+    user_id: str = None,
+    filter: str | None = None,
+) -> tuple[List[models.TestSet], int]:
+    """
+    Get test sets that contain a given test with pagination, sorting and filtering.
+
+    Args:
+        db: Database session
+        test_id: ID of the test to find test sets for
+        skip: Number of items to skip
+        limit: Maximum number of items to return
+        sort_by: Field to sort by
+        sort_order: Sort order (asc/desc)
+        organization_id: Organization ID for tenant scoping
+        user_id: User ID for tenant scoping
+        filter: OData filter string
+
+    Returns:
+        Tuple containing:
+        - List of test sets with their related objects loaded
+        - Total count before pagination
+    """
+    query_builder = (
+        QueryBuilder(db, models.TestSet)
+        .with_joined(
+            "status",
+            "license_type",
+            "test_set_type",
+            "user",
+            "owner",
+            "assignee",
+            "organization",
+        )
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .with_custom_filter(
+            lambda q: q.join(models.test.test_test_set_association).filter(
+                and_(
+                    models.test.test_test_set_association.c.test_id == test_id,
+                    models.test.test_test_set_association.c.organization_id == organization_id,
+                )
+            )
+        )
+        .with_odata_filter(filter)
+    )
+
+    total_count = query_builder.count()
+    items = query_builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
+
+    return items, total_count
+
+
 def get_test_set_tests(
     db: Session,
     test_set_id: uuid.UUID,
@@ -655,7 +767,25 @@ def get_test_set_tests(
     """
     query_builder = (
         QueryBuilder(db, models.Test)
-        .with_joinedloads()
+        # Eager-load the many-to-one relationships TestDetailSchema serializes.
+        # Crucially DOES NOT load Test.test_results / Test.test_contexts / Test.trace:
+        # those are one-to-many with very large JSONB payloads and previously
+        # produced a 22-join cartesian product on this endpoint that materialized
+        # multi-GB intermediate result sets.
+        .with_joined(
+            "prompt",
+            "test_type",
+            "user",
+            "assignee",
+            "owner",
+            "parent",
+            "topic",
+            "behavior",
+            "category",
+            "status",
+            "source",
+            "organization",
+        )
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.join(models.test.test_test_set_association).filter(
@@ -812,7 +942,7 @@ def get_status(
         .with_deleted()
         .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(status_id)
     )
     return _check_and_raise_if_deleted(item, models.Status, status_id, False)
@@ -895,6 +1025,30 @@ def get_embeddings(
         filter,
         organization_id=organization_id,
         user_id=user_id,
+    )
+
+
+def get_active_embeddings_for_entities(
+    db: Session,
+    entity_ids: List[UUID],
+    entity_type: str,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Embedding]:
+    from rhesis.backend.app.models.enums import EmbeddingStatus
+    from rhesis.backend.app.models.status import Status
+
+    return (
+        QueryBuilder(db, models.Embedding)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.filter(
+                models.Embedding.entity_id.in_(entity_ids),
+                models.Embedding.entity_type == entity_type,
+                models.Embedding.status.has(Status.name == EmbeddingStatus.ACTIVE.value),
+            )
+        )
+        .all()
     )
 
 
@@ -1320,12 +1474,20 @@ def get_users(
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """Create a new user without RLS checks, because we're creating a new user that has no
     organization_id"""
-    # Exclude send_invite field since it's not part of the User model
-    user_data = user.model_dump(exclude={"send_invite"})
+    # Exclude fields not present on the User model
+    user_data = user.model_dump(exclude={"send_invite", "project_id"})
     db_user = models.User(**user_data)
     db.add(db_user)
     # Flush to get ID and other generated values before refresh
     db.flush()
+
+    # Seed the default org-role (EE) so the user is not locked out once RBAC is
+    # enabled for their org. No-op in community builds / when no org is set.
+    if db_user.organization_id is not None:
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, db_user.id, db_user.organization_id)
+
     # Transaction commit is handled by the session context manager
     db.refresh(db_user)
     return db_user
@@ -1358,6 +1520,9 @@ def delete_user(
     organizational context. On next login, the user will go through
     the onboarding flow again.
 
+    Also removes all project memberships within the org and clears
+    default_project so no orphaned rows or stale settings remain.
+
     Args:
         db: Database session
         target_user_id: ID of user to remove from organization
@@ -1370,6 +1535,11 @@ def delete_user(
     Raises:
         ValueError: If user tries to delete themselves
     """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
     # Security check: Prevent users from deleting themselves
     if str(target_user_id) == str(user_id):
         raise ValueError("Users cannot remove themselves from the organization")
@@ -1379,7 +1549,25 @@ def delete_user(
     if db_user is None:
         return None
 
-    # Remove them from their organization - user account remains active
+    # Drop all project memberships within this org before nulling organization_id,
+    # while we can still identify them via the org FK.
+    with bypass_tenant_filter():
+        memberships = (
+            db.query(ProjectMembership)
+            .filter_by(user_id=target_user_id, organization_id=organization_id)
+            .all()
+        )
+        for m in memberships:
+            db.delete(m)
+
+    # Clear default_project — it's org-scoped so it would be stale after removal.
+    if db_user.settings.default_project is not None:
+        settings = db_user.settings.raw.copy()
+        settings.pop("default_project", None)
+        db_user.user_settings = settings
+        flag_modified(db_user, "user_settings")
+
+    # Null the org FK last so the membership query above can still use it.
     db_user.organization_id = None
 
     db.commit()
@@ -1802,9 +1990,18 @@ def get_organizations(
 
 
 def create_organization(
-    db: Session, organization: schemas.OrganizationCreate
+    db: Session,
+    organization: schemas.OrganizationCreate,
+    owner_user_id: Optional[UUID] = None,
 ) -> models.Organization:
-    """Create a new organization without RLS checks, because we're creating a new organization"""
+    """Create a new organization without RLS checks, because we're creating a new organization.
+
+    When *owner_user_id* is supplied (always the case on the HTTP path) it overrides any
+    client-supplied ``owner_id``/``user_id`` values in the schema, making the backend
+    authoritative for org ownership (SP3 decision — server-set, cannot be forged).
+    Internal callers such as ``local_init.py`` that already supply the correct IDs in the
+    schema may pass ``owner_user_id=None`` to preserve the existing behaviour.
+    """
     # Print session variables before reset
     before_vars = get_session_variables(db)
     logger.info(f"Session variables BEFORE reset: {before_vars}")
@@ -1819,8 +2016,14 @@ def create_organization(
     # Make sure session is clean to avoid RLS issues
     db.expire_all()
 
-    # Convert Pydantic model to dict
-    org_data = organization.model_dump()
+    # Convert Pydantic model to dict; project_id is not a column on Organization
+    org_data = organization.model_dump(exclude={"project_id"})
+
+    # Backend is authoritative for ownership when owner_user_id is provided.
+    if owner_user_id is not None:
+        org_data["owner_id"] = str(owner_user_id)
+        org_data["user_id"] = str(owner_user_id)
+
     db_org = models.Organization(**org_data)
 
     # Add to session - transaction management is handled by context manager
@@ -1848,8 +2051,34 @@ def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[mod
 def get_project(
     db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Project]:
-    """Get project with relationships eagerly loaded."""
-    return get_item_detail(db, models.Project, project_id, organization_id, user_id)
+    """Get project with relationships eagerly loaded.
+
+    When *user_id* is supplied the caller must be an explicit member of the project
+    (a row in ``project_membership``).  Non-members receive ``None`` — the same
+    result as "not found" — so the router's 404 reveals no information about
+    whether the project exists.  This closes the by-ID IDOR gap where
+    ``get_item_detail`` filters only by ``organization_id``.
+
+    Pass *user_id=None* only for internal service-layer calls that already
+    carry their own access-control context (e.g. background tasks).
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    project = get_item_detail(db, models.Project, project_id, organization_id, user_id)
+    if project is None or user_id is None:
+        return project
+
+    # Enforce membership: the caller must have a project_membership row.
+    # bypass_tenant_filter is required because project_membership carries only
+    # tenant_isolation (org RLS), not project_isolation — this is by design so
+    # the join table remains reachable before a project context is established.
+    with bypass_tenant_filter():
+        membership = (
+            db.query(ProjectMembership).filter_by(project_id=project.id, user_id=user_id).first()
+        )
+
+    return project if membership is not None else None
 
 
 def get_projects(
@@ -1862,17 +2091,67 @@ def get_projects(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Project]:
-    return get_items_detail(
-        db,
-        models.Project,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    # Project listing must respect membership — only return projects the requesting
+    # user is a member of. An EXISTS subquery is used so that the QueryBuilder's
+    # existing pagination/sorting/filtering chain is preserved.
+    with bypass_tenant_filter():
+        builder = (
+            QueryBuilder(db, models.Project)
+            .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter(user_id)
+            .with_odata_filter(filter)
+        )
+
+        if user_id:
+            exists_subquery = (
+                db.query(ProjectMembership)
+                .filter(
+                    ProjectMembership.project_id == models.Project.id,
+                    ProjectMembership.user_id == user_id,
+                    ProjectMembership.organization_id == organization_id,
+                )
+                .exists()
+            )
+            builder.query = builder.query.filter(exists_subquery)
+
+        return builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
+
+
+def count_projects(
+    db: Session,
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> int:
+    """Count projects the given user is a member of (mirrors get_projects membership filter)."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    with bypass_tenant_filter():
+        builder = (
+            QueryBuilder(db, models.Project)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter(user_id)
+            .with_odata_filter(filter)
+        )
+        if user_id:
+            exists_subquery = (
+                db.query(ProjectMembership)
+                .filter(
+                    ProjectMembership.project_id == models.Project.id,
+                    ProjectMembership.user_id == user_id,
+                    ProjectMembership.organization_id == organization_id,
+                )
+                .exists()
+            )
+            builder.query = builder.query.filter(exists_subquery)
+        return builder.count()
 
 
 def create_project(
@@ -2099,7 +2378,7 @@ def get_test_run(
         )
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(test_run_id)
     )
 
@@ -2113,9 +2392,25 @@ def get_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    experiment_id: str | None = None,
+    parameter_version: str | None = None,
+    has_experiment: bool | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
+    def experiment_filter(q):
+        if experiment_id:
+            q = q.filter(models.TestRun.experiment_id == experiment_id)
+        if parameter_version:
+            q = q.filter(
+                models.TestRun.attributes["parameter_version"].astext == str(parameter_version)
+            )
+        if has_experiment is True:
+            q = q.filter(models.TestRun.experiment_id.isnot(None))
+        elif has_experiment is False:
+            q = q.filter(models.TestRun.experiment_id.is_(None))
+        return q
+
     return (
         QueryBuilder(db, models.TestRun)
         .with_optimized_loads(
@@ -2124,8 +2419,9 @@ def get_test_runs(
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
         .with_custom_filter(_defer_endpoint_last_token)
+        .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -2326,6 +2622,7 @@ def get_test_results(
         sort_by,
         sort_order,
         filter,
+        nested_relationships={"test": ["prompt", "behavior", "topic"]},
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -2363,9 +2660,117 @@ def delete_test_result(
 def delete_project(
     db: Session, project_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Project]:
+    # Project soft-delete does not cascade to project_membership, so drop the
+    # memberships and repair affected users' default_project first. Staged in the
+    # same transaction; delete_item's commit persists both.
+    from rhesis.backend.app.services.organization import unenroll_all_project_members
+
+    unenroll_all_project_members(db, project_id, organization_id)
     return delete_item(
         db, models.Project, project_id, organization_id=organization_id, user_id=user_id
     )
+
+
+# ProjectMembership CRUD
+
+
+def get_project_members(
+    db: Session, project_id: uuid.UUID, organization_id: str
+) -> List[models.ProjectMembership]:
+    """List all members of a project, with user info eagerly loaded."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.models.user import User
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    # Explicitly scoped by (project_id, organization_id); bypass the ambient project
+    # filter so listing works regardless of which project is currently active.
+    with bypass_tenant_filter():
+        return (
+            db.query(ProjectMembership)
+            .join(User, ProjectMembership.user_id == User.id)
+            .filter(
+                ProjectMembership.project_id == project_id,
+                ProjectMembership.organization_id == organization_id,
+            )
+            .options(joinedload(ProjectMembership.user))
+            .all()
+        )
+
+
+def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> List[models.Project]:
+    """Return all projects the given user is a member of."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    return (
+        db.query(models.Project)
+        .join(ProjectMembership, ProjectMembership.project_id == models.Project.id)
+        .filter(
+            ProjectMembership.user_id == user_id,
+            ProjectMembership.organization_id == organization_id,
+        )
+        .all()
+    )
+
+
+def add_project_member(
+    db: Session,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    organization_id: str,
+    *,
+    role_id: Optional[uuid.UUID] = None,
+) -> models.ProjectMembership:
+    """Add a user as a project member. No-op (returns existing) if already a member.
+
+    Routes through the centralized enroll_user_in_project routine so that membership
+    creation and default-project assignment stay consistent with onboarding.
+
+    ``role_id`` is an optional FK placeholder for the EE role table (SP8).  Passes
+    through to ``enroll_user_in_project``; community callers leave it ``None``.
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.app.services.organization import enroll_user_in_project
+
+    with bypass_tenant_filter():
+        existing = (
+            db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+        )
+    if existing:
+        return existing
+
+    enroll_user_in_project(db, user_id, project_id, organization_id, role_id=role_id)
+    db.commit()
+
+    with bypass_tenant_filter():
+        return db.query(ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
+
+
+def remove_project_member(
+    db: Session,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    organization_id: str,
+    *,
+    requester_user_id: Optional[uuid.UUID] = None,
+) -> bool:
+    """Remove a user from a project. Returns True if removed, False if not found.
+
+    Routes through the centralized unenroll_user_from_project routine so that the
+    user's default_project is repaired if it pointed at the removed project.
+
+    Raises:
+        ProjectSelfRemovalError: if requester_user_id == user_id.
+        ProjectOwnerRemovalError: if user_id is the project owner.
+    """
+    from rhesis.backend.app.services.organization import unenroll_user_from_project
+
+    removed = unenroll_user_from_project(
+        db, user_id, project_id, organization_id, requester_user_id=requester_user_id
+    )
+    if removed:
+        db.commit()
+    return removed
 
 
 # TypeLookup CRUD
@@ -2444,15 +2849,36 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
+# Many-to-one relationships serialized by MetricDetailSchema. Joined-loading these
+# adds at most one row per metric (1:1 join), so it's cheap.
+_METRIC_M2O_RELATIONSHIPS = (
+    "metric_type",
+    "status",
+    "assignee",
+    "owner",
+    "model",
+    "backend_type",
+    "user",
+    "organization",
+)
+
+# Many-to-many relationships serialized by MetricDetailSchema. These MUST use
+# selectinload — joinedload on M2M produces a cartesian product (one row per
+# (metric, behavior, test_set) tuple), which previously bloated the response by
+# orders of magnitude.
+_METRIC_M2M_RELATIONSHIPS = ("behaviors", "test_sets")
+
+
 def get_metric(
     db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str = None
 ) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
+        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
         .first()
     )
@@ -2471,9 +2897,10 @@ def get_metrics(
     """Get all metrics with their related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
+        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -3404,7 +3831,7 @@ def create_task(
         status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
         if status and status.name == "Completed":
             # Set completed_at to current timestamp
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
 
     return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
 
@@ -3438,7 +3865,7 @@ def update_task(
             new_status = status_query.first()
             if new_status and new_status.name == "Completed":
                 # Set completed_at to current timestamp
-                task.completed_at = datetime.utcnow()
+                task.completed_at = datetime.now(timezone.utc)
 
     return update_item(
         db, models.Task, task_id, task, organization_id=organization_id, user_id=user_id
@@ -3742,6 +4169,30 @@ def get_span_by_id(
     )
 
 
+def _escape_like_pattern(term: str) -> str:
+    """Escape SQL LIKE wildcards in user-provided search text."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _build_trace_search_conditions(pattern: str):
+    """Case-insensitive substring match across common trace text fields."""
+    from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
+
+    attrs = models.Trace.attributes
+
+    esc = "\\"
+    return or_(
+        models.Trace.trace_id.ilike(pattern, escape=esc),
+        models.Trace.span_name.ilike(pattern, escape=esc),
+        models.Trace.status_message.ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.ENDPOINT_NAME].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.ENDPOINT_URL].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.CONVERSATION_INPUT].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.CONVERSATION_OUTPUT].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW].as_string().ilike(pattern, escape=esc),
+    )
+
+
 def query_traces(
     db: Session,
     organization_id: str,
@@ -3751,6 +4202,7 @@ def query_traces(
     trace_source: TraceSource = TraceSource.ALL,
     trace_type: TraceType = TraceType.ALL,
     environment: Optional[str] = None,
+    search: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
@@ -3786,7 +4238,6 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
-    from sqlalchemy import select
     from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
@@ -3897,7 +4348,21 @@ def query_traces(
     if environment:
         query = query.filter(models.Trace.environment == environment)
 
-    if span_name:
+    if search and search.strip():
+        pattern = f"%{_escape_like_pattern(search.strip())}%"
+        search_filters = [
+            models.Trace.organization_id == org_uuid,
+            _build_trace_search_conditions(pattern),
+        ]
+        if project_id:
+            search_filters.append(models.Trace.project_id == project_id)
+
+        matching_trace_ids = (
+            db.query(models.Trace.trace_id).filter(*search_filters).distinct().subquery()
+        )
+        query = query.filter(models.Trace.trace_id.in_(select(matching_trace_ids.c.trace_id)))
+
+    elif span_name:
         query = query.filter(models.Trace.span_name == span_name)
 
     if status_code:
@@ -3999,9 +4464,9 @@ def mark_trace_processed(
         .filter(models.Trace.trace_id == trace_id)
         .update(
             {
-                "processed_at": datetime.utcnow(),
+                "processed_at": datetime.now(timezone.utc),
                 "enriched_data": enriched_data,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             }
         )
     )
@@ -4108,7 +4573,7 @@ def update_traces_with_test_result_id(
         .update(
             {
                 "test_result_id": test_result_uuid,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             },
             synchronize_session=False,  # More efficient for bulk updates
         )
@@ -4156,7 +4621,7 @@ def update_conversation_id_for_trace(
         .update(
             {
                 models.Trace.conversation_id: conversation_id,
-                models.Trace.updated_at: datetime.utcnow(),
+                models.Trace.updated_at: datetime.now(timezone.utc),
             },
             synchronize_session=False,
         )
@@ -4203,14 +4668,25 @@ def get_file(
     return get_item(db, models.File, file_id, organization_id, user_id)
 
 
-def get_file_with_content(
+def link_file_to_entity(
     db: Session,
     file_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    entity_id: uuid.UUID,
+    entity_type: str,
 ) -> Optional[models.File]:
-    """Get file with content loaded (uses undefer for BYTEA column)."""
-    return get_item_with_deferred(db, models.File, file_id, ["content"], organization_id, user_id)
+    """Update a File row to link it to a new entity (e.g. a Trace after span storage).
+
+    Pure metadata update — no bytes, no storage writes.
+    Returns the updated File, or None if not found.
+    """
+    db_file = db.query(models.File).filter(models.File.id == file_id).first()
+    if not db_file:
+        return None
+    db_file.entity_id = entity_id
+    db_file.entity_type = entity_type
+    db.commit()
+    db.refresh(db_file)
+    return db_file
 
 
 def get_files_for_entity(
@@ -4408,12 +4884,12 @@ def update_trace_turn_metrics(
 
     existing = span.trace_metrics or {}
     existing["turn_metrics"] = turn_metrics
-    now = processed_at or datetime.utcnow()
+    now = processed_at or datetime.now(timezone.utc)
 
     update_values: Dict[str, Any] = {
         "trace_metrics": existing,
         "trace_metrics_processed_at": now,
-        "updated_at": datetime.utcnow(),
+        "updated_at": datetime.now(timezone.utc),
     }
     if status_id is not None:
         update_values["trace_metrics_status_id"] = status_id
@@ -4441,7 +4917,7 @@ def update_trace_conversation_metrics(
     if not spans:
         return 0
 
-    now = processed_at or datetime.utcnow()
+    now = processed_at or datetime.now(timezone.utc)
     count = 0
     for span in spans:
         existing = span.trace_metrics or {}
@@ -4454,7 +4930,7 @@ def update_trace_conversation_metrics(
         flag_modified(span, "trace_metrics")
 
         span.trace_metrics_processed_at = now
-        span.updated_at = datetime.utcnow()
+        span.updated_at = datetime.now(timezone.utc)
         if status_id is not None:
             span.trace_metrics_status_id = status_id
         count += 1

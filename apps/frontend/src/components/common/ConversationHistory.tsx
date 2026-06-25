@@ -437,7 +437,8 @@ export default function ConversationHistory({
                     wordBreak: 'break-word',
                     mb:
                       turn.penelope_reasoning ||
-                      (turn.penelope_files && turn.penelope_files.length > 0)
+                      (turn.penelope_files && turn.penelope_files.length > 0) ||
+                      (turn.sent_files && turn.sent_files.length > 0)
                         ? 1
                         : 0,
                   }}
@@ -472,6 +473,39 @@ export default function ConversationHistory({
                           variant="outlined"
                           clickable
                           onClick={() => handleDownloadFile(file)}
+                          sx={{
+                            color: 'text.secondary',
+                            borderColor: theme.palette.divider,
+                            fontSize: theme.typography.caption.fontSize,
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  )}
+
+                {/* Fallback: show sent_files when no span-based penelope_files */}
+                {(!turn.penelope_files || turn.penelope_files.length === 0) &&
+                  turn.sent_files &&
+                  turn.sent_files.length > 0 && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 0.5,
+                        mt: 0.5,
+                      }}
+                    >
+                      {turn.sent_files.map(file => (
+                        <Chip
+                          key={`${file.filename}-${file.content_type ?? ''}`}
+                          icon={
+                            <AttachFileIcon
+                              sx={{ fontSize: theme.spacing(2) }}
+                            />
+                          }
+                          label={file.filename}
+                          size="small"
+                          variant="outlined"
                           sx={{
                             color: 'text.secondary',
                             borderColor: theme.palette.divider,

@@ -67,11 +67,13 @@ class BackendEndpointTarget(Target):
         endpoint_id: str = "",
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         test_execution_context: Optional[dict[str, str]] = None,
         endpoint: Optional[Endpoint] = None,
         invoke_max_attempts: int = 4,
         invoke_retry_min_wait: float = 1.0,
         invoke_retry_max_wait: float = 30.0,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the backend endpoint target.
@@ -86,6 +88,7 @@ class BackendEndpointTarget(Target):
             invoke_max_attempts: Max invocation attempts (including initial).
             invoke_retry_min_wait: Minimum backoff wait in seconds.
             invoke_retry_max_wait: Maximum backoff wait in seconds.
+            params: Optional resolved parameters from the test run snapshot.
 
         Raises:
             ValueError: If endpoint is not found or configuration is invalid
@@ -94,11 +97,13 @@ class BackendEndpointTarget(Target):
         self.endpoint_id = endpoint_id or (str(endpoint.id) if endpoint else "")
         self.organization_id = organization_id
         self.user_id = user_id
+        self.project_id = project_id
         self.test_execution_context = test_execution_context
         self.endpoint_service = get_endpoint_service()
         self._invoke_max_attempts = invoke_max_attempts
         self._invoke_retry_min_wait = invoke_retry_min_wait
         self._invoke_retry_max_wait = invoke_retry_max_wait
+        self.params = params or {}
 
         self._endpoint = endpoint
         self._deferred_traces: list = []
@@ -128,6 +133,7 @@ class BackendEndpointTarget(Target):
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
                 user_id=self.user_id,
+                project_id=self.project_id,
             )
             if endpoint:
                 self._endpoint_name = endpoint.name
@@ -176,6 +182,7 @@ class BackendEndpointTarget(Target):
                 UUID(self.endpoint_id),
                 organization_id=self.organization_id,
                 user_id=self.user_id,
+                project_id=self.project_id,
             )
             if not endpoint:
                 return False, f"Endpoint {self.endpoint_id} not found or not accessible"
@@ -249,6 +256,8 @@ class BackendEndpointTarget(Target):
                 input_data["conversation_id"] = conversation_id
             if files:
                 input_data["files"] = files
+            if self.params:
+                input_data["params"] = self.params
 
             logger.debug(
                 "BackendEndpointTarget invoking %s, message_len=%d",
@@ -264,6 +273,7 @@ class BackendEndpointTarget(Target):
                     organization_id=self.organization_id,
                     user_id=self.user_id,
                     test_execution_context=self.test_execution_context,
+                    project_id=self.project_id,
                 )
             )
 
@@ -363,6 +373,8 @@ class BackendEndpointTarget(Target):
                 input_data["conversation_id"] = conversation_id
             if files:
                 input_data["files"] = files
+            if self.params:
+                input_data["params"] = self.params
 
             logger.debug(
                 "BackendEndpointTarget (async) invoking %s, message_len=%d",
@@ -385,6 +397,7 @@ class BackendEndpointTarget(Target):
                     endpoint=self._endpoint,
                     deferred_trace=True,
                     trace_id=self._current_trace_id,
+                    project_id=self.project_id,
                 )
 
             response_data = await invoke_with_retry(

@@ -1,17 +1,21 @@
 
 # Define configurations using YAML anchors
 x-common-database: &common-database
-  SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL:-postgresql://rhesis-user:rhesis-password@postgres:5432/rhesis-db}
-  SQLALCHEMY_DB_DRIVER: ${SQLALCHEMY_DB_DRIVER:-postgresql}
-  SQLALCHEMY_DB_PORT: ${SQLALCHEMY_DB_PORT:-5432}
-  SQLALCHEMY_DB_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
-  SQLALCHEMY_DB_PASS: ${SQLALCHEMY_DB_PASS:-rhesis-password}
-  SQLALCHEMY_DB_HOST: ${SQLALCHEMY_DB_HOST:-postgres}
-  SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME:-rhesis-db}
+  DB_DRIVER: ${DB_DRIVER:-postgresql}
+  DB_HOST: ${DB_HOST:-postgres}
+  DB_PORT: ${DB_PORT:-5432}
+  DB_NAME: ${DB_NAME:-rhesis-db}
+  APP_DB_USER: ${APP_DB_USER:-rhesis-user}
+  APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
   DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
 
+# Object storage configuration (local dev defaults to bind-mounted /app/storage)
+x-common-storage: &common-storage
+  STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-file:///app/storage}
+  STORAGE_SERVICE_ACCOUNT_KEY: ${STORAGE_SERVICE_ACCOUNT_KEY:-}
+  LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/tmp/rhesis-files}
+
 x-common-redis: &common-redis
-  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
   BROKER_URL: ${BROKER_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
   CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/1}
 
@@ -29,14 +33,6 @@ x-common-auth: &common-auth
   # Session secret key (required)
   SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-your-session-secret-key-change-in-production}
 
-# Legacy Auth0 configuration (for migration period only)
-x-common-auth0: &common-auth0
-  AUTH_LEGACY_AUTH0_ENABLED: ${AUTH_LEGACY_AUTH0_ENABLED:-false}
-  AUTH0_DOMAIN: ${AUTH0_DOMAIN:-}
-  AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-}
-  AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:-}
-  AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-}
-  AUTH0_SECRET_KEY: ${AUTH0_SECRET_KEY:-}
 
 x-common-smtp: &common-smtp
   SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
@@ -56,8 +52,10 @@ x-common-environment: &common-environment
   FRONTEND_ENV: ${FRONTEND_ENV:-local}
   WORKER_ENV: ${WORKER_ENV:-local}
   LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+  QUICK_START: ${QUICK_START:-false}
 
 x-rhesis-config: &rhesis-config
+  API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-https://api.rhesis.ai}
   RHESIS_API_KEY: ${RHESIS_API_KEY:-your-rhesis-api-key}
   RHESIS_CONNECTOR_DISABLED: ${RHESIS_CONNECTOR_DISABLED:-true}
@@ -65,7 +63,7 @@ x-rhesis-config: &rhesis-config
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
   DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis/rhesis-default}
   DEFAULT_EVALUATION_MODEL: ${DEFAULT_EVALUATION_MODEL:-rhesis/rhesis-default}
-  DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-vertex_ai/text-embedding-005}
+  DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-rhesis/rhesis-embedding}
 
 x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-https://telemetry.rhesis.ai}
@@ -76,8 +74,6 @@ x-telemetry-config: &telemetry-config
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
   NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
-  NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
   NEXT_TELEMETRY_DISABLED: 1
 
 
@@ -86,16 +82,16 @@ services:
   postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: ${SQLALCHEMY_DB_NAME:-rhesis-db}
-      POSTGRES_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
-      POSTGRES_PASSWORD: ${SQLALCHEMY_DB_PASS:-rhesis-password}
+      POSTGRES_DB: ${DB_NAME:-rhesis-db}
+      POSTGRES_USER: ${APP_DB_USER:-rhesis-user}
+      POSTGRES_PASSWORD: ${APP_DB_PASS:-rhesis-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SQLALCHEMY_DB_USER:-rhesis-user} -d ${SQLALCHEMY_DB_NAME:-rhesis-db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-rhesis-user} -d ${DB_NAME:-rhesis-db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -127,9 +123,10 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
+      <<: [*common-database, *common-redis, *common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      QUICK_START: ${QUICK_START:-false}
+    volumes:
+      - rhesis-storage:/app/storage
     ports:
       - "8080:8080"
     extra_hosts:
@@ -157,13 +154,14 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      <<: [*common-database, *common-redis, *common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
       CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
-      USE_TCP_DATABASE: ${USE_TCP_DATABASE:-true}
       ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
+    volumes:
+      - rhesis-storage:/app/storage
     ports:
       - "8081:8081"
     extra_hosts:
@@ -186,12 +184,10 @@ services:
   # Frontend
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
-        NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
@@ -237,6 +233,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  rhesis-storage:
     driver: local
 
 networks:

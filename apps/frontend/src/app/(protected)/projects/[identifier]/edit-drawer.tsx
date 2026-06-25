@@ -114,7 +114,7 @@ interface EditDrawerProps {
   open: boolean;
   onClose: () => void;
   project: Project;
-  onSave: (updatedProject: Partial<Project>) => Promise<void>;
+  onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
   sessionToken: string;
 }
 
@@ -181,7 +181,9 @@ export default function EditDrawer({
         if (isMounted) {
           setUsers(fetchedUsers.data);
         }
-      } catch (_error) {}
+      } catch (error) {
+        console.error('Failed to fetch users for project edit drawer:', error);
+      }
     };
 
     if (open) {
@@ -313,8 +315,15 @@ export default function EditDrawer({
         projectUpdate.icon = formData.icon;
       }
 
-      await onSave(projectUpdate);
-      onClose();
+      const success = await onSave(projectUpdate);
+      if (success) {
+        onClose();
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          form: 'Failed to save. Please try again.',
+        }));
+      }
     } catch (_error) {
       // Show generic error if backend doesn't provide specific ones
       setErrors(prev => ({

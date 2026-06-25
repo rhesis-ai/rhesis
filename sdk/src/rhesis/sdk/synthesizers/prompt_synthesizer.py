@@ -24,6 +24,7 @@ class PromptSynthesizer(TestSetSynthesizer):
         sources: Optional[List[SourceSpecification]] = None,
         model: Optional[Union[str, BaseLLM]] = None,
         chunking_strategy: Optional[ChunkingStrategy] = None,
+        harmful: bool = False,
     ):
         """
         Initialize the prompt synthesizer.
@@ -40,6 +41,7 @@ class PromptSynthesizer(TestSetSynthesizer):
             model=model,
             sources=sources,
             chunking_strategy=chunking_strategy,
+            harmful=harmful,
         )
         self.prompt = prompt
 

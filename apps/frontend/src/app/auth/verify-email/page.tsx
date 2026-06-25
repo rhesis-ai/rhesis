@@ -1,23 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Alert,
-  Button,
-} from '@mui/material';
+import { Typography, CircularProgress, Alert, Button } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { ThemeProvider } from '@mui/material/styles';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
-import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
-import { lightTheme } from '@/styles/theme';
+import AuthPageShell from '@/components/auth/AuthPageShell';
 
-const CARD_BORDER = '#E5E7EB'; // Intentional: auth card border
 const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
 
 export default function VerifyEmailPage() {
@@ -73,106 +64,73 @@ export default function VerifyEmailPage() {
   }, [token]);
 
   return (
-    <ThemeProvider theme={lightTheme}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          p: 3,
-          bgcolor: 'background.default',
-          position: 'relative',
-        }}
-      >
-        <BackgroundDecoration />
-        <Box
-          sx={{
-            position: 'relative',
-            zIndex: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            bgcolor: 'background.default',
-            border: `1px solid ${CARD_BORDER}`,
-            borderRadius: '20px', // Intentional: auth card radius
-            p: { xs: '32px 24px', sm: '44px 40px' },
-            maxWidth: 420,
-            width: '100%',
-            boxShadow:
-              '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.04)',
-          }}
-        >
-          {status === 'loading' && (
-            <>
-              <CircularProgress />
-              <Typography variant="body1">{message}</Typography>
-            </>
-          )}
+    <AuthPageShell>
+      {status === 'loading' && (
+        <>
+          <CircularProgress />
+          <Typography variant="body1">{message}</Typography>
+        </>
+      )}
 
-          {status === 'success' && (
-            <>
-              <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main' }} />
-              <Typography
-                sx={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: 'secondary.dark',
-                  textAlign: 'center',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Email verified!
-              </Typography>
-              <Typography variant="body2" color="text.secondary" align="center">
-                {message}
-              </Typography>
-              <Button
-                variant="contained"
-                href="/dashboard"
-                fullWidth
-                sx={{
-                  mt: 1,
-                  height: 46,
-                  borderRadius: '10px', // Intentional: button border radius
-                  bgcolor: 'primary.main',
-                  '&:hover': {
-                    bgcolor: BUTTON_HOVER,
-                    boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
-                  },
-                }}
-              >
-                Go to dashboard
-              </Button>
-            </>
-          )}
+      {status === 'success' && (
+        <>
+          <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main' }} />
+          <Typography
+            sx={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: 'secondary.dark',
+              textAlign: 'center',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Email verified!
+          </Typography>
+          <Typography variant="body2" color="text.secondary" align="center">
+            {message}
+          </Typography>
+          <Button
+            variant="contained"
+            href="/architect"
+            fullWidth
+            sx={{
+              mt: 1,
+              height: 46,
+              borderRadius: '10px',
+              bgcolor: 'primary.main',
+              '&:hover': {
+                bgcolor: BUTTON_HOVER,
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+              },
+            }}
+          >
+            Go to dashboard
+          </Button>
+        </>
+      )}
 
-          {status === 'error' && (
-            <>
-              <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
-              <Typography
-                sx={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: 'secondary.dark',
-                  textAlign: 'center',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Verification failed
-              </Typography>
-              <Alert severity="error" sx={{ width: '100%' }}>
-                {message}
-              </Alert>
-              <Button variant="text" href="/" sx={{ mt: 1 }}>
-                Back to sign in
-              </Button>
-            </>
-          )}
-        </Box>
-      </Box>
-    </ThemeProvider>
+      {status === 'error' && (
+        <>
+          <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
+          <Typography
+            sx={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: 'secondary.dark',
+              textAlign: 'center',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Verification failed
+          </Typography>
+          <Alert severity="error" sx={{ width: '100%' }}>
+            {message}
+          </Alert>
+          <Button variant="text" href="/" sx={{ mt: 1 }}>
+            Back to sign in
+          </Button>
+        </>
+      )}
+    </AuthPageShell>
   );
 }

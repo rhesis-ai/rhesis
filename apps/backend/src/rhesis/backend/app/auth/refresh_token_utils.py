@@ -31,6 +31,9 @@ def create_refresh_token(
     db: Session,
     user_id: str,
     family_id: str | None = None,
+    *,
+    client_id: str | None = None,
+    scope: str | None = None,
 ) -> str:
     """Create and persist a new refresh token, returning the raw value.
 
@@ -43,6 +46,17 @@ def create_refresh_token(
     family_id:
         Optional family ID for token rotation.  When ``None`` a new
         family is started (initial login).
+    client_id:
+        Optional :class:`AuthClient` ``client_id`` when the token is
+        being minted via ``/auth/token-exchange``. NULL for UI/SSO
+        refresh tokens. When set, ``/auth/refresh`` requires HTTP
+        Basic credentials matching this client (S2/S3).
+    scope:
+        Optional space-separated scope string. Set alongside
+        ``client_id`` so the new access token minted on rotation
+        preserves the original scope (without this, a ``scope=read``
+        token-exchange refresh would silently escalate to full-user
+        on its first refresh).
 
     Returns
     -------
@@ -62,14 +76,17 @@ def create_refresh_token(
         token_hash=token_hash,
         family_id=family_id,
         expires_at=expires_at,
+        client_id=client_id,
+        scope=scope,
     )
     db.add(db_token)
     db.flush()  # assign id without committing
 
     logger.info(
-        "Refresh token created for user %s (family %s)",
+        "Refresh token created for user %s (family %s, client_id=%s)",
         user_id,
         family_id,
+        client_id or "none",
     )
     return raw_token
 
@@ -130,11 +147,16 @@ def verify_and_rotate_refresh_token(
     # Revoke the current token (rotation)
     db_token.revoked_at = datetime.now(timezone.utc)
 
-    # Issue a new token in the same family
+    # Issue a new token in the same family, propagating client_id and
+    # scope so that token-exchange-minted refresh chains keep their
+    # binding across rotation. UI/SSO tokens have both NULL and the
+    # propagation is a no-op.
     new_raw_token = create_refresh_token(
         db,
         user_id=str(db_token.user_id),
         family_id=str(db_token.family_id),
+        client_id=db_token.client_id,
+        scope=db_token.scope,
     )
 
     return db_token, new_raw_token

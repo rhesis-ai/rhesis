@@ -18,24 +18,18 @@ jest.mock('@/hooks/useTasks', () => ({
   })),
 }));
 
-// Capture callbacks passed to TasksSection for testing
-let capturedOnCreate:
-  | ((data: Record<string, unknown>) => Promise<void>)
-  | null = null;
-let capturedOnDelete: ((id: string) => Promise<void>) | null = null;
-
 jest.mock('../TasksSection', () => ({
   TasksSection: ({
     onCreateTask,
     onDeleteTask,
+    refreshKey,
   }: {
     onCreateTask: (data: Record<string, unknown>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
+    refreshKey?: number;
   }) => {
-    capturedOnCreate = onCreateTask;
-    capturedOnDelete = onDeleteTask;
     return (
-      <div data-testid="tasks-section">
+      <div data-testid="tasks-section" data-refresh-key={refreshKey ?? 0}>
         <button onClick={() => onCreateTask({ title: 'New Task' })}>
           create
         </button>
@@ -60,8 +54,6 @@ const DEFAULT_PROPS = {
 describe('TasksWrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    capturedOnCreate = null;
-    capturedOnDelete = null;
   });
 
   it('renders TasksSection', () => {
@@ -77,6 +69,10 @@ describe('TasksWrapper', () => {
     await user.click(screen.getByRole('button', { name: 'create' }));
 
     expect(mockCreateTask).toHaveBeenCalledWith({ title: 'New Task' });
+    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
+      'data-refresh-key',
+      '1'
+    );
   });
 
   it('calls deleteTask when onDeleteTask is triggered', async () => {

@@ -1,0 +1,88 @@
+{{- range .Values.workers }}
+{{- if .enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-{{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: worker-{{ .name }}
+    tier: worker
+    {{- include "rhesis.labels" $ | nindent 4 }}
+spec:
+  {{- if not .hpa.enabled }}
+  replicas: {{ .replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: worker-{{ .name }}
+      tier: worker
+  template:
+    metadata:
+      labels:
+        app: worker-{{ .name }}
+        tier: worker
+    spec:
+      {{- if $.Values.podSecurityContext.enabled }}
+      securityContext:
+        fsGroup: {{ $.Values.podSecurityContext.fsGroup }}
+        runAsUser: {{ $.Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ $.Values.podSecurityContext.runAsGroup }}
+        {{- if $.Values.podSecurityContext.fsGroupChangePolicy }}
+        fsGroupChangePolicy: {{ $.Values.podSecurityContext.fsGroupChangePolicy }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: worker-{{ .name }}
+          image: {{ include "rhesis.image" (dict "imageValues" . "global" $.Values.global) | quote }}
+          imagePullPolicy: {{ .image.pullPolicy | default $.Values.global.imagePullPolicy }}
+          {{- if $.Values.containerSecurityContext.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: {{ $.Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ $.Values.containerSecurityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ $.Values.containerSecurityContext.runAsNonRoot }}
+            runAsUser: {{ $.Values.containerSecurityContext.runAsUser }}
+            runAsGroup: {{ $.Values.containerSecurityContext.runAsGroup }}
+            {{- if $.Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml $.Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" $ }}-config
+            - secretRef:
+                name: {{ $.Values.existingSecret }}
+          env:
+{{- include "rhesis.database.cnpgUserPassEnv" $ | nindent 12 }}
+            - name: BROKER_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            - name: CELERY_RESULT_BACKEND
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
+            {{- with .env }}
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ (.livenessProbe).httpGet.path | default "/health/basic" }}
+              port: 8080
+            initialDelaySeconds: {{ (.livenessProbe).initialDelaySeconds | default 60 }}
+            periodSeconds: {{ (.livenessProbe).periodSeconds | default 30 }}
+            timeoutSeconds: {{ (.livenessProbe).timeoutSeconds | default 10 }}
+            failureThreshold: {{ (.livenessProbe).failureThreshold | default 5 }}
+          readinessProbe:
+            httpGet:
+              path: {{ (.readinessProbe).httpGet.path | default "/health/basic" }}
+              port: 8080
+            initialDelaySeconds: {{ (.readinessProbe).initialDelaySeconds | default 30 }}
+            periodSeconds: {{ (.readinessProbe).periodSeconds | default 10 }}
+            timeoutSeconds: {{ (.readinessProbe).timeoutSeconds | default 10 }}
+            failureThreshold: {{ (.readinessProbe).failureThreshold | default 5 }}
+{{- end }}
+{{- end }}

@@ -443,11 +443,17 @@ def apply_pending_conversation_links(
     if not matched:
         return 0
 
-    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.database import bind_scope_to_session
+
+    # Derive the project per trace from the stored spans so project RLS / filtering
+    # applies to the UPDATE (traces are project-scoped).
+    project_by_trace = {
+        span.trace_id: str(span.project_id) for span in stored_spans if span.project_id is not None
+    }
 
     total = 0
     for trace_id, conversation_id, organization_id in matched:
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(db, organization_id, "", project_by_trace.get(trace_id, ""))
 
         count = crud.update_conversation_id_for_trace(
             db, trace_id, conversation_id, organization_id
@@ -546,19 +552,23 @@ def inject_pending_output(
 
 def register_pending_files(
     trace_id: str,
-    files: List[Dict[str, Any]],
+    files,
     organization_id: str,
 ) -> None:
-    """Park input files for deferred creation when SDK spans arrive.
+    """Park FileReference metadata for deferred entity linking when SDK spans arrive.
 
-    Called by ``SdkEndpointInvoker.invoke()`` when ``input_data``
-    contains files.  The file metadata (including base64 content) is
-    serialized to JSON and stored in the cache.  When the SDK spans
-    arrive at ``/telemetry/traces``, ``apply_pending_files()`` pops
-    the cached data and creates ``File`` records linked to the stored
-    ``Trace`` record.
+    ``files`` can be a List[FileReference] (test-execution path) or a
+    List[Dict] (legacy inline-base64 dicts from the playground path).
+    Only metadata is serialised to the cache — no base64 bytes.
     """
-    files_json = json.dumps(files)
+    try:
+        from rhesis.sdk.connector.types import FileReference
+
+        serialisable = [f.model_dump() if isinstance(f, FileReference) else f for f in files]
+    except ImportError:
+        serialisable = files
+
+    files_json = json.dumps(serialisable)
     _cache.register_files(trace_id, files_json, organization_id)
     logger.debug(f"[FILE_LINKING] Parked {len(files)} pending file(s) for trace_id={trace_id}")
 
@@ -567,14 +577,16 @@ def apply_pending_files(
     db: Session,
     stored_spans: List[models.Trace],
 ) -> int:
-    """Create File records for parked input files after span storage.
+    """Link already-uploaded File rows to the stored Trace span.
 
-    Called by the telemetry ingest endpoint after spans are committed.
-    For each stored span whose ``trace_id`` has parked files, creates
-    ``File`` records with ``entity_type='Trace'`` and
-    ``entity_id=span.id`` (the DB primary key).
+    For FileReference entries (test-execution path): the File row already
+    exists — this function only updates entity_id/entity_type to point at the
+    Trace span.  No base64 decoding, no storage writes.
 
-    Returns the total number of files created.
+    For legacy inline-base64 dicts (playground path): creates a File row with
+    storage upload (backward compat until the playground migrates to upload-first).
+
+    Returns the total number of files linked or created.
     """
     if not stored_spans:
         return 0
@@ -585,10 +597,8 @@ def apply_pending_files(
     if not matched:
         return 0
 
-    import base64
-
     from rhesis.backend.app import schemas
-    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.database import bind_scope_to_session
 
     total = 0
     for span in stored_spans:
@@ -596,25 +606,56 @@ def apply_pending_files(
         if entry is None:
             continue
 
-        # Only create files on the root span (no parent)
+        # Only process files on the root span (no parent)
         if span.parent_span_id:
             continue
 
         files_json, organization_id = entry
         files = json.loads(files_json)
 
-        set_session_variables(db, organization_id, "")
+        bind_scope_to_session(
+            db,
+            organization_id,
+            "",
+            str(span.project_id) if span.project_id is not None else "",
+        )
 
         for idx, file_data in enumerate(files):
             if not isinstance(file_data, dict):
                 continue
+
+            # FileReference path (test-execution): file row already exists
+            file_id = file_data.get("id")
+            if file_id:
+                try:
+                    import uuid
+
+                    from rhesis.backend.app import crud as _crud
+
+                    _crud.link_file_to_entity(
+                        db,
+                        file_id=uuid.UUID(file_id),
+                        entity_id=span.id,
+                        entity_type="Trace",
+                    )
+                    total += 1
+                    logger.debug(
+                        f"[FILE_LINKING] Linked file_id={file_id} to "
+                        f"trace_id={span.trace_id}, span_id={span.id}"
+                    )
+                except Exception as exc:
+                    logger.warning(f"[FILE_LINKING] Failed to link file_id={file_id}: {exc}")
+                continue
+
+            # Legacy inline-base64 dict (playground path): create file row
+            import base64 as _b64
 
             content_b64 = file_data.get("data")
             if not content_b64:
                 continue
 
             try:
-                content = base64.b64decode(content_b64)
+                content = _b64.b64decode(content_b64)
             except Exception:
                 logger.warning(f"Failed to decode base64 for pending file {idx}")
                 continue
@@ -623,16 +664,17 @@ def apply_pending_files(
                 filename=file_data.get("filename", f"file_{idx}"),
                 content_type=file_data.get("content_type", "application/octet-stream"),
                 size_bytes=len(content),
-                content=content,
                 entity_id=span.id,
                 entity_type="Trace",
                 position=idx,
             )
-            crud.create_file(db, file_create, organization_id=organization_id)
+            from rhesis.backend.app import crud as _crud
+
+            _crud.create_file(db, file_create, organization_id=organization_id)
             total += 1
 
         logger.info(
-            f"[FILE_LINKING] Created {len(files)} file(s) for "
+            f"[FILE_LINKING] Processed {len(files)} file(s) for "
             f"trace_id={span.trace_id}, span_id={span.id}"
         )
 

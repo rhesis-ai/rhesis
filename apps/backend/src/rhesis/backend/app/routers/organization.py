@@ -2,6 +2,8 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -28,8 +30,11 @@ from rhesis.backend.notifications import email_service
 logger = logging.getLogger(__name__)
 
 
-router = APIRouter(
-    prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}
+router = RhesisRouter(
+    prefix="/organizations",
+    tags=["organizations"],
+    responses={404: {"description": "Not found"}},
+    resource="organization",
 )
 
 
@@ -42,10 +47,9 @@ async def create_organization(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
-    if not organization.owner_id or not organization.user_id:
-        raise HTTPException(status_code=400, detail="owner_id and user_id are required")
-
-    return crud.create_organization(db=db, organization=organization)
+    # owner_id and user_id are always set server-side from the authenticated caller —
+    # the client-supplied values are ignored so the onboarding flow cannot forge ownership.
+    return crud.create_organization(db=db, organization=organization, owner_user_id=current_user.id)
 
 
 @router.get("/", response_model=list[schemas.Organization])
@@ -126,7 +130,11 @@ def update_organization(
     return db_organization
 
 
-@router.post("/{organization_id}/load-initial-data", response_model=dict)
+@router.post(
+    "/{organization_id}/load-initial-data",
+    response_model=dict,
+    **capability(Permission.Organization.UPDATE),
+)
 async def initialize_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -176,6 +184,15 @@ async def initialize_organization_data(
         # has no app.current_organization set. Without this, any RLS-protected
         # query inside execute_initial_test_runs would run without tenant context.
         set_session_variables(db, str(organization_id), str(current_user.id))
+
+        # Assign the org creator the Owner role (EE). The handler resolves Owner
+        # vs Member from organization.owner_id, so the creator (owner_id ==
+        # current_user.id) becomes Owner. No-op in community builds / RBAC-off.
+        # Runs here (not at org creation) because tenant GUCs are valid only
+        # after set_session_variables, which organization_member RLS requires.
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, current_user.id, organization_id)
 
         # Execute initial test runs after the org is marked complete.
         # This is non-blocking - if it fails, onboarding has already succeeded.
@@ -249,7 +266,11 @@ async def initialize_organization_data(
     return response
 
 
-@router.post("/{organization_id}/rollback-initial-data", response_model=dict)
+@router.post(
+    "/{organization_id}/rollback-initial-data",
+    response_model=dict,
+    **capability(Permission.Organization.UPDATE),
+)
 async def rollback_organization_data(
     organization_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

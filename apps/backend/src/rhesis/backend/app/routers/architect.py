@@ -3,6 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -14,11 +15,14 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.decorators import with_count_header
 
-router = APIRouter(
+import rhesis.backend.app.services.architect.runner as _architect_runner  # noqa: F401
+
+router = RhesisRouter(
     prefix="/architect/sessions",
     tags=["architect"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="architect",
 )
 
 

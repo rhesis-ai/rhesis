@@ -1,0 +1,68 @@
+{{- if .Values.chatbot.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: chatbot
+    tier: chatbot
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.chatbot.hpa.enabled }}
+  replicas: {{ .Values.chatbot.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: chatbot
+      tier: chatbot
+  template:
+    metadata:
+      labels:
+        app: chatbot
+        tier: chatbot
+    spec:
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.chatbot) | nindent 6 }}
+      containers:
+        - name: chatbot
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.chatbot "global" .Values.global) | quote }}
+          imagePullPolicy: {{ .Values.chatbot.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.chatbot) | nindent 10 }}
+          ports:
+            - containerPort: {{ .Values.chatbot.service.targetPort }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: BROKER_URL
+                  optional: true
+          {{ with .Values.chatbot.env }}
+{{ toYaml . | nindent 12 }}
+          {{ end }}
+          resources:
+            {{- toYaml .Values.chatbot.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.chatbot.service.targetPort }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.chatbot.service.targetPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}

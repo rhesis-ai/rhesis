@@ -4,60 +4,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Grid,
-  Button,
   Alert,
-  Paper,
   CircularProgress,
-  ButtonGroup,
   TablePagination,
 } from '@mui/material';
-import { Project } from '@/utils/api-client/interfaces/project';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
 import ProjectCard from './ProjectCard';
-import AddIcon from '@mui/icons-material/Add';
-import FolderIcon from '@mui/icons-material/Folder';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import ListIcon from '@mui/icons-material/List';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
-import Link from 'next/link';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import ProjectCreateDrawer from './ProjectCreateDrawer';
+import ProjectFilterDrawer, {
+  type ProjectFilters,
+  EMPTY_FILTERS,
+  hasActiveProjectFilters,
+  countActiveProjectFilters,
+} from './ProjectFilterDrawer';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarProps,
+} from '@/components/common/GridToolbar';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
+import { AppsIcon } from '@/components/icons';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import styles from '@/styles/ProjectsClientWrapper.module.css';
-import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-
-interface EmptyStateMessageProps {
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-}
-
-function EmptyStateMessage({
-  title,
-  description,
-  icon,
-}: EmptyStateMessageProps) {
-  return (
-    <Paper elevation={2} className={styles.emptyState}>
-      {icon || (
-        <Box className={styles.iconContainer}>
-          <FolderIcon className={styles.primaryIcon} />
-          <AutoAwesomeIcon className={styles.secondaryIcon} />
-        </Box>
-      )}
-      <Typography variant="h5" className={styles.title}>
-        {title}
-      </Typography>
-      <Typography variant="body1" className={styles.description}>
-        {description}
-      </Typography>
-    </Paper>
-  );
-}
 
 interface ProjectsClientWrapperProps {
   sessionToken: string;
@@ -69,6 +44,14 @@ export default function ProjectsClientWrapper({
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [activeFilters, setActiveFilters] =
+    useState<ProjectFilters>(EMPTY_FILTERS);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Filter state
   const [search, setSearch] = useState('');
@@ -79,6 +62,7 @@ export default function ProjectsClientWrapper({
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
   const { markStepComplete, progress, activeTour } = useOnboarding();
+  const { refresh: refreshActiveProjects } = useActiveProject();
   const isOnProjectTour = activeTour === 'project';
   const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
 
@@ -108,6 +92,31 @@ export default function ProjectsClientWrapper({
     fetchProjects();
   }, [fetchProjects]);
 
+  const handleCreate = useCallback(
+    async (payload: ProjectCreate) => {
+      const factory = new ApiClientFactory(sessionToken);
+      const client = factory.getProjectsClient();
+      await client.createProject(payload);
+      await Promise.all([fetchProjects(), refreshActiveProjects()]);
+    },
+    [sessionToken, fetchProjects, refreshActiveProjects]
+  );
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      const factory = new ApiClientFactory(sessionToken);
+      const client = factory.getProjectsClient();
+      await client.deleteProject(deleteTarget.id);
+      setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
+      await refreshActiveProjects();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, sessionToken, refreshActiveProjects]);
+
   // Mark onboarding step complete when projects are loaded
   useEffect(() => {
     if (projects.length > 0 && !progress.projectCreated) {
@@ -127,14 +136,28 @@ export default function ProjectsClientWrapper({
       (statusFilter === 'active' && project.is_active !== false) ||
       (statusFilter === 'inactive' && project.is_active === false);
 
-    return searchMatch && statusMatch;
+    const drawerStatusMatch =
+      activeFilters.activeStatus === null ||
+      (activeFilters.activeStatus === true && project.is_active !== false) ||
+      (activeFilters.activeStatus === false && project.is_active === false);
+
+    const envMatch =
+      activeFilters.environments.length === 0 ||
+      (project.environment != null &&
+        activeFilters.environments.includes(project.environment));
+
+    return searchMatch && statusMatch && drawerStatusMatch && envMatch;
   });
 
-  const hasActiveFilters = search !== '' || statusFilter !== 'all';
+  const hasActiveFilters =
+    search !== '' ||
+    statusFilter !== 'all' ||
+    hasActiveProjectFilters(activeFilters);
 
   const handleReset = () => {
     setSearch('');
     setStatusFilter('all');
+    setActiveFilters(EMPTY_FILTERS);
     setPage(0);
   };
 
@@ -154,86 +177,65 @@ export default function ProjectsClientWrapper({
 
   if (!sessionToken) {
     return (
-      <PageContainer title="Projects" breadcrumbs={[]}>
+      <PageLayout title="Projects" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
-        <EmptyStateMessage
-          title="Authentication Required"
+        <EntityEmptyState
+          icon={AppsIcon}
+          title="Authentication required"
           description="Please log in to view and manage your projects."
         />
-      </PageContainer>
+      </PageLayout>
     );
   }
 
-  return (
-    <PageContainer title="Projects" breadcrumbs={[]}>
-      {/* Description */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
-          Projects group your endpoints for testing and evaluation. Use them to
-          organise your AI applications and collaborate with your team.
-        </Typography>
-      </Box>
+  const statusOptions: { value: StatusFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ];
 
-      <SearchAndFilterBar
-        searchValue={search}
-        onSearchChange={value => {
-          setSearch(value);
-          setPage(0);
-        }}
-        hasActiveFilters={hasActiveFilters}
-        onReset={hasActiveFilters ? handleReset : undefined}
-        searchPlaceholder="Search projects..."
-        renderAddButton={() => (
-          <Button
-            component={isProjectButtonDisabled ? 'button' : Link}
-            href={isProjectButtonDisabled ? undefined : '/projects/create-new'}
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
+  return (
+    <PageLayout
+      title="Projects"
+      description="Organize your AI applications by grouping endpoints, tests, and results into projects."
+      breadcrumbs={[]}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<FabAddIcon />}
+            tooltip="Create project"
+            aria-label="Create project"
             data-tour="create-project-button"
             disabled={isProjectButtonDisabled}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Create Project
-          </Button>
-        )}
-      >
-        {/* Status filter buttons */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => {
-              setStatusFilter('all');
+            onClick={() => setCreateDrawerOpen(true)}
+          />
+        </FabGroup>
+      }
+    >
+      <GridToolbar
+        searchQuery={search}
+        onSearchChange={v => {
+          setSearch(v);
+          setPage(0);
+        }}
+        searchPlaceholder="Search projects…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveProjectFilters(activeFilters)}
+        activeFilterCount={countActiveProjectFilters(activeFilters)}
+        {...directoryToolbarProps}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={statusOptions}
+            activeValue={statusFilter}
+            onChange={v => {
+              setStatusFilter(v as StatusFilter);
               setPage(0);
             }}
-            variant={statusFilter === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => {
-              setStatusFilter('active');
-              setPage(0);
-            }}
-            variant={statusFilter === 'active' ? 'contained' : 'outlined'}
-            startIcon={<CheckCircleIcon fontSize="small" />}
-          >
-            Active
-          </Button>
-          <Button
-            onClick={() => {
-              setStatusFilter('inactive');
-              setPage(0);
-            }}
-            variant={statusFilter === 'inactive' ? 'contained' : 'outlined'}
-            startIcon={<DoNotDisturbAltIcon fontSize="small" />}
-          >
-            Inactive
-          </Button>
-        </ButtonGroup>
-      </SearchAndFilterBar>
+          />
+        }
+      />
 
       {/* Loading state */}
       {isLoading && (
@@ -261,29 +263,54 @@ export default function ProjectsClientWrapper({
       {/* Projects grid */}
       {!isLoading && !error && (
         <>
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            {paginatedProjects.map(project => (
-              <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                <ProjectCard project={project} />
-              </Grid>
-            ))}
-
-            {filteredProjects.length === 0 && (
-              <Grid size={12}>
-                {hasActiveFilters ? (
-                  <EmptyStateMessage
-                    title="No projects match your filters"
-                    description="Try adjusting your search or status filter to find the projects you're looking for."
-                  />
-                ) : (
-                  <EmptyStateMessage
-                    title="No projects found"
-                    description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."
-                  />
-                )}
-              </Grid>
-            )}
-          </Grid>
+          {filteredProjects.length === 0 ? (
+            hasActiveFilters ? (
+              <EntityEmptyState
+                icon={AppsIcon}
+                title="No projects match your filters"
+                description="Try adjusting your search or status filter to find the projects you're looking for."
+                actionLabel="Reset filters"
+                onAction={handleReset}
+              />
+            ) : (
+              <EntityEmptyState
+                card
+                icon={AppsIcon}
+                title="No project yet"
+                description="Create your first project to start organizing your AI applications. Projects help you group endpoints, tests, and results so you can collaborate with your team."
+                actionLabel="Create project"
+                onAction={() => setCreateDrawerOpen(true)}
+                actionDisabled={isProjectButtonDisabled}
+                enrichment={getEntityEmptyStateEnrichment('projects')}
+              />
+            )
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: '1fr 1fr',
+                  md: 'repeat(3, 1fr)',
+                },
+                gap: '24px',
+                mb: 4,
+              }}
+            >
+              {paginatedProjects.map(project => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onDelete={() =>
+                    setDeleteTarget({
+                      id: String(project.id),
+                      name: project.name,
+                    })
+                  }
+                />
+              ))}
+            </Box>
+          )}
 
           {/* Pagination — only shown when there are enough results */}
           {filteredProjects.length > rowsPerPage && (
@@ -304,6 +331,33 @@ export default function ProjectsClientWrapper({
           )}
         </>
       )}
-    </PageContainer>
+      <ProjectCreateDrawer
+        open={createDrawerOpen}
+        onClose={() => setCreateDrawerOpen(false)}
+        onCreate={handleCreate}
+        sessionToken={sessionToken}
+      />
+
+      <ProjectFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={activeFilters}
+        onApply={setActiveFilters}
+      />
+
+      {/* Delete confirmation dialog */}
+      <DeleteModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete project?"
+        message={
+          <>
+            Are you sure you want to delete{' '}
+            <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+          </>
+        }
+      />
+    </PageLayout>
   );
 }

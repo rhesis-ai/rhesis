@@ -10,7 +10,6 @@ This module tests the telemetry query endpoints including:
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 from fastapi import status
@@ -98,8 +97,62 @@ class TestTraceListEndpoint:
         for trace in data["traces"]:
             assert trace["environment"] == "development"
 
+    def test_list_traces_search_partial_span_name(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Search uses case-insensitive substring match on span names (any span in trace)."""
+        root_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
+        root_span["span_name"] = "function.endpoint_rest_invoke"
+        root_span["parent_span_id"] = None
+
+        child_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
+        child_span["trace_id"] = root_span["trace_id"]
+        child_span["span_name"] = "ai.llm.invoke"
+        child_span["parent_span_id"] = root_span["span_id"]
+
+        for span_data in [root_span, child_span]:
+            authenticated_client.post("/telemetry/traces", json={"spans": [span_data]})
+
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&search=llm"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] >= 1
+        assert any(t["trace_id"] == root_span["trace_id"] for t in data["traces"])
+
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&search=rest"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] >= 1
+        assert any(
+            t["root_operation"] == "function.endpoint_rest_invoke" for t in data["traces"]
+        )
+
+    def test_list_traces_search_endpoint_name_in_attributes(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Search matches endpoint metadata stored on span attributes."""
+        span = TraceDataFactory.sample_data(project_id=str(db_project.id))
+        span["span_name"] = "function.endpoint_rest_invoke"
+        span["attributes"]["endpoint.name"] = "Insurance Chatbot Unique"
+
+        authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&search=insurance%20chatbot"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] >= 1
+        assert any(t["trace_id"] == span["trace_id"] for t in data["traces"])
+
     def test_list_traces_filter_by_span_name(self, authenticated_client: TestClient, db_project):
-        """Test filtering traces by span name"""
+        """Test filtering traces by exact span name (legacy param)"""
         # Create traces with different span names
         llm_span = TraceDataFactory.sample_data(project_id=str(db_project.id))
         llm_span["span_name"] = "ai.llm.invoke"
@@ -1029,24 +1082,19 @@ class TestQueryEdgeCases:
         trace_batch = {"spans": [span_data]}
         authenticated_client.post("/telemetry/traces", json=trace_batch)
 
-        # Mock enrichment to add cost data
-        with patch(
-            "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available",
-            return_value=False,
-        ):
-            # This will trigger sync enrichment
-            response = authenticated_client.get(
-                f"/telemetry/traces?project_id={db_project.id}&limit=1"
-            )
+        # Query traces
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&limit=1"
+        )
 
-            assert response.status_code == status.HTTP_200_OK
-            data = response.json()
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
 
-            if data["traces"]:
-                trace = data["traces"][0]
-                # Cost fields should be present (may be null if no enrichment occurred)
-                assert "total_cost_usd" in trace
-                assert "total_tokens" in trace
+        if data["traces"]:
+            trace = data["traces"][0]
+            # Cost fields should be present (may be null if no enrichment occurred)
+            assert "total_cost_usd" in trace
+            assert "total_tokens" in trace
 
 
 @pytest.mark.unit

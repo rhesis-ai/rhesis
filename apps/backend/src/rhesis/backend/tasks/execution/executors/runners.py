@@ -50,22 +50,49 @@ def _get_endpoint_routing(
 def _build_connector_metric_sender(
     project_id: Optional[str],
     environment: Optional[str],
+    organization_id: Optional[str] = None,
 ):
     """Build an async callable that dispatches connector metrics via WebSocket RPC.
 
-    Returns None when project/environment are unavailable, which tells
-    the evaluator to skip connector metrics.
+    Routing priority per metric call:
+
+    1. **Project-scoped** (``ws:routing:{project_id}:{environment}``) when both
+       ``project_id`` and ``environment`` are available.  Falls back to (2) on
+       ``sdk_disconnected`` (e.g. SDK connected metrics-only without a project).
+    2. **Org-scoped** (``ws:metric:{organization_id}:{metric_name}``) when an
+       ``organization_id`` is available.  Used by SDKs that register
+       ``@metric``-decorated functions without ``RHESIS_PROJECT_ID``.
+
+    Returns ``None`` when neither routing path is available, telling the
+    evaluator to skip connector metrics.
     """
-    if not project_id or not environment:
+    if not (project_id and environment) and not organization_id:
         return None
 
     async def _send(metric_run_id, metric_name, inputs):
         from rhesis.backend.app.services.connector.rpc_client import get_rpc_client
 
         rpc = await get_rpc_client()
-        return await rpc.send_and_await_metric_result(
-            project_id=project_id,
-            environment=environment,
+
+        if project_id and environment:
+            result = await rpc.send_and_await_metric_result(
+                project_id=project_id,
+                environment=environment,
+                metric_run_id=metric_run_id,
+                metric_name=metric_name,
+                inputs=inputs,
+                timeout=30.0,
+            )
+            if result.get("error") != "sdk_disconnected" or not organization_id:
+                return result
+            logger.info(
+                f"No project route for {project_id}:{environment}; "
+                f"falling back to org-scoped dispatch for metric '{metric_name}'"
+            )
+
+        assert organization_id is not None
+        return await rpc.send_and_await_metric_by_org(
+            organization_id=organization_id,
             metric_run_id=metric_run_id,
             metric_name=metric_name,
             inputs=inputs,
@@ -182,7 +209,7 @@ class SingleTurnRunner(BaseRunner):
 
         # --- Entity 1: Get output ---
         if output_provider is None:
-            output_provider = SingleTurnOutput()
+            output_provider = SingleTurnOutput(model=model)
 
         output = await output_provider.get_output(
             db=db,
@@ -211,7 +238,7 @@ class SingleTurnRunner(BaseRunner):
                 db=db,
                 organization_id=organization_id,
                 connector_metric_sender=_build_connector_metric_sender(
-                    ep_project_id, ep_environment
+                    ep_project_id, ep_environment, organization_id
                 ),
             )
 

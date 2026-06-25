@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -1254,13 +1254,12 @@ export default function NewMetricPage() {
   };
 
   return (
-    <PageContainer
+    <PageLayout
       title={getTitle()}
       breadcrumbs={[
-        { title: 'Metrics', path: '/metrics' },
-        { title: 'New Metric' },
+        { label: 'Metrics', href: '/metrics' },
+        { label: 'New Metric' },
       ]}
-      sx={{ mb: 4 }}
     >
       <Box sx={{ width: '100%' }}>
         <Box
@@ -1326,6 +1325,6 @@ export default function NewMetricPage() {
           </form>
         </Paper>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

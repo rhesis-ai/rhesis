@@ -3,6 +3,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import create_model
@@ -29,11 +30,12 @@ BehaviorWithMetricsSchema = create_model(
     metrics=(List[MetricDetailSchema], []),
 )
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/behaviors",
     tags=["behaviors"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="behavior",
 )
 
 
@@ -87,6 +89,7 @@ def read_behaviors(
         sort_order=sort_order,
         filter=filter,
         nested_relationships={"metrics": ["metric_type", "backend_type"]},
+        selectin_chains=[["_tags_relationship", "tag"]],
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -96,7 +99,7 @@ def read_behaviors(
     return results
 
 
-@router.get("/{behavior_id}")
+@router.get("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
 def read_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

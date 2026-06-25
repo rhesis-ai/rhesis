@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.tag import Tag
@@ -147,6 +147,7 @@ class TestSetBulkCreate(BaseModel):
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None
+    project_id: Optional[UUID4] = None
     tests: List[TestData]
     metadata: Optional[Dict[str, Any]] = None
 
@@ -232,6 +233,16 @@ class TestSetExecutionRequest(BaseModel):
     reference_test_run_id: Optional[UUID4] = None
     execution_model_id: Optional[UUID4] = None
     evaluation_model_id: Optional[UUID4] = None
+    experiment_id: Optional[UUID4] = Field(
+        default=None,
+        description=(
+            "When set (optionally with version / environment), intent is stored on the "
+            "created test configuration and resolved into a run snapshot at queue "
+            "time. Omit experiment_id, version, and environment for legacy executions."
+        ),
+    )
+    version: Optional[str] = None
+    environment: Optional[str] = None
 
     @field_validator("execution_options")
     @classmethod

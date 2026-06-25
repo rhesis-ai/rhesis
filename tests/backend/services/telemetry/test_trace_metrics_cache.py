@@ -18,13 +18,19 @@ from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
 def clear_trace_metrics_debounce_cache():
     """Clear in-memory state and force in-memory mode for each test."""
     orig_redis = _cache._redis
+    orig_redis_read = _cache._redis_read
+    orig_has_separate_read = _cache._has_separate_read
     _cache._memory.clear()
     _cache._memory_timestamps.clear()
     _cache._redis = None
+    _cache._redis_read = None
+    _cache._has_separate_read = False
     yield
     _cache._memory.clear()
     _cache._memory_timestamps.clear()
     _cache._redis = orig_redis
+    _cache._redis_read = orig_redis_read
+    _cache._has_separate_read = orig_has_separate_read
 
 
 @pytest.mark.unit

@@ -53,7 +53,7 @@ class TestRunExplorationTaskSuccess:
         )
 
         with (
-            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1")),
+            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1", None)),
             patch.object(run_exploration_task, "update_state"),
         ):
             result = run_exploration_task.run(endpoint_id="ep-uuid", strategy="domain_probing")
@@ -88,7 +88,7 @@ class TestRunExplorationTaskSuccess:
 
         mock_update_state = MagicMock()
         with (
-            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1")),
+            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1", None)),
             patch.object(run_exploration_task, "update_state", mock_update_state),
         ):
             run_exploration_task.run(endpoint_id="ep-uuid", strategy="capability_mapping")
@@ -127,7 +127,7 @@ class TestRunExplorationTaskFailure:
         mock_asyncio_run.return_value = _make_tool_result(success=False, error="Endpoint unreachable")
 
         with (
-            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1")),
+            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1", None)),
             patch.object(run_exploration_task, "update_state"),
         ):
             with pytest.raises(RuntimeError, match="Endpoint unreachable"):
@@ -144,7 +144,7 @@ class TestRunExplorationTaskFailure:
         mock_db_ctx.return_value.__exit__ = MagicMock(return_value=False)
 
         with (
-            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1")),
+            patch.object(run_exploration_task, "get_tenant_context", return_value=("org-1", "user-1", None)),
             patch.object(run_exploration_task, "update_state"),
         ):
             with pytest.raises(RuntimeError, match="User .* not found"):
@@ -175,4 +175,5 @@ class TestMakeTargetFactory:
                 endpoint_id="ep-uuid",
                 organization_id="org-1",
                 user_id="user-1",
+                project_id=None,
             )

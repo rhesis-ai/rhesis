@@ -20,6 +20,7 @@ export interface TestRunBase {
   status_id?: UUID;
   attributes?: Record<string, unknown>;
   test_configuration_id?: UUID;
+  experiment_id?: UUID;
   owner_id?: UUID;
   assignee_id?: UUID;
   tags?: Tag[];
@@ -47,5 +48,11 @@ export interface TestRunDetail extends TestRun {
   counts?: {
     comments: number;
     tasks: number;
+  };
+  stats?: {
+    total: number;
+    passed: number;
+    failed: number;
+    errors: number;
   };
 }

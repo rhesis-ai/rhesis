@@ -27,9 +27,11 @@ show_help() {
     echo -e "${PURPLE}════════════════════════════════════════${NC}"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
-    echo -e "  ${GREEN}./rh start${NC}             - Start all services with Docker (zero-config)"
+    echo -e "  ${GREEN}./rh start${NC}             - Start all services (prebuilt GHCR images)"
+    echo -e "  ${GREEN}./rh start --build${NC}     - Start all services, building images locally"
     echo -e "  ${GREEN}./rh stop${NC}              - Stop all Docker services"
     echo -e "  ${GREEN}./rh restart${NC}           - Restart all Docker services"
+    echo -e "  ${GREEN}./rh restart --build${NC}   - Restart and rebuild images locally"
     echo -e "  ${GREEN}./rh logs${NC}              - View logs from all services"
     echo -e "  ${GREEN}./rh delete${NC}            - Delete all services, images, volumes, and data"
     echo ""
@@ -40,10 +42,14 @@ show_help() {
     echo -e "  ${GREEN}./rh dev clean${NC}         - Remove containers and volumes (resets database)"
     echo -e "  ${GREEN}./rh dev status${NC}        - Show dev environment status"
     echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server (local)"
+    echo -e "  ${GREEN}./rh dev seed${NC}          - Seed local mock LLM + chatbot resources"
     echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server (local)"
     echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server (local)"
     echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server (local)"
     echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker (local)"
+    echo -e "  ${GREEN}./rh dev mock-llm${NC}      - Start the mock LLM server (local)"
+    echo -e "  ${GREEN}./rh dev mock-chatbot${NC}  - Start the mock chatbot server (local)"
+    echo -e "  ${GREEN}./rh dev tmux${NC}          - Start all dev services in a tmux session"
     echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service (local)"
     echo ""
     echo -e "${YELLOW}Testing:${NC}"
@@ -59,7 +65,8 @@ show_help() {
     echo -e "  ${GREEN}./rh help${NC}              - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo -e "  ${BLUE}./rh start${NC}               # Start all services with Docker"
+    echo -e "  ${BLUE}./rh start${NC}               # Start with prebuilt GHCR images"
+    echo -e "  ${BLUE}./rh start --build${NC}       # Build and start from local Dockerfiles"
     echo -e "  ${BLUE}./rh dev init${NC}            # Initialize environment files (first time)"
     echo -e "  ${BLUE}./rh dev up${NC}              # Bring up dev infrastructure"
     echo -e "  ${BLUE}./rh dev backend${NC}         # Start backend locally (without Docker)"
@@ -167,17 +174,15 @@ $DEV_ENV_MARKER on $timestamp
 QUICK_START=true
 
 # Database (dev ports)
-SQLALCHEMY_DATABASE_URL=postgresql://rhesis-user:rhesis-password@localhost:${DEV_POSTGRES_PORT}/rhesis-db
-SQLALCHEMY_DB_DRIVER=postgresql
-SQLALCHEMY_DB_PORT=${DEV_POSTGRES_PORT}
-SQLALCHEMY_DB_USER=rhesis-user
-SQLALCHEMY_DB_PASS=rhesis-password
-SQLALCHEMY_DB_HOST=localhost:${DEV_POSTGRES_PORT}
-SQLALCHEMY_DB_NAME=rhesis-db
+DB_DRIVER=postgresql
+DB_HOST=localhost
+DB_PORT=${DEV_POSTGRES_PORT}
+DB_NAME=rhesis-db
+APP_DB_USER=rhesis-user
+APP_DB_PASS=rhesis-password
 DB_ENCRYPTION_KEY=${encryption_key}
 
 # Redis (dev ports)
-REDIS_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
 BROKER_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
 CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 
@@ -187,6 +192,7 @@ BACKEND_ENV=development
 LOG_LEVEL=DEBUG
 
 # URLs
+API_BASE_URL=http://localhost:8080
 FRONTEND_URL=http://localhost:3000
 BACKEND_URL=http://localhost:8080
 
@@ -214,8 +220,7 @@ create_frontend_env() {
     cat > "$env_file" << EOF
 $DEV_ENV_MARKER on $timestamp
 
-NEXT_PUBLIC_QUICK_START=true
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+API_BASE_URL=http://localhost:8080
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
 NEXTAUTH_URL=http://localhost:3000
@@ -504,8 +509,38 @@ dev_status() {
 # from manually created containers. This prevents ./rh delete from removing
 # containers created outside of the rh script.
 PROJECT_NAME="rhesis-quickstart"
+# Written by ./rh start / ./rh restart so stop/logs/restart/delete use the same compose merge.
+QUICKSTART_COMPOSE_MODE_FILE="$SCRIPT_DIR/.rhesis-quickstart-compose.mode"
+
+# Returns ghcr or build (validated).
+quickstart_compose_mode_from_file() {
+    local mode="ghcr"
+    if [ -f "$QUICKSTART_COMPOSE_MODE_FILE" ]; then
+        mode=$(tr -d '[:space:]' < "$QUICKSTART_COMPOSE_MODE_FILE")
+    fi
+    if [ "$mode" = "build" ]; then
+        echo "build"
+    else
+        echo "ghcr"
+    fi
+}
+
+# Echoes docker compose -f ... flags for the given mode (ghcr = base + GHCR override).
+quickstart_compose_flags_for_mode() {
+    local mode="$1"
+    if [ "$mode" = "build" ]; then
+        echo "-f docker-compose.yml"
+    else
+        echo "-f docker-compose.yml -f docker-compose.ghcr.yml"
+    fi
+}
+
+quickstart_compose_flags_from_file() {
+    quickstart_compose_flags_for_mode "$(quickstart_compose_mode_from_file)"
+}
 
 # Function to start all services with Docker Compose
+# Optional: --build  Build from local Dockerfiles instead of pulling GHCR images.
 start_all() {
     echo -e "${GREEN}Starting all Rhesis services with Docker...${NC}"
     echo -e "${BLUE}Using zero-configuration local setup${NC}"
@@ -525,6 +560,20 @@ start_all() {
     }
 
     check_docker
+
+    local use_build=0
+    for arg in "$@"; do
+        if [ "$arg" = "--build" ]; then
+            use_build=1
+        fi
+    done
+
+    local quickstart_mode="ghcr"
+    if [ "$use_build" -eq 1 ]; then
+        quickstart_mode="build"
+    fi
+    local compose_flags
+    compose_flags=$(quickstart_compose_flags_for_mode "$quickstart_mode")
 
     # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
     if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
@@ -547,7 +596,6 @@ start_all() {
             echo "" >> .env.docker.local
             echo "# Local Authentication Bypass" >> .env.docker.local
             echo "QUICK_START=true" >> .env.docker.local
-            echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
             echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
         else
             # Update existing file
@@ -569,20 +617,55 @@ start_all() {
                 echo "QUICK_START=true" >> .env.docker.local
             fi
 
-            # Add NEXT_PUBLIC_QUICK_START if missing
-            if ! grep -q "^NEXT_PUBLIC_QUICK_START=" .env.docker.local 2>/dev/null; then
-                echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
-            fi
-
             echo -e "${GREEN}✅ Local configuration updated in .env.docker.local${NC}"
         fi
     fi
 
+# Check if RHESIS_API_KEY is set in .env.docker.local
+if ! grep -q "^RHESIS_API_KEY=" .env.docker.local 2>/dev/null; then
+    echo ""
+    echo -e "${YELLOW}🔑 Rhesis API Key${NC}"
+    echo -e "${WHITE}   Test generation requires a Rhesis API key to call the generation service.${NC}"
+    echo -e "${WHITE}   Get your key at: ${CYAN}https://app.rhesis.ai/tokens${NC}"
+    echo ""
+
+    if [ -t 0 ]; then
+        read -r -p "$(echo -e ${YELLOW}Enter your RHESIS_API_KEY \(or press Enter to skip\): ${NC})" USER_API_KEY
+        echo
+    fi
+
+    if [ -z "$USER_API_KEY" ]; then
+        echo -e "${YELLOW}⚠️  Skipping — test generation will not work without a valid API key${NC}"
+        echo -e "${YELLOW}   Add it later: ${WHITE}RHESIS_API_KEY=<your-key>${YELLOW} in .env.docker.local${NC}"
+    fi
+
+    if [ -n "$USER_API_KEY" ]; then
+        echo "" >> .env.docker.local
+        echo "# Rhesis API Key (required for test generation)" >> .env.docker.local
+        echo "RHESIS_API_KEY=$USER_API_KEY" >> .env.docker.local
+        chmod 600 .env.docker.local
+        echo -e "${GREEN}✅ RHESIS_API_KEY saved to .env.docker.local${NC}"
+    fi
+fi
+
     echo ""
     echo -e "${YELLOW}Starting services ...${NC}"
 
-    docker compose -p "$PROJECT_NAME" --env-file .env.docker.local up --build -d postgres redis backend worker frontend
-    if [ $? -eq 0 ]; then
+    local compose_rc=0
+    if [ "$use_build" -eq 1 ]; then
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up --build -d postgres redis backend worker frontend
+        compose_rc=$?
+    else
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local pull postgres redis backend worker frontend
+        compose_rc=$?
+        if [ "$compose_rc" -eq 0 ]; then
+            docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d postgres redis backend worker frontend
+            compose_rc=$?
+        fi
+    fi
+
+    if [ "$compose_rc" -eq 0 ]; then
+        echo "$quickstart_mode" > "$QUICKSTART_COMPOSE_MODE_FILE"
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
         echo ""
@@ -611,7 +694,9 @@ stop_all() {
         exit 1
     }
 
-    docker compose -p "$PROJECT_NAME" down
+    local compose_flags
+    compose_flags=$(quickstart_compose_flags_from_file)
+    docker compose $compose_flags -p "$PROJECT_NAME" down
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services stopped${NC}"
@@ -622,6 +707,7 @@ stop_all() {
 }
 
 # Function to restart all services (recreates containers so .env.docker.local changes apply)
+# Optional: --build  Rebuild from local Dockerfiles and switch quickstart mode to build.
 restart_all() {
     echo -e "${YELLOW}Restarting all Rhesis services...${NC}"
 
@@ -632,10 +718,33 @@ restart_all() {
 
     check_docker
 
-    # Recreate containers so updated .env.docker.local variables are applied
-    docker compose -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
+    local use_build=0
+    for arg in "$@"; do
+        if [ "$arg" = "--build" ]; then
+            use_build=1
+        fi
+    done
 
-    if [ $? -eq 0 ]; then
+    local quickstart_mode
+    if [ "$use_build" -eq 1 ]; then
+        quickstart_mode="build"
+    else
+        quickstart_mode=$(quickstart_compose_mode_from_file)
+    fi
+    local compose_flags
+    compose_flags=$(quickstart_compose_flags_for_mode "$quickstart_mode")
+
+    local compose_rc=0
+    if [ "$use_build" -eq 1 ]; then
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate --build postgres redis backend worker frontend
+        compose_rc=$?
+    else
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
+        compose_rc=$?
+    fi
+
+    if [ "$compose_rc" -eq 0 ]; then
+        echo "$quickstart_mode" > "$QUICKSTART_COMPOSE_MODE_FILE"
         echo -e "${GREEN}✅ All services restarted with current .env.docker.local${NC}"
     else
         echo -e "${RED}❌ Error: Failed to restart services${NC}"
@@ -652,12 +761,15 @@ view_logs() {
         exit 1
     }
 
+    local compose_flags
+    compose_flags=$(quickstart_compose_flags_from_file)
+
     if [ -z "$1" ]; then
         # No service specified, show all logs
-        docker compose -p "$PROJECT_NAME" logs -f
+        docker compose $compose_flags -p "$PROJECT_NAME" logs -f
     else
         # Show logs for specific service
-        docker compose -p "$PROJECT_NAME" logs -f "$1"
+        docker compose $compose_flags -p "$PROJECT_NAME" logs -f "$1"
     fi
 }
 
@@ -693,14 +805,18 @@ delete_all() {
     # Use docker compose with explicit project name to ensure we only delete resources from THIS project
     # This prevents accidentally deleting containers with similar names from other projects
 
+    local compose_flags
+    compose_flags=$(quickstart_compose_flags_from_file)
+
     # Stop and remove containers, networks, and volumes managed by this compose file
-    docker compose -p "$PROJECT_NAME" down -v --rmi all 2>/dev/null || {
+    docker compose $compose_flags -p "$PROJECT_NAME" down -v --rmi all 2>/dev/null || {
         # Fallback: If project name doesn't match, try without -p flag
         echo -e "${YELLOW}⚠️  Project-specific deletion failed, trying default method...${NC}"
-        docker compose down -v --rmi all
+        docker compose $compose_flags down -v --rmi all
     }
 
     rm -f .env.docker.local
+    rm -f "$QUICKSTART_COMPOSE_MODE_FILE"
 
     if [ $? -eq 0 ]; then
         echo ""
@@ -715,6 +831,19 @@ delete_all() {
     fi
 }
 
+# Function to seed local dev resources (mock LLM model + mock chatbot endpoint).
+# Idempotent: creates them only if missing. Talks to the running backend over
+# HTTP using the Quick Start local token, so it touches no backend app code.
+seed_dev_resources() {
+    local script="$SCRIPT_DIR/apps/developer-tools/seed_dev_resources.sh"
+    if [ -f "$script" ]; then
+        bash "$script"
+    else
+        echo -e "${YELLOW}⚠️  Seed script not found: $script${NC}"
+        return 1
+    fi
+}
+
 # Function to start backend
 start_backend() {
     echo -e "${GREEN}Starting Rhesis Backend...${NC}"
@@ -724,9 +853,11 @@ start_backend() {
     }
 
     check_uv
-    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU PyTorch index
-    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu)...${NC}"
-    uv sync --extra all --extra cpu || {
+    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU
+    # PyTorch index + EE. The EE code ships in deployed images by default
+    # (license-based runtime gating), so dev parity means installing it here.
+    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu --extra ee)...${NC}"
+    uv sync --extra all --extra cpu --extra ee || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }
@@ -736,6 +867,11 @@ start_backend() {
         exit 1
     }
     echo -e "${GREEN}✅ Python environment activated${NC}"
+
+    # Seed local dev resources once the backend is healthy. Runs in the
+    # background (it waits for /health itself) so the foreground server below is
+    # not blocked; it exits on its own after seeding or a timeout.
+    ( seed_dev_resources ) &
 
     if [ -f "start.sh" ]; then
         ./start.sh
@@ -759,6 +895,99 @@ start_frontend() {
         echo -e "${RED}❌ Error: Frontend start.sh not found${NC}"
         exit 1
     fi
+}
+
+# Function to start mock LLM (developer-tools)
+start_mock_llm() {
+    echo -e "${GREEN}Starting Mock LLM...${NC}"
+    cd "$SCRIPT_DIR/apps/developer-tools" || {
+        echo -e "${RED}❌ Error: developer-tools directory not found${NC}"
+        exit 1
+    }
+
+    check_uv
+
+    if [ -f "mock_llm/start.sh" ]; then
+        ./mock_llm/start.sh
+    else
+        echo -e "${RED}❌ Error: mock_llm/start.sh not found${NC}"
+        exit 1
+    fi
+}
+
+# Function to start mock chatbot (developer-tools)
+start_mock_chatbot() {
+    echo -e "${GREEN}Starting Mock Chatbot...${NC}"
+    cd "$SCRIPT_DIR/apps/developer-tools" || {
+        echo -e "${RED}❌ Error: developer-tools directory not found${NC}"
+        exit 1
+    }
+
+    check_uv
+
+    if [ -f "mock_chatbot/start.sh" ]; then
+        ./mock_chatbot/start.sh
+    else
+        echo -e "${RED}❌ Error: mock_chatbot/start.sh not found${NC}"
+        exit 1
+    fi
+}
+
+# Function to start all dev services in a tmux session
+dev_tmux() {
+    local session="rhesis"
+
+    if ! command -v tmux &> /dev/null; then
+        echo -e "${RED}❌ Error: tmux is not installed${NC}"
+        echo -e "${YELLOW}   Install tmux and try again (e.g. brew install tmux)${NC}"
+        exit 1
+    fi
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    if ! check_env_files_exist; then
+        echo -e "${RED}❌ Environment files not found!${NC}"
+        echo -e "${YELLOW}   Run ${GREEN}./rh dev init${YELLOW} then ${GREEN}./rh dev up${YELLOW} first${NC}"
+        exit 1
+    fi
+
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "rhesis-dev-postgres"; then
+        echo -e "${YELLOW}Dev infrastructure not running — starting postgres and redis...${NC}"
+        dev_up
+    fi
+
+    if tmux has-session -t "$session" 2>/dev/null; then
+        echo -e "${BLUE}Attaching to existing tmux session: ${session}${NC}"
+        exec tmux attach-session -t "$session"
+    fi
+
+    echo -e "${GREEN}Starting tmux session: ${session}${NC}"
+    echo -e "${BLUE}Windows: backend, frontend, worker, llm, chatbot${NC}"
+    echo ""
+
+    start_win() {
+        local name="$1"
+        local service="$2"
+        if [ "$3" = "new" ]; then
+            tmux new-session -d -s "$session" -n "$name" -c "$SCRIPT_DIR"
+        else
+            tmux new-window -t "$session" -n "$name" -c "$SCRIPT_DIR"
+        fi
+        tmux send-keys -t "$session:$name" "$SCRIPT_DIR/rh dev $service" C-m
+    }
+
+    start_win backend backend new
+    start_win frontend frontend
+    start_win worker worker
+    start_win llm mock-llm
+    start_win chatbot mock-chatbot
+
+    tmux select-window -t "$session:backend"
+
+    exec tmux attach-session -t "$session"
 }
 
 # Function to start chatbot
@@ -888,8 +1117,8 @@ start_worker() {
 
     check_uv
     # Same venv as ./rh dev backend and apps/backend/Dockerfile build-backend
-    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu)...${NC}"
-    uv sync --extra all --extra cpu || {
+    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu --extra ee)...${NC}"
+    uv sync --extra all --extra cpu --extra ee || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }
@@ -983,7 +1212,8 @@ test_frontend() {
 # Parse command line arguments
 case "$1" in
     "start")
-        start_all
+        shift
+        start_all "$@"
         ;;
     "dev")
         case "$2" in
@@ -1005,6 +1235,9 @@ case "$1" in
             "backend")
                 start_backend
                 ;;
+            "seed")
+                seed_dev_resources
+                ;;
             "frontend")
                 start_frontend
                 ;;
@@ -1016,6 +1249,15 @@ case "$1" in
                 ;;
             "worker")
                 start_worker
+                ;;
+            "mock-llm")
+                start_mock_llm
+                ;;
+            "mock-chatbot")
+                start_mock_chatbot
+                ;;
+            "tmux")
+                dev_tmux
                 ;;
             "polyphemus")
                 start_polyphemus
@@ -1032,8 +1274,12 @@ case "$1" in
                 echo ""
                 echo -e "${YELLOW}Services:${NC}"
                 echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server"
+                echo -e "  ${GREEN}./rh dev seed${NC}          - Seed local mock LLM + chatbot resources"
                 echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server"
                 echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker"
+                echo -e "  ${GREEN}./rh dev mock-llm${NC}      - Start the mock LLM server"
+                echo -e "  ${GREEN}./rh dev mock-chatbot${NC}  - Start the mock chatbot server"
+                echo -e "  ${GREEN}./rh dev tmux${NC}          - Start all dev services in tmux"
                 echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server"
                 echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server"
                 echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service"
@@ -1056,7 +1302,8 @@ case "$1" in
         stop_all
         ;;
     "restart")
-        restart_all
+        shift
+        restart_all "$@"
         ;;
     "logs")
         view_logs "$2"

@@ -3,6 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -36,7 +37,9 @@ logger = logging.getLogger(__name__)
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
-router = APIRouter(prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}})
+router = RhesisRouter(
+    prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test"
+)
 
 
 @router.post("/", response_model=schemas.Test)
@@ -257,6 +260,40 @@ def read_tests(
         serialized = jsonable_encoder(tests)
         return JSONResponse(content=apply_select(serialized, select))
     return tests
+
+
+@router.get("/{test_id}/test_sets", response_model=List[schemas.TestSet])
+def get_test_test_sets(
+    test_id: UUID,
+    response: Response,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: Optional[str] = None,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get all test sets that contain the given test with optional filtering."""
+    organization_id, user_id = tenant_context
+    db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
+    if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    items, count = crud.get_test_sets_for_test(
+        db=db,
+        test_id=test_id,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        organization_id=organization_id,
+        user_id=user_id,
+        filter=filter,
+    )
+    response.headers["X-Total-Count"] = str(count)
+    return items
 
 
 @router.get("/{test_id}/stats")

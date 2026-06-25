@@ -14,8 +14,6 @@ jest.mock('@/utils/url-resolver', () => ({
 
 import { signIn } from 'next-auth/react';
 
-const PROVIDERS_URL = 'http://127.0.0.1:8080/api/v1/auth/providers';
-
 const makeProvidersResponse = (overrides: Record<string, unknown> = {}) => ({
   providers: [
     {

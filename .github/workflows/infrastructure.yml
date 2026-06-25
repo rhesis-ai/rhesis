@@ -140,7 +140,7 @@ jobs:
         id: region
         run: |
           # Default to europe-west4 if not specified in secrets
-          REGION="${{ secrets.TF_VAR_REGION }}"
+          REGION="${{ secrets.REGION }}"
           REGION="${REGION:-europe-west4}"
           echo "region=$REGION" >> $GITHUB_OUTPUT
           echo "Region: $REGION"
@@ -151,7 +151,7 @@ jobs:
           echo "sa_key_path=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_OUTPUT
       
       - name: Upload setup artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: setup-artifacts
           path: |
@@ -172,7 +172,7 @@ jobs:
         uses: actions/checkout@v6
       
       - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: setup-artifacts
           path: .
@@ -244,11 +244,11 @@ jobs:
         run: |
           chmod +x infrastructure/scripts/check-images.sh
           # Export the image variables so the script can access them
-          export TF_VAR_BACKEND_IMAGE="${{ secrets.TF_VAR_BACKEND_IMAGE }}"
-          export TF_VAR_FRONTEND_IMAGE="${{ secrets.TF_VAR_FRONTEND_IMAGE }}"
-          export TF_VAR_WORKER_IMAGE="${{ secrets.TF_VAR_WORKER_IMAGE }}"
-          export TF_VAR_POLYPHEMUS_IMAGE="${{ secrets.TF_VAR_POLYPHEMUS_IMAGE }}"
-          export TF_VAR_CHATBOT_IMAGE="${{ secrets.TF_VAR_CHATBOT_IMAGE }}"
+          export BACKEND_IMAGE="${{ secrets.BACKEND_IMAGE }}"
+          export FRONTEND_IMAGE="${{ secrets.FRONTEND_IMAGE }}"
+          export WORKER_IMAGE="${{ secrets.WORKER_IMAGE }}"
+          export POLYPHEMUS_IMAGE="${{ secrets.POLYPHEMUS_IMAGE }}"
+          export CHATBOT_IMAGE="${{ secrets.CHATBOT_IMAGE }}"
           
           # Default region if not set
           REGION="${{ needs.setup.outputs.region }}"
@@ -265,47 +265,47 @@ jobs:
             --environment ${{ github.event.inputs.environment }} \
             --region "$REGION"
           
-          # Print all the TF_VAR_ environment variables set by the script
+          # Print all the environment variables set by the script
           echo "Environment variables set for Terraform:"
-          grep -E "^TF_VAR_.*_IMAGE=" $GITHUB_ENV || echo "No image variables were set"
+          grep -E ".*_IMAGE=" $GITHUB_ENV || echo "No image variables were set"
       
       - name: Debug Environment Variables
         run: |
-          echo "Current GITHUB_ENV file contents (TF_VAR_ only):"
-          grep -E "^TF_VAR_" $GITHUB_ENV || echo "No TF_VAR_ variables found"
+          echo "Current GITHUB_ENV file contents:"
+          cat $GITHUB_ENV || echo "No variables found"
       
       - name: Generate Terraform Plan
         env:
           # Environment-specific variables are automatically available from the environment
-          TF_VAR_DATABASE_PASSWORD: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           
           # Explicitly set image variables from GitHub ENV file
           # These will be empty for non-existent images causing Terraform to use defaults
-          TF_VAR_BACKEND_IMAGE: ${{ env.TF_VAR_BACKEND_IMAGE }}
-          TF_VAR_FRONTEND_IMAGE: ${{ env.TF_VAR_FRONTEND_IMAGE }}
-          TF_VAR_WORKER_IMAGE: ${{ env.TF_VAR_WORKER_IMAGE }}
-          TF_VAR_POLYPHEMUS_IMAGE: ${{ env.TF_VAR_POLYPHEMUS_IMAGE }}
-          TF_VAR_CHATBOT_IMAGE: ${{ env.TF_VAR_CHATBOT_IMAGE }}
+          BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
+          FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
+          WORKER_IMAGE: ${{ env.WORKER_IMAGE }}
+          POLYPHEMUS_IMAGE: ${{ env.POLYPHEMUS_IMAGE }}
+          CHATBOT_IMAGE: ${{ env.CHATBOT_IMAGE }}
           
-          TF_VAR_ENABLE_LOAD_BALANCERS: ${{ secrets.TF_VAR_ENABLE_LOAD_BALANCERS }}
-          TF_VAR_BACKEND_DOMAIN: ${{ secrets.TF_VAR_BACKEND_DOMAIN }}
-          TF_VAR_FRONTEND_DOMAIN: ${{ secrets.TF_VAR_FRONTEND_DOMAIN }}
-          TF_VAR_WORKER_DOMAIN: ${{ secrets.TF_VAR_WORKER_DOMAIN }}
-          TF_VAR_POLYPHEMUS_DOMAIN: ${{ secrets.TF_VAR_POLYPHEMUS_DOMAIN }}
-          TF_VAR_CHATBOT_DOMAIN: ${{ secrets.TF_VAR_CHATBOT_DOMAIN }}
+          ENABLE_LOAD_BALANCERS: ${{ secrets.ENABLE_LOAD_BALANCERS }}
+          BACKEND_DOMAIN: ${{ secrets.BACKEND_DOMAIN }}
+          FRONTEND_DOMAIN: ${{ secrets.FRONTEND_DOMAIN }}
+          WORKER_DOMAIN: ${{ secrets.WORKER_DOMAIN }}
+          POLYPHEMUS_DOMAIN: ${{ secrets.POLYPHEMUS_DOMAIN }}
+          CHATBOT_DOMAIN: ${{ secrets.CHATBOT_DOMAIN }}
           
           # Common variables from repo secrets
-          TF_VAR_REGION: ${{ secrets.TF_VAR_REGION }}
-          TF_VAR_BILLING_ACCOUNT: ${{ secrets.TF_VAR_BILLING_ACCOUNT }}
-          TF_VAR_ORG_ID: ${{ secrets.TF_VAR_ORG_ID }}
+          REGION: ${{ secrets.REGION }}
+          BILLING_ACCOUNT: ${{ secrets.BILLING_ACCOUNT }}
+          ORG_ID: ${{ secrets.ORG_ID }}
         run: |
           # Print the image variables being used by Terraform
           echo "Image variables being used by Terraform:"
-          echo "BACKEND_IMAGE: $TF_VAR_BACKEND_IMAGE"
-          echo "FRONTEND_IMAGE: $TF_VAR_FRONTEND_IMAGE"
-          echo "WORKER_IMAGE: $TF_VAR_WORKER_IMAGE"
-          echo "POLYPHEMUS_IMAGE: $TF_VAR_POLYPHEMUS_IMAGE"
-          echo "CHATBOT_IMAGE: $TF_VAR_CHATBOT_IMAGE"
+          echo "BACKEND_IMAGE: $BACKEND_IMAGE"
+          echo "FRONTEND_IMAGE: $FRONTEND_IMAGE"
+          echo "WORKER_IMAGE: $WORKER_IMAGE"
+          echo "POLYPHEMUS_IMAGE: $POLYPHEMUS_IMAGE"
+          echo "CHATBOT_IMAGE: $CHATBOT_IMAGE"
           
           # Run the deploy script with plan-only option
           # Pass the deployment stage parameter if specified
@@ -323,7 +323,7 @@ jobs:
           fi
       
       - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: terraform-plan-${{ github.event.inputs.environment }}
           path: infrastructure/environments/${{ github.event.inputs.environment }}/terraform-${{ github.event.inputs.environment }}-plan
@@ -341,7 +341,7 @@ jobs:
         uses: actions/checkout@v6
       
       - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: setup-artifacts
           path: .
@@ -368,7 +368,7 @@ jobs:
           echo "Current GCP project: $CURRENT_PROJECT"
       
       - name: Download Terraform Plan
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: terraform-plan-${{ github.event.inputs.environment }}
           path: infrastructure/environments/${{ github.event.inputs.environment }}
@@ -464,7 +464,7 @@ jobs:
         uses: actions/checkout@v6
       
       - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: setup-artifacts
           path: .
@@ -491,7 +491,7 @@ jobs:
           echo "Current GCP project: $CURRENT_PROJECT"
       
       - name: Download Terraform Plan
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: terraform-plan-${{ github.event.inputs.environment }}
           path: infrastructure/environments/${{ github.event.inputs.environment }}
@@ -511,12 +511,12 @@ jobs:
       - name: Apply Services
         env:
           # Environment-specific variables are automatically available from the environment
-          TF_VAR_DATABASE_PASSWORD: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
-          TF_VAR_BACKEND_IMAGE: ${{ env.TF_VAR_BACKEND_IMAGE }}
-          TF_VAR_FRONTEND_IMAGE: ${{ env.TF_VAR_FRONTEND_IMAGE }}
-          TF_VAR_WORKER_IMAGE: ${{ env.TF_VAR_WORKER_IMAGE }}
-          TF_VAR_POLYPHEMUS_IMAGE: ${{ env.TF_VAR_POLYPHEMUS_IMAGE }}
-          TF_VAR_CHATBOT_IMAGE: ${{ env.TF_VAR_CHATBOT_IMAGE }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
+          FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
+          WORKER_IMAGE: ${{ env.WORKER_IMAGE }}
+          POLYPHEMUS_IMAGE: ${{ env.POLYPHEMUS_IMAGE }}
+          CHATBOT_IMAGE: ${{ env.CHATBOT_IMAGE }}
         run: |
           cd infrastructure/environments/${{ github.event.inputs.environment }}
           

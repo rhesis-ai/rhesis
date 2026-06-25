@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 # =============================================================================
 # Environment Setup - MUST be done BEFORE any backend imports
@@ -11,24 +12,27 @@ import os
 DATABASE_PORT = 12001
 REDIS_PORT = 12002
 
-_TEST_DB_URL = (
-    f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db"
-)
+_TEST_DB_USER = "rhesis-user"
+_TEST_DB_PASS = "your-secured-password"  # trufflehog:ignore
+_TEST_DB_HOST = "localhost"
+_TEST_DB_PORT = str(DATABASE_PORT)
+_TEST_DB_NAME = "rhesis-test-db"
+_TEST_DB_DRIVER = "postgresql"
 
 _TEST_ENV_VARS = {
-    "SQLALCHEMY_DB_MODE": "test",
     "ENVIRONMENT": "test",
     "LOG_LEVEL": "WARNING",
     "RHESIS_CONNECTOR_DISABLED": "true",
     "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
-    "SQLALCHEMY_DB_HOST": "localhost",
-    "SQLALCHEMY_DB_PORT": str(DATABASE_PORT),
-    "SQLALCHEMY_DB_NAME": "rhesis-test-db",
-    "SQLALCHEMY_DB_USER": "rhesis-user",
-    "SQLALCHEMY_DB_PASS": "your-secured-password",
-    "SQLALCHEMY_DB_DRIVER": "postgresql",
-    "SQLALCHEMY_DATABASE_TEST_URL": _TEST_DB_URL,
-    "REDIS_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
+    "FRONTEND_URL": "http://localhost:3000",
+    "API_BASE_URL": "http://localhost:8080",
+    "DB_DRIVER": _TEST_DB_DRIVER,
+    "DB_HOST": _TEST_DB_HOST,
+    "DB_PORT": _TEST_DB_PORT,
+    "DB_NAME": _TEST_DB_NAME,
+    "APP_DB_USER": _TEST_DB_USER,
+    "APP_DB_PASS": _TEST_DB_PASS,
+    "STORAGE_SERVICE_URI": f"file://{os.path.join(tempfile.gettempdir(), 'rhesis-test-storage')}",
     "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
     "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
     "JWT_SECRET_KEY": "test-jwt-secret-key-for-backend-tests",
@@ -36,6 +40,7 @@ _TEST_ENV_VARS = {
     "JWT_ALGORITHM": "HS256",
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES": "10080",
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
+    "SSO_ENCRYPTION_KEY": "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw=",
     "AUTH0_DOMAIN": "test.auth0.com",
 }
 
@@ -67,6 +72,36 @@ from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
 # load_dotenv(override=True) which overwrites our settings with .env values.
 _apply_test_env()
 
+
+@pytest.fixture(autouse=True)
+def isolate_storage_settings_cache():
+    """Ensure tests that patch storage env vars do not reuse cached settings."""
+    from importlib import import_module
+
+    get_storage_settings = import_module(
+        "rhesis.backend.app.config.settings"
+    ).get_storage_settings
+    get_storage_settings.cache_clear()
+    yield
+    get_storage_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def isolate_permission_cache():
+    """Clear the permission cache before and after every test.
+
+    Prevents cached authorization decisions from one test leaking into the next
+    when both use the same principal UUIDs.  The permission cache (SP5) is
+    in-memory-only during unit tests (Redis not initialized in the test harness)
+    so ``clear_all()`` just empties the in-memory dict.
+    """
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    get_permission_cache().clear_all()
+    yield
+    get_permission_cache().clear_all()
+
+
 # =============================================================================
 # Session-scoped database migrations
 # =============================================================================
@@ -89,12 +124,16 @@ def run_migrations_once():
     )
 
     env = os.environ.copy()
-    env["SQLALCHEMY_DB_MODE"] = "test"
-    env["SQLALCHEMY_DATABASE_TEST_URL"] = _TEST_DB_URL
+    env["DB_DRIVER"] = _TEST_DB_DRIVER
+    env["DB_HOST"] = _TEST_DB_HOST
+    env["DB_PORT"] = _TEST_DB_PORT
+    env["DB_NAME"] = _TEST_DB_NAME
+    env["APP_DB_USER"] = _TEST_DB_USER
+    env["APP_DB_PASS"] = _TEST_DB_PASS
     env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
 
     result = subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "head"],
+        ["uv", "run", "alembic", "upgrade", "heads"],
         cwd=backend_dir,
         env=env,
         capture_output=True,
@@ -215,6 +254,54 @@ def isolate_telemetry_context():
 
 
 @pytest.fixture(autouse=True)
+def isolate_request_scope():
+    """
+    Per-test isolation of the RequestScope and tenant-filter-bypass ContextVars.
+
+    Ensures no scope leaks between tests. Mirrors isolate_telemetry_context above.
+
+    IMPORTANT: This fixture resets scope to the *unbound* default (all None).
+    The auto-filter listener is a no-op when scope is unbound, so existing tests
+    that pass explicit organization_id parameters to CRUD functions are unaffected.
+    Do NOT bind scope from test_db; use the bound_scope helper fixture instead.
+    """
+    from rhesis.backend.app.scope import RequestScope, _scope, _tenant_filter_disabled
+
+    scope_token = _scope.set(RequestScope())  # all-None default
+    bypass_token = _tenant_filter_disabled.set(False)
+    try:
+        yield
+    finally:
+        _scope.reset(scope_token)
+        _tenant_filter_disabled.reset(bypass_token)
+
+
+@pytest.fixture
+def bound_scope():
+    """
+    Helper fixture for tests that want to exercise the auto-filter/auto-stamp listeners.
+
+    Usage:
+        def test_something(test_db, bound_scope):
+            with bound_scope(organization_id="...", user_id="..."):
+                results = test_db.query(SomeModel).all()  # scope-filtered
+    """
+    from contextlib import contextmanager
+
+    from rhesis.backend.app.scope import RequestScope, _scope
+
+    @contextmanager
+    def _bind(organization_id=None, user_id=None, project_id=None):
+        token = _scope.set(RequestScope(organization_id=organization_id, user_id=user_id, project_id=project_id))
+        try:
+            yield
+        finally:
+            _scope.reset(token)
+
+    return _bind
+
+
+@pytest.fixture(autouse=True)
 def disable_enrichment(request, monkeypatch):
     """
     Disable trace enrichment for all tests by default.
@@ -229,9 +316,7 @@ def disable_enrichment(request, monkeypatch):
         yield
         return
 
-    def mock_enqueue_enrichment(
-        self, trace_id, project_id, organization_id, workers_available=None, root_span_id=None
-    ):
+    def mock_enqueue_enrichment(self, trace_id, project_id, organization_id, root_span_id=None):
         return False
 
     monkeypatch.setattr(

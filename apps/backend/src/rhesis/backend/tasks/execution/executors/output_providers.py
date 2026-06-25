@@ -11,13 +11,15 @@ All providers return a TestOutput dataclass, enabling the runner to evaluate
 metrics uniformly regardless of how the output was obtained.
 """
 
-import base64
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID
+
+if TYPE_CHECKING:
+    pass
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
@@ -26,6 +28,28 @@ from rhesis.backend.tasks.execution.executors.results import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _load_run_params(db, test_execution_context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Load resolved parameter snapshot from the TestRun attributes.
+
+    Returns an empty dict when no parameters are available, so callers
+    can always do ``if params: input_data["params"] = params``.
+    """
+    if not test_execution_context:
+        return {}
+    test_run_id = test_execution_context.get("test_run_id")
+    if not test_run_id:
+        return {}
+    try:
+        from rhesis.backend.app.models.test_run import TestRun
+
+        run = db.query(TestRun).filter(TestRun.id == UUID(test_run_id)).first()
+        if run and run.attributes:
+            return run.attributes.get("parameters") or {}
+    except Exception as e:
+        logger.warning("Failed to load run parameters for %s: %s", test_run_id, e)
+    return {}
 
 
 @dataclass
@@ -62,6 +86,9 @@ class SingleTurnOutput(OutputProvider):
     and process_endpoint_result() (from executors.results).
     """
 
+    def __init__(self, model=None):
+        self.model = model
+
     async def get_output(
         self,
         *,
@@ -72,11 +99,19 @@ class SingleTurnOutput(OutputProvider):
         user_id,
         test_execution_context=None,
         test_id=None,
+        params=None,
         **kwargs,
     ) -> TestOutput:
         start_time = datetime.now(timezone.utc)
 
         input_data = {"input": prompt_content}
+
+        # Inject resolved experiment parameters so REST request mappings
+        # can reference {{ params.model }}, {{ params.temperature }}, etc.
+        if params is None:
+            params = _load_run_params(db, test_execution_context)
+        if params:
+            input_data["params"] = params
 
         # Inject file data if the test has attached files
         if test_id:
@@ -101,11 +136,14 @@ class SingleTurnOutput(OutputProvider):
         return TestOutput(response=processed, execution_time=execution_time)
 
     @staticmethod
-    def _load_input_files(db, test_id, organization_id) -> List[Dict[str, str]]:
-        """Load files attached to a test and encode as base64."""
-        from sqlalchemy.orm import undefer
+    def _load_input_files(db, test_id, organization_id):
+        """Load files attached to a test and return them as FileReference metadata.
 
+        No bytes are loaded, no base64 encoding, no extraction — extraction was
+        performed at upload time and is available on ``File.extracted_text``.
+        """
         from rhesis.backend.app.models.file import File
+        from rhesis.sdk.connector.types import FileReference
 
         try:
             files = (
@@ -115,25 +153,35 @@ class SingleTurnOutput(OutputProvider):
                     File.entity_type == "Test",
                     File.deleted_at.is_(None),
                 )
-                .options(undefer(File.content))
                 .order_by(File.position)
                 .all()
             )
 
-            if not files:
-                return []
-
             return [
-                {
-                    "filename": f.filename,
-                    "content_type": f.content_type,
-                    "data": base64.b64encode(f.content).decode("ascii"),
-                }
+                FileReference(
+                    id=str(f.id),
+                    filename=f.filename,
+                    content_type=f.content_type,
+                    size_bytes=f.size_bytes,
+                    content_hash=f.content_hash or "",
+                    storage_path=f.storage_path,
+                    extracted_text=f.extracted_text,
+                )
                 for f in files
-                if f.content
+                if f.storage_path  # only include files that have been migrated to storage
             ]
         except Exception as e:
-            logger.warning(f"Failed to load input files for test {test_id}: {e}")
+            # Promote to ERROR with full traceback: silently dropping
+            # attached files causes downstream tests to run without
+            # context the user expected to provide.  Returning [] keeps
+            # the test runnable; the operator must catch this in the logs.
+            logger.error(
+                "Failed to load input files for test %s — test will execute "
+                "WITHOUT its attached file context: %s",
+                test_id,
+                e,
+                exc_info=True,
+            )
             return []
 
 
@@ -156,6 +204,7 @@ class MultiTurnOutput(OutputProvider):
         organization_id,
         user_id,
         test_execution_context=None,
+        params=None,
         **kwargs,
     ) -> TestOutput:
         start_time = datetime.now(timezone.utc)
@@ -173,6 +222,9 @@ class MultiTurnOutput(OutputProvider):
         # Load files attached to the test (reuse SingleTurnOutput's static method)
         input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
 
+        if params is None:
+            params = _load_run_params(db, test_execution_context)
+
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,
         )
@@ -186,6 +238,7 @@ class MultiTurnOutput(OutputProvider):
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
+            params=params,
         )
 
         penelope_result = agent.execute_test(

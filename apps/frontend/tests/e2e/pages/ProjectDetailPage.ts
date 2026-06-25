@@ -9,8 +9,9 @@ export class ProjectDetailPage extends BasePage {
     super(page);
   }
 
-  async goto(id: string) {
-    await this.page.goto(`/projects/${id}`);
+  async goto(id: string, query?: string) {
+    const suffix = query ? `?${query}` : '';
+    await this.page.goto(`/projects/${id}${suffix}`);
   }
 
   async expectLoaded(id: string) {
@@ -18,10 +19,6 @@ export class ProjectDetailPage extends BasePage {
     await this.expectNoErrors();
   }
 
-  /** Assert a heading is visible — the project name comes from fixture data. */
-  /** Assert the page has rendered its main content area.
-   * A heading is preferred but the main element is accepted as fallback because
-   * when the fixture ID is not in the backend the SSR renders without a heading. */
   async expectHeadingVisible() {
     await this.page.waitForLoadState('networkidle');
     const heading = this.page.getByRole('heading').first();
@@ -31,10 +28,23 @@ export class ProjectDetailPage extends BasePage {
     expect(headingOk || mainOk).toBeTruthy();
   }
 
-  /** Assert the project content area (metadata or endpoints section) is rendered. */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
     const mainContent = this.page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible();
+  }
+
+  async expectTabNavVisible() {
+    await expect(
+      this.page.getByRole('tablist', { name: 'Project detail sections' })
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole('tab', { name: 'Overview', selected: true })
+    ).toBeVisible();
+  }
+
+  async expectMetadataStripVisible() {
+    await expect(this.page.getByText(/created by:/i)).toBeVisible();
+    await expect(this.page.getByText(/created on:/i)).toBeVisible();
   }
 }

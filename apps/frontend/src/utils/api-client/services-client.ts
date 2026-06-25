@@ -32,6 +32,8 @@ import { RecentActivitiesResponse } from './interfaces/activities';
 import {
   GenerateTestsRequest,
   GenerateTestsResponse,
+  TestPipelineEvent,
+  TestPipelineRequest,
 } from './interfaces/test-set';
 
 interface ChipState {
@@ -98,25 +100,36 @@ interface TextResponse {
   text: string;
 }
 
-// MCP Types
-export interface MCPItem {
+// Tool Types
+export interface ToolItem {
   id: string;
   url: string;
   title: string;
 }
 
-export interface MCPExtractResponse {
+export interface ToolExtractResponse {
   content: string;
 }
 
-export interface TestMCPConnectionRequest {
+export interface ExtractedSource {
+  id?: string;
+  title?: string;
+  content: string;
+  url?: string;
+}
+
+export interface ExtractToolResponse {
+  sources: ExtractedSource[];
+}
+
+export interface TestToolConnectionRequest {
   tool_id?: string;
   provider_type_id?: string;
   credentials?: Record<string, string>;
   tool_metadata?: Record<string, unknown>;
 }
 
-export interface TestMCPConnectionResponse {
+export interface TestToolConnectionResponse {
   is_authenticated: string; // "Yes" or "No"
   message: string;
   additional_metadata?: {
@@ -138,6 +151,69 @@ export interface CreateJiraTicketFromTaskResponse {
 }
 
 export class ServicesClient extends BaseApiClient {
+  private async *readNdjsonStream(
+    response: Response
+  ): AsyncGenerator<unknown, void, void> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Streaming response body is not available.');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex = buffer.indexOf('\n');
+      while (newlineIndex !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line) {
+          yield JSON.parse(line) as unknown;
+        }
+        newlineIndex = buffer.indexOf('\n');
+      }
+    }
+
+    const remaining = buffer.trim();
+    if (remaining) {
+      yield JSON.parse(remaining) as unknown;
+    }
+  }
+
+  async generateTestPipelineStream(
+    request: TestPipelineRequest,
+    options: {
+      onEvent: (event: TestPipelineEvent) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<void> {
+    const headers = this.getHeaders();
+    const response = await fetch(
+      `${this.baseUrl}${API_ENDPOINTS.services}/generate/test_pipeline`,
+      {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: options.signal,
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `Test pipeline request failed (${response.status}): ${errorBody}`
+      );
+    }
+
+    for await (const event of this.readNdjsonStream(response)) {
+      options.onEvent(event as TestPipelineEvent);
+    }
+  }
+
   async getGitHubContents(repo_url: string): Promise<string> {
     return this.fetch<string>(
       `${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`
@@ -234,64 +310,34 @@ export class ServicesClient extends BaseApiClient {
   }
 
   /**
-   * Search MCP server for items matching the query
-   * @param query - Search query string
-   * @param toolId - ID of the configured tool integration
-   * @returns Array of MCP items with id, url, and title
+   * Extract content from a tool item (Notion page, GitHub file/dir) via the
+   * deterministic REST path. Returns one source per page/file.
    */
-  async searchMCP(query: string, toolId: string): Promise<MCPItem[]> {
-    return this.fetch<MCPItem[]>(`${API_ENDPOINTS.services}/mcp/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        tool_id: toolId,
-      }),
-    });
-  }
-
-  /**
-   * Extract full content from an MCP item as markdown
-   * @param options - Either { url: string } or { id: string } (or both), plus toolId
-   * @param toolId - ID of the configured tool integration
-   * @returns Extracted content as markdown
-   */
-  async extractMCP(
-    options: { url?: string; id?: string },
-    toolId: string
-  ): Promise<MCPExtractResponse> {
-    return this.fetch<MCPExtractResponse>(
-      `${API_ENDPOINTS.services}/mcp/extract`,
+  async extractTool(
+    toolId: string,
+    options: { url?: string; id?: string; include_children?: boolean }
+  ): Promise<ExtractToolResponse> {
+    return this.fetch<ExtractToolResponse>(
+      `${API_ENDPOINTS.tools}/${toolId}/extract`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...options,
-          tool_id: toolId,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options),
       }
     );
   }
 
   /**
-   * Test MCP connection authentication
-   * @param request - Either tool_id (for existing tools) OR provider_type_id + credentials + optional tool_metadata (for non-existent tools)
-   * @returns Test result with authentication status and message
+   * Test tool credentials via lightweight REST health check
    */
-  async testMCPConnection(
-    request: TestMCPConnectionRequest
-  ): Promise<TestMCPConnectionResponse> {
-    return this.fetch<TestMCPConnectionResponse>(
-      `${API_ENDPOINTS.services}/mcp/test-connection`,
+  async testToolConnection(
+    request: TestToolConnectionRequest
+  ): Promise<TestToolConnectionResponse> {
+    return this.fetch<TestToolConnectionResponse>(
+      `${API_ENDPOINTS.tools}/test-connection`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
       }
     );
@@ -327,7 +373,7 @@ export class ServicesClient extends BaseApiClient {
     toolId: string
   ): Promise<CreateJiraTicketFromTaskResponse> {
     return this.fetch<CreateJiraTicketFromTaskResponse>(
-      `${API_ENDPOINTS.services}/mcp/jira/create-ticket-from-task`,
+      `${API_ENDPOINTS.tools}/jira/create-ticket-from-task`,
       {
         method: 'POST',
         headers: {

@@ -8,11 +8,17 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_serializer
 
 from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
+
+# A file attachment can be either a Pydantic FileReference (modern execution
+# pipeline, bytes in object storage) or a plain dict (legacy/playground
+# paths with optional inline base64 ``data``).  Kept as Any to avoid a hard
+# dependency on the SDK type in the dataclass annotation.
+FileAttachment = Union[Any, Dict[str, Any]]
 
 
 def _serialize_dt(dt: Optional[datetime], _info) -> Optional[str]:
@@ -301,6 +307,13 @@ class ConversationTurn(BaseModel):
         default=None,
         description="Tool calls made by the target endpoint",
     )
+    sent_files: Optional[List[Dict[str, str]]] = Field(
+        default=None,
+        description=(
+            "Metadata of files sent to the target in this turn "
+            "(filename and content_type only; base64 data is excluded for storage efficiency)."
+        ),
+    )
 
 
 class TestResult(BaseModel):
@@ -418,7 +431,7 @@ class TestContext:
     min_turns: Optional[int] = None
     max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
-    files: List[Dict[str, str]] = field(default_factory=list)
+    files: List[FileAttachment] = field(default_factory=list)
 
 
 @dataclass
@@ -1075,6 +1088,20 @@ class TestState:
             except (json.JSONDecodeError, KeyError, AttributeError):
                 target_response = "Unable to parse response"
 
+            # Extract lightweight file metadata (filename + content_type, no base64 / bytes)
+            # Handles both FileReference objects and legacy {filename, content_type, ...} dicts.
+            raw_files = target_interaction.get_tool_call_arguments().get("files") or []
+            sent_files = []
+            for f in raw_files:
+                if hasattr(f, "filename"):
+                    # FileReference
+                    sent_files.append({"filename": f.filename, "content_type": f.content_type})
+                elif isinstance(f, dict):
+                    sent_files.append(
+                        {k: v for k, v in f.items() if k in ("filename", "content_type")}
+                    )
+            sent_files = sent_files or None
+
             # Create conversation turn (use turn number for display consistency)
             conversation_turn = ConversationTurn(
                 turn=turn.turn_number,  # Actual turn number (target interactions only)
@@ -1087,6 +1114,7 @@ class TestState:
                 context=assistant_context,
                 metadata=assistant_metadata,
                 tool_calls=assistant_tool_calls,
+                sent_files=sent_files,
             )
 
             summary.append(conversation_turn)

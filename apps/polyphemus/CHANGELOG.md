@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-11
+
+### Changed
+-   Pinned the `uv` dependency to version `0.11.19` in Docker service images for enhanced build consistency and stability.
+
+### Fixed
+-   Resolved an issue with Docker builds by updating the source for pulling the `uv` dependency from `ghcr` to `mirror.gcr.io`, ensuring more reliable dependency resolution.
+
+## [0.3.0] - 2026-05-21
+
+### Added
+- Injected an adversarial system primer on every request to enhance system robustness and testing capabilities.
+
+### Fixed
+- Resolved an issue causing inconsistent results when using Polyphemus between the SDK and platform environments.
+- Addressed various security vulnerabilities by patching dependencies across the monorepo.
+
 ## [0.2.9] - 2026-04-09
 
 ### Added

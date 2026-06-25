@@ -31,6 +31,6 @@ resource "google_secret_manager_secret_version" "cloudflare_api_token_placeholde
   secret_data = "PLACEHOLDER_CLOUDFLARE_API_TOKEN"
 
   lifecycle {
-    ignore_changes= [secret_data]
+    ignore_changes = [secret_data]
   }
 }

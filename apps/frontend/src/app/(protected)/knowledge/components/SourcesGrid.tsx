@@ -1,53 +1,109 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
   GridRowParams,
-  GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
   GridSortModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { Box, Typography, Chip } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
+import GridToolbar from '@/components/common/GridToolbar';
+import GridBadge from '@/components/common/GridBadge';
+import {
+  createRowActionsColumn,
+  rowActionsHoverSx,
+} from '@/components/common/createRowActionsColumn';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import UploadIcon from '@mui/icons-material/Upload';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import UploadSourceDialog from './UploadSourceDialog';
-import MCPToolSelectorDialog from './MCPToolSelectorDialog';
-import MCPImportDialog from './MCPImportDialog';
-import { Tool } from '@/utils/api-client/interfaces/tool';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
-import {
-  formatFileSize,
-  formatDate,
-  getFileExtension,
-} from '@/constants/knowledge';
+import { formatFileSize, getFileExtension } from '@/constants/knowledge';
+import { formatDate } from '@/utils/date';
+import SourceFilterDrawer, {
+  type SourceFilters,
+  EMPTY_SOURCE_FILTERS,
+  hasActiveSourceFilters,
+  countActiveSourceFilters,
+} from './SourceFilterDrawer';
 
 interface SourcesGridProps {
   sessionToken: string;
+  refreshKey?: number;
   onRefresh?: () => void;
 }
 
-// Remove the local formatFileSize function since we're importing it
+interface SourcesToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+  activeFilterCount: number;
+  onDeleteSource: (id: string) => void;
+}
+
+const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+  activeFilterCount: 0,
+  onDeleteSource: () => {},
+});
+
+function SourcesUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+    activeFilterCount,
+  } = useContext(SourcesToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search sources…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      activeFilterCount={activeFilterCount}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
 
 export default function SourcesGrid({
   sessionToken,
+  refreshKey,
   onRefresh,
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
 
   // Component state
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +120,10 @@ export default function SourcesGrid({
   ]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [mcpToolSelectorOpen, setMcpToolSelectorOpen] = useState(false);
-  const [mcpImportDialogOpen, setMcpImportDialogOpen] = useState(false);
-  const [selectedMCPTool, setSelectedMCPTool] = useState<Tool | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -118,12 +174,61 @@ export default function SourcesGrid({
     fetchSources();
   }, [fetchSources]);
 
-  // Handle refresh - called by parent via onRefresh
   useEffect(() => {
-    if (onRefresh) {
+    if (refreshKey !== undefined && refreshKey > 0) {
       fetchSources();
     }
-  }, [onRefresh, fetchSources]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const DRAWER_FIELDS = ['source_type.type_value', 'user.name', 'tags'];
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: typeof prev.items = [];
+      if (drawerFilters.sourceType) {
+        drawerItems.push({
+          field: 'source_type.type_value',
+          operator: 'equals',
+          value: drawerFilters.sourceType,
+        });
+      }
+      if (drawerFilters.creator) {
+        drawerItems.push({
+          field: 'user.name',
+          operator: 'contains',
+          value: drawerFilters.creator,
+        });
+      }
+      if (drawerFilters.tag) {
+        drawerItems.push({
+          field: 'tags',
+          operator: 'contains',
+          value: drawerFilters.tag,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
 
   // Handle pagination
   const handlePaginationModelChange = useCallback(
@@ -147,14 +252,6 @@ export default function SourcesGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
-  // Handle selection change
-  const handleSelectionChange = useCallback(
-    (newSelection: GridRowSelectionModel) => {
-      setSelectedRows(newSelection);
-    },
-    []
-  );
-
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -164,39 +261,33 @@ export default function SourcesGrid({
     [router]
   );
 
-  // Handle delete sources
-  const handleDeleteSources = () => {
+  const handleDeleteSource = useCallback((id: string) => {
+    setPendingDeleteId(id);
     setDeleteModalOpen(true);
-  };
+  }, []);
 
   const handleDeleteConfirm = async () => {
-    if (selectedRows.length === 0) return;
+    if (!pendingDeleteId) return;
 
     try {
       setIsDeleting(true);
       const clientFactory = new ApiClientFactory(sessionToken);
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Delete all selected sources
-      await Promise.all(
-        selectedRows.map(id =>
-          sourcesClient.deleteSource(
-            String(id) as `${string}-${string}-${string}-${string}-${string}`
-          )
-        )
+      await sourcesClient.deleteSource(
+        pendingDeleteId as `${string}-${string}-${string}-${string}-${string}`
       );
 
-      // Show success notification
-      notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}`,
-        { severity: 'success', autoHideDuration: 4000 }
-      );
+      notifications.show('Successfully deleted source', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
 
-      // Clear selection and refresh data
-      setSelectedRows([]);
+      setPendingDeleteId(null);
       fetchSources();
+      onRefresh?.();
     } catch {
-      notifications.show('Failed to delete sources', {
+      notifications.show('Failed to delete source', {
         severity: 'error',
         autoHideDuration: 4000,
       });
@@ -208,61 +299,33 @@ export default function SourcesGrid({
 
   const handleDeleteCancel = () => {
     setDeleteModalOpen(false);
+    setPendingDeleteId(null);
   };
 
-  // Get action buttons based on selection
-  const getActionButtons = useCallback(() => {
-    const buttons: Array<{
-      label: string;
-      icon: React.ReactNode;
-      variant: 'text' | 'outlined' | 'contained';
-      onClick: () => void;
-      splitButton?: {
-        options: {
-          label: string;
-          onClick: () => void;
-          disabled?: boolean;
-        }[];
-      };
-    }> = [
-      {
-        label: 'Upload Source',
-        icon: <UploadIcon />,
-        variant: 'contained' as const,
-        onClick: () => {
-          setUploadDialogOpen(true);
-        },
-      },
-      {
-        label: 'Import from MCP',
-        icon: <CloudDownloadIcon />,
-        variant: 'outlined' as const,
-        onClick: () => {
-          setMcpToolSelectorOpen(true);
-        },
-      },
-    ];
-
-    if (selectedRows.length > 0) {
-      buttons.push({
-        label: 'Delete Sources',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        onClick: handleDeleteSources,
-      });
-    }
-
-    return buttons;
-  }, [selectedRows.length]);
+  const toolbarContextValue = useMemo(
+    () => ({
+      searchQuery,
+      setSearchQuery,
+      openFilterDrawer: () => setFilterDrawerOpen(true),
+      hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
+      activeFilterCount: countActiveSourceFilters(drawerFilters),
+      onDeleteSource: handleDeleteSource,
+    }),
+    [searchQuery, drawerFilters, handleDeleteSource]
+  );
 
   // Column definitions
-  const columns: GridColDef[] = React.useMemo(
-    () => [
+  const columns: GridColDef[] = React.useMemo(() => {
+    const actionsCol = createRowActionsColumn({
+      onEdit: id => router.push(`/knowledge/${id}`),
+      onDelete: id => handleDeleteSource(id),
+    });
+    return [
       {
         field: 'title',
         headerName: 'Title',
-        flex: 2,
-        minWidth: 150,
+        width: 220,
+        minWidth: 160,
         renderCell: params => {
           const source = params.row as Source;
           return (
@@ -282,7 +345,7 @@ export default function SourcesGrid({
       {
         field: 'description',
         headerName: 'Description',
-        flex: 3,
+        width: 300,
         minWidth: 200,
         renderCell: params => {
           const source = params.row as Source;
@@ -307,62 +370,39 @@ export default function SourcesGrid({
       {
         field: 'file_type',
         headerName: 'Type',
-        flex: 0.6,
-        minWidth: 70,
+        width: 100,
+        minWidth: 80,
         renderCell: params => {
           const source = params.row as Source;
           const metadata = source.source_metadata || {};
 
-          // Check if source_type exists in metadata (MCP imports like Notion, Slack, etc.)
+          // MCP imports like Notion, Slack, etc.
           if (metadata.source_type) {
-            return (
-              <Chip
-                label={metadata.source_type}
-                size="small"
-                variant="outlined"
-                className={styles.fileTypeChip}
-              />
-            );
+            return <GridBadge label={metadata.source_type} />;
           }
 
-          // Check if this is a Tool source type (API imports with provider)
+          // Tool source type (API imports with provider)
           if (source.source_type?.type_value === 'Tool' && metadata.provider) {
-            // Capitalize the provider name (e.g., "notion" -> "Notion")
             const providerName =
               metadata.provider.charAt(0).toUpperCase() +
               metadata.provider.slice(1);
-            return (
-              <Chip
-                label={providerName}
-                size="small"
-                variant="outlined"
-                className={styles.fileTypeChip}
-              />
-            );
+            return <GridBadge label={providerName} />;
           }
 
           // Fall back to file extension for document sources
           const fileExtension = getFileExtension(metadata.original_filename);
 
-          // Return null if file extension is unknown
           if (fileExtension === 'unknown') {
             return null;
           }
 
-          return (
-            <Chip
-              label={fileExtension.toUpperCase()}
-              size="small"
-              variant="outlined"
-              className={styles.fileTypeChip}
-            />
-          );
+          return <GridBadge label={fileExtension.toUpperCase()} />;
         },
       },
       {
         field: 'file_size',
         headerName: 'Size',
-        flex: 0.6,
+        width: 80,
         minWidth: 70,
         type: 'number',
         renderCell: params => {
@@ -380,7 +420,7 @@ export default function SourcesGrid({
       {
         field: 'created_at',
         headerName: 'Uploaded',
-        flex: 0.8,
+        width: 110,
         minWidth: 95,
         filterable: false,
         renderCell: params => {
@@ -399,7 +439,7 @@ export default function SourcesGrid({
       {
         field: 'user.name',
         headerName: 'Added by',
-        flex: 1,
+        width: 140,
         minWidth: 110,
         sortable: false,
         renderCell: params => {
@@ -433,7 +473,7 @@ export default function SourcesGrid({
       {
         field: 'counts.comments',
         headerName: 'Comments',
-        flex: 0.8,
+        width: 100,
         minWidth: 95,
         sortable: false,
         filterable: false,
@@ -452,7 +492,7 @@ export default function SourcesGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        flex: 1.5,
+        width: 160,
         minWidth: 140,
         sortable: false,
         renderCell: params => {
@@ -490,9 +530,9 @@ export default function SourcesGrid({
           );
         },
       },
-    ],
-    []
-  );
+      actionsCol,
+    ];
+  }, [router, handleDeleteSource]);
 
   if (error) {
     return (
@@ -508,32 +548,19 @@ export default function SourcesGrid({
   }
 
   return (
-    <>
-      {selectedRows.length > 0 && (
-        <Box className={styles.selectionInfo}>
-          <Typography variant="subtitle1" className={styles.selectionText}>
-            {selectedRows.length} sources selected
-          </Typography>
-        </Box>
-      )}
-
+    <SourcesToolbarContext.Provider value={toolbarContextValue}>
       <BaseDataGrid
         columns={columns}
         rows={sources}
         loading={loading}
         getRowId={row => row.id}
-        showToolbar={false}
+        showToolbar={true}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
         sortModel={sortModel}
         onSortModelChange={handleSortModelChange}
-        actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         serverSidePagination={true}
         serverSideFiltering={true}
         sortingMode="server"
@@ -541,7 +568,9 @@ export default function SourcesGrid({
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
         onRowClick={handleRowClick}
+        toolbarSlot={SourcesUnifiedToolbar}
         persistState
+        sx={rowActionsHoverSx}
       />
 
       <DeleteModal
@@ -549,50 +578,17 @@ export default function SourcesGrid({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
-        title="Delete Sources"
-        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'source' : 'sources'}? This action cannot be undone.`}
-        itemType="sources"
+        title="Delete Source"
+        message="Are you sure you want to delete this source? This action cannot be undone."
+        itemType="source"
       />
 
-      <UploadSourceDialog
-        open={uploadDialogOpen}
-        onClose={() => setUploadDialogOpen(false)}
-        onSuccess={() => {
-          fetchSources();
-          setUploadDialogOpen(false);
-        }}
-        sessionToken={sessionToken}
+      <SourceFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => setDrawerFilters(f)}
       />
-
-      <MCPToolSelectorDialog
-        open={mcpToolSelectorOpen}
-        onClose={() => setMcpToolSelectorOpen(false)}
-        onSelectTool={tool => {
-          setSelectedMCPTool(tool);
-          setMcpToolSelectorOpen(false);
-          setMcpImportDialogOpen(true);
-        }}
-        sessionToken={sessionToken}
-      />
-
-      <MCPImportDialog
-        open={mcpImportDialogOpen}
-        onClose={() => {
-          setMcpImportDialogOpen(false);
-          setSelectedMCPTool(null);
-        }}
-        onBack={() => {
-          setMcpImportDialogOpen(false);
-          setMcpToolSelectorOpen(true);
-        }}
-        onSuccess={() => {
-          fetchSources();
-          setMcpImportDialogOpen(false);
-          setSelectedMCPTool(null);
-        }}
-        sessionToken={sessionToken}
-        tool={selectedMCPTool}
-      />
-    </>
+    </SourcesToolbarContext.Provider>
   );
 }

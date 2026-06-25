@@ -1,9 +1,12 @@
-import os
+from rhesis.backend.app.config.settings import get_redis_settings
 
+redis_settings = get_redis_settings()
+
+# Worker-context config: retry aggressively to ensure task delivery
 CELERY_CONFIG = {
     # Redis configuration
-    "broker_url": os.getenv("BROKER_URL", "redis://localhost:6379/0"),
-    "result_backend": os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1"),
+    "broker_url": redis_settings.broker_url,
+    "result_backend": redis_settings.result_backend,
     # Serialization
     "task_serializer": "json",
     "result_serializer": "json",
@@ -18,10 +21,15 @@ CELERY_CONFIG = {
     "broker_connection_retry_on_startup": True,
     "broker_connection_retry": True,
     "broker_connection_max_retries": 10,
-    # Simplified Redis transport options
+    # Cap the kombu broker connection pool (default is 10, making explicit)
+    "broker_pool_limit": 10,
+    # Redis transport options with explicit connection pool caps.
+    # max_connections limits the underlying redis-py ConnectionPool so that
+    # slow operations under Redis contention don't cause unbounded growth.
     "broker_transport_options": {
         "retry_on_timeout": True,
         "connection_pool_kwargs": {
+            "max_connections": 10,
             "retry_on_timeout": True,
             "socket_connect_timeout": 30,
             "socket_timeout": 30,
@@ -30,6 +38,7 @@ CELERY_CONFIG = {
     "result_backend_transport_options": {
         "retry_on_timeout": True,
         "connection_pool_kwargs": {
+            "max_connections": 5,
             "retry_on_timeout": True,
             "socket_connect_timeout": 30,
             "socket_timeout": 30,
@@ -83,12 +92,46 @@ CELERY_CONFIG = {
     "include": [
         "rhesis.backend.tasks.test_configuration",
         "rhesis.backend.tasks.embedding.generate",
+        "rhesis.backend.tasks.embedding.graph",
         "rhesis.backend.tasks.example_task",
         "rhesis.backend.tasks.test_set",
         "rhesis.backend.tasks.execution.results",
         "rhesis.backend.tasks.telemetry.enrich",
-        "rhesis.backend.tasks.architect",
+        "rhesis.backend.tasks.architect.chat",
         "rhesis.backend.tasks.telemetry.evaluate",
         "rhesis.backend.tasks.telemetry.post_ingest",
     ],
+}
+
+# Web-context overrides: fail fast instead of blocking HTTP request threads.
+# Applied by apply_web_context_overrides() during FastAPI startup.
+# Worst case changes from 10 retries x 30s = 300s to a single 2s attempt.
+WEB_CELERY_OVERRIDES = {
+    "broker_connection_max_retries": 0,
+    # Web processes only publish tasks — they need fewer connections than workers.
+    "broker_pool_limit": 5,
+    "broker_transport_options": {
+        "retry_on_timeout": False,
+        "connection_pool_kwargs": {
+            "max_connections": 5,
+            "retry_on_timeout": False,
+            "socket_connect_timeout": 2,
+            "socket_timeout": 2,
+        },
+    },
+    "result_backend_transport_options": {
+        "retry_on_timeout": False,
+        "connection_pool_kwargs": {
+            "max_connections": 3,
+            "retry_on_timeout": False,
+            "socket_connect_timeout": 2,
+            "socket_timeout": 2,
+        },
+    },
+    "task_publish_retry_policy": {
+        "max_retries": 1,
+        "interval_start": 0.1,
+        "interval_step": 0.1,
+        "interval_max": 0.5,
+    },
 }

@@ -22,6 +22,7 @@ import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import Tooltip from '@mui/material/Tooltip';
 import { useSession } from 'next-auth/react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { playgroundPanelSx } from './playgroundPanelSx';
 import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
@@ -150,8 +151,9 @@ export default function PlaygroundChat({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setStagedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      setStagedFiles(prev => [...prev, ...Array.from(selectedFiles)]);
     }
     // Reset so the same file can be selected again
     e.target.value = '';
@@ -224,13 +226,12 @@ export default function PlaygroundChat({
   return (
     <>
       <Paper
-        elevation={1}
+        elevation={0}
         sx={{
+          ...playgroundPanelSx,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          borderRadius: theme => theme.shape.borderRadius,
-          overflow: 'hidden',
         }}
       >
         {/* Pane Header */}
@@ -241,16 +242,15 @@ export default function PlaygroundChat({
             justifyContent: label ? 'space-between' : 'flex-end',
             px: 1.5,
             minHeight: theme => theme.spacing(4),
-            bgcolor: 'action.hover',
+            bgcolor: theme => theme.palette.greyscale.surface1,
             borderBottom: 1,
-            borderColor: 'divider',
+            borderColor: theme => theme.palette.greyscale.border,
           }}
         >
           {label && (
             <Typography
-              variant="caption"
-              color="text.secondary"
-              fontWeight="medium"
+              variant="captionBold"
+              sx={{ color: theme => theme.palette.greyscale.label }}
             >
               {label}
             </Typography>
@@ -269,7 +269,10 @@ export default function PlaygroundChat({
                   size="small"
                   onClick={handleCreateMultiTurnTest}
                   disabled={messages.length < 2 || isLoading}
-                  sx={{ color: 'text.secondary', p: 0.25 }}
+                  sx={{
+                    color: theme => theme.palette.greyscale.label,
+                    p: 0.25,
+                  }}
                 >
                   <ScienceOutlinedIcon fontSize="small" />
                 </IconButton>
@@ -279,7 +282,7 @@ export default function PlaygroundChat({
               <IconButton
                 size="small"
                 onClick={onClose}
-                sx={{ color: 'text.secondary', p: 0.25 }}
+                sx={{ color: theme => theme.palette.greyscale.label, p: 0.25 }}
               >
                 <CloseIcon fontSize="inherit" />
               </IconButton>
@@ -289,7 +292,10 @@ export default function PlaygroundChat({
                 <IconButton
                   size="small"
                   onClick={onSplit}
-                  sx={{ color: 'text.secondary', p: 0.25 }}
+                  sx={{
+                    color: theme => theme.palette.greyscale.label,
+                    p: 0.25,
+                  }}
                 >
                   <AddIcon fontSize="small" />
                 </IconButton>
@@ -316,7 +322,10 @@ export default function PlaygroundChat({
                 justifyContent: 'center',
               }}
             >
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{ color: theme => theme.palette.greyscale.subtitle }}
+              >
                 Send a message to start the conversation
               </Typography>
             </Box>
@@ -359,7 +368,7 @@ export default function PlaygroundChat({
           sx={{
             p: 2,
             borderTop: 1,
-            borderColor: 'divider',
+            borderColor: theme => theme.palette.greyscale.border,
             bgcolor: 'background.paper',
           }}
         >
@@ -452,11 +461,6 @@ export default function PlaygroundChat({
                       </Tooltip>
                     </InputAdornment>
                   ),
-                },
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: theme => theme.shape.borderRadius,
                 },
               }}
             />

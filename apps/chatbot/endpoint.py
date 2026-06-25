@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint, observe
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.models.defaults import parse_model_id
 from rhesis.sdk.models.factory import get_model
 
 # Output mode type
@@ -66,6 +67,18 @@ class IntentClassification(BaseModel):
     )
 
 
+def _resolve_model_id(model_id: str) -> str:
+    """Resolve Rhesis system model placeholders to the chatbot's configured default."""
+    provider, _ = parse_model_id(model_id)
+    if provider == "rhesis":
+        logger.info(
+            f"Rhesis system model '{model_id}' resolved to "
+            f"chatbot default: {DEFAULT_GENERATION_MODEL}"
+        )
+        return DEFAULT_GENERATION_MODEL
+    return model_id
+
+
 def get_llm_model():
     """Get the configured language model using SDK factory."""
     try:
@@ -78,14 +91,39 @@ def get_llm_model():
 class ResponseGenerator:
     """Class to generate responses using SDK model providers."""
 
-    def __init__(self, use_case: str = "insurance"):
+    def __init__(
+        self,
+        use_case: str = "insurance",
+        system_prompt_override: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+        context_strategy: str = "heuristic",
+    ):
         """Initialize with SDK model and use case."""
-        self.model = get_llm_model()
+        if model:
+            try:
+                resolved = _resolve_model_id(model)
+                self.model = get_model(resolved)
+            except Exception as e:
+                logger.error(f"Failed to initialize language model {model}: {str(e)}")
+                raise ValueError(f"Could not initialize language model {model}: {str(e)}")
+        else:
+            self.model = get_llm_model()
+
         self.use_case = use_case
+        self.system_prompt_override = system_prompt_override
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.context_strategy = context_strategy
+
         self.use_case_system_prompt = self._load_system_prompt()
 
     def _load_system_prompt(self) -> str:
-        """Load system prompt from the corresponding .md file in use_cases folder."""
+        """Load system prompt from override or use_cases .md file."""
+        if self.system_prompt_override and self.system_prompt_override.strip():
+            return self.system_prompt_override.strip()
+
         try:
             # Get the directory of the current script
             current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -118,70 +156,74 @@ class ResponseGenerator:
         return "".join(chunks)
 
     @observe()
-    def _build_conversation_prompt(
+    def _build_messages(
         self,
         prompt: str,
         conversation_history: List[dict] = None,
         file_contents: list[dict] | None = None,
-    ) -> str:
-        """Build the full prompt with file contents and conversation history."""
-        full_prompt = self.use_case_system_prompt + "\n\n"
+    ) -> List[dict]:
+        """Build structured messages for the LLM with proper role separation."""
+        messages = [{"role": "system", "content": self.use_case_system_prompt}]
 
-        # Inject file contents between system prompt and conversation
-        if file_contents:
-            full_prompt += "The user has provided the following files:\n\n"
-            for fc in file_contents:
-                filename = fc.get("filename", "unknown")
-                content = fc.get("content", "")
-                full_prompt += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
-
-        # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history:
                 if isinstance(msg, dict):
-                    role = "User" if msg.get("role") == "user" else "Assistant"
+                    role = msg.get("role", "user")
                     content = msg.get("content", "")
-                    full_prompt += f"{role}: {content}\n\n"
-                elif isinstance(msg, str):
-                    # If it's a string, treat it as user message
-                    full_prompt += f"User: {msg}\n\n"
+                    if role in ("user", "assistant", "system") and content:
+                        messages.append({"role": role, "content": content})
 
-        # Add current prompt
-        full_prompt += f"User: {prompt}\n\nAssistant:"
-        return full_prompt
+        # Attach file contents to the current user message so the LLM clearly
+        # associates them with this specific turn (not previous turns).
+        current_user_content = prompt
+        if file_contents:
+            file_block = ""
+            for fc in file_contents:
+                filename = fc.get("filename", "unknown")
+                content = fc.get("content", "")
+                file_block += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
+            current_user_content = (
+                f"[The user has attached the following file(s) "
+                f"with this message:]\n\n"
+                f"{file_block}"
+                f"[User message:] {prompt}"
+            )
+
+        messages.append({"role": "user", "content": current_user_content})
+        return messages
 
     @observe.llm(
         provider=_provider,
         model=_model_name,
     )
-    async def _invoke_llm(self, full_prompt: str, mode: OutputMode = "text"):
-        """Invoke the language model to generate a response."""
-        # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
-        # Use non-streaming response which works reliably
-        kwargs = {"stream": False}
+    async def _invoke_llm(self, messages: List[dict], mode: OutputMode = "text"):
+        """Invoke the language model via the SDK model's a_generate."""
+        kwargs = {
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
         if mode == "json":
             kwargs["schema"] = ChatResponse
-        response = await self.model.a_generate(full_prompt, **kwargs)
-        return response
+
+        return await self.model.a_generate(messages=messages, **kwargs)
 
     @observe()
     def _extract_response_content(self, response, mode: OutputMode = "text") -> str | dict:
-        """Extract text content from LLM response."""
-        if mode == "json":
-            if isinstance(response, ChatResponse):
-                return response.model_dump()
-            if isinstance(response, dict):
-                return response
+        """Extract text content from LLM response.
 
-        if isinstance(response, str):
+        The SDK model's ``a_generate`` returns ``str`` (or ``dict`` when a
+        schema is provided), so this is mostly a pass-through with fallback
+        handling for edge cases.
+        """
+        if isinstance(response, dict):
             return response
-
-        # Try to extract content from response object
-        if hasattr(response, "choices") and len(response.choices) > 0:
-            content = response.choices[0].message.content
-            return content if content else ""
-
-        # Fallback to string conversion
+        if isinstance(response, str):
+            if mode == "json":
+                try:
+                    return json.loads(response)
+                except (json.JSONDecodeError, TypeError):
+                    return {"response": response} if response else {}
+            return response
         return str(response) if response else ""
 
     @observe()
@@ -204,13 +246,11 @@ class ResponseGenerator:
                 JSON output.
         """
         try:
-            # Build the full prompt with conversation history and file contents
-            full_prompt = self._build_conversation_prompt(
-                prompt, conversation_history, file_contents
-            )
+            # Build structured messages with conversation history and file contents
+            messages = self._build_messages(prompt, conversation_history, file_contents)
 
             # Invoke LLM
-            response = await self._invoke_llm(full_prompt, mode=mode)
+            response = await self._invoke_llm(messages, mode=mode)
 
             # Extract and yield content
             content = self._extract_response_content(response, mode=mode)
@@ -266,6 +306,16 @@ class ResponseGenerator:
     @observe()
     async def generate_context(self, prompt: str) -> List[str]:
         """Generate context fragments for a prompt."""
+        if self.context_strategy == "none":
+            return []
+
+        # RAG implementation would go here
+        if self.context_strategy == "rag":
+            # For now fall back to heuristic
+            logger.info(
+                "RAG context strategy requested but not implemented yet, falling back to heuristic"
+            )
+
         try:
             # Build prompt
             full_prompt = self._build_context_prompt(prompt)
@@ -477,9 +527,23 @@ into one of four categories.
         return {"intent": "informational", "confidence": "low"}
 
 
-def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
+def get_response_generator(
+    use_case: str = "insurance",
+    system_prompt_override: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+    context_strategy: str = "heuristic",
+) -> ResponseGenerator:
     """Get a ResponseGenerator instance for the specified use case."""
-    return ResponseGenerator(use_case)
+    return ResponseGenerator(
+        use_case=use_case,
+        system_prompt_override=system_prompt_override,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        context_strategy=context_strategy,
+    )
 
 
 async def get_assistant_response(
@@ -502,6 +566,11 @@ async def stream_assistant_response(
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
+    system_prompt_override: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+    context_strategy: str = "heuristic",
 ) -> AsyncGenerator[str, None]:
     """Stream the assistant's response with optional conversation history.
 
@@ -527,7 +596,14 @@ async def stream_assistant_response(
     logger.info("=" * 80)
 
     try:
-        response_generator = get_response_generator(use_case)
+        response_generator = get_response_generator(
+            use_case=use_case,
+            system_prompt_override=system_prompt_override,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            context_strategy=context_strategy,
+        )
         logger.info("Response generator created successfully")
 
         chunk_count = 0
@@ -562,13 +638,27 @@ def _collect_stream_chunks(
     conversation_history: List[dict] | None,
     file_contents: list[dict] | None,
     mode: OutputMode,
+    system_prompt_override: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+    context_strategy: str = "heuristic",
 ) -> List[str]:
     """Collect all chunks from async stream (for sync wrapper)."""
 
     async def _collect() -> List[str]:
         chunks = []
         async for chunk in stream_assistant_response(
-            prompt, use_case, conversation_history, file_contents, mode
+            prompt=prompt,
+            use_case=use_case,
+            conversation_history=conversation_history,
+            file_contents=file_contents,
+            mode=mode,
+            system_prompt_override=system_prompt_override,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            context_strategy=context_strategy,
         ):
             chunks.append(chunk)
         return chunks
@@ -582,12 +672,28 @@ def stream_assistant_response_sync(
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
+    system_prompt_override: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+    context_strategy: str = "heuristic",
 ) -> Generator[str, None, None]:
     """Sync wrapper for stream_assistant_response for sync contexts (e.g. Streamlit).
 
     Yields chunks after collecting them from the async implementation.
     """
-    chunks = _collect_stream_chunks(prompt, use_case, conversation_history, file_contents, mode)
+    chunks = _collect_stream_chunks(
+        prompt=prompt,
+        use_case=use_case,
+        conversation_history=conversation_history,
+        file_contents=file_contents,
+        mode=mode,
+        system_prompt_override=system_prompt_override,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        context_strategy=context_strategy,
+    )
     yield from chunks
 
 

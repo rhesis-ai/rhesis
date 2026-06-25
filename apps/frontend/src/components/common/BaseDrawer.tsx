@@ -8,8 +8,14 @@ import {
   Button,
   Stack,
   CircularProgress,
-  // Divider // Keep or remove based on whether header/footer have borders
 } from '@mui/material';
+import { BACKDROP_COLORS } from '@/styles/theme';
+import {
+  drawerFooterCancelButtonSx,
+  drawerFooterDeleteButtonSx,
+  drawerFooterSaveButtonSx,
+  DRAWER_WIDTH,
+} from '@/components/common/drawerFormFieldSx';
 
 export interface BaseDrawerProps {
   open: boolean;
@@ -23,10 +29,17 @@ export interface BaseDrawerProps {
   saveDisabled?: boolean;
   error?: string;
   saveButtonText?: string;
+  /** Optional data-tour attribute for onboarding (save button). */
+  saveDataTour?: string;
   closeButtonText?: string;
+  onDelete?: () => void;
+  deleteButtonText?: string;
+  deleteDisabled?: boolean;
   width?: number | string;
   showHeader?: boolean;
   anchor?: 'left' | 'right';
+  /** `form` — scrollable stacked sections; `fill` — full-height workspace (traces, test results). */
+  contentLayout?: 'form' | 'fill';
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -65,116 +78,129 @@ export default function BaseDrawer({
   saveDisabled = false,
   error,
   saveButtonText = 'Save Changes',
+  saveDataTour,
   closeButtonText = 'Cancel',
-  width = 600,
+  onDelete,
+  deleteButtonText = 'Delete',
+  deleteDisabled = false,
+  width = DRAWER_WIDTH,
   showHeader = true,
   anchor = 'right',
+  contentLayout = 'form',
 }: BaseDrawerProps) {
+  const hasFooter = !!(closeButtonText || onSave || onDelete || error);
+  const isFillLayout = contentLayout === 'fill';
+
   return (
     <Drawer
       anchor={anchor}
       open={open}
       onClose={onClose}
       variant="temporary"
-      ModalProps={{
-        keepMounted: true, // Or false, depending on preference
-        slotProps: {
-          backdrop: {
-            sx: {
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            },
-          },
-        },
-      }}
-      slotProps={{
-        backdrop: {
-          sx: {
-            // Ensure backdrop is below drawer paper but above other content if necessary
-            zIndex: theme => theme.zIndex.drawer - 1,
-          },
-        },
-      }}
+      ModalProps={{ keepMounted: true }}
       PaperProps={{
         sx: {
           width: width,
-          zIndex: theme => theme.zIndex.drawer + 1, // Ensure Paper is above AppBar and its own backdrop
-          display: 'flex', // Added for flex structure if header/content/footer are direct children of Paper
+          display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between', // If header/content/footer structure is used
-        },
-      }}
-      sx={{
-        // Sx for the Drawer root
-        zIndex: theme => theme.zIndex.drawer + 1, // Match PaperProps or slightly higher for the root container
-        '& .MuiDrawer-paper': {
-          // Already present in your old BaseDrawer for boxSizing
+          p: '30px',
+          gap: '40px',
           boxSizing: 'border-box',
         },
       }}
+      sx={{
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.create,
+        },
+      }}
     >
-      {/* Header - conditionally rendered */}
+      {/* Title row — no border, no close button */}
       {showHeader && (
-        <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ flexShrink: 0 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             {titleIcon}
-            <Typography variant="h6">{title}</Typography>
+            <Typography
+              sx={{
+                fontSize: 23,
+                fontWeight: 700,
+                lineHeight: '27.6px',
+                color: theme => theme.palette.greyscale.title,
+              }}
+            >
+              {title}
+            </Typography>
           </Stack>
         </Box>
       )}
 
-      {/* Content */}
+      {/* Form content — scrollable, 40px gap between child rows.
+          pt: '10px' gives room for MUI floating labels (which translate -9px up)
+          so they aren't clipped by the overflowY container. */}
       <Box
         sx={{
-          p: showHeader ? 3 : 0,
           flex: 1,
-          overflowY: 'auto',
+          minHeight: 0,
+          overflowY: isFillLayout ? 'hidden' : 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: isFillLayout ? 0 : '40px',
+          pt: isFillLayout ? 0 : '10px',
         }}
       >
         {children}
       </Box>
 
-      {/* Footer */}
-      <Box
-        sx={{
-          p: 3,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-        }}
-      >
-        {error && (
-          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-            {error}
-          </Typography>
-        )}
-        <Stack direction="row" spacing={2} justifyContent="flex-end">
-          {closeButtonText && (
-            <Button onClick={onClose} disabled={loading}>
-              {closeButtonText}
-            </Button>
+      {/* Bottom toolbar — only rendered when there is something to show */}
+      {hasFooter && (
+        <Box sx={{ flexShrink: 0 }}>
+          {error && (
+            <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
+              {error}
+            </Typography>
           )}
-          {onSave && (
-            <Button
-              variant="contained"
-              onClick={onSave}
-              disabled={loading || saveDisabled}
-              startIcon={
-                loading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : undefined
-              }
-              sx={{
-                '&.Mui-disabled': {
-                  bgcolor: 'action.disabledBackground',
-                  color: 'action.disabled',
-                },
-              }}
-            >
-              {loading ? 'Executing...' : saveButtonText}
-            </Button>
-          )}
-        </Stack>
-      </Box>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
+          >
+            {closeButtonText && (
+              <Button
+                variant="outlined"
+                onClick={onClose}
+                disabled={loading}
+                sx={drawerFooterCancelButtonSx}
+              >
+                {closeButtonText}
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={onDelete}
+                disabled={loading || deleteDisabled}
+                sx={drawerFooterDeleteButtonSx}
+              >
+                {deleteButtonText}
+              </Button>
+            )}
+            {onSave && (
+              <Button
+                variant="contained"
+                onClick={onSave}
+                disabled={loading || saveDisabled}
+                {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : undefined
+                }
+                sx={drawerFooterSaveButtonSx}
+              >
+                {loading ? 'Executing...' : saveButtonText}
+              </Button>
+            )}
+          </Box>
+        </Box>
+      )}
     </Drawer>
   );
 }

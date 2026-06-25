@@ -3,6 +3,10 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
 import {
+  EmbeddingGraphComputeResponse,
+  EmbeddingGraphGetResponse,
+} from './interfaces/embedding';
+import {
   TestSet,
   TestSetCreate,
   TestSetStatsResponse,
@@ -86,9 +90,9 @@ function buildQueryParams(params: Record<string, unknown>): string {
 export class TestSetsClient extends BaseApiClient {
   private statusClient: StatusClient;
 
-  constructor(sessionToken: string) {
-    super(sessionToken);
-    this.statusClient = new StatusClient(sessionToken);
+  constructor(sessionToken?: string, retryConfig = {}, projectId?: string) {
+    super(sessionToken, retryConfig, projectId);
+    this.statusClient = new StatusClient(sessionToken, retryConfig, projectId);
   }
 
   // Priority translation functions
@@ -367,6 +371,10 @@ export class TestSetsClient extends BaseApiClient {
         reference_test_run_id,
         execution_model_id,
         evaluation_model_id,
+        experiment_id,
+        experiment_version,
+        experiment_environment,
+        experiment_label,
         ...executionOptions
       } = testConfigurationAttributes;
 
@@ -388,6 +396,19 @@ export class TestSetsClient extends BaseApiClient {
 
       if (evaluation_model_id) {
         requestBody.evaluation_model_id = evaluation_model_id;
+      }
+
+      if (experiment_id) {
+        requestBody.experiment_id = experiment_id;
+      }
+
+      if (experiment_version) {
+        requestBody.version = experiment_version;
+      }
+
+      const resolvedEnvironment = experiment_environment ?? experiment_label;
+      if (resolvedEnvironment) {
+        requestBody.environment = resolvedEnvironment;
       }
     }
 
@@ -483,6 +504,30 @@ export class TestSetsClient extends BaseApiClient {
     );
   }
 
+  async getAllTestSetTests(
+    testSetId: string,
+    params?: Omit<TestSetsQueryParams, 'skip' | 'limit'>
+  ): Promise<TestDetail[]> {
+    const pageSize = 100;
+    const allData: TestDetail[] = [];
+    let skip = 0;
+    let totalCount = Infinity;
+
+    while (skip < totalCount) {
+      const response = await this.getTestSetTests(testSetId, {
+        ...params,
+        skip,
+        limit: pageSize,
+      });
+      if (response.data.length === 0) break;
+      allData.push(...response.data);
+      totalCount = response.pagination.totalCount;
+      skip += pageSize;
+    }
+
+    return allData;
+  }
+
   async downloadTestSet(testSetId: string): Promise<Blob> {
     return this.fetchBlob(`${API_ENDPOINTS.testSets}/${testSetId}/download`);
   }
@@ -541,6 +586,24 @@ export class TestSetsClient extends BaseApiClient {
       {
         method: 'DELETE',
       }
+    );
+  }
+
+  async computeEmbeddingGraph(
+    testSetId: string
+  ): Promise<EmbeddingGraphComputeResponse> {
+    return this.fetch<EmbeddingGraphComputeResponse>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/embeddings/compute-graph`,
+      { method: 'POST' }
+    );
+  }
+
+  async getEmbeddingGraph(
+    testSetId: string
+  ): Promise<EmbeddingGraphGetResponse> {
+    return this.fetch<EmbeddingGraphGetResponse>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/embeddings/graph`,
+      { cache: 'no-store' }
     );
   }
 

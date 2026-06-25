@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
-  Chip,
   Divider,
   Card,
   CardContent,
@@ -16,12 +15,10 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import GridBadge from '@/components/common/GridBadge';
+import DetailTabNav from '@/components/common/DetailTabNav';
 import {
   SpanNode,
   TraceDetailResponse,
@@ -36,8 +33,6 @@ import { formatDuration } from '@/utils/format-duration';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
-import RateReviewIcon from '@mui/icons-material/RateReview';
-import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface SpanDetailsPanelProps {
@@ -97,19 +92,68 @@ export default function SpanDetailsPanel({
   traceMetricsStatus = null,
   selectedTurnNumber = null,
 }: SpanDetailsPanelProps) {
-  const [activeTab, setActiveTab] = useState<number | string>('details');
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
   const [spanFilesLoading, setSpanFilesLoading] = useState(false);
 
   // Determine if Test Result tab should be shown
   const showTestResultTab = trace?.test_result != null;
 
+  const spanDetailTabs = useMemo(() => {
+    const tabs: {
+      key: string;
+      label: string;
+      id: string;
+      'aria-controls': string;
+    }[] = [
+      {
+        key: 'details',
+        label: 'Span Details',
+        id: 'span-detail-tab-details',
+        'aria-controls': 'span-detail-tabpanel-details',
+      },
+    ];
+    if (showTestResultTab) {
+      tabs.push({
+        key: 'tests',
+        label: 'Test Results',
+        id: 'span-detail-tab-tests',
+        'aria-controls': 'span-detail-tabpanel-tests',
+      });
+    }
+    if (hasTraceMetrics) {
+      tabs.push(
+        {
+          key: 'metrics',
+          label: 'Trace Metrics',
+          id: 'span-detail-tab-metrics',
+          'aria-controls': 'span-detail-tabpanel-metrics',
+        },
+        {
+          key: 'reviews',
+          label: 'Reviews',
+          id: 'span-detail-tab-reviews',
+          'aria-controls': 'span-detail-tabpanel-reviews',
+        }
+      );
+    }
+    tabs.push({
+      key: 'tasks',
+      label: 'Tasks & Comments',
+      id: 'span-detail-tab-tasks',
+      'aria-controls': 'span-detail-tabpanel-tasks',
+    });
+    return tabs;
+  }, [showTestResultTab, hasTraceMetrics]);
+
+  const activeTabKey = spanDetailTabs[activeTabIndex]?.key ?? 'details';
+
   // Reset to details tab when Test Result tab becomes unavailable
   useEffect(() => {
-    if (!showTestResultTab && activeTab === 'tests') {
-      setActiveTab('details');
+    if (!showTestResultTab && activeTabKey === 'tests') {
+      setActiveTabIndex(0);
     }
-  }, [showTestResultTab, activeTab]);
+  }, [showTestResultTab, activeTabKey]);
 
   // Fetch files attached to the selected span
   useEffect(() => {
@@ -279,111 +323,21 @@ export default function SpanDetailsPanel({
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Tabs Header */}
-      <Box
-        sx={{
-          borderBottom: 1,
-          borderColor: 'divider',
-          px: theme => theme.spacing(2),
-          pt: theme => theme.spacing(2),
-          pb: theme => theme.spacing(2),
-          mb: theme => theme.spacing(1),
-        }}
-      >
-        <Tabs
-          value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
+      <Box sx={{ flexShrink: 0, px: '30px', pt: '30px' }}>
+        <DetailTabNav
+          tabs={spanDetailTabs}
+          activeIndex={activeTabIndex}
+          onChange={setActiveTabIndex}
           aria-label="span detail tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            minHeight: 'auto',
-            '& .MuiTab-root': {
-              minHeight: 'auto',
-              fontSize: theme => theme.typography.subtitle2.fontSize,
-              fontWeight: theme => theme.typography.subtitle2.fontWeight,
-              textTransform: 'none',
-              py: theme => theme.spacing(1.25),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              backgroundColor: 'transparent !important',
-              color: theme => theme.palette.text.secondary,
-              '& .MuiSvgIcon-root': {
-                color: 'inherit',
-              },
-              '&.Mui-selected': {
-                backgroundColor: 'transparent !important',
-                color: theme => theme.palette.text.primary,
-                '& .MuiSvgIcon-root': {
-                  color: theme => theme.palette.text.primary,
-                },
-              },
-              '&:hover': {
-                backgroundColor: 'transparent !important',
-              },
-            },
-            '& .MuiTabs-indicator': {
-              display: 'none',
-            },
-            '& .MuiTabs-flexContainer': {
-              backgroundColor: 'transparent',
-            },
-          }}
-        >
-          <Tab
-            value="details"
-            icon={<InfoOutlinedIcon fontSize="small" />}
-            iconPosition="start"
-            label="Span Details"
-            id="span-detail-tab-details"
-            aria-controls="span-detail-tabpanel-details"
-          />
-          {showTestResultTab && (
-            <Tab
-              value="tests"
-              icon={<AssessmentOutlinedIcon fontSize="small" />}
-              iconPosition="start"
-              label="Test Results"
-              id="span-detail-tab-tests"
-              aria-controls="span-detail-tabpanel-tests"
-            />
-          )}
-          {hasTraceMetrics && (
-            <Tab
-              value="metrics"
-              icon={<AssessmentOutlinedIcon fontSize="small" />}
-              iconPosition="start"
-              label="Trace Metrics"
-              id="span-detail-tab-metrics"
-              aria-controls="span-detail-tabpanel-metrics"
-            />
-          )}
-          {hasTraceMetrics && (
-            <Tab
-              value="reviews"
-              icon={<RateReviewIcon fontSize="small" />}
-              iconPosition="start"
-              label="Reviews"
-              id="span-detail-tab-reviews"
-              aria-controls="span-detail-tabpanel-reviews"
-            />
-          )}
-          <Tab
-            value="tasks"
-            icon={<ForumOutlinedIcon fontSize="small" />}
-            iconPosition="start"
-            label="Tasks & Comments"
-            id="span-detail-tab-tasks"
-            aria-controls="span-detail-tabpanel-tasks"
-          />
-        </Tabs>
+          tabGap="20px"
+          scrollable
+        />
       </Box>
 
       {/* Tab Content */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {/* Span Details Tab */}
-        <TabPanel value={activeTab} index="details">
+        <TabPanel value={activeTabKey} index="details">
           <Box sx={{ p: theme => theme.spacing(2) }}>
             {/* Overview Card */}
             <Card
@@ -448,17 +402,12 @@ export default function SpanDetailsPanel({
                     <Typography variant="caption" color="text.secondary">
                       Timing
                     </Typography>
-                    <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
-                      <Chip
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                      <GridBadge
+                        size="detail"
                         label={`Duration: ${formatDuration(span.duration_ms)}`}
-                        size="small"
-                        variant="outlined"
                       />
-                      <Chip
-                        label={span.span_kind}
-                        size="small"
-                        variant="outlined"
-                      />
+                      <GridBadge size="detail" label={span.span_kind} />
                     </Stack>
                     <Typography
                       variant="caption"
@@ -478,11 +427,7 @@ export default function SpanDetailsPanel({
                       Status
                     </Typography>
                     <Box sx={{ mt: 0.5 }}>
-                      <Chip
-                        label={span.status_code}
-                        color={span.status_code === 'OK' ? 'success' : 'error'}
-                        size="small"
-                      />
+                      <GridBadge size="detail" label={span.status_code} />
                       {span.status_message && (
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
                           {span.status_message}
@@ -1122,13 +1067,13 @@ export default function SpanDetailsPanel({
 
         {/* Test Result Tab */}
         {showTestResultTab && (
-          <TabPanel value={activeTab} index="tests">
+          <TabPanel value={activeTabKey} index="tests">
             <TestResultTab trace={trace} sessionToken={sessionToken} />
           </TabPanel>
         )}
 
         {hasTraceMetrics && (
-          <TabPanel value={activeTab} index="metrics">
+          <TabPanel value={activeTabKey} index="metrics">
             <TraceMetricsTab
               selectedSpan={span}
               isConversationTrace={isConversationTrace}
@@ -1142,7 +1087,7 @@ export default function SpanDetailsPanel({
         )}
 
         {hasTraceMetrics && trace && (
-          <TabPanel value={activeTab} index="reviews">
+          <TabPanel value={activeTabKey} index="reviews">
             <TraceReviewsTab
               selectedSpan={span}
               trace={trace}
@@ -1156,16 +1101,17 @@ export default function SpanDetailsPanel({
         )}
 
         {trace?.root_spans?.[0]?.id && (
-          <TabPanel value={activeTab} index="tasks">
-            <TasksAndCommentsWrapper
-              entityType="Trace"
-              entityId={trace.root_spans[0].id}
-              sessionToken={sessionToken}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              currentUserPicture={currentUserPicture}
-              elevation={0}
-            />
+          <TabPanel value={activeTabKey} index="tasks">
+            <Box sx={{ p: '30px' }}>
+              <TasksAndCommentsWrapper
+                entityType="Trace"
+                entityId={trace.root_spans[0].id}
+                sessionToken={sessionToken}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                currentUserPicture={currentUserPicture}
+              />
+            </Box>
           </TabPanel>
         )}
       </Box>

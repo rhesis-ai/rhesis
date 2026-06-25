@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from functools import partial
-from typing import Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -141,6 +141,40 @@ async def generate_tests(
     return test_set.to_dict()["tests"]
 
 
+async def generate_tests_stream(
+    db: Session,
+    user: User,
+    config: GenerationConfig,
+    num_tests: int = 5,
+    model_id: Optional[str] = None,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Yield test dicts one-by-one as they parse from the LLM token stream."""
+    model = get_generation_model_with_override(db, user, model_id=model_id)
+    synthesizer = ConfigSynthesizer(config=config, model=model)
+    async for test in synthesizer.generate_stream(num_tests=num_tests):
+        yield test
+
+
+async def generate_multiturn_tests_stream(
+    db: Session,
+    user: User,
+    config: Dict,
+    num_tests: int = 5,
+    model_id: Optional[str] = None,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Yield multi-turn test dicts one-by-one as they parse from the LLM."""
+    from rhesis.sdk.synthesizers.multi_turn.base import (
+        GenerationConfig,
+        MultiTurnSynthesizer,
+    )
+
+    model = get_generation_model_with_override(db, user, model_id=model_id)
+    generation_config = GenerationConfig(**config)
+    synthesizer = MultiTurnSynthesizer(config=generation_config, model=model)
+    async for test in synthesizer.generate_stream(num_tests=num_tests):
+        yield test
+
+
 async def generate_multiturn_tests(
     db: Session,
     user: User,
@@ -151,7 +185,7 @@ async def generate_multiturn_tests(
     """
     Generate multi-turn test cases using MultiTurnSynthesizer.
     Uses user's configured default model if available,
-    otherwise falls back to DEFAULT_GENERATION_MODEL.
+    otherwise falls back to the system generation model setting.
 
     Args:
         db: Database session

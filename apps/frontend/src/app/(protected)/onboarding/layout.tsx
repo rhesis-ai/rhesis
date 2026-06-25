@@ -14,10 +14,8 @@ export default function OnboardingLayout({
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
+        minHeight: '100vh',
+        bgcolor: 'background.default',
       }}
     >
       {children}

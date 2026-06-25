@@ -2,44 +2,74 @@ import { ObservabilitySection, TestsSection, McpSection, ModelProvidersSection }
 
 # Integrations
 
-<div className="not-prose framework-integrations-showcase" style={{ margin: '1.5rem 0 0' }}>
-  <div
-    style={{
-      margin: '0 0 1.75rem 0',
-      fontSize: '0.975rem',
-      color: 'var(--integration-showcase-lede)',
-      maxWidth: '44rem',
-      lineHeight: 1.6,
-    }}
-  >
-    Plug Rhesis into your environment: observability and remote test runs, evaluation-framework
-    integrations, MCP servers, and LLM providers.
-  </div>
-</div>
+Rhesis plugs into your LLM stack across four layers, each addressing a different concern. This page is the single map: pick the layer you care about and follow the link into the matching guide.
 
-## Observability
+| Layer | What it covers | Where to start |
+|---|---|---|
+| **LLM providers** | The model that runs your test generation and LLM-as-Judge evaluation. | [Models](/docs/models) |
+| **Tracing** | Streaming OpenTelemetry spans from your application to Rhesis. | [Tracing](/docs/tracing) · [Auto-instrumentation](/docs/tracing/auto-instrumentation) |
+| **Test execution** | Letting Rhesis invoke entry points in your application remotely to run test cases. | [Connector](/sdk/connector) |
+| **REST API** | Programmatic access to test sets, runs, and platform resources. | [api.rhesis.ai/docs](https://api.rhesis.ai/docs) |
+
+Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEval, Ragas, Garak) and **MCP servers** as additional sources of metrics, tests, and tool context.
+
+## Tracing your application
+
+Your application emits spans through the Rhesis SDK; spans are batched and sent to Rhesis over HTTP using OpenTelemetry conventions. The integration mechanism depends on the framework:
+
+- **LangChain** and **LangGraph** are auto-instrumented end-to-end with a single `auto_instrument()` call — no per-function decorators required.
+- Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …) are traced with the `@observe.*` decorators, applied to the functions, tools, or agents you want to capture.
+- Any OpenTelemetry-compatible exporter can target the Rhesis ingestion endpoint directly. See [Tracing setup](/docs/tracing/setup) for the exact endpoint and headers.
+
+See: [Tracing overview](/docs/tracing) · [Auto-instrumentation](/docs/tracing/auto-instrumentation) · [Decorators](/docs/tracing/decorators) · [Multi-agent tracing](/docs/tracing/multi-agent)
 
 <div className="not-prose framework-integrations-showcase">
   <ObservabilitySection />
 </div>
 
-## Frameworks
+## Test execution: the connector
+
+For Rhesis to run test cases against your application, it needs a way to call your code from outside your environment. The Rhesis SDK maintains a **persistent outbound WebSocket connection** to Rhesis once the connector is started — typically by calling `client.connect()` in sync scripts, or implicitly when the connector runs inside an existing event loop (for example, a web server or an async app). Rhesis can then invoke registered entry points whenever a test run fires. The connection is outbound from your app, so it works through firewalls and from local laptops without exposing a public URL.
+
+Register an entry point with the `@endpoint` decorator. When a test run starts, Rhesis sends each test case's input down the WebSocket; your application runs the function locally and sends the output back up the same connection. The same call path serves single-turn test cases and multi-turn conversations.
+
+See: [Connector](/sdk/connector) · [Parameter binding](/sdk/connector/binding) · [Connector examples](/sdk/connector/examples)
+
+## LLM providers
+
+Choose any provider for the LLMs that drive test synthesis and LLM-as-Judge evaluation. Provider routing is powered by [LiteLLM](https://github.com/BerriAI/litellm), giving you a single interface to 100+ models — cloud (OpenAI, Anthropic, Google Gemini, Mistral, Cohere, Groq, Together AI) or local/self-hosted (Ollama, vLLM, LiteLLM proxy).
+
+See: [Models](/docs/models) · [API tokens](/docs/api-tokens)
+
+<div className="not-prose framework-integrations-showcase">
+  <ModelProvidersSection />
+</div>
+
+## Evaluation frameworks
+
+In addition to Rhesis-native metrics, you can use metrics from DeepEval and Ragas, and import Garak probes as test sets for adversarial scanning.
+
+See: [DeepEval](/docs/metrics/deepeval) · [Ragas](/docs/metrics/ragas) · [Import from Garak](/docs/test-sets/import-from-garak) · [Metrics](/docs/metrics)
 
 <div className="not-prose framework-integrations-showcase">
   <TestsSection />
 </div>
 
-## MCPs
+## MCP servers
+
+Connect MCP servers so Rhesis can use external tools during workflows — for example pulling context from Notion, GitHub, Jira, or Confluence during test generation.
+
+See: [MCP](/docs/mcp)
 
 <div className="not-prose framework-integrations-showcase">
   <McpSection />
 </div>
 
-## Model providers
+## REST API
 
-<div className="not-prose framework-integrations-showcase">
-  <ModelProvidersSection />
-</div>
+Direct API access for custom integrations and CI/CD pipelines: manage test sets, trigger test runs, fetch results, and inspect traces programmatically. Language-agnostic — call from Python, TypeScript, Go, shell scripts, or anywhere else.
+
+See: [OpenAPI spec](https://api.rhesis.ai/docs) · [API tokens](/docs/api-tokens)
 
 <div className="not-prose" style={{ marginTop: '1rem' }}>
 

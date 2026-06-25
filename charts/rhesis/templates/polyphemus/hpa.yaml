@@ -1,0 +1,31 @@
+{{- if and .Values.polyphemus.enabled .Values.polyphemus.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: polyphemus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: polyphemus
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: polyphemus
+  minReplicas: {{ .Values.polyphemus.hpa.minReplicas }}
+  maxReplicas: {{ .Values.polyphemus.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.polyphemus.hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.polyphemus.hpa.targetMemoryUtilizationPercentage }}
+{{- end }}

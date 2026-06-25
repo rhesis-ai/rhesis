@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { auth } from '@/auth';
 import CreateProjectClient from './components/CreateProjectClient';
 import { UUID } from 'crypto';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 
 export default async function CreateProjectPage() {
   const session = await auth();
@@ -24,11 +24,16 @@ export default async function CreateProjectPage() {
   } else {
     try {
       // Fetch user data to get organization ID
-      const apiFactory = new ApiClientFactory(session.session_token);
+      const apiFactory = await createServerApiFactory(session.session_token);
       const usersClient = apiFactory.getUsersClient();
       const userData = await usersClient.getUser(session.user.id);
       organizationId = userData.organization_id;
-    } catch (_error) {}
+    } catch (error) {
+      console.error(
+        'Failed to fetch organization ID for project creation:',
+        error
+      );
+    }
   }
 
   return (

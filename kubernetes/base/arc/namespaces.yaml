@@ -1,0 +1,16 @@
+# Namespaces for ARC controller and runner scale set.
+# Created explicitly (wave 0) so the ExternalSecret (wave 2) and Helm charts
+# can reference them without relying on CreateNamespace in syncOptions.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arc-systems
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arc-runners
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

@@ -74,8 +74,8 @@ class Trace(
     span_kind = Column(String(20), nullable=False)
 
     # Timing
-    start_time = Column(DateTime, nullable=False, index=True)
-    end_time = Column(DateTime, nullable=False)
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=False)
     duration_ms = Column(Float, nullable=False)
 
     # Status
@@ -89,13 +89,13 @@ class Trace(
     resource = Column(JSONB, nullable=False, default=dict)
 
     # Processing metadata
-    processed_at = Column(DateTime, nullable=True)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
     enriched_data = Column(JSONB, default=dict)
 
     # Trace metrics evaluation
     trace_metrics = Column(JSONB, nullable=True)
     trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
-    trace_metrics_processed_at = Column(DateTime, nullable=True)
+    trace_metrics_processed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Human reviews
     trace_reviews = Column(JSONB, nullable=True)

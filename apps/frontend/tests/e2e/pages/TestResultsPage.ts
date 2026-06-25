@@ -2,7 +2,7 @@ import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
- * Page Object for the Test Results overview page (/test-results).
+ * @deprecated Test Results overview moved to /insights. /test-results redirects.
  */
 export class TestResultsPage extends BasePage {
   constructor(page: Page) {
@@ -10,16 +10,16 @@ export class TestResultsPage extends BasePage {
   }
 
   async goto() {
-    await this.page.goto('/test-results');
+    await this.page.goto('/insights');
   }
 
   async expectLoaded() {
-    await expect(this.page).toHaveURL(/\/test-results/);
+    await expect(this.page).toHaveURL(/\/insights/);
     await this.expectNoErrors();
   }
 
   async expectHeadingVisible() {
-    await this.expectHeading(/test results/i);
+    await this.expectHeading(/insights/i);
   }
 
   /**

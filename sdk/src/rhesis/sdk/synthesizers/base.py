@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel
 
@@ -53,6 +53,7 @@ class TestSetSynthesizer(ABC):
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceSpecification]] = None,
         chunking_strategy: Optional[ChunkingStrategy] = None,
+        harmful: bool = False,
     ):
         """
         Initialize the base synthesizer.
@@ -68,6 +69,7 @@ class TestSetSynthesizer(ABC):
         if batch_size < _MIN_BATCH_SIZE:
             raise ValueError(f"batch_size must be >= {_MIN_BATCH_SIZE}, got {batch_size}")
         self.batch_size = batch_size
+        self.harmful = harmful
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
         # Default RecursiveChunker is applied in _generate_with_sources (lazy import).
@@ -284,6 +286,7 @@ class TestSetSynthesizer(ABC):
             raise TypeError("num_tests must be an integer")
 
         template_context = self._get_template_context(**kwargs)
+        template_context.setdefault("harmful", self.harmful)
 
         all_test_cases: List[Dict[str, Any]] = []
         generation_start = time.time()
@@ -518,3 +521,32 @@ class TestSetSynthesizer(ABC):
             total_elapsed,
         )
         return test_set
+
+    async def generate_stream(
+        self, num_tests: int = 5, **kwargs: Any
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Yield test dicts one-by-one as they parse from the LLM token stream.
+
+        Uses ``model.generate_stream()`` with ``IncrementalJsonArrayParser``
+        for incremental delivery. Falls back gracefully when the model's
+        ``generate_stream()`` returns the full response in a single chunk.
+        """
+        from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
+
+        template_context = self._get_template_context(**kwargs)
+        template_context.setdefault("harmful", self.harmful)
+        template_context["num_tests"] = num_tests
+
+        prompt = self.prompt_template.render(**template_context)
+        parser = IncrementalJsonArrayParser()
+
+        token_stream = self.model.generate_stream(prompt=prompt, schema=FlatTests)
+        async for chunk in token_stream:
+            for flat in parser.feed(chunk):
+                yield {
+                    **self._flat_test_to_nested(flat),
+                    "test_type": TestType.SINGLE_TURN.value,
+                    "metadata": {
+                        "generated_by": self._get_synthesizer_name(),
+                    },
+                }

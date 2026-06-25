@@ -59,6 +59,101 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
     return query.first()
 
 
+def create_pending_test_set(
+    db: Session,
+    name: str,
+    organization_id: str,
+    user_id: str,
+    project_id: str,
+    task_id: str,
+    requested_tests: int,
+    test_type: TestSetType = None,
+) -> models.TestSet:
+    """Create an empty TestSet row immediately, before background generation begins.
+
+    The row is stamped with generation.status='in_progress' in its attributes so
+    the frontend can show a loading state on the detail page while the worker
+    fills in the tests.
+
+    The project_id is set explicitly on the model (not via auto_stamp) so the
+    test set always lands in the correct project regardless of the session scope.
+
+    Args:
+        db: Database session (caller manages the transaction)
+        name: Test set name (required)
+        organization_id: Organization UUID string
+        user_id: User UUID string
+        project_id: Project UUID string (required; the test set must belong to a project)
+        task_id: Celery task ID for tracking
+        requested_tests: How many tests were requested
+        test_type: Optional TestSetType; defaults to SINGLE_TURN
+
+    Returns:
+        Created TestSet model instance (not yet committed)
+    """
+    defaults = load_defaults()
+
+    resolved_type = (
+        test_type if test_type else TestSetType.from_string(defaults["test_set"]["test_set_type"])
+    )
+    test_set_type_value = TestSetType.get_value(resolved_type)
+
+    test_set_status = get_or_create_status(
+        db=db,
+        name=defaults["test_set"]["status"],
+        entity_type=EntityType.GENERAL,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    license_type = get_or_create_type_lookup(
+        db=db,
+        type_name="LicenseType",
+        type_value=defaults["test_set"]["license_type"],
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    test_set_type_lookup = get_or_create_type_lookup(
+        db=db,
+        type_name="TestSetType",
+        type_value=test_set_type_value,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    test_set = models.TestSet(
+        name=name,
+        status_id=test_set_status.id,
+        license_type_id=license_type.id,
+        test_set_type_id=test_set_type_lookup.id,
+        user_id=user_id,
+        organization_id=organization_id,
+        project_id=project_id,
+        owner_id=ensure_owner_id(None, user_id),
+        priority=defaults["test_set"]["priority"],
+        visibility=defaults["test_set"]["visibility"],
+        attributes={
+            "metadata": {
+                "total_tests": 0,
+                "categories": [],
+                "behaviors": [],
+                "topics": [],
+                "license_type": defaults["test_set"]["license_type"],
+                "generation": {
+                    "status": "in_progress",
+                    "task_id": task_id,
+                    "requested_tests": requested_tests,
+                },
+            }
+        },
+    )
+
+    db.add(test_set)
+    db.flush()
+    return test_set
+
+
 def load_defaults():
     """Load default values from bulk_defaults.json"""
     defaults_path = Path(__file__).parent / "bulk_defaults.json"
@@ -616,6 +711,9 @@ def execute_test_set_on_endpoint(
     reference_test_run_id: uuid.UUID = None,
     execution_model_id: uuid.UUID = None,
     evaluation_model_id: uuid.UUID = None,
+    experiment_id: uuid.UUID | None = None,
+    experiment_version: str | None = None,
+    experiment_environment: str | None = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration
@@ -700,6 +798,17 @@ def execute_test_set_on_endpoint(
         metrics_source = MetricsSource.BEHAVIOR.value
         logger.debug("Metrics source: behavior (fallback to test behaviors)")
 
+    parameters_ref: Dict[str, Any] | None = None
+    has_version = bool(experiment_version and str(experiment_version).strip())
+    if experiment_id is not None or has_version or experiment_environment is not None:
+        parameters_ref = {}
+        if experiment_id is not None:
+            parameters_ref["experiment_id"] = str(experiment_id)
+        if experiment_version:
+            parameters_ref["version"] = experiment_version
+        if experiment_environment is not None:
+            parameters_ref["environment"] = experiment_environment
+
     test_config_id = _create_test_configuration(
         db,
         endpoint_id,
@@ -713,6 +822,7 @@ def execute_test_set_on_endpoint(
         reference_test_run_id=reference_test_run_id,
         execution_model_id=execution_model_id,
         evaluation_model_id=evaluation_model_id,
+        parameters_ref=parameters_ref,
     )
 
     # Submit for execution (creates test run with Queued status)
@@ -808,6 +918,7 @@ def _create_test_configuration(
     reference_test_run_id: uuid.UUID = None,
     execution_model_id: uuid.UUID = None,
     evaluation_model_id: uuid.UUID = None,
+    parameters_ref: Dict[str, Any] | None = None,
 ) -> str:
     """Create test configuration and return its ID as string.
 
@@ -867,6 +978,11 @@ def _create_test_configuration(
     if evaluation_model_id:
         attributes["evaluation_model_id"] = str(evaluation_model_id)
         logger.debug(f"Evaluation model override: {evaluation_model_id}")
+
+    # Store experiment / label / version intent for queue-time resolution
+    if parameters_ref:
+        attributes["parameters_ref"] = parameters_ref
+        logger.debug("Stored parameters_ref on test configuration for run snapshot")
 
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,
@@ -936,6 +1052,7 @@ def _submit_test_configuration_for_execution(
             test_config_id,
             test_run_id=test_run_id,
             current_user=current_user,
+            db=db,
         )
     except Exception as exc:
         # Mark the queued test run as failed so it doesn't stay stuck

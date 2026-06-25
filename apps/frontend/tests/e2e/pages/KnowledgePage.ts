@@ -1,5 +1,11 @@
 import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import {
+  deleteGridRowByText,
+  expectOpenDrawerTitle,
+  openDrawer,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 /**
  * Page Object for the Knowledge (sources) page (/knowledge).
@@ -28,62 +34,65 @@ export class KnowledgePage extends BasePage {
     return this.dataGrid.isVisible().catch(() => false);
   }
 
-  /** Open the "Upload Source" dialog/drawer. */
+  /** Open the "Upload Source" drawer. */
   async openUploadSourceDialog() {
     await this.uploadButton.click();
-    await this.page
-      .getByRole('dialog')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    await expectOpenDrawerTitle(this.page, /^upload source$/i);
   }
 
   /**
-   * Set the title field in the upload dialog.
+   * Set the title field in the upload drawer.
    * The title may be pre-filled from the filename — this clears and refills it.
    */
   async setSourceTitle(title: string) {
-    const titleInput = this.page
-      .getByRole('dialog')
+    const titleInput = openDrawer(this.page)
       .getByRole('textbox', { name: /title/i })
       .first();
     await titleInput.clear();
     await titleInput.fill(title);
   }
 
-  /** Set the description field in the upload dialog. */
+  /** Set the description field in the upload drawer. */
   async setSourceDescription(description: string) {
-    const descInput = this.page
-      .getByRole('dialog')
-      .getByRole('textbox', { name: /description/i });
+    const descInput = openDrawer(this.page).getByRole('textbox', {
+      name: /description/i,
+    });
     const visible = await descInput
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (visible) await descInput.fill(description);
   }
 
-  /** Submit the upload dialog. */
+  /** Submit the upload drawer and wait for the API response. */
   async submitUpload() {
-    const submitBtn = this.page
-      .getByRole('dialog')
-      .getByRole('button', { name: /upload source|save|submit/i })
-      .first();
-    await submitBtn.click();
+    const uploadResponse = this.page.waitForResponse(
+      resp =>
+        resp.url().includes('/sources') &&
+        resp.request().method() === 'POST' &&
+        resp.ok(),
+      { timeout: 30_000 }
+    );
+    await openDrawer(this.page)
+      .getByRole('button', { name: /^upload source$/i })
+      .click();
+    await uploadResponse;
   }
 
-  /** Select a grid row that contains the given text by clicking its checkbox. */
-  async selectRowByText(text: string) {
-    const row = this.page.locator('[role="row"]', { hasText: text });
-    await row.locator('input[type="checkbox"]').click();
+  /** BaseDrawer stays mounted — wait for the drawer to close. */
+  async waitForUploadDrawerClosed() {
+    await waitForDrawerClosed(this.page, 20_000);
   }
 
-  /** Click the "Delete Sources" toolbar button (visible only when rows are selected). */
-  async clickDeleteSelected() {
-    await this.page.getByRole('button', { name: /delete sources/i }).click();
+  /** Delete a row via the hover-revealed row-actions delete icon. */
+  async deleteRowByText(text: string) {
+    await deleteGridRowByText(this.page, text);
   }
 
   /** Returns true if a row containing the given text is visible in the grid. */
   async rowIsVisible(text: string): Promise<boolean> {
     return this.page
-      .locator('[role="row"]', { hasText: text })
+      .locator('.MuiDataGrid-row')
+      .filter({ hasText: text })
       .isVisible({ timeout: 15_000 })
       .catch(() => false);
   }
@@ -91,7 +100,8 @@ export class KnowledgePage extends BasePage {
   /** Returns true if no row containing the given text is visible. */
   async rowIsGone(text: string): Promise<boolean> {
     return this.page
-      .locator('[role="row"]', { hasText: text })
+      .locator('.MuiDataGrid-row')
+      .filter({ hasText: text })
       .isHidden({ timeout: 15_000 })
       .catch(() => false);
   }

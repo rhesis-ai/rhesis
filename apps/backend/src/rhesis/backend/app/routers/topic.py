@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -20,11 +21,12 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 # Create the detailed schema for Test
 TopicDetailSchema = create_detailed_schema(schemas.Topic, models.Topic)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/topics",
     tags=["topics"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="topic",
 )
 
 
@@ -84,7 +86,7 @@ def read_topics(
     return results
 
 
-@router.get("/{topic_id}")
+@router.get("/{topic_id}", response_model=TopicDetailSchema)
 def read_topic(
     topic_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

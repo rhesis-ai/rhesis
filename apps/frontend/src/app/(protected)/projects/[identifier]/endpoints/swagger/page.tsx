@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SwaggerEndpointForm from '@/app/(protected)/endpoints/components/SwaggerEndpointForm';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { CircularProgress, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -45,17 +45,14 @@ export default function SwaggerEndpointPage() {
   }
 
   const breadcrumbs = [
-    { title: 'Projects', path: '/projects' },
-    {
-      title: projectName || 'Project',
-      path: `/projects/${params.identifier}`,
-    },
-    { title: 'Add Swagger Endpoint' },
+    { label: 'Projects', href: '/projects' },
+    { label: projectName || 'Project', href: `/projects/${params.identifier}` },
+    { label: 'Add Swagger Endpoint' },
   ];
 
   return (
-    <PageContainer title="New Swagger Endpoint" breadcrumbs={breadcrumbs}>
+    <PageLayout title="New Swagger Endpoint" breadcrumbs={breadcrumbs}>
       <SwaggerEndpointForm />
-    </PageContainer>
+    </PageLayout>
   );
 }

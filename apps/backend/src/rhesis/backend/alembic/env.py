@@ -1,13 +1,27 @@
-import os
-import re
-import sys
 from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
+from rhesis.backend.app.config.settings import get_database_settings
 from rhesis.backend.app.models import Base
+
+# Eagerly import EE-owned ORM models when the EE package is installed so
+# their tables join Base.metadata before Alembic configures the migration
+# context. Without this, autogenerate would not see EE tables and an
+# offline ``alembic upgrade`` from a fresh DB would leave them missing.
+# The import is wrapped because a Community-only install must keep
+# working unchanged (no rhesis.backend.ee package on sys.path).
+try:
+    import rhesis.backend.ee.api_clients.clients  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import rhesis.backend.ee.rbac.models  # noqa: F401
+except ImportError:
+    pass
 
 # load environment variables
 load_dotenv()
@@ -20,9 +34,6 @@ config = context.config
 # This line sets up loggers basically.
 
 fileConfig(config.config_file_name)
-
-# Add your project's path to the sys.path
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "app")))
 
 # Import your models here to ensure they are known to Alembic
 target_metadata = Base.metadata
@@ -54,7 +65,7 @@ def run_migrations_offline():
     script output.
 
     """
-    url = os.environ.get("SQLALCHEMY_DATABASE_URL", "")
+    url = get_database_settings().admin_url
 
     context.configure(
         url=url,
@@ -75,29 +86,7 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    url_tokens = {
-        "SQLALCHEMY_DB_DRIVER": os.getenv("SQLALCHEMY_DB_DRIVER", ""),
-        "SQLALCHEMY_DB_USER": os.getenv("SQLALCHEMY_DB_USER", ""),
-        "SQLALCHEMY_DB_PASS": os.getenv("SQLALCHEMY_DB_PASS", ""),
-        "SQLALCHEMY_DB_HOST": os.getenv("SQLALCHEMY_DB_HOST", ""),
-        "SQLALCHEMY_DB_NAME": os.getenv("SQLALCHEMY_DB_NAME", ""),
-    }
-
-    # Get the base URL from config
-    url = config.get_main_option("sqlalchemy.url")
-
-    # If we're running locally with Cloud SQL Proxy
-    if os.getenv("SQLALCHEMY_DB_HOST", "").startswith(("/cloudsql", "/tmp/cloudsql")):
-        # Modify the connection string for local Unix socket
-        unix_socket = os.getenv("SQLALCHEMY_DB_HOST")
-        url = f"postgresql://{url_tokens['SQLALCHEMY_DB_USER']}:{url_tokens['SQLALCHEMY_DB_PASS']}@/{url_tokens['SQLALCHEMY_DB_NAME']}?host={unix_socket}"
-    else:
-        # Use the standard URL substitution for other environments
-        url = re.sub(r"\${(.+?)}", lambda m: url_tokens[m.group(1)], url)
-
-    # if we are running tests, use the test database instead
-    if os.getenv("SQLALCHEMY_DB_MODE") == "test":
-        url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL", "sqlite:///./test.db")
+    url = get_database_settings().admin_url
 
     connectable = create_engine(url)
 

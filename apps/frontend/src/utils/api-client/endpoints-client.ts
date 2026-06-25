@@ -16,7 +16,7 @@ const DEFAULT_PAGINATION: PaginationParams = {
   sort_order: 'desc',
 };
 
-export type EndpointCreate = Omit<Endpoint, 'id'>;
+export type EndpointCreate = Omit<Endpoint, 'id'> & { auth_token?: string };
 
 export class EndpointsClient extends BaseApiClient {
   async getEndpoints(
@@ -86,6 +86,26 @@ export class EndpointsClient extends BaseApiClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(testConfig),
+      }
+    );
+  }
+
+  async testEndpointMapping(
+    id: string,
+    payload: {
+      request_mapping: Record<string, unknown>;
+      response_mapping: Record<string, string>;
+      input_data: Record<string, unknown>;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(
+      `${API_ENDPOINTS.endpoints}/${id}/test`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       }
     );
   }

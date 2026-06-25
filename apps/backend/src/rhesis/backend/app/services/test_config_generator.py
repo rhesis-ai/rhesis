@@ -5,17 +5,21 @@ This service handles the generation of test configurations based on user prompts
 using LLM and Jinja2 templates.
 """
 
+import logging
 from pathlib import Path
 from typing import Optional
 
 import jinja2
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.schemas.services import TestConfigResponse
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.sdk.models.factory import get_model
 
 MAX_SAMPLE_SIZE = 6
+logger = logging.getLogger(__name__)
 
 
 class TestConfigGeneratorService:
@@ -37,11 +41,60 @@ class TestConfigGeneratorService:
         self.db = db
         self.user = user
 
-        # Use system default model instead of user's configured model.
-        # Long-running models like Polyphemus are too slow for test config
-        # generation, which needs to be fast and interactive. The user's
-        # model is still used for the actual test generation.
-        self.llm = get_model(DEFAULT_GENERATION_MODEL)
+        self.llm = self._resolve_llm()
+
+    def _resolve_llm(self):
+        """
+        Resolve the LLM for test-config generation.
+
+        Use the user's configured generation model except when it is Polyphemus,
+        which is too slow for this interactive step; in that case use the fast
+        system generation model setting.
+        """
+        gen_settings = getattr(self.user.settings.models, "generation")
+        model_id = gen_settings.model_id
+        use_fast_default = False
+        if model_id:
+            row = crud.get_model(
+                db=self.db,
+                model_id=str(model_id),
+                organization_id=str(self.user.organization_id),
+            )
+            if row and row.provider_type and row.provider_type.type_value == "polyphemus":
+                use_fast_default = True
+        if use_fast_default:
+            logger.info(
+                "User generation model is Polyphemus; using fast system default for test config"
+            )
+            try:
+                return get_model(get_model_settings().generation_model)
+            except ValueError as e:
+                logger.warning(
+                    "Fast system default unavailable for test config (Polyphemus user); "
+                    "falling back to Polyphemus: %s",
+                    e,
+                )
+                user_model = get_user_generation_model(self.db, self.user)
+                if isinstance(user_model, str):
+                    try:
+                        return get_model(user_model, model_type="language")
+                    except ValueError as inner:
+                        raise ModelConfigurationError(
+                            f"User model initialization failed: {inner}",
+                            original_error=inner,
+                        ) from inner
+                return user_model
+
+        user_model = get_user_generation_model(self.db, self.user)
+        if isinstance(user_model, str):
+            try:
+                return get_model(user_model, model_type="language")
+            except ValueError as e:
+                raise ModelConfigurationError(
+                    f"User model initialization failed: {e}",
+                    original_error=e,
+                ) from e
+        return user_model
 
     async def generate_config(
         self,

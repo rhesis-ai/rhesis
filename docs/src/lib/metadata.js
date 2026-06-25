@@ -1,4 +1,4 @@
-import { siteConfig } from './site-config'
+import { siteConfig } from './site-config.js'
 
 /**
  * Generates canonical URL for a given path
@@ -31,8 +31,11 @@ export function getOpenGraphImage(path, defaultImage = siteConfig.defaultImage) 
 export function extractDescription(content) {
   if (!content) return null
 
+  // Remove YAML frontmatter block (--- ... ---)
+  let cleanContent = content.replace(/^---\n[\s\S]*?\n---\n?/, '')
+
   // Remove MDX imports, exports, code blocks, inline code, and MDX components
-  let cleanContent = content
+  cleanContent = cleanContent
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
@@ -87,20 +90,44 @@ export function generatePageMetadata(
     description = config.siteDescription
   }
 
+  // Merge page-level keywords (from frontmatter) with sitewide defaults
+  const pageKeywords = baseMetadata?.keywords
+  const keywords = pageKeywords
+    ? [
+        ...new Set([
+          ...(Array.isArray(pageKeywords) ? pageKeywords : [pageKeywords]),
+          ...config.keywords,
+        ]),
+      ]
+    : config.keywords
+
   const canonicalUrl = getCanonicalUrl(urlPath, config)
   const imageUrl = getOpenGraphImage(urlPath, config.defaultImage)
+
+  // Respect ROBOTS_NOINDEX env var (e.g. staging deployments)
+  const noIndex = process.env.ROBOTS_NOINDEX === 'true'
 
   return {
     title,
     description,
-    keywords: config.keywords,
+    keywords,
     authors: [{ name: config.author.name, url: config.author.url }],
     creator: config.author.name,
     publisher: config.organization.name,
 
-    // Canonical URL
+    // Canonical URL + raw markdown alternate (for LLM ingestion).
+    // Skip the root page: appending ".md" to the bare site URL produces
+    // "https://docs.rhesis.ai.md" which is not a valid URL and not a route
+    // we serve. Site-wide /llms.txt and /llms-full.txt cover the root.
     alternates: {
       canonical: canonicalUrl,
+      ...(urlPath
+        ? {
+            types: {
+              'text/markdown': `${canonicalUrl}.md`,
+            },
+          }
+        : {}),
     },
 
     // OpenGraph
@@ -131,13 +158,13 @@ export function generatePageMetadata(
       images: [imageUrl],
     },
 
-    // Robots
+    // Robots — respect ROBOTS_NOINDEX for staging/preview environments
     robots: {
-      index: true,
-      follow: true,
+      index: !noIndex,
+      follow: !noIndex,
       googleBot: {
-        index: true,
-        follow: true,
+        index: !noIndex,
+        follow: !noIndex,
         'max-video-preview': -1,
         'max-image-preview': 'large',
         'max-snippet': -1,

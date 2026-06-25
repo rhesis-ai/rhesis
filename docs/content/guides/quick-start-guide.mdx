@@ -27,21 +27,26 @@ Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# Start all services with one command
-./rh start`}
+# Start all services with one command (prebuilt GHCR images)
+./rh start
+
+# Optional: build images from this repo instead of pulling
+# ./rh start --build`}
 </CodeBlock>
+
+By default, images are **pulled from GHCR**. Use `./rh start --build` if you need a fully local Docker build.
 
 The `./rh start` command automatically:
 - Checks if Docker is running
 - Generates a secure database encryption key
 - Creates `.env.docker.local` with all required configuration
 - Enables local authentication bypass (auto-login)
-- Starts all services (backend, frontend, database, worker)
+- Pulls or builds images, then starts all services (backend, frontend, database, worker)
 - Creates the database and runs migrations
 - Creates the default admin user (`Local Admin`)
 - Loads example test data
 
-Wait approximately 5-7 minutes for all services to start. You'll see containers starting up in your terminal.
+Wait while images download or build and services start (often a few minutes on first run). You'll see progress in your terminal.
 
 ## Step 2: Access the Platform (1 minute)
 
@@ -276,6 +281,9 @@ graph LR
 
 # Restart services
 ./rh restart
+
+# Restart and rebuild images from local Dockerfiles
+# ./rh restart --build
 
 # Delete everything (fresh start)
 ./rh delete`}

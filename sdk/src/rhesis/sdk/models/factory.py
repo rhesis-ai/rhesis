@@ -215,6 +215,9 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
             pass_api_key=False,
         ),
     },
+    "vllm": {
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.vllm", "VllmLLM"),
+    },
     "openrouter": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.openrouter", "OpenRouterLLM"),
     },

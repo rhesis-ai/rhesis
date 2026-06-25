@@ -20,7 +20,7 @@ export interface ProjectBase {
   user_id?: UUID | string; // Allow string for mock data compatibility
   owner_id?: UUID | string; // Allow string for mock data compatibility
   organization_id?: UUID | string; // Allow string for mock data compatibility
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
 }
 
 /**
@@ -132,4 +132,29 @@ export interface Project extends ProjectBase, ProjectFrontendFields {
   user: ProjectUser;
   owner: ProjectUser;
   organization: ProjectOrganization;
+}
+
+/** Minimal user info embedded in project membership responses */
+export interface ProjectMemberUser {
+  id: string;
+  name?: string | null;
+  given_name?: string | null;
+  family_name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+}
+
+/** A single project membership row */
+export interface ProjectMember {
+  project_id: string;
+  user_id: string;
+  organization_id: string;
+  role?: string | null;
+  user?: ProjectMemberUser | null;
+}
+
+/** Body for POST /projects/{id}/members */
+export interface ProjectMemberCreate {
+  user_id: string;
+  role?: string;
 }

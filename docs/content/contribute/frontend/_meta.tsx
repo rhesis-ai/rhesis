@@ -26,10 +26,7 @@ export default {
   "api-integration": {
     title: "API Integration",
   },
-  "endpoint-configuration": {
-    title: "Endpoint Configuration",
-  },
-  authentication: {
+authentication: {
     title: "Frontend Authentication",
   },
   testing: {

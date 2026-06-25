@@ -17,6 +17,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import FirstPageIcon from '@mui/icons-material/FirstPage';
 import LastPageIcon from '@mui/icons-material/LastPage';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
+import { formatDate } from '@/utils/date';
 
 interface ArchitectSidebarProps {
   sessions: ArchitectSession[];
@@ -41,7 +42,7 @@ function formatRelativeTime(dateStr?: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatDate(date);
 }
 
 export default function ArchitectSidebar({
@@ -59,6 +60,9 @@ export default function ArchitectSidebar({
       <Box
         sx={{
           width: 48,
+          alignSelf: 'stretch',
+          minHeight: 0,
+          flexShrink: 0,
           borderRight: 1,
           borderColor: 'divider',
           display: 'flex',
@@ -67,6 +71,7 @@ export default function ArchitectSidebar({
           bgcolor: 'background.paper',
           py: 1,
           gap: 0.5,
+          overflow: 'hidden',
         }}
       >
         <Tooltip title="Expand sidebar" placement="right">
@@ -87,11 +92,15 @@ export default function ArchitectSidebar({
     <Box
       sx={{
         width: 280,
+        alignSelf: 'stretch',
+        minHeight: 0,
+        flexShrink: 0,
         borderRight: 1,
         borderColor: 'divider',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.paper',
+        overflow: 'hidden',
       }}
     >
       <Box

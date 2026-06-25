@@ -23,12 +23,11 @@ class User(Base):
     family_name = Column(String, nullable=True)
     picture = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)  # To track if the user is active or not
-    is_superuser = Column(Boolean, default=False)  # Admin flag
     is_verified = Column(Boolean, default=False)  # Admin/Polyphemus access gate
     is_email_verified = Column(Boolean, default=False)  # Email verification for sign-up
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
-    last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
+    last_login_at = Column(DateTime(timezone=True), nullable=True)  # Track when user last logged in
 
     # Native authentication columns (provider-agnostic)
     provider_type = Column(
@@ -121,6 +120,9 @@ class User(Base):
         "Task", foreign_keys="[Task.assignee_id]", back_populates="assignee"
     )
 
+    # Project membership relationships
+    project_memberships = relationship("ProjectMembership", back_populates="user")
+
     # Comment relationships
     comments = relationship("Comment", back_populates="user")
 
@@ -182,7 +184,6 @@ class User(Base):
             "family_name": self.family_name,
             "picture": self.picture,
             "is_active": self.is_active,
-            "is_superuser": self.is_superuser,
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
             "provider_type": self.provider_type,
             "external_provider_id": self.external_provider_id,

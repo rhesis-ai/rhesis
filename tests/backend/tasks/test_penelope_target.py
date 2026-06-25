@@ -148,3 +148,80 @@ class TestBackendEndpointTargetResponseMetadata:
 
         assert result.success is True
         assert "endpoint_metadata" not in result.metadata
+
+
+class TestBackendEndpointTargetProjectId:
+    """Verify project_id flows through BackendEndpointTarget."""
+
+    def test_stores_project_id(self):
+        db = MagicMock(spec=Session)
+        with (
+            patch.object(
+                BackendEndpointTarget, "validate_configuration", return_value=(True, None)
+            ),
+            patch.object(BackendEndpointTarget, "_load_endpoint_metadata"),
+        ):
+            target = BackendEndpointTarget(
+                db=db,
+                endpoint_id="00000000-0000-0000-0000-000000000001",
+                organization_id="org-1",
+                user_id="user-1",
+                project_id="proj-1",
+            )
+        assert target.project_id == "proj-1"
+
+    def test_project_id_defaults_to_none(self):
+        db = MagicMock(spec=Session)
+        with (
+            patch.object(
+                BackendEndpointTarget, "validate_configuration", return_value=(True, None)
+            ),
+            patch.object(BackendEndpointTarget, "_load_endpoint_metadata"),
+        ):
+            target = BackendEndpointTarget(
+                db=db,
+                endpoint_id="00000000-0000-0000-0000-000000000001",
+                organization_id="org-1",
+                user_id="user-1",
+            )
+        assert target.project_id is None
+
+
+class TestMakeTargetFactory:
+    """Verify make_target_factory forwards project_id."""
+
+    def test_factory_passes_project_id(self):
+        from rhesis.backend.tasks.endpoint.target import make_target_factory
+
+        db = MagicMock(spec=Session)
+        factory = make_target_factory(
+            org_id="org-1", user_id="user-1", db=db, project_id="proj-1"
+        )
+
+        with (
+            patch.object(
+                BackendEndpointTarget, "validate_configuration", return_value=(True, None)
+            ),
+            patch.object(BackendEndpointTarget, "_load_endpoint_metadata"),
+        ):
+            target = factory("00000000-0000-0000-0000-000000000001")
+
+        assert target.project_id == "proj-1"
+        assert target.organization_id == "org-1"
+        assert target.user_id == "user-1"
+
+    def test_factory_defaults_project_id_to_none(self):
+        from rhesis.backend.tasks.endpoint.target import make_target_factory
+
+        db = MagicMock(spec=Session)
+        factory = make_target_factory(org_id="org-1", user_id="user-1", db=db)
+
+        with (
+            patch.object(
+                BackendEndpointTarget, "validate_configuration", return_value=(True, None)
+            ),
+            patch.object(BackendEndpointTarget, "_load_endpoint_metadata"),
+        ):
+            target = factory("00000000-0000-0000-0000-000000000001")
+
+        assert target.project_id is None

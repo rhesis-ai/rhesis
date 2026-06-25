@@ -33,10 +33,7 @@ def get_test_database_session() -> Session:
     Returns:
         Session: SQLAlchemy session configured for testing
     """
-    # Ensure we're in test mode
-    os.environ["SQLALCHEMY_DB_MODE"] = "test"
-
-    # Get database URL for test environment
+    # Get the configured database URL for the test environment
     database_url = get_database_url()
 
     # Create engine and session
@@ -92,7 +89,6 @@ def create_test_user(
         family_name="User",
         auth0_id=f"test-auth0-id-{uuid.uuid4()}",
         is_active=True,
-        is_superuser=False,  # Regular user by default
         organization_id=organization_id,
         last_login_at=datetime.now(timezone.utc),
     )
@@ -184,6 +180,14 @@ def create_test_organization_and_user(
         # Create user
         user = create_test_user(db, organization.id, user_email, user_name)
 
+        # Make the test user the org owner — mirrors real onboarding where the
+        # first user to create an org becomes its owner.  Tests that need to
+        # exercise non-owner behaviour should temporarily set org.owner_id = None
+        # (or a different user ID) and restore it after the assertion.
+        organization.owner_id = user.id
+        db.flush()
+        print(f"👑 Set org owner to user {user.id}")
+
         # Create API token for the user
         api_token = create_test_api_token(db, user)
 
@@ -258,7 +262,7 @@ def verify_test_environment() -> bool:
     Returns:
         bool: True if environment is properly configured
     """
-    required_env_vars = ["SQLALCHEMY_DB_MODE", "SQLALCHEMY_DATABASE_TEST_URL"]
+    required_env_vars = ["DB_HOST", "DB_NAME", "APP_DB_USER", "APP_DB_PASS"]
 
     missing_vars = []
     for var in required_env_vars:
@@ -267,11 +271,6 @@ def verify_test_environment() -> bool:
 
     if missing_vars:
         print(f"❌ Missing required environment variables: {missing_vars}")
-        return False
-
-    # Verify database mode is set to test
-    if os.getenv("SQLALCHEMY_DB_MODE") != "test":
-        print(f"❌ SQLALCHEMY_DB_MODE is not set to 'test': {os.getenv('SQLALCHEMY_DB_MODE')}")
         return False
 
     print("✅ Test environment verification passed")

@@ -3,15 +3,14 @@ import uuid
 from enum import Enum
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.decorators import check_resource_permission
-from rhesis.backend.app.auth.permissions import ResourceAction
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -19,7 +18,15 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
+from rhesis.backend.app.schemas.embedding import (
+    EmbeddingGraphComputeResponse,
+    EmbeddingGraphGetResponse,
+    EmbeddingGraphPendingResponse,
+    EmbeddingGraphReadyResponse,
+    Scatter2DGraph,
+)
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -27,6 +34,7 @@ from rhesis.backend.app.services.test import (
 )
 from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
+    create_pending_test_set,
     execute_test_set_on_endpoint,
     get_test_set_stats,
     get_test_set_test_stats,
@@ -42,6 +50,7 @@ from rhesis.backend.app.utils.execution_validation import (
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.embedding.graph import compute_test_set_graph_task
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
@@ -50,8 +59,11 @@ logger = logging.getLogger(__name__)
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
 
-router = APIRouter(
-    prefix="/test_sets", tags=["test_sets"], responses={404: {"description": "Not found the page"}}
+router = RhesisRouter(
+    prefix="/test_sets",
+    tags=["test_sets"],
+    responses={404: {"description": "Not found the page"}},
+    resource="test_set",
 )
 
 
@@ -64,6 +76,7 @@ class TestSetGenerationResponse(BaseModel):
     """Response for test set generation task."""
 
     task_id: str
+    test_set_id: str
     message: str
     estimated_tests: int
 
@@ -89,7 +102,9 @@ def resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str
     return db_test_set
 
 
-@router.post("/generate", response_model=TestSetGenerationResponse)
+@router.post(
+    "/generate", response_model=TestSetGenerationResponse, **capability(Permission.TestSet.GENERATE)
+)
 async def generate_test_set(
     request: services_schemas.GenerateTestsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -116,25 +131,87 @@ async def generate_test_set(
         if not request.config.behaviors:
             raise HTTPException(status_code=400, detail="At least one behavior must be specified")
 
+        name = (request.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="A test set name is required")
+
+        if not request.project_id:
+            raise HTTPException(
+                status_code=400,
+                detail="A project_id is required to generate a test set",
+            )
+
         test_type = request.test_type
 
-        # Launch background task with explicit parameters
-        task_result = task_launcher(
-            generate_and_save_test_set,
-            current_user=current_user,
-            config=request.config.model_dump(),
-            num_tests=request.num_tests,
-            batch_size=request.batch_size,
-            sources=[s.model_dump() for s in request.sources] if request.sources else None,
-            name=request.name,
-            test_type=test_type,
-            model_id=str(request.model_id) if request.model_id else None,
+        # Resolve TestSetType for the pending row
+        from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
+
+        resolved_type = (
+            TestSetTypeEnum.from_string(test_type) if test_type else TestSetTypeEnum.SINGLE_TURN
         )
+
+        # Pre-create a placeholder task_id so we can stamp the test set before launching
+        import uuid as _uuid
+
+        placeholder_task_id = str(_uuid.uuid4())
+
+        # Create the empty TestSet row up front so the frontend can redirect immediately
+        db_test_set = create_pending_test_set(
+            db=db,
+            name=name,
+            organization_id=str(current_user.organization_id),
+            user_id=str(current_user.id),
+            project_id=str(request.project_id),
+            task_id=placeholder_task_id,
+            requested_tests=request.num_tests,
+            test_type=resolved_type,
+        )
+        db.commit()
+
+        # Launch background task with the pre-created test_set_id.
+        # If launch fails (broker down, serialisation error, etc.) mark the row
+        # as failed immediately so it never stays stuck at 'in_progress'.
+        try:
+            task_result = task_launcher(
+                generate_and_save_test_set,
+                current_user=current_user,
+                db=db,
+                task_id=placeholder_task_id,
+                config=request.config.model_dump(),
+                num_tests=request.num_tests,
+                batch_size=request.batch_size,
+                sources=[s.model_dump() for s in request.sources] if request.sources else None,
+                name=name,
+                test_type=test_type,
+                model_id=str(request.model_id) if request.model_id else None,
+                test_set_id=str(db_test_set.id),
+            )
+        except Exception as launch_err:
+            logger.error(
+                "Failed to launch test set generation task; marking TestSet as failed",
+                extra={
+                    "test_set_id": str(db_test_set.id),
+                    "error": str(launch_err),
+                },
+            )
+            # Refresh the row so we can safely mutate it after the previous commit.
+            db.refresh(db_test_set)
+            attrs = dict(db_test_set.attributes or {})
+            metadata = dict(attrs.get("metadata", {}))
+            generation = dict(metadata.get("generation", {}))
+            generation["status"] = "failed"
+            generation["error"] = str(launch_err)
+            metadata["generation"] = generation
+            attrs["metadata"] = metadata
+            db_test_set.attributes = attrs
+            db.commit()
+            raise handle_execution_error(launch_err, operation="launch test set generation task")
 
         logger.info(
             "Test set generation task launched",
             extra={
                 "task_id": task_result.id,
+                "test_set_id": str(db_test_set.id),
                 "user_id": current_user.id,
                 "organization_id": current_user.organization_id,
                 "num_tests": request.num_tests,
@@ -143,6 +220,7 @@ async def generate_test_set(
 
         return TestSetGenerationResponse(
             task_id=task_result.id,
+            test_set_id=str(db_test_set.id),
             message=f"Test set generation started. "
             f"You will be notified when {request.num_tests} tests are ready.",
             estimated_tests=request.num_tests,
@@ -336,7 +414,6 @@ def generate_test_set_stats(
 
 
 @router.get("/{test_set_identifier}", response_model=TestSetDetailSchema)
-@check_resource_permission(TestSet, ResourceAction.READ)
 async def read_test_set(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
@@ -348,7 +425,6 @@ async def read_test_set(
 
 
 @router.delete("/{test_set_id}", response_model=schemas.TestSet)
-@check_resource_permission(TestSet, ResourceAction.DELETE)
 async def delete_test_set(
     test_set_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -365,7 +441,6 @@ async def delete_test_set(
 
 
 @router.put("/{test_set_id}", response_model=schemas.TestSet)
-@check_resource_permission(TestSet, ResourceAction.UPDATE)
 @handle_database_exceptions(
     entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
@@ -481,7 +556,9 @@ async def get_test_set_tests(
     return items  # FastAPI handles serialization based on response_model
 
 
-@router.post("/{test_set_identifier}/execute/{endpoint_id}")
+@router.post(
+    "/{test_set_identifier}/execute/{endpoint_id}", **capability(Permission.TestSet.EXECUTE)
+)
 async def execute_test_set(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
@@ -521,6 +598,14 @@ async def execute_test_set(
             evaluation_model_id = test_configuration_attributes.evaluation_model_id
 
         organization_id, user_id = tenant_context
+        experiment_id = None
+        experiment_version = None
+        experiment_environment = None
+        if test_configuration_attributes:
+            experiment_id = test_configuration_attributes.experiment_id
+            experiment_version = test_configuration_attributes.version
+            experiment_environment = test_configuration_attributes.environment
+
         result = execute_test_set_on_endpoint(
             db=db,
             test_set_identifier=test_set_identifier,
@@ -533,6 +618,9 @@ async def execute_test_set(
             reference_test_run_id=reference_test_run_id,
             execution_model_id=execution_model_id,
             evaluation_model_id=evaluation_model_id,
+            experiment_id=experiment_id,
+            experiment_version=experiment_version,
+            experiment_environment=experiment_environment,
         )
         return result
 
@@ -652,7 +740,11 @@ def download_test_set_prompts_csv(
         )
 
 
-@router.post("/{test_set_id}/associate", response_model=schemas.TestSetBulkAssociateResponse)
+@router.post(
+    "/{test_set_id}/associate",
+    response_model=schemas.TestSetBulkAssociateResponse,
+    **capability(Permission.TestSet.UPDATE),
+)
 async def associate_tests_with_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkAssociateRequest,
@@ -677,7 +769,11 @@ async def associate_tests_with_test_set(
     return result
 
 
-@router.post("/{test_set_id}/disassociate", response_model=schemas.TestSetBulkDisassociateResponse)
+@router.post(
+    "/{test_set_id}/disassociate",
+    response_model=schemas.TestSetBulkDisassociateResponse,
+    **capability(Permission.TestSet.UPDATE),
+)
 async def disassociate_tests_from_test_set(
     test_set_id: uuid.UUID,
     request: schemas.TestSetBulkDisassociateRequest,
@@ -747,7 +843,11 @@ def get_test_set_metrics(
     return db_test_set.metrics or []
 
 
-@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+@router.post(
+    "/{test_set_identifier}/metrics/{metric_id}",
+    response_model=list[schemas.Metric],
+    **capability(Permission.TestSet.UPDATE),
+)
 def add_metric_to_test_set(
     test_set_identifier: str,
     metric_id: uuid.UUID,
@@ -792,7 +892,11 @@ def add_metric_to_test_set(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+@router.delete(
+    "/{test_set_identifier}/metrics/{metric_id}",
+    response_model=list[schemas.Metric],
+    **capability(Permission.TestSet.UPDATE),
+)
 def remove_metric_from_test_set(
     test_set_identifier: str,
     metric_id: uuid.UUID,
@@ -831,3 +935,49 @@ def remove_metric_from_test_set(
         return db_test_set.metrics or []
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post(
+    "/{test_set_identifier}/embeddings/compute-graph",
+    response_model=EmbeddingGraphComputeResponse,
+    **capability(Permission.TestSet.EXECUTE),
+)
+def compute_test_set_embedding_graph(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Queue embedding graph computation for a test set.
+
+    The worker generates missing test embeddings, then builds and stores the graph.
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    task = compute_test_set_graph_task.delay(str(db_test_set.id), str(current_user.id))
+    return EmbeddingGraphComputeResponse(status="pending", task_id=str(task.id))
+
+
+# for pooling until task is ready
+@router.get(
+    "/{test_set_identifier}/embeddings/graph",
+    response_model=EmbeddingGraphGetResponse,
+)
+def get_test_set_embedding_graph(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get the embedding graph for a test set.
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    attrs = db_test_set.attributes or {}
+    graph = attrs.get("graph")
+    if not graph:
+        return EmbeddingGraphPendingResponse(status="pending")
+
+    return EmbeddingGraphReadyResponse(status="ready", graph=Scatter2DGraph.model_validate(graph))

@@ -2,10 +2,13 @@
 Dependency injection functions for FastAPI.
 """
 
+import uuid
 from functools import lru_cache
+from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 
+from rhesis.backend.app.auth.principal import REQUEST_STATE_API_TOKEN_PROJECT_ID
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
@@ -49,6 +52,131 @@ def get_tenant_context(current_user: User = Depends(require_current_user_or_toke
     return organization_id, user_id
 
 
+def get_project_context(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    x_project_id: Optional[str] = Header(
+        default=None,
+        alias="X-Project-Id",
+        description=(
+            "Optional project scope for the request. When supplied, all reads are filtered "
+            "to the given project (plus org-wide rows with project_id = NULL) and all writes "
+            "are stamped with this project_id. "
+            "Value must be a valid UUID that matches an existing project the authenticated user "
+            "is a member of; non-members receive **403**. "
+            "If omitted, the project_id bound to the API token (if any) is used as a fallback. "
+            "If neither is present the request runs without a project scope and sees only "
+            "org-level rows (project_id = NULL); project-scoped rows are NOT returned "
+            "(fail-closed)."
+        ),
+    ),
+) -> Optional[str]:
+    """
+    FastAPI dependency that resolves the active project_id for the current request.
+
+    Resolution order:
+      1. ``X-Project-Id`` request header (explicit override)
+      2. ``token.project_id`` from the API token used for authentication
+         (stored on ``request.state.api_token_project_id`` by the auth layer)
+      3. ``None`` — request is not scoped to a specific project
+
+    When both an explicit header and a project-scoped token are present, the
+    values must match — a project-scoped token cannot be used to access a
+    different project (403).
+
+    When a project_id is resolved the dependency validates that the authenticated
+    user is a member of that project.  Non-members receive **403**.
+
+    Returns:
+        The project UUID as a string, or None if no project scope was requested.
+        When None, the request is fail-closed to org-level rows (project_id = NULL)
+        only -- project-scoped rows are not visible.
+    """
+    # 1. Prefer explicit header (FastAPI already parsed it via the Header() annotation)
+    explicit_project_id = x_project_id or request.headers.get("X-Project-Id")
+    token_project_id = getattr(request.state, "api_token_project_id", None)
+
+    # 2. Fall back to the project bound to the API token
+    project_id_str = explicit_project_id or token_project_id
+
+    if not project_id_str:
+        return None
+
+    # Validate UUID format
+    try:
+        project_id = uuid.UUID(project_id_str)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="Invalid X-Project-Id format")
+
+    # Enforce token project boundary: a project-scoped token cannot access a
+    # different project via an X-Project-Id header override.  Without this
+    # check an org-owner token scoped to project A could pivot to project B by
+    # supplying X-Project-Id: <B> and passing the ceiling-role gate.
+    token_project_id_str = getattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None)
+    if token_project_id_str and str(project_id) != token_project_id_str:
+        raise HTTPException(
+            status_code=403,
+            detail="Token is scoped to a different project",
+        )
+
+    # Guard: org-less users cannot belong to any project; fail early so we never
+    # pass an empty string to get_db_with_tenant_variables (which would set
+    # app.current_organization='' and cause a uuid cast error in RLS policies).
+    if not current_user.organization_id:
+        raise HTTPException(status_code=403, detail="User must be associated with an organization")
+
+    # Validate membership using a tenant-scoped session so RLS GUCs are set
+    # before querying project_membership (which has tenant_isolation RLS).
+    from rhesis.backend.app.models.project import Project
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    org_id = str(current_user.organization_id)
+    user_id_str = str(current_user.id) if current_user.id else ""
+
+    with get_db_with_tenant_variables(org_id, user_id_str, "") as db:
+        membership = (
+            db.query(ProjectMembership)
+            .filter_by(
+                project_id=project_id,
+                user_id=current_user.id,
+                organization_id=current_user.organization_id,
+            )
+            .first()
+        )
+        # The membership row can outlive a soft-deleted project (project delete
+        # does not cascade to project_membership). The soft-delete filter excludes
+        # deleted projects here, so a stale header/cookie resolves to None.
+        project = db.query(Project).filter_by(id=project_id).first()
+
+        # A non-existent / soft-deleted project is always denied — even for the
+        # org ceiling role, there is nothing to enter.
+        if project is None:
+            raise HTTPException(
+                status_code=403,
+                detail=f"User is not a member of project {project_id}",
+            )
+
+        # Plan §1.4 carry-over: the org ceiling role (community tier: org Owner;
+        # EE tier: org Owner/Admin) may enter ANY project context in its org
+        # without an explicit project_membership row. Expressed through the PDP
+        # so it holds in both tiers with no core->EE import: member:manage is held
+        # only by the org Owner (community) and the Owner/Admin org roles (EE) —
+        # never by a plain Member/Viewer. App-layer only; RLS is unchanged.
+        if membership is None:
+            from rhesis.backend.app.auth.capabilities import Permission
+            from rhesis.backend.app.auth.principal import resolve_principal_from_request
+            from rhesis.backend.app.auth.rbac import authorize
+
+            principal = resolve_principal_from_request(current_user, request)
+            if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"User is not a member of project {project_id}",
+                )
+
+    return str(project_id)
+
+
 def get_db_session():
     """
     FastAPI dependency that provides a database session directly.
@@ -63,23 +191,31 @@ def get_db_session():
         yield db
 
 
-def get_tenant_db_session(tenant_context: tuple = Depends(get_tenant_context)):
+def get_tenant_db_session(
+    tenant_context: tuple = Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
+):
     """
     FastAPI dependency that provides a database session with automatic session variables.
 
-    This is a drop-in replacement for get_db_session that automatically sets
-    PostgreSQL session variables for RLS policies.
+    Sets PostgreSQL RLS session variables AND stores a RequestScope on
+    ``session.info['_scope']`` so the auto-filter / auto-stamp listeners are
+    active for the lifetime of the request.  The ContextVar is NOT bound here;
+    Session.info is the authoritative source for all DB-bound work.
 
     Returns:
-        Session: The database session with session variables set
+        Session: The database session with full tenant context set
     """
     organization_id, user_id = tenant_context
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         yield db
 
 
-def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
+def get_db_with_tenant_context(
+    tenant_context: tuple = Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
+):
     """
     FastAPI dependency that provides both a database session and tenant context.
 
@@ -91,7 +227,7 @@ def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_contex
     """
     organization_id, user_id = tenant_context
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         yield db, organization_id, user_id
 
 

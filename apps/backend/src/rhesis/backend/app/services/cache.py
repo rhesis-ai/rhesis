@@ -7,11 +7,12 @@ still reference RedisDatabase for DB number allocation.
 """
 
 import logging
-import os
 import threading
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, urlunparse
+
+from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ class RedisBackedCache:
         self._cache_name = cache_name
         self._ttl = ttl
         self._redis: Optional[Any] = None
+        self._redis_read: Optional[Any] = None
+        self._has_separate_read: bool = False
         self._initialized = False
         self._memory: Dict[str, Any] = {}
         self._memory_timestamps: Dict[str, float] = {}
@@ -37,8 +40,13 @@ class RedisBackedCache:
     def _using_redis(self) -> bool:
         return self._redis is not None
 
-    def _build_redis_url(self) -> str:
-        redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+    def _build_redis_url(self, *, read: bool = False) -> str:
+        redis_settings = get_redis_settings()
+        redis_url = (
+            redis_settings.broker_read_url
+            if read and redis_settings.broker_read_url
+            else redis_settings.broker_url
+        )
         parsed = urlparse(redis_url)
         return urlunparse(parsed._replace(path=f"/{self._redis_db}"))
 
@@ -55,14 +63,47 @@ class RedisBackedCache:
                 cache_url,
                 decode_responses=True,
                 encoding="utf-8",
+                max_connections=3,
                 socket_connect_timeout=5,
                 socket_timeout=5,
             )
             self._redis.ping()
-            self._initialized = True
             logger.info(
                 f"{self._cache_name} cache: Redis connection established (db {self._redis_db})"
             )
+
+            self._redis_read = self._redis
+            if get_redis_settings().broker_read_url:
+                read_client = None
+                try:
+                    read_url = self._build_redis_url(read=True)
+                    read_client = redis_pkg.Redis.from_url(
+                        read_url,
+                        decode_responses=True,
+                        encoding="utf-8",
+                        socket_connect_timeout=5,
+                        socket_timeout=5,
+                    )
+                    read_client.ping()
+                    self._redis_read = read_client
+                    self._has_separate_read = True
+                    logger.info(
+                        f"{self._cache_name} cache: Redis read replica "
+                        f"connected (db {self._redis_db})"
+                    )
+                except Exception as e:
+                    if read_client is not None:
+                        try:
+                            read_client.close()
+                        except Exception:
+                            pass
+                    logger.warning(
+                        f"{self._cache_name} cache: read replica not "
+                        f"available ({type(e).__name__}: {e}), "
+                        "reads will use primary"
+                    )
+
+            self._initialized = True
         except Exception as e:
             logger.debug(
                 f"{self._cache_name} cache: Redis not available "
@@ -74,11 +115,20 @@ class RedisBackedCache:
                     self._redis.close()
                 except Exception:
                     pass
-                self._redis = None
+            self._redis = None
+            self._redis_read = None
+            self._has_separate_read = False
             self._initialized = True
 
     def close(self) -> None:
-        """Close the Redis connection if open."""
+        """Close the Redis connection(s) if open."""
+        if self._redis_read is not None and self._redis_read is not self._redis:
+            try:
+                self._redis_read.close()
+            except Exception:
+                pass
+        self._redis_read = None
+        self._has_separate_read = False
         if self._redis is not None:
             try:
                 self._redis.close()
@@ -112,15 +162,29 @@ class RedisBackedCache:
             self._memory_timestamps[key] = time.monotonic()
             self._evict_stale()
 
-    def _get(self, key: str) -> Optional[str]:
-        """Get a value by key from Redis or in-memory fallback."""
-        if self._using_redis:
+    def _disable_read_replica(self) -> None:
+        """Disable the read replica, falling back to primary for reads."""
+        if self._has_separate_read and self._redis_read is not None:
             try:
-                return self._redis.get(key)
+                self._redis_read.close()
+            except Exception:
+                pass
+        self._has_separate_read = False
+        self._redis_read = self._redis
+
+    def _get(self, key: str) -> Optional[str]:
+        """Get a value by key from Redis read replica or in-memory fallback."""
+        if self._redis_read is not None:
+            try:
+                return self._redis_read.get(key)
             except Exception as exc:
-                logger.warning(
-                    f"{self._cache_name}: Redis read failed for _get, falling back to memory: {exc}"
-                )
+                logger.warning(f"{self._cache_name}: Redis read failed for _get: {exc}")
+                if self._has_separate_read and self._redis is not None:
+                    self._disable_read_replica()
+                    try:
+                        return self._redis.get(key)
+                    except Exception:
+                        pass
 
         with self._lock:
             self._evict_stale()
@@ -146,17 +210,21 @@ class RedisBackedCache:
                 self._memory_timestamps.pop(key, None)
 
     def _mget(self, keys: List[str]) -> List[Optional[str]]:
-        """Get multiple values at once from Redis or in-memory fallback."""
+        """Get multiple values at once from Redis read replica or in-memory fallback."""
         if not keys:
             return []
 
-        if self._using_redis:
+        if self._redis_read is not None:
             try:
-                return self._redis.mget(keys)
+                return self._redis_read.mget(keys)
             except Exception as exc:
-                logger.warning(
-                    f"{self._cache_name}: Redis mget failed, falling back to memory: {exc}"
-                )
+                logger.warning(f"{self._cache_name}: Redis mget failed: {exc}")
+                if self._has_separate_read and self._redis is not None:
+                    self._disable_read_replica()
+                    try:
+                        return self._redis.mget(keys)
+                    except Exception:
+                        pass
 
         with self._lock:
             self._evict_stale()

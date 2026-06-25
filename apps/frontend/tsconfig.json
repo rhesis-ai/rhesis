@@ -18,7 +18,14 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@testing-library/react-original": [
+        "./node_modules/@testing-library/react"
+      ],
+      "@mui/material": ["./node_modules/@mui/material"],
+      "@mui/material/*": ["./node_modules/@mui/material/*"],
+      "@mui/icons-material": ["./node_modules/@mui/icons-material"],
+      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"]
     },
     "target": "ES2017",
     "typeRoots": ["./node_modules/@types", "./types"],

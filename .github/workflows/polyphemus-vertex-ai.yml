@@ -96,12 +96,12 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Install dependencies
         working-directory: apps/polyphemus
@@ -133,7 +133,7 @@ jobs:
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "GCP_PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "GCP_REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "GCP_REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
           echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >> $GITHUB_ENV 
           
           # Model path and default model (existing GitHub secrets)

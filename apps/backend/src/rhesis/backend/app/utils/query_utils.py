@@ -2,7 +2,7 @@ import logging
 from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
-from sqlalchemy import desc, inspect
+from sqlalchemy import desc, inspect, or_
 from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, selectinload
 
 # Removed unused imports - legacy tenant functions no longer needed
@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 # Define a generic type variable
 T = TypeVar("T")
+
+# Warn when a single query eager-loads more relationships than this. The
+# Test/test-set blow-up that necessitated this guard was caused by a 22-join
+# SQL statement; anything close to that warrants a second look.
+_MAX_EAGER_LOADS_WARN = 12
 
 
 class QueryBuilder:
@@ -48,13 +53,124 @@ class QueryBuilder:
         self._sort_order = "asc"
         self._secondary_sort_by = None
         self._secondary_sort_order = "asc"
+        # Track explicit eager-load counts so we can warn callers who request
+        # an unreasonably large number of joins on a single query. Indexes
+        # joined and selectin separately because they have different cost
+        # profiles (joinedload multiplies rows, selectinload issues one extra
+        # SELECT per relationship).
+        self._joined_count = 0
+        self._selectin_count = 0
 
-    def with_joinedloads(
-        self, skip_many_to_many: bool = True, skip_one_to_many: bool = False
-    ) -> "QueryBuilder":
-        """Apply joinedloads for relationships"""
-        self.query = apply_joinedloads(self.query, self.model, skip_many_to_many, skip_one_to_many)
+    def with_joined(self, *relationship_names: str) -> "QueryBuilder":
+        """Eager-load each named relationship with ``joinedload``.
+
+        Use this for many-to-one and one-to-one relationships, where each
+        parent row matches at most one child. Avoid joinedload on
+        relationships whose child rows carry large JSONB payloads — those
+        produce cartesian-product result sets that can be orders of
+        magnitude larger than the logical row count.
+
+        Use ``with_selectin`` for many-to-many or one-to-many.
+        """
+        if not relationship_names:
+            return self
+        unknown: List[str] = []
+        attrs: List[object] = []
+        for name in relationship_names:
+            attr = getattr(self.model, name, None)
+            if attr is None:
+                unknown.append(name)
+                continue
+            attrs.append(attr)
+        if unknown:
+            raise ValueError(
+                f"with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
+            )
+        for attr in attrs:
+            self.query = self.query.options(joinedload(attr))
+        self._joined_count += len(attrs)
+        self._maybe_warn_load_count()
         return self
+
+    def with_selectin(self, *relationship_names: str) -> "QueryBuilder":
+        """Eager-load each named relationship with ``selectinload``.
+
+        Use this for many-to-many or one-to-many relationships. ``selectinload``
+        issues a single follow-up ``SELECT ... WHERE parent_id IN (...)``
+        query per relationship, which avoids the cartesian-product blowup
+        that ``joinedload`` produces on collection relationships.
+        """
+        if not relationship_names:
+            return self
+        unknown: List[str] = []
+        attrs: List[object] = []
+        for name in relationship_names:
+            attr = getattr(self.model, name, None)
+            if attr is None:
+                unknown.append(name)
+                continue
+            attrs.append(attr)
+        if unknown:
+            raise ValueError(
+                f"with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
+            )
+        for attr in attrs:
+            self.query = self.query.options(selectinload(attr))
+        self._selectin_count += len(attrs)
+        self._maybe_warn_load_count()
+        return self
+
+    def with_selectin_chain(self, *chain: str) -> "QueryBuilder":
+        """Eager-load a chain of relationships with nested ``selectinload``.
+
+        Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
+        ``with_optimized_loads`` skips because they have no ``secondary`` table.
+        Each element resolves against the target model of the previous step, so
+        the full chain is batched into exactly two SELECT IN queries instead of
+        N + N*M lazy loads.
+
+        Example::
+
+            .with_selectin_chain("_tags_relationship", "tag")
+            # → selectinload(Model._tags_relationship).selectinload(TaggedItem.tag)
+        """
+        if not chain:
+            return self
+        current_model: type = self.model
+        load = None
+        for rel_name in chain:
+            attr = getattr(current_model, rel_name, None)
+            if attr is None:
+                raise ValueError(
+                    f"with_selectin_chain: {current_model.__name__!r} has no "
+                    f"relationship named {rel_name!r}"
+                )
+            load = selectinload(attr) if load is None else load.selectinload(attr)
+            rel_prop = inspect(current_model).relationships.get(rel_name)
+            if rel_prop is None:
+                raise ValueError(
+                    f"with_selectin_chain: {current_model.__name__!r}.{rel_name!r} "
+                    f"is not a relationship"
+                )
+            current_model = rel_prop.mapper.class_
+        if load is not None:
+            self.query = self.query.options(load)
+            self._selectin_count += 1
+            self._maybe_warn_load_count()
+        return self
+
+    def _maybe_warn_load_count(self) -> None:
+        total = self._joined_count + self._selectin_count
+        if total >= _MAX_EAGER_LOADS_WARN:
+            logger.warning(
+                "QueryBuilder(%s) has accumulated %d eager loads "
+                "(joined=%d, selectin=%d); consider whether the response "
+                "schema actually needs all of these.",
+                self.model.__name__,
+                total,
+                self._joined_count,
+                self._selectin_count,
+            )
 
     def with_optimized_loads(
         self,
@@ -146,11 +262,74 @@ class QueryBuilder:
                     )
         return self
 
-    def with_visibility_filter(self) -> "QueryBuilder":
-        """Apply visibility filter if the model supports it"""
-        # Note: Visibility filtering is now handled through direct parameter passing
-        # rather than session variables. This method is kept for compatibility
-        # but no longer applies automatic filters.
+    def with_project_filter(self, project_id: Optional[str] = None) -> "QueryBuilder":
+        """
+        Filter query by project_id, allowing NULL rows to pass through.
+
+        When ``project_id`` is provided the filter applied is::
+
+            model.project_id = :pid OR model.project_id IS NULL
+
+        NULL rows represent org-wide entities created before project containers
+        were introduced.  They are intentionally visible inside every project's
+        view.  Pass ``project_id=None`` (or omit the argument) to skip the
+        filter entirely.
+
+        The ambient auto-filter listener in ``scope_events.py`` applies the
+        same predicate automatically for most request paths.  Use this method
+        only when you need an explicit, call-site-visible project filter —
+        e.g. in admin paths that operate outside the normal request scope.
+        """
+        if project_id and has_project_id(self.model):
+            self.query = self.query.filter(
+                or_(
+                    self.model.project_id == project_id,
+                    self.model.project_id.is_(None),
+                )
+            )
+        return self
+
+    def with_visibility_filter(self, user_id: Optional[str] = None) -> "QueryBuilder":
+        """Hide owner-only rows from non-owners.
+
+        Models that declare a ``visibility`` column alongside an owner column
+        (``user_id`` or ``owner_user_id``) are filtered so that rows whose
+        visibility marks them as private (``'user'`` for TestSet,
+        ``'private'`` for Experiment) are visible only to their owner.
+        Models without these columns are returned unfiltered.
+
+        Owner column priority: ``user_id`` > ``owner_user_id``.  Some
+        models (e.g. TestSet) also carry an ``owner_id`` column, but
+        ``user_id`` is the canonical field used by capability / ``:own``
+        checks and creation paths.  ``owner_id`` is intentionally
+        ignored here to stay aligned with the auth layer.
+        """
+        columns = inspect(self.model).columns.keys()
+        if "visibility" not in columns:
+            return self
+
+        # owner_id is intentionally not checked — see docstring.
+        if "user_id" in columns:
+            owner_col = self.model.user_id
+        elif "owner_user_id" in columns:
+            owner_col = self.model.owner_user_id
+        else:
+            return self
+
+        private_values = ("user", "private")
+
+        vis = self.model.visibility
+        if user_id:
+            self.query = self.query.filter(
+                or_(
+                    vis.is_(None),
+                    ~vis.in_(private_values),
+                    owner_col == user_id,
+                )
+            )
+        else:
+            self.query = self.query.filter(or_(vis.is_(None), ~vis.in_(private_values)))
+
         return self
 
     def with_odata_filter(self, filter_str: Optional[str]) -> "QueryBuilder":
@@ -222,7 +401,19 @@ class QueryBuilder:
 
     def _apply_sorting(self):
         """Apply sorting if configured"""
-        if self._sort_by:
+        from rhesis.backend.app.utils.count_sort import (
+            apply_virtual_count_sort,
+            is_virtual_count_sort,
+        )
+
+        if self._sort_by and is_virtual_count_sort(self._sort_by):
+            self.query = apply_virtual_count_sort(
+                self.query,
+                self.model,
+                self._sort_by,
+                self._sort_order,
+            )
+        elif self._sort_by:
             order_column = getattr(self.model, self._sort_by)
             if self._sort_order == "desc":
                 self.query = self.query.order_by(desc(order_column))
@@ -281,11 +472,20 @@ def has_organization_id(model: Type[T]) -> bool:
     return hasattr(model, "organization_id") or "organization_id" in inspect(model).columns.keys()
 
 
+def has_project_id(model: Type[T]) -> bool:
+    """Check if model has project_id column."""
+    return hasattr(model, "project_id") or "project_id" in inspect(model).columns.keys()
+
+
 def has_visibility(model: Type[T]) -> bool:
-    """Check if model supports visibility filtering (has visibility, organization_id and user_id
-    fields)"""
+    """Check if model supports visibility filtering.
+
+    Requires a ``visibility`` column and an owner column (``user_id`` or
+    ``owner_user_id``).
+    """
     columns = inspect(model).columns.keys()
-    return "visibility" in columns and "organization_id" in columns and "user_id" in columns
+    has_owner = "user_id" in columns or "owner_user_id" in columns
+    return "visibility" in columns and has_owner
 
 
 def get_model_relationships(
@@ -325,32 +525,6 @@ def get_model_relationships(
         relationships[rel.key] = rel
 
     return relationships
-
-
-def apply_joinedloads(
-    query: Query, model: Type, skip_many_to_many: bool = True, skip_one_to_many: bool = True
-) -> Query:
-    """
-    Apply joinedload options to a query based on model relationships.
-
-    Args:
-        query: The SQLAlchemy query to modify
-        model: The SQLAlchemy model class
-        skip_many_to_many: If True, excludes many-to-many relationships
-        skip_one_to_many: If True, excludes one-to-many relationships
-
-    Returns:
-        Modified query with joinedload options applied
-    """
-    relationships = get_model_relationships(
-        model, skip_many_to_many=skip_many_to_many, skip_one_to_many=skip_one_to_many
-    )
-
-    for rel_name, _ in relationships.items():
-        relationship_attr = getattr(model, rel_name)
-        query = query.options(joinedload(relationship_attr))
-
-    return query
 
 
 def _build_nested_load_options(

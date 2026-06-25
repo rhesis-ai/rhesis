@@ -1,35 +1,29 @@
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
-    CreateJiraTicketFromTaskRequest,
-    CreateJiraTicketFromTaskResponse,
-    ExtractMCPRequest,
-    ExtractMCPResponse,
     GenerateContentRequest,
     GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
-    ItemResult,
     PromptRequest,
     QueryMCPRequest,
     QueryMCPResponse,
     RecentActivitiesResponse,
-    SearchMCPRequest,
     TestConfigRequest,
     TestConfigResponse,
-    TestMCPConnectionRequest,
-    TestMCPConnectionResponse,
+    TestPipelineRequest,
     TextResponse,
 )
 from rhesis.backend.app.services.activities import RecentActivitiesService
@@ -43,24 +37,25 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.mcp_service import (
-    create_jira_ticket_from_task,
-    extract_mcp,
+from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+from rhesis.backend.app.services.test_generation_pipeline import (
+    test_generation_pipeline_stream,
+)
+from rhesis.backend.app.services.tool.mcp import (
     handle_mcp_exception,
     query_mcp,
-    run_mcp_authentication_test,
-    search_mcp,
 )
-from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
+from rhesis.sdk.context import EndpointContext
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
+router = RhesisRouter(
     prefix="/services",
     tags=["services"],
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
+    resource="service",
 )
 
 
@@ -193,7 +188,11 @@ async def create_chat_completion_endpoint(request: dict):
 
 
 @router.post("/generate/content")
-async def generate_content_endpoint(request: GenerateContentRequest):
+async def generate_content_endpoint(
+    request: GenerateContentRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Generate text using LLM with optional OpenAI-wrapped JSON schema for structured output.
 
@@ -235,18 +234,13 @@ async def generate_content_endpoint(request: GenerateContentRequest):
     "type": "json_schema" wrapper with name, schema, and strict fields.
     """
     try:
-        from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+        from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
         from rhesis.sdk.models.factory import get_model
 
-        prompt = request.prompt
-        schema = request.schema_
-
-        # Use the default generation model from constants
-        # This respects the global configuration (currently vertex_ai/gemini-2.0-flash)
-        model = get_model(DEFAULT_GENERATION_MODEL)
-
-        response = await model.a_generate(prompt, schema=schema)
-
+        model = get_generation_model_with_override(db, current_user)
+        if isinstance(model, str):
+            model = get_model(model, model_type="language")
+        response = await model.a_generate(request.prompt, schema=request.schema_)
         return response
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
@@ -255,20 +249,27 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 
 
 @router.post("/generate/embedding")
-async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
+async def generate_embedding_endpoint(
+    request: GenerateEmbeddingRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
-    Generate an embedding for a given text.
+    Generate an embedding for a given text using the user's configured embedding model.
+
+    Args:
+        request: The request containing the text to embed
+        db: The database session
+        current_user: The current authenticated user
     """
     try:
-        from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL
+        from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
         from rhesis.sdk.models.factory import get_model
 
-        text = request.text
-
-        # First arg is provider; "provider/model_name" is resolved in the background
-        embedder = get_model(DEFAULT_EMBEDDING_MODEL, model_type="embedding")
-        embedding = embedder.generate(text=text)
-
+        embedder = get_user_embedding_model(db, current_user)
+        if isinstance(embedder, str):
+            embedder = get_model(embedder, model_type="embedding")
+        embedding = embedder.generate(text=request.text)
         return embedding
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
@@ -449,6 +450,36 @@ async def generate_text(prompt_request: PromptRequest):
         raise HTTPException(status_code=400, detail=f"Failed to generate text: {error_msg}")
 
 
+@router.post("/generate/test_pipeline")
+async def test_pipeline_endpoint(
+    request: TestPipelineRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Stream config and test generation as NDJSON events."""
+    organization_id, _ = tenant_context
+    model_id_str = str(request.model_id) if request.model_id else None
+
+    async def _stream():
+        async for chunk in test_generation_pipeline_stream(
+            db=db,
+            user=current_user,
+            prompt=request.prompt,
+            organization_id=organization_id,
+            project_id=(str(request.project_id) if request.project_id else None),
+            previous_messages=request.previous_messages,
+            test_type=request.test_type,
+            num_tests=request.num_tests,
+            sources=request.sources,
+            model_id=model_id_str,
+            config=request.config,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+
 @router.post("/generate/test_config", response_model=TestConfigResponse)
 async def generate_test_config(
     request: TestConfigRequest,
@@ -520,102 +551,9 @@ async def generate_test_config(
         raise HTTPException(status_code=500, detail=error_detail)
 
 
-@router.post("/mcp/search", response_model=List[ItemResult])
-async def search_mcp_server(
-    request: SearchMCPRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Search MCP server for items matching a natural language query.
-
-    Uses an AI agent to intelligently search the connected MCP server and
-    return structured results. The agent automatically selects the appropriate
-    search tools and formats results consistently.
-
-    Args:
-        request: SearchMCPRequest with query and server_name
-
-    Returns:
-        List of items, each containing:
-        - id: Item identifier
-        - url: Direct link to view the item
-        - title: Human-readable item title
-
-    Raises:
-        HTTPException: 500 error if search fails
-
-    Example:
-        POST /mcp/search
-        {
-            "query": "Find pages about authentication",
-            "server_name": "notion"
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        return await search_mcp(request.query, request.tool_id, db, organization_id, user_id)
-    except Exception as e:
-        raise handle_mcp_exception(e, "search")
-
-
-@router.post("/mcp/extract", response_model=ExtractMCPResponse)
-async def extract_mcp_item(
-    request: ExtractMCPRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Extract full content from an MCP item as markdown.
-
-    Uses an AI agent to retrieve and convert item content to markdown format.
-    The agent navigates the item structure and extracts all relevant content
-    including text, headings, lists, and nested blocks.
-
-    Args:
-        request: ExtractMCPRequest with either item id or url (or both) and tool_id
-
-    Returns:
-        ExtractMCPResponse containing markdown-formatted content
-
-    Raises:
-        HTTPException: 500 error if extraction fails or item not found
-
-    Example:
-        POST /mcp/extract
-        {
-            "url": "https://notion.so/page-id-from-search",
-            "tool_id": "tool-uuid-123"
-        }
-        OR
-        {
-            "id": "page-id-123",
-            "tool_id": "tool-uuid-123"
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        content = await extract_mcp(
-            item_id=request.id,
-            item_url=request.url,
-            tool_id=request.tool_id,
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-        return {"content": content}
-    except Exception as e:
-        raise handle_mcp_exception(e, "extract")
-
-
 @router.post("/mcp/query", response_model=QueryMCPResponse)
 async def query_mcp_server(
     request: QueryMCPRequest,
-    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _validate_model=Depends(validate_generation_model),
@@ -650,143 +588,21 @@ async def query_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
+        ctx = EndpointContext(
+            organization_id=organization_id,
+            user_id=user_id,
+            _db_factory=get_db_with_tenant_variables,
+        )
         result = await query_mcp(
             query=request.query,
             tool_id=request.tool_id,
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
+            ctx=ctx,
             system_prompt=request.system_prompt,
             max_iterations=request.max_iterations,
         )
         return result
     except Exception as e:
         raise handle_mcp_exception(e, "query")
-
-
-@router.post("/mcp/test-connection", response_model=TestMCPConnectionResponse)
-async def test_mcp_connection(
-    request: TestMCPConnectionRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Test MCP connection authentication by calling a tool that requires authentication.
-
-    This endpoint verifies that the MCP connection is properly authenticated by
-    instructing an agent to call a tool that requires authentication. If the
-    connection is not authenticated, a 401 unauthorized error will be detected.
-
-    Args:
-        request: TestMCPConnectionRequest with either:
-            - tool_id: For testing existing tools
-            - provider_type_id + credentials + optional tool_metadata:
-              For testing non-existent tools
-
-    Returns:
-        TestMCPConnectionResponse with:
-        - is_authenticated: str - "Yes" if authentication is valid, "No" otherwise
-        - message: str - Explanation of the authentication status
-
-    Raises:
-        HTTPException: 400 error if validation fails,
-            500 error if test fails due to connection issues
-
-    Examples:
-        # Test existing tool
-        POST /mcp/test-connection
-        {
-            "tool_id": "tool-uuid-123"
-        }
-
-        # Test non-existent tool (standard provider)
-        POST /mcp/test-connection
-        {
-            "provider_type_id": "provider-uuid-123",
-            "credentials": {"NOTION_TOKEN": "ntn_abc123..."}
-        }
-
-        # Test non-existent tool (custom provider)
-        POST /mcp/test-connection
-        {
-            "provider_type_id": "provider-uuid-123",
-            "credentials": {"TOKEN": "token123"},
-            "tool_metadata": {
-                "command": "npx",
-                "args": ["@notionhq/notion-mcp-server"],
-                "env": {"NOTION_TOKEN": "{{ TOKEN }}"}
-            }
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        result = await run_mcp_authentication_test(
-            db=db,
-            user=current_user,
-            organization_id=organization_id,
-            tool_id=request.tool_id,
-            provider_type_id=request.provider_type_id,
-            credentials=request.credentials,
-            tool_metadata=request.tool_metadata,
-            user_id=user_id,
-        )
-        return result
-    except ValueError as e:
-        logger.warning(f"Invalid request for MCP connection test: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        # Use handle_mcp_exception to properly handle MCP errors (401, 403, etc.)
-        # This ensures authentication errors are properly mapped and don't log users out
-        raise handle_mcp_exception(e, "test-connection")
-
-
-@router.post("/mcp/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
-async def create_jira_ticket_from_task_endpoint(
-    request: CreateJiraTicketFromTaskRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Create a Jira ticket from a task.
-
-    This endpoint creates a Jira issue using the MCP Jira integration,
-    mapping task fields to Jira issue fields.
-
-    Args:
-        request: CreateJiraTicketFromTaskRequest with task_id and tool_id
-
-    Returns:
-        CreateJiraTicketFromTaskResponse with issue key, URL, and message
-
-    Raises:
-        HTTPException: 400 if validation fails, 500 if creation fails
-
-    Example:
-        POST /mcp/jira/create-ticket-from-task
-        {
-            "task_id": "task-uuid-123",
-            "tool_id": "tool-uuid-456"
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        result = await create_jira_ticket_from_task(
-            task_id=request.task_id,
-            tool_id=request.tool_id,
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-        return result
-    except ValueError as e:
-        logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise handle_mcp_exception(e, "create-jira-ticket")
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)

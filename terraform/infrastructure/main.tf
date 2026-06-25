@@ -1,4 +1,4 @@
-# Creates VPCs and peerings for enabled environments only.
+# Creates VPCs, GKE, GCS (file + stg/prd CNPG backup), and peerings for enabled environments.
 # Run: terraform init -backend-config=backend.conf && terraform apply
 #
 # Dev-only:  terraform apply -var='enabled_environments=["dev"]'
@@ -198,9 +198,9 @@ module "gke_dev" {
   service_cidr           = local.cidrs.dev.services
   wireguard_cidr         = local.cidrs.wireguard.network
   extra_authorized_cidrs = ["10.2.1.200/32"]
-  machine_type           = "e2-medium"
-  min_node_count         = 1
-  max_node_count         = 2
+  machine_type           = "e2-standard-2"
+  min_node_count         = 2
+  max_node_count         = 6
   deletion_protection    = var.gke_deletion_protection.dev
 
   depends_on = [module.dev]
@@ -324,8 +324,6 @@ module "internal_dns_dev" {
 
   project_id  = var.project_id
   environment = "dev"
-
-  depends_on = [module.eso_dev]
 }
 
 module "internal_dns_stg" {
@@ -334,8 +332,6 @@ module "internal_dns_stg" {
 
   project_id  = var.project_id
   environment = "stg"
-
-  depends_on = [module.eso_stg]
 }
 
 module "internal_dns_prd" {
@@ -344,8 +340,6 @@ module "internal_dns_prd" {
 
   project_id  = var.project_id
   environment = "prd"
-
-  depends_on = [module.eso_prd]
 }
 
 # ── Ingress internal LB static IPs ──────────────────────────────────
@@ -387,6 +381,80 @@ module "ingress_prd" {
   internal_lb_ip       = local.cidrs.prd.ingress_internal_ip
 
   depends_on = [module.prd]
+}
+
+# ── GCS: file storage (all envs) + CNPG backups (stg/prd only) ─────
+
+module "gcs_dev" {
+  count  = local.dev_enabled ? 1 : 0
+  source = "./modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+  location    = var.region
+
+  file_storage_bucket_name = var.gcs.dev.file_storage_bucket_name
+  cnpg_backup_bucket_name  = null
+  force_destroy            = var.gcs.dev.force_destroy
+  file_storage_iam_members = var.gcs.dev.file_storage_iam_members
+  cnpg_backup_iam_members  = []
+}
+
+module "gcs_stg" {
+  count  = local.stg_enabled ? 1 : 0
+  source = "./modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+  location    = var.region
+
+  file_storage_bucket_name = var.gcs.stg.file_storage_bucket_name
+  cnpg_backup_bucket_name  = var.gcs.stg.cnpg_backup_bucket_name
+  force_destroy            = var.gcs.stg.force_destroy
+  file_storage_iam_members = var.gcs.stg.file_storage_iam_members
+  cnpg_backup_iam_members  = var.gcs.stg.cnpg_backup_iam_members
+}
+
+module "gcs_prd" {
+  count  = local.prd_enabled ? 1 : 0
+  source = "./modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+  location    = var.region
+
+  file_storage_bucket_name = var.gcs.prd.file_storage_bucket_name
+  cnpg_backup_bucket_name  = var.gcs.prd.cnpg_backup_bucket_name
+  force_destroy            = var.gcs.prd.force_destroy
+  file_storage_iam_members = var.gcs.prd.file_storage_iam_members
+  cnpg_backup_iam_members  = var.gcs.prd.cnpg_backup_iam_members
+}
+
+# ── CloudNativePG Barman: GSA, bucket IAM, JSON key in Secret Manager (stg/prd) ─
+# Secret IDs must match kubernetes/clusters/<env>/rhesis/cnpg-gcs-externalsecret.yaml
+
+module "cnpg_barman_stg" {
+  count  = local.stg_enabled && var.gcs.stg.cnpg_backup_bucket_name != "" ? 1 : 0
+  source = "./modules/cnpg-barman-sa-gcp"
+
+  project_id                 = var.project_id
+  environment                = "stg"
+  backup_bucket_name         = var.gcs.stg.cnpg_backup_bucket_name
+  kubernetes_service_account = "rhesis-stg"
+
+  depends_on = [module.gcs_stg, module.gke_stg]
+}
+
+module "cnpg_barman_prd" {
+  count  = local.prd_enabled && var.gcs.prd.cnpg_backup_bucket_name != "" ? 1 : 0
+  source = "./modules/cnpg-barman-sa-gcp"
+
+  project_id                 = var.project_id
+  environment                = "prd"
+  backup_bucket_name         = var.gcs.prd.cnpg_backup_bucket_name
+  kubernetes_service_account = "rhesis-prd"
+
+  depends_on = [module.gcs_prd, module.gke_prd]
 }
 
 # ── WireGuard VPN server ─────────────────────────────────────────────
@@ -433,6 +501,48 @@ module "wireguard_server" {
         keyname = module.internal_dns_prd[0].tsig_keyname
         secret  = module.internal_dns_prd[0].tsig_secret
       }
+    } : {}
+  )
+
+  # Allowed hostnames per env for BIND9 update-policy (subdomain grants).
+  # Each key may update only its listed hostnames and their sub-names (TXT, ACME).
+  # Update this list when adding a new service to a cluster.
+  bind9_allowed_names = merge(
+    local.dev_enabled ? {
+      dev = [
+        "dev-api.rhesis.ai",
+        "dev-app.rhesis.ai",
+        "dev-docs.rhesis.ai",
+        "dev-chatbot.rhesis.ai",
+        "dev-polyphemus.rhesis.ai",
+        "dev-argocd.rhesis.ai",
+        "dev-grafana.rhesis.ai",
+        "dev-telemetry.rhesis.ai",
+      ]
+    } : {},
+    local.stg_enabled ? {
+      stg = [
+        "stg-api.rhesis.ai",
+        "stg-app.rhesis.ai",
+        "stg-docs.rhesis.ai",
+        "stg-chatbot.rhesis.ai",
+        "stg-polyphemus.rhesis.ai",
+        "stg-argocd.rhesis.ai",
+        "stg-grafana.rhesis.ai",
+        "stg-telemetry.rhesis.ai",
+      ]
+    } : {},
+    local.prd_enabled ? {
+      prd = [
+        "api.rhesis.ai",
+        "app.rhesis.ai",
+        "docs.rhesis.ai",
+        "chatbot.rhesis.ai",
+        "polyphemus.rhesis.ai",
+        "argocd.rhesis.ai",
+        "grafana.rhesis.ai",
+        "telemetry.rhesis.ai",
+      ]
     } : {}
   )
 
@@ -537,7 +647,7 @@ module "argocd_prd" {
 resource "local_file" "cluster_env_dev" {
   count = local.dev_enabled ? 1 : 0
 
-  content = <<-EOT
+  content              = <<-EOT
 # Generated by Terraform from terraform/infrastructure. Do not edit by hand.
 region=${var.region}
 ilb-subnet-name=${module.dev[0].ilb_subnet_name}
@@ -551,7 +661,7 @@ EOT
 resource "local_file" "cluster_env_stg" {
   count = local.stg_enabled ? 1 : 0
 
-  content = <<-EOT
+  content              = <<-EOT
 # Generated by Terraform from terraform/infrastructure. Do not edit by hand.
 region=${var.region}
 ilb-subnet-name=${module.stg[0].ilb_subnet_name}
@@ -565,7 +675,7 @@ EOT
 resource "local_file" "cluster_env_prd" {
   count = local.prd_enabled ? 1 : 0
 
-  content = <<-EOT
+  content              = <<-EOT
 # Generated by Terraform from terraform/infrastructure. Do not edit by hand.
 region=${var.region}
 ilb-subnet-name=${module.prd[0].ilb_subnet_name}

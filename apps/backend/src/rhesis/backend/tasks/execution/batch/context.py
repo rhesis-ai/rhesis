@@ -43,6 +43,7 @@ class ExecutionContext:
     endpoint: Endpoint
     organization_id: str
     user_id: Optional[str]
+    project_id: Optional[str] = None
     execution_model: Any = None
     evaluation_model: Any = None
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
@@ -77,14 +78,18 @@ def prefetch_execution_context(
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
     from rhesis.backend.app import crud
-    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.services.test_set import get_test_set
     from rhesis.backend.tasks.execution.executors.data import get_test_metrics
 
     organization_id = str(test_config.organization_id) if test_config.organization_id else ""
     user_id = str(test_config.user_id) if test_config.user_id else None
+    # Carry the project so project filtering / stamping applies. Without it this
+    # would wipe the project GUC set by BaseTask.get_db_session() and the batch
+    # would lose access to its project-scoped rows under fail-closed RLS.
+    project_id = str(test_config.project_id) if test_config.project_id else ""
 
-    set_session_variables(session, organization_id, user_id or "")
+    bind_scope_to_session(session, organization_id, user_id or "", project_id)
 
     test_set = get_test_set(session, str(test_config.test_set_id))
 
@@ -108,12 +113,13 @@ def prefetch_execution_context(
     execution_model = None
     evaluation_model = None
     try:
-        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+        from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import (
             get_evaluation_model_with_override,
             get_execution_model_with_override,
         )
 
+        model_settings = get_model_settings()
         override_execution_model_id = attrs.get("execution_model_id")
         override_evaluation_model_id = attrs.get("evaluation_model_id")
 
@@ -128,19 +134,20 @@ def prefetch_execution_context(
                 )
             else:
                 logger.warning(f"User {user_id} not found, using default models")
-                execution_model = DEFAULT_EXECUTION_MODEL
-                evaluation_model = DEFAULT_EVALUATION_MODEL
+                execution_model = model_settings.execution_model
+                evaluation_model = model_settings.evaluation_model
         else:
-            execution_model = DEFAULT_EXECUTION_MODEL
-            evaluation_model = DEFAULT_EVALUATION_MODEL
+            execution_model = model_settings.execution_model
+            evaluation_model = model_settings.evaluation_model
     except Exception as e:
-        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+        from rhesis.backend.app.config.settings import get_model_settings
 
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
+        model_settings = get_model_settings()
         if execution_model is None:
-            execution_model = DEFAULT_EXECUTION_MODEL
+            execution_model = model_settings.execution_model
         if evaluation_model is None:
-            evaluation_model = DEFAULT_EVALUATION_MODEL
+            evaluation_model = model_settings.evaluation_model
 
     # Pre-fetch per-test data
     test_data: Dict[str, Any] = {}
@@ -220,7 +227,9 @@ def prefetch_execution_context(
 
         project_id = str(endpoint.project_id) if endpoint.project_id else None
         environment = endpoint.environment
-        connector_metric_sender = _build_connector_metric_sender(project_id, environment)
+        connector_metric_sender = _build_connector_metric_sender(
+            project_id, environment, organization_id
+        )
     except Exception as e:
         logger.warning(f"Failed to build connector metric sender: {e}")
 
@@ -257,6 +266,7 @@ def prefetch_execution_context(
         endpoint=endpoint,
         organization_id=organization_id,
         user_id=user_id,
+        project_id=project_id,
         execution_model=execution_model,
         evaluation_model=evaluation_model,
         metric_configs=metric_configs,

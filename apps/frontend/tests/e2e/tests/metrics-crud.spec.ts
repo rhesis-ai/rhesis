@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { MetricsPage } from '../pages/MetricsPage';
 
 /**
@@ -8,9 +8,6 @@ import { MetricsPage } from '../pages/MetricsPage';
  * A4.5 (fill and submit metric form), A4.6 (edit metric from detail page),
  * A4.7 (assign metric to behavior from metric list card).
  *
- * The Metrics page is only visible to superusers; tests gracefully skip
- * when redirected away from /metrics (non-superuser session).
- *
  * All tests run against the real backend in Quick Start mode.
  */
 test.describe('Metrics — CRUD @crud', () => {
@@ -18,15 +15,9 @@ test.describe('Metrics — CRUD @crud', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping New Metric dialog test');
-      return;
-    }
-
     await metricsPage.expectLoaded();
 
-    // "New Metric" button lives in the SearchAndFilterBar
+    // "New Metric" FAB lives in PageLayout actions
     const newMetricBtn = page
       .getByRole('button', { name: /^new metric$/i })
       .first();
@@ -64,14 +55,6 @@ test.describe('Metrics — CRUD @crud', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(
-        true,
-        'Not a superuser — skipping metric creation navigation test'
-      );
-      return;
-    }
 
     await metricsPage.expectLoaded();
 
@@ -129,13 +112,7 @@ test.describe('Metrics — CRUD @crud', () => {
     await page.goto('/metrics/new?type=custom-prompt');
     await page.waitForLoadState('networkidle');
 
-    if (!page.url().includes('/metrics/new')) {
-      test.skip(
-        true,
-        'Not a superuser or redirected — skipping metric creation test'
-      );
-      return;
-    }
+    await expect(page).toHaveURL(/\/metrics\/new/);
 
     const UNIQUE_NAME = `e2e-metric-${Date.now()}`;
 
@@ -251,11 +228,6 @@ test.describe('Metrics — CRUD @crud', () => {
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
 
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping metric edit test');
-      return;
-    }
-
     await metricsPage.expectLoaded();
 
     const cardCount = await metricsPage.getCardCount();
@@ -340,11 +312,6 @@ test.describe('Metrics — CRUD @crud', () => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
-
-    if (!page.url().includes('/metrics')) {
-      test.skip(true, 'Not a superuser — skipping assign-to-behavior test');
-      return;
-    }
 
     await metricsPage.expectLoaded();
 

@@ -29,7 +29,98 @@ Demonstrates:
 
 **Use Case**: When you want to see telemetry in a real API server context.
 
-### 3. LangChain Auto-Instrumentation
+### 3. CrewAI Multi-Agent
+**File**: `crewai_example.py`
+
+Demonstrates (see [issue #1166](https://github.com/rhesis-ai/rhesis/issues/1166)):
+- Multiple agents: **planner**, **researcher**, **writer**
+- Task delegation and sequential orchestration (CrewAI `Task` + `context`)
+- Nested trace hierarchy (pipeline → per-agent spans via `@observe` → LLM children)
+- Agent-to-agent handoff visibility (`ai.agent.handoff` via `@observe`)
+- LLM call telemetry (tokens, cost, latency) via `auto_instrument()`
+- OpenAI or Gemini (set `CREWAI_MODEL` and the matching API key in `.env`)
+
+**Use Case**: Debug CrewAI multi-agent workflows with per-agent spans, handoffs, and LLM cost/latency in Rhesis.
+
+```bash
+uv run --extra crewai crewai_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 4. LangGraph Multi-Node Workflow
+**File**: `langgraph_example.py`
+
+Demonstrates:
+- Multi-node LangGraph workflow with automatic tracing
+- Token counts and cost attributes per LLM call
+- Provider-agnostic instrumentation via LangChain callbacks
+
+**Use Case**: When you orchestrate agents with LangGraph state machines.
+
+### 5. Direct OpenAI / Anthropic Python SDK
+**File**: `openai_sdk_example.py`
+
+Demonstrates (see [issue #1832](https://github.com/rhesis-ai/rhesis/issues/1832)):
+- **Direct** `openai` or `anthropic` SDK usage (no LangChain dependency in this extra)
+- Chat completion with optional **function / tool** round-trip
+- **Manual instrumentation** via `@observe`:
+  - `ai.agent.invoke` — chat pipeline boundary
+  - `ai.llm.invoke` — each SDK completion (prompt/completion tokens attached)
+  - `ai.tool.invoke` — `lookup_observability_fact` when the model calls it
+- `auto_instrument()` is called for consistency; native OpenAI/Anthropic SDK wrapping is in [#1083](https://github.com/rhesis-ai/rhesis/issues/1083)
+
+**Use Case**: Teams that call provider SDKs directly and need token/latency visibility in Rhesis today.
+
+```bash
+# OpenAI (default)
+uv run --extra openai-sdk openai_sdk_example.py
+
+# Anthropic
+OPENAI_SDK_PROVIDER=anthropic uv run --extra openai-sdk openai_sdk_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 6. Pydantic AI Agent
+**File**: `pydantic_ai_example.py`
+
+Demonstrates (see [issue #1831](https://github.com/rhesis-ai/rhesis/issues/1831)):
+- Pydantic AI agent with **structured output** (`ObservabilityBrief`)
+- Optional **tool** (`lookup_observability_snippet`) with explicit tracing
+- **Manual instrumentation** via `@observe` — `ai.agent.invoke` for runs, `ai.tool.invoke` for tools
+- Nested hierarchy under `pydantic_ai_observability_pipeline`
+- OpenAI or Gemini (set `PYDANTIC_AI_MODEL` and the matching API key in `.env`)
+
+Pydantic AI is OTel/OpenInference compatible; this example uses `@observe` so agent and tool
+boundaries show up in Rhesis today. Full `auto_instrument()` coverage is tracked in
+[#1083](https://github.com/rhesis-ai/rhesis/issues/1083).
+
+**Use Case**: Trace Pydantic AI agents with structured outputs and tool calls before native auto-instrumentation lands.
+
+```bash
+uv run --extra pydantic-ai pydantic_ai_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 7. LlamaIndex RAG
+**File**: `llamaindex_example.py`
+
+Demonstrates (see [issue #1828](https://github.com/rhesis-ai/rhesis/issues/1828)):
+- In-memory **RAG** pipeline: index → **retrieve** → **synthesize**
+- **Manual instrumentation** via `@observe`:
+  - `ai.agent.invoke` — `llamaindex_rag_pipeline`
+  - `ai.retrieval` — chunk lookup (`llamaindex` backend, top-k)
+  - `ai.llm.invoke` — answer synthesis
+- OpenAI or Gemini via `LLAMAINDEX_PROVIDER` and matching API key in `.env`
+- `auto_instrument()` does not yet wrap LlamaIndex; [#1083](https://github.com/rhesis-ai/rhesis/issues/1083) tracks full auto-instrumentation
+
+**Use Case**: Debug RAG pipelines with visible retrieval and synthesis spans in Rhesis.
+
+```bash
+uv run --extra llamaindex llamaindex_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 8. LangChain Auto-Instrumentation
 **File**: `langchain_example.py`
 
 Demonstrates:
@@ -66,6 +157,18 @@ uv sync
 
 # Install with LangChain support
 uv sync --extra langchain
+
+# Install with direct OpenAI/Anthropic SDK support
+uv sync --extra openai-sdk
+
+# Install with Pydantic AI support
+uv sync --extra pydantic-ai
+
+# Install with LlamaIndex RAG support
+uv sync --extra llamaindex
+
+# Install with CrewAI support
+uv sync --extra crewai
 ```
 
 ## Prerequisites - Start the Backend
@@ -91,8 +194,11 @@ Set your environment variables:
 export RHESIS_API_KEY="your-api-key"
 export RHESIS_PROJECT_ID="your-project-id"
 
-# Required for LangChain example: Google Gemini API key
+# LangChain / LlamaIndex (gemini): Google API key
 export GOOGLE_API_KEY="your-gemini-api-key"
+
+# OpenAI SDK example (default provider), Pydantic AI, or LlamaIndex with OpenAI
+export OPENAI_API_KEY="your-openai-api-key"
 ```
 
 **Important**: 
@@ -127,8 +233,23 @@ uv run --extra fastapi fastapi_example.py
 # curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \
 #   -d '{"input": "What is the weather like?", "session_id": "test-123"}'
 
+# Direct OpenAI / Anthropic SDK example (manual @observe)
+uv run --extra openai-sdk openai_sdk_example.py
+
+# Pydantic AI example (manual @observe instrumentation)
+uv run --extra pydantic-ai pydantic_ai_example.py
+
+# LlamaIndex RAG example (manual @observe)
+uv run --extra llamaindex llamaindex_example.py
+
 # LangChain example (auto-instrumentation)
 uv run --extra langchain langchain_example.py
+
+# CrewAI multi-agent example
+uv run --extra crewai crewai_example.py
+
+# LangGraph workflow example
+uv run --extra langgraph langgraph_example.py
 ```
 
 **How it works**: `uv run` automatically:

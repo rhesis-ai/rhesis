@@ -11,7 +11,7 @@ dependencies = [
 [project.optional-dependencies]
 langchain = [
     "langchain>=1.0.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.3.3",
     "langchain-google-genai>=2.0.0",
 ]
 fastapi = [
@@ -21,7 +21,24 @@ fastapi = [
 langgraph = [
     "langgraph>=0.0.26",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.3.3",
+]
+openai-sdk = [
+    "anthropic>=0.40.0",
+    "openai>=1.0.0",
+]
+pydantic-ai = [
+    "pydantic-ai>=1.31.0",
+]
+llamaindex = [
+    "llama-index-core>=0.12.0",
+    "llama-index-embeddings-google-genai>=0.5.0",
+    "llama-index-embeddings-openai>=0.3.0",
+    "llama-index-llms-google-genai>=0.5.0",
+    "llama-index-llms-openai>=0.3.0",
+]
+crewai = [
+    "crewai[google-genai]>=0.108.0",
 ]
 
 [tool.uv]
@@ -31,14 +48,21 @@ constraint-dependencies = [
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "tornado>=6.5.5",
-    "aiohttp>=3.13.5",
+    "aiohttp>=3.13.3",
     "langchain-openai>=1.1.14",
+    "gitpython>=3.1.50",
+    "langchain-core>=1.3.3",
+    "langchain-classic>=1.0.7",
+    "langsmith>=0.8.0",
+    "urllib3>=2.7.0",
+    "idna>=3.15",
+    "python-multipart>=0.0.27",
 ]
 override-dependencies = [
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
+    "openai>=2.26.0",
 ]
 
 [tool.uv.sources]
 rhesis-sdk = { path = "../../sdk", editable = true }
-

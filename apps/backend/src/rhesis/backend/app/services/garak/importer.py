@@ -10,7 +10,7 @@ Uses the bulk creation infrastructure to ensure proper metadata is set
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -170,7 +170,7 @@ class GarakImporter:
 
     def _build_garak_metadata(self, probe: GarakProbeInfo) -> Dict[str, Any]:
         """Build Garak-specific metadata for a test set."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         return {
             "source": "garak",
             "garak_version": self._garak_version,

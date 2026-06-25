@@ -8,6 +8,8 @@ import re
 from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
 
+from rhesis.backend.app.config.settings import get_frontend_settings
+
 from .sendgrid_client import SendGridClient
 from .smtp import SMTPService
 from .template_service import EmailTemplate, TemplateService
@@ -156,7 +158,7 @@ class EmailService:
 
         # Set default frontend URL if not provided
         if not frontend_url:
-            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+            frontend_url = get_frontend_settings().url
 
         subject = f"You're invited to join {organization_name} on Rhesis AI!"
 
@@ -203,7 +205,7 @@ class EmailService:
 
         # Set default URLs if not provided
         if not frontend_url:
-            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+            frontend_url = get_frontend_settings().url
 
         if not calendar_link:
             calendar_link = os.getenv("WELCOME_CALENDAR_LINK")
@@ -323,7 +325,7 @@ class EmailService:
         )
 
         if not frontend_url:
-            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+            frontend_url = get_frontend_settings().url
 
         from_email = os.getenv("WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>')
 

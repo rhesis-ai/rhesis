@@ -24,9 +24,14 @@ def generate_embedding_task(
     model_id: str | None = None,
     searchable_text: str | None = None,
 ):
+    """Run :meth:`~rhesis.backend.app.services.embedding.generator.EmbeddingGenerator.generate`.
+
+    Return value is that method's result dict (``status``, ``embedding_id``). See its
+    docstring for ``status`` values, including ``skipped_empty_text`` when text is empty.
+    """
     from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
 
-    organization_id, user_id = self.get_tenant_context()
+    organization_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context(
         "info",
@@ -46,5 +51,4 @@ def generate_embedding_task(
             searchable_text=searchable_text,
         )
 
-    self.log_with_context("info", "Embedding generated successfully", status=result["status"])
     return result

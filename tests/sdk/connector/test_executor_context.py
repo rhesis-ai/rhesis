@@ -1,9 +1,10 @@
-"""Tests for executor handling of test execution context."""
+"""Tests for executor handling of test execution context and EndpointContext injection."""
 
 import pytest
+from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
 
 from rhesis.sdk.connector.executor import TestExecutor
-from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.telemetry.context import get_test_execution_context
 
 
@@ -139,3 +140,211 @@ async def test_async_function_with_context(executor, sample_test_context):
     assert result["output"] == 12
     # Context should be cleared
     assert get_test_execution_context() is None
+
+
+# ── EndpointContext injection ────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_endpoint_context_injected_by_type_annotation(executor):
+    """When a parameter is annotated as EndpointContext, the executor
+    injects it from the ``endpoint_context`` kwarg rather than from
+    wire inputs."""
+
+    def func_with_ctx(message: str, ctx: EndpointContext) -> dict:
+        return {
+            "message": message,
+            "org": ctx.organization_id,
+            "user": ctx.user_id,
+        }
+
+    ctx = EndpointContext(organization_id="org-1", user_id="user-1")
+    result = await executor.execute(
+        func_with_ctx,
+        "func_with_ctx",
+        {"message": "hi"},
+        endpoint_context=ctx,
+    )
+
+    assert result["status"] == "success"
+    assert result["output"]["org"] == "org-1"
+    assert result["output"]["user"] == "user-1"
+    assert result["output"]["message"] == "hi"
+
+
+@pytest.mark.asyncio
+async def test_endpoint_context_not_injected_when_none(executor):
+    """When ``endpoint_context`` is None, the parameter is simply
+    skipped (no injection), which means the function must have a default
+    or accept the missing arg."""
+
+    def func_with_optional_ctx(
+        message: str,
+        ctx: EndpointContext = None,
+    ) -> str:
+        return f"{message}:{ctx}"
+
+    result = await executor.execute(
+        func_with_optional_ctx,
+        "func",
+        {"message": "hi"},
+        endpoint_context=None,
+    )
+
+    assert result["status"] == "success"
+    assert result["output"] == "hi:None"
+
+
+@pytest.mark.asyncio
+async def test_endpoint_context_wire_input_blocked_when_context_provided(executor):
+    """SECURITY: Wire inputs must NOT override the injected EndpointContext
+    even when an attacker includes a ``ctx`` key in the inputs dict.
+    The injected context must always win."""
+
+    injected = EndpointContext(organization_id="trusted-org", user_id="trusted-user")
+
+    def func(ctx: EndpointContext) -> dict:
+        return {"org": ctx.organization_id, "user": ctx.user_id}
+
+    malicious_inputs = {"ctx": {"organization_id": "attacker-org", "user_id": "attacker-user"}}
+    result = await executor.execute(func, "func", malicious_inputs, endpoint_context=injected)
+
+    assert result["status"] == "success"
+    assert result["output"]["org"] == "trusted-org"
+    assert result["output"]["user"] == "trusted-user"
+
+
+@pytest.mark.asyncio
+async def test_endpoint_context_wire_input_blocked_when_context_none(executor):
+    """SECURITY: Wire inputs must NOT be used to construct an EndpointContext
+    even when ``endpoint_context`` is None.  The parameter is skipped entirely
+    rather than being populated from attacker-controlled wire data."""
+
+    def func(message: str, ctx: EndpointContext = None) -> str:
+        # If the security fix works, ctx stays None (default) even though
+        # the wire input tried to supply a fabricated context.
+        if ctx is not None:
+            return f"HIJACKED:{ctx.organization_id}"
+        return f"safe:{message}"
+
+    malicious_inputs = {
+        "message": "hello",
+        "ctx": {"organization_id": "attacker-org", "user_id": "attacker-user"},
+    }
+    result = await executor.execute(func, "func", malicious_inputs, endpoint_context=None)
+
+    assert result["status"] == "success"
+    assert result["output"] == "safe:hello"
+    assert "HIJACKED" not in result["output"]
+
+
+@pytest.mark.asyncio
+async def test_endpoint_context_not_leaked_to_kwargs(executor):
+    """EndpointContext must not appear in **kwargs even when an
+    endpoint_context is provided -- it only goes to parameters whose
+    type annotation matches."""
+
+    received = {}
+
+    def func_with_kwargs(**kwargs):
+        received.update(kwargs)
+        return "ok"
+
+    ctx = EndpointContext(organization_id="org-2", user_id="user-2")
+    result = await executor.execute(
+        func_with_kwargs,
+        "func",
+        {"x": 1},
+        endpoint_context=ctx,
+    )
+
+    assert result["status"] == "success"
+    assert "ctx" not in received
+    assert "endpoint_context" not in received
+
+
+@pytest.mark.asyncio
+async def test_endpoint_context_skipped_for_non_annotated_param(executor):
+    """A parameter named ``ctx`` but not annotated as EndpointContext
+    must NOT be injected."""
+
+    def func_with_plain_ctx(ctx: str) -> str:
+        return ctx
+
+    ctx = EndpointContext(organization_id="org", user_id="user")
+    result = await executor.execute(
+        func_with_plain_ctx,
+        "func",
+        {"ctx": "plain-value"},
+        endpoint_context=ctx,
+    )
+
+    assert result["status"] == "success"
+    assert result["output"] == "plain-value"
+
+
+# ---------------------------------------------------------------------------
+# EndpointContext.get_db() behaviour
+# ---------------------------------------------------------------------------
+
+
+def test_endpoint_context_get_db_uses_factory():
+    """When a _db_factory is provided, get_db() delegates to it."""
+    from contextlib import contextmanager
+
+    sentinel = object()
+
+    @contextmanager
+    def fake_factory(org_id, user_id, project_id=""):
+        assert org_id == "org"
+        assert user_id == "user"
+        assert project_id == ""
+        yield sentinel
+
+    ctx = EndpointContext(
+        organization_id="org",
+        user_id="user",
+        _db_factory=fake_factory,
+    )
+    with ctx.get_db() as db:
+        assert db is sentinel
+
+
+def test_endpoint_context_get_db_raises_without_factory(monkeypatch):
+    """When no _db_factory is given and the backend package is unavailable,
+    get_db() must raise RuntimeError with a clear message instead of a
+    confusing ImportError or AttributeError."""
+    import sys
+
+    # Pretend the backend module is not installed so the fallback import fails.
+    monkeypatch.setitem(sys.modules, "rhesis.backend.app.database", None)
+
+    ctx = EndpointContext(organization_id="org", user_id="user")
+
+    with pytest.raises((RuntimeError, ImportError)):
+        with ctx.get_db():
+            pass
+
+
+def test_endpoint_context_passes_project_id_to_db_factory():
+    """get_db() must forward project_id to the db_factory so that the
+    returned session is project-scoped, not just org-scoped."""
+    from unittest.mock import MagicMock
+
+    mock_factory = MagicMock()
+    ctx = EndpointContext(
+        organization_id="org-1",
+        user_id="user-1",
+        project_id="proj-1",
+        _db_factory=mock_factory,
+    )
+
+    ctx.get_db()
+
+    mock_factory.assert_called_once_with("org-1", "user-1", "proj-1")
+
+
+def test_endpoint_context_project_id_defaults_to_empty():
+    """project_id should default to empty string for backward compatibility."""
+    ctx = EndpointContext(organization_id="org-1", user_id="user-1")
+    assert ctx.project_id == ""

@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -48,8 +50,11 @@ class TestRunStatsMode(str, Enum):
     SUMMARY = "summary"
 
 
-router = APIRouter(
-    prefix="/test_runs", tags=["test_runs"], responses={404: {"description": "Not found"}}
+router = RhesisRouter(
+    prefix="/test_runs",
+    tags=["test_runs"],
+    responses={404: {"description": "Not found"}},
+    resource="test_run",
 )
 
 
@@ -92,6 +97,11 @@ def read_test_runs(
         alias="$select",
         description="Comma-separated list of fields to return",
     ),
+    has_experiment: bool | None = Query(
+        None,
+        description="Filter by experiment association: true = only runs with an experiment, "
+        "false = only runs without, omit = all runs",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -104,13 +114,32 @@ def read_test_runs(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
+        has_experiment=has_experiment,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )
     if select:
         serialized = jsonable_encoder(results)
         return JSONResponse(content=apply_select(serialized, select))
-    return results
+
+    # Attach accurate per-run pass/fail counts so list views (e.g. the test
+    # runs grid pass-rate column) don't rely on the stale
+    # ``attributes.completed_tests`` / ``failed_tests`` counters. Aggregated in
+    # a single query to avoid the N+1 cost of one stats query per run.
+    from rhesis.backend.tasks.execution.result_processor import get_test_statistics_for_runs
+
+    run_stats = get_test_statistics_for_runs(
+        db,
+        [run.id for run in results],
+        organization_id=str(current_user.organization_id),
+    )
+    serialized = jsonable_encoder(results)
+    for item in serialized:
+        item["stats"] = run_stats.get(
+            str(item.get("id")),
+            {"total": 0, "passed": 0, "failed": 0, "errors": 0},
+        )
+    return JSONResponse(content=serialized)
 
 
 @router.get("/stats", response_model=schemas.TestRunStatsResponse)
@@ -417,7 +446,9 @@ def delete_test_run(
     )
 
 
-@router.post("/{test_run_id}/cancel", response_model=schemas.TestRun)
+@router.post(
+    "/{test_run_id}/cancel", response_model=schemas.TestRun, **capability(Permission.TestRun.UPDATE)
+)
 def cancel_test_run(
     test_run_id: UUID,
     db: Session = Depends(get_tenant_db_session),
@@ -466,7 +497,7 @@ def cancel_test_run(
     )
 
 
-@router.post("/{test_run_id}/rescore")
+@router.post("/{test_run_id}/rescore", **capability(Permission.TestRun.UPDATE))
 async def rescore_test_run_endpoint(
     test_run_id: UUID,
     request: schemas.TestRunRescoreRequest = None,
@@ -638,10 +669,17 @@ async def get_test_run_traces(
             total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
             total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
 
+        conversation_input = None
+        if isinstance(trace.attributes, dict):
+            raw_input = trace.attributes.get("rhesis.conversation.input")
+            if raw_input is not None:
+                conversation_input = str(raw_input)
+
         summary = TraceSummary(
             trace_id=trace.trace_id,
             project_id=str(trace.project_id),
             environment=trace.environment,
+            conversation_input=conversation_input,
             start_time=trace.start_time,
             duration_ms=trace.duration_ms or 0.0,
             span_count=row.span_count,
