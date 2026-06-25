@@ -199,6 +199,12 @@ export function useArchitectChat(
   const prevAwaitingRef = useRef(false);
   const autoApproveRef = useRef(autoApproveAll);
   autoApproveRef.current = autoApproveAll;
+  // Tracks whether the current `error` originated from a denied channel
+  // subscription, so a later successful (re)subscribe can clear it without
+  // clobbering a genuine ARCHITECT_ERROR. The subscribe effect re-subscribes
+  // when sessionProjectId resolves, so a transient empty-project denial may be
+  // followed by a successful subscribe.
+  const subscriptionDeniedRef = useRef(false);
 
   // Reset state when switching sessions. Seed the initial user message
   // immediately so it is visible before the WebSocket connection is ready.
@@ -225,6 +231,7 @@ export function useArchitectChat(
     pendingCorrelationRef.current = null;
     waitingMessageIdRef.current = null;
     prevAwaitingRef.current = false;
+    subscriptionDeniedRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
@@ -271,11 +278,23 @@ export function useArchitectChat(
     if (!sessionId || !isConnected) return;
 
     const channel = `architect:${sessionId}`;
-    subscribeToChannel(channel);
+    // Pass the session's project_id so the backend's subscribe-time
+    // authorization lookup can satisfy the fail-closed project_isolation RLS
+    // policy. Without it the lookup runs with a blank project and cannot see
+    // the project-scoped session, denying the subscription and leaving the
+    // chat stuck on "Thinking…". sessionProjectId is included in the deps so
+    // we re-subscribe once it resolves from the async-loaded session list.
+    subscribeToChannel(channel, sessionProjectId);
     return () => {
       unsubscribeFromChannel(channel);
     };
-  }, [sessionId, isConnected, subscribeToChannel, unsubscribeFromChannel]);
+  }, [
+    sessionId,
+    isConnected,
+    sessionProjectId,
+    subscribeToChannel,
+    unsubscribeFromChannel,
+  ]);
 
   // Subscribe to all architect event types
   useEffect(() => {
@@ -631,6 +650,41 @@ export function useArchitectChat(
       })
     );
 
+    // A denied channel subscription means no architect events will ever arrive
+    // for this session. Surface it and stop waiting instead of hanging on the
+    // "Thinking…" spinner forever. Scoped to this session's channel so denials
+    // for other channels are ignored.
+    unsubs.push(
+      subscribe(EventType.SUBSCRIPTION_ERROR, (msg: WebSocketMessage) => {
+        const payload = msg.payload as
+          | { channel?: string; error?: string }
+          | undefined;
+        const deniedChannel = payload?.channel ?? msg.channel;
+        if (deniedChannel !== `architect:${sessionId}`) return;
+
+        setIsLoading(false);
+        setStreamingState(initialStreamingState);
+        pendingCorrelationRef.current = null;
+
+        subscriptionDeniedRef.current = true;
+        const errorMsg = payload?.error || 'Could not connect to this session';
+        setError(errorMsg);
+      })
+    );
+
+    // A successful (re)subscribe clears a prior subscription-denial error —
+    // the subscribe effect retries once sessionProjectId resolves, so an early
+    // empty-project denial shouldn't leave a stale alert on screen.
+    unsubs.push(
+      subscribe(EventType.SUBSCRIBED, (msg: WebSocketMessage) => {
+        if (msg.channel !== `architect:${sessionId}`) return;
+        if (subscriptionDeniedRef.current) {
+          subscriptionDeniedRef.current = false;
+          setError(null);
+        }
+      })
+    );
+
     return () => unsubs.forEach(fn => fn());
   }, [reconcileDismissedPlan, subscribe, sessionId]);
 
@@ -709,7 +763,7 @@ export function useArchitectChat(
         pendingCorrelationRef.current = null;
       }
     },
-    [sessionId, isConnected, isLoading, send]
+    [sessionId, sessionProjectId, isConnected, isLoading, send]
   );
 
   const visiblePlan = useMemo(

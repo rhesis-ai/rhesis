@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-25
+
+### Added
+
+- **Microsoft Agent Framework (MAF) Integration**: Added a new telemetry integration (`rhesis.sdk.telemetry.integrations.agent_framework`) that hooks MAF ChatAgent invocations, tool calls, and `HandoffBuilder` workflow spans, translating them into the Rhesis span schema.
+- **New MCP Tools**:
+  - Added inspection tools
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Added

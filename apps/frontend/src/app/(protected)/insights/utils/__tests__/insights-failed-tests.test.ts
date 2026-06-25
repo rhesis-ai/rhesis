@@ -1,6 +1,7 @@
 import {
   buildInsightsFailedTestsUrl,
   formatInsightsFailedTestsBanner,
+  formatInsightsSummaryDetail,
   formatInsightsTimeRangeLabel,
   parseInsightsFailedTestsSearchParams,
 } from '../insights-failed-tests';
@@ -69,6 +70,24 @@ describe('insights-failed-tests', () => {
   it('formats time range labels', () => {
     expect(formatInsightsTimeRangeLabel('1d')).toBe('1 day');
     expect(formatInsightsTimeRangeLabel('3m')).toBe('3 months');
+  });
+
+  it('formats summary detail with test results wording', () => {
+    expect(formatInsightsSummaryDetail(10, 20, 10)).toBe(
+      '(10/20 test results passed, 10 failed)'
+    );
+  });
+
+  it('appends unique failed test case count when it differs from failures', () => {
+    expect(formatInsightsSummaryDetail(10, 20, 10, 5)).toBe(
+      '(10/20 test results passed, 10 failed · 5 unique test cases failed)'
+    );
+  });
+
+  it('omits unique failed test case count when it matches failures', () => {
+    expect(formatInsightsSummaryDetail(7, 10, 3, 3)).toBe(
+      '(7/10 test results passed, 3 failed)'
+    );
   });
 
   it('formats banner for metric drill-down', () => {

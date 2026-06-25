@@ -36,6 +36,10 @@ class EventType(str, Enum):
     UNSUBSCRIBE = "unsubscribe"
     SUBSCRIBED = "subscribed"
     UNSUBSCRIBED = "unsubscribed"
+    # A SUBSCRIBE request was rejected (auth/not-found). Carries the offending
+    # ``channel`` so a subscriber can correlate the failure and stop waiting on
+    # events that will never arrive, instead of hanging silently.
+    SUBSCRIPTION_ERROR = "subscription_error"
 
     # Generic events (use-case specific events added as needed)
     NOTIFICATION = "notification"

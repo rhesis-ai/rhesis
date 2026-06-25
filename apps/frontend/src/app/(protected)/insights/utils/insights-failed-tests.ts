@@ -178,17 +178,20 @@ const TEST_RUN_ID_CHUNK = 15;
  */
 export async function fetchFailedTestIdsForInsights(
   sessionToken: string,
-  filters: InsightsRunContextFilters & InsightsFailedTestsScope
+  filters: InsightsRunContextFilters &
+    InsightsFailedTestsScope & { testRunIds?: string[] }
 ): Promise<string[]> {
   if (!filters.endpointId) {
     return [];
   }
 
-  const testRunIds = await fetchTestRunIdsForEndpoint(
-    sessionToken,
-    filters.endpointId,
-    filters.timeRange
-  );
+  const testRunIds =
+    filters.testRunIds ??
+    (await fetchTestRunIdsForEndpoint(
+      sessionToken,
+      filters.endpointId,
+      filters.timeRange
+    ));
   if (testRunIds.length === 0) {
     return [];
   }
@@ -265,6 +268,28 @@ export async function fetchFailedTestIdsForInsights(
   }
 
   return testIds;
+}
+
+export function formatInsightsSummaryDetail(
+  passed: number,
+  total: number,
+  failed: number,
+  failedTestCaseCount?: number
+): string {
+  let detail = `(${passed}/${total} test results passed`;
+  if (failed > 0) {
+    detail += `, ${failed} failed`;
+    if (
+      failedTestCaseCount !== undefined &&
+      failedTestCaseCount > 0 &&
+      failedTestCaseCount !== failed
+    ) {
+      const noun = failedTestCaseCount === 1 ? 'test case' : 'test cases';
+      detail += ` · ${failedTestCaseCount} unique ${noun} failed`;
+    }
+  }
+  detail += ')';
+  return detail;
 }
 
 export function formatInsightsTimeRangeLabel(

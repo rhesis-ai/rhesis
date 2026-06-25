@@ -186,7 +186,17 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
 
     const handleUrlChange = (id: string, url: string) => {
       setUrlItems(prev =>
-        prev.map(item => (item.id === id ? { ...item, url } : item))
+        prev.map(item =>
+          item.id === id
+            ? {
+                ...item,
+                url,
+                status: 'pending',
+                error: undefined,
+                title: undefined,
+              }
+            : item
+        )
       );
     };
 
@@ -477,14 +487,36 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
               placeholder={providerLabels.placeholder}
               value={item.url}
               onChange={e => handleUrlChange(item.id, e.target.value)}
-              disabled={item.status !== 'pending'}
+              disabled={previewing || importing || item.status === 'success'}
               error={item.status === 'error'}
               helperText={
-                item.status === 'error'
-                  ? item.error
-                  : item.status === 'success'
-                    ? `Imported: ${item.title}`
-                    : ''
+                item.status === 'error' ? (
+                  <Box
+                    component="span"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  >
+                    <ErrorIcon fontSize="inherit" color="error" />
+                    {item.error ||
+                      'Import failed. Check the URL and try again.'}
+                  </Box>
+                ) : item.status === 'success' ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      color: 'success.main',
+                    }}
+                  >
+                    <CheckCircleIcon fontSize="inherit" />
+                    {item.title && item.title !== item.url
+                      ? `Imported: ${item.title}`
+                      : 'Imported successfully'}
+                  </Box>
+                ) : (
+                  ''
+                )
               }
               sx={drawerOutlinedFieldSx}
               InputProps={{

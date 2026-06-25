@@ -23,8 +23,7 @@ import logging
 import uuid
 from typing import Any, Callable, List, Optional, TypeVar
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -33,6 +32,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.file import FileEntityType
 from rhesis.backend.app.services.storage_service import NotSupportedError, StorageService
 
@@ -251,6 +251,7 @@ async def upload_files(
                 content_type=content_type,
                 content_hash=content_hash,
                 organization_id=organization_id,
+                project_id=str(created.project_id) if created.project_id else "",
             )
         except Exception:
             # Surface broker / import / serialization failures so we don't

@@ -160,4 +160,16 @@ describe('TestResultsFilters', () => {
       'true'
     );
   });
+
+  it('hides behavior search in compact variant but keeps filters and time range', () => {
+    renderFilters({ variant: 'compact' });
+
+    expect(
+      screen.queryByPlaceholderText(/search behaviors/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /filters/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1M' })).toBeInTheDocument();
+  });
 });

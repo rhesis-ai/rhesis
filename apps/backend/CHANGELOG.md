@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-25
+
+ana).
+        *   Support for passing custom API base endpoints (`api_base`) to models in the SDK.
+    *   **Changed**:
+        *   Enforced user ownership in visibility filters and removed "public" visibility option for TestSets (now restricted to organization and user).
+        *   Optimized test run detail page performance by eager-loading nested test result
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Added

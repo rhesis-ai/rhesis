@@ -33,7 +33,7 @@ interface WebSocketContextValue {
     handler: EventHandler
   ) => () => void;
   /** Subscribe to a backend channel */
-  subscribeToChannel: (channel: string) => void;
+  subscribeToChannel: (channel: string, projectId?: string | null) => void;
   /** Unsubscribe from a backend channel */
   unsubscribeFromChannel: (channel: string) => void;
   /** Manually trigger a reconnection attempt */
@@ -152,13 +152,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   /**
    * Subscribe to a backend channel.
    */
-  const subscribeToChannel = useCallback((channel: string): void => {
-    if (!clientRef.current) {
-      console.warn('WebSocket client not initialized');
-      return;
-    }
-    clientRef.current.subscribeToChannel(channel);
-  }, []);
+  const subscribeToChannel = useCallback(
+    (channel: string, projectId?: string | null): void => {
+      if (!clientRef.current) {
+        console.warn('WebSocket client not initialized');
+        return;
+      }
+      clientRef.current.subscribeToChannel(channel, projectId);
+    },
+    []
+  );
 
   /**
    * Unsubscribe from a backend channel.

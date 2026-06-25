@@ -1,14 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { InsightsFilters } from '../types';
 import { BehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
 import { BehaviorInsightColumn } from '../utils/behavior-insights-utils';
@@ -21,12 +14,16 @@ interface BehaviorInsightsViewProps {
   filters: InsightsFilters;
   insights: Pick<
     BehaviorInsightsData,
-    'summary' | 'columns' | 'loading' | 'error' | 'noRuns'
+    | 'summary'
+    | 'columns'
+    | 'loading'
+    | 'error'
+    | 'noRuns'
+    | 'failedTestCaseCount'
   >;
   searchQuery?: string;
   endpointName?: string;
   endpointsLoading?: boolean;
-  noEndpoints?: boolean;
   columnRows: BehaviorInsightColumn[][];
   expandedRows: Set<number>;
   onRowToggle: (rowIndex: number) => void;
@@ -44,31 +41,14 @@ export default function BehaviorInsightsView({
   searchQuery = '',
   endpointName,
   endpointsLoading = false,
-  noEndpoints = false,
   columnRows,
   expandedRows,
   onRowToggle,
 }: BehaviorInsightsViewProps) {
-  const { summary, loading, error, noRuns } = insights;
+  const { summary, loading, error } = insights;
 
   const isLoading = endpointsLoading || loading;
   const hasVisibleColumns = columnRows.some(row => row.length > 0);
-
-  if (noEndpoints) {
-    return (
-      <Box sx={{ py: 6, textAlign: 'center' }}>
-        <Typography variant="h6" gutterBottom>
-          No endpoints in this project
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Create an endpoint to view behavior insights for your AI application.
-        </Typography>
-        <Button component={Link} href="/endpoints" variant="contained">
-          Go to Endpoints
-        </Button>
-      </Box>
-    );
-  }
 
   if (!filters.endpointId) {
     if (endpointsLoading) {
@@ -94,15 +74,10 @@ export default function BehaviorInsightsView({
         summary={summary}
         endpointName={endpointName}
         loading={isLoading}
+        failedTestCaseCount={insights.failedTestCaseCount}
       />
 
       {error && <Alert severity="error">{error}</Alert>}
-
-      {noRuns && !isLoading && !error && (
-        <Alert severity="info">
-          No test runs found for this endpoint in the selected time range.
-        </Alert>
-      )}
 
       {isLoading ? (
         <Box
@@ -143,7 +118,6 @@ export default function BehaviorInsightsView({
         </Box>
       ) : (
         !isLoading &&
-        !noRuns &&
         !error && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
             {searchQuery.trim()
