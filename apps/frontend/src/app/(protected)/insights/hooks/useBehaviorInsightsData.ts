@@ -16,6 +16,7 @@ import {
   buildBehaviorColumns,
   fetchTestRunIdsForEndpoint,
 } from '../utils/behavior-insights-utils';
+import { fetchFailedTestIdsForInsights } from '../utils/insights-failed-tests';
 
 const EMPTY_SUMMARY: PassFailStats = {
   total: 0,
@@ -28,6 +29,8 @@ export interface BehaviorInsightsData {
   summary: PassFailStats | null;
   metadata: TestResultsStatsMetadata | null;
   columns: BehaviorInsightColumn[];
+  /** Unique failed test case count; null while resolving or after filter change. */
+  failedTestCaseCount: number | null;
   loading: boolean;
   error: string | null;
   noRuns: boolean;
@@ -42,6 +45,9 @@ export function useBehaviorInsightsData(
     null
   );
   const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
+  const [failedTestCaseCount, setFailedTestCaseCount] = useState<number | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -57,6 +63,7 @@ export function useBehaviorInsightsData(
       setSummary(null);
       setMetadata(null);
       setColumns([]);
+      setFailedTestCaseCount(0);
       setNoRuns(false);
       setError(null);
       return;
@@ -64,6 +71,7 @@ export function useBehaviorInsightsData(
 
     const requestId = ++requestIdRef.current;
     setLoading(true);
+    setFailedTestCaseCount(null);
     setError(null);
 
     if (debounceRef.current) {
@@ -85,6 +93,7 @@ export function useBehaviorInsightsData(
             setSummary(EMPTY_SUMMARY);
             setMetadata(null);
             setColumns([]);
+            setFailedTestCaseCount(0);
             setNoRuns(true);
             setLoading(false);
             return;
@@ -146,7 +155,9 @@ export function useBehaviorInsightsData(
 
           if (!isCurrentRequest(requestId)) return;
 
-          setSummary(summaryResult.overall_pass_rates ?? EMPTY_SUMMARY);
+          const overallSummary =
+            summaryResult.overall_pass_rates ?? EMPTY_SUMMARY;
+          setSummary(overallSummary);
           setMetadata(
             summaryResult.metadata ?? behaviorResult.metadata ?? null
           );
@@ -157,7 +168,30 @@ export function useBehaviorInsightsData(
               perBehaviorResults
             )
           );
+
           setLoading(false);
+
+          if ((overallSummary.failed ?? 0) > 0) {
+            void (async () => {
+              try {
+                const failedIds = await fetchFailedTestIdsForInsights(
+                  sessionToken,
+                  {
+                    endpointId: filters.endpointId,
+                    timeRange: resolveInsightsTimeRange(filters.timeRange),
+                    testRunIds,
+                  }
+                );
+                if (!isCurrentRequest(requestId)) return;
+                setFailedTestCaseCount(failedIds.length);
+              } catch {
+                if (!isCurrentRequest(requestId)) return;
+                setFailedTestCaseCount(0);
+              }
+            })();
+          } else {
+            setFailedTestCaseCount(0);
+          }
         } catch (err) {
           if (!isCurrentRequest(requestId)) return;
           setError(
@@ -175,5 +209,13 @@ export function useBehaviorInsightsData(
     };
   }, [sessionToken, filters.endpointId, filters.timeRange]);
 
-  return { summary, metadata, columns, loading, error, noRuns };
+  return {
+    summary,
+    metadata,
+    columns,
+    failedTestCaseCount,
+    loading,
+    error,
+    noRuns,
+  };
 }

@@ -55,6 +55,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const {
     summary,
     columns,
+    failedTestCaseCount,
     loading: insightsLoading,
     error,
     noRuns,
@@ -189,8 +190,10 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     [projectEndpoints, filters.endpointId]
   );
 
-  const failedCount = summary?.failed ?? 0;
-  const fabLoading = endpointsLoading || insightsLoading;
+  const fabLoading =
+    endpointsLoading ||
+    insightsLoading ||
+    (failedTestCaseCount === null && (summary?.failed ?? 0) > 0);
 
   const pageView = resolveInsightsPageView({
     endpointsLoading,
@@ -220,7 +223,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
       actions={
         <InsightsFailedTestsFab
           filters={filters}
-          failedCount={failedCount}
+          failedCount={failedTestCaseCount ?? 0}
           loading={fabLoading}
           disabled={projectEndpoints.length === 0}
         />
@@ -276,6 +279,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
               insights={{
                 summary,
                 columns: filteredColumns,
+                failedTestCaseCount,
                 loading: insightsLoading,
                 error,
                 noRuns,
