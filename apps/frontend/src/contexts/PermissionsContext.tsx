@@ -51,6 +51,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status !== 'authenticated' || !session?.session_token) {
+      // Logout / session expiry: clear any prior permissions so they cannot
+      // leak across an auth transition (fail-closed).
+      setState(DEFAULT_STATE);
       return;
     }
 

@@ -500,26 +500,35 @@ def permitted_actions_for(
     resource_type: str,
     *,
     current_user_id: Optional[UUID],
+    own_gated_actions: "frozenset[str] | set[str]" = frozenset(),
 ) -> list[str]:
     """Project a caller's effective capabilities onto one object instance.
 
     Given the caller's already-computed effective capability set (the same set
     returned by ``GET /me/permissions``), return the **full capability strings**
-    the caller may exercise on *obj*:
+    the caller may exercise on *obj*. The output must match what the endpoint
+    actually enforces, so an action is granted as follows:
 
-    - ``{resource_type}:{action}`` → permitted unconditionally.
-    - ``{resource_type}:{action}:own`` → permitted iff the caller owns the object
-      (``getattr(obj, "user_id") == current_user_id``); the ``:own`` qualifier is
-      collapsed to the base capability (``comment:update:own`` → ``comment:update``).
+    - **Ownership-gated** (action in *own_gated_actions* — i.e. a
+      ``{resource}:{action}:own`` variant exists, so the route enforces it via
+      ``authorize_object``): granted **iff** the caller owns the object AND holds
+      the ``:own`` cap. The plain ``{resource}:{action}`` cap does **not** grant
+      it — critically, in the community tier every project member holds the plain
+      cap, yet the endpoint restricts edit/delete to the owner. The ``:own``
+      qualifier is collapsed to the base cap (``comment:update:own`` →
+      ``comment:update``).
+    - **Ungated** (no ``:own`` variant, e.g. ``comment:react``): granted iff the
+      caller holds the plain ``{resource}:{action}`` cap.
 
     The output uses the **same full-capability vocabulary** as the scope-level
     ``GET /me/permissions`` feed, so a frontend ``can(subject, capability)`` check
     is identical whether the subject is an object (this list) or a scope (the
     ``/me/permissions`` list). Collection-scoped ``create`` and the implied
-    ``read`` are excluded — this lists object-level *action* affordances.
+    ``read`` are excluded.
 
-    There is deliberately **no per-resource registry** — the capability string is
-    the schema, and ownership is uniform.
+    *own_gated_actions* is derived from the live capability catalog by the caller
+    (see :func:`~rhesis.backend.app.auth.affordances.populate_permitted_actions`),
+    so there is no per-resource registry here.
     """
     owner_id = getattr(obj, "user_id", None)
     is_owner = current_user_id is not None and owner_id == current_user_id
@@ -532,7 +541,12 @@ def permitted_actions_for(
         if action in ("create", "read"):
             continue
         qualifier = parts[2] if len(parts) > 2 else None
-        if qualifier is None or (qualifier == "own" and is_owner):
+        if action in own_gated_actions:
+            # Mirror the endpoint's authorize_object: owner-only. The plain cap
+            # (held broadly in community) must NOT advertise the action.
+            if qualifier == "own" and is_owner:
+                caps_out.add(f"{resource_type}:{action}")
+        elif qualifier is None:
             caps_out.add(f"{resource_type}:{action}")
     return sorted(caps_out)
 
