@@ -110,16 +110,21 @@ def upgrade() -> None:
     try:
         for table_name in inspector.get_table_names(schema="public"):
             for column in inspector.get_columns(table_name, schema="public"):
-                if (
-                    column["type"].__class__.__name__ == "TIMESTAMP"
-                    and not column["type"].timezone
-                ):
-                    print(f"Converting {table_name}.{column['name']} to TIMESTAMPTZ")
-                    op.alter_column(
-                        table_name,
-                        column["name"],
-                        type_=sa.DateTime(timezone=True),
-                    )
+                if column["type"].__class__.__name__ != "TIMESTAMP":
+                    continue
+                # Idempotent: a column already converted (manually or by a prior
+                # partial run) is timezone-aware, so skip it. This lets ops
+                # pre-convert a hot table like ``trace`` out-of-band and re-run
+                # without redoing or blocking on it.
+                if column["type"].timezone:
+                    print(f"Skipping {table_name}.{column['name']} (already TIMESTAMPTZ)")
+                    continue
+                print(f"Converting {table_name}.{column['name']} to TIMESTAMPTZ")
+                op.alter_column(
+                    table_name,
+                    column["name"],
+                    type_=sa.DateTime(timezone=True),
+                )
     finally:
         op.execute(f"SET TIME ZONE '{original_tz}'")
 
@@ -143,16 +148,18 @@ def downgrade() -> None:
     try:
         for table_name in inspector.get_table_names(schema="public"):
             for column in inspector.get_columns(table_name, schema="public"):
-                if (
-                    column["type"].__class__.__name__ == "TIMESTAMP"
-                    and column["type"].timezone
-                ):
-                    print(f"Reverting {table_name}.{column['name']} to TIMESTAMP")
-                    op.alter_column(
-                        table_name,
-                        column["name"],
-                        type_=sa.DateTime(timezone=False),
-                    )
+                if column["type"].__class__.__name__ != "TIMESTAMP":
+                    continue
+                # Idempotent: skip columns already reverted to naive timestamp.
+                if not column["type"].timezone:
+                    print(f"Skipping {table_name}.{column['name']} (already TIMESTAMP)")
+                    continue
+                print(f"Reverting {table_name}.{column['name']} to TIMESTAMP")
+                op.alter_column(
+                    table_name,
+                    column["name"],
+                    type_=sa.DateTime(timezone=False),
+                )
     finally:
         op.execute(f"SET TIME ZONE '{original_tz}'")
 
