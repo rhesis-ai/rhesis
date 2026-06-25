@@ -9,7 +9,7 @@ Penelope is an autonomous testing agent that executes complex, multi-turn test s
 Penelope automates the kind of testing that requires:
 
 - **Multiple interactions**: Not just one-shot prompts, but extended conversations
-- **Adaptive behavior**: Adjusting strategy based on responses  
+- **Adaptive behavior**: Adjusting strategy based on responses
 - **Tool use**: Making requests, analyzing data, extracting information
 - **Goal orientation**: Knowing when the test is complete
 - **Resource utilization**: Leveraging context and documentation
@@ -35,6 +35,30 @@ result = agent.execute_test(
 
 print(f"Goal achieved: {result.goal_achieved}")
 print(f"Turns used: {result.turns_used}")
+```
+
+### Targets
+
+Penelope can drive several kinds of systems under test:
+
+```python
+from rhesis.penelope import (
+    PenelopeAgent,
+    EndpointTarget,
+    LangChainTarget,
+    LangGraphTarget,
+    MicrosoftAgentFrameworkTarget,
+)
+
+penelope = PenelopeAgent()
+
+# Microsoft Agent Framework agent (async run() is bridged automatically)
+target = MicrosoftAgentFrameworkTarget(maf_agent, target_id="maf-bot")
+
+result = penelope.execute_test(
+    target=target,
+    goal="Verify the assistant keeps context across 3 turns",
+)
 ```
 
 ### Infinite Loop Prevention
@@ -107,7 +131,7 @@ uv sync
 
 - **True Multi-Turn Understanding**: Native support for stateful conversations
 - **Provider Agnostic**: Works with OpenAI, Anthropic, Vertex AI, and more
-- **Target Flexible**: Test any conversational system (Rhesis endpoints, LangChain chains, custom targets)
+- **Target Flexible**: Test any conversational system (Rhesis endpoints, LangChain, LangGraph, Microsoft Agent Framework, custom targets)
 - **Smart Defaults**: Just specify a goal, Penelope plans the rest
 - **LLM-Driven Evaluation**: Intelligent goal achievement detection
 - **Transparent Reasoning**: See Penelope's thought process

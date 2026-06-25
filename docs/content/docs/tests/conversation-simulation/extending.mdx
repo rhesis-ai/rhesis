@@ -65,19 +65,39 @@ LLM-based evaluation of goal achievement using structured output.
 
 ### Targets
 
-Abstraction for systems under test:
+Abstraction for systems under test. Penelope ships with several target adapters — pick the one that matches your system:
 
-<CodeBlock filename="targets.py" language="python">
+<CodeBlock filename="endpoint_target.py" language="python">
 {`from rhesis.penelope import EndpointTarget
 
-# Rhesis endpoints
-target = EndpointTarget(endpoint_id="your-endpoint-id")
-
-# Future: LangChain, CrewAI, custom targets
-# target = LangChainTarget(chain=my_chain)
-# target = CrewAITarget(agent=my_agent)`}
-
+target = EndpointTarget(endpoint_id="your-endpoint-id")`}
 </CodeBlock>
+
+<CodeBlock filename="langchain_target.py" language="python">
+{`from rhesis.penelope import LangChainTarget
+
+target = LangChainTarget(chain=my_chain)`}
+</CodeBlock>
+
+<CodeBlock filename="langgraph_target.py" language="python">
+{`from rhesis.penelope import LangGraphTarget
+
+target = LangGraphTarget(graph=my_graph)`}
+</CodeBlock>
+
+<CodeBlock filename="maf_target.py" language="python">
+{`from agent_framework import ChatAgent
+from agent_framework.openai import OpenAIChatClient
+from rhesis.penelope import MicrosoftAgentFrameworkTarget
+
+maf_agent = ChatAgent(
+    chat_client=OpenAIChatClient(),
+    instructions="You are helpful.",
+)
+target = MicrosoftAgentFrameworkTarget(maf_agent, target_id="maf-bot")`}
+</CodeBlock>
+
+The Microsoft Agent Framework target preserves multi-turn context by keeping a MAF thread/session object per `conversation_id`, and bridges MAF's async `run()` to Penelope's synchronous target contract - so you can drive any MAF agent through Penelope's multi-turn testing without changing the agent.
 
 ### Built-in Tools
 
