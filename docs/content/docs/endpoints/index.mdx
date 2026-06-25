@@ -111,7 +111,12 @@ SDK connector endpoints can also receive parameters as keyword arguments or via 
 - **Duplicate** — Click **Duplicate** on the detail page to copy the full configuration. "(Copy)" is appended to the name. You can also bulk-duplicate from the grid.
 - **Delete** — Select one or more endpoints from the grid and click **Delete**. Historical test results are preserved.
 
-The detail page has four tabs: **Overview** (template + response mapping), **Headers** (auth token + custom headers), **Test** (interactive test-and-map workbench), and **Test Runs** (execution history).
+The detail page uses the same configuration structure as the creation wizard:
+**Overview** (name, URL, protocol, method, environment, and tracing toggle),
+**Connection** (auth token, OAuth client credentials, and custom headers),
+**Mapping** (request template and response mapping), and **Test**
+(interactive test-and-map workbench). Test execution history is available from
+the Test Runs pages and grids rather than an endpoint detail tab.
 
 <Callout type="default">
   **Next Steps**

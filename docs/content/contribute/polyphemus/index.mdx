@@ -13,6 +13,27 @@ It proxies generation requests to Vertex AI and exposes authenticated REST endpo
 - Docker image: API-only service image. PyTorch is not bundled in the Polyphemus
   container; model weights and serving runtime live behind Vertex AI.
 
+## Building the Docker image
+
+Build the Polyphemus image from the repository root. The Dockerfile depends on
+monorepo paths outside `apps/polyphemus`, so using `apps/polyphemus` as the build
+context will fail.
+
+<CodeBlock filename="terminal" language="bash">
+{`# From repository root
+docker build -t polyphemus:latest -f apps/polyphemus/Dockerfile .`}
+</CodeBlock>
+
+The image uses a two-stage build: the builder installs dependencies with
+`uv sync --no-dev`, and the runtime stage copies only the API service and
+required backend package files. The builder copies `uv` and `uvx` from
+`mirror.gcr.io/astral/uv:0.11.19` for reproducible and reliable Docker builds.
+
+<Callout type="info">
+  Keep the `uv` tag and registry mirror aligned with the Dockerfile when
+  upgrading service image builds.
+</Callout>
+
 ## API endpoints
 
 Polyphemus exposes two primary generation endpoints:
