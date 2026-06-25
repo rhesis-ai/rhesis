@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-25
+
+Changed / Redesigned\*_:
+_ Redesigned Insights page as a behavior-centric pass rate view with behavior columns, scoped metrics/topics, and drill-down capabilities.
+_ Redesigned `/tools` page to use a provider card grid and aligned the connection drawer with Figma designs.
+_ Unified date and time formatting across the platform to use browser timezone with `
+
 ## [0.9.0] - 2026-06-11
 
 ### Added
