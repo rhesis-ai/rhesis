@@ -8,7 +8,6 @@ import { BehaviorInsightColumn } from '../utils/behavior-insights-utils';
 import InsightsSummaryBar from './InsightsSummaryBar';
 import BehaviorColumn from './BehaviorColumn';
 import BehaviorInsightsRow from './BehaviorInsightsRow';
-import InsightsEmptyState from './InsightsEmptyState';
 
 interface BehaviorInsightsViewProps {
   sessionToken: string;
@@ -20,7 +19,6 @@ interface BehaviorInsightsViewProps {
   searchQuery?: string;
   endpointName?: string;
   endpointsLoading?: boolean;
-  noEndpoints?: boolean;
   columnRows: BehaviorInsightColumn[][];
   expandedRows: Set<number>;
   onRowToggle: (rowIndex: number) => void;
@@ -38,19 +36,14 @@ export default function BehaviorInsightsView({
   searchQuery = '',
   endpointName,
   endpointsLoading = false,
-  noEndpoints = false,
   columnRows,
   expandedRows,
   onRowToggle,
 }: BehaviorInsightsViewProps) {
-  const { summary, loading, error, noRuns } = insights;
+  const { summary, loading, error } = insights;
 
   const isLoading = endpointsLoading || loading;
   const hasVisibleColumns = columnRows.some(row => row.length > 0);
-
-  if (noEndpoints) {
-    return <InsightsEmptyState variant="no-endpoints" />;
-  }
 
   if (!filters.endpointId) {
     if (endpointsLoading) {
@@ -68,10 +61,6 @@ export default function BehaviorInsightsView({
         </Typography>
       </Box>
     );
-  }
-
-  if (noRuns && !isLoading && !error) {
-    return <InsightsEmptyState variant="no-test-results" />;
   }
 
   return (

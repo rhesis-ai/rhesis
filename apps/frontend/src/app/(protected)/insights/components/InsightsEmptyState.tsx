@@ -39,17 +39,9 @@ export default function InsightsEmptyState({
   const config = VARIANT_CONFIG[variant];
 
   return (
-    <Box
-      sx={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 320,
-        width: '100%',
-      }}
-    >
+    <Box sx={{ mt: 2, mb: 2, width: '100%' }}>
       <EntityEmptyState
+        card
         icon={config.icon}
         title={config.title}
         description={config.description}
