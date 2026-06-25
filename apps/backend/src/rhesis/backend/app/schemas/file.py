@@ -26,6 +26,7 @@ class FileResponse(Base):
     position: int = 0
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+    project_id: Optional[UUID4] = None
     created_at: Optional[Union[datetime, str]] = None
     updated_at: Optional[Union[datetime, str]] = None
     # New fields (nullable for backward compat with un-migrated rows)

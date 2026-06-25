@@ -25,6 +25,9 @@ export enum EventType {
   UNSUBSCRIBE = 'unsubscribe',
   SUBSCRIBED = 'subscribed',
   UNSUBSCRIBED = 'unsubscribed',
+  // A SUBSCRIBE was rejected; payload carries the offending `channel` so a
+  // subscriber can correlate the failure and stop waiting for events.
+  SUBSCRIPTION_ERROR = 'subscription_error',
 
   // Generic events (use-case specific events added as needed)
   NOTIFICATION = 'notification',

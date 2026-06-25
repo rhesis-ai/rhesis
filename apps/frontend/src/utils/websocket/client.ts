@@ -186,11 +186,19 @@ export class WebSocketClient {
    * start forwarding messages on that channel to this client.
    *
    * @param channel - The channel name to subscribe to
+   * @param projectId - The channel resource's project_id. Required for
+   *   project-scoped resource channels (e.g. `architect:{id}`) so the backend
+   *   can satisfy the project_isolation RLS policy when resolving the resource
+   *   for authorization; omitted/blank for org- or user-scoped channels.
    */
-  subscribeToChannel(channel: string): void {
+  subscribeToChannel(channel: string, projectId?: string | null): void {
+    const payload: Record<string, unknown> = { channel };
+    if (projectId) {
+      payload.project_id = projectId;
+    }
     this.send({
       type: EventType.SUBSCRIBE,
-      payload: { channel },
+      payload,
     });
   }
 

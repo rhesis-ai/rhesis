@@ -251,6 +251,7 @@ async def upload_files(
                 content_type=content_type,
                 content_hash=content_hash,
                 organization_id=organization_id,
+                project_id=str(created.project_id) if created.project_id else "",
             )
         except Exception:
             # Surface broker / import / serialization failures so we don't
