@@ -92,8 +92,14 @@ describe('useWebSocket', () => {
         useWebSocket({ channels: ['test_run:123', 'test_run:456'] })
       );
 
-      expect(mockSubscribeToChannel).toHaveBeenCalledWith('test_run:123', undefined);
-      expect(mockSubscribeToChannel).toHaveBeenCalledWith('test_run:456', undefined);
+      expect(mockSubscribeToChannel).toHaveBeenCalledWith(
+        'test_run:123',
+        undefined
+      );
+      expect(mockSubscribeToChannel).toHaveBeenCalledWith(
+        'test_run:456',
+        undefined
+      );
     });
 
     it('subscribes with projectId when using object form', () => {
@@ -103,7 +109,10 @@ describe('useWebSocket', () => {
         })
       );
 
-      expect(mockSubscribeToChannel).toHaveBeenCalledWith('test_run:123', 'proj-42');
+      expect(mockSubscribeToChannel).toHaveBeenCalledWith(
+        'test_run:123',
+        'proj-42'
+      );
     });
 
     it('does not subscribe to channels when not connected', () => {

@@ -68,7 +68,10 @@ describe('useArchitectChat', () => {
   it('subscribes to architect channel when session and connection are ready', () => {
     renderHook(() => useArchitectChat({ sessionId: 'sess-1' }));
 
-    expect(mockSubscribeToChannel).toHaveBeenCalledWith('architect:sess-1', undefined);
+    expect(mockSubscribeToChannel).toHaveBeenCalledWith(
+      'architect:sess-1',
+      undefined
+    );
   });
 
   it('passes sessionProjectId when subscribing to architect channel', () => {
