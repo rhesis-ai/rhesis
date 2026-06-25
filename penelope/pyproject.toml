@@ -58,11 +58,20 @@ langgraph = [
     "langchain-core>=1.2.11",
     "langchain-google-genai>=2.0.0",
 ]
+# Pin the agent-framework subpackages directly rather than the ``agent-framework``
+# meta-package: the meta-package drags in an ``agent-framework-azure-ai-search``
+# stub whose empty ``agent_framework/__init__.py`` can clobber the real one.
+microsoft-agent-framework = [
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
+]
 all = [
     "langchain>=1.0.0",
     "langchain-core>=1.2.11",
     "langchain-google-genai>=2.0.0",
     "langgraph>=0.2.0",
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
 ]
 
 [dependency-groups]
@@ -147,4 +156,3 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
