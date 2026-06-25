@@ -1,23 +1,14 @@
 name: "[Deploy] Backend"
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'apps/backend/**'
-      - 'ee/backend/**'
-      - '.github/workflows/backend.yml'
-      - 'sdk/**'
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'dev'
+        default: 'prd'
         type: choice
         options:
-          - dev
-          - stg
           - prd
       deploy_only:
         description: 'Skip build and only deploy latest image'
@@ -87,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'prd' }}
 
     outputs:
       environment: ${{ steps.set_build_metadata.outputs.environment }}

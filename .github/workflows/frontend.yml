@@ -3,22 +3,14 @@ name: "[Deploy] Frontend"
 # Workflow file for building and deploying the frontend application
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'apps/frontend/**'
-      - 'ee/frontend/**'
-      - '.github/workflows/frontend.yml'
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'dev'
+        default: 'prd'
         type: choice
         options:
-          - dev
-          - stg
           - prd
       deploy_only:
         description: 'Skip build and only deploy latest image'
@@ -90,10 +82,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'prd' }}
 
     env:
-      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'prd' }}
       SERVICE: frontend
 
     outputs:
