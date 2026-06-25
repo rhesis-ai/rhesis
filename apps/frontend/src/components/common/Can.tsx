@@ -24,17 +24,22 @@ export { can } from '@/utils/affordances';
 /**
  * Ambient check against the active-project scope — for no-object decisions like
  * nav gating, page access, and create buttons: `useCan(Capability.Metric.READ)`.
- * Fail-closed while the scope set is loading.
+ *
+ * Permissive no-op when RBAC is off (`!enabled`): scope-level gating is an EE
+ * concern, so community renders these affordances exactly as pre-RBAC. When on,
+ * fail-closed while the scope set is loading.
  */
 export function useCan(capability: string): boolean {
   const ambient = useAmbientPermissions();
+  if (!ambient.enabled) return true;
   if (ambient.loading) return false;
   return can(ambient, capability);
 }
 
 /**
- * Declarative gate. Pass `subject` for an object-level check; omit it for an
- * ambient (scope) check. Renders `children` when allowed, `fallback` otherwise.
+ * Declarative gate. Pass `subject` for an object-level check (always reflects the
+ * resource's `permitted_actions`); omit it for an ambient (scope) check, which is
+ * a permissive no-op when RBAC is off. Renders `children` when allowed.
  */
 export function Can({
   capability,
@@ -48,9 +53,15 @@ export function Can({
   children: ReactNode;
 }) {
   const ambient = useAmbientPermissions();
-  const allowed =
-    subject !== undefined
-      ? can(subject, capability)
-      : !ambient.loading && can(ambient, capability);
+  let allowed: boolean;
+  if (subject !== undefined) {
+    // Object-level: always reflects the resource's server-computed affordances.
+    allowed = can(subject, capability);
+  } else if (!ambient.enabled) {
+    // Ambient + RBAC off: permissive no-op.
+    allowed = true;
+  } else {
+    allowed = !ambient.loading && can(ambient, capability);
+  }
   return <>{allowed ? children : fallback}</>;
 }
