@@ -271,9 +271,29 @@ class WebSocketManager:
         # unset -> only project_id IS NULL rows) hides any project-scoped
         # resource, making _resolve_channel_project_id return "not found" and
         # silently denying an otherwise-authorized subscription.
+        #
+        # The value is validated as a UUID before being used: project_isolation
+        # policies cast app.current_project to ::uuid, so a malformed string
+        # would cause a Postgres cast error on every query during the auth
+        # lookup and turn the subscribe into a server error/disconnect. An
+        # invalid value is treated as blank (fail-closed: the resource will not
+        # be found, subscription is denied with SUBSCRIPTION_ERROR).
         subscribe_project_id = ""
         if message.payload:
-            subscribe_project_id = message.payload.get("project_id") or ""
+            raw_project_id = message.payload.get("project_id") or ""
+            if raw_project_id:
+                try:
+                    import uuid as _uuid
+
+                    _uuid.UUID(str(raw_project_id))
+                    subscribe_project_id = str(raw_project_id)
+                except (ValueError, AttributeError):
+                    logger.warning(
+                        "SUBSCRIBE from conn %s carries malformed project_id %r"
+                        " — treating as blank",
+                        conn_id,
+                        raw_project_id,
+                    )
 
         # Security: Authorize channel subscription.
         # SP11: open a short-lived tenant session so the PDP can evaluate
