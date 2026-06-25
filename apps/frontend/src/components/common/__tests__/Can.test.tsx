@@ -38,10 +38,17 @@ describe('can (pure object check)', () => {
 });
 
 describe('useCan (ambient / scope-level)', () => {
-  it('is a permissive no-op when RBAC is off (enabled=false)', () => {
-    setAmbient({ enabled: false, permitted_actions: [] });
+  it('is a permissive no-op when RBAC is known off (enabled=false, not loading)', () => {
+    setAmbient({ enabled: false, loading: false, permitted_actions: [] });
     render(<Probe capability="token:manage" />);
     expect(screen.getByText('yes')).toBeInTheDocument();
+  });
+
+  it('is fail-closed while RBAC status is unknown (feature flags loading)', () => {
+    // enabled=false but loading=true ⇒ status unknown, must NOT fail-open.
+    setAmbient({ enabled: false, loading: true });
+    render(<Probe capability="token:manage" />);
+    expect(screen.getByText('no')).toBeInTheDocument();
   });
 
   it('is fail-closed while loading when RBAC is on', () => {

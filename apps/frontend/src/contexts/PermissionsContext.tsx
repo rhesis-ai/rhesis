@@ -25,7 +25,7 @@
 
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
-import { useFeature } from '@/contexts/FeaturesContext';
+import { useFeature, useFeaturesState } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
 import { useSession } from 'next-auth/react';
 import {
@@ -44,8 +44,9 @@ export interface AmbientPermissions extends WithPermittedActions {
   error: Error | null;
   /**
    * Whether scope-level (role) gating is active, i.e. `FeatureName.RBAC` is on.
-   * When false, `useCan` returns true (permissive) and no `/me/permissions`
-   * request is made.
+   * When RBAC is *known* off (not loading), `useCan` is permissive and no
+   * `/me/permissions` request is made. While feature flags are still loading the
+   * status is unknown, so `loading` stays true and `useCan` is fail-closed.
    */
   enabled: boolean;
 }
@@ -70,10 +71,19 @@ const PermissionsContext = createContext<AmbientPermissions>(DISABLED_STATE);
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const { activeProject } = useActiveProject();
+  const { loading: featuresLoading } = useFeaturesState();
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const [state, setState] = useState<AmbientPermissions>(DEFAULT_STATE);
 
   useEffect(() => {
+    // Feature flags still loading ⇒ RBAC status unknown. Stay loading (so useCan
+    // is fail-closed) rather than dropping to permissive, which would briefly
+    // fail-open and flash EE nav unlocked→locked.
+    if (featuresLoading) {
+      setState(DEFAULT_STATE);
+      return;
+    }
+
     // RBAC off ⇒ role-level gating is inert. No request; useCan stays permissive.
     if (!rbacEnabled) {
       setState(DISABLED_STATE);
@@ -121,7 +131,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [rbacEnabled, status, session?.session_token, activeProject?.id]);
+  }, [
+    featuresLoading,
+    rbacEnabled,
+    status,
+    session?.session_token,
+    activeProject?.id,
+  ]);
 
   const value = useMemo(() => state, [state]);
 

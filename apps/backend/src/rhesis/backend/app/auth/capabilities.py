@@ -500,7 +500,7 @@ def permitted_actions_for(
     resource_type: str,
     *,
     current_user_id: Optional[UUID],
-    own_gated_actions: "frozenset[str] | set[str]" = frozenset(),
+    own_gated_actions: "frozenset[str] | set[str]",
 ) -> list[str]:
     """Project a caller's effective capabilities onto one object instance.
 
