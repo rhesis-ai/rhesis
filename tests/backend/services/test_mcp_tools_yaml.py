@@ -18,6 +18,7 @@ def load_tool_configs():
 
 def _load_schema_module():
     spec = importlib.util.spec_from_file_location("mcp_schema_module", _MCP_SCHEMA_PY)
+    assert spec and spec.loader, f"Could not load schema module from {_MCP_SCHEMA_PY}"
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
