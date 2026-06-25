@@ -15,7 +15,10 @@ import { isActive, collapsedNavItemSx } from './sidebar-utils';
 
 // MUI's default disabled opacity from theme.palette.action.disabledOpacity (0.38)
 // expressed via sx so it scales with custom themes.
-const LOCKED_OPACITY_SX = { opacity: (theme: import('@mui/material/styles').Theme) => theme.palette.action.disabledOpacity };
+const LOCKED_OPACITY_SX = {
+  opacity: (theme: import('@mui/material/styles').Theme) =>
+    theme.palette.action.disabledOpacity,
+};
 
 interface NavItemProps {
   item: NavigationPageItem;

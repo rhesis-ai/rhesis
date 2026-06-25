@@ -152,7 +152,12 @@ export type CapabilityArea =
 /** Ordered levels: None < View < Edit < Manage */
 export type CapabilityLevel = 'None' | 'View' | 'Edit' | 'Manage';
 
-export const LEVEL_ORDER: CapabilityLevel[] = ['None', 'View', 'Edit', 'Manage'];
+export const LEVEL_ORDER: CapabilityLevel[] = [
+  'None',
+  'View',
+  'Edit',
+  'Manage',
+];
 
 // ---------------------------------------------------------------------------
 // Resource → Area
@@ -340,7 +345,8 @@ export function groupCapabilities(
   };
   for (const cap of caps) {
     const resource = resourceOf(cap);
-    const area: CapabilityArea = RESOURCE_AREA[resource] ?? 'Org Administration';
+    const area: CapabilityArea =
+      RESOURCE_AREA[resource] ?? 'Org Administration';
     groups[area].push(cap);
   }
   return groups;
