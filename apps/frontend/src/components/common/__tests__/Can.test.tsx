@@ -27,9 +27,9 @@ function Probe({ capability }: { capability: string }) {
 
 describe('can (pure object check)', () => {
   it('tests membership in the subject permitted_actions', () => {
-    expect(can({ permitted_actions: ['comment:update'] }, 'comment:update')).toBe(
-      true
-    );
+    expect(
+      can({ permitted_actions: ['comment:update'] }, 'comment:update')
+    ).toBe(true);
     expect(can({ permitted_actions: [] }, 'comment:update')).toBe(false);
     expect(can(null, 'comment:update')).toBe(false);
   });
