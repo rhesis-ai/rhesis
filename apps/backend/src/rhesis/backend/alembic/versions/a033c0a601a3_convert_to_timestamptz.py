@@ -97,16 +97,31 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
-    for table_name in inspector.get_table_names(schema="public"):
-        for column in inspector.get_columns(table_name, schema="public"):
-            if column["type"].__class__.__name__ == "TIMESTAMP" and not column["type"].timezone:
-                print(f"Converting {table_name}.{column['name']} to TIMESTAMPTZ")
-                op.alter_column(
-                    table_name,
-                    column["name"],
-                    type_=sa.DateTime(timezone=True),
-                    postgresql_using=f"{column['name']} AT TIME ZONE 'UTC'",
-                )
+    # PostgreSQL skips the (very expensive) full-table rewrite when converting
+    # ``timestamp`` -> ``timestamptz`` *only* if the session TimeZone is UTC and
+    # no ``USING`` expression is supplied. Stored values are already UTC, so the
+    # default cast under TimeZone=UTC is binary-identical to the old explicit
+    # ``AT TIME ZONE 'UTC'`` clause — same data, but a metadata-only change
+    # instead of rewriting huge tables (e.g. ``trace``, ``test_result``), which
+    # previously timed out the Cloud Run migrate job. Save/restore the timezone
+    # because alembic runs the whole batch in one transaction/connection.
+    original_tz = conn.exec_driver_sql("SHOW timezone").scalar()
+    op.execute("SET TIME ZONE 'UTC'")
+    try:
+        for table_name in inspector.get_table_names(schema="public"):
+            for column in inspector.get_columns(table_name, schema="public"):
+                if (
+                    column["type"].__class__.__name__ == "TIMESTAMP"
+                    and not column["type"].timezone
+                ):
+                    print(f"Converting {table_name}.{column['name']} to TIMESTAMPTZ")
+                    op.alter_column(
+                        table_name,
+                        column["name"],
+                        type_=sa.DateTime(timezone=True),
+                    )
+    finally:
+        op.execute(f"SET TIME ZONE '{original_tz}'")
 
     # Recreate views
     op.execute(V_TEST_RUN_STATS)
@@ -121,16 +136,25 @@ def downgrade() -> None:
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
-    for table_name in inspector.get_table_names(schema="public"):
-        for column in inspector.get_columns(table_name, schema="public"):
-            if column["type"].__class__.__name__ == "TIMESTAMP" and column["type"].timezone:
-                print(f"Reverting {table_name}.{column['name']} to TIMESTAMP")
-                op.alter_column(
-                    table_name,
-                    column["name"],
-                    type_=sa.DateTime(timezone=False),
-                    postgresql_using=f"{column['name']} AT TIME ZONE 'UTC'",
-                )
+    # Mirror the upgrade: with TimeZone=UTC and no USING clause the reverse
+    # conversion (timestamptz -> timestamp) is also a metadata-only change.
+    original_tz = conn.exec_driver_sql("SHOW timezone").scalar()
+    op.execute("SET TIME ZONE 'UTC'")
+    try:
+        for table_name in inspector.get_table_names(schema="public"):
+            for column in inspector.get_columns(table_name, schema="public"):
+                if (
+                    column["type"].__class__.__name__ == "TIMESTAMP"
+                    and column["type"].timezone
+                ):
+                    print(f"Reverting {table_name}.{column['name']} to TIMESTAMP")
+                    op.alter_column(
+                        table_name,
+                        column["name"],
+                        type_=sa.DateTime(timezone=False),
+                    )
+    finally:
+        op.execute(f"SET TIME ZONE '{original_tz}'")
 
     # Recreate views
     op.execute(V_TEST_RUN_STATS)
