@@ -149,7 +149,10 @@ export default function ToolImportDrawer({
                     <span>{toolLabel(tools[0])}</span>
                     <Box
                       component="span"
-                      sx={{ opacity: 0.6, fontSize: '0.75rem' }}
+                      sx={theme => ({
+                        opacity: 0.6,
+                        fontSize: theme.typography.caption.fontSize,
+                      })}
                     >
                       · {toolSecondaryLabel(tools[0])}
                     </Box>
@@ -188,10 +191,10 @@ export default function ToolImportDrawer({
                       <Box>{toolLabel(tool)}</Box>
                       <Box
                         component="span"
-                        sx={{
-                          fontSize: '0.75rem',
+                        sx={theme => ({
+                          fontSize: theme.typography.caption.fontSize,
                           color: 'text.secondary',
-                        }}
+                        })}
                       >
                         {toolSecondaryLabel(tool)}
                       </Box>
