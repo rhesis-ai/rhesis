@@ -190,7 +190,10 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     [projectEndpoints, filters.endpointId]
   );
 
-  const fabLoading = endpointsLoading || insightsLoading;
+  const fabLoading =
+    endpointsLoading ||
+    insightsLoading ||
+    (failedTestCaseCount === null && (summary?.failed ?? 0) > 0);
 
   const pageView = resolveInsightsPageView({
     endpointsLoading,
@@ -220,7 +223,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
       actions={
         <InsightsFailedTestsFab
           filters={filters}
-          failedCount={failedTestCaseCount}
+          failedCount={failedTestCaseCount ?? 0}
           loading={fabLoading}
           disabled={projectEndpoints.length === 0}
         />

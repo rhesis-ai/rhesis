@@ -9,7 +9,7 @@ interface InsightsSummaryBarProps {
   summary: PassFailStats | null;
   endpointName?: string;
   loading?: boolean;
-  failedTestCaseCount?: number;
+  failedTestCaseCount?: number | null;
 }
 
 function progressColor(passRate: number): 'success' | 'warning' | 'error' {
@@ -64,7 +64,7 @@ export default function InsightsSummaryBar({
                 passed,
                 total,
                 failed,
-                failedTestCaseCount
+                failedTestCaseCount ?? undefined
               )}
               {endpointName ? ` · ${endpointName}` : ''}
             </Typography>

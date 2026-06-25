@@ -178,17 +178,20 @@ const TEST_RUN_ID_CHUNK = 15;
  */
 export async function fetchFailedTestIdsForInsights(
   sessionToken: string,
-  filters: InsightsRunContextFilters & InsightsFailedTestsScope
+  filters: InsightsRunContextFilters &
+    InsightsFailedTestsScope & { testRunIds?: string[] }
 ): Promise<string[]> {
   if (!filters.endpointId) {
     return [];
   }
 
-  const testRunIds = await fetchTestRunIdsForEndpoint(
-    sessionToken,
-    filters.endpointId,
-    filters.timeRange
-  );
+  const testRunIds =
+    filters.testRunIds ??
+    (await fetchTestRunIdsForEndpoint(
+      sessionToken,
+      filters.endpointId,
+      filters.timeRange
+    ));
   if (testRunIds.length === 0) {
     return [];
   }

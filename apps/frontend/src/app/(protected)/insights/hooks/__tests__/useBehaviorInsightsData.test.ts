@@ -71,12 +71,71 @@ describe('useBehaviorInsightsData', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
+    await waitFor(() => {
+      expect(result.current.failedTestCaseCount).toBe(5);
+    });
 
     expect(result.current.summary?.failed).toBe(10);
-    expect(result.current.failedTestCaseCount).toBe(5);
     expect(mockFetchFailedIds).toHaveBeenCalledWith('token', {
       endpointId: 'ep-1',
       timeRange: '1m',
+      testRunIds: ['run-1', 'run-2'],
+    });
+  });
+
+  it('finishes main loading before unique failed count resolves', async () => {
+    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    let resolveFailed!: (ids: string[]) => void;
+    mockFetchFailedIds.mockImplementation(
+      () =>
+        new Promise<string[]>(resolve => {
+          resolveFailed = resolve;
+        })
+    );
+
+    const { result } = renderHook(() =>
+      useBehaviorInsightsData('token', {
+        ...DEFAULT_INSIGHTS_FILTERS,
+        endpointId: 'ep-1',
+        timeRange: '1m',
+      })
+    );
+
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.failedTestCaseCount).toBeNull();
+
+    resolveFailed(['test-1']);
+    await waitFor(() => {
+      expect(result.current.failedTestCaseCount).toBe(1);
+    });
+  });
+
+  it('still renders insights when unique failed count fetch fails', async () => {
+    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+    mockFetchFailedIds.mockRejectedValue(new Error('network'));
+
+    const { result } = renderHook(() =>
+      useBehaviorInsightsData('token', {
+        ...DEFAULT_INSIGHTS_FILTERS,
+        endpointId: 'ep-1',
+        timeRange: '1m',
+      })
+    );
+
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.summary?.failed).toBe(10);
+    await waitFor(() => {
+      expect(result.current.failedTestCaseCount).toBe(0);
     });
   });
 

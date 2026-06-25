@@ -29,7 +29,8 @@ export interface BehaviorInsightsData {
   summary: PassFailStats | null;
   metadata: TestResultsStatsMetadata | null;
   columns: BehaviorInsightColumn[];
-  failedTestCaseCount: number;
+  /** Unique failed test case count; null while resolving or after filter change. */
+  failedTestCaseCount: number | null;
   loading: boolean;
   error: string | null;
   noRuns: boolean;
@@ -44,7 +45,9 @@ export function useBehaviorInsightsData(
     null
   );
   const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
-  const [failedTestCaseCount, setFailedTestCaseCount] = useState(0);
+  const [failedTestCaseCount, setFailedTestCaseCount] = useState<number | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -68,6 +71,7 @@ export function useBehaviorInsightsData(
 
     const requestId = ++requestIdRef.current;
     setLoading(true);
+    setFailedTestCaseCount(null);
     setError(null);
 
     if (debounceRef.current) {
@@ -165,21 +169,29 @@ export function useBehaviorInsightsData(
             )
           );
 
+          setLoading(false);
+
           if ((overallSummary.failed ?? 0) > 0) {
-            const failedIds = await fetchFailedTestIdsForInsights(
-              sessionToken,
-              {
-                endpointId: filters.endpointId,
-                timeRange: resolveInsightsTimeRange(filters.timeRange),
+            void (async () => {
+              try {
+                const failedIds = await fetchFailedTestIdsForInsights(
+                  sessionToken,
+                  {
+                    endpointId: filters.endpointId,
+                    timeRange: resolveInsightsTimeRange(filters.timeRange),
+                    testRunIds,
+                  }
+                );
+                if (!isCurrentRequest(requestId)) return;
+                setFailedTestCaseCount(failedIds.length);
+              } catch {
+                if (!isCurrentRequest(requestId)) return;
+                setFailedTestCaseCount(0);
               }
-            );
-            if (!isCurrentRequest(requestId)) return;
-            setFailedTestCaseCount(failedIds.length);
+            })();
           } else {
             setFailedTestCaseCount(0);
           }
-
-          setLoading(false);
         } catch (err) {
           if (!isCurrentRequest(requestId)) return;
           setError(
