@@ -68,6 +68,46 @@ wheels = [
 ]
 
 [[package]]
+name = "agent-framework-core"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/97/7f429dec279cd156c4a08ab18f07263ef57134ece340e598a2c4b0d2e149/agent_framework_core-1.1.0.tar.gz", hash = "sha256:e399a9aad7fa6757b3b10a11c8b16a7229f908823720bc12996dc11e8e4d9d78", size = 290690, upload-time = "2026-04-21T06:20:14.195Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/98/0628a25bfda7d270dc01b6f3a4a65f9b7d14f017978a237fd8ff858a2fca/agent_framework_core-1.1.0-py3-none-any.whl", hash = "sha256:0778ae7735403ac28216cd8ae26486e3d71f42641b9c4026dcb6f4a9885632e8", size = 329185, upload-time = "2026-04-21T06:29:26.077Z" },
+]
+
+[[package]]
+name = "agent-framework-openai"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "agent-framework-core" },
+    { name = "openai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/47/6f1f5ae20a0a763e63723f615bb63837173dcf69b817ee66f1829e137a71/agent_framework_openai-1.1.0.tar.gz", hash = "sha256:b34d05f40fb76e3acd79ea9b59db96f4d1268702b9b353b95d78dd6a05e586fd", size = 45378, upload-time = "2026-04-21T06:20:04.278Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/58/1878b9ac4db703f40c687129c0bccdbf88c94d557b64f0172f3c4e954558/agent_framework_openai-1.1.0-py3-none-any.whl", hash = "sha256:8fbcdb87fbc3fb6aa6f3d781a61a2c48fbc308d2ee8165454f94e53e026a787b", size = 50280, upload-time = "2026-04-21T06:20:11.864Z" },
+]
+
+[[package]]
+name = "agent-framework-orchestrations"
+version = "1.0.0b260421"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "agent-framework-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/08/b0c670f75f01b5543475dc17145c5eb1c314908452a66b7849d1da9adf20/agent_framework_orchestrations-1.0.0b260421.tar.gz", hash = "sha256:25ed502e1b2041ac3782a0aa28a2b6af60842e9292f4da794805424f0995b800", size = 54734, upload-time = "2026-04-21T06:29:04.691Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/04/af14b7d96e5d0b2baa9a21342a136cabda3a0b24ba03127b0740531ab4be/agent_framework_orchestrations-1.0.0b260421-py3-none-any.whl", hash = "sha256:a851d549d6967ddcd6fb1ac5690cb0e4c8fda75e95350a01ef271e00770ee514", size = 60860, upload-time = "2026-04-21T06:20:05.591Z" },
+]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -227,7 +267,7 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.94.1"
+version = "0.80.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -239,9 +279,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/f2/fb4a04ff676742588a41f94dd318883d6d77e88e2b5e20b664ae3bf20e1b/anthropic-0.94.1.tar.gz", hash = "sha256:96c7033069c16074f90638dff8bf1f1616f9eefeb8ef7d1b0df4a0393ab34685", size = 654451, upload-time = "2026-04-13T18:08:18.453Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7f/63/791e14ef5a8ecb485cef5b5d058c7ca3ad6c50a2f94cf4cea5231c6b7c16/anthropic-0.80.0.tar.gz", hash = "sha256:ef042586673fdcab2a6ffd381aa5f9a1bcce38ffe73c07fe70bd56d12b8124ba", size = 533291, upload-time = "2026-02-17T19:26:26.717Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/18/6d5b5948cbe450d3c98336c8a8c4804aedb3ab24fa37922d05063f8ba266/anthropic-0.94.1-py3-none-any.whl", hash = "sha256:58fb20dc60f35e75a5a82a1c73a3e196ac3b18ff2ed4826cba345f4adb78919d", size = 627710, upload-time = "2026-04-13T18:08:19.629Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/4b/665f29338f51d0c2f9e04b276ea54cc1e957ae5c521a0ad868aa80abc608/anthropic-0.80.0-py3-none-any.whl", hash = "sha256:dad0e40ec371ee686e9ffb2e0cb461a0ed51447fa100927fb5d39b174c286d6f", size = 453667, upload-time = "2026-02-17T19:26:29.96Z" },
 ]
 
 [[package]]
@@ -3844,15 +3884,15 @@ wheels = [
 
 [[package]]
 name = "ollama"
-version = "0.6.1"
+version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/5a/652dac4b7affc2b37b95386f8ae78f22808af09d720689e3d7a86b6ed98e/ollama-0.6.1.tar.gz", hash = "sha256:478c67546836430034b415ed64fa890fd3d1ff91781a9d548b3325274e69d7c6", size = 51620, upload-time = "2025-11-13T23:02:17.416Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/6d/ae96027416dcc2e98c944c050c492789502d7d7c0b95a740f0bb39268632/ollama-0.5.3.tar.gz", hash = "sha256:40b6dff729df3b24e56d4042fd9d37e231cee8e528677e0d085413a1d6692394", size = 43331, upload-time = "2025-08-07T21:44:10.422Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/4f/4a617ee93d8208d2bcf26b2d8b9402ceaed03e3853c754940e2290fed063/ollama-0.6.1-py3-none-any.whl", hash = "sha256:fc4c984b345735c5486faeee67d8a265214a31cbb828167782dc642ce0a2bf8c", size = 14354, upload-time = "2025-11-13T23:02:16.292Z" },
+    { url = "https://files.pythonhosted.org/packages/be/f6/2091e50b8b6c3e6901f6eab283d5efd66fb71c86ddb1b4d68766c3eeba0f/ollama-0.5.3-py3-none-any.whl", hash = "sha256:a8303b413d99a9043dbf77ebf11ced672396b59bec27e6d5db67c88f01b279d2", size = 13490, upload-time = "2025-08-07T21:44:09.353Z" },
 ]
 
 [[package]]
@@ -5579,8 +5619,16 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+agent-framework = [
+    { name = "agent-framework-core" },
+    { name = "agent-framework-openai" },
+    { name = "agent-framework-orchestrations" },
+]
 all = [
     { name = "accelerate" },
+    { name = "agent-framework-core" },
+    { name = "agent-framework-openai" },
+    { name = "agent-framework-orchestrations" },
     { name = "bitsandbytes" },
     { name = "langchain" },
     { name = "langchain-core" },
@@ -5591,6 +5639,9 @@ all = [
     { name = "transformers" },
 ]
 all-integrations = [
+    { name = "agent-framework-core" },
+    { name = "agent-framework-openai" },
+    { name = "agent-framework-orchestrations" },
     { name = "langchain" },
     { name = "langchain-core" },
     { name = "langgraph" },
@@ -5622,6 +5673,9 @@ langgraph = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "agent-framework-core" },
+    { name = "agent-framework-openai" },
+    { name = "agent-framework-orchestrations" },
     { name = "garak" },
     { name = "hatch" },
     { name = "mypy" },
@@ -5648,6 +5702,15 @@ dev = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
+    { name = "agent-framework-core", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
+    { name = "agent-framework-core", marker = "extra == 'all'", specifier = ">=1.1.0" },
+    { name = "agent-framework-core", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'all'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
+    { name = "agent-framework-orchestrations", marker = "extra == 'agent-framework'", specifier = ">=1.0.0b260421" },
+    { name = "agent-framework-orchestrations", marker = "extra == 'all'", specifier = ">=1.0.0b260421" },
+    { name = "agent-framework-orchestrations", marker = "extra == 'all-integrations'", specifier = ">=1.0.0b260421" },
     { name = "aiohttp" },
     { name = "aiohttp-security" },
     { name = "aiohttp-session" },
@@ -5708,10 +5771,13 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0" },
     { name = "websockets", specifier = ">=12.0" },
 ]
-provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "all-integrations", "all"]
+provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "agent-framework", "all-integrations", "all"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "agent-framework-core", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", specifier = ">=1.1.0" },
+    { name = "agent-framework-orchestrations", specifier = ">=1.0.0b260421" },
     { name = "garak", specifier = ">=0.14.0" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "mypy", specifier = "==1.15.0" },

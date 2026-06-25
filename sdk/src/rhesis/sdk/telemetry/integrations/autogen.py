@@ -1,4 +1,14 @@
-"""Microsoft AutoGen framework integration."""
+"""Legacy Microsoft AutoGen framework integration (placeholder).
+
+AutoGen 0.2 has been folded into the unified Microsoft Agent Framework. New
+projects should use the ``agent_framework`` integration in
+:mod:`rhesis.sdk.telemetry.integrations.agent_framework` instead -- it covers
+the full ``ChatAgent`` / tool / workflow surface MAF exposes today.
+
+This module remains as a no-op placeholder for users still on the legacy
+``pyautogen`` package so existing ``auto_instrument("autogen")`` calls don't
+fail loudly.
+"""
 
 import logging
 
@@ -9,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 class AutoGenIntegration(BaseIntegration):
     """
-    Microsoft AutoGen framework integration.
+    Legacy Microsoft AutoGen 0.2 framework integration (no-op placeholder).
 
-    TODO: Research AutoGen's instrumentation patterns.
-    May require different approach than callbacks.
+    For Microsoft Agent Framework (the unified successor to AutoGen and
+    Semantic Kernel) use ``auto_instrument("agent_framework")`` instead.
     """
 
     @property

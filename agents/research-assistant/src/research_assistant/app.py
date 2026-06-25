@@ -192,12 +192,19 @@ async def health():
     response_mapping={
         "output": "{{ response }}",
         "session_id": "{{ conversation_id }}",
-        "tools_called": "{{ tools_called | map(attribute='model_dump') | list | tojson }}",
+        # ``tools_called`` is a ``list[ToolCall]`` Pydantic model on the wire,
+        # but the SDK's ``TypeSerializer`` recursively ``model_dump()``-s the
+        # ``ChatResponse`` to plain dicts before this template runs. So at
+        # render time the value is already ``list[dict]`` and we can JSON
+        # encode it directly. The previous ``map(attribute='model_dump')``
+        # construct fell off a cliff because dicts don't carry that key, so
+        # every entry rendered as ``Undefined`` -> ``null``.
+        "tools_called": "{{ tools_called | tojson }}",
         "agents_involved": "{{ agents_involved | tojson }}",
         "agent_workflow": "{{ agent_workflow }}",
         "tool_chain": "{{ tool_chain }}",
         "metadata": (
-            "{{ {'tools_called': tools_called | map(attribute='model_dump') | list, "
+            "{{ {'tools_called': tools_called, "
             "'tool_chain': tool_chain, 'agents_involved': agents_involved, "
             "'agent_workflow': agent_workflow} | tojson }}"
         ),

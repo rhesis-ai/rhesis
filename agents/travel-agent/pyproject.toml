@@ -1,0 +1,85 @@
+[project]
+name = "travel-agent"
+version = "0.1.0"
+description = "Travel Agent: a Microsoft Agent Framework multi-agent demo for Rhesis SDK trace testing"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Engineering Team", email = "engineering@rhesis.ai" },
+]
+keywords = [
+    "llm",
+    "ai",
+    "agents",
+    "multi-agent",
+    "travel",
+    "microsoft-agent-framework",
+    "telemetry",
+    "rhesis",
+]
+dependencies = [
+    # Depend on rhesis-sdk WITHOUT the [agent-framework] extra so we don't drag
+    # in the agent-framework "all" meta-package; that extra ships a buggy
+    # `agent-framework-azure-ai-search` stub whose empty
+    # `agent_framework/__init__.py` overwrites the real one. We pin the
+    # individual MAF subpackages we actually need below instead.
+    "rhesis-sdk",
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
+    "agent-framework-orchestrations>=1.0.0b260421",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "requests>=2.31.0",
+    "cryptography>=46.0.7",
+    "pillow>=12.2.0",
+]
+
+[project.license]
+text = "MIT"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.11.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/travel_agent"]
+
+[tool.uv]
+exclude-newer = "1 week"
+# Force minimum versions for transitive dependencies with security advisories
+constraint-dependencies = [
+    "pyasn1>=0.6.3",
+    "orjson>=3.11.7",
+    "tornado>=6.5.5",
+    "aiohttp>=3.13.5",
+    "langchain-openai>=1.1.14",
+]
+override-dependencies = [
+    "python-dotenv>=1.2.2",
+    "pydantic>=2.13.0",
+]
+
+[tool.uv.sources]
+rhesis-sdk = { path = "../../sdk", editable = true }
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["I", "E", "F"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["travel_agent", "rhesis.sdk"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
