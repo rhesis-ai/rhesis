@@ -48,7 +48,7 @@ describe('resolveEntityActions', () => {
     );
     const del = resolved.find(r => r.action.id === 'delete');
     expect(del).toBeDefined();
-    expect(del!.enabled).toBe(false); // shown, but disabled — not hidden
+    expect(del?.enabled).toBe(false); // shown, but disabled — not hidden
   });
 
   it('treats permission denial and business-rule disable differently', () => {

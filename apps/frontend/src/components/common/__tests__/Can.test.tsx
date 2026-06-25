@@ -2,13 +2,15 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Can, useCan, can } from '../Can';
-import type { AmbientPermissions } from '@/contexts/PermissionsContext';
+import {
+  useAmbientPermissions,
+  type AmbientPermissions,
+} from '@/contexts/PermissionsContext';
 
 // Mock the ambient subject so we can drive enabled/loading/caps directly.
 jest.mock('@/contexts/PermissionsContext', () => ({
   useAmbientPermissions: jest.fn(),
 }));
-import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 const mockAmbient = useAmbientPermissions as unknown as jest.Mock;
 
 function setAmbient(partial: Partial<AmbientPermissions>) {

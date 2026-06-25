@@ -201,7 +201,7 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
             mt: '4px',
           }}
         >
-          {item.children!.map(child => (
+          {item.children?.map(child => (
             <NavItem
               key={child.segment}
               item={child}
