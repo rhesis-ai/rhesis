@@ -140,88 +140,14 @@ export const Capability = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type CapabilityArea =
-  | 'Test Resources'
-  | 'Observability'
-  | 'Infrastructure'
-  | 'Org Administration';
-
-/** Ordered levels: None < View < Edit < Manage */
-export type CapabilityLevel = 'None' | 'View' | 'Edit' | 'Manage';
-
-export const LEVEL_ORDER: CapabilityLevel[] = [
-  'None',
-  'View',
-  'Edit',
-  'Manage',
-];
-
-// ---------------------------------------------------------------------------
-// Resource → Area
-// ---------------------------------------------------------------------------
-
-export const RESOURCE_AREA: Record<string, CapabilityArea> = {
-  // Test Resources
-  test_set: 'Test Resources',
-  test: 'Test Resources',
-  test_configuration: 'Test Resources',
-  test_run: 'Test Resources',
-  test_result: 'Test Resources',
-  experiment: 'Test Resources',
-  // Observability
-  endpoint: 'Observability',
-  comment: 'Observability',
-  task: 'Observability',
-  architect: 'Observability',
-  preflight: 'Observability',
-  file: 'Observability',
-  // Infrastructure
-  metric: 'Infrastructure',
-  model: 'Infrastructure',
-  // Org Administration
-  project: 'Org Administration',
-  project_member: 'Org Administration',
-  organization: 'Org Administration',
-  member: 'Org Administration',
-  role: 'Org Administration',
-  token: 'Org Administration',
-  recycle: 'Org Administration',
-  sso: 'Org Administration',
-  api_clients: 'Org Administration',
-};
-
-// ---------------------------------------------------------------------------
-// Capability → level derivation
-// ---------------------------------------------------------------------------
-
-const ACTION_LEVEL: Record<string, CapabilityLevel> = {
-  read: 'View',
-  view: 'View',
-  create: 'Edit',
-  update: 'Edit',
-  delete: 'Edit',
-  execute: 'Edit',
-  generate: 'Edit',
-  react: 'Edit',
-  import: 'Edit',
-  manage: 'Manage',
-  purge: 'Manage',
-  restore: 'Manage',
-};
-
-/** Derive the CapabilityLevel for a single `resource:action` string. */
-export function levelForCapability(cap: string): CapabilityLevel {
-  // Strip :own qualifier (e.g. "comment:update:own" → action "update")
-  const parts = cap.split(':');
-  const action = parts[1] ?? '';
-  return ACTION_LEVEL[action] ?? 'View';
-}
-
-// ---------------------------------------------------------------------------
 // Human labels
+//
+// NOTE: the graded role model (capability areas + None/View/Edit/Manage levels)
+// is an EE concern — it exists only to drive the custom-role editor. Community
+// is a binary owner/member system with no graded roles, so that model is NOT
+// defined here; it lives with the role editor in `ee/frontend` (see
+// rbac_frontend_authoring_ui.plan.md). Core only needs the typed `Capability`
+// constants and these human labels (nav lock tooltips, Access-Denied).
 // ---------------------------------------------------------------------------
 
 export const CAPABILITY_LABELS: Record<string, string> = {
@@ -322,48 +248,3 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'sso:manage': 'Manage SSO configuration',
   'api_clients:manage': 'Manage API clients',
 };
-
-// ---------------------------------------------------------------------------
-// Grouping helpers
-// ---------------------------------------------------------------------------
-
-/** Extract the resource prefix from a `resource:action` string. */
-function resourceOf(cap: string): string {
-  return cap.split(':')[0] ?? cap;
-}
-
-/** Group a capability list by CapabilityArea. Unknown resources fall back to
- *  the area derived from a prefix scan, or are placed in 'Org Administration'. */
-export function groupCapabilities(
-  caps: readonly string[]
-): Record<CapabilityArea, string[]> {
-  const groups: Record<CapabilityArea, string[]> = {
-    'Test Resources': [],
-    Observability: [],
-    Infrastructure: [],
-    'Org Administration': [],
-  };
-  for (const cap of caps) {
-    const resource = resourceOf(cap);
-    const area: CapabilityArea =
-      RESOURCE_AREA[resource] ?? 'Org Administration';
-    groups[area].push(cap);
-  }
-  return groups;
-}
-
-/** Return the highest CapabilityLevel the user holds in the given area. */
-export function levelForArea(
-  caps: ReadonlySet<string>,
-  area: CapabilityArea
-): CapabilityLevel {
-  let highest = 0; // index into LEVEL_ORDER ('None')
-  for (const cap of caps) {
-    const resource = resourceOf(cap);
-    if ((RESOURCE_AREA[resource] ?? 'Org Administration') !== area) continue;
-    const level = levelForCapability(cap);
-    const idx = LEVEL_ORDER.indexOf(level);
-    if (idx > highest) highest = idx;
-  }
-  return LEVEL_ORDER[highest]!;
-}
