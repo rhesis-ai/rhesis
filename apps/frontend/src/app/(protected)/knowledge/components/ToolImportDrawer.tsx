@@ -10,6 +10,7 @@ import {
   Select,
   MenuItem,
   Link,
+  Chip,
 } from '@mui/material';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -19,6 +20,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TOOL_PROVIDER_ICONS,
   EXTRACT_PROVIDERS,
+  formatToolProviderDisplayName,
 } from '@/config/tool-providers';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import ToolImportPanel, {
@@ -93,10 +95,10 @@ export default function ToolImportDrawer({
     return TOOL_PROVIDER_ICONS[key] ?? <SmartToyIcon />;
   };
 
-  const providerLabel = (tool: Tool) => {
-    const v = tool.tool_provider_type?.type_value ?? '';
-    return v.charAt(0).toUpperCase() + v.slice(1);
-  };
+  const toolLabel = (tool: Tool) => tool.name;
+
+  const toolSecondaryLabel = (tool: Tool) =>
+    formatToolProviderDisplayName(tool.tool_provider_type?.type_value ?? '');
 
   const hasTools = !loadingTools && tools.length > 0;
 
@@ -127,7 +129,37 @@ export default function ToolImportDrawer({
         </Alert>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {tools.length > 1 && (
+          {tools.length === 1 ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                icon={
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      '& svg': { width: 16, height: 16 },
+                      pl: 0.5,
+                    }}
+                  >
+                    {getProviderIcon(tools[0])}
+                  </Box>
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <span>{toolLabel(tools[0])}</span>
+                    <Box
+                      component="span"
+                      sx={{ opacity: 0.6, fontSize: '0.75rem' }}
+                    >
+                      · {toolSecondaryLabel(tools[0])}
+                    </Box>
+                  </Box>
+                }
+                variant="outlined"
+                size="medium"
+              />
+            </Box>
+          ) : (
             <FormControl fullWidth sx={drawerOutlinedFieldSx}>
               <InputLabel id="tool-select-label">Source</InputLabel>
               <Select
@@ -152,7 +184,18 @@ export default function ToolImportDrawer({
                     >
                       {getProviderIcon(tool)}
                     </Box>
-                    {providerLabel(tool)}
+                    <Box>
+                      <Box>{toolLabel(tool)}</Box>
+                      <Box
+                        component="span"
+                        sx={{
+                          fontSize: '0.75rem',
+                          color: 'text.secondary',
+                        }}
+                      >
+                        {toolSecondaryLabel(tool)}
+                      </Box>
+                    </Box>
                   </MenuItem>
                 ))}
               </Select>

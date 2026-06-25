@@ -6,6 +6,7 @@ import {
   SiGitlab,
   SiShortcut,
   SiLinear,
+  SiAsana,
 } from '@icons-pack/react-simple-icons';
 
 /**
@@ -56,22 +57,6 @@ export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
     'Import work items, epics, and user stories from Azure DevOps boards',
 };
 
-function AsanaIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      role="img"
-      aria-label="Asana"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="12" cy="6" r="3.5" fill="#F06A6A" />
-      <circle cx="5.5" cy="16" r="3.5" fill="#F06A6A" />
-      <circle cx="18.5" cy="16" r="3.5" fill="#F06A6A" />
-    </svg>
-  );
-}
-
 function AzureDevOpsIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -96,7 +81,7 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   jira: <SiJira className="h-8 w-8" />,
   gitlab: <SiGitlab className="h-8 w-8" />,
   shortcut: <SiShortcut className="h-8 w-8" />,
-  asana: <AsanaIcon className="h-8 w-8" />,
+  asana: <SiAsana className="h-8 w-8" />,
   linear: <SiLinear className="h-8 w-8" />,
   azure_devops: <AzureDevOpsIcon className="h-8 w-8" />,
 };
