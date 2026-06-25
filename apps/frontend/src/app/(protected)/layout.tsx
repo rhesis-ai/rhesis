@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
+import { PermissionsProvider } from '@/contexts/PermissionsContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
@@ -103,10 +104,12 @@ export default function ProtectedLayout({
     <QueryClientProvider client={queryClient}>
       <AuthErrorBoundary>
         <FeaturesProvider>
-          <WebSocketProvider>
-            {!isOnboarding && !chromeless && <VerificationBanner />}
-            {content}
-          </WebSocketProvider>
+          <PermissionsProvider>
+            <WebSocketProvider>
+              {!isOnboarding && !chromeless && <VerificationBanner />}
+              {content}
+            </WebSocketProvider>
+          </PermissionsProvider>
         </FeaturesProvider>
       </AuthErrorBoundary>
     </QueryClientProvider>

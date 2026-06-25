@@ -1,9 +1,16 @@
+import type { WithPermittedActions } from './affordances';
+// Entity types are defined canonically in `@/types/entity-type`; imported for
+// the comment interfaces below and re-exported for existing consumers.
+import { EntityType } from '@/types/entity-type';
+
+export { EntityType };
+
 export interface EmojiReaction {
   user_id: string;
   user_name: string;
 }
 
-export interface Comment {
+export interface Comment extends WithPermittedActions {
   id: string;
   content: string;
   entity_id: string;
@@ -34,17 +41,3 @@ export interface UpdateCommentRequest {
 export interface CommentReactionRequest {
   emoji: string;
 }
-
-export type EntityType =
-  | 'Test'
-  | 'TestSet'
-  | 'TestRun'
-  | 'TestResult'
-  | 'Metric'
-  | 'Model'
-  | 'Prompt'
-  | 'Behavior'
-  | 'Category'
-  | 'Task'
-  | 'Source'
-  | 'Trace';

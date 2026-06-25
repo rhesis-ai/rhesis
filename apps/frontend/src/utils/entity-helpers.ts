@@ -7,7 +7,7 @@ import type { TaskMetadata } from '@/utils/api-client/interfaces/task';
  * @returns The display name for the entity
  */
 export const getEntityDisplayName = (entityType: EntityType): string => {
-  const entityMap: Record<EntityType, string> = {
+  const entityMap: Partial<Record<EntityType, string>> = {
     Test: 'Test',
     TestSet: 'Test Set',
     TestRun: 'Test Run',
@@ -25,7 +25,7 @@ export const getEntityDisplayName = (entityType: EntityType): string => {
  * @returns The URL path for the entity
  */
 export const getEntityPath = (entityType: EntityType): string => {
-  const pathMap: Record<EntityType, string> = {
+  const pathMap: Partial<Record<EntityType, string>> = {
     Test: 'tests',
     TestSet: 'test-sets',
     TestRun: 'test-runs',
@@ -59,7 +59,7 @@ export const getEntityUrlMap = (): Record<string, string> => {
  * @returns The icon name for the entity
  */
 export const getEntityIconName = (entityType: EntityType): string => {
-  const iconMap: Record<EntityType, string> = {
+  const iconMap: Partial<Record<EntityType, string>> = {
     Test: 'Science',
     TestSet: 'Category',
     TestRun: 'PlayArrow',

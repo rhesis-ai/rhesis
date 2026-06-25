@@ -29,7 +29,8 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Optional
+from typing import Iterable, Optional
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,19 @@ class Permission:
         """M2M API client management — EE only."""
 
         MANAGE = "api_clients:manage"
+
+
+class ResourceType(_PermissionEnum):
+    """Resource identifiers — the prefix of a ``resource:action`` capability.
+
+    Used to tag object-level affordance computation (``permitted_actions_for`` /
+    ``populate_permitted_actions``) instead of bare string literals. Each value
+    matches the prefix of the corresponding :class:`Permission` sub-enum. Add a
+    member when a resource gains object-level (``:own``) affordances.
+    """
+
+    COMMENT = "comment"
+    EXPERIMENT = "experiment"
 
 
 # ---------------------------------------------------------------------------
@@ -475,6 +489,68 @@ def reset_capabilities() -> None:
     _capability_cache = None
 
 
+# ---------------------------------------------------------------------------
+# Object-level affordances — project effective caps onto a single object
+# ---------------------------------------------------------------------------
+
+
+def permitted_actions_for(
+    effective_caps: Iterable[str],
+    obj: object,
+    resource_type: str,
+    *,
+    current_user_id: Optional[UUID],
+    own_gated_actions: "frozenset[str] | set[str]",
+) -> list[str]:
+    """Project a caller's effective capabilities onto one object instance.
+
+    Given the caller's already-computed effective capability set (the same set
+    returned by ``GET /me/permissions``), return the **full capability strings**
+    the caller may exercise on *obj*. The output must match what the endpoint
+    actually enforces, so an action is granted as follows:
+
+    - **Ownership-gated** (action in *own_gated_actions* — i.e. a
+      ``{resource}:{action}:own`` variant exists, so the route enforces it via
+      ``authorize_object``): granted **iff** the caller owns the object AND holds
+      the ``:own`` cap. The plain ``{resource}:{action}`` cap does **not** grant
+      it — critically, in the community tier every project member holds the plain
+      cap, yet the endpoint restricts edit/delete to the owner. The ``:own``
+      qualifier is collapsed to the base cap (``comment:update:own`` →
+      ``comment:update``).
+    - **Ungated** (no ``:own`` variant, e.g. ``comment:react``): granted iff the
+      caller holds the plain ``{resource}:{action}`` cap.
+
+    The output uses the **same full-capability vocabulary** as the scope-level
+    ``GET /me/permissions`` feed, so a frontend ``can(subject, capability)`` check
+    is identical whether the subject is an object (this list) or a scope (the
+    ``/me/permissions`` list). Collection-scoped ``create`` and the implied
+    ``read`` are excluded.
+
+    *own_gated_actions* is derived from the live capability catalog by the caller
+    (see :func:`~rhesis.backend.app.auth.affordances.populate_permitted_actions`),
+    so there is no per-resource registry here.
+    """
+    owner_id = getattr(obj, "user_id", None)
+    is_owner = current_user_id is not None and owner_id == current_user_id
+    caps_out: set[str] = set()
+    for cap in effective_caps:
+        parts = cap.split(":")
+        if len(parts) < 2 or parts[0] != resource_type:
+            continue
+        action = parts[1]
+        if action in ("create", "read"):
+            continue
+        qualifier = parts[2] if len(parts) > 2 else None
+        if action in own_gated_actions:
+            # Mirror the endpoint's authorize_object: owner-only. The plain cap
+            # (held broadly in community) must NOT advertise the action.
+            if qualifier == "own" and is_owner:
+                caps_out.add(f"{resource_type}:{action}")
+        elif qualifier is None:
+            caps_out.add(f"{resource_type}:{action}")
+    return sorted(caps_out)
+
+
 __all__ = [
     "Permission",
     "build_capability_map",
@@ -482,6 +558,8 @@ __all__ = [
     "enumerate_permission_enum",
     "get_all_capabilities",
     "get_capability_for_route",
+    "permitted_actions_for",
     "register_capabilities",
     "reset_capabilities",
+    "ResourceType",
 ]

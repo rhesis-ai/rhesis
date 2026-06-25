@@ -98,11 +98,6 @@ export interface Tag {
   color?: string;
 }
 
-export type EntityType =
-  | 'Test'
-  | 'TestSet'
-  | 'TestRun'
-  | 'TestResult'
-  | 'Task'
-  | 'Source'
-  | 'Trace';
+// Entity types are defined canonically in `@/types/entity-type` and re-exported
+// here for backward compatibility.
+export { EntityType } from '@/types/entity-type';

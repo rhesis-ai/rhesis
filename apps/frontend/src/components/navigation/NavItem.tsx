@@ -6,14 +6,98 @@ import { usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { type NavigationPageItem } from '@/types/navigation';
+import { useCan } from '@/components/common/Can';
+import { useAmbientPermissions } from '@/contexts/PermissionsContext';
+import { CAPABILITY_LABELS } from '@/constants/capabilities';
 import { isActive, collapsedNavItemSx } from './sidebar-utils';
+
+// MUI's default disabled opacity from theme.palette.action.disabledOpacity (0.38)
+// expressed via sx so it scales with custom themes.
+const LOCKED_OPACITY_SX = {
+  opacity: (theme: import('@mui/material/styles').Theme) =>
+    theme.palette.action.disabledOpacity,
+};
 
 interface NavItemProps {
   item: NavigationPageItem;
   collapsed: boolean;
   parentPath?: string;
+}
+
+function LockedNavItem({
+  item,
+  collapsed,
+}: {
+  item: NavigationPageItem;
+  collapsed: boolean;
+}) {
+  const label = item.requiredPermission
+    ? (CAPABILITY_LABELS[item.requiredPermission] ?? item.requiredPermission)
+    : '';
+  const tooltipTitle = collapsed
+    ? `${item.title} — requires "${label}"`
+    : `Requires "${label}"`;
+
+  const inner = (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        ...(collapsed
+          ? collapsedNavItemSx
+          : { gap: '10px', px: '14px', py: '8px' }),
+        borderRadius: BORDER_RADIUS.sm,
+        cursor: 'not-allowed',
+        ...LOCKED_OPACITY_SX,
+      }}
+    >
+      {item.icon && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexShrink: 0,
+            color: theme => theme.palette.greyscale.body,
+            '& svg': { width: 24, height: 24 },
+          }}
+        >
+          {item.icon}
+        </Box>
+      )}
+      {!collapsed && (
+        <>
+          <Typography
+            sx={{
+              fontSize: 14,
+              fontWeight: 400,
+              lineHeight: '22px',
+              color: theme => theme.palette.greyscale.body,
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {item.title}
+          </Typography>
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <LockOutlinedIcon sx={{ fontSize: 14 }} />
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+
+  return (
+    <Tooltip title={tooltipTitle} placement="right">
+      <Box component="span" sx={{ display: 'block' }}>
+        {inner}
+      </Box>
+    </Tooltip>
+  );
 }
 
 export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
@@ -22,6 +106,18 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
     ? `${parentPath}/${item.segment}`
     : `/${item.segment}`;
   const active = isActive(pathname, fullPath);
+  const permitted = useCan(item.requiredPermission ?? '');
+  const { loading: permsLoading } = useAmbientPermissions();
+
+  if (item.requiredPermission) {
+    // While the RBAC status / scope set is still resolving, hide the item rather
+    // than flashing it locked (community) or unlocked (EE). Render the lock/show
+    // decision only once it can be made definitively.
+    if (permsLoading) return null;
+    if (!permitted) {
+      return <LockedNavItem item={item} collapsed={collapsed} />;
+    }
+  }
 
   const button = (
     <Box
@@ -111,7 +207,7 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
             mt: '4px',
           }}
         >
-          {item.children!.map(child => (
+          {item.children?.map(child => (
             <NavItem
               key={child.segment}
               item={child}

@@ -46,7 +46,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.capabilities import Permission, get_all_capabilities
 from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
@@ -432,6 +432,27 @@ def authorize_object(
         return False
 
     return authorize(principal, own_perm_str, project_id=project_id, db=db)
+
+
+def effective_permissions(
+    principal: Principal,
+    *,
+    project_id: Optional[UUID],
+    db: Session,
+) -> list[str]:
+    """Return every capability *principal* effectively holds in the given scope.
+
+    Runs the full capability catalog through :func:`authorize`, so the result
+    reflects the active authorization provider (community in Phase 1, EE in
+    Phase 2). This is the single implementation behind both ``GET /me/permissions``
+    and the server-driven affordances resolver — each ``authorize`` call is
+    Redis-cached, so repeated calls within a request are cheap.
+    """
+    return [
+        cap
+        for cap in get_all_capabilities()
+        if authorize(principal, cap, project_id=project_id, db=db)
+    ]
 
 
 def project_id_from_scope(db: Session) -> Optional[UUID]:

@@ -5,7 +5,8 @@ from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.affordances import populate_permitted_actions
+from rhesis.backend.app.auth.capabilities import Permission, ResourceType, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -76,19 +77,24 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 @handle_database_exceptions(entity_name="comment", custom_unique_message="Comment already exists")
 def create_comment(
     comment: schemas.CommentCreate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new comment."""
     organization_id, user_id = tenant_context
-    return crud.create_comment(
+    new_comment = crud.create_comment(
         db=db, comment=comment, organization_id=organization_id, user_id=user_id
+    )
+    return populate_permitted_actions(
+        new_comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
     )
 
 
 @router.get("/", response_model=List[CommentDetailSchema])
 def read_comments(
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -110,12 +116,15 @@ def read_comments(
         organization_id=organization_id,
         user_id=user_id,
     )
-    return comments
+    return populate_permitted_actions(
+        comments, ResourceType.COMMENT, current_user=current_user, request=request, db=db
+    )
 
 
 @router.get("/{comment_id}", response_model=CommentDetailSchema)
 def read_comment(
     comment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -127,7 +136,9 @@ def read_comment(
     )
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
-    return comment
+    return populate_permitted_actions(
+        comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
+    )
 
 
 @router.put("/{comment_id}", response_model=schemas.Comment)
@@ -156,12 +167,15 @@ def update_comment(
     ):
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
-    return crud.update_comment(
+    updated = crud.update_comment(
         db=db,
         comment_id=comment_id,
         comment=comment,
         organization_id=organization_id,
         user_id=user_id,
+    )
+    return populate_permitted_actions(
+        updated, ResourceType.COMMENT, current_user=current_user, request=request, db=db
     )
 
 
@@ -199,6 +213,7 @@ def delete_comment(
 def read_comments_by_entity(
     entity_type: str,
     entity_id: uuid.UUID,
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -234,13 +249,16 @@ def read_comments_by_entity(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    return comments
+    return populate_permitted_actions(
+        comments, ResourceType.COMMENT, current_user=current_user, request=request, db=db
+    )
 
 
 @router.post("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
 def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -302,13 +320,16 @@ def add_emoji_reaction(
     if updated_comment is None:
         raise HTTPException(status_code=400, detail="Failed to add emoji reaction")
 
-    return updated_comment
+    return populate_permitted_actions(
+        updated_comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
+    )
 
 
 @router.delete("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
 def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -335,4 +356,6 @@ def remove_emoji_reaction(
     if updated_comment is None:
         raise HTTPException(status_code=400, detail="Failed to remove emoji reaction")
 
-    return updated_comment
+    return populate_permitted_actions(
+        updated_comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
+    )
