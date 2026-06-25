@@ -46,6 +46,12 @@ const FRAMEWORK_TRACING_ITEMS = [
     src: '/integrations/langgraph.svg',
     kind: 'simpleIcon',
   },
+  {
+    name: 'Microsoft Agent Framework',
+    href: '/docs/tracing/agent-framework',
+    src: '/integrations/microsoft.svg',
+    kind: 'simpleIcon',
+  },
 ]
 
 /** LangChain, LangGraph, and SDK Connector — single Observability section on /docs/integrations */
@@ -454,7 +460,7 @@ export function ObservabilitySection() {
         >
           Auto-instrumentation
         </a>{' '}
-        works out of the box for LangChain and LangGraph; connect any Python app using the{' '}
+        works out of the box for LangChain, LangGraph, and Microsoft Agent Framework; connect any Python app using the{' '}
         <a
           href="/sdk/connector"
           style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}

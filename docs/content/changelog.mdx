@@ -8,6 +8,19 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [Unreleased]
+
+### SDK Highlights
+
+**Microsoft Agent Framework (MAF) tracing**
+
+- **One-line auto-instrumentation**: `auto_instrument("agent_framework")` (alias `"maf"`) translates MAF GenAI spans into the Rhesis schema - agents, model calls, tools, embeddings, and workflows - with no agent code changes.
+- **Native handoff tracing**: handoffs in `HandoffBuilder` workflows are synthesized into `ai.agent.handoff` spans for the Graph View.
+- **Privacy controls**: `RHESIS_DISABLE_CONTENT_CAPTURE` omits prompt/completion/tool payloads; `RHESIS_MAF_VERBOSE_WORKFLOW_SPANS` keeps full workflow infrastructure spans.
+- **Penelope MAF target**: `MicrosoftAgentFrameworkTarget` drives any MAF agent through multi-turn conversation simulation.
+
+The legacy `autogen` integration is now a deprecated no-op; use `agent_framework` instead.
+
 ## [0.9.0] - 2026-06-11
 
 ### Platform Release

@@ -64,9 +64,7 @@ Handoffs are detected automatically in two ways:
 
 ### More Frameworks
 
-LangGraph is currently the only framework with native `ai.agent.invoke` and `ai.agent.handoff` span support out of the box (it benefits from the agent-name keywords, `langgraph_node` metadata, and `transfer_to_*` tool detection described above). LangChain itself is auto-instrumented for general tracing — LLM calls, tools, chains — but agent and handoff spans only appear when one of the agent signals above is present.
-
-For every other framework (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …), use [manual decoration](#manual-decoration) below: wrap the agent functions with `@observe(span_name=AIOperationType.AGENT_INVOKE, ...)` and they will produce the same span shape.
+LangGraph and Microsoft Agent Framework both produce native `ai.agent.invoke` and `ai.agent.handoff` spans. For MAF, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/tracing/agent-framework). LangChain is supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection there requires LangGraph node naming conventions or `transfer_to_*` tool names. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
 
 ## Manual Decoration
 
@@ -179,5 +177,6 @@ See [Semantic Conventions](/tracing/semantic-conventions#agent-operations) for t
   **Related:**
   - [Decorators](/tracing/decorators) — `@observe` and `@endpoint`
   - [Auto-Instrumentation](/tracing/auto-instrumentation) — zero-config tracing for LangChain and LangGraph
+  - [Microsoft Agent Framework](/tracing/agent-framework) — native agent and handoff tracing for MAF
   - [Conversation Tracing](/tracing/conversation-tracing) — visualize full multi-turn sessions
 </Callout>
