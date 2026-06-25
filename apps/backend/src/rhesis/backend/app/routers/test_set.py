@@ -440,19 +440,20 @@ async def delete_test_set(
     return db_test_set
 
 
-@router.put("/{test_set_id}", response_model=schemas.TestSet)
+@router.put("/{test_set_identifier}", response_model=schemas.TestSet)
 @handle_database_exceptions(
     entity_name="test set", custom_unique_message="Test set with this name already exists"
 )
 async def update_test_set(
-    test_set_id: uuid.UUID,
+    test_set_identifier: str,
     test_set: schemas.TestSetUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update an existing test set."""
+    """Update an existing test set by UUID, nano_id, or slug."""
     organization_id, user_id = tenant_context
+    test_set_id = resolve_test_set_or_raise(test_set_identifier, db, organization_id).id
     db_test_set = crud.update_test_set(
         db,
         test_set_id=test_set_id,

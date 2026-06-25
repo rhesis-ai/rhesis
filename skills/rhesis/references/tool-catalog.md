@@ -447,7 +447,7 @@ Full metric including `evaluation_prompt`.
 ### `update_test_set`
 Update test set metadata only (name, description). Does not regenerate tests.
 
-**Key parameters:** `test_set_id` (required); send only fields to change.
+**Key parameters:** `test_set_identifier` (required; UUID, nano_id, or slug); send only fields to change.
 
 ---
 

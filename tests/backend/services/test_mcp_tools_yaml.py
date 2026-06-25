@@ -111,7 +111,7 @@ class TestMcpToolsYamlStructure:
         ("create_source", "POST", "/sources/"),
         ("update_metric", "PUT", "/metrics/{metric_id}"),
         ("remove_behavior_from_metric", "DELETE", "/metrics/{metric_id}/behaviors/{behavior_id}"),
-        ("update_test_set", "PUT", "/test_sets/{test_set_id}"),
+        ("update_test_set", "PUT", "/test_sets/{test_set_identifier}"),
         ("get_test", "GET", "/tests/{test_id}"),
         ("update_test", "PUT", "/tests/{test_id}"),
         ("get_behavior", "GET", "/behaviors/{behavior_id}"),
