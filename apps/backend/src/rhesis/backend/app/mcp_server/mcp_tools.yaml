@@ -9,6 +9,20 @@ tools:
       List projects in the current organization. Use $select to request
       only the fields you need (e.g. $select=name,id).
 
+  - name: get_project
+    label: Retrieving project
+    method: GET
+    path: /projects/{project_id}
+    description: >
+      Get one project by ID. ENTITY: Project. PREREQUISITES: project_id
+      from list_projects. CHAIN: use before create_endpoint (project_id
+      is required) or when confirming project context for an endpoint.
+      NEVER: ask the user for a project ID when they gave a name — use
+      list_projects with $filter first.
+    parameters:
+      project_id:
+        description: "REQUIRED. UUID of the project."
+
   - name: create_project
     label: Creating project
     method: POST
@@ -211,6 +225,39 @@ tools:
       test_set_identifier:
         description: "REQUIRED. Test set UUID, nano_id, or slug."
 
+  - name: get_test_set_metrics
+    label: Checking test set metrics
+    method: GET
+    path: /test_sets/{test_set_identifier}/metrics
+    description: >
+      List metrics associated with a test set. ENTITY: TestSet → Metric.
+      PREREQUISITES: test_set_identifier from list_test_sets or
+      get_test_set. CHAIN: call before execute_test_set to see which
+      metrics will run (set-level overrides vs behavior defaults). Empty
+      list means behavior-linked metrics apply per test. Complement with
+      get_metric_behaviors on individual metrics.
+    parameters:
+      test_set_identifier:
+        description: "REQUIRED. Test set UUID, nano_id, or slug."
+
+  - name: get_test_set_last_run
+    label: Finding last test run
+    method: GET
+    path: /test_sets/{test_set_identifier}/last-run/{endpoint_id}
+    description: >
+      Get the most recent completed test run for a test set + endpoint
+      pair. ENTITY: TestSet + Endpoint → TestRun. PREREQUISITES:
+      test_set_identifier and endpoint_id from list_test_sets and
+      list_endpoints. CHAIN: use when offering run comparison ("compare
+      with last run") or before re-scoring. Returns 404 if no completed
+      run exists yet. Pass test_run_id to get_test_result_stats for
+      side-by-side analysis.
+    parameters:
+      test_set_identifier:
+        description: "REQUIRED. Test set UUID, nano_id, or slug."
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint."
+
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
     label: Listing tests
@@ -223,6 +270,50 @@ tools:
       List tests in the organization. Each test defines a prompt,
       expected response behavior, and optional metadata. By default
       only core fields are returned. Add fields to $select if needed.
+      Prefer list_test_set_tests when scoped to one test set.
+
+  - name: get_test
+    label: Retrieving test
+    method: GET
+    path: /tests/{test_id}
+    description: >
+      Get one test with full detail including prompt and configuration.
+      ENTITY: Test. PREREQUISITES: test_id from list_test_set_tests or
+      list_tests. CHAIN: after list_test_set_tests when fixing or
+      reviewing a specific prompt; before update_test. NEVER: re-list
+      the whole test set when you already have the test id.
+    parameters:
+      test_id:
+        description: "REQUIRED. UUID of the test."
+
+  - name: update_test
+    label: Updating test
+    method: PUT
+    path: /tests/{test_id}
+    requires_confirmation: true
+    description: >
+      Update an existing test's prompt or metadata. ENTITY: Test.
+      PREREQUISITES: test_id from list_test_set_tests; call get_test
+      first to see current values. CHAIN: use to fix individual bad
+      prompts after generate_test_set without regenerating the whole set.
+      Send ONLY fields to change. Does NOT replace generate_test_set for
+      bulk creation. Do NOT send server-managed fields (id, user_id,
+      organization_id, created_at, updated_at).
+    parameters:
+      test_id:
+        description: "REQUIRED. UUID of the test to update."
+      prompt:
+        description: >
+          Optional. Prompt object with content, language_code, and optional
+          expected_response. Omit unchanged fields at the test level.
+      behavior:
+        description: "Behavior name string. Omit to keep unchanged."
+      category:
+        description: "Category name string. Omit to keep unchanged."
+      topic:
+        description: "Topic name string. Omit to keep unchanged."
+      test_type:
+        description: '"Single-Turn" or "Multi-Turn". Omit to keep unchanged.'
 
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
@@ -299,7 +390,23 @@ tools:
     description: >
       List available behaviors. Behaviors define what an endpoint should
       do (e.g., "answer questions accurately", "refuse harmful requests").
-      Use $select to request only the fields you need.
+      Use $select to request only the fields you need. CHAIN: resolve
+      by name here, then get_behavior for full detail including linked
+      metrics.
+
+  - name: get_behavior
+    label: Retrieving behavior
+    method: GET
+    path: /behaviors/{behavior_id}
+    description: >
+      Get one behavior with linked metrics. ENTITY: Behavior ↔ Metric.
+      PREREQUISITES: behavior_id from list_behaviors. CHAIN: verify
+      behavior→metric links from the behavior side; complement
+      get_metric_behaviors (metric-centric view). Use during planning
+      to confirm reuse candidates include the right metrics.
+    parameters:
+      behavior_id:
+        description: "REQUIRED. UUID of the behavior."
 
   - name: create_behavior
     label: Creating behavior

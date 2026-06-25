@@ -85,6 +85,12 @@ class TestNewMcpToolsPresent:
         "update_metric",
         "remove_behavior_from_metric",
         "update_test_set",
+        "get_test",
+        "update_test",
+        "get_behavior",
+        "get_test_set_last_run",
+        "get_test_set_metrics",
+        "get_project",
     })
 
     def test_new_tools_in_yaml(self):
@@ -106,6 +112,12 @@ class TestMcpToolsYamlStructure:
         ("update_metric", "PUT", "/metrics/{metric_id}"),
         ("remove_behavior_from_metric", "DELETE", "/metrics/{metric_id}/behaviors/{behavior_id}"),
         ("update_test_set", "PUT", "/test_sets/{test_set_id}"),
+        ("get_test", "GET", "/tests/{test_id}"),
+        ("update_test", "PUT", "/tests/{test_id}"),
+        ("get_behavior", "GET", "/behaviors/{behavior_id}"),
+        ("get_test_set_last_run", "GET", "/test_sets/{test_set_identifier}/last-run/{endpoint_id}"),
+        ("get_test_set_metrics", "GET", "/test_sets/{test_set_identifier}/metrics"),
+        ("get_project", "GET", "/projects/{project_id}"),
     }
 
     def test_all_entries_have_required_keys(self):

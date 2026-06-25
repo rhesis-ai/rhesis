@@ -77,11 +77,22 @@ flowchart TB
 
 ### Run and analyze
 
-1. `execute_test_set` (test_set_identifier + endpoint_id)
-2. `get_test_run` (accurate totals)
-3. `get_test_result_stats` with `mode=all` and `test_run_id`
-4. `list_test_results` filtered to failures
-5. `get_test_result` on top 2–3 failures (read `reason` field)
+1. `get_test_set_metrics` (optional pre-flight)
+2. `execute_test_set` (test_set_identifier + endpoint_id)
+3. `get_test_run` (accurate totals)
+4. `get_test_result_stats` with `mode=all` and `test_run_id`
+5. `list_test_results` filtered to failures
+6. `get_test_result` on top 2–3 failures (read `reason` field)
+
+### Compare with previous run
+
+1. `get_test_set_last_run` with test set + endpoint IDs
+2. `get_test_result_stats` with `mode=test_runs` and both `test_run_ids`
+
+### Fix a single test prompt
+
+1. `list_test_set_tests` → pick test id
+2. `get_test` → `update_test` with revised prompt
 
 ### Fix a metric
 
@@ -101,12 +112,12 @@ flowchart TB
 
 | Entity | List | Get | Create | Update | Other |
 |--------|------|-----|--------|--------|-------|
-| Project | `list_projects` | — | `create_project` | — | — |
+| Project | `list_projects` | `get_project` | `create_project` | — | — |
 | Endpoint | `list_endpoints` | `get_endpoint` | `create_endpoint` | `update_endpoint` | `check_endpoint`, `explore_endpoint` |
-| Behavior | `list_behaviors` | — | `create_behavior` | `update_behavior` | — |
+| Behavior | `list_behaviors` | `get_behavior` | `create_behavior` | `update_behavior` | — |
 | Metric | `list_metrics` | `get_metric` | `create_metric`, `generate_metric` | `update_metric`, `improve_metric` | `add_behavior_to_metric`, `remove_behavior_from_metric`, `get_metric_behaviors` |
-| TestSet | `list_test_sets` | `get_test_set` | `generate_test_set`, `create_test_set_bulk` | `update_test_set` | `list_test_set_tests`, `execute_test_set` |
-| Test | `list_tests`, `list_test_set_tests` | — | (via test set tools) | — | — |
+| TestSet | `list_test_sets` | `get_test_set` | `generate_test_set`, `create_test_set_bulk` | `update_test_set` | `list_test_set_tests`, `get_test_set_metrics`, `get_test_set_last_run`, `execute_test_set` |
+| Test | `list_tests`, `list_test_set_tests` | `get_test` | (via test set tools) | `update_test` | — |
 | Source | `list_sources` | — | `create_source` | — | — |
 | TestRun | `list_test_runs` | `get_test_run` | (via `execute_test_set`) | — | `get_test_run_stats` |
 | TestResult | `list_test_results` | `get_test_result` | — | — | `get_test_result_stats` |

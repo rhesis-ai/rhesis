@@ -328,7 +328,7 @@ When the user asks to compare test runs, analyze regressions, or understand how 
 - After presenting single-run results, if earlier runs exist for the same test set, offer: "Would you like me to compare this with a previous run?"
 
 ### Comparison workflow
-1. **Find runs to compare**: call `list_test_runs` filtered by endpoint or test set to find available runs. Use `$select=id,name,status,created_at` for a compact list. Present the options to the user if they haven't specified which runs to compare.
+1. **Find runs to compare**: call `get_test_set_last_run` when comparing the same test set against the same endpoint (fast path), or `list_test_runs` filtered by endpoint or test set when the user has not specified the pair. Use `$select=id,name,status,created_at` for a compact list. Present the options to the user if they haven't specified which runs to compare.
 2. **High-level comparison**: call `get_test_result_stats` with `mode=test_runs` and `test_run_ids` set to the two (or more) run IDs. This returns per-run pass/fail counts and pass rates — the most important overview.
 3. **Behavior drill-down**: to understand which behaviors improved or regressed, call `get_test_result_stats` with `mode=behavior` and `test_run_id` for each run separately. Compare the behavior-level pass rates to identify regressions and improvements.
 4. **Metric drill-down** (optional): call `get_test_result_stats` with `mode=metrics` to see per-metric pass rates when the user wants to understand which evaluation criteria changed.

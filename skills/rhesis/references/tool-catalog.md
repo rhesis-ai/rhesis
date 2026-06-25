@@ -474,6 +474,61 @@ Create a knowledge source for grounding single-turn `generate_test_set`.
 
 ---
 
+
+
+### `get_project`
+Get one project by ID.
+
+**CHAIN:** after `list_projects` when you need full project detail before `create_endpoint`.
+
+**Key parameters:** `project_id` (required)
+
+---
+
+### `get_behavior`
+Get one behavior including linked metrics.
+
+**CHAIN:** complement `get_metric_behaviors` — behavior-centric view of metric links.
+
+**Key parameters:** `behavior_id` (required)
+
+---
+
+### `get_test`
+Get one test with full prompt and configuration.
+
+**CHAIN:** after `list_test_set_tests`; before `update_test`.
+
+**Key parameters:** `test_id` (required)
+
+---
+
+### `update_test`
+Fix an individual test prompt without regenerating the whole set.
+
+**CHAIN:** `get_test` first. Send only fields to change.
+
+**Key parameters:** `test_id` (required)
+
+---
+
+### `get_test_set_metrics`
+List metrics attached to a test set (execution overrides).
+
+**CHAIN:** pre-flight before `execute_test_set`. Empty list → behavior metrics apply.
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `get_test_set_last_run`
+Most recent completed run for a test set + endpoint pair.
+
+**CHAIN:** use for run comparison; pair with `get_test_result_stats(mode=test_runs)`.
+
+**Key parameters:** `test_set_identifier`, `endpoint_id` (required)
+
+---
 ## Playbooks
 
 See `references/entity-model.md` for the full entity graph and tool chains by intent.
