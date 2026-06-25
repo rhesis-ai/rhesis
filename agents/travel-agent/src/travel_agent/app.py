@@ -1,9 +1,7 @@
-"""Polymath FastAPI application.
+"""Travel Agent FastAPI application.
 
-A multi-agent conversational system built on Microsoft Agent Framework that
-exists to exercise the Rhesis SDK's ``auto_instrument("agent_framework")``
-end-to-end. Mirrors the public surface of ``agents/research-assistant`` so
-both demo agents look familiar.
+A multi-agent Microsoft Agent Framework travel planner used to exercise the
+Rhesis SDK's ``auto_instrument("agent_framework")`` integration end-to-end.
 """
 
 from __future__ import annotations
@@ -16,12 +14,14 @@ from contextlib import asynccontextmanager
 from agent_framework import Message
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from opentelemetry import trace as otel_trace
 from pydantic import BaseModel, Field
+from rhesis.telemetry.constants import ConversationContext
 
-from polymath.workflow import build_workflow, invoke_polymath
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
+from travel_agent.workflow import build_travel_workflow, invoke_travel_workflow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,7 +36,7 @@ load_dotenv()
 # themselves: ``RhesisClient.__init__`` eagerly installs OTEL providers and
 # tries to ship spans, so instantiating it without an API key / project id
 # would attempt outbound exports against ``project_id="unknown"`` with
-# ``Authorization: Bearer None``. Falling back to ``DisabledClient`` *before*
+# ``Authorization: Bearer None``. Falling back to ``DisabledClient`` before
 # construction is the only way to actually keep telemetry off.
 if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
     rhesis_client = RhesisClient.from_environment()
@@ -54,35 +54,20 @@ auto_instrument("agent_framework")
 # in a database; in-memory is fine for a trace-generation demo.
 conversations: dict[str, list[Message]] = {}
 
-# Set to ``True`` after :func:`build_workflow` succeeds at startup. Used by
-# ``/health`` to surface configuration problems (missing ``GOOGLE_API_KEY``,
-# missing dependencies, etc.) without keeping a live ``Workflow`` instance
-# around -- we build a fresh one per request so concurrent ``/chat`` calls
-# don't trip MAF's "Workflow is already running" guard.
 _startup_validated: bool = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Validate workflow construction once at startup.
-
-    MAF's ``HandoffBuilder`` workflow is single-run: two overlapping
-    ``workflow.run(...)`` calls on the same instance raise
-    ``RuntimeError: Workflow is already running``. We therefore build a fresh
-    workflow per request inside :func:`chat_endpoint_traced`. Construction is
-    cheap (one chat client + three agents + one ``HandoffBuilder.build()``,
-    no network), so this is just a config canary -- a missing
-    ``GOOGLE_API_KEY`` or broken import surfaces here at boot rather than on
-    the first ``/chat`` call.
-    """
+    """Validate travel workflow construction once at startup."""
     global _startup_validated
 
-    logger.info("Validating Polymath multi-agent workflow construction (MAF HandoffBuilder)...")
-    build_workflow()
+    logger.info("Validating Travel Agent multi-agent workflow construction (MAF)...")
+    build_travel_workflow()
     _startup_validated = True
     logger.info(
-        "Polymath workflow construction validated: coordinator + math_specialist + "
-        "info_specialist (a fresh workflow is built per request)"
+        "Travel Agent workflow construction validated: trip_coordinator + "
+        "destination_finder + sightseeing_scout + logistics_planner"
     )
 
     yield
@@ -91,39 +76,33 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Polymath",
+    title="Travel Agent",
     description=(
-        "Polymath is a small Microsoft Agent Framework multi-agent demo for "
+        "A Microsoft Agent Framework multi-agent travel planner for "
         "exercising the Rhesis SDK's MAF integration end-to-end.\n\n"
         "## Multi-Agent Architecture\n\n"
-        "- **Coordinator**: routes the request to the right specialist and synthesises "
-        "the final answer.\n"
-        "- **Math Specialist**: performs arithmetic via local Python tools "
-        "(`add`, `multiply`, `power`, `square_root`).\n"
-        "- **Info Specialist**: fetches live data over HTTP "
-        "(`get_current_time`, `wikipedia_summary`).\n\n"
+        "- **Trip Coordinator**: routes the request and synthesises the final plan.\n"
+        "- **Destination Finder**: uses `get_random_destination` for surprise trips.\n"
+        "- **Sightseeing Scout**: uses `find_sightseeing` when the user did not "
+        "already name sights.\n"
+        "- **Logistics Planner**: uses `estimate_travel` to add relative travel times.\n\n"
         "## Example Questions\n\n"
-        "- Compute (3 + 5) * 2^4 and then take the square root.\n"
-        "- What time is it in Tokyo, and give me a one-sentence summary of Tokyo.\n"
-        "- What is 17 squared, and what's the current UTC minute right now?\n"
+        "- Plan me a day trip.\n"
+        "- Plan a family-friendly day trip at a random destination with local food.\n"
+        "- Plan a day trip to Barcelona visiting Sagrada Familia and Park Guell.\n"
     ),
     version="0.1.0",
     lifespan=lifespan,
 )
 
 
-# ---------------------------------------------------------------------------
-# Request / response models
-# ---------------------------------------------------------------------------
-
-
 class ChatRequest(BaseModel):
-    """Request payload for the ``/chat`` endpoint."""
+    """Request payload for the travel-agent endpoint."""
 
-    message: str = Field(..., description="The user's message or question.")
+    message: str = Field(..., description="The user's travel-planning request.")
     conversation_id: str | None = Field(
         None,
-        description="Optional conversation id for multi-turn conversations.",
+        description="Optional conversation id for trace/session grouping.",
     )
 
 
@@ -136,10 +115,10 @@ class ToolCall(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Response payload for the ``/chat`` endpoint."""
+    """Response payload for the travel-agent endpoint."""
 
-    response: str = Field(..., description="Polymath's final answer.")
-    conversation_id: str = Field(..., description="Conversation id for follow-up messages.")
+    response: str = Field(..., description="The travel agent's final answer.")
+    conversation_id: str = Field(..., description="Conversation id for trace/session grouping.")
     tools_called: list[ToolCall] = Field(
         default_factory=list,
         description="Domain tools invoked during this turn (handoff tools are excluded).",
@@ -150,6 +129,7 @@ class ChatResponse(BaseModel):
         description="Ordered list of agents that participated in this turn.",
     )
     agent_workflow: str = Field(default="", description="One-line summary of the agent flow.")
+    agent: str = Field(default="trip_coordinator", description="Name of the final agent.")
 
 
 class ConversationInfo(BaseModel):
@@ -159,43 +139,33 @@ class ConversationInfo(BaseModel):
     message_count: int
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
-
 @app.get("/")
 async def root():
     """Root endpoint with a quick orientation."""
     return {
-        "message": "Welcome to Polymath",
+        "message": "Welcome to Travel Agent",
         "description": (
-            "A Microsoft Agent Framework multi-agent demo for exercising the "
-            "Rhesis SDK's MAF integration. Use /chat to start a conversation."
+            "A Microsoft Agent Framework multi-agent travel-planning demo for exercising "
+            "the Rhesis SDK's MAF integration. Use /chat to start a conversation."
         ),
         "endpoints": {
-            "chat": "/chat - Chat with the polymath multi-agent system",
+            "chat": "/chat - Chat with the travel-agent multi-agent system",
             "conversations": "/conversations - List active conversations",
             "health": "/health - Health check endpoint",
             "docs": "/docs - API documentation",
         },
         "agents": [
-            "Coordinator - Routes requests and synthesises the answer",
-            "Math Specialist - add / multiply / power / square_root",
-            "Info Specialist - get_current_time / wikipedia_summary",
+            "Trip Coordinator - Routes requests and synthesises the final plan",
+            "Destination Finder - get_random_destination",
+            "Sightseeing Scout - find_sightseeing",
+            "Logistics Planner - estimate_travel",
         ],
     }
 
 
 @app.get("/health")
 async def health():
-    """Health check endpoint.
-
-    ``startup_validated`` mirrors the result of the lifespan canary: if
-    :func:`polymath.workflow.build_workflow` succeeded at boot, we know the
-    Gemini API key, the agent definitions, and ``HandoffBuilder.build()``
-    all work, and per-request construction will succeed too.
-    """
+    """Health check endpoint."""
     return {
         "status": "healthy",
         "startup_validated": _startup_validated,
@@ -203,8 +173,8 @@ async def health():
 
 
 @endpoint(
-    name="polymath_chat",
-    description="Chat with the Polymath MAF multi-agent system (math + info specialists).",
+    name="travel_agent_chat",
+    description="Chat with the Travel Agent MAF multi-agent system.",
     request_mapping={
         "message": "{{ input }}",
         "conversation_id": "{{ session_id | default(none) }}",
@@ -212,19 +182,12 @@ async def health():
     response_mapping={
         "output": "{{ response }}",
         "session_id": "{{ conversation_id }}",
-        # ``tools_called`` is a ``list[ToolCall]`` Pydantic model on the wire,
-        # but the SDK's ``TypeSerializer`` recursively ``model_dump()``-s the
-        # ``ChatResponse`` to plain dicts before this template runs. So at
-        # render time the value is already ``list[dict]`` and we can JSON
-        # encode it directly. The previous ``map(attribute='model_dump')``
-        # construct fell off a cliff because dicts don't carry that key, so
-        # every entry rendered as ``Undefined`` -> ``null``.
-        "tools_called": "{{ tools_called | tojson }}",
+        "tool_calls": "{{ tools_called | tojson }}",
         "agents_involved": "{{ agents_involved | tojson }}",
         "agent_workflow": "{{ agent_workflow }}",
         "tool_chain": "{{ tool_chain }}",
         "metadata": (
-            "{{ {'tools_called': tools_called, "
+            "{{ {'agent': agent, 'tools_called': tools_called, "
             "'tool_chain': tool_chain, 'agents_involved': agents_involved, "
             "'agent_workflow': agent_workflow} | tojson }}"
         ),
@@ -234,49 +197,50 @@ def chat_endpoint_traced(
     message: str,
     conversation_id: str | None = None,
 ) -> ChatResponse:
-    """Traced chat entry point invoked by the public ``/chat`` route.
-
-    The ``@endpoint`` decorator wires this function into the Rhesis platform
-    for remote testing and emits the corresponding ``ai.endpoint.invoke`` span.
-    """
+    """Traced entry point for the MAF travel multi-agent workflow."""
     logger.info("=" * 80)
-    logger.info("POLYMATH CHAT")
+    logger.info("TRAVEL AGENT MULTI-AGENT CHAT")
     logger.info("Message: %s...", message[:100])
     logger.info("Conversation ID: %s", conversation_id)
     logger.info("=" * 80)
 
     conv_id = conversation_id or str(uuid.uuid4())
+
+    # Stamp the conversation attributes on the active @endpoint span (the
+    # turn root). On the first turn the playground sends no conversation_id,
+    # so the SDK/backend cannot inject one before the span is created.
+    conv_attr = ConversationContext.SpanAttributes
+    max_io = ConversationContext.MAX_IO_LENGTH
+    span = otel_trace.get_current_span()
+    span.set_attribute(conv_attr.IS_TURN_ROOT, True)
+    span.set_attribute(conv_attr.CONVERSATION_ID, conv_id)
+    span.set_attribute(conv_attr.CONVERSATION_INPUT, message[:max_io])
+
+    # Replay prior turns so the workflow actually remembers the conversation.
     history = conversations.get(conv_id, [])
-
-    # Build a fresh workflow per request. MAF's ``HandoffBuilder`` workflow
-    # is single-run -- sharing one instance across requests raises
-    # ``RuntimeError: Workflow is already running`` whenever two ``/chat``
-    # calls overlap (which happens routinely because the connector's
-    # auto-validation handshake also invokes this endpoint at boot).
-    workflow = build_workflow()
-
-    result = invoke_polymath(
+    workflow = build_travel_workflow()
+    result = invoke_travel_workflow(
         workflow,
         message,
         conversation_history=history,
         conversation_id=conv_id,
     )
-
     conversations[conv_id] = result["messages"]
+
+    span.set_attribute(conv_attr.CONVERSATION_OUTPUT, (result["response"] or "")[:max_io])
 
     tools_called = [
         ToolCall(
             tool_name=tc["tool_name"],
-            agent=tc.get("agent", "unknown"),
+            agent=tc.get("agent", "travel_agent"),
             tool_args=tc.get("tool_args", {}),
         )
         for tc in result.get("tools_called", [])
     ]
 
-    logger.info("Response generated")
+    logger.info("Travel response generated")
     logger.info("Agents involved: %s", result.get("agents_involved", []))
-    logger.info("Agent workflow: %s", result.get("agent_workflow", ""))
-    logger.info("Tool chain: %s", result.get("tool_chain", ""))
+    logger.info("Tools called: %s", [tc.tool_name for tc in tools_called])
     logger.info("=" * 80)
 
     return ChatResponse(
@@ -291,21 +255,9 @@ def chat_endpoint_traced(
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    """Chat with Polymath.
-
-    The coordinator routes the request to the math and/or info specialist(s),
-    then synthesises a final answer.
-
-    Defined as a sync function so FastAPI executes it in its threadpool. This
-    matches the contract documented in :func:`polymath.workflow.invoke_polymath`,
-    which uses :func:`asyncio.run` internally and therefore must run on a
-    thread that does not already have a running event loop. Declaring this
-    handler ``async`` would put us back on the FastAPI event loop and cause
-    ``asyncio.run() cannot be called from a running event loop`` at request
-    time.
-    """
+    """Chat with the Microsoft Agent Framework travel multi-agent system."""
     if not _startup_validated:
-        raise HTTPException(status_code=503, detail="Polymath workflow not initialised")
+        raise HTTPException(status_code=503, detail="Travel Agent not initialised")
 
     try:
         return chat_endpoint_traced(
@@ -357,5 +309,5 @@ async def delete_conversation(conversation_id: str):
     return {"message": f"Conversation {conversation_id} deleted"}
 
 
-# To run the server, use: python -m polymath
-# Or: uvicorn polymath.app:app --host 0.0.0.0 --port 8889 --reload
+# To run the server, use: python -m travel_agent
+# Or: uvicorn travel_agent.app:app --host 0.0.0.0 --port 8890 --reload

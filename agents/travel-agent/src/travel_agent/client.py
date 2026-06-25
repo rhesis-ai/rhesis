@@ -1,6 +1,6 @@
-"""Chat client factory for the Polymath multi-agent system.
+"""Chat client factory for the Travel Agent.
 
-Polymath uses MAF's :class:`agent_framework.openai.OpenAIChatCompletionClient`
+Travel Agent uses MAF's :class:`agent_framework.openai.OpenAIChatCompletionClient`
 pointed at Google's OpenAI-compatible Gemini endpoint, so we get a first-class
 MAF client backed by a Gemini model without pulling in any Google-specific SDK.
 
@@ -30,7 +30,7 @@ def build_chat_client() -> OpenAIChatCompletionClient:
     """Build a single :class:`OpenAIChatCompletionClient` configured for Gemini.
 
     Reads ``GOOGLE_API_KEY`` (or ``GEMINI_API_KEY``) from the environment and
-    optionally ``POLYMATH_MODEL`` to override the default model id.
+    optionally ``TRAVEL_AGENT_MODEL`` to override the default model id.
 
     Raises:
         RuntimeError: if no Gemini API key is set.
@@ -38,10 +38,10 @@ def build_chat_client() -> OpenAIChatCompletionClient:
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "GOOGLE_API_KEY (or GEMINI_API_KEY) is required to run Polymath. "
+            "GOOGLE_API_KEY (or GEMINI_API_KEY) is required to run Travel Agent. "
             "Set one in your environment or .env file."
         )
-    model = os.environ.get("POLYMATH_MODEL", DEFAULT_MODEL)
+    model = os.environ.get("TRAVEL_AGENT_MODEL", DEFAULT_MODEL)
     return OpenAIChatCompletionClient[OpenAIChatCompletionOptions[None]](
         model=model,
         api_key=api_key,

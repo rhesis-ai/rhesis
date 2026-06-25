@@ -1,16 +1,12 @@
-"""Formatting helpers for the Polymath multi-agent system.
-
-Same shape as :mod:`research_assistant.utils` so the API responses look
-familiar across the two demo agents.
-"""
+"""Formatting helpers for the Travel Agent multi-agent system."""
 
 from __future__ import annotations
 
-# Display labels keyed by agent name.
 AGENT_LABELS: dict[str, str] = {
-    "coordinator": "Coordinator",
-    "math_specialist": "Math",
-    "info_specialist": "Info",
+    "trip_coordinator": "Coordinator",
+    "destination_finder": "Destination",
+    "sightseeing_scout": "Sightseeing",
+    "logistics_planner": "Logistics",
 }
 
 
@@ -18,7 +14,7 @@ def format_agent_workflow(agent_history: list[str]) -> str:
     """Format the per-handoff agent history as ``A -> B -> C``."""
     if not agent_history:
         return "No agents involved"
-    labeled = [AGENT_LABELS.get(a, a) for a in agent_history]
+    labeled = [AGENT_LABELS.get(agent, agent) for agent in agent_history]
     return " -> ".join(labeled)
 
 
