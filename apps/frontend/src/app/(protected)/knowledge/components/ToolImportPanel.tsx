@@ -487,9 +487,7 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
               placeholder={providerLabels.placeholder}
               value={item.url}
               onChange={e => handleUrlChange(item.id, e.target.value)}
-              disabled={
-                item.status === 'importing' || item.status === 'success'
-              }
+              disabled={previewing || importing || item.status === 'success'}
               error={item.status === 'error'}
               helperText={
                 item.status === 'error' ? (
