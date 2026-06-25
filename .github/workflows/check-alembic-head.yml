@@ -1,0 +1,44 @@
+name: "[Check] Alembic migration head"
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  check-migration-head:
+    name: No duplicate down_revision
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch (full history)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Install dependencies
+        run: uv sync --dev
+        working-directory: apps/backend
+
+      - name: Check alembic down_revision points to main HEAD
+        run: |
+            # Get main's heads
+            git checkout origin/main
+            MAIN_HEADS=$(cd apps/backend/src/rhesis/backend && uv run alembic heads)
+
+            # Get PR's heads
+            git checkout -
+            PR_HEADS=$(cd apps/backend/src/rhesis/backend && uv run alembic heads | wc -l)
+
+            if [ "$PR_HEADS" -ne 1 ]; then
+            echo "Multiple heads detected. Main head: $MAIN_HEADS"
+            exit 1
+            fi
