@@ -19,6 +19,10 @@ import {
   chunkBehaviorColumns,
   isBehaviorRowExpandable,
 } from '../utils/behavior-insights-utils';
+import {
+  filterColumnsByBehaviorIds,
+  InsightsBehaviorOption,
+} from '../utils/insights-filter-utils';
 import { useBehaviorInsightsData } from '../hooks/useBehaviorInsightsData';
 
 interface InsightsPageProps {
@@ -53,11 +57,28 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     noRuns,
   } = useBehaviorInsightsData(sessionToken, filters);
 
+  const behaviorOptions = useMemo<InsightsBehaviorOption[]>(
+    () =>
+      columns.map(column => ({
+        id: column.id,
+        name: column.name,
+        count: column.overall.total,
+      })),
+    [columns]
+  );
+
+  const behaviorFilteredColumns = useMemo(
+    () => filterColumnsByBehaviorIds(columns, filters.behaviorIds),
+    [columns, filters.behaviorIds]
+  );
+
   const filteredColumns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return columns;
-    return columns.filter(column => column.name.toLowerCase().includes(query));
-  }, [columns, searchQuery]);
+    if (!query) return behaviorFilteredColumns;
+    return behaviorFilteredColumns.filter(column =>
+      column.name.toLowerCase().includes(query)
+    );
+  }, [behaviorFilteredColumns, searchQuery]);
 
   const columnRows = useMemo(
     () => chunkBehaviorColumns(filteredColumns),
@@ -74,7 +95,12 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
 
   useEffect(() => {
     setExpandedRows(new Set(expandableRowIndices));
-  }, [filters.endpointId, filters.timeRange, expandableRowIndices]);
+  }, [
+    filters.endpointId,
+    filters.timeRange,
+    filters.behaviorIds,
+    expandableRowIndices,
+  ]);
 
   const allExpanded =
     expandableRowIndices.length > 0 &&
@@ -126,9 +152,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
 
     if (projectEndpoints.length === 0) {
       setFilters(prev =>
-        prev.endpointId === ''
-          ? prev
-          : { timeRange: prev.timeRange, endpointId: '' }
+        prev.endpointId === '' ? prev : { ...prev, endpointId: '' }
       );
       return;
     }
@@ -145,7 +169,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
     setFilters(prev =>
       prev.endpointId === resolvedId
         ? prev
-        : { timeRange: prev.timeRange, endpointId: resolvedId }
+        : { ...prev, endpointId: resolvedId }
     );
   }, [
     endpointsLoading,
@@ -193,6 +217,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
           onFiltersChange={handleFiltersChange}
           projectEndpoints={projectEndpoints}
           endpointsLoading={endpointsLoading}
+          behaviorOptions={behaviorOptions}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           showExpandToggle={
@@ -209,7 +234,7 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
           filters={filters}
           insights={{
             summary,
-            columns,
+            columns: filteredColumns,
             loading: insightsLoading,
             error,
             noRuns,

@@ -5,6 +5,8 @@ export type InsightsTimeRange = '1d' | '7d' | '1m' | '3m';
 export interface InsightsFilters {
   timeRange: InsightsTimeRange;
   endpointId: string;
+  /** Empty means all behaviors are visible. */
+  behaviorIds: string[];
 }
 
 export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = '1m';
@@ -12,6 +14,7 @@ export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = '1m';
 export const DEFAULT_INSIGHTS_FILTERS: InsightsFilters = {
   timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
   endpointId: '',
+  behaviorIds: [],
 };
 
 const VALID_TIME_RANGES = new Set<InsightsTimeRange>(['1d', '7d', '1m', '3m']);
@@ -40,6 +43,7 @@ export function normalizeInsightsFilters(
   return {
     timeRange: resolveInsightsTimeRange(timeRange),
     endpointId: filters.endpointId ?? '',
+    behaviorIds: filters.behaviorIds ?? [],
   };
 }
 

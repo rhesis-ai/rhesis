@@ -32,10 +32,14 @@ function renderFilters(
   props: Partial<React.ComponentProps<typeof TestResultsFilters>> = {}
 ) {
   const defaults = {
-    filters: { timeRange: '1m' as const, endpointId: 'ep-1' },
+    filters: { timeRange: '1m' as const, endpointId: 'ep-1', behaviorIds: [] },
     onFiltersChange: jest.fn(),
     projectEndpoints: defaultEndpoints,
     endpointsLoading: false,
+    behaviorOptions: [
+      { id: 'beh-1', name: 'Safety', count: 12 },
+      { id: 'beh-2', name: 'Fluency', count: 8 },
+    ],
     searchQuery: '',
     onSearchChange: jest.fn(),
   };
@@ -64,6 +68,7 @@ describe('TestResultsFilters', () => {
         endpointsLoading={false}
         searchQuery=""
         onSearchChange={jest.fn()}
+        behaviorOptions={[]}
       />
     );
 
@@ -116,6 +121,7 @@ describe('TestResultsFilters', () => {
     expect(onFiltersChange).toHaveBeenCalledWith({
       timeRange: '7d',
       endpointId: 'ep-1',
+      behaviorIds: [],
     });
   });
 
@@ -134,6 +140,7 @@ describe('TestResultsFilters', () => {
     expect(onFiltersChange).toHaveBeenCalledWith({
       timeRange: '1m',
       endpointId: 'ep-2',
+      behaviorIds: [],
     });
   });
 

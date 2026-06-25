@@ -19,12 +19,14 @@ import InsightsFilterDrawer, {
   hasActiveInsightsDrawerFilters,
   type InsightsDrawerFilters,
 } from './InsightsFilterDrawer';
+import { InsightsBehaviorOption } from '../utils/insights-filter-utils';
 
 interface TestResultsFiltersProps {
   filters: InsightsFilters;
   onFiltersChange: (filters: InsightsFilters) => void;
   projectEndpoints: Endpoint[];
   endpointsLoading: boolean;
+  behaviorOptions: InsightsBehaviorOption[];
   searchQuery: string;
   onSearchChange: (value: string) => void;
   showExpandToggle?: boolean;
@@ -37,6 +39,7 @@ export default function TestResultsFilters({
   onFiltersChange,
   projectEndpoints,
   endpointsLoading,
+  behaviorOptions,
   searchQuery,
   onSearchChange,
   showExpandToggle = false,
@@ -46,8 +49,11 @@ export default function TestResultsFilters({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const drawerFilters = useMemo<InsightsDrawerFilters>(
-    () => ({ endpointId: filters.endpointId }),
-    [filters.endpointId]
+    () => ({
+      endpointId: filters.endpointId,
+      behaviorIds: filters.behaviorIds,
+    }),
+    [filters.endpointId, filters.behaviorIds]
   );
 
   const handleTimeRangeChange = (value: string) => {
@@ -61,7 +67,11 @@ export default function TestResultsFilters({
     if (next.endpointId) {
       writeInsightsEndpointId(next.endpointId);
     }
-    onFiltersChange({ ...filters, endpointId: next.endpointId });
+    onFiltersChange({
+      ...filters,
+      endpointId: next.endpointId,
+      behaviorIds: next.behaviorIds,
+    });
   };
 
   return (
@@ -103,6 +113,7 @@ export default function TestResultsFilters({
         filters={drawerFilters}
         projectEndpoints={projectEndpoints}
         endpointsLoading={endpointsLoading}
+        behaviorOptions={behaviorOptions}
         onApply={handleDrawerApply}
       />
     </>
