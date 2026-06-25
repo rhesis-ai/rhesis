@@ -25,7 +25,6 @@ import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { ENVIRONMENTS } from './endpoint-detail-shared';
 import {
-  connectionTarget,
   detailGridSpacing,
   formatConfigSource,
   formatEnvironment,
@@ -59,7 +58,6 @@ export default function EndpointOverviewTab() {
   const { endpoint, projects, loadingProjects, saveFields } =
     useEndpointDetailContext();
   const projectList = useMemo(() => Object.values(projects), [projects]);
-  const target = connectionTarget(endpoint);
 
   const detailsInitial = useMemo(
     () => detailsFromEndpoint(endpoint),
@@ -192,29 +190,6 @@ export default function EndpointOverviewTab() {
                   multiline
                 />
               )}
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 3, md: 2 }}>
-              {endpoint.connection_type === 'REST' && endpoint.method ? (
-                <ViewField label="Method">
-                  <GridBadge size="detail" label={endpoint.method} />
-                </ViewField>
-              ) : (
-                <ViewField label="Method" value="—" />
-              )}
-            </Grid>
-            <Grid size={{ xs: 12, sm: 9, md: 10 }}>
-              <ViewField
-                label="Target"
-                value={target}
-                inputSx={{
-                  fontFamily:
-                    endpoint.connection_type === 'SDK'
-                      ? 'monospace'
-                      : 'inherit',
-                  wordBreak: 'break-all',
-                }}
-              />
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
