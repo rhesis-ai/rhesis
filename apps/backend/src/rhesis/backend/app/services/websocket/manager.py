@@ -264,6 +264,37 @@ class WebSocketManager:
             await self._send_error(conn_id, "Missing channel in subscribe request")
             return
 
+        # The client sends the channel resource's own project_id so the
+        # authorization DB session can satisfy the fail-closed project_isolation
+        # RLS policy when looking the resource up. Without it the session opens
+        # with a blank app.current_project, and that policy (org set + project
+        # unset -> only project_id IS NULL rows) hides any project-scoped
+        # resource, making _resolve_channel_project_id return "not found" and
+        # silently denying an otherwise-authorized subscription.
+        #
+        # The value is validated as a UUID before being used: project_isolation
+        # policies cast app.current_project to ::uuid, so a malformed string
+        # would cause a Postgres cast error on every query during the auth
+        # lookup and turn the subscribe into a server error/disconnect. An
+        # invalid value is treated as blank (fail-closed: the resource will not
+        # be found, subscription is denied with SUBSCRIPTION_ERROR).
+        subscribe_project_id = ""
+        if message.payload:
+            raw_project_id = message.payload.get("project_id") or ""
+            if raw_project_id:
+                try:
+                    import uuid as _uuid
+
+                    _uuid.UUID(str(raw_project_id))
+                    subscribe_project_id = str(raw_project_id)
+                except (ValueError, AttributeError):
+                    logger.warning(
+                        "SUBSCRIBE from conn %s carries malformed project_id %r"
+                        " — treating as blank",
+                        conn_id,
+                        raw_project_id,
+                    )
+
         # Security: Authorize channel subscription.
         # SP11: open a short-lived tenant session so the PDP can evaluate
         # the caller's read capability for resource-type channels.
@@ -272,7 +303,9 @@ class WebSocketManager:
 
         authorizer = get_channel_authorizer()
         stored_principal = self._principals.get(conn_id)
-        with get_db_with_tenant_variables(str(user.organization_id), str(user.id), "") as db:
+        with get_db_with_tenant_variables(
+            str(user.organization_id), str(user.id), subscribe_project_id
+        ) as db:
             authorized, error_message = await authorizer.authorize(
                 user, channel, db=db, principal=stored_principal
             )
@@ -280,7 +313,20 @@ class WebSocketManager:
             logger.warning(
                 f"Unauthorized subscription attempt by user {user.id} to {channel}: {error_message}"
             )
-            await self._send_error(conn_id, error_message or "Subscription denied")
+            # Channel-scoped error so the subscriber can correlate the denial and
+            # stop waiting (e.g. clear a "Thinking…" spinner) instead of hanging.
+            await self.broadcast(
+                WebSocketMessage(
+                    type=EventType.SUBSCRIPTION_ERROR,
+                    channel=channel,
+                    correlation_id=message.correlation_id,
+                    payload={
+                        "channel": channel,
+                        "error": error_message or "Subscription denied",
+                    },
+                ),
+                ConnectionTarget(connection_id=conn_id),
+            )
             return
 
         success = self.subscribe(conn_id, channel)

@@ -27,11 +27,18 @@ def extract_file_text(
     content_type: str,
     content_hash: str,
     organization_id: str,
+    project_id: str = "",
 ) -> None:
     """Fetch file bytes from storage and persist extracted text on the File row.
 
     Idempotent: if a File row with the same content_hash already has
     ``extraction_status='done'``, the task exits early without re-running.
+
+    ``project_id`` is the file's own project (empty for org-level files). It must
+    be passed so the session's ``app.current_project`` GUC matches the row: under
+    the fail-closed project_isolation RLS policy, a session with the org set but
+    no project can only see ``project_id IS NULL`` rows, so a project-scoped file
+    would otherwise be invisible here and extraction would silently no-op.
     """
     import uuid
 
@@ -42,7 +49,7 @@ def extract_file_text(
     try:
         storage = StorageService()
 
-        with get_db_with_tenant_variables(organization_id, "") as db:
+        with get_db_with_tenant_variables(organization_id, "", project_id) as db:
             file_row = db.query(File).filter(File.id == uuid.UUID(file_id)).first()
             if not file_row:
                 logger.warning(f"[EXTRACT] File row not found: file_id={file_id}")
@@ -85,7 +92,7 @@ def extract_file_text(
     except Exception as exc:
         logger.error(f"[EXTRACT] Extraction failed for file_id={file_id}: {exc}", exc_info=True)
         try:
-            with get_db_with_tenant_variables(organization_id, "") as db:
+            with get_db_with_tenant_variables(organization_id, "", project_id) as db:
                 file_row = db.query(File).filter(File.id == uuid.UUID(file_id)).first()
                 if file_row:
                     file_row.extraction_status = "failed"
