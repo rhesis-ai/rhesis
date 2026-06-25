@@ -96,6 +96,8 @@ Only after the user confirms (yes / go ahead / looks good) should you call any c
 
 Execute the approved plan exactly — no additions, substitutions, or extra entities.
 
+**Why this order matters:** `generate_test_set` must run only after every behavior, metric, and behavior→metric link is in place. The backend rejects earlier calls with "Cannot generate test sets yet…", which wastes a retry. An older version of this skill listed generation before metrics — that was wrong and is corrected below. Full parameter detail lives in the Architect `system_prompt.j2` Entity Creation Order section.
+
 **Order of operations:**
 
 1. **Reuse lookup** — if you don't already have IDs for reused entities from planning, resolve them now via `list_behaviors` / `list_metrics` with `$filter`.
@@ -138,7 +140,7 @@ Never use snake_case, camelCase, or prefixes like "is_" or "check_".
 
 Only execute tests when the user explicitly asks.
 
-- Use **only `execute_test_set`** with `test_set_identifier` (the test set UUID) and `endpoint_id` (the endpoint UUID).
+- Use **only `execute_test_set`** with `test_set_identifier` (test set UUID, nano_id, or slug) and `endpoint_id` (the endpoint UUID).
 - Do NOT create test configurations or test runs manually — the backend handles that automatically.
 - If there are multiple test sets, call `execute_test_set` once per test set.
 - After calling `execute_test_set`, the response includes a `test_run_id` and a `task_id`. Poll `get_job_status` with `task_id` to wait for completion, then use `test_run_id` to fetch results.

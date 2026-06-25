@@ -203,7 +203,7 @@ tools:
       manually. Response includes test_run_id and task_id.
     parameters:
       test_set_identifier:
-        description: "REQUIRED. The UUID of the test set to execute (path parameter)."
+        description: "REQUIRED. Test set UUID, nano_id, or slug (path parameter)."
       endpoint_id:
         description: "REQUIRED. The UUID of the target endpoint (path parameter)."
 

@@ -358,7 +358,7 @@ Run a test set against an endpoint. The backend creates the internal test config
 The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `task_id` until `SUCCESS`, then use `test_run_id` to fetch results via `get_test_run` and `list_test_results`.
 
 **Key parameters:**
-- `test_set_identifier` (required, path parameter) — UUID of the test set
+- `test_set_identifier` (required, path parameter) — test set UUID, nano_id, or slug
 - `endpoint_id` (required, path parameter) — UUID of the target endpoint
 
 ---
@@ -386,6 +386,13 @@ Aggregated statistics for test results. Use for single-run analysis and multi-ru
 - `start_date`, `end_date` — ISO format
 
 ---
+
+### `get_test_run_stats`
+Run-level analytics: run volume, status distribution, most-run test sets, top executors, monthly trends.
+
+Use for **operational questions** ("how many runs this month?"). For pass/fail outcomes, use `get_test_result_stats` instead.
+
+**Modes:** `summary` (default), `status`, `results`, `test_sets`, `executors`, `timeline`, `all`
 
 **Key parameters:**
 - `mode`
