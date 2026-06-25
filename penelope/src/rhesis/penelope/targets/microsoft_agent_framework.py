@@ -55,6 +55,14 @@ _THREAD_FACTORY_METHODS: Tuple[str, ...] = (
 # ``agent.run(...)``, in priority order.
 _THREAD_RUN_KWARGS: Tuple[str, ...] = ("thread", "session")
 
+# Maps each thread/session factory method to the ``run`` kwarg it expects.
+_FACTORY_TO_RUN_KWARG: Dict[str, str] = {
+    "get_new_thread": "thread",
+    "create_session": "session",
+    "get_new_session": "session",
+    "new_thread": "thread",
+}
+
 
 class MicrosoftAgentFrameworkTarget(Target):
     """
@@ -229,14 +237,23 @@ class MicrosoftAgentFrameworkTarget(Target):
         try:
             params = inspect.signature(self.agent.run).parameters
         except (TypeError, ValueError):
-            # Signature unavailable (e.g. C-implemented); default to ``thread``.
-            return _THREAD_RUN_KWARGS[0]
+            # Signature unavailable (e.g. C-implemented); infer from factory API.
+            return self._state_kwarg_from_factory() or _THREAD_RUN_KWARGS[0]
 
         if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
-            return _THREAD_RUN_KWARGS[0]
+            # ``**kwargs`` accepts both names; pick the one matching the factory
+            # API so modern ``create_session`` agents still get ``session=``.
+            return self._state_kwarg_from_factory() or _THREAD_RUN_KWARGS[0]
         for name in _THREAD_RUN_KWARGS:
             if name in params:
                 return name
+        return None
+
+    def _state_kwarg_from_factory(self) -> Optional[str]:
+        """Return the ``run`` kwarg that matches the agent's thread/session factory."""
+        for method_name in _THREAD_FACTORY_METHODS:
+            if callable(getattr(self.agent, method_name, None)):
+                return _FACTORY_TO_RUN_KWARG[method_name]
         return None
 
     @staticmethod

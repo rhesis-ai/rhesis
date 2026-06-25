@@ -6,6 +6,8 @@ provided to cover both the modern (``create_session`` / ``run(session=...)``)
 and legacy (``get_new_thread`` / ``run(thread=...)``) MAF API shapes.
 """
 
+from typing import Any
+
 import inspect
 
 import pytest
@@ -51,6 +53,26 @@ class ModernFakeAgent:
             session.history.append(messages or "")
         turn = len(session.history) if session is not None else 1
         return FakeResponse(f"reply to '{messages}' (turn {turn})")
+
+
+class ModernFakeAgentWithKwargs:
+    """MAF agent with ``**kwargs`` in ``run`` (common in real MAF builds)."""
+
+    def __init__(self):
+        self._counter = 0
+        self.calls: list[tuple[str, FakeSession | None, dict[str, Any]]] = []
+
+    def create_session(self, *, session_id: str | None = None) -> FakeSession:
+        self._counter += 1
+        return FakeSession(session_id or f"session-{self._counter}")
+
+    async def run(self, messages: str | None = None, **kwargs):
+        session = kwargs.get("session")
+        self.calls.append((messages, session, kwargs))
+        if session is not None:
+            session.history.append(messages or "")
+        turn = len(session.history) if session is not None else 1
+        return FakeResponse(f"kwargs reply to '{messages}' (turn {turn})")
 
 
 class LegacyFakeAgent:
@@ -193,6 +215,20 @@ def test_legacy_thread_api_multi_turn():
 
     assert second.conversation_id == first.conversation_id
     assert agent.calls[0][1] is agent.calls[1][1]
+    assert agent.calls[0][1].history == ["turn one", "turn two"]
+
+
+def test_kwargs_run_uses_session_for_modern_agent():
+    agent = ModernFakeAgentWithKwargs()
+    target = MicrosoftAgentFrameworkTarget(agent, "kwargs-bot")
+
+    first = target.send_message("turn one")
+    second = target.send_message("turn two", conversation_id=first.conversation_id)
+
+    assert second.conversation_id == first.conversation_id
+    assert agent.calls[0][1] is agent.calls[1][1]
+    assert "session" in agent.calls[0][2]
+    assert "thread" not in agent.calls[0][2]
     assert agent.calls[0][1].history == ["turn one", "turn two"]
 
 
