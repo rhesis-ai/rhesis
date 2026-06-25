@@ -162,8 +162,10 @@ class MAFIntegration(BaseIntegration):
         3. Wrap each existing OTLP exporter on the global ``TracerProvider``
            with :class:`MAFTranslatingExporter` so MAF spans are rewritten to
            the Rhesis ``ai.*`` schema before export.
-        4. Register :class:`MAFLLMDedupSpanProcessor` so any nested
-           ``@observe.llm`` decorator de-dupes against MAF chat spans.
+        4. Register :class:`MAFLLMDedupSpanProcessor` to toggle the LLM
+           observation context flag during MAF ``chat`` spans so flag-checking
+           auto-instrumentation (e.g. LangChain callbacks) skips duplicate
+           ``ai.llm.invoke`` spans. This does **not** dedup ``@observe.llm``.
 
         Returns:
             ``True`` if successfully enabled, ``False`` if MAF is not
