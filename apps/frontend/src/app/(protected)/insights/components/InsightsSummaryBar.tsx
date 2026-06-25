@@ -3,11 +3,13 @@
 import React from 'react';
 import { Box, LinearProgress, Typography } from '@mui/material';
 import { PassFailStats } from '@/utils/api-client/interfaces/test-results';
+import { formatInsightsSummaryDetail } from '../utils/insights-failed-tests';
 
 interface InsightsSummaryBarProps {
   summary: PassFailStats | null;
   endpointName?: string;
   loading?: boolean;
+  failedTestCaseCount?: number;
 }
 
 function progressColor(passRate: number): 'success' | 'warning' | 'error' {
@@ -20,6 +22,7 @@ export default function InsightsSummaryBar({
   summary,
   endpointName,
   loading = false,
+  failedTestCaseCount,
 }: InsightsSummaryBarProps) {
   const passRate = summary?.pass_rate ?? 0;
   const passed = summary?.passed ?? 0;
@@ -57,8 +60,12 @@ export default function InsightsSummaryBar({
               variant="caption"
               sx={{ color: 'text.disabled', fontWeight: 400 }}
             >
-              ({passed}/{total} tests passed
-              {failed > 0 ? `, ${failed} failed` : ''})
+              {formatInsightsSummaryDetail(
+                passed,
+                total,
+                failed,
+                failedTestCaseCount
+              )}
               {endpointName ? ` · ${endpointName}` : ''}
             </Typography>
           </>

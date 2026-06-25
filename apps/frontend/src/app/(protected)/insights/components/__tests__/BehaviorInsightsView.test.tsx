@@ -41,6 +41,7 @@ function renderView(
     insights: {
       summary: { total: 10, passed: 8, failed: 2, pass_rate: 80 },
       columns: [defaultColumn],
+      failedTestCaseCount: 2,
       loading: false,
       error: null,
       noRuns: false,
@@ -68,6 +69,7 @@ describe('BehaviorInsightsView', () => {
       insights: {
         summary: null,
         columns: [],
+        failedTestCaseCount: 0,
         loading: true,
         error: null,
         noRuns: false,

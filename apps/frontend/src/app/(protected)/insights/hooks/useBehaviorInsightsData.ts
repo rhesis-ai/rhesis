@@ -16,6 +16,7 @@ import {
   buildBehaviorColumns,
   fetchTestRunIdsForEndpoint,
 } from '../utils/behavior-insights-utils';
+import { fetchFailedTestIdsForInsights } from '../utils/insights-failed-tests';
 
 const EMPTY_SUMMARY: PassFailStats = {
   total: 0,
@@ -28,6 +29,7 @@ export interface BehaviorInsightsData {
   summary: PassFailStats | null;
   metadata: TestResultsStatsMetadata | null;
   columns: BehaviorInsightColumn[];
+  failedTestCaseCount: number;
   loading: boolean;
   error: string | null;
   noRuns: boolean;
@@ -42,6 +44,7 @@ export function useBehaviorInsightsData(
     null
   );
   const [columns, setColumns] = useState<BehaviorInsightColumn[]>([]);
+  const [failedTestCaseCount, setFailedTestCaseCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noRuns, setNoRuns] = useState(false);
@@ -57,6 +60,7 @@ export function useBehaviorInsightsData(
       setSummary(null);
       setMetadata(null);
       setColumns([]);
+      setFailedTestCaseCount(0);
       setNoRuns(false);
       setError(null);
       return;
@@ -85,6 +89,7 @@ export function useBehaviorInsightsData(
             setSummary(EMPTY_SUMMARY);
             setMetadata(null);
             setColumns([]);
+            setFailedTestCaseCount(0);
             setNoRuns(true);
             setLoading(false);
             return;
@@ -146,7 +151,9 @@ export function useBehaviorInsightsData(
 
           if (!isCurrentRequest(requestId)) return;
 
-          setSummary(summaryResult.overall_pass_rates ?? EMPTY_SUMMARY);
+          const overallSummary =
+            summaryResult.overall_pass_rates ?? EMPTY_SUMMARY;
+          setSummary(overallSummary);
           setMetadata(
             summaryResult.metadata ?? behaviorResult.metadata ?? null
           );
@@ -157,6 +164,21 @@ export function useBehaviorInsightsData(
               perBehaviorResults
             )
           );
+
+          if ((overallSummary.failed ?? 0) > 0) {
+            const failedIds = await fetchFailedTestIdsForInsights(
+              sessionToken,
+              {
+                endpointId: filters.endpointId,
+                timeRange: resolveInsightsTimeRange(filters.timeRange),
+              }
+            );
+            if (!isCurrentRequest(requestId)) return;
+            setFailedTestCaseCount(failedIds.length);
+          } else {
+            setFailedTestCaseCount(0);
+          }
+
           setLoading(false);
         } catch (err) {
           if (!isCurrentRequest(requestId)) return;
@@ -175,5 +197,13 @@ export function useBehaviorInsightsData(
     };
   }, [sessionToken, filters.endpointId, filters.timeRange]);
 
-  return { summary, metadata, columns, loading, error, noRuns };
+  return {
+    summary,
+    metadata,
+    columns,
+    failedTestCaseCount,
+    loading,
+    error,
+    noRuns,
+  };
 }
