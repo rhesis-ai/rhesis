@@ -82,6 +82,7 @@ function makeComment(
     user_name: string;
     created_at: string;
     reactions: unknown[];
+    permitted_actions: string[];
   }> = {}
 ) {
   return {
@@ -95,6 +96,10 @@ function makeComment(
     entity_id: 'entity-1',
     entity_type: 'Test' as const,
     emojis: {} as Record<string, { user_id: string; user_name: string }[]>,
+    // Server-driven affordances: edit/delete render from this list (full
+    // capability strings), not from client-side ownership. Default grants
+    // both; override with [] to deny.
+    permitted_actions: ['comment:update', 'comment:delete', 'comment:react'],
     ...overrides,
   };
 }
@@ -120,18 +125,17 @@ describe('CommentItem', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
   });
 
-  it('shows edit and delete buttons when the current user owns the comment', () => {
+  it('shows edit and delete buttons when the server permits update/delete', () => {
     renderWithTheme(<CommentItem {...baseProps} />);
     expect(screen.getByTestId('edit-icon')).toBeInTheDocument();
     expect(screen.getByTestId('delete-icon')).toBeInTheDocument();
   });
 
-  it('does not show edit/delete buttons for comments owned by another user', () => {
+  it('does not show edit/delete buttons when the server permits neither', () => {
     renderWithTheme(
       <CommentItem
         {...baseProps}
-        comment={makeComment({ user_id: 'other-user' })}
-        currentUserId="u1"
+        comment={makeComment({ permitted_actions: [] })}
       />
     );
     expect(screen.queryByTestId('edit-icon')).not.toBeInTheDocument();

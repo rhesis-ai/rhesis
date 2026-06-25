@@ -44,6 +44,7 @@ import {
 import { type Project } from '../utils/api-client/interfaces/project';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
+import { Capability } from '../constants/capabilities';
 
 // Mark this layout as dynamic since it uses server-side authentication
 export const dynamic = 'force-dynamic';
@@ -107,6 +108,7 @@ async function getNavigationItems(
       segment: 'metrics',
       title: 'Metrics',
       icon: <AutoGraphIcon key="metrics-icon" />,
+      requiredPermission: Capability.Metric.READ,
     },
     // GENERATE section — creation and exploration tools
     {
@@ -190,6 +192,7 @@ async function getNavigationItems(
       segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon key="models-icon" />,
+      requiredPermission: Capability.Model.READ,
     },
     {
       kind: 'page',
@@ -202,6 +205,7 @@ async function getNavigationItems(
       segment: 'tokens',
       title: 'API',
       icon: <VpnKeyIcon key="tokens-icon" />,
+      requiredPermission: Capability.Token.MANAGE,
     },
     // Divider before footer links
     {

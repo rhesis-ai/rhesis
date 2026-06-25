@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -19,11 +19,14 @@ import {
 } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
-import { Comment } from '@/types/comments';
+import { Comment, EntityType } from '@/types/comments';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
+import { EntityActionBar } from '@/components/common/EntityActionBar';
+import type { EntityAction } from '@/components/common/entity-actions';
+import { Capability } from '@/constants/capabilities';
 
 interface CommentItemProps {
   comment: Comment;
@@ -53,7 +56,38 @@ export function CommentItem({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isOwner = comment.user_id === currentUserId;
+  // Actions declared as data; EntityActionBar renders only those the server
+  // permits (capability) and `isVisible` allows. No canEdit/canDelete booleans,
+  // no per-button wiring — adding an action is one entry here.
+  const actions = useMemo<EntityAction<Comment>[]>(() => {
+    const list: EntityAction<Comment>[] = [];
+    if (onCreateTask) {
+      list.push({
+        id: 'create-task',
+        label: 'Create task from comment',
+        icon: AddTaskIcon,
+        isVisible: () => entityType !== EntityType.TASK,
+        onSelect: c => onCreateTask(c.id),
+      });
+    }
+    list.push(
+      {
+        id: 'edit',
+        label: 'Edit comment',
+        icon: EditIcon,
+        capability: Capability.Comment.UPDATE,
+        onSelect: () => setIsEditing(true),
+      },
+      {
+        id: 'delete',
+        label: 'Delete comment',
+        icon: DeleteIcon,
+        capability: Capability.Comment.DELETE,
+        onSelect: () => setShowDeleteModal(true),
+      }
+    );
+    return list;
+  }, [onCreateTask, entityType]);
 
   const handleSaveEdit = async () => {
     if (!editText.trim()) return;
@@ -153,42 +187,8 @@ export function CommentItem({
             {formatDate(comment.created_at)}
           </Typography>
 
-          {/* Action icons */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {onCreateTask && entityType !== 'Task' && (
-              <Tooltip title="Create task from comment">
-                <IconButton
-                  size="small"
-                  onClick={() => onCreateTask(comment.id)}
-                  sx={actionIconSx}
-                >
-                  <AddTaskIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {isOwner && (
-              <Tooltip title="Edit comment">
-                <IconButton
-                  size="small"
-                  onClick={() => setIsEditing(true)}
-                  sx={actionIconSx}
-                >
-                  <EditIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {isOwner && (
-              <Tooltip title="Delete comment">
-                <IconButton
-                  size="small"
-                  onClick={() => setShowDeleteModal(true)}
-                  sx={actionIconSx}
-                >
-                  <DeleteIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
+          {/* Action icons — gated + rendered generically from `actions` */}
+          <EntityActionBar subject={comment} actions={actions} />
         </Box>
 
         {/* ── Content box ── */}
