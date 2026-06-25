@@ -667,8 +667,7 @@ export function useArchitectChat(
         pendingCorrelationRef.current = null;
 
         subscriptionDeniedRef.current = true;
-        const errorMsg =
-          payload?.error || 'Could not connect to this session';
+        const errorMsg = payload?.error || 'Could not connect to this session';
         setError(errorMsg);
       })
     );
@@ -764,7 +763,7 @@ export function useArchitectChat(
         pendingCorrelationRef.current = null;
       }
     },
-    [sessionId, isConnected, isLoading, send]
+    [sessionId, sessionProjectId, isConnected, isLoading, send]
   );
 
   const visiblePlan = useMemo(
