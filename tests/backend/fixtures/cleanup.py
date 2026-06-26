@@ -132,16 +132,29 @@ def clean_test_database():
                 except Exception:
                     pass
 
+            # Resolve which managed tables actually exist up front (guards
+            # against schema drift, replacing the old per-table try/except).
+            existing_tables = {
+                row[0]
+                for row in connection.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema = 'public'"
+                    )
+                )
+            }
+            managed_tables = [t for t in tables_to_truncate if t in existing_tables]
+
             # Disable FK-cascade triggers so TRUNCATE doesn't need to chase
             # every FK edge.  Restored in the finally block below.
             connection.execute(text("SET session_replication_role = 'replica'"))
             try:
-                for table_name in tables_to_truncate:
-                    try:
-                        connection.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
-                    except Exception:
-                        # Table may not exist yet (schema drift) — keep going.
-                        pass
+                # Truncate every existing table in a single statement instead of
+                # looping one TRUNCATE per table — one round-trip and one set of
+                # locks rather than ~35.
+                if managed_tables:
+                    table_list = ", ".join(managed_tables)
+                    connection.execute(text(f"TRUNCATE TABLE {table_list} CASCADE"))
             finally:
                 # Always restore, even if a TRUNCATE raised; the SET is
                 # session-scoped so it survives a transaction rollback.
