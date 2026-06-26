@@ -1,0 +1,184 @@
+"""Tests for PydanticAITarget."""
+
+import asyncio
+
+import pytest
+from pydantic_ai import Agent
+from pydantic_ai.models.test import TestModel
+
+from rhesis.penelope.targets.pydantic_ai import PydanticAITarget
+from rhesis.sdk.targets import TargetResponse
+
+
+@pytest.fixture
+def agent():
+    """Create a Pydantic AI agent backed by TestModel."""
+    return Agent(TestModel(custom_output_text="hi there!"), name="my-agent")
+
+
+def test_target_initialization(agent):
+    target = PydanticAITarget(agent, "test-target", "A test agent")
+
+    assert target.agent is agent
+    assert target.target_type == "pydantic_ai"
+    assert target.target_id == "test-target"
+    assert target.description == "A test agent"
+
+
+def test_target_default_description(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    assert "test-target" in target.description
+
+
+def test_target_rejects_none_agent():
+    with pytest.raises(ValueError, match="Agent cannot be None"):
+        PydanticAITarget(None, "test-target")
+
+
+def test_target_rejects_empty_target_id(agent):
+    with pytest.raises(ValueError, match="target_id cannot be empty"):
+        PydanticAITarget(agent, "")
+
+
+def test_target_rejects_agent_without_run_sync():
+    class NotAnAgent:
+        pass
+
+    with pytest.raises(ValueError, match="run_sync"):
+        PydanticAITarget(NotAnAgent(), "test-target")
+
+
+def test_validate_configuration_valid(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    is_valid, error = target.validate_configuration()
+    assert is_valid is True
+    assert error is None
+
+
+def test_send_message_success(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = target.send_message("Hello")
+
+    assert isinstance(response, TargetResponse)
+    assert response.success is True
+    assert response.content == "hi there!"
+    assert response.conversation_id == "default"
+    assert response.metadata["input_sent"] == "Hello"
+    assert response.metadata["agent_type"] == "Agent"
+
+
+def test_send_message_uses_conversation_id(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = target.send_message("Hello", conversation_id="conv-1")
+
+    assert response.conversation_id == "conv-1"
+
+
+def test_send_message_empty_rejected(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = target.send_message("")
+
+    assert response.success is False
+    assert "Empty message" in response.error
+
+
+def test_send_message_whitespace_only_rejected(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = target.send_message("   ")
+
+    assert response.success is False
+
+
+def test_send_message_multi_turn_accumulates_history(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    r1 = target.send_message("Hello", conversation_id="conv-1")
+    r2 = target.send_message("How are you?", conversation_id="conv-1")
+
+    assert r1.metadata["session_messages_count"] == 2
+    assert r2.metadata["session_messages_count"] == 4
+
+
+def test_send_message_separate_conversations_isolated(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    target.send_message("Hello", conversation_id="conv-1")
+    target.send_message("Hello", conversation_id="conv-1")
+    r = target.send_message("Hi", conversation_id="conv-2")
+
+    assert r.metadata["session_messages_count"] == 2
+
+
+def test_send_message_handles_exception(agent):
+    def boom(*args, **kwargs):
+        raise RuntimeError("model unavailable")
+
+    agent.run_sync = boom
+    target = PydanticAITarget(agent, "test-target")
+
+    response = target.send_message("Hello")
+
+    assert response.success is False
+    assert "model unavailable" in response.error
+
+
+def test_a_send_message_success(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = asyncio.run(target.a_send_message("Hello"))
+
+    assert response.success is True
+    assert response.content == "hi there!"
+
+
+def test_a_send_message_empty_rejected(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = asyncio.run(target.a_send_message(""))
+
+    assert response.success is False
+
+
+def test_a_send_message_handles_exception(agent):
+    async def boom(*args, **kwargs):
+        raise RuntimeError("model unavailable")
+
+    agent.run = boom
+    target = PydanticAITarget(agent, "test-target")
+
+    response = asyncio.run(target.a_send_message("Hello"))
+
+    assert response.success is False
+    assert "model unavailable" in response.error
+
+
+def test_get_tool_documentation(agent):
+    target = PydanticAITarget(agent, "test-target", "A test agent")
+
+    doc = target.get_tool_documentation()
+
+    assert "A test agent" in doc
+    assert "Pydantic AI" in doc
+    assert "send_message_to_target" in doc
+
+
+def test_clear_session(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    target.send_message("Hello", conversation_id="conv-1")
+    assert "conv-1" in target._session_histories
+
+    target.clear_session("conv-1")
+    assert "conv-1" not in target._session_histories
+
+
+def test_clear_session_nonexistent_is_noop(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    target.clear_session("does-not-exist")
