@@ -49,6 +49,15 @@ def test_target_rejects_agent_without_run_sync():
         PydanticAITarget(NotAnAgent(), "test-target")
 
 
+def test_target_rejects_agent_without_run():
+    class SyncOnlyAgent:
+        def run_sync(self, *args, **kwargs):
+            pass
+
+    with pytest.raises(ValueError, match="run\\(\\)"):
+        PydanticAITarget(SyncOnlyAgent(), "test-target")
+
+
 def test_validate_configuration_valid(agent):
     target = PydanticAITarget(agent, "test-target")
 

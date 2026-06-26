@@ -71,6 +71,8 @@ class PydanticAITarget(Target):
             return False, "target_id cannot be empty"
         if not hasattr(self.agent, "run_sync"):
             return False, "Agent must have run_sync() method (Pydantic AI Agent)"
+        if not hasattr(self.agent, "run"):
+            return False, "Agent must have run() method (Pydantic AI Agent)"
         return True, None
 
     def send_message(
