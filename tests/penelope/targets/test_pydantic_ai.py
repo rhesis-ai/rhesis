@@ -16,6 +16,15 @@ def agent():
     return Agent(TestModel(custom_output_text="hi there!"), name="my-agent")
 
 
+SAMPLE_FILES = [
+    {
+        "filename": "image.png",
+        "content_type": "image/png",
+        "data": "iVBORw0KGgoAAAANSUhEUg==",
+    },
+]
+
+
 def test_target_initialization(agent):
     target = PydanticAITarget(agent, "test-target", "A test agent")
 
@@ -56,6 +65,44 @@ def test_target_rejects_agent_without_run():
 
     with pytest.raises(ValueError, match="run\\(\\)"):
         PydanticAITarget(SyncOnlyAgent(), "test-target")
+
+
+def test_send_message_with_files(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = target.send_message("What is this?", files=SAMPLE_FILES)
+
+    assert response.success is True
+    assert response.content == "hi there!"
+
+
+def test_send_message_with_files_passes_binary_content(agent):
+    captured = {}
+    original_run_sync = agent.run_sync
+
+    def spy_run_sync(user_prompt, **kwargs):
+        captured["user_prompt"] = user_prompt
+        return original_run_sync(user_prompt, **kwargs)
+
+    agent.run_sync = spy_run_sync
+    target = PydanticAITarget(agent, "test-target")
+
+    target.send_message("What is this?", files=SAMPLE_FILES)
+
+    from pydantic_ai import BinaryContent
+
+    assert captured["user_prompt"][0] == "What is this?"
+    assert isinstance(captured["user_prompt"][1], BinaryContent)
+    assert captured["user_prompt"][1].media_type == "image/png"
+
+
+def test_a_send_message_with_files(agent):
+    target = PydanticAITarget(agent, "test-target")
+
+    response = asyncio.run(target.a_send_message("What is this?", files=SAMPLE_FILES))
+
+    assert response.success is True
+    assert response.content == "hi there!"
 
 
 def test_validate_configuration_valid(agent):

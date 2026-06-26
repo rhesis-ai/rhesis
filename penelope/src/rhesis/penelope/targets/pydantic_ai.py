@@ -5,9 +5,30 @@ Simple wrapper for Pydantic AI Agents that makes them testable with
 Penelope's autonomous testing agent.
 """
 
+import base64
 from typing import Any, Dict, List, Optional
 
+from pydantic_ai import BinaryContent
+
 from rhesis.sdk.targets import Target, TargetResponse
+
+
+def _files_to_user_prompt(message: str, files: Optional[List[Dict[str, Any]]]) -> Any:
+    """Build a Pydantic AI user_prompt for `message`, attaching `files` as
+    BinaryContent parts if present. Returns the plain `message` string when
+    there are no files, or a list mixing the text and binary parts when there are.
+    """
+    if not files:
+        return message
+    parts: List[Any] = [message]
+    for file in files:
+        parts.append(
+            BinaryContent(
+                data=base64.b64decode(file["data"]),
+                media_type=file.get("content_type") or "application/octet-stream",
+            )
+        )
+    return parts
 
 
 class PydanticAITarget(Target):
@@ -89,8 +110,9 @@ class PydanticAITarget(Target):
         try:
             session_key = conversation_id or "default"
             message_history = self._session_histories.get(session_key)
+            user_prompt = _files_to_user_prompt(message, files)
 
-            result = self.agent.run_sync(message, message_history=message_history, **kwargs)
+            result = self.agent.run_sync(user_prompt, message_history=message_history, **kwargs)
 
             self._session_histories[session_key] = result.all_messages()
             content = str(result.output)
@@ -128,8 +150,9 @@ class PydanticAITarget(Target):
         try:
             session_key = conversation_id or "default"
             message_history = self._session_histories.get(session_key)
+            user_prompt = _files_to_user_prompt(message, files)
 
-            result = await self.agent.run(message, message_history=message_history, **kwargs)
+            result = await self.agent.run(user_prompt, message_history=message_history, **kwargs)
 
             self._session_histories[session_key] = result.all_messages()
             content = str(result.output)
