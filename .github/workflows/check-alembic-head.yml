@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSIONS_DIR="$GITHUB_WORKSPACE/apps/backend/src/rhesis/backend/alembic/versions"
+          VERSIONS_DIR="apps/backend/src/rhesis/backend/alembic/versions"
           ALEMBIC="$GITHUB_WORKSPACE/apps/backend/.venv/bin/alembic"
 
           alembic_heads() {
@@ -134,7 +134,7 @@ jobs:
             [[ "$matched" -eq ${#BASE_HEADS[@]} ]]
           }
 
-          NEW_MIGRATIONS=$(git diff --name-only --diff-filter=A "$BASE_REF"...HEAD -- "$VERSIONS_DIR")
+          NEW_MIGRATIONS=$(git -C "$GITHUB_WORKSPACE" diff --name-only --diff-filter=A "$BASE_REF"...HEAD -- "$VERSIONS_DIR")
           if [[ -z "$NEW_MIGRATIONS" ]]; then
             echo "No new migrations in this PR — nothing to check."
             exit 0
