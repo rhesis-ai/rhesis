@@ -8,8 +8,6 @@ Penelope's autonomous testing agent.
 import base64
 from typing import Any, Dict, List, Optional
 
-from pydantic_ai import BinaryContent
-
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -17,9 +15,15 @@ def _files_to_user_prompt(message: str, files: Optional[List[Dict[str, Any]]]) -
     """Build a Pydantic AI user_prompt for `message`, attaching `files` as
     BinaryContent parts if present. Returns the plain `message` string when
     there are no files, or a list mixing the text and binary parts when there are.
+
+    pydantic-ai is an optional dependency, so the import is deferred to call
+    time - importing this module must not require pydantic-ai to be installed.
     """
     if not files:
         return message
+
+    from pydantic_ai import BinaryContent
+
     parts: List[Any] = [message]
     for file in files:
         parts.append(

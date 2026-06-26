@@ -7,8 +7,6 @@ testable with Penelope's autonomous testing agent.
 
 from typing import Any, List, Optional
 
-from langchain_core.messages import HumanMessage
-
 from rhesis.penelope.targets._content_blocks import files_to_content_blocks
 from rhesis.sdk.targets import Target, TargetResponse
 
@@ -100,8 +98,17 @@ class LangChainTarget(Target):
         runnables that accept a message (or list of messages) at the top level,
         e.g. a bare chat model or a MessagesPlaceholder-first prompt; it is not
         guaranteed to work for chains that strictly expect a string under
-        input_key, and additional **kwargs are not merged into the input in
-        this case.
+        input_key.
+
+        Additional **kwargs are intentionally dropped when files are present -
+        this is not an oversight. Wrapping the HumanMessage back into
+        `{input_key: HumanMessage(...), **kwargs}` does not help: templates
+        substitute the input_key value into a string-typed slot regardless of
+        its type, so even a HumanMessage gets stringified into the prompt text
+        the same way a plain content-block list does. Getting real attachments
+        through requires bypassing input_key templating entirely, which is
+        fundamentally incompatible with also threading extra template
+        variables through **kwargs.
         """
         if not message.strip():
             return TargetResponse(success=False, content="", error="Empty message")
@@ -109,6 +116,8 @@ class LangChainTarget(Target):
         try:
             # Prepare input for LangChain
             if files:
+                from langchain_core.messages import HumanMessage
+
                 input_data = HumanMessage(content=files_to_content_blocks(message, files))
             else:
                 input_data = {self.input_key: message, **kwargs}

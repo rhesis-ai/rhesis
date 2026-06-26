@@ -1,18 +1,12 @@
 """Shared helper for turning Target `files` attachments into LangChain content blocks.
 
 Used by LangChainTarget and LangGraphTarget, both of which build messages out of
-langchain_core message content.
+langchain_core message content. langchain_core is an optional dependency of
+rhesis-penelope, so the import is deferred to call time - importing this module
+(and anything that imports it) must not require langchain_core to be installed.
 """
 
 from typing import Any, Dict, List, Optional, Union
-
-from langchain_core.messages.content import (
-    create_audio_block,
-    create_file_block,
-    create_image_block,
-    create_text_block,
-    create_video_block,
-)
 
 
 def files_to_content_blocks(
@@ -26,10 +20,20 @@ def files_to_content_blocks(
     """
     if not files:
         return message
+
+    from langchain_core.messages.content import create_text_block
+
     return [create_text_block(message), *(_file_to_block(f) for f in files)]
 
 
 def _file_to_block(file: Dict[str, Any]) -> Any:
+    from langchain_core.messages.content import (
+        create_audio_block,
+        create_file_block,
+        create_image_block,
+        create_video_block,
+    )
+
     content_type = file.get("content_type") or ""
     kwargs = {"base64": file["data"], "mime_type": content_type}
     if content_type.startswith("image/"):
