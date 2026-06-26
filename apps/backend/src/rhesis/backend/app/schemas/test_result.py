@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict, Field, field_validator
 
@@ -89,3 +89,4 @@ class ReviewResponse(Base):
     created_at: str
     updated_at: str
     target: Dict[str, Any]
+    permitted_actions: List[str] = Field(default_factory=list)

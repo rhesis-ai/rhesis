@@ -42,16 +42,21 @@ export const Capability = {
     UPDATE: 'test_run:update',
     DELETE: 'test_run:delete',
     EXECUTE: 'test_run:execute',
+    DELETE_OWN: 'test_run:delete:own',
   },
   TestResult: {
     READ: 'test_result:read',
     UPDATE: 'test_result:update',
+    UPDATE_OWN: 'test_result:update:own',
+    DELETE_OWN: 'test_result:delete:own',
   },
   Experiment: {
     READ: 'experiment:read',
     CREATE: 'experiment:create',
     UPDATE: 'experiment:update',
     DELETE: 'experiment:delete',
+    UPDATE_OWN: 'experiment:update:own',
+    DELETE_OWN: 'experiment:delete:own',
   },
   Endpoint: {
     READ: 'endpoint:read',
@@ -174,14 +179,19 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'test_run:update': 'Edit test runs',
   'test_run:delete': 'Delete test runs',
   'test_run:execute': 'Execute test runs',
+  'test_run:delete:own': 'Delete own test runs',
   // Test results
   'test_result:read': 'View test results',
   'test_result:update': 'Update test results',
+  'test_result:update:own': 'Edit own reviews',
+  'test_result:delete:own': 'Delete own reviews',
   // Experiments
   'experiment:read': 'View experiments',
   'experiment:create': 'Create experiments',
   'experiment:update': 'Edit experiments',
   'experiment:delete': 'Delete experiments',
+  'experiment:update:own': 'Edit own experiments',
+  'experiment:delete:own': 'Delete own experiments',
   // Endpoints
   'endpoint:read': 'View endpoints',
   'endpoint:create': 'Create endpoints',

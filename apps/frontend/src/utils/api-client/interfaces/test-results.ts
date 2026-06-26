@@ -146,6 +146,7 @@ export interface Review {
   created_at: string;
   updated_at: string;
   target: ReviewTarget;
+  permitted_actions?: string[];
 }
 
 export interface TestReviewsMetadata {

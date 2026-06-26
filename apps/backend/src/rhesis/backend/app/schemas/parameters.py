@@ -35,6 +35,8 @@ from pydantic import (
     ValidationError,
     model_validator,
 )
+from rhesis.backend.app.auth.capabilities import ResourceType
+from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
 # --------------------------------------------------------------------------- #
 # Built-in environments                                                      #
@@ -631,7 +633,7 @@ class ExperimentProject(BaseModel):
     name: str
 
 
-class ExperimentRead(ExperimentBase):
+class ExperimentRead(ExperimentBase, WithPermittedActions):
     """Response body for experiment endpoints (single + list).
 
     Carries enough surface for the list page (identity, ownership,
@@ -639,7 +641,15 @@ class ExperimentRead(ExperimentBase):
     row. The full ``versions`` list is exposed on the detail endpoint
     only — list responses include only the latest version pointer to
     keep payloads bounded for large experiment counts.
+
+    ``permitted_actions`` (server-resolved object-level affordances) is filled
+    automatically during response serialization — see
+    :class:`WithPermittedActions`. The owner field is ``owner_user_id``, not the
+    default ``user_id``.
     """
+
+    __resource_type__ = ResourceType.EXPERIMENT
+    __owner_attr__ = "owner_user_id"
 
     model_config = ConfigDict(extra="ignore", from_attributes=True)
 

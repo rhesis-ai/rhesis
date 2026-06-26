@@ -57,6 +57,7 @@ export interface TraceReview {
   created_at: string;
   updated_at: string;
   target: TraceReviewTarget;
+  permitted_actions?: string[];
 }
 
 export interface TraceReviewsMetadata {

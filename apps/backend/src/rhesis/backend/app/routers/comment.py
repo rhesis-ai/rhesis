@@ -5,8 +5,7 @@ from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.affordances import populate_permitted_actions
-from rhesis.backend.app.auth.capabilities import Permission, ResourceType, capability
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -87,9 +86,7 @@ def create_comment(
     new_comment = crud.create_comment(
         db=db, comment=comment, organization_id=organization_id, user_id=user_id
     )
-    return populate_permitted_actions(
-        new_comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return new_comment
 
 
 @router.get("/", response_model=List[CommentDetailSchema])
@@ -116,9 +113,7 @@ def read_comments(
         organization_id=organization_id,
         user_id=user_id,
     )
-    return populate_permitted_actions(
-        comments, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return comments
 
 
 @router.get("/{comment_id}", response_model=CommentDetailSchema)
@@ -136,9 +131,7 @@ def read_comment(
     )
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
-    return populate_permitted_actions(
-        comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return comment
 
 
 @router.put("/{comment_id}", response_model=schemas.Comment)
@@ -174,9 +167,7 @@ def update_comment(
         organization_id=organization_id,
         user_id=user_id,
     )
-    return populate_permitted_actions(
-        updated, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return updated
 
 
 @router.delete("/{comment_id}", response_model=schemas.Comment)
@@ -249,9 +240,7 @@ def read_comments_by_entity(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    return populate_permitted_actions(
-        comments, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return comments
 
 
 @router.post("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
@@ -320,9 +309,7 @@ def add_emoji_reaction(
     if updated_comment is None:
         raise HTTPException(status_code=400, detail="Failed to add emoji reaction")
 
-    return populate_permitted_actions(
-        updated_comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return updated_comment
 
 
 @router.delete("/{comment_id}/emoji/{emoji}", **capability("comment:react"))
@@ -356,6 +343,4 @@ def remove_emoji_reaction(
     if updated_comment is None:
         raise HTTPException(status_code=400, detail="Failed to remove emoji reaction")
 
-    return populate_permitted_actions(
-        updated_comment, ResourceType.COMMENT, current_user=current_user, request=request, db=db
-    )
+    return updated_comment

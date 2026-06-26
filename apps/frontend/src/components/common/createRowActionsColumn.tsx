@@ -33,6 +33,7 @@ interface RowActionsColumnOptions {
   onDelete?: (id: string, row: Record<string, unknown>) => void;
   onCancel?: (id: string, row: Record<string, unknown>) => void;
   canCancel?: (row: Record<string, unknown>) => boolean;
+  canDelete?: (row: Record<string, unknown>) => boolean;
   width?: number;
   editTooltip?: string;
   deleteTooltip?: string;
@@ -50,6 +51,7 @@ export function createRowActionsColumn({
   onDelete,
   onCancel,
   canCancel,
+  canDelete,
   width = 88,
   editTooltip = 'Edit',
   deleteTooltip = 'Delete',
@@ -70,6 +72,7 @@ export function createRowActionsColumn({
       const row = params.row as Record<string, unknown>;
       const cancelFn = onCancel;
       const showCancel = cancelFn && (!canCancel || canCancel(row));
+      const showDelete = onDelete && (!canDelete || canDelete(row));
 
       return (
         <Box
@@ -124,7 +127,7 @@ export function createRowActionsColumn({
               </IconButton>
             </Tooltip>
           )}
-          {onDelete && (
+          {showDelete && (
             <Tooltip title={deleteTooltip}>
               <IconButton
                 size="small"

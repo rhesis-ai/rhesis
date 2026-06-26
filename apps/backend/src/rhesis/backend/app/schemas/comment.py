@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import EntityType
 
 from .affordances import WithPermittedActions
@@ -59,9 +60,12 @@ class CommentUpdate(BaseModel):
 class Comment(CommentBase, WithPermittedActions):
     """Full Comment schema with all fields.
 
-    Inherits ``permitted_actions`` (server-resolved object-level affordances) from
-    :class:`WithPermittedActions`; populated by the router, empty otherwise.
+    ``permitted_actions`` (server-resolved object-level affordances) is filled
+    automatically during response serialization — see
+    :class:`WithPermittedActions`.
     """
+
+    __resource_type__ = ResourceType.COMMENT
 
     id: UUID
     user_id: UUID

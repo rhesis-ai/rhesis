@@ -69,6 +69,11 @@ class Experiment(Base, OrganizationMixin):
 
     project = relationship("Project", foreign_keys=[project_id])
     owner = relationship("User", foreign_keys=[owner_user_id])
+
+    @property
+    def user_id(self):
+        """Bridge for the affordances layer, which reads obj.user_id for ownership."""
+        return self.owner_user_id
     test_runs = relationship(
         "TestRun",
         back_populates="experiment",

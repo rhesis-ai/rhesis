@@ -114,10 +114,13 @@ class Permission:
         UPDATE = "test_run:update"
         DELETE = "test_run:delete"
         EXECUTE = "test_run:execute"
+        DELETE_OWN = "test_run:delete:own"
 
     class TestResult(_PermissionEnum):
         READ = "test_result:read"
         UPDATE = "test_result:update"
+        UPDATE_OWN = "test_result:update:own"
+        DELETE_OWN = "test_result:delete:own"
 
     class Experiment(_PermissionEnum):
         READ = "experiment:read"
@@ -159,6 +162,16 @@ class Permission:
         UPDATE_OWN = "comment:update:own"
         #: Delete a comment the caller created (object-level :own qualifier).
         DELETE_OWN = "comment:delete:own"
+
+    class Experiment(_PermissionEnum):
+        READ = "experiment:read"
+        CREATE = "experiment:create"
+        UPDATE = "experiment:update"
+        DELETE = "experiment:delete"
+        #: Update an experiment the caller owns (object-level :own qualifier).
+        UPDATE_OWN = "experiment:update:own"
+        #: Delete an experiment the caller owns (object-level :own qualifier).
+        DELETE_OWN = "experiment:delete:own"
 
     class Task(_PermissionEnum):
         READ = "task:read"
@@ -252,8 +265,8 @@ class Permission:
 class ResourceType(_PermissionEnum):
     """Resource identifiers — the prefix of a ``resource:action`` capability.
 
-    Used to tag object-level affordance computation (``permitted_actions_for`` /
-    ``populate_permitted_actions``) instead of bare string literals. Each value
+    Used to tag a response schema's ``__resource_type__`` (and the
+    ``permitted_actions_for`` resolver) instead of bare string literals. Each value
     matches the prefix of the corresponding :class:`Permission` sub-enum. Add a
     member when a resource gains object-level (``:own``) affordances.
     """
@@ -527,8 +540,8 @@ def permitted_actions_for(
     ``read`` are excluded.
 
     *own_gated_actions* is derived from the live capability catalog by the caller
-    (see :func:`~rhesis.backend.app.auth.affordances.populate_permitted_actions`),
-    so there is no per-resource registry here.
+    (see :class:`~rhesis.backend.app.auth.affordances._AffordanceContext`), so there
+    is no per-resource registry here.
     """
     owner_id = getattr(obj, "user_id", None)
     is_owner = current_user_id is not None and owner_id == current_user_id

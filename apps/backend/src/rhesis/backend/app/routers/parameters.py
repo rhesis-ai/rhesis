@@ -25,8 +25,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -38,6 +37,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.experiment import Experiment as ExperimentModel
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.parameters import (
     ENVIRONMENT_NAME_MAX_LENGTH,
     ENVIRONMENT_NAME_PATTERN,
@@ -321,6 +321,7 @@ def resolve(
 @project_experiments_router.get("", response_model=list[ExperimentRead])
 def list_project_experiments(
     project_id: uuid.UUID,
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_tenant_db_session),
@@ -365,6 +366,7 @@ def list_project_experiments(
 def create_project_experiment(
     project_id: uuid.UUID,
     payload: ExperimentCreate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),

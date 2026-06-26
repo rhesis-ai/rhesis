@@ -23,6 +23,8 @@ import {
   Review,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/utils/affordances';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
@@ -416,7 +418,7 @@ export default function TestDetailReviewsTab({
                         size="small"
                         variant="outlined"
                       />
-                      {String(review.user.user_id) === currentUserId && (
+                      {can(review, Capability.TestResult.UPDATE) && (
                         <Tooltip title="Delete review">
                           <IconButton
                             size="small"

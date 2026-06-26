@@ -3,8 +3,9 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -403,6 +404,7 @@ def generate_test_result_stats(
 @router.get("/{test_result_id}", response_model=TestResultDetailSchema)
 def read_test_result(
     test_result_id: UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -414,6 +416,13 @@ def read_test_result(
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
+    if db_test_result.test_reviews and "reviews" in db_test_result.test_reviews:
+        populate_review_permitted_actions(
+            db_test_result.test_reviews["reviews"],
+            current_user=current_user,
+            request=request,
+            db=db,
+        )
     return db_test_result
 
 
@@ -529,6 +538,7 @@ def _update_review_metadata(reviews_data: dict, current_user: User, latest_statu
 def add_review(
     test_result_id: UUID,
     review: schemas.ReviewCreate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -602,6 +612,9 @@ def add_review(
     # Without this, FastAPI's dependency-cleanup commit races the next request.
     db.commit()
 
+    populate_review_permitted_actions(
+        [new_review], current_user=current_user, request=request, db=db
+    )
     return new_review
 
 
@@ -610,6 +623,7 @@ def update_review(
     test_result_id: UUID,
     review_id: str,
     review: schemas.ReviewUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -648,6 +662,10 @@ def update_review(
 
     if review_to_update is None:
         raise HTTPException(status_code=404, detail="Review not found")
+
+    review_owner_id = review_to_update.get("user", {}).get("user_id")
+    if str(review_owner_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to update this review")
 
     old_target = review_to_update.get("target", {})
 
@@ -706,6 +724,9 @@ def update_review(
     db.refresh(db_test_result)
     db.commit()
 
+    populate_review_permitted_actions(
+        [review_to_update], current_user=current_user, request=request, db=db
+    )
     return review_to_update
 
 
@@ -747,6 +768,10 @@ def delete_review(
 
     if review_index is None:
         raise HTTPException(status_code=404, detail="Review not found")
+
+    review_owner_id = reviews[review_index].get("user", {}).get("user_id")
+    if str(review_owner_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this review")
 
     # Remove the review
     deleted_review = reviews.pop(review_index)

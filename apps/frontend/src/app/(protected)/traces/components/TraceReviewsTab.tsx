@@ -38,6 +38,9 @@ import { Status } from '@/utils/api-client/interfaces/status';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/utils/affordances';
+import { EntityType } from '@/types/entity-type';
 import {
   findStatusByCategory,
   isPassedStatusName,
@@ -462,7 +465,7 @@ export default function TraceReviewsTab({
                             size="small"
                             variant="outlined"
                           />
-                          {review.user.user_id === currentUserId && (
+                          {can(review, Capability.TestResult.UPDATE) && (
                             <Tooltip title="Delete review">
                               <IconButton
                                 size="small"

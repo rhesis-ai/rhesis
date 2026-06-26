@@ -41,6 +41,8 @@ import {
   ExperimentRead,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/utils/affordances';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -373,6 +375,7 @@ export default function ExperimentsClientWrapper({
       createRowActionsColumn({
         onEdit: id => router.push(`/experiments/${id}`),
         onDelete: id => setDeleteTargetId(id),
+        canDelete: row => can(row as unknown as ExperimentRead, Capability.Experiment.DELETE),
         editTooltip: 'Open experiment',
         deleteTooltip: 'Delete experiment',
       }),

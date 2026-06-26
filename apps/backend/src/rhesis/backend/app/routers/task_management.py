@@ -6,6 +6,9 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
@@ -118,6 +121,7 @@ def list_tasks(
             organization_id=organization_id,
             user_id=user_id,
         )
+        return tasks
     except Exception as e:
         logger.error(f"Error listing tasks: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -170,6 +174,7 @@ def get_tasks_by_entity(
             organization_id=organization_id,
             user_id=user_id,
         )
+        return tasks
     except Exception as e:
         logger.error(f"Error getting tasks by entity {entity_type}/{entity_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

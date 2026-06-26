@@ -128,6 +128,7 @@ export interface ExperimentRead {
   latest_version?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  permitted_actions?: string[];
 }
 
 /** Full detail shape including the versions array. */

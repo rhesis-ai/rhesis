@@ -1,21 +1,33 @@
 """Server-driven authorization affordances — attach per-object permitted actions.
 
-Thin router-layer wrapper around the generic resolver. Computes the caller's
-effective capability set once per request, then projects it over each object via
-:func:`~rhesis.backend.app.auth.capabilities.permitted_actions_for`, setting a
-transient ``permitted_actions`` attribute read by a response schema's
-``WithPermittedActions`` mixin.
+Affordance computation is **automatic** for ORM-backed responses: any response
+schema mixing in :class:`~rhesis.backend.app.schemas.affordances.WithPermittedActions`
+and declaring a ``__resource_type__`` has its ``permitted_actions`` filled during
+response serialization (see that mixin's ``model_validator``). The validator reads
+the per-request :class:`_AffordanceContext` bound here — there is no per-route call
+to remember.
 
-There is no per-resource code here — pass the resource type (the capability
-prefix). The same wrapper serves comment today and any future ``:own`` resource
-(e.g. experiments).
+The context is bound once per request by
+:func:`~rhesis.backend.app.dependencies.bind_affordance_context`, which
+``main.apply_affordance_backstop`` injects on exactly the routes whose
+``response_model`` carries the mixin. Capability resolution is **lazy and
+memoized**: the effective capability set is computed on first use and reused for
+every object in the response, so a list endpoint is a single PDP pass and a
+response with no affordances pays nothing.
+
+:func:`populate_review_permitted_actions` remains explicit: reviews are JSONB
+sub-documents (plain dicts), not ORM objects routed through a Pydantic
+``WithPermittedActions`` schema, so the validator never sees them.
 """
 
 from __future__ import annotations
 
-from typing import Iterable, Union
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from types import SimpleNamespace
+from typing import List, Optional
+from uuid import UUID as _UUID
 
-from fastapi import Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import (
@@ -42,33 +54,128 @@ def _own_gated_actions(resource_type: str) -> set[str]:
     return gated
 
 
-def populate_permitted_actions(
-    objs: Union[object, Iterable[object], None],
-    resource_type: str,
+def _owner_shim(owner_id: object) -> object:
+    """Wrap an owner id as an object exposing ``user_id``.
+
+    :func:`permitted_actions_for` reads ownership via ``obj.user_id``. Affordances
+    are now computed from the validated response model, whose owner field name
+    varies (``owner_user_id`` for experiments, ``user_id`` elsewhere), so the
+    caller extracts the owner id and wraps it here rather than passing a
+    heterogeneous object.
+    """
+    return SimpleNamespace(user_id=owner_id)
+
+
+@dataclass
+class _AffordanceContext:
+    """Per-request holder for server-driven affordance resolution.
+
+    Bound once per request by
+    :func:`~rhesis.backend.app.dependencies.bind_affordance_context` and read by
+    the :class:`WithPermittedActions` model validator during response
+    serialization. Capability resolution is **lazy and memoized**: the first
+    :meth:`actions_for` call resolves the principal and effective caps; every
+    subsequent call (e.g. each row of a list response) reuses them.
+    """
+
+    current_user: object
+    request: object
+    db: Session
+    _caps: Optional[List[str]] = field(default=None, init=False)
+    _principal: object = field(default=None, init=False)
+    _own_gated: dict = field(default_factory=dict, init=False)
+
+    def _ensure_caps(self) -> List[str]:
+        if self._caps is None:
+            self._principal = resolve_principal_from_request(self.current_user, self.request)
+            project_id = project_id_from_scope(self.db)
+            self._caps = effective_permissions(self._principal, project_id=project_id, db=self.db)
+        return self._caps
+
+    def actions_for(self, resource_type: object, owner_id: object) -> List[str]:
+        """Full capability strings the caller may exercise on an object of this type.
+
+        *owner_id* is the object's owner (read from the validated response model);
+        ownership-gated actions are granted only when it matches the caller.
+        """
+        caps = self._ensure_caps()
+        rt = str(resource_type)
+        gated = self._own_gated.get(rt)
+        if gated is None:
+            gated = _own_gated_actions(rt)
+            self._own_gated[rt] = gated
+        return permitted_actions_for(
+            caps,
+            _owner_shim(owner_id),
+            resource_type,
+            current_user_id=self._principal.user_id,
+            own_gated_actions=gated,
+        )
+
+
+# Per-request affordance context. ``None`` outside a request (background tasks,
+# scripts) so the validator fails closed (empty ``permitted_actions``). Bound only
+# by an *async* dependency so the value lives in the request's event-loop context,
+# where response serialization — and thus the validator — reads it.
+_affordance_ctx: ContextVar[Optional[_AffordanceContext]] = ContextVar(
+    "rhesis_affordance_ctx", default=None
+)
+
+
+def current_affordance_context() -> Optional[_AffordanceContext]:
+    """Return the affordance context bound for the current request, or ``None``."""
+    return _affordance_ctx.get()
+
+
+def set_affordance_context(current_user: object, request: object, db: Session) -> object:
+    """Bind a fresh affordance context; returns a token for :func:`reset_affordance_context`."""
+    return _affordance_ctx.set(
+        _AffordanceContext(current_user=current_user, request=request, db=db)
+    )
+
+
+def reset_affordance_context(token: object) -> None:
+    """Restore the affordance context to its value before the matching ``set`` call."""
+    _affordance_ctx.reset(token)
+
+
+def populate_review_permitted_actions(
+    reviews: List[dict],
     *,
     current_user: object,
-    request: Request,
+    request,
     db: Session,
-):
-    """Attach ``permitted_actions`` to one ORM object or an iterable, then return it.
+) -> List[dict]:
+    """Enrich review dicts (JSONB sub-documents) with per-review permitted_actions.
 
-    Single PDP pass: the effective capability set and the resource's ownership-
-    gated actions are computed once, then projected over every object with a pure
-    in-memory ownership comparison — no N+1.
+    Review dicts are stored as JSONB blobs — not ORM objects routed through a
+    ``WithPermittedActions`` Pydantic schema — so the automatic validator never
+    sees them. This helper runs one PDP pass and projects the caller's caps onto
+    each review by reading ``review["user"]["user_id"]`` as the ownership field.
+
+    Mutates each dict in-place (adds ``"permitted_actions"`` key). Safe to call on
+    GET handlers — the JSONB column is never auto-flushed without an explicit
+    ``flag_modified`` + ``commit``.
     """
-    if objs is None:
-        return objs
+    if not reviews:
+        return reviews
+
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     caps = effective_permissions(principal, project_id=project_id, db=db)
-    own_gated = _own_gated_actions(resource_type)
-    items = objs if isinstance(objs, (list, tuple)) else [objs]
-    for obj in items:
-        obj.permitted_actions = permitted_actions_for(
+    own_gated = _own_gated_actions("test_result")
+
+    for review in reviews:
+        raw_uid = review.get("user", {}).get("user_id")
+        try:
+            uid: _UUID | None = _UUID(str(raw_uid)) if raw_uid else None
+        except (ValueError, AttributeError):
+            uid = None
+        review["permitted_actions"] = permitted_actions_for(
             caps,
-            obj,
-            resource_type,
+            _owner_shim(uid),
+            "test_result",
             current_user_id=principal.user_id,
             own_gated_actions=own_gated,
         )
-    return objs
+    return reviews
