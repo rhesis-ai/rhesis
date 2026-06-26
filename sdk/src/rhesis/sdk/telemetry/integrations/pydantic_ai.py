@@ -42,9 +42,30 @@ class AgentPatchState:
 
 
 def _extract_user_prompt(args: tuple, kwargs: dict) -> Optional[str]:
-    """Extract the user_prompt argument from a Agent.run/run_sync call."""
+    """Extract a safe-to-log text representation of the user_prompt argument.
+
+    user_prompt is usually a plain string, but when files are attached it can
+    be a list mixing text with multimodal parts (BinaryContent, ImageUrl, ...).
+    Those parts must never be passed through str() directly - their repr can
+    embed the raw attachment bytes (or signed URLs) verbatim, which would leak
+    file content into the OTel span sent to the backend. Binary/file parts are
+    replaced with a small placeholder instead.
+    """
     prompt = args[0] if args else kwargs.get("user_prompt")
-    return str(prompt) if prompt is not None else None
+    if prompt is None:
+        return None
+    if isinstance(prompt, str):
+        return prompt
+    if isinstance(prompt, (list, tuple)):
+        parts = []
+        for part in prompt:
+            if isinstance(part, str):
+                parts.append(part)
+            else:
+                kind = getattr(part, "kind", None) or type(part).__name__
+                parts.append(f"<attachment: {kind}>")
+        return " ".join(parts)
+    return str(prompt)
 
 
 def _record_run_start(span: trace.Span, agent: Any, user_prompt: Optional[str]) -> None:

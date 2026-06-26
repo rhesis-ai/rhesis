@@ -5,34 +5,71 @@ Simple wrapper for Pydantic AI Agents that makes them testable with
 Penelope's autonomous testing agent.
 """
 
-import base64
 from typing import Any, Dict, List, Optional
 
 from rhesis.sdk.targets import Target, TargetResponse
 
 
-def _files_to_user_prompt(message: str, files: Optional[List[Dict[str, Any]]]) -> Any:
-    """Build a Pydantic AI user_prompt for `message`, attaching `files` as
-    BinaryContent parts if present. Returns the plain `message` string when
-    there are no files, or a list mixing the text and binary parts when there are.
+def _file_to_part(file: Any) -> Any:
+    """Build a single Pydantic AI user_prompt part for a file attachment.
+
+    `file` may be a dict with inline base64 `data`, or a `FileReference`
+    (object-storage-backed, see `_file_compat.py`). Prefers pre-extracted text
+    when available (cheap, no network call); otherwise materializes the raw
+    bytes as a BinaryContent part.
 
     pydantic-ai is an optional dependency, so the import is deferred to call
     time - importing this module must not require pydantic-ai to be installed.
     """
-    if not files:
-        return message
+    from rhesis.penelope._file_compat import file_attr, file_bytes_and_type, file_extracted_text
+
+    extracted_text = file_extracted_text(file)
+    if extracted_text:
+        filename = file_attr(file, "filename", "attachment")
+        return f"[Attached file: {filename}]\n{extracted_text}"
 
     from pydantic_ai import BinaryContent
 
-    parts: List[Any] = [message]
-    for file in files:
-        parts.append(
-            BinaryContent(
-                data=base64.b64decode(file["data"]),
-                media_type=file.get("content_type") or "application/octet-stream",
-            )
-        )
-    return parts
+    data, content_type = file_bytes_and_type(file)
+    return BinaryContent(data=data, media_type=content_type)
+
+
+async def _afile_to_part(file: Any) -> Any:
+    """Async sibling of `_file_to_part` - uses FileReference.aread_bytes() so
+    materializing object-storage attachments doesn't block the event loop."""
+    from rhesis.penelope._file_compat import (
+        afile_bytes_and_type,
+        file_attr,
+        file_extracted_text,
+    )
+
+    extracted_text = file_extracted_text(file)
+    if extracted_text:
+        filename = file_attr(file, "filename", "attachment")
+        return f"[Attached file: {filename}]\n{extracted_text}"
+
+    from pydantic_ai import BinaryContent
+
+    data, content_type = await afile_bytes_and_type(file)
+    return BinaryContent(data=data, media_type=content_type)
+
+
+def _files_to_user_prompt(message: str, files: Optional[List[Any]]) -> Any:
+    """Build a Pydantic AI user_prompt for `message`, attaching `files` if present.
+
+    Returns the plain `message` string when there are no files, or a list
+    mixing the text and file parts when there are.
+    """
+    if not files:
+        return message
+    return [message, *(_file_to_part(f) for f in files)]
+
+
+async def _afiles_to_user_prompt(message: str, files: Optional[List[Any]]) -> Any:
+    """Async sibling of `_files_to_user_prompt`."""
+    if not files:
+        return message
+    return [message, *([await _afile_to_part(f) for f in files])]
 
 
 class PydanticAITarget(Target):
@@ -154,7 +191,7 @@ class PydanticAITarget(Target):
         try:
             session_key = conversation_id or "default"
             message_history = self._session_histories.get(session_key)
-            user_prompt = _files_to_user_prompt(message, files)
+            user_prompt = await _afiles_to_user_prompt(message, files)
 
             result = await self.agent.run(user_prompt, message_history=message_history, **kwargs)
 

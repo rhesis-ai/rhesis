@@ -54,3 +54,33 @@ def test_video_file_becomes_video_block():
 def test_multiple_files_all_attached():
     result = files_to_content_blocks("x", SAMPLE_FILES)
     assert len(result) == len(SAMPLE_FILES) + 1
+
+
+class _FakeFileReference:
+    def __init__(self, filename, content_type, content, extracted_text=None):
+        self.filename = filename
+        self.content_type = content_type
+        self._content = content
+        self.extracted_text = extracted_text
+
+    def read_bytes(self):
+        return self._content
+
+
+def test_file_reference_without_extracted_text_becomes_binary_block():
+    file_ref = _FakeFileReference("photo.png", "image/png", b"rawbytes")
+    result = files_to_content_blocks("What is this?", [file_ref])
+
+    assert result[1]["type"] == "image"
+    assert result[1]["mime_type"] == "image/png"
+
+
+def test_file_reference_with_extracted_text_becomes_text_block():
+    file_ref = _FakeFileReference(
+        "doc.pdf", "application/pdf", b"unused", extracted_text="Hello from PDF"
+    )
+    result = files_to_content_blocks("Summarize", [file_ref])
+
+    assert result[1]["type"] == "text"
+    assert "doc.pdf" in result[1]["text"]
+    assert "Hello from PDF" in result[1]["text"]

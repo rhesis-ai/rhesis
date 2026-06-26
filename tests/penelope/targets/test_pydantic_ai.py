@@ -25,6 +25,20 @@ SAMPLE_FILES = [
 ]
 
 
+class _FakeFileReference:
+    def __init__(self, filename, content_type, content, extracted_text=None):
+        self.filename = filename
+        self.content_type = content_type
+        self._content = content
+        self.extracted_text = extracted_text
+
+    def read_bytes(self):
+        return self._content
+
+    async def aread_bytes(self):
+        return self._content
+
+
 def test_target_initialization(agent):
     target = PydanticAITarget(agent, "test-target", "A test agent")
 
@@ -103,6 +117,44 @@ def test_a_send_message_with_files(agent):
 
     assert response.success is True
     assert response.content == "hi there!"
+
+
+def test_send_message_with_file_reference_without_extracted_text(agent):
+    target = PydanticAITarget(agent, "test-target")
+    file_ref = _FakeFileReference("photo.png", "image/png", b"rawbytes")
+
+    response = target.send_message("What is this?", files=[file_ref])
+
+    assert response.success is True
+
+
+def test_send_message_with_file_reference_extracted_text_used_as_text_part(agent):
+    captured = {}
+    original_run_sync = agent.run_sync
+
+    def spy_run_sync(user_prompt, **kwargs):
+        captured["user_prompt"] = user_prompt
+        return original_run_sync(user_prompt, **kwargs)
+
+    agent.run_sync = spy_run_sync
+    target = PydanticAITarget(agent, "test-target")
+    file_ref = _FakeFileReference(
+        "doc.pdf", "application/pdf", b"unused", extracted_text="Hello from PDF"
+    )
+
+    target.send_message("Summarize", files=[file_ref])
+
+    assert isinstance(captured["user_prompt"][1], str)
+    assert "Hello from PDF" in captured["user_prompt"][1]
+
+
+def test_a_send_message_with_file_reference_uses_aread_bytes(agent):
+    target = PydanticAITarget(agent, "test-target")
+    file_ref = _FakeFileReference("photo.png", "image/png", b"rawbytes")
+
+    response = asyncio.run(target.a_send_message("What is this?", files=[file_ref]))
+
+    assert response.success is True
 
 
 def test_validate_configuration_valid(agent):

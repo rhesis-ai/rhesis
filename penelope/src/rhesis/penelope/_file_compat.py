@@ -25,7 +25,8 @@ Two small helpers handle the two places we need to talk to both shapes:
   destroying the live ``FileReference`` instances in the action params.
 """
 
-from typing import Any
+import base64
+from typing import Any, Optional, Tuple
 
 
 def file_attr(f: Any, key: str, default: Any = "") -> Any:
@@ -33,6 +34,42 @@ def file_attr(f: Any, key: str, default: Any = "") -> Any:
     if isinstance(f, dict):
         return f.get(key, default)
     return getattr(f, key, default)
+
+
+def file_extracted_text(f: Any) -> Optional[str]:
+    """Return pre-extracted text for a file attachment, if available.
+
+    Only ``FileReference`` carries this (populated by the backend's text
+    extraction pipeline). Plain dict attachments never have it, so this
+    returns ``None`` for them.
+    """
+    return file_attr(f, "extracted_text", None)
+
+
+def file_bytes_and_type(f: Any) -> Tuple[bytes, str]:
+    """Materialize raw bytes and content_type for a file attachment.
+
+    Works for either shape: a dict with inline base64 ``data``, or a
+    ``FileReference`` whose bytes live in object storage and are fetched
+    on-demand via ``read_bytes()`` (blocking I/O - do not call from an
+    asyncio event loop, use :func:`afile_bytes_and_type` instead).
+    """
+    content_type = file_attr(f, "content_type") or "application/octet-stream"
+    if isinstance(f, dict):
+        return base64.b64decode(f["data"]), content_type
+    return f.read_bytes(), content_type
+
+
+async def afile_bytes_and_type(f: Any) -> Tuple[bytes, str]:
+    """Async sibling of :func:`file_bytes_and_type`.
+
+    Uses ``FileReference.aread_bytes()`` so materializing object-storage
+    attachments doesn't block the event loop.
+    """
+    content_type = file_attr(f, "content_type") or "application/octet-stream"
+    if isinstance(f, dict):
+        return base64.b64decode(f["data"]), content_type
+    return await f.aread_bytes(), content_type
 
 
 def json_default(obj: Any) -> Any:

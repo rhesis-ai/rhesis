@@ -21,6 +21,7 @@ from pydantic_ai.models.test import TestModel
 from rhesis.sdk.telemetry.integrations.pydantic_ai import (
     AgentPatchState,
     PydanticAIIntegration,
+    _extract_user_prompt,
 )
 
 # `rhesis.sdk.telemetry.integrations.__init__` rebinds the name `pydantic_ai` in the
@@ -192,3 +193,32 @@ class TestInstrumentedInvocation:
         span = _spans_named(span_exporter, "ai.agent.invoke")[0]
         assert span.status.status_code == StatusCode.ERROR
         assert any(e.name == "exception" for e in span.events)
+
+
+# --- Safe prompt extraction (no attachment-content leakage) ---
+
+
+class TestExtractUserPrompt:
+    def test_plain_string(self):
+        assert _extract_user_prompt(("hello",), {}) == "hello"
+
+    def test_from_kwargs(self):
+        assert _extract_user_prompt((), {"user_prompt": "hello"}) == "hello"
+
+    def test_none_prompt_returns_none(self):
+        assert _extract_user_prompt((), {}) is None
+
+    def test_list_with_binary_content_does_not_leak_bytes(self):
+        from pydantic_ai import BinaryContent
+
+        bc = BinaryContent(data=b"A" * 5000, media_type="image/png")
+        result = _extract_user_prompt((["What is this?", bc],), {})
+
+        assert "What is this?" in result
+        assert "<attachment: binary>" in result
+        assert "AAAA" not in result
+        assert len(result) < 200
+
+    def test_list_with_multiple_text_parts(self):
+        result = _extract_user_prompt((["hello", "world"],), {})
+        assert result == "hello world"
