@@ -193,10 +193,9 @@ def _get_api_base_url() -> str:
 def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
-    Never uses any request-derived data. Uses three independent signals:
+    Never uses any request-derived data. Uses two independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
     2. API_BASE_URL explicitly configured for localhost
-    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
@@ -205,11 +204,6 @@ def is_running_locally() -> bool:
     # Signal 2: API_BASE_URL points to a local address
     parsed_host = urlparse(_get_api_base_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
-        return True
-
-    # Signal 3: BACKEND_ENV explicitly set to local
-    settings = get_application_settings()
-    if settings.is_local:
         return True
 
     return False
