@@ -65,7 +65,7 @@ def deploy_model_vllm(
         model_config=model_config,
         enable_lora=enable_lora,
         enforce_eager=enforce_eager,
-        guided_decoding_backend=guided_decoding_backend,
+        structured_outputs_backend=guided_decoding_backend,
     )
 
     logger.info(f"Uploading model: {model_config['model_name']}")
@@ -335,11 +335,14 @@ def main():
     parser.add_argument("--enable-lora", action="store_true", help="Enable LoRA support")
     parser.add_argument("--enforce-eager", action="store_true", help="Enforce eager execution")
     parser.add_argument(
-        "--guided-decoding-backend",
+        "--structured-outputs-backend",
         type=str,
         default="auto",
         choices=["auto", "xgrammar", "outlines"],
-        help="Structured outputs backend (default: auto)",
+        help=(
+            "Structured outputs backend passed to"
+            " --structured-outputs-config.backend (default: auto)"
+        ),
     )
     parser.add_argument(
         "--vllm-logging-level",
@@ -361,7 +364,7 @@ def main():
         skip_existing=not args.force,
         enable_lora=args.enable_lora,
         enforce_eager=args.enforce_eager,
-        guided_decoding_backend=args.guided_decoding_backend,
+        guided_decoding_backend=args.structured_outputs_backend,
     )
 
 

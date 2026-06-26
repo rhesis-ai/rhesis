@@ -34,7 +34,7 @@ on:
         required: false
         default: false
         type: boolean
-      guided_decoding_backend:
+      structured_outputs_backend:
         description: 'Structured outputs backend'
         required: false
         default: 'auto'
@@ -192,9 +192,9 @@ jobs:
             ARGS="$ARGS --enforce-eager"
           fi
 
-          # Handle guided_decoding_backend
-          if [ -n "${{ github.event.inputs.guided_decoding_backend }}" ]; then
-            ARGS="$ARGS --guided-decoding-backend=${{ github.event.inputs.guided_decoding_backend }}"
+          # Handle structured_outputs_backend
+          if [ -n "${{ github.event.inputs.structured_outputs_backend }}" ]; then
+            ARGS="$ARGS --structured-outputs-backend=${{ github.event.inputs.structured_outputs_backend }}"
           fi
 
           echo "DEPLOY_ARGS=$ARGS" >> $GITHUB_ENV
@@ -228,7 +228,7 @@ jobs:
           - **Skip Existing**: \`${{ github.event.inputs.skip_existing || 'true' }}\`
           - **Enable LoRA**: \`${{ github.event.inputs.enable_lora || 'false' }}\`
           - **Enforce Eager**: \`${{ github.event.inputs.enforce_eager || 'false' }}\`
-          - **Guided Decoding Backend**: \`${{ github.event.inputs.guided_decoding_backend || 'auto' }}\`
+          - **Structured Outputs Backend**: \`${{ github.event.inputs.structured_outputs_backend || 'auto' }}\`
           - **VLLM_LOGGING_LEVEL** (Vertex container): \`${{ env.VLLM_LOGGING_LEVEL || 'unset (vLLM default)' }}\`
           
           ## Model Loading

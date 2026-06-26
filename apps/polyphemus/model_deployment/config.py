@@ -151,7 +151,7 @@ def get_vllm_args(
     model_config: ModelConfig,
     enable_lora: bool = False,
     enforce_eager: bool = False,
-    guided_decoding_backend: str = "auto",
+    structured_outputs_backend: str = "auto",
 ) -> list[str]:
     """Build vLLM arguments for model deployment.
 
@@ -159,7 +159,7 @@ def get_vllm_args(
         model_config: Model configuration dictionary
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
-        guided_decoding_backend: Guided decoding backend (auto, outlines, lm-format-enforcer)
+        structured_outputs_backend: Structured outputs backend (auto, xgrammar, outlines)
 
     Returns:
         List of vLLM command line arguments
@@ -177,7 +177,7 @@ def get_vllm_args(
         "--dtype=auto",
         "--max-num-seqs=256",
         "--disable-log-stats",
-        f"--structured-outputs-config.backend={guided_decoding_backend}",
+        f"--structured-outputs-config.backend={structured_outputs_backend}",
     ]
 
     if enable_lora:
