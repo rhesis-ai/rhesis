@@ -19,8 +19,7 @@ handle_error() {
 }
 
 is_local_or_test_env() {
-    [ "${ENVIRONMENT:-}" = "local" ] || [ "${BACKEND_ENV:-}" = "local" ] \
-        || [ "${ENVIRONMENT:-}" = "test" ] || [ "${BACKEND_ENV:-}" = "test" ]
+    [ "${BACKEND_ENV:-}" = "local" ] || [ "${BACKEND_ENV:-}" = "test" ]
 }
 
 # In Docker, alembic is in .venv/bin (PATH). Locally, use `uv run alembic`.

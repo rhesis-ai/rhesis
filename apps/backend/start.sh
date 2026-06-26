@@ -23,15 +23,15 @@ handle_error() {
 
 # Function to check if we're in production mode
 is_production() {
-    [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]
+    [ "${BACKEND_ENV}" = "production" ]
 }
 
 is_local() {
-    [ "${ENVIRONMENT}" = "local" ] || [ "${BACKEND_ENV}" = "local" ]
+    [ "${BACKEND_ENV}" = "local" ]
 }
 
 is_development() {
-    [ "${ENVIRONMENT}" = "development" ] || [ "${BACKEND_ENV}" = "development" ]
+    [ "${BACKEND_ENV}" = "development" ]
 }
 
 # Function to display banner
@@ -64,7 +64,7 @@ run_migrations() {
 # Function to load environment from .env file (local development only)
 load_env_file() {
     # Skip if already in production (env vars set by Docker/K8s)
-    if [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]; then
+    if [ "${BACKEND_ENV}" = "production" ]; then
         log "${BLUE}📦 Production environment detected, using system env vars${NC}"
         return
     fi
@@ -160,7 +160,7 @@ start_server() {
             --log-level debug \
             --reload
     else
-        # Default: no ENVIRONMENT/BACKEND_ENV (e.g. docker-compose for integration tests)
+        # Default: no BACKEND_ENV (e.g. docker-compose for integration tests)
         log "${BLUE}🛠️  Starting server with Uvicorn (default)...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \

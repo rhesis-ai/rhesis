@@ -87,7 +87,6 @@ data:
   FRONTEND_PORT: "3000"
 
   # Environment Settings
-  ENVIRONMENT: "local"
   FRONTEND_ENV: "local"
   BACKEND_ENV: "local"
   WORKER_ENV: "local"
