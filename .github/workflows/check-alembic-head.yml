@@ -1,13 +1,14 @@
-name: "[Check] Alembic migration head"
+name: "Check Alembic migration head"
 
 on:
   pull_request:
-    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/backend/src/rhesis/backend/alembic/versions/**'
 
 jobs:
   check-migration-head:
-    name: No duplicate down_revision
+    name: Migration attaches to base head
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -28,50 +29,116 @@ jobs:
         run: uv sync --dev
         working-directory: apps/backend
 
-      - name: Check alembic down_revision points to main HEAD
+      - name: Check migration chain
+        working-directory: apps/backend/src/rhesis/backend
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
         run: |
-          VERSIONS_DIR="apps/backend/src/rhesis/backend/alembic/versions"
-          ALEMBIC_DIR="apps/backend/src/rhesis/backend"
+          set -euo pipefail
 
-          # Get new migration files added in this PR
-          NEW_MIGRATIONS=$(git diff --name-only --diff-filter=A origin/main...HEAD -- "$VERSIONS_DIR")
+          VERSIONS_DIR="$GITHUB_WORKSPACE/apps/backend/src/rhesis/backend/alembic/versions"
+          ALEMBIC="$GITHUB_WORKSPACE/apps/backend/.venv/bin/alembic"
 
-          if [ -z "$NEW_MIGRATIONS" ]; then
+          alembic_heads() {
+            "$ALEMBIC" heads 2>/dev/null | awk '{print $1}' | grep -v '^$' || true
+          }
+
+          alembic_parents() {
+            local rev="$1"
+            local line
+            line=$("$ALEMBIC" show "$rev" 2>/dev/null | grep -i '^Parent:' | head -1 || true)
+            line="${line#Parent: }"
+            line="$(echo "$line" | tr -d ' ')"
+            if [[ -z "$line" || "$line" == "<base>" ]]; then
+              return
+            fi
+            echo "$line" | tr ',' '\n'
+          }
+
+          NEW_MIGRATIONS=$(git diff --name-only --diff-filter=A "$BASE_REF"...HEAD -- "$VERSIONS_DIR")
+          if [[ -z "$NEW_MIGRATIONS" ]]; then
             echo "No new migrations in this PR — nothing to check."
             exit 0
           fi
 
-          echo "New migration(s) found:"
+          NEW_COUNT=$(echo "$NEW_MIGRATIONS" | grep -c . || true)
+          echo "New migration(s) ($NEW_COUNT):"
           echo "$NEW_MIGRATIONS"
 
-          # Get main's current head revision via worktree (no branch switching)
-          git worktree add /tmp/main-worktree origin/main
-          MAIN_HEAD=$(
-            cd /tmp/main-worktree/"$ALEMBIC_DIR" && \
-            "$GITHUB_WORKSPACE/apps/backend/.venv/bin/alembic" heads 2>/dev/null | \
-            grep -E "^\w+ \(head\)" | awk '{print $1}'
+          BASE_WORKTREE=$(mktemp -d)
+          trap 'git -C "$GITHUB_WORKSPACE" worktree remove --force "$BASE_WORKTREE" 2>/dev/null || true' EXIT
+          git worktree add --force "$BASE_WORKTREE" "$BASE_REF"
+
+          mapfile -t BASE_HEADS < <(
+            cd "$BASE_WORKTREE/apps/backend/src/rhesis/backend" && alembic_heads
           )
-          git worktree remove --force /tmp/main-worktree
 
-          echo "Main HEAD: $MAIN_HEAD"
-
-          # Check each new migration's down_revision points to main's HEAD
-          FAILED=0
-          for f in $NEW_MIGRATIONS; do
-            DOWN_REV=$(grep "^down_revision" "$f" | grep -oE "['\"][a-f0-9]+['\"]" | tr -d "'\"" | head -1)
-            if [ "$DOWN_REV" != "$MAIN_HEAD" ]; then
-              echo ""
-              echo "Conflict: $(basename $f)"
-              echo "  down_revision : $DOWN_REV"
-              echo "  main HEAD     : $MAIN_HEAD"
-              FAILED=1
-            else
-              echo "OK: $(basename $f) -> $DOWN_REV"
-            fi
-          done
-
-          if [ "$FAILED" -ne 0 ]; then
-            echo ""
-            echo "Fix: rebase your migration's down_revision onto the current HEAD on main."
+          if [[ ${#BASE_HEADS[@]} -eq 0 ]]; then
+            echo "Could not determine base branch Alembic head(s)." >&2
             exit 1
           fi
+
+          echo "Base ($BASE_REF) head(s): ${BASE_HEADS[*]}"
+
+          mapfile -t PR_HEADS < <(alembic_heads)
+          if [[ ${#PR_HEADS[@]} -ne 1 ]]; then
+            echo "This PR has ${#PR_HEADS[@]} Alembic heads — chain migrations linearly." >&2
+            exit 1
+          fi
+
+          PR_HEAD="${PR_HEADS[0]}"
+          echo "PR head: $PR_HEAD"
+
+          current="$PR_HEAD"
+          chain_len=1
+
+          is_base_head() {
+            local candidate="$1"
+            for base_head in "${BASE_HEADS[@]}"; do
+              if [[ "$candidate" == "$base_head" ]]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          parents_match_base() {
+            mapfile -t parents < <(alembic_parents "$current")
+            if [[ ${#parents[@]} -eq 0 ]]; then
+              return 1
+            fi
+
+            if [[ ${#BASE_HEADS[@]} -eq 1 ]]; then
+              [[ ${#parents[@]} -eq 1 && "${parents[0]}" == "${BASE_HEADS[0]}" ]]
+              return
+            fi
+
+            if [[ ${#parents[@]} -ne ${#BASE_HEADS[@]} ]]; then
+              return 1
+            fi
+
+            local matched=0
+            for parent in "${parents[@]}"; do
+              if is_base_head "$parent"; then
+                matched=$((matched + 1))
+              fi
+            done
+            [[ "$matched" -eq ${#BASE_HEADS[@]} ]]
+          }
+
+          while ! parents_match_base; do
+            mapfile -t parents < <(alembic_parents "$current")
+            if [[ ${#parents[@]} -ne 1 ]]; then
+              echo "Migration $current must have a single parent before reaching the base." >&2
+              exit 1
+            fi
+            current="${parents[0]}"
+            chain_len=$((chain_len + 1))
+          done
+
+          if [[ "$chain_len" -ne "$NEW_COUNT" ]]; then
+            echo "Expected $NEW_COUNT new migration(s) on the chain from base, got $chain_len." >&2
+            exit 1
+          fi
+
+          echo "OK: migration chain is valid (base head(s): ${BASE_HEADS[*]}, PR head: $PR_HEAD)"
