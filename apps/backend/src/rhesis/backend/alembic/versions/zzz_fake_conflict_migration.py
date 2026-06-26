@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "zzz999fakeid"
-down_revision: Union[str, None] = "b1c2d3e4f5a6"  # now changed to match current HEAD
+down_revision: Union[str, None] = "yyy111fakeid"  # wrong, not existing id
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
