@@ -18,8 +18,8 @@ handle_error() {
     exit 1
 }
 
-is_local_or_test_env() {
-    [ "${BACKEND_ENV:-}" = "local" ] || [ "${BACKEND_ENV:-}" = "test" ]
+is_local_env() {
+    [ "${BACKEND_ENV:-}" = "local" ]
 }
 
 # In Docker, alembic is in .venv/bin (PATH). Locally, use `uv run alembic`.
@@ -55,8 +55,8 @@ wait_for_database() {
 }
 
 maybe_wait_for_database() {
-    if is_local_or_test_env; then
-        log "${BLUE}ℹ️  Skipping database wait (local/test environment)${NC}"
+    if is_local_env; then
+        log "${BLUE}ℹ️  Skipping database wait (local environment)${NC}"
         return 0
     fi
 
@@ -100,14 +100,14 @@ run_migrations() {
 }
 
 set_db_ownership() {
-    if is_local_or_test_env; then
-        log "${BLUE}ℹ️  Skipping database ownership (local/test environment)${NC}"
+    if is_local_env; then
+        log "${BLUE}ℹ️  Skipping database ownership (local environment)${NC}"
         return 0
     fi
 
     log "${YELLOW}🔧 Setting database ownership...${NC}"
     if PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -U "$ADMIN_USER" -d "$DB_NAME" \
-        -c "ALTER DATABASE $DB_NAME OWNER TO $ADMIN_USER;" 2>/dev/null; then
+        -c "ALTER DATABASE \"$DB_NAME\" OWNER TO \"$ADMIN_USER\";" 2>/dev/null; then
         log "${GREEN}✅ Database ownership set successfully${NC}"
     else
         log "${YELLOW}⚠️  Database ownership already set or could not be changed${NC}"
@@ -127,7 +127,7 @@ main() {
     log "  Admin user: $ADMIN_USER"
     log "  Database: $DB_NAME"
     
-    # Wait for database to be ready (skipped in local/test — Postgres started separately)
+    # Wait for database to be ready (skipped in local — Postgres started separately)
     maybe_wait_for_database
 
     set_db_ownership
