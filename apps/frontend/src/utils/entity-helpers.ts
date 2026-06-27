@@ -1,4 +1,4 @@
-import { EntityType } from '@/types/tasks';
+import { EntityType } from '@/types/entity-type';
 import type { TaskMetadata } from '@/utils/api-client/interfaces/task';
 
 /**
@@ -8,13 +8,13 @@ import type { TaskMetadata } from '@/utils/api-client/interfaces/task';
  */
 export const getEntityDisplayName = (entityType: EntityType): string => {
   const entityMap: Partial<Record<EntityType, string>> = {
-    Test: 'Test',
-    TestSet: 'Test Set',
-    TestRun: 'Test Run',
-    TestResult: 'Test Result',
-    Task: 'Task',
-    Source: 'Source',
-    Trace: 'Trace',
+    [EntityType.TEST]: 'Test',
+    [EntityType.TEST_SET]: 'Test Set',
+    [EntityType.TEST_RUN]: 'Test Run',
+    [EntityType.TEST_RESULT]: 'Test Result',
+    [EntityType.TASK]: 'Task',
+    [EntityType.SOURCE]: 'Source',
+    [EntityType.TRACE]: 'Trace',
   };
   return entityMap[entityType] || entityType;
 };
@@ -26,13 +26,13 @@ export const getEntityDisplayName = (entityType: EntityType): string => {
  */
 export const getEntityPath = (entityType: EntityType): string => {
   const pathMap: Partial<Record<EntityType, string>> = {
-    Test: 'tests',
-    TestSet: 'test-sets',
-    TestRun: 'test-runs',
-    TestResult: 'test-results',
-    Task: 'tasks',
-    Source: 'knowledge',
-    Trace: 'traces',
+    [EntityType.TEST]: 'tests',
+    [EntityType.TEST_SET]: 'test-sets',
+    [EntityType.TEST_RUN]: 'test-runs',
+    [EntityType.TEST_RESULT]: 'test-results',
+    [EntityType.TASK]: 'tasks',
+    [EntityType.SOURCE]: 'knowledge',
+    [EntityType.TRACE]: 'traces',
   };
   return pathMap[entityType] || entityType.toLowerCase();
 };
@@ -43,13 +43,13 @@ export const getEntityPath = (entityType: EntityType): string => {
  */
 export const getEntityUrlMap = (): Record<string, string> => {
   return {
-    Test: 'tests',
-    TestSet: 'test-sets',
-    TestRun: 'test-runs',
-    TestResult: 'test-results',
-    Task: 'tasks',
-    Source: 'knowledge',
-    Trace: 'traces',
+    [EntityType.TEST]: 'tests',
+    [EntityType.TEST_SET]: 'test-sets',
+    [EntityType.TEST_RUN]: 'test-runs',
+    [EntityType.TEST_RESULT]: 'test-results',
+    [EntityType.TASK]: 'tasks',
+    [EntityType.SOURCE]: 'knowledge',
+    [EntityType.TRACE]: 'traces',
   };
 };
 
@@ -60,13 +60,13 @@ export const getEntityUrlMap = (): Record<string, string> => {
  */
 export const getEntityIconName = (entityType: EntityType): string => {
   const iconMap: Partial<Record<EntityType, string>> = {
-    Test: 'Science',
-    TestSet: 'Category',
-    TestRun: 'PlayArrow',
-    TestResult: 'Assignment',
-    Task: 'Assignment',
-    Source: 'Description',
-    Trace: 'Timeline',
+    [EntityType.TEST]: 'Science',
+    [EntityType.TEST_SET]: 'Category',
+    [EntityType.TEST_RUN]: 'PlayArrow',
+    [EntityType.TEST_RESULT]: 'Assignment',
+    [EntityType.TASK]: 'Assignment',
+    [EntityType.SOURCE]: 'Description',
+    [EntityType.TRACE]: 'Timeline',
   };
   return iconMap[entityType] || 'Assignment';
 };
@@ -80,13 +80,13 @@ export const isValidEntityType = (
   entityType: string
 ): entityType is EntityType => {
   const validTypes: EntityType[] = [
-    'Test',
-    'TestSet',
-    'TestRun',
-    'TestResult',
-    'Task',
-    'Source',
-    'Trace',
+    EntityType.TEST,
+    EntityType.TEST_SET,
+    EntityType.TEST_RUN,
+    EntityType.TEST_RESULT,
+    EntityType.TASK,
+    EntityType.SOURCE,
+    EntityType.TRACE,
   ];
   return validTypes.includes(entityType as EntityType);
 };
@@ -103,7 +103,7 @@ export const buildLinkedEntityUrl = (task: {
     return null;
   }
 
-  if (task.entity_type === 'TestResult' && task.task_metadata?.test_run_id) {
+  if (task.entity_type === EntityType.TEST_RESULT && task.task_metadata?.test_run_id) {
     const queryParams = new URLSearchParams();
     queryParams.append('selectedresult', task.entity_id);
     const queryString = queryParams.toString();

@@ -26,6 +26,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { EntityType } from '@/types/entity-type';
 
 type AutocompleteOption = FreeSoloOption;
 
@@ -137,12 +138,12 @@ export default function UpdateTest({
           topicClient.getTopics({
             sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test',
+            entity_type: EntityType.TEST,
           }),
           categoryClient.getCategories({
             sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test',
+            entity_type: EntityType.TEST,
           }),
           usersClient.getUsers(),
           statusClient.getStatuses({

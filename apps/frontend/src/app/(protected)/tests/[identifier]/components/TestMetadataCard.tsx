@@ -13,6 +13,7 @@ import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
 interface TestDetailOption {
   id: UUID;
@@ -70,12 +71,12 @@ export default function TestMetadataCard({
           .getBehaviorClient()
           .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
         apiFactory.getTopicClient().getTopics({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         }),
         apiFactory.getCategoryClient().getCategories({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         }),

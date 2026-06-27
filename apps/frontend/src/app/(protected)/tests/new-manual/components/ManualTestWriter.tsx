@@ -53,6 +53,7 @@ import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { TEST_TYPES, TYPE_NAMES } from '@/constants/test-types';
 import MultiFileUpload from '@/components/common/MultiFileUpload';
+import { EntityType } from '@/types/entity-type';
 
 type TestType = 'single_turn' | 'multi_turn';
 
@@ -206,7 +207,7 @@ export default function ManualTestWriter() {
         // Fetch topics with entity_type filter
         const topicsClient = apiFactory.getTopicClient();
         const topicsData = await topicsClient.getTopics({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         });
@@ -215,7 +216,7 @@ export default function ManualTestWriter() {
         // Fetch categories
         const categoriesClient = apiFactory.getCategoryClient();
         const categoriesData = await categoriesClient.getCategories({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         });

@@ -127,21 +127,6 @@ export function CommentsSection({
     [onReactToComment]
   );
 
-  const _getEntityDisplayName = (entityType: EntityType): string => {
-    switch (entityType) {
-      case 'Test':
-        return 'Test';
-      case 'TestSet':
-        return 'Test Set';
-      case 'TestRun':
-        return 'Test Run';
-      case 'TestResult':
-        return 'Test Result';
-      default:
-        return entityType;
-    }
-  };
-
   const sortedComments = [...comments].sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
