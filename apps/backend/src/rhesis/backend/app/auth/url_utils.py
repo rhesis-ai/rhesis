@@ -89,3 +89,23 @@ def _is_loopback_dev_origin(parsed_origin) -> bool:
     if parsed_origin.scheme not in ("http", "https"):
         return False
     return (parsed_origin.hostname or "").lower() in _LOOPBACK_HOSTNAMES
+
+
+def logout_cookie_domains(frontend_url: str) -> list[str]:
+    """Domains to target when clearing auth cookies on logout (no leading dot).
+
+    Browsers only delete a cookie when ``Set-Cookie`` matches the original
+    name, path, and domain. Deployed frontends may scope cookies to the
+    hostname or a parent domain; loopback deployments use host-only cookies.
+
+    Derived from ``FRONTEND_URL`` so deployments never need a hardcoded domain.
+    """
+    host = (urlparse(frontend_url).hostname or "").lower()
+    if not host or host in _LOOPBACK_HOSTNAMES:
+        return []
+
+    parts = host.split(".")
+    domains = [host]
+    if len(parts) >= 3:
+        domains.append(".".join(parts[1:]))
+    return list(dict.fromkeys(domains))

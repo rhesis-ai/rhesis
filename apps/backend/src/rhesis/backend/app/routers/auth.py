@@ -38,7 +38,7 @@ from rhesis.backend.app.auth.token_utils import (
     verify_email_flow_token,
     verify_jwt_token,
 )
-from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.auth.url_utils import build_redirect_url, logout_cookie_domains
 from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
@@ -1345,7 +1345,8 @@ async def logout(
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
     frontend_url = get_frontend_settings().url
-    frontend_env = os.getenv("FRONTEND_ENV", "development")
+    cookie_domains = logout_cookie_domains(frontend_url)
+    cookie_secure = urlparse(frontend_url).scheme == "https"
 
     # Check if this is an API call (from frontend middleware)
     if "application/json" in accept_header or "api" in request.url.path:
@@ -1379,8 +1380,7 @@ async def logout(
             samesite="lax",
         )
 
-        if frontend_env in ["staging", "production"]:
-            domain = "rhesis.ai" if frontend_env == "production" else "stg.rhesis.ai"
+        for domain in cookie_domains:
             response.set_cookie(
                 key=cookie_name,
                 value="",
@@ -1389,7 +1389,7 @@ async def logout(
                 path="/",
                 domain=domain,
                 httponly=True,
-                secure=True,
+                secure=cookie_secure,
                 samesite="lax",
             )
             response.set_cookie(
@@ -1400,7 +1400,7 @@ async def logout(
                 path="/",
                 domain=f".{domain}",
                 httponly=True,
-                secure=True,
+                secure=cookie_secure,
                 samesite="lax",
             )
 
