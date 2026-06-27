@@ -1,5 +1,6 @@
 import { CategoryClient } from '../category-client';
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
 const BASE_URL = 'http://127.0.0.1:8080/api/v1';
 const CATEGORY_ID = 'c1c1c1c1-0000-0000-0000-000000000001' as UUID;
@@ -46,9 +47,9 @@ describe('CategoryClient', () => {
 
   it('includes entity_type in URL when provided', async () => {
     fetchMock.mockResolvedValue(makeFetch([]));
-    await client.getCategories({ entity_type: 'Test' });
+    await client.getCategories({ entity_type: EntityType.TEST });
     const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('entity_type=Test');
+    expect(calledUrl).toContain(`entity_type=${EntityType.TEST}`);
   });
 
   it('includes $filter in URL when provided', async () => {

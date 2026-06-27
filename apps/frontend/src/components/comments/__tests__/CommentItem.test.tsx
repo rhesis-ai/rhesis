@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import { CommentItem } from '../CommentItem';
+import { EntityType } from '@/types/entity-type';
 
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
@@ -94,7 +95,7 @@ function makeComment(
     updated_at: '2024-01-01T12:00:00',
     reactions: [],
     entity_id: 'entity-1',
-    entity_type: 'Test' as const,
+    entity_type: EntityType.TEST,
     emojis: {} as Record<string, { user_id: string; user_name: string }[]>,
     // Server-driven affordances: edit/delete render from this list (full
     // capability strings), not from client-side ownership. Default grants

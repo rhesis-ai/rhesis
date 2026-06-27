@@ -2,6 +2,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useFiles } from '../useFiles';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';
+import { EntityType } from '@/types/entity-type';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
@@ -64,7 +65,7 @@ describe('useFiles', () => {
           content_type: 'image/png',
           size_bytes: 1024,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
@@ -94,7 +95,7 @@ describe('useFiles', () => {
           content_type: 'image/png',
           size_bytes: 2048,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
         },
         {
@@ -103,7 +104,7 @@ describe('useFiles', () => {
           content_type: 'application/pdf',
           size_bytes: 4096,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 1,
         },
       ];
@@ -171,7 +172,7 @@ describe('useFiles', () => {
           content_type: 'image/png',
           size_bytes: 5000,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
         },
       ];
@@ -212,7 +213,7 @@ describe('useFiles', () => {
           content_type: 'image/png',
           size_bytes: 1000,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
         },
       ];
@@ -225,7 +226,7 @@ describe('useFiles', () => {
           content_type: 'application/pdf',
           size_bytes: 2000,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 1,
         },
       ];
@@ -293,7 +294,7 @@ describe('useFiles', () => {
           content_type: 'image/png',
           size_bytes: 1024,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
         },
         {
@@ -302,7 +303,7 @@ describe('useFiles', () => {
           content_type: 'application/pdf',
           size_bytes: 2048,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 1,
         },
       ];
@@ -390,7 +391,7 @@ describe('useFiles', () => {
           content_type: 'image/png',
           size_bytes: 1000,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
         },
         {
@@ -399,7 +400,7 @@ describe('useFiles', () => {
           content_type: 'application/pdf',
           size_bytes: 3000,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 1,
         },
       ];

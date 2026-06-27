@@ -1,4 +1,5 @@
 import { FilesClient } from '../files-client';
+import { EntityType } from '@/types/entity-type';
 
 const BASE_URL = 'http://127.0.0.1:8080/api/v1';
 
@@ -46,7 +47,7 @@ describe('FilesClient', () => {
           content_type: 'image/png',
           size_bytes: 1024,
           entity_id: 'test-123',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
         },
       ];
@@ -60,7 +61,7 @@ describe('FilesClient', () => {
       const file = new File(['image data'], 'test.png', {
         type: 'image/png',
       });
-      const result = await client.uploadFiles([file], 'test-123', 'Test');
+      const result = await client.uploadFiles([file], 'test-123', EntityType.TEST);
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/files'),
@@ -76,7 +77,7 @@ describe('FilesClient', () => {
       // Verify entity_id and entity_type are in query params
       const calledUrl = fetchMock.mock.calls[0][0] as string;
       expect(calledUrl).toContain('entity_id=test-123');
-      expect(calledUrl).toContain('entity_type=Test');
+      expect(calledUrl).toContain(`entity_type=${EntityType.TEST}`);
 
       // Verify FormData was sent with files only
       const callArgs = fetchMock.mock.calls[0][1];

@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import { EntityType } from '@/types/entity-type';
 
 const BASE_URL = 'http://localhost:8080/api/v1';
 
@@ -217,7 +218,7 @@ export const handlers = [
       content_type: 'image/png',
       size_bytes: 1024,
       entity_id: 'test-1',
-      entity_type: 'Test',
+      entity_type: EntityType.TEST,
       position: 0,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
@@ -240,7 +241,7 @@ export const handlers = [
           content_type: 'image/png',
           size_bytes: 2048,
           entity_id: 'test-1',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           position: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -257,7 +258,7 @@ export const handlers = [
       content_type: 'image/png',
       size_bytes: 1024,
       entity_id: 'test-1',
-      entity_type: 'Test',
+      entity_type: EntityType.TEST,
       position: 0,
     });
   }),
