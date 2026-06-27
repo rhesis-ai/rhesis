@@ -15,6 +15,8 @@ import {
   ProjectMemberUser,
 } from '@/utils/api-client/interfaces/project';
 import { DeleteIcon, PersonAddIcon } from '@/components/icons';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ProjectMembersProps {
   projectId: string;
@@ -42,6 +44,7 @@ export default function ProjectMembers({
   onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
+  const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
 
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
@@ -172,9 +175,12 @@ export default function ProjectMembers({
       width: 56,
       sortable: false,
       filterable: false,
-      renderCell: params => {
+        renderCell: params => {
         const member = params.row as ProjectMember;
-        if (ownerId && member.user_id === ownerId) return null;
+        // Never show delete for the project owner, and only for users with manage capability.
+        if ((ownerId && member.user_id === ownerId) || !canManageMembers) {
+          return null;
+        }
         return (
           <IconButton
             size="small"

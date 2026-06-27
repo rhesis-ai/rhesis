@@ -28,7 +28,11 @@ import ModelFilterDrawer, {
 } from './components/ModelFilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 import type { ValidationStatus } from './types';
+import { EntityType } from '@/types/entity-type';
 
 export type { ValidationStatus } from './types';
 
@@ -36,6 +40,8 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
+  const canRead = useCan(Capability.Model.READ);
+
   const [connectedModels, setConnectedModels] = useState<Model[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -117,7 +123,7 @@ export default function ModelsPage() {
           const statuses = await apiFactory.getStatusClient().getStatuses({
             sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Model',
+            entity_type: EntityType.MODEL,
           });
           setStatusOptions(
             filterUniqueValidOptions(statuses).map(status => status.name)
@@ -365,6 +371,8 @@ export default function ModelsPage() {
     return typeMatch && searchMatch && providerMatch && statusMatch;
   });
 
+  if (!canRead) return <AccessDenied resource="models" />;
+
   return (
     <PageLayout
       title="Models"
@@ -372,24 +380,26 @@ export default function ModelsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Add model"
-            aria-label="Add model"
-            onClick={handleFabClick}
-          />
-          <Menu
+          <Can capability={Capability.Model.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Add model"
+              aria-label="Add model"
+              onClick={handleFabClick}
+            />
+            <Menu
             anchorEl={fabAnchorEl}
             open={fabMenuOpen}
             onClose={handleFabMenuClose}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
-            <MenuItem onClick={handleAddLanguageModel}>Language model</MenuItem>
-            <MenuItem onClick={handleAddEmbeddingModel}>
-              Embedding model
-            </MenuItem>
-          </Menu>
+              <MenuItem onClick={handleAddLanguageModel}>Language model</MenuItem>
+              <MenuItem onClick={handleAddEmbeddingModel}>
+                Embedding model
+              </MenuItem>
+            </Menu>
+          </Can>
         </FabGroup>
       }
     >

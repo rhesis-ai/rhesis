@@ -19,6 +19,8 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
@@ -27,6 +29,7 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
+  const canCreate = useCan(Capability.Test.CREATE);
 
   const insightsFailedFilter = React.useMemo(
     () =>
@@ -163,13 +166,15 @@ export default function TestsPage() {
             tooltip="Import tests"
             onClick={() => {}}
           />
-          <Fab
-            icon={<EditNoteIcon />}
-            tooltip="Manual test"
-            aria-label="Manual test"
-            onClick={handleCreateManual}
-            disabled={shouldDisableAddButton}
-          />
+          <Can capability={Capability.Test.CREATE}>
+            <Fab
+              icon={<EditNoteIcon />}
+              tooltip="Manual test"
+              aria-label="Manual test"
+              onClick={handleCreateManual}
+              disabled={shouldDisableAddButton}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -180,8 +185,8 @@ export default function TestsPage() {
             icon={ScienceIcon}
             title="No test yet"
             description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
-            actionLabel="Create test"
-            onAction={handleCreateManual}
+            actionLabel={canCreate ? 'Create test' : undefined}
+            onAction={canCreate ? handleCreateManual : undefined}
             actionDisabled={shouldDisableAddButton}
             enrichment={getEntityEmptyStateEnrichment('tests')}
           />

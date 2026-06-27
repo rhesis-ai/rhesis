@@ -16,11 +16,14 @@ import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const canCreate = useCan(Capability.Endpoint.CREATE);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
@@ -104,12 +107,14 @@ export default function EndpointsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Endpoint"
-              onClick={handleCreate}
-              data-tour="create-endpoint-button"
-            />
+            <Can capability={Capability.Endpoint.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Endpoint"
+                onClick={handleCreate}
+                data-tour="create-endpoint-button"
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -120,8 +125,8 @@ export default function EndpointsPage() {
               icon={EndpointsIcon}
               title="No endpoints yet"
               description="Create your first endpoint to connect your application under test and start running tests and evaluations."
-              actionLabel="Create endpoint"
-              onAction={handleCreate}
+              actionLabel={canCreate ? 'Create endpoint' : undefined}
+              onAction={canCreate ? handleCreate : undefined}
               enrichment={getEntityEmptyStateEnrichment('endpoints')}
             />
           ) : (

@@ -9,6 +9,8 @@ import { PersonAddIcon } from '@/components/icons';
 import { Project, ProjectMember } from '@/utils/api-client/interfaces/project';
 import ProjectMembers from './ProjectMembers';
 import ProjectAddMemberDrawer from './ProjectAddMemberDrawer';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ProjectMembersTabProps {
   project: Project;
@@ -38,15 +40,17 @@ export default function ProjectMembersTab({
       <SectionCard
         title="Members"
         actions={
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<PersonAddIcon sx={{ fontSize: 20 }} />}
-            onClick={() => setDrawerOpen(true)}
-            sx={sectionEditButtonSx}
-          >
-            Add as member
-          </Button>
+          <Can capability={Capability.ProjectMember.MANAGE}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+              onClick={() => setDrawerOpen(true)}
+              sx={sectionEditButtonSx}
+            >
+              Add as member
+            </Button>
+          </Can>
         }
       >
         <ProjectMembers

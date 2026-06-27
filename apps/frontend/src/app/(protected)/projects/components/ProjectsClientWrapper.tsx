@@ -31,6 +31,8 @@ import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -45,6 +47,7 @@ export default function ProjectsClientWrapper({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const canCreate = useCan(Capability.Project.CREATE);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [activeFilters, setActiveFilters] =
     useState<ProjectFilters>(EMPTY_FILTERS);
@@ -203,14 +206,16 @@ export default function ProjectsClientWrapper({
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Create project"
-            aria-label="Create project"
-            data-tour="create-project-button"
-            disabled={isProjectButtonDisabled}
-            onClick={() => setCreateDrawerOpen(true)}
-          />
+          <Can capability={Capability.Project.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Create project"
+              aria-label="Create project"
+              data-tour="create-project-button"
+              disabled={isProjectButtonDisabled}
+              onClick={() => setCreateDrawerOpen(true)}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -278,8 +283,8 @@ export default function ProjectsClientWrapper({
                 icon={AppsIcon}
                 title="No project yet"
                 description="Create your first project to start organizing your AI applications. Projects help you group endpoints, tests, and results so you can collaborate with your team."
-                actionLabel="Create project"
-                onAction={() => setCreateDrawerOpen(true)}
+                actionLabel={canCreate ? 'Create project' : undefined}
+                onAction={canCreate ? () => setCreateDrawerOpen(true) : undefined}
                 actionDisabled={isProjectButtonDisabled}
                 enrichment={getEntityEmptyStateEnrichment('projects')}
               />
