@@ -16,16 +16,15 @@ Test naming convention: ``test_<subject>_<condition>_<expected>``
 from __future__ import annotations
 
 import uuid
-from typing import Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from rhesis.backend.app.auth.principal import (
-    Principal,
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
     REQUEST_STATE_API_TOKEN_SCOPES,
     REQUEST_STATE_AUTH_KIND,
+    Principal,
     resolve_principal,
     resolve_principal_from_request,
 )
@@ -245,9 +244,7 @@ class TestDefaultAuthorizationProvider:
         """Project member (non-owner) cannot perform org-scoped actions."""
         p = _principal()
         db = _mock_db(is_owner=False, is_member=True)
-        assert not self.provider.is_authorized(
-            p, "organization:update", project_id=None, db=db
-        )
+        assert not self.provider.is_authorized(p, "organization:update", project_id=None, db=db)
 
     def test_non_member_owner_only_capability_denied(self):
         """Non-owner cannot invoke owner-only capabilities (e.g. organization:update)."""
@@ -362,10 +359,12 @@ class TestAuthorize:
 class TestCapabilities:
     def setup_method(self):
         from rhesis.backend.app.auth.capabilities import reset_capabilities
+
         reset_capabilities()
 
     def teardown_method(self):
         from rhesis.backend.app.auth.capabilities import reset_capabilities
+
         reset_capabilities()
 
     # --- @capability() decorator ---
@@ -445,6 +444,7 @@ class TestCapabilities:
     def _make_app(self, routes):
         """Build a minimal fake FastAPI app with given route specs."""
         from fastapi.routing import APIRoute
+
         app = MagicMock()
         api_routes = []
         for path, methods, extra in routes:
@@ -459,11 +459,13 @@ class TestCapabilities:
     def test_build_capability_map_derives_from_resource_stamp(self):
         from rhesis.backend.app.auth.capabilities import build_capability_map
 
-        app = self._make_app([
-            ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
-            ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
-            ("/behaviors/{id}", {"DELETE"}, {"x-rhesis-resource": "behavior"}),
-        ])
+        app = self._make_app(
+            [
+                ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
+                ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
+                ("/behaviors/{id}", {"DELETE"}, {"x-rhesis-resource": "behavior"}),
+            ]
+        )
         cap_map = build_capability_map(app)
         assert "behavior:read" in cap_map
         assert "behavior:create" in cap_map
@@ -472,27 +474,35 @@ class TestCapabilities:
     def test_build_capability_map_explicit_capability_wins(self):
         from rhesis.backend.app.auth.capabilities import build_capability_map
 
-        app = self._make_app([
-            ("/test_sets/generate", {"POST"}, {
-                "x-rhesis-capability": "test_set:generate",
-                "x-rhesis-resource": "test_set",
-            }),
-        ])
+        app = self._make_app(
+            [
+                (
+                    "/test_sets/generate",
+                    {"POST"},
+                    {
+                        "x-rhesis-capability": "test_set:generate",
+                        "x-rhesis-resource": "test_set",
+                    },
+                ),
+            ]
+        )
         cap_map = build_capability_map(app)
         assert "test_set:generate" in cap_map
         assert "test_set:create" not in cap_map
 
     def test_register_and_get_all_capabilities(self):
         from rhesis.backend.app.auth.capabilities import (
-            register_capabilities,
             get_all_capabilities,
+            register_capabilities,
         )
 
-        app = self._make_app([
-            ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
-            ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
-            ("/test_sets/{id}", {"DELETE"}, {"x-rhesis-resource": "test_set"}),
-        ])
+        app = self._make_app(
+            [
+                ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
+                ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
+                ("/test_sets/{id}", {"DELETE"}, {"x-rhesis-resource": "test_set"}),
+            ]
+        )
         register_capabilities(app)
         caps = get_all_capabilities()
         assert isinstance(caps, list)
@@ -504,13 +514,14 @@ class TestCapabilities:
     def test_get_all_capabilities_before_register_returns_empty(self):
         """get_all_capabilities() returns [] (with warning) before registration."""
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
+
         assert get_all_capabilities() == []
 
     def test_register_capabilities_is_idempotent(self):
         """Calling register_capabilities twice replaces the cache cleanly."""
         from rhesis.backend.app.auth.capabilities import (
-            register_capabilities,
             get_all_capabilities,
+            register_capabilities,
         )
 
         app1 = self._make_app([("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"})])
