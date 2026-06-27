@@ -55,7 +55,6 @@ interface TraceReviewsTabProps {
   selectedSpan: SpanNode;
   trace: TraceDetailResponse;
   sessionToken: string;
-  currentUserId: string;
   onTraceUpdated: () => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
@@ -68,7 +67,6 @@ export default function TraceReviewsTab({
   selectedSpan,
   trace: _trace,
   sessionToken,
-  currentUserId,
   onTraceUpdated,
   mentionableMetrics = [],
   mentionableTurns = [],
@@ -108,7 +106,7 @@ export default function TraceReviewsTab({
         const clientFactory = new ApiClientFactory(sessionToken);
         const statusClient = clientFactory.getStatusClient();
         const statusList = await statusClient.getStatuses({
-          entity_type: 'TestResult',
+          entity_type: EntityType.TEST_RESULT,
         });
         setStatuses(statusList);
       } catch (err) {

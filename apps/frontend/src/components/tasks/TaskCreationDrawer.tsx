@@ -26,8 +26,6 @@ interface TaskCreationDrawerProps {
   onSubmit: (taskData: Record<string, unknown>) => Promise<void>;
   entityType: EntityType;
   entityId: string;
-  currentUserId: string;
-  currentUserName: string;
   isLoading?: boolean;
   commentId?: string;
 }
@@ -38,8 +36,6 @@ export function TaskCreationDrawer({
   onSubmit,
   entityType,
   entityId,
-  currentUserId: _currentUserId,
-  currentUserName: _currentUserName,
   isLoading = false,
   commentId,
 }: TaskCreationDrawerProps) {

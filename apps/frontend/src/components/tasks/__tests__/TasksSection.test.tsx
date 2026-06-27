@@ -43,8 +43,6 @@ describe('TasksSection - Infinite Loading Fix', () => {
     onCreateTask: jest.fn(),
     onEditTask: jest.fn(),
     onDeleteTask: jest.fn(),
-    currentUserId: 'user-123',
-    currentUserName: 'Test User',
   };
 
   beforeEach(() => {

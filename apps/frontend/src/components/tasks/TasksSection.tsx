@@ -28,8 +28,6 @@ interface TasksSectionProps {
   onDeleteTask?: (taskId: string) => Promise<void>;
   /** Opens the in-context task creation drawer */
   onOpenCreateDrawer?: (commentId?: string) => void;
-  currentUserId: string;
-  currentUserName: string;
   /** Bump after create/delete so the list refetches. */
   refreshKey?: number;
 }
@@ -42,8 +40,6 @@ export function TasksSection({
   onEditTask: _onEditTask,
   onDeleteTask,
   onOpenCreateDrawer,
-  currentUserId: _currentUserId,
-  currentUserName: _currentUserName,
   refreshKey = 0,
 }: TasksSectionProps) {
   const router = useRouter();

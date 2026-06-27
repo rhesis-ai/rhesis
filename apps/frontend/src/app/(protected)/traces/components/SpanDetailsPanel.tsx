@@ -1092,7 +1092,6 @@ export default function SpanDetailsPanel({
               selectedSpan={span}
               trace={trace}
               sessionToken={sessionToken}
-              currentUserId={currentUserId}
               onTraceUpdated={onTraceUpdated ?? (() => {})}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}

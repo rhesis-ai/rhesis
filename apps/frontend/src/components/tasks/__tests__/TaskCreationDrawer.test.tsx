@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { TaskCreationDrawer } from '../TaskCreationDrawer';
+import { EntityType } from '@/types/entity-type';
 
 jest.mock('@/components/common/BaseDrawer', () => ({
   __esModule: true,
@@ -75,8 +76,6 @@ const DEFAULT_PROPS = {
   onSubmit: jest.fn().mockResolvedValue(undefined),
   entityType: 'Test' as const,
   entityId: 'e1',
-  currentUserId: 'u1',
-  currentUserName: 'Alice',
 };
 
 describe('TaskCreationDrawer', () => {
@@ -127,7 +126,7 @@ describe('TaskCreationDrawer', () => {
       expect(DEFAULT_PROPS.onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'My New Task',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           entity_id: 'e1',
         })
       );

@@ -11,18 +11,12 @@ interface TasksWrapperProps {
   entityType: EntityType;
   entityId: string;
   sessionToken: string;
-  currentUserId: string;
-  currentUserName: string;
-  currentUserPicture?: string;
 }
 
 export function TasksWrapper({
   entityType,
   entityId,
   sessionToken,
-  currentUserId,
-  currentUserName,
-  currentUserPicture: _currentUserPicture,
 }: TasksWrapperProps) {
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -76,8 +70,6 @@ export function TasksWrapper({
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onOpenCreateDrawer={() => setCreateDrawerOpen(true)}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
         refreshKey={tasksRefreshKey}
       />
 
@@ -89,8 +81,6 @@ export function TasksWrapper({
         onSubmit={handleCreateTask}
         entityType={entityType}
         entityId={entityId}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
         isLoading={isCreating}
       />
     </>
