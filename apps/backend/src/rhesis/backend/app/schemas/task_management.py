@@ -60,9 +60,13 @@ class Task(Base, WithPermittedActions):
     ``permitted_actions`` (server-resolved object-level affordances) is filled
     automatically during response serialization — see
     :class:`WithPermittedActions`.
+
+    Edit (update) is permitted for the creator (``:own``) or the assignee
+    (``:assigned``); delete is permitted for the creator only (``:own``).
     """
 
     __resource_type__ = ResourceType.TASK
+    __assignee_attr__ = "assignee_id"
 
     title: str
     description: Optional[str] = None

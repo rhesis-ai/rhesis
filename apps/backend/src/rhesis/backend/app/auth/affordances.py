@@ -39,31 +39,32 @@ from rhesis.backend.app.auth.rbac import effective_permissions, project_id_from_
 
 
 def _own_gated_actions(resource_type: str) -> set[str]:
-    """Actions of *resource_type* that have a ``:own`` variant in the catalog.
+    """Actions of *resource_type* that have an object-level qualifier variant in the catalog.
 
-    A ``{resource}:{action}:own`` capability means the route enforces ownership
-    via ``authorize_object``, so the affordance must require ownership too — the
-    plain cap alone (held broadly in the community tier) is insufficient.
+    A ``{resource}:{action}:own`` or ``{resource}:{action}:assigned`` capability means the
+    route enforces object-level ownership or assignment via ``authorize_object``, so the
+    affordance must require the same — the plain cap alone (held broadly in the community
+    tier) is insufficient.
     """
     resource = str(resource_type)
     gated: set[str] = set()
     for cap in get_all_capabilities():
         parts = cap.split(":")
-        if len(parts) == 3 and parts[0] == resource and parts[2] == "own":
+        if len(parts) == 3 and parts[0] == resource and parts[2] in ("own", "assigned"):
             gated.add(parts[1])
     return gated
 
 
-def _owner_shim(owner_id: object) -> object:
-    """Wrap an owner id as an object exposing ``user_id``.
+def _owner_shim(owner_id: object, assignee_id: object = None) -> object:
+    """Wrap owner and assignee ids as an object exposing ``user_id`` and ``assignee_id``.
 
-    :func:`permitted_actions_for` reads ownership via ``obj.user_id``. Affordances
-    are now computed from the validated response model, whose owner field name
-    varies (``owner_user_id`` for experiments, ``user_id`` elsewhere), so the
-    caller extracts the owner id and wraps it here rather than passing a
-    heterogeneous object.
+    :func:`permitted_actions_for` reads ownership via ``obj.user_id`` and assignment
+    via ``obj.assignee_id``. Affordances are computed from the validated response model,
+    whose owner field name varies (``owner_user_id`` for experiments, ``user_id``
+    elsewhere), so the caller extracts the ids and wraps them here rather than passing
+    a heterogeneous object.
     """
-    return SimpleNamespace(user_id=owner_id)
+    return SimpleNamespace(user_id=owner_id, assignee_id=assignee_id)
 
 
 @dataclass
@@ -92,11 +93,15 @@ class _AffordanceContext:
             self._caps = effective_permissions(self._principal, project_id=project_id, db=self.db)
         return self._caps
 
-    def actions_for(self, resource_type: object, owner_id: object) -> List[str]:
+    def actions_for(
+        self, resource_type: object, owner_id: object, assignee_id: object = None
+    ) -> List[str]:
         """Full capability strings the caller may exercise on an object of this type.
 
         *owner_id* is the object's owner (read from the validated response model);
-        ownership-gated actions are granted only when it matches the caller.
+        ownership-gated (``:own``) actions are granted only when it matches the caller.
+        *assignee_id* is optional; assignment-gated (``:assigned``) actions are granted
+        only when it is present and matches the caller.
         """
         caps = self._ensure_caps()
         rt = str(resource_type)
@@ -106,7 +111,7 @@ class _AffordanceContext:
             self._own_gated[rt] = gated
         return permitted_actions_for(
             caps,
-            _owner_shim(owner_id),
+            _owner_shim(owner_id, assignee_id),
             resource_type,
             current_user_id=self._principal.user_id,
             own_gated_actions=gated,

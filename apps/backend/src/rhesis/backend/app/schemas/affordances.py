@@ -30,6 +30,9 @@ class WithPermittedActions(BaseModel):
     # ClassVars (not model fields). Set on subclasses to opt in.
     __resource_type__: ClassVar[Optional[str]] = None
     __owner_attr__: ClassVar[str] = "user_id"
+    #: Optional field name for the assignee id (used for ``:assigned``-gated actions).
+    #: ``None`` means this resource has no assignee-based ownership concept.
+    __assignee_attr__: ClassVar[Optional[str]] = None
 
     permitted_actions: List[str] = Field(default_factory=list)
 
@@ -49,5 +52,6 @@ class WithPermittedActions(BaseModel):
         if ctx is None:
             return self
         owner_id = getattr(self, cls.__owner_attr__, None)
-        self.permitted_actions = ctx.actions_for(resource_type, owner_id)
+        assignee_id = getattr(self, cls.__assignee_attr__, None) if cls.__assignee_attr__ else None
+        self.permitted_actions = ctx.actions_for(resource_type, owner_id, assignee_id)
         return self
