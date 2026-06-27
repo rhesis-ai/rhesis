@@ -1,10 +1,12 @@
+import type { WithPermittedActions } from '@/types/affordances';
+
 /** Known fields in task_metadata - extensible via index signature */
 export interface TaskMetadata {
   space_key?: string;
   [key: string]: unknown;
 }
 
-export interface Task {
+export interface Task extends WithPermittedActions {
   id: string;
   nano_id?: string;
   title: string;

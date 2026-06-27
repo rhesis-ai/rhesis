@@ -78,6 +78,12 @@ export const Capability = {
     CREATE: 'task:create',
     UPDATE: 'task:update',
     DELETE: 'task:delete',
+    /** Update a task the caller created (object-level :own qualifier). */
+    UPDATE_OWN: 'task:update:own',
+    /** Update a task the caller is assigned to (object-level :assigned qualifier). */
+    UPDATE_ASSIGNED: 'task:update:assigned',
+    /** Delete a task the caller created (object-level :own qualifier). */
+    DELETE_OWN: 'task:delete:own',
   },
   Architect: {
     READ: 'architect:read',
@@ -210,6 +216,9 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'task:create': 'Create tasks',
   'task:update': 'Edit tasks',
   'task:delete': 'Delete tasks',
+  'task:update:own': 'Edit own tasks',
+  'task:update:assigned': 'Edit assigned tasks',
+  'task:delete:own': 'Delete own tasks',
   // Architect
   'architect:read': 'View Architect sessions',
   'architect:create': 'Start Architect sessions',

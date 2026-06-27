@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import { TaskItem } from '../TaskItem';
+import { EntityType } from '@/types/entity-type';
 
 jest.mock('@/components/icons', () => ({
   EditIcon: () => <span data-testid="edit-icon" />,
@@ -26,7 +27,7 @@ jest.mock('@/utils/entity-helpers', () => ({
   getEntityDisplayName: (t: string) => t,
 }));
 
-function makeTask(overrides = {}) {
+function makeTask(permitted_actions: string[] = [], overrides = {}) {
   return {
     id: 'task-1',
     nano_id: 'T-001',
@@ -38,8 +39,9 @@ function makeTask(overrides = {}) {
     priority: { type_value: 'High' },
     assignee: { name: 'Bob' },
     user: { name: 'Alice' },
-    entity_type: 'Test',
+    entity_type: EntityType.TEST,
     entity_id: 'e1',
+    permitted_actions,
     ...overrides,
   };
 }
@@ -58,39 +60,56 @@ function getIconButton(testId: string) {
 
 describe('TaskItem', () => {
   it('renders the task title', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+    renderWithTheme(<TaskItem task={makeTask() as never} />);
     expect(screen.getByText('Fix the bug')).toBeInTheDocument();
   });
 
   it('renders the task description', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+    renderWithTheme(<TaskItem task={makeTask() as never} />);
     expect(screen.getByText('Something is broken')).toBeInTheDocument();
   });
 
   it('renders the status chip', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+    renderWithTheme(<TaskItem task={makeTask() as never} />);
     expect(screen.getByText('Open')).toBeInTheDocument();
   });
 
   it('renders the priority chip', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+    renderWithTheme(<TaskItem task={makeTask() as never} />);
     expect(screen.getByText('High')).toBeInTheDocument();
   });
 
-  it('shows edit icon for task owner', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+  it('shows edit icon when task:update is in permitted_actions', () => {
+    renderWithTheme(
+      <TaskItem task={makeTask(['task:update', 'task:delete']) as never} />
+    );
     expect(screen.getByTestId('edit-icon')).toBeInTheDocument();
   });
 
-  it('shows delete icon for task owner', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+  it('shows delete icon when task:delete is in permitted_actions', () => {
+    renderWithTheme(
+      <TaskItem task={makeTask(['task:update', 'task:delete']) as never} />
+    );
     expect(screen.getByTestId('delete-icon')).toBeInTheDocument();
   });
 
-  it('does NOT show delete for non-owner, non-assignee', () => {
+  it('hides edit icon when task:update is not in permitted_actions', () => {
     renderWithTheme(
-      <TaskItem task={makeTask() as never} currentUserId="other-user" />
+      <TaskItem task={makeTask(['task:delete']) as never} />
     );
+    expect(screen.queryByTestId('edit-icon')).not.toBeInTheDocument();
+  });
+
+  it('hides delete icon when task:delete is not in permitted_actions', () => {
+    renderWithTheme(
+      <TaskItem task={makeTask(['task:update']) as never} />
+    );
+    expect(screen.queryByTestId('delete-icon')).not.toBeInTheDocument();
+  });
+
+  it('hides both actions when permitted_actions is empty', () => {
+    renderWithTheme(<TaskItem task={makeTask([]) as never} />);
+    expect(screen.queryByTestId('edit-icon')).not.toBeInTheDocument();
     expect(screen.queryByTestId('delete-icon')).not.toBeInTheDocument();
   });
 
@@ -99,7 +118,10 @@ describe('TaskItem', () => {
     const onEdit = jest.fn();
 
     renderWithTheme(
-      <TaskItem task={makeTask() as never} currentUserId="u1" onEdit={onEdit} />
+      <TaskItem
+        task={makeTask(['task:update', 'task:delete']) as never}
+        onEdit={onEdit}
+      />
     );
 
     await user.click(getIconButton('edit-icon'));
@@ -112,8 +134,7 @@ describe('TaskItem', () => {
 
     renderWithTheme(
       <TaskItem
-        task={makeTask() as never}
-        currentUserId="u1"
+        task={makeTask(['task:update', 'task:delete']) as never}
         onDelete={onDelete}
       />
     );
@@ -124,17 +145,13 @@ describe('TaskItem', () => {
 
   it('shows the entity link when showEntityLink=true', () => {
     renderWithTheme(
-      <TaskItem
-        task={makeTask() as never}
-        currentUserId="u1"
-        showEntityLink={true}
-      />
+      <TaskItem task={makeTask() as never} showEntityLink={true} />
     );
     expect(screen.getByText(/related to/i)).toBeInTheDocument();
   });
 
   it('does not show entity link when showEntityLink=false (default)', () => {
-    renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
+    renderWithTheme(<TaskItem task={makeTask() as never} />);
     expect(screen.queryByText(/related to/i)).not.toBeInTheDocument();
   });
 });
