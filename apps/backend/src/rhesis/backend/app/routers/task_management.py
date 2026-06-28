@@ -1,8 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -15,6 +14,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -121,7 +121,6 @@ def list_tasks(
             organization_id=organization_id,
             user_id=user_id,
         )
-        return tasks
     except Exception as e:
         logger.error(f"Error listing tasks: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -174,7 +173,6 @@ def get_tasks_by_entity(
             organization_id=organization_id,
             user_id=user_id,
         )
-        return tasks
     except Exception as e:
         logger.error(f"Error getting tasks by entity {entity_type}/{entity_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -252,6 +250,8 @@ def update_task(
         )
 
         return updated_task
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

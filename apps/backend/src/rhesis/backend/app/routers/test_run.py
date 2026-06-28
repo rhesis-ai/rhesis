@@ -2,14 +2,15 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import Permission, capability
+from fastapi import Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.dependencies import (
@@ -17,6 +18,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource, TraceSummary
 from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
@@ -415,12 +417,14 @@ def update_test_run(
 @router.delete("/{test_run_id}", response_model=schemas.TestRun)
 def delete_test_run(
     test_run_id: UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Delete a test run.
 
+    Only the creator may delete their own test run (object-level :own gate).
     If the run is still active (Queued or Progress) its Celery task is revoked
     before the record is removed so the worker does not continue executing a
     run that no longer exists in the database.
@@ -433,6 +437,13 @@ def delete_test_run(
     )
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.TestRun.DELETE_OWN, db_test_run, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this test run")
 
     active_statuses = {RunStatus.QUEUED.value, RunStatus.PROGRESS.value}
     current_status = db_test_run.status.name if db_test_run.status else None
