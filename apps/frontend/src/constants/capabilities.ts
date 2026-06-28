@@ -42,11 +42,21 @@ export const Capability = {
     UPDATE: 'test_run:update',
     DELETE: 'test_run:delete',
     EXECUTE: 'test_run:execute',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses this to the base cap (`test_run:delete`) in
+     * `permitted_actions`; use `Capability.TestRun.DELETE` for affordance checks.
+     */
     DELETE_OWN: 'test_run:delete:own',
   },
   TestResult: {
     READ: 'test_result:read',
     UPDATE: 'test_result:update',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.TestResult.UPDATE` for affordance checks.
+     */
     UPDATE_OWN: 'test_result:update:own',
     DELETE_OWN: 'test_result:delete:own',
   },
@@ -55,6 +65,11 @@ export const Capability = {
     CREATE: 'experiment:create',
     UPDATE: 'experiment:update',
     DELETE: 'experiment:delete',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.Experiment.UPDATE` / `DELETE` for affordance checks.
+     */
     UPDATE_OWN: 'experiment:update:own',
     DELETE_OWN: 'experiment:delete:own',
   },
@@ -70,6 +85,11 @@ export const Capability = {
     UPDATE: 'comment:update',
     DELETE: 'comment:delete',
     REACT: 'comment:react',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.Comment.UPDATE` / `DELETE` for affordance checks.
+     */
     UPDATE_OWN: 'comment:update:own',
     DELETE_OWN: 'comment:delete:own',
   },
@@ -78,11 +98,13 @@ export const Capability = {
     CREATE: 'task:create',
     UPDATE: 'task:update',
     DELETE: 'task:delete',
-    /** Update a task the caller created (object-level :own qualifier). */
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps (`task:update`, `task:delete`) in
+     * `permitted_actions`; use `Capability.Task.UPDATE` / `DELETE` for affordance checks.
+     */
     UPDATE_OWN: 'task:update:own',
-    /** Update a task the caller is assigned to (object-level :assigned qualifier). */
     UPDATE_ASSIGNED: 'task:update:assigned',
-    /** Delete a task the caller created (object-level :own qualifier). */
     DELETE_OWN: 'task:delete:own',
   },
   Architect: {

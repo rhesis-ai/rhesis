@@ -25,20 +25,18 @@ interface TaskItemProps {
   showEntityLink?: boolean;
 }
 
-const TASK_ACTIONS: EntityAction<Task>[] = [
+const TASK_ACTION_DESCRIPTORS: Omit<EntityAction<Task>, 'onSelect'>[] = [
   {
     id: 'edit',
     label: 'Edit Task',
     icon: EditIcon,
     capability: Capability.Task.UPDATE,
-    onSelect: () => {},
   },
   {
     id: 'delete',
     label: 'Delete Task',
     icon: DeleteIcon,
     capability: Capability.Task.DELETE,
-    onSelect: () => {},
   },
 ];
 
@@ -53,14 +51,8 @@ export function TaskItem({
   const [isHovered, setIsHovered] = useState(false);
 
   const actions: EntityAction<Task>[] = [
-    {
-      ...TASK_ACTIONS[0],
-      onSelect: (t: Task) => onEdit?.(t.id),
-    },
-    {
-      ...TASK_ACTIONS[1],
-      onSelect: (t: Task) => onDelete?.(t.id),
-    },
+    { ...TASK_ACTION_DESCRIPTORS[0], onSelect: (t: Task) => onEdit?.(t.id) },
+    { ...TASK_ACTION_DESCRIPTORS[1], onSelect: (t: Task) => onDelete?.(t.id) },
   ];
 
   const getStatusColor = (status?: string) => {

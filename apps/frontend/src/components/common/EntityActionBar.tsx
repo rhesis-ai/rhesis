@@ -50,6 +50,7 @@ export function EntityActionBar<T extends WithPermittedActions>({
             <Box component="span" sx={{ display: 'inline-flex' }}>
               <IconButton
                 size="small"
+                aria-label={action.label}
                 disabled={!enabled}
                 onClick={() => subject && action.onSelect(subject)}
                 sx={{
