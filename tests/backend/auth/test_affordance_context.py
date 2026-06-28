@@ -33,6 +33,8 @@ from rhesis.backend.app.auth.affordances import (
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
+ASSIGNEE = uuid.uuid4()
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -82,6 +84,17 @@ class _ExperimentSchema(WithPermittedActions):
 
     id: UUID = Field(default_factory=uuid.uuid4)
     owner_user_id: UUID
+
+
+class _TaskSchema(WithPermittedActions):
+    """Schema that exercises the __assignee_attr__ path."""
+
+    __resource_type__: ClassVar[Optional[str]] = ResourceType.TASK  # type: ignore[assignment]
+    __assignee_attr__: ClassVar[Optional[str]] = "assignee_id"  # type: ignore[assignment]
+
+    id: UUID = Field(default_factory=uuid.uuid4)
+    user_id: UUID
+    assignee_id: Optional[UUID] = None
 
 
 class _NoResourceTypeSchema(WithPermittedActions):
@@ -232,3 +245,88 @@ class TestWithContextBound:
         assert current_affordance_context() is not None
         reset_affordance_context(token)
         assert current_affordance_context() is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: :assigned qualifier via __assignee_attr__
+# ---------------------------------------------------------------------------
+
+
+class TestAssignedQualifier:
+    """Verify that the :assigned qualifier path grants/denies correctly.
+
+    Uses _TaskSchema which sets __assignee_attr__ = "assignee_id", matching the
+    production Task schema.  The caps used are the real enum strings so that
+    _own_gated_actions (which scans the live catalog) correctly identifies
+    "update" and "delete" as object-gated for the "task" resource.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_context(self):
+        token = None
+        yield
+        if token is not None:
+            reset_affordance_context(token)
+
+    def _bind(self, user_id: uuid.UUID, caps: list[str]):
+        ctx = _make_context(user_id, caps)
+        from rhesis.backend.app.auth.affordances import _affordance_ctx
+
+        token = _affordance_ctx.set(ctx)
+        return token
+
+    def test_assignee_with_update_assigned_gets_update(self):
+        """Assignee holding task:update:assigned sees task:update in permitted_actions."""
+        token = self._bind(ASSIGNEE, ["task:update:assigned"])
+        try:
+            schema = _TaskSchema(user_id=OWNER, assignee_id=ASSIGNEE)
+            assert "task:update" in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_non_assignee_denied_update_assigned(self):
+        """A user who is neither owner nor assignee is denied the update affordance."""
+        other = uuid.uuid4()
+        token = self._bind(other, ["task:update:assigned", "task:update:own"])
+        try:
+            schema = _TaskSchema(user_id=OWNER, assignee_id=ASSIGNEE)
+            assert "task:update" not in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_owner_and_assignee_both_independently_grant_update(self):
+        """Owner via UPDATE_OWN and assignee via UPDATE_ASSIGNED each independently
+        produce task:update in permitted_actions."""
+        # Owner path
+        token = self._bind(OWNER, ["task:update:own"])
+        try:
+            schema = _TaskSchema(user_id=OWNER, assignee_id=ASSIGNEE)
+            assert "task:update" in schema.permitted_actions, "owner path failed"
+        finally:
+            reset_affordance_context(token)
+
+        # Assignee path
+        token = self._bind(ASSIGNEE, ["task:update:assigned"])
+        try:
+            schema = _TaskSchema(user_id=OWNER, assignee_id=ASSIGNEE)
+            assert "task:update" in schema.permitted_actions, "assignee path failed"
+        finally:
+            reset_affordance_context(token)
+
+    def test_owner_delete_own_grants_delete(self):
+        """Creator with task:delete:own sees task:delete; assignee without it does not."""
+        # Owner gets delete
+        token = self._bind(OWNER, ["task:delete:own"])
+        try:
+            schema = _TaskSchema(user_id=OWNER, assignee_id=ASSIGNEE)
+            assert "task:delete" in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+        # Assignee holding only update:assigned does NOT get delete
+        token = self._bind(ASSIGNEE, ["task:update:assigned"])
+        try:
+            schema = _TaskSchema(user_id=OWNER, assignee_id=ASSIGNEE)
+            assert "task:delete" not in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)

@@ -13,7 +13,6 @@ Test coverage:
 
 from __future__ import annotations
 
-from typing import Optional
 from unittest.mock import Mock
 from uuid import UUID
 
@@ -202,9 +201,9 @@ class TestListCapabilities:
     ):
         import re
 
-        # resource:action, optionally with an object-level :own qualifier (SP10),
-        # e.g. comment:update:own.
-        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own)?$")
+        # resource:action, optionally with an object-level qualifier (SP10),
+        # e.g. comment:update:own or task:update:assigned.
+        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own|:assigned)?$")
         for cap in authed_client.get("/capabilities").json():
             assert pattern.match(cap), (
                 f"Capability '{cap}' does not match resource:action format"
