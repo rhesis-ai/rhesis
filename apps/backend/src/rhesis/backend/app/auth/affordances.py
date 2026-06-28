@@ -31,6 +31,7 @@ from uuid import UUID as _UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import (
+    ResourceType,
     get_all_capabilities,
     permitted_actions_for,
 )
@@ -45,10 +46,22 @@ def _own_gated_actions(resource_type: str) -> set[str]:
     route enforces object-level ownership or assignment via ``authorize_object``, so the
     affordance must require the same — the plain cap alone (held broadly in the community
     tier) is insufficient.
+
+    Returns a **sentinel** (``{"*"}`` — matches every action) when the capability catalog
+    is not yet registered.  ``permitted_actions_for`` interprets any non-empty
+    ``own_gated_actions`` set as gated for every action whose name appears in it; the
+    sentinel effectively gates *all* actions for this resource, which is fail-closed:
+    no plain caps are advertised on objects the caller may not own.
     """
+    all_caps = get_all_capabilities()
+    if not all_caps:
+        # Catalog not yet registered (pre-startup scripts, some test paths).
+        # Return a sentinel that causes permitted_actions_for to treat every action
+        # as gated — fail-closed rather than fail-open.
+        return {"*"}
     resource = str(resource_type)
     gated: set[str] = set()
-    for cap in get_all_capabilities():
+    for cap in all_caps:
         parts = cap.split(":")
         if len(parts) == 3 and parts[0] == resource and parts[2] in ("own", "assigned"):
             gated.add(parts[1])
@@ -144,19 +157,19 @@ def reset_affordance_context(token: object) -> None:
     _affordance_ctx.reset(token)
 
 
-def populate_review_permitted_actions(
-    reviews: List[dict],
-    *,
-    current_user: object,
-    request,
-    db: Session,
-) -> List[dict]:
+def populate_review_permitted_actions(reviews: List[dict]) -> List[dict]:
     """Enrich review dicts (JSONB sub-documents) with per-review permitted_actions.
 
     Review dicts are stored as JSONB blobs — not ORM objects routed through a
     ``WithPermittedActions`` Pydantic schema — so the automatic validator never
-    sees them. This helper runs one PDP pass and projects the caller's caps onto
-    each review by reading ``review["user"]["user_id"]`` as the ownership field.
+    sees them. This helper reuses the per-request
+    :class:`_AffordanceContext` (already bound by
+    :func:`~rhesis.backend.app.dependencies.bind_affordance_context`) to project
+    the caller's caps onto each review, reading ``review["user"]["user_id"]`` as
+    the ownership field.
+
+    Returns the list unchanged (and without adding keys) when no affordance context
+    is bound — e.g. in background tasks or scripts.
 
     Mutates each dict in-place (adds ``"permitted_actions"`` key). Safe to call on
     GET handlers — the JSONB column is never auto-flushed without an explicit
@@ -165,10 +178,9 @@ def populate_review_permitted_actions(
     if not reviews:
         return reviews
 
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    caps = effective_permissions(principal, project_id=project_id, db=db)
-    own_gated = _own_gated_actions("test_result")
+    ctx = current_affordance_context()
+    if ctx is None:
+        return reviews
 
     for review in reviews:
         raw_uid = review.get("user", {}).get("user_id")
@@ -176,11 +188,5 @@ def populate_review_permitted_actions(
             uid: _UUID | None = _UUID(str(raw_uid)) if raw_uid else None
         except (ValueError, AttributeError):
             uid = None
-        review["permitted_actions"] = permitted_actions_for(
-            caps,
-            _owner_shim(uid),
-            "test_result",
-            current_user_id=principal.user_id,
-            own_gated_actions=own_gated,
-        )
+        review["permitted_actions"] = ctx.actions_for(ResourceType.TEST_RESULT, uid)
     return reviews

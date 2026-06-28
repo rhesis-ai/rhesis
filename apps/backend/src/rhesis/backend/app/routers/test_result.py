@@ -417,12 +417,7 @@ def read_test_result(
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
     if db_test_result.test_reviews and "reviews" in db_test_result.test_reviews:
-        populate_review_permitted_actions(
-            db_test_result.test_reviews["reviews"],
-            current_user=current_user,
-            request=request,
-            db=db,
-        )
+        populate_review_permitted_actions(db_test_result.test_reviews["reviews"])
     return db_test_result
 
 
@@ -612,9 +607,7 @@ def add_review(
     # Without this, FastAPI's dependency-cleanup commit races the next request.
     db.commit()
 
-    populate_review_permitted_actions(
-        [new_review], current_user=current_user, request=request, db=db
-    )
+    populate_review_permitted_actions([new_review])
     return new_review
 
 
@@ -724,9 +717,7 @@ def update_review(
     db.refresh(db_test_result)
     db.commit()
 
-    populate_review_permitted_actions(
-        [review_to_update], current_user=current_user, request=request, db=db
-    )
+    populate_review_permitted_actions([review_to_update])
     return review_to_update
 
 

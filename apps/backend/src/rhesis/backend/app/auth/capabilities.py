@@ -274,6 +274,7 @@ class ResourceType(_PermissionEnum):
     COMMENT = "comment"
     EXPERIMENT = "experiment"
     TASK = "task"
+    TEST_RESULT = "test_result"
 
 
 # ---------------------------------------------------------------------------
@@ -547,8 +548,15 @@ def permitted_actions_for(
     """
     owner_id = getattr(obj, "user_id", None)
     assignee_id = getattr(obj, "assignee_id", None)
-    is_owner = current_user_id is not None and owner_id == current_user_id
-    is_assignee = current_user_id is not None and assignee_id is not None and assignee_id == current_user_id
+    # Normalize to str for comparison: callers may supply UUID objects or plain
+    # strings depending on the serialization path (Pydantic schema vs ORM attr).
+    _uid = str(current_user_id) if current_user_id is not None else None
+    is_owner = _uid is not None and str(owner_id) == _uid if owner_id is not None else False
+    is_assignee = (
+        _uid is not None
+        and assignee_id is not None
+        and str(assignee_id) == _uid
+    )
     caps_out: set[str] = set()
     for cap in effective_caps:
         parts = cap.split(":")
@@ -558,7 +566,10 @@ def permitted_actions_for(
         if action in ("create", "read"):
             continue
         qualifier = parts[2] if len(parts) > 2 else None
-        if action in own_gated_actions:
+        # ``"*"`` is a sentinel returned by _own_gated_actions when the catalog is not
+        # yet registered — treat every action as gated (fail-closed).
+        action_is_gated = action in own_gated_actions or "*" in own_gated_actions
+        if action_is_gated:
             # Mirror the endpoint's authorize_object: object-level gating.
             # The plain cap (held broadly in community) must NOT advertise the action.
             if qualifier == "own" and is_owner:

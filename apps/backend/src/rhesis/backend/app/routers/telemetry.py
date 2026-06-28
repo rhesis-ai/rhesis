@@ -849,9 +849,7 @@ def add_trace_review(
     db.refresh(db_trace)
     db.commit()
 
-    populate_review_permitted_actions(
-        [new_review], current_user=current_user, request=request, db=db
-    )
+    populate_review_permitted_actions([new_review])
     return new_review
 
 
@@ -938,9 +936,7 @@ def update_trace_review(
     db.refresh(db_trace)
     db.commit()
 
-    populate_review_permitted_actions(
-        [review_to_update], current_user=current_user, request=request, db=db
-    )
+    populate_review_permitted_actions([review_to_update])
     return review_to_update
 
 
