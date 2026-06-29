@@ -184,8 +184,10 @@ export default function EndpointConnectionTab() {
               setDraft(prev => ({
                 ...prev,
                 auth_token: value,
-                // typing a replacement cancels a pending removal
-                clear_token: value !== '' ? false : prev.clear_token,
+                // typing a real replacement cancels a pending removal;
+                // whitespace-only input is treated as empty on save, so it
+                // must not silently cancel the removal
+                clear_token: value.trim() !== '' ? false : prev.clear_token,
               }))
             }
             onRequestHeadersChange={value =>
