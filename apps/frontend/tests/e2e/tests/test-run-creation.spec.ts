@@ -9,6 +9,18 @@ import { TestRunsPage } from '../pages/TestRunsPage';
  */
 
 /**
+ * Returns a locator scoped to the currently-open MUI drawer/modal.
+ *
+ * MUI keeps several `[role="presentation"]` elements in the DOM at all times
+ * (sidebar, support panel, …) but hides them with `display:none` via the
+ * `MuiModal-hidden` class.  Using `.filter({ visible: true })` targets only
+ * the one that is actually open, avoiding Playwright strict-mode violations.
+ */
+function openDrawer(page: Page) {
+  return page.locator('[role="presentation"]').filter({ visible: true });
+}
+
+/**
  * Selects the first available option from a labeled combobox inside the drawer.
  * Returns 'ok' if selection succeeded or the field is not present,
  * 'skip' if the field is present but no options are available.
@@ -17,7 +29,7 @@ async function selectDrawerCombo(
   page: Page,
   labelPattern: RegExp
 ): Promise<'ok' | 'skip'> {
-  const drawer = page.locator('[role="presentation"]');
+  const drawer = openDrawer(page);
   const combo = drawer.getByRole('combobox', { name: labelPattern });
   if (!(await combo.isVisible({ timeout: 5_000 }).catch(() => false))) {
     return 'ok';
@@ -74,13 +86,11 @@ test.describe('Test Runs — creation @crud', () => {
 
     await createBtn.click();
 
-    // The drawer should open
-    await page
-      .getByRole('presentation')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    // The drawer should open; filter to the currently-visible presentation element
+    const drawer = openDrawer(page);
+    await drawer.waitFor({ state: 'visible', timeout: 10_000 });
 
     // Verify key form elements are present inside the drawer
-    const drawer = page.locator('[role="presentation"]');
     await expect(drawer).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
@@ -105,16 +115,14 @@ test.describe('Test Runs — creation @crud', () => {
     }
 
     await createBtn.click();
-    await page
-      .getByRole('presentation')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    const drawer = openDrawer(page);
+    await drawer.waitFor({ state: 'visible', timeout: 10_000 });
 
     const filled = await fillCreateTestRunDrawer(page);
     if (!filled) return;
 
     // Submit the form — RunDrawer uses "Execute Now"
-    const submitBtn = page
-      .locator('[role="presentation"]')
+    const submitBtn = drawer
       .getByRole('button', { name: /execute now|run|start|create|save/i })
       .first();
     const hasSubmit = await submitBtn
@@ -127,9 +135,7 @@ test.describe('Test Runs — creation @crud', () => {
     await submitBtn.click();
 
     // Wait for drawer to close — success means the API call was accepted
-    await page
-      .getByRole('presentation')
-      .waitFor({ state: 'hidden', timeout: 20_000 });
+    await drawer.waitFor({ state: 'hidden', timeout: 20_000 });
     await page.waitForLoadState('networkidle');
 
     // The grid should have at least one row after a successful submission
@@ -156,16 +162,14 @@ test.describe('Test Runs — creation @crud', () => {
     }
 
     await createBtn.click();
-    await page
-      .getByRole('presentation')
-      .waitFor({ state: 'visible', timeout: 10_000 });
+    const drawer = openDrawer(page);
+    await drawer.waitFor({ state: 'visible', timeout: 10_000 });
 
     const filled = await fillCreateTestRunDrawer(page);
     if (!filled) return;
 
     // Submit — RunDrawer uses "Execute Now"
-    const submitBtn = page
-      .locator('[role="presentation"]')
+    const submitBtn = drawer
       .getByRole('button', { name: /execute now|run|start|create|save/i })
       .first();
 
@@ -181,9 +185,7 @@ test.describe('Test Runs — creation @crud', () => {
 
     await submitBtn.click();
 
-    await page
-      .getByRole('presentation')
-      .waitFor({ state: 'hidden', timeout: 20_000 });
+    await drawer.waitFor({ state: 'hidden', timeout: 20_000 });
     await page.waitForLoadState('networkidle');
 
     // The first data row should show a recognisable status chip

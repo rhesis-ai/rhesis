@@ -32,16 +32,17 @@ test.describe('Traces @sanity', () => {
     await page.goto('/traces');
     await page.waitForLoadState('networkidle');
 
-    const emptyState = page.getByText(/no traces (found|yet)/i);
-    const traceTable = page.locator('table, [role="grid"]');
-    const authRequired = page.getByText(/authentication required/i);
+    // When no traces exist the page renders two "no traces" texts simultaneously:
+    // the MUI DataGrid no-rows overlay ("No traces found") and the page-level
+    // empty-state card ("No traces yet").  The DataGrid container div
+    // ([role="grid"]) is visibility:hidden during that render, so using it as
+    // a proxy causes toBeVisible to fail.  Target the first visible text node,
+    // an actual data row ([data-rowindex]), or the auth message instead.
+    const emptyState = page.getByText(/no traces (found|yet)/i).first();
+    const traceRow = page.locator('[data-rowindex]').first();
+    const authRequired = page.getByText(/authentication required/i).first();
 
-    // Use .first() to avoid Playwright strict-mode violations when both the
-    // DataGrid (which shows "No traces found" in its empty overlay) and the
-    // page-level empty state ("No traces yet") are simultaneously visible.
-    await expect(
-      emptyState.or(traceTable).or(authRequired).first()
-    ).toBeVisible({
+    await expect(emptyState.or(traceRow).or(authRequired)).toBeVisible({
       timeout: 10_000,
     });
   });
