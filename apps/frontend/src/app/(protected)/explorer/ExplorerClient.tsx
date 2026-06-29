@@ -14,6 +14,8 @@ import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 import ExplorerGrid from './components/ExplorerGrid';
@@ -33,6 +35,7 @@ export default function ExplorerClient() {
   useDocumentTitle('Explorer');
 
   const sessionToken = session?.session_token ?? '';
+  const canCreateSession = useCan(Capability.Explorer.CREATE);
 
   React.useEffect(() => {
     const fetchCount = async () => {
@@ -98,16 +101,18 @@ export default function ExplorerClient() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FileUploadIcon />}
-              tooltip="Load test set"
-              onClick={() => setImportDialogOpen(true)}
-            />
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New session"
-              onClick={() => setCreateDialogOpen(true)}
-            />
+            <Can capability={Capability.Explorer.CREATE}>
+              <Fab
+                icon={<FileUploadIcon />}
+                tooltip="Load test set"
+                onClick={() => setImportDialogOpen(true)}
+              />
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New session"
+                onClick={() => setCreateDialogOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -117,8 +122,8 @@ export default function ExplorerClient() {
               icon={AccountTreeIcon}
               title="No explorer sessions yet"
               description="Start a new session to explore behaviors and generate tests, or load an existing test set."
-              actionLabel="New session"
-              onAction={() => setCreateDialogOpen(true)}
+              actionLabel={canCreateSession ? 'New session' : undefined}
+              onAction={canCreateSession ? () => setCreateDialogOpen(true) : undefined}
             />
           ) : (
             <Paper

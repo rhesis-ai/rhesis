@@ -41,6 +41,8 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 export default function ModelsPage() {
   const { data: session } = useSession();
   const canRead = useCan(Capability.Model.READ);
+  const canEditModel = useCan(Capability.Model.UPDATE);
+  const canDeleteModel = useCan(Capability.Model.DELETE);
 
   const [connectedModels, setConnectedModels] = useState<Model[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
@@ -457,8 +459,8 @@ export default function ModelsPage() {
               userSettings={userSettings}
               isVerified={userSettings?.is_verified}
               validationStatus={modelValidationStatus.get(model.id)}
-              onCardClick={handleCardClick}
-              onDelete={handleDeleteClick}
+              onCardClick={canEditModel ? handleCardClick : undefined}
+              onDelete={canDeleteModel ? handleDeleteClick : undefined}
               onRequestAccess={handleRequestPolyphemusAccess}
             />
           ))}

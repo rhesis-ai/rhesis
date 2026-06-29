@@ -26,6 +26,8 @@ import LinkedEntitiesFilterDrawer, {
 import { MetricDetailView } from './MetricDetailView';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import type {
   BehaviorReference,
   BehaviorWithMetrics,
@@ -94,6 +96,7 @@ function MetricLinkedBehaviors({
 }) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditMetric = useCan(Capability.Metric.UPDATE);
   const [behaviors, setBehaviors] = useState<LinkedBehaviorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -183,12 +186,13 @@ function MetricLinkedBehaviors({
         ),
       },
       createRowActionsColumn({
+        canDelete: () => canEditMetric,
         onDelete: id => handleUnassign(id),
         deleteTooltip: 'Unassign',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [handleUnassign]
+    [handleUnassign, canEditMetric]
   );
 
   // Assign drawer columns (no actions)
@@ -309,7 +313,7 @@ function MetricLinkedBehaviors({
         loading={loading}
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/behaviors/${String(params.id)}`)}
-        onAssignClick={handleAssignClick}
+        onAssignClick={canEditMetric ? handleAssignClick : undefined}
         searchPlaceholder="Search behaviors…"
         rowFilter={rowFilter}
         onFilterClick={() => setFilterOpen(true)}

@@ -35,6 +35,7 @@ import {
 import { EditIcon, PlayArrowIcon } from '@/components/icons';
 import { Capability } from '@/constants/capabilities';
 import { can } from '@/utils/affordances';
+import { Can } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TypedValueEditor from './TypedValueEditor';
 import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
@@ -329,11 +330,13 @@ export default function ExperimentDetailClient({
       metadata={<DetailMetadataStrip items={metadataItems} />}
       actions={
         <FabGroup>
-          <Fab
-            icon={<PlayArrowIcon />}
-            tooltip="Run Experiment"
-            onClick={() => setRunDrawerOpen(true)}
-          />
+          <Can capability={Capability.TestRun.CREATE}>
+            <Fab
+              icon={<PlayArrowIcon />}
+              tooltip="Run Experiment"
+              onClick={() => setRunDrawerOpen(true)}
+            />
+          </Can>
         </FabGroup>
       }
     >

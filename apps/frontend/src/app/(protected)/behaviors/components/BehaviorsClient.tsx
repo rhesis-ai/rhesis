@@ -25,6 +25,9 @@ import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-en
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
@@ -48,6 +51,8 @@ export default function BehaviorsClient({
 }: BehaviorsClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canRead = useCan(Capability.Behavior.READ);
+  const canCreateBehavior = useCan(Capability.Behavior.CREATE);
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>([]);
@@ -529,6 +534,8 @@ export default function BehaviorsClient({
     );
   }
 
+  if (!canRead) return <AccessDenied resource="behaviors" />;
+
   return (
     <PageLayout
       title="Behaviors"
@@ -536,12 +543,14 @@ export default function BehaviorsClient({
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Create behavior"
-            aria-label="Create behavior"
-            onClick={handleAddNewBehavior}
-          />
+          <Can capability={Capability.Behavior.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Create behavior"
+              aria-label="Create behavior"
+              onClick={handleAddNewBehavior}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -585,8 +594,8 @@ export default function BehaviorsClient({
             icon={PsychologyIcon}
             title="No behavior yet"
             description="Create your first behavior to define atomic expectations for your AI applications. Behaviors are measured through metrics to ensure your requirements are met."
-            actionLabel="Create behavior"
-            onAction={handleAddNewBehavior}
+            actionLabel={canCreateBehavior ? 'Create behavior' : undefined}
+            onAction={canCreateBehavior ? handleAddNewBehavior : undefined}
             enrichment={getEntityEmptyStateEnrichment('behaviors')}
           />
         )

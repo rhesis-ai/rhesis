@@ -66,6 +66,8 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { AddIcon, DeleteIcon, PromoteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import ProjectAddEnvironmentDrawer from './ProjectAddEnvironmentDrawer';
 
@@ -150,6 +152,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
   ) {
     const notifications = useNotifications();
     const theme = useTheme();
+    const canUpdateProject = useCan(Capability.Project.UPDATE);
     const [searchQuery, setSearchQuery] = useState('');
 
     const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(
@@ -388,36 +391,38 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
                   width: '100%',
                 }}
               >
-                <Tooltip
-                  title={
-                    promoteDisabled
-                      ? 'No shared experiments to promote'
-                      : 'Promote a shared experiment to this environment'
-                  }
-                >
-                  <span>
-                    <IconButton
-                      size="small"
-                      disabled={promoteDisabled}
-                      onClick={e => {
-                        e.stopPropagation();
-                        setPickerEnvironmentName(row.name);
-                      }}
-                      sx={{
-                        p: 0.5,
-                        color: 'text.secondary',
-                        '&:hover': {
-                          color: 'primary.main',
-                          bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        },
-                      }}
-                      aria-label={`Promote experiment to ${row.name}`}
-                    >
-                      <PromoteIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                {canRemoveEnvironment(row) && (
+                {canUpdateProject && (
+                  <Tooltip
+                    title={
+                      promoteDisabled
+                        ? 'No shared experiments to promote'
+                        : 'Promote a shared experiment to this environment'
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        disabled={promoteDisabled}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setPickerEnvironmentName(row.name);
+                        }}
+                        sx={{
+                          p: 0.5,
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                          },
+                        }}
+                        aria-label={`Promote experiment to ${row.name}`}
+                      >
+                        <PromoteIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+                {canUpdateProject && canRemoveEnvironment(row) && (
                   <Tooltip title="Remove environment">
                     <IconButton
                       size="small"
@@ -444,7 +449,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           },
         },
       ],
-      [experimentName, sharedExperiments, theme, handleDeleteRow]
+      [experimentName, sharedExperiments, theme, handleDeleteRow, canUpdateProject]
     );
 
     if (loading) {
@@ -493,7 +498,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
             />
           </Box>
 
-          {!hideToolbarAddButton ? (
+          {!hideToolbarAddButton && canUpdateProject ? (
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
               <Button
                 variant="outlined"

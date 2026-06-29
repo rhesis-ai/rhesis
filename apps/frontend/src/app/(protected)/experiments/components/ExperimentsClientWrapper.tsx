@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Box, Chip, Paper, Typography } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import {
   GridColDef,
   GridFilterModel,
@@ -22,7 +22,6 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   FilterDrawerShell,
@@ -44,6 +43,7 @@ import {
 import { Capability } from '@/constants/capabilities';
 import { can } from '@/utils/affordances';
 import { Can, useCan } from '@/components/common/Can';
+import AccessDenied from '@/components/common/AccessDenied';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -159,6 +159,7 @@ export default function ExperimentsClientWrapper({
   const router = useRouter();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
+  const canRead = useCan(Capability.Experiment.READ);
   const canCreateExperiment = useCan(Capability.Experiment.CREATE);
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -377,6 +378,7 @@ export default function ExperimentsClientWrapper({
       createRowActionsColumn({
         onEdit: id => router.push(`/experiments/${id}`),
         onDelete: id => setDeleteTargetId(id),
+        canEdit: row => can(row as unknown as ExperimentRead, Capability.Experiment.UPDATE),
         canDelete: row => can(row as unknown as ExperimentRead, Capability.Experiment.DELETE),
         editTooltip: 'Open experiment',
         deleteTooltip: 'Delete experiment',
@@ -384,6 +386,8 @@ export default function ExperimentsClientWrapper({
     ],
     [router]
   );
+
+  if (!canRead) return <AccessDenied resource="experiments" />;
 
   return (
     <PageLayout

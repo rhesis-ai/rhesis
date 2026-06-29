@@ -39,6 +39,8 @@ import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { TagsClient } from '@/utils/api-client/tags-client';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import BehaviorDrawer from '../../components/BehaviorDrawer';
 import type { UUID } from 'crypto';
 
@@ -108,6 +110,7 @@ function BehaviorBasicInfo({
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>();
+  const canEditBehavior = useCan(Capability.Behavior.UPDATE);
 
   const tags = behavior.tags ?? [];
 
@@ -211,7 +214,7 @@ function BehaviorBasicInfo({
   return (
     <>
       <Stack spacing={3}>
-        <GeneralInfoCard onEdit={() => setEditOpen(true)}>
+        <GeneralInfoCard onEdit={canEditBehavior ? () => setEditOpen(true) : undefined}>
           <Stack spacing={3}>
             <ViewField label="Name" value={behavior.name} />
 
@@ -224,6 +227,7 @@ function BehaviorBasicInfo({
         </GeneralInfoCard>
 
         <EditableSectionCard
+          editable={canEditBehavior}
           title="Tags"
           initialValue={{ tagNames: tags.map((t: Tag) => t.name) }}
           onSave={handleTagsSave}
@@ -269,6 +273,7 @@ function BehaviorLinkedMetrics({
 }) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditBehavior = useCan(Capability.Behavior.UPDATE);
   const [metrics, setMetrics] = useState<MetricWithRelationships[]>(
     behavior.metrics ?? []
   );
@@ -385,12 +390,13 @@ function BehaviorLinkedMetrics({
           ) : null,
       },
       createRowActionsColumn({
+        canDelete: () => canEditBehavior,
         onDelete: id => handleUnassign(id),
         deleteTooltip: 'Unassign',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [handleUnassign]
+    [handleUnassign, canEditBehavior]
   );
 
   // Assign drawer columns (name + description + badges, no action)
@@ -620,7 +626,7 @@ function BehaviorLinkedMetrics({
         loading={loading}
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/metrics/${String(params.id)}`)}
-        onAssignClick={handleAssignClick}
+        onAssignClick={canEditBehavior ? handleAssignClick : undefined}
         searchPlaceholder="Search metrics…"
         rowFilter={rowFilter}
         onFilterClick={() => setFilterOpen(true)}

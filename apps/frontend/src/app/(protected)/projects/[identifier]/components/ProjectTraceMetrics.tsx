@@ -50,6 +50,8 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -110,6 +112,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
     ref
   ) {
     const theme = useTheme();
+    const canUpdateProject = useCan(Capability.Project.UPDATE);
     const [metrics, setMetrics] = useState<MetricDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -329,31 +332,33 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
                 width: '100%',
               }}
             >
-              <Tooltip title="Remove metric">
-                <IconButton
-                  size="small"
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleDeleteRow(params.row.id as string);
-                  }}
-                  sx={{
-                    p: 0.5,
-                    color: 'text.secondary',
-                    '&:hover': {
-                      color: 'error.main',
-                      bgcolor: alpha(theme.palette.error.main, 0.08),
-                    },
-                  }}
-                  aria-label={`Remove metric ${params.row.name}`}
-                >
-                  <DeleteIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
+              {canUpdateProject && (
+                <Tooltip title="Remove metric">
+                  <IconButton
+                    size="small"
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleDeleteRow(params.row.id as string);
+                    }}
+                    sx={{
+                      p: 0.5,
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'error.main',
+                        bgcolor: alpha(theme.palette.error.main, 0.08),
+                      },
+                    }}
+                    aria-label={`Remove metric ${params.row.name}`}
+                  >
+                    <DeleteIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           ),
         },
       ],
-      [handleDeleteRow, theme]
+      [handleDeleteRow, theme, canUpdateProject]
     );
 
     if (loading) {

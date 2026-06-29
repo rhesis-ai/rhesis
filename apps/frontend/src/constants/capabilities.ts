@@ -108,9 +108,34 @@ export const Capability = {
     UPDATE_ASSIGNED: 'task:update:assigned',
     DELETE_OWN: 'task:delete:own',
   },
+  Source: {
+    READ: 'source:read',
+    CREATE: 'source:create',
+    UPDATE: 'source:update',
+    DELETE: 'source:delete',
+  },
+  Behavior: {
+    READ: 'behavior:read',
+    CREATE: 'behavior:create',
+    UPDATE: 'behavior:update',
+    DELETE: 'behavior:delete',
+  },
+  Tool: {
+    READ: 'tool:read',
+    CREATE: 'tool:create',
+    UPDATE: 'tool:update',
+    DELETE: 'tool:delete',
+  },
+  Explorer: {
+    READ: 'explorer:read',
+    CREATE: 'explorer:create',
+    UPDATE: 'explorer:update',
+    DELETE: 'explorer:delete',
+  },
   Architect: {
     READ: 'architect:read',
     CREATE: 'architect:create',
+    DELETE: 'architect:delete',
   },
   Preflight: {
     CREATE: 'preflight:create',
@@ -242,9 +267,30 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'task:update:own': 'Edit own tasks',
   'task:update:assigned': 'Edit assigned tasks',
   'task:delete:own': 'Delete own tasks',
+  // Sources (knowledge base)
+  'source:read': 'View knowledge sources',
+  'source:create': 'Upload knowledge sources',
+  'source:update': 'Edit knowledge sources',
+  'source:delete': 'Delete knowledge sources',
+  // Behaviors
+  'behavior:read': 'View behaviors',
+  'behavior:create': 'Create behaviors',
+  'behavior:update': 'Edit behaviors',
+  'behavior:delete': 'Delete behaviors',
+  // Tools
+  'tool:read': 'View tool connections',
+  'tool:create': 'Add tool connections',
+  'tool:update': 'Edit tool connections',
+  'tool:delete': 'Delete tool connections',
+  // Explorer
+  'explorer:read': 'View explorer sessions',
+  'explorer:create': 'Create explorer sessions',
+  'explorer:update': 'Edit explorer sessions',
+  'explorer:delete': 'Delete explorer sessions',
   // Architect
   'architect:read': 'View Architect sessions',
   'architect:create': 'Start Architect sessions',
+  'architect:delete': 'Delete Architect sessions',
   // Preflight
   'preflight:create': 'Run preflight checks',
   // Files

@@ -112,6 +112,7 @@ export default function MetricsDirectoryTab({
   const searchParams = useSearchParams();
   const notifications = useNotifications();
   const canCreate = useCan(Capability.Metric.CREATE);
+  const canDelete = useCan(Capability.Metric.DELETE);
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -664,6 +665,7 @@ export default function MetricsDirectoryTab({
                           : undefined
                     }
                     onDelete={
+                      canDelete &&
                       assignedBehaviors.length === 0 &&
                       metric.backend_type?.type_value?.toLowerCase() ===
                         'custom'
