@@ -52,10 +52,11 @@ export const Capability = {
   TestResult: {
     READ: 'test_result:read',
     UPDATE: 'test_result:update',
+    DELETE: 'test_result:delete',
     /**
      * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
      * The backend collapses these to base caps in `permitted_actions`;
-     * use `Capability.TestResult.UPDATE` for affordance checks.
+     * use `Capability.TestResult.UPDATE` / `DELETE` for affordance checks.
      */
     UPDATE_OWN: 'test_result:update:own',
     DELETE_OWN: 'test_result:delete:own',

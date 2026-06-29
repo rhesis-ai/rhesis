@@ -10,6 +10,8 @@ import { useSearchParams } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import TasksGrid from './components/TasksGrid';
 import TaskDrawer, {
   type TaskDrawerInitialEntity,
@@ -21,6 +23,7 @@ import { EntityType } from '@/types/tasks';
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
+  const canCreateTask = useCan(Capability.Task.CREATE);
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [taskCount, setTaskCount] = React.useState<number | null>(null);
@@ -129,15 +132,17 @@ export default function TasksPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Task"
-              aria-label="New Task"
-              onClick={() => {
-                setInitialEntity(undefined);
-                setCreateDrawerOpen(true);
-              }}
-            />
+            <Can capability={Capability.Task.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Task"
+                aria-label="New Task"
+                onClick={() => {
+                  setInitialEntity(undefined);
+                  setCreateDrawerOpen(true);
+                }}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -147,11 +152,15 @@ export default function TasksPage() {
               icon={AssignmentOutlinedIcon}
               title="No tasks yet"
               description="Create tasks to track follow-ups, issues, and action items from tests and evaluations."
-              actionLabel="Create task"
-              onAction={() => {
-                setInitialEntity(undefined);
-                setCreateDrawerOpen(true);
-              }}
+              actionLabel={canCreateTask ? 'Create task' : undefined}
+              onAction={
+                canCreateTask
+                  ? () => {
+                      setInitialEntity(undefined);
+                      setCreateDrawerOpen(true);
+                    }
+                  : undefined
+              }
             />
           ) : (
             <Paper

@@ -18,6 +18,8 @@ import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { Priority, Status, Task, TaskUpdate } from '@/types/tasks';
 import type { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
 
 interface AssigneeDisplay {
   name?: string;
@@ -159,6 +161,7 @@ export default function TaskDetailsCard({
   return (
     <EditableSection
       title="Task details"
+      editable={can(task, Capability.Task.UPDATE)}
       initialValue={initialDraft}
       onSave={handleSave}
     >

@@ -20,6 +20,8 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
 import { Typography, Box, Alert, Avatar } from '@mui/material';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
@@ -314,7 +316,9 @@ export default function TasksGrid({
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => router.push(`/tasks/${id}`),
+      canEdit: row => can(row as unknown as Task, Capability.Task.UPDATE),
       onDelete: id => handleRowDeleteAction(id),
+      canDelete: row => can(row as unknown as Task, Capability.Task.DELETE),
     });
     return [
       {

@@ -41,7 +41,9 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { TestRun, TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
@@ -368,9 +370,11 @@ function TestRunsGrid({
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
+      canEdit: row => can(row as unknown as TestRun, Capability.TestRun.UPDATE),
       onCancel: id => handleRowCancelAction(id),
       canCancel: isCancellableRun,
       onDelete: id => handleRowDeleteAction(id),
+      canDelete: row => can(row as unknown as TestRun, Capability.TestRun.DELETE),
       width: 112,
     });
     return [

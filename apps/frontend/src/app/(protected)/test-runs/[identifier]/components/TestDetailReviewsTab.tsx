@@ -418,7 +418,7 @@ export default function TestDetailReviewsTab({
                         size="small"
                         variant="outlined"
                       />
-                      {can(review, Capability.TestResult.UPDATE) && (
+                      {can(review, Capability.TestResult.DELETE) && (
                         <Tooltip title="Delete review">
                           <IconButton
                             size="small"

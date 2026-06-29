@@ -14,6 +14,8 @@ import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
 import { SectionCard } from '@/components/common/SectionCard';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 interface CommentsSectionProps {
   entityType: EntityType;
   entityId: string;
@@ -166,12 +168,13 @@ export function CommentsSection({
         )
       )}
 
-      {/* Comment Form */}
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{ display: 'flex', alignItems: 'flex-start', gap: '30px' }}
-      >
+      {/* Comment Form — hidden when user lacks comment:create permission */}
+      <Can capability={Capability.Comment.CREATE}>
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ display: 'flex', alignItems: 'flex-start', gap: '30px' }}
+        >
         <UserAvatar
           userName={currentUserName}
           userPicture={currentUserPicture}
@@ -228,7 +231,8 @@ export function CommentsSection({
             </Typography>
           )}
         </Box>
-      </Box>
+        </Box>
+      </Can>
     </SectionCard>
   );
 }

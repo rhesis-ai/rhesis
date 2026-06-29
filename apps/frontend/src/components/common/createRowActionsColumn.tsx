@@ -32,6 +32,8 @@ interface RowActionsColumnOptions {
   onEdit?: (id: string, row: Record<string, unknown>) => void;
   onDelete?: (id: string, row: Record<string, unknown>) => void;
   onCancel?: (id: string, row: Record<string, unknown>) => void;
+  /** Return false to hide the edit button for this row. Defaults to always visible. */
+  canEdit?: (row: Record<string, unknown>) => boolean;
   canCancel?: (row: Record<string, unknown>) => boolean;
   canDelete?: (row: Record<string, unknown>) => boolean;
   width?: number;
@@ -50,6 +52,7 @@ export function createRowActionsColumn({
   onEdit,
   onDelete,
   onCancel,
+  canEdit,
   canCancel,
   canDelete,
   width = 88,
@@ -71,6 +74,7 @@ export function createRowActionsColumn({
       const id = String(params.id);
       const row = params.row as Record<string, unknown>;
       const cancelFn = onCancel;
+      const showEdit = onEdit && (!canEdit || canEdit(row));
       const showCancel = cancelFn && (!canCancel || canCancel(row));
       const showDelete = onDelete && (!canDelete || canDelete(row));
 
@@ -85,13 +89,13 @@ export function createRowActionsColumn({
             width: '100%',
           }}
         >
-          {onEdit && (
+          {showEdit && (
             <Tooltip title={editTooltip}>
               <IconButton
                 size="small"
                 onClick={e => {
                   e.stopPropagation();
-                  onEdit(id, row);
+                  onEdit!(id, row);
                 }}
                 sx={{
                   p: 0.5,

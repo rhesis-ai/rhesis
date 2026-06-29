@@ -43,6 +43,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { Capability } from '@/constants/capabilities';
 import { can } from '@/utils/affordances';
+import { Can, useCan } from '@/components/common/Can';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -158,6 +159,7 @@ export default function ExperimentsClientWrapper({
   const router = useRouter();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
+  const canCreateExperiment = useCan(Capability.Experiment.CREATE);
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -389,13 +391,15 @@ export default function ExperimentsClientWrapper({
       description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="New Experiment"
-            aria-label="New Experiment"
-            onClick={() => setCreateOpen(true)}
-            disabled={!activeProject}
-          />
+          <Can capability={Capability.Experiment.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="New Experiment"
+              aria-label="New Experiment"
+              onClick={() => setCreateOpen(true)}
+              disabled={!activeProject}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -408,8 +412,8 @@ export default function ExperimentsClientWrapper({
           icon={BiotechIcon}
           title="No experiments yet"
           description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
-          actionLabel="New Experiment"
-          onAction={() => setCreateOpen(true)}
+          actionLabel={canCreateExperiment ? 'New Experiment' : undefined}
+          onAction={canCreateExperiment ? () => setCreateOpen(true) : undefined}
           actionDisabled={!activeProject}
           enrichment={getEntityEmptyStateEnrichment('experiments')}
         />
