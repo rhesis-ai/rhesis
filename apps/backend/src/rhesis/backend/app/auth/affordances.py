@@ -63,7 +63,8 @@ def populate_permitted_actions(
     project_id = project_id_from_scope(db)
     caps = effective_permissions(principal, project_id=project_id, db=db)
     own_gated = _own_gated_actions(resource_type)
-    items = list(objs) if isinstance(objs, IterableABC) and not isinstance(objs, (str, bytes)) else [objs]
+    is_collection = isinstance(objs, IterableABC) and not isinstance(objs, (str, bytes))
+    items = list(objs) if is_collection else [objs]
     for obj in items:
         obj.permitted_actions = permitted_actions_for(
             caps,
