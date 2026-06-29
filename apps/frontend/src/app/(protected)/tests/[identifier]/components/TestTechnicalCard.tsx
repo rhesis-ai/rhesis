@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Grid from '@mui/material/Grid';
-import { Box, TextField, Typography } from '@mui/material';
+import { Box, TextField, Typography, useTheme } from '@mui/material';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
@@ -22,13 +22,6 @@ import MultiTurnConfigFields, {
 } from './MultiTurnConfigFields';
 import FilePreview from '@/components/common/FilePreview';
 import { useRouter } from 'next/navigation';
-
-const MONO_SX = {
-  fontFamily: '"Sometype Mono", monospace',
-  fontSize: '16px',
-  lineHeight: '24px',
-  fontWeight: 400,
-};
 
 interface PromptDraft {
   content: string;
@@ -125,6 +118,13 @@ export default function TestTechnicalCard({
   onUpdate,
 }: TestTechnicalCardProps) {
   const router = useRouter();
+  const theme = useTheme();
+  const MONO_SX = {
+    fontFamily: '"Sometype Mono", monospace',
+    fontSize: theme.typography.body1.fontSize,
+    lineHeight: '24px',
+    fontWeight: 400,
+  };
   const notifications = useNotifications();
 
   const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
