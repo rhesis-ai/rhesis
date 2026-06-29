@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize, authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
@@ -205,12 +205,15 @@ def update_task(
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Unrestricted task:update (admin/moderator) OR creator-owns OR assignee-owns.
+        # Creator OR assignee may update their task. Unrestricted admin access is
+        # an EE concern — the EE provider grants admins the qualified caps too, so
+        # the checks below become unconditional passes for them without needing a
+        # base-cap bypass here (which would grant every project member full access
+        # in the community tier, where any project membership → any base cap).
         principal = resolve_principal_from_request(current_user, request)
         project_id = project_id_from_scope(db)
-        can_update = (
-            authorize(principal, Permission.Task.UPDATE, project_id=project_id, db=db)
-            or authorize_object(
+        if not (
+            authorize_object(
                 principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
             )
             or authorize_object(
@@ -221,8 +224,7 @@ def update_task(
                 db=db,
                 owner_attr="assignee_id",
             )
-        )
-        if not can_update:
+        ):
             raise HTTPException(status_code=403, detail="Not authorized to update this task")
 
         # Validate organization-level constraints
@@ -285,14 +287,12 @@ def delete_task(
         if task_obj is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Unrestricted task:delete (admin/moderator) OR creator-owns.
+        # Only the creator may delete. Unrestricted admin access is an EE concern
+        # (same reasoning as update_task above).
         principal = resolve_principal_from_request(current_user, request)
         project_id = project_id_from_scope(db)
-        if not (
-            authorize(principal, Permission.Task.DELETE, project_id=project_id, db=db)
-            or authorize_object(
-                principal, Permission.Task.DELETE_OWN, task_obj, project_id=project_id, db=db
-            )
+        if not authorize_object(
+            principal, Permission.Task.DELETE_OWN, task_obj, project_id=project_id, db=db
         ):
             raise HTTPException(status_code=403, detail="Not authorized to delete this task")
 

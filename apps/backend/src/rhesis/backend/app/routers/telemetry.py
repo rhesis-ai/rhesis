@@ -2,20 +2,24 @@
 
 import logging
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from typing import List, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
+from rhesis.backend.app.services.review import (
+    authorize_review_action,
+    get_review_status_details,
+    update_review_metadata,
+)
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
 from rhesis.backend.app.database import temporary_project_scope
@@ -784,34 +788,6 @@ def get_metrics(
 # ---------------------------------------------------------------------------
 
 
-def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> dict:
-    """Fetch status details for a review."""
-    status_obj = (
-        db.query(models.Status)
-        .filter(
-            models.Status.id == status_id,
-            models.Status.organization_id == organization_id,
-        )
-        .first()
-    )
-    if not status_obj:
-        raise HTTPException(status_code=404, detail="Status not found")
-    return {"status_id": str(status_obj.id), "name": status_obj.name}
-
-
-def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
-    """Update metadata when reviews change."""
-    now = datetime.now(timezone.utc).isoformat()
-    reviews_data["metadata"] = {
-        "last_updated_at": now,
-        "last_updated_by": {
-            "user_id": str(current_user.id),
-            "name": current_user.name or current_user.email,
-        },
-        "total_reviews": len(reviews_data.get("reviews", [])),
-        "latest_status": latest_status,
-        "summary": f"Last updated by {current_user.name or current_user.email}",
-    }
 
 
 @router.post(
@@ -835,7 +811,7 @@ def add_trace_review(
     if db_trace is None:
         raise HTTPException(status_code=404, detail="Trace not found")
 
-    status_details = _get_status_details(db, review.status_id, organization_id)
+    status_details = get_review_status_details(db, review.status_id, organization_id)
 
     if not db_trace.trace_reviews:
         db_trace.trace_reviews = {"metadata": {}, "reviews": []}
@@ -862,7 +838,7 @@ def add_trace_review(
     }
 
     db_trace.trace_reviews["reviews"].append(new_review)
-    _update_review_metadata(db_trace.trace_reviews, current_user, status_details)
+    update_review_metadata(db_trace.trace_reviews, current_user, status_details)
     flag_modified(db_trace, "trace_reviews")
 
     trace_apply_review_override(
@@ -916,26 +892,18 @@ def update_trace_review(
     if review_to_update is None:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    review_owner_id = review_to_update.get("user", {}).get("user_id")
-    try:
-        review_owner_uuid = UUID(str(review_owner_id)) if review_owner_id else None
-    except (ValueError, AttributeError):
-        review_owner_uuid = None
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal,
-        Permission.TestResult.UPDATE_OWN,
-        SimpleNamespace(user_id=review_owner_uuid),
-        project_id=project_id,
-        db=db,
+    if not authorize_review_action(
+        principal, review_to_update, Permission.TestResult.UPDATE_OWN,
+        project_id=project_id, db=db,
     ):
         raise HTTPException(status_code=403, detail="Not authorized to update this review")
 
     old_target = review_to_update.get("target", {})
     status_changed = False
     if review.status_id is not None:
-        status_details = _get_status_details(db, review.status_id, organization_id)
+        status_details = get_review_status_details(db, review.status_id, organization_id)
         review_to_update["status"] = status_details
         status_changed = True
 
@@ -952,7 +920,7 @@ def update_trace_review(
 
     review_to_update["updated_at"] = datetime.now(timezone.utc).isoformat()
     latest_status = review_to_update["status"]
-    _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
+    update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
     flag_modified(db_trace, "trace_reviews")
 
     if status_changed or target_changed:
@@ -1014,19 +982,11 @@ def delete_trace_review(
     if review_index is None:
         raise HTTPException(status_code=404, detail="Review not found")
 
-    review_owner_id = reviews[review_index].get("user", {}).get("user_id")
-    try:
-        review_owner_uuid = UUID(str(review_owner_id)) if review_owner_id else None
-    except (ValueError, AttributeError):
-        review_owner_uuid = None
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal,
-        Permission.TestResult.DELETE_OWN,
-        SimpleNamespace(user_id=review_owner_uuid),
-        project_id=project_id,
-        db=db,
+    if not authorize_review_action(
+        principal, reviews[review_index], Permission.TestResult.DELETE_OWN,
+        project_id=project_id, db=db,
     ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this review")
 
@@ -1038,7 +998,7 @@ def delete_trace_review(
             key=lambda r: r.get("updated_at", r.get("created_at", "")),
         )
         latest_status = latest_review.get("status", {"status_id": None, "name": "Unknown"})
-        _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
+        update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
     else:
         db_trace.trace_reviews["metadata"] = {
             "last_updated_at": datetime.now(timezone.utc).isoformat(),
