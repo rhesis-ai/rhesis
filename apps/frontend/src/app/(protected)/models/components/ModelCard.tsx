@@ -20,7 +20,7 @@ interface ConnectedModelCardProps {
   /** Opens the edit connection dialog when the card is clicked */
   onCardClick?: (model: Model) => void;
   /** Called when delete is confirmed — EntityCard handles stopPropagation internally */
-  onDelete: (model: Model) => void;
+  onDelete?: (model: Model) => void;
   onRequestAccess?: (model: Model) => void;
 }
 
@@ -150,7 +150,7 @@ export function ConnectedModelCard({
           ? () => onCardClick(model)
           : undefined
       }
-      onDelete={!model.is_protected ? () => onDelete(model) : undefined}
+      onDelete={!model.is_protected && onDelete ? () => onDelete(model) : undefined}
       topRightActions={topRightActions}
       chipSections={chipSections}
       footer={footer}

@@ -687,7 +687,7 @@ export default function ManualTestWriter() {
                   borderBottom: theme =>
                     `1px solid ${theme.palette.greyscale.border}`,
                   color: 'text.primary',
-                  fontSize: '0.875rem',
+                  fontSize: 14,
                   py: '12px',
                   // first/last column inset matching BaseDataGrid (30px)
                   '&:first-of-type': { pl: '30px' },
@@ -709,7 +709,7 @@ export default function ManualTestWriter() {
                 '& .MuiTableBody-root .MuiTableRow-root:hover': {
                   bgcolor: theme =>
                     theme.palette.mode === 'light'
-                      ? '#f7f8f9'
+                      ? theme.palette.action.hover
                       : 'rgba(255,255,255,0.04)',
                 },
                 // ── Input fields: invisible border until hover/focus ──────
@@ -729,11 +729,11 @@ export default function ManualTestWriter() {
                     borderWidth: '2px',
                   },
                 // Compact input size matching grid row height
-                '& .MuiInputBase-root': { fontSize: '0.875rem' },
+                '& .MuiInputBase-root': { fontSize: 14 },
                 '& .MuiOutlinedInput-input': {
                   py: '7px',
                   px: '8px',
-                  fontSize: '0.875rem',
+                  fontSize: 14,
                 },
                 '& .MuiInputBase-inputMultiline': { py: '6px', px: '8px' },
                 // ── Row actions hover ────────────────────────────────────

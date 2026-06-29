@@ -74,6 +74,7 @@ class Experiment(Base, OrganizationMixin):
     def user_id(self):
         """Bridge for the affordances layer, which reads obj.user_id for ownership."""
         return self.owner_user_id
+
     test_runs = relationship(
         "TestRun",
         back_populates="experiment",

@@ -180,6 +180,34 @@ class Permission:
         #: Delete a task the caller created (object-level :own qualifier).
         DELETE_OWN = "task:delete:own"
 
+    # --- Knowledge base (project-scoped) ------------------------------------
+
+    class Source(_PermissionEnum):
+        READ = "source:read"
+        CREATE = "source:create"
+        UPDATE = "source:update"
+        DELETE = "source:delete"
+
+    class Behavior(_PermissionEnum):
+        READ = "behavior:read"
+        CREATE = "behavior:create"
+        UPDATE = "behavior:update"
+        DELETE = "behavior:delete"
+
+    class Tool(_PermissionEnum):
+        READ = "tool:read"
+        CREATE = "tool:create"
+        UPDATE = "tool:update"
+        DELETE = "tool:delete"
+
+    # --- Explorer (project-scoped) ------------------------------------------
+
+    class Explorer(_PermissionEnum):
+        READ = "explorer:read"
+        CREATE = "explorer:create"
+        UPDATE = "explorer:update"
+        DELETE = "explorer:delete"
+
     # --- Architect agent (project-scoped, WebSocket-driven) -----------------
 
     class Architect(_PermissionEnum):
@@ -554,11 +582,7 @@ def permitted_actions_for(
     # strings depending on the serialization path (Pydantic schema vs ORM attr).
     _uid = str(current_user_id) if current_user_id is not None else None
     is_owner = _uid is not None and str(owner_id) == _uid if owner_id is not None else False
-    is_assignee = (
-        _uid is not None
-        and assignee_id is not None
-        and str(assignee_id) == _uid
-    )
+    is_assignee = _uid is not None and assignee_id is not None and str(assignee_id) == _uid
     caps_out: set[str] = set()
     for cap in effective_caps:
         parts = cap.split(":")
