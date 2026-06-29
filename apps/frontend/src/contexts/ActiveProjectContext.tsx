@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { useSession } from 'next-auth/react';
@@ -48,6 +49,8 @@ export function ActiveProjectProvider({
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
@@ -57,7 +60,7 @@ export function ActiveProjectProvider({
   const fetchProjects = useCallback(
     async (options?: { listOnly?: boolean }) => {
       if (!session?.session_token) return;
-      if (pathname.startsWith('/onboarding')) {
+      if (pathnameRef.current.startsWith('/onboarding')) {
         setLoading(false);
         return;
       }
@@ -131,7 +134,7 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.session_token, pathname]
+    [session?.session_token]
   );
 
   useEffect(() => {
