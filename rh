@@ -187,7 +187,6 @@ BROKER_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
 CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 
 # Environment
-ENVIRONMENT=development
 BACKEND_ENV=development
 LOG_LEVEL=DEBUG
 

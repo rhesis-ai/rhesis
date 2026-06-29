@@ -47,7 +47,6 @@ x-common-jwt: &common-jwt
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
 
 x-common-environment: &common-environment
-  ENVIRONMENT: ${ENVIRONMENT:-local}
   BACKEND_ENV: ${BACKEND_ENV:-local}
   FRONTEND_ENV: ${FRONTEND_ENV:-local}
   WORKER_ENV: ${WORKER_ENV:-local}
