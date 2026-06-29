@@ -106,6 +106,19 @@ class _AffordanceContext:
             self._caps = effective_permissions(self._principal, project_id=project_id, db=self.db)
         return self._caps
 
+    def precompute(self) -> None:
+        """Eagerly resolve the effective capability set.
+
+        Called once by :func:`~rhesis.backend.app.dependencies.bind_affordance_context`
+        before yielding to the route handler, so that the synchronous I/O (DB/Redis) for
+        ``effective_permissions`` happens inside the async dependency — not lazily during
+        response serialization on the event loop where blocking is harder to control.
+
+        After this call, subsequent :meth:`actions_for` invocations (e.g. each row of a
+        list response) are entirely in-memory.
+        """
+        self._ensure_caps()
+
     def actions_for(
         self, resource_type: object, owner_id: object, assignee_id: object = None
     ) -> List[str]:

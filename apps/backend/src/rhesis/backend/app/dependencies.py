@@ -235,12 +235,19 @@ async def bind_affordance_context(
     routers already declare, so FastAPI deduplicates them (no second session).
     """
     from rhesis.backend.app.auth.affordances import (
+        current_affordance_context,
         reset_affordance_context,
         set_affordance_context,
     )
 
     token = set_affordance_context(current_user, request, db)
     try:
+        # Eagerly resolve effective caps here (inside the async dependency) so the
+        # synchronous DB/Redis I/O for effective_permissions() does not happen lazily
+        # during response serialization, where it would block the event loop.
+        ctx = current_affordance_context()
+        if ctx is not None:
+            ctx.precompute()
         yield
     finally:
         reset_affordance_context(token)

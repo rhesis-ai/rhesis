@@ -1,17 +1,17 @@
 from datetime import datetime, timezone
 from enum import Enum
+from types import SimpleNamespace
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
+from fastapi import Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
@@ -21,6 +21,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.review_override import (
     apply_review_override,
     revert_override,
@@ -676,7 +677,19 @@ def update_review(
         raise HTTPException(status_code=404, detail="Review not found")
 
     review_owner_id = review_to_update.get("user", {}).get("user_id")
-    if str(review_owner_id) != str(current_user.id):
+    try:
+        review_owner_uuid = UUID(str(review_owner_id)) if review_owner_id else None
+    except (ValueError, AttributeError):
+        review_owner_uuid = None
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal,
+        Permission.TestResult.UPDATE_OWN,
+        SimpleNamespace(user_id=review_owner_uuid),
+        project_id=project_id,
+        db=db,
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to update this review")
 
     old_target = review_to_update.get("target", {})
@@ -744,6 +757,7 @@ def update_review(
 def delete_review(
     test_result_id: UUID,
     review_id: str,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -780,7 +794,19 @@ def delete_review(
         raise HTTPException(status_code=404, detail="Review not found")
 
     review_owner_id = reviews[review_index].get("user", {}).get("user_id")
-    if str(review_owner_id) != str(current_user.id):
+    try:
+        review_owner_uuid = UUID(str(review_owner_id)) if review_owner_id else None
+    except (ValueError, AttributeError):
+        review_owner_uuid = None
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal,
+        Permission.TestResult.DELETE_OWN,
+        SimpleNamespace(user_id=review_owner_uuid),
+        project_id=project_id,
+        db=db,
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this review")
 
     # Remove the review
