@@ -20,7 +20,6 @@ import FileImportDrawer from './components/FileImportDrawer';
 import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 export default function TestSetsPage() {
@@ -38,26 +37,6 @@ export default function TestSetsPage() {
   useDocumentTitle('Test Sets');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testSetsClient = apiFactory.getTestSetsClient();
-        const response = await testSetsClient.getTestSets({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        setTestSetCount(response.pagination?.totalCount ?? 0);
-      } catch {
-        setTestSetCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
@@ -171,6 +150,7 @@ export default function TestSetsPage() {
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setTestSetCount}
               />
             </Paper>
           )}

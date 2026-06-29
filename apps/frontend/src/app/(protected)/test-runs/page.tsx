@@ -14,7 +14,6 @@ import TestRunsGrid from './components/TestRunsGrid';
 import RunDrawer from '@/components/common/RunDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
@@ -25,24 +24,6 @@ export default function TestRunsPage() {
   useDocumentTitle('Test Runs');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testRunsClient = apiFactory.getTestRunsClient();
-        const response = await testRunsClient.getTestRuns({
-          skip: 0,
-          limit: 1,
-        });
-        setTestRunCount(response.pagination?.totalCount ?? 0);
-      } catch {
-        setTestRunCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
@@ -114,6 +95,7 @@ export default function TestRunsPage() {
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setTestRunCount}
               />
             </Paper>
           )}

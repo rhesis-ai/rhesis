@@ -58,6 +58,7 @@ interface TestSetsGridProps {
   sessionToken?: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 // ─── Toolbar context ────────────────────────────────────────────────────────────
@@ -160,6 +161,7 @@ export default function TestSetsGrid({
   sessionToken: sessionTokenProp,
   refreshKey,
   onRefresh,
+  onTotalCountChange,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -220,6 +222,7 @@ export default function TestSetsGrid({
       const response = await testSetsClient.getTestSets(apiParams);
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
+      onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
       setError('Failed to load test sets');

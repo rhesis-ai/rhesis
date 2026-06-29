@@ -74,6 +74,7 @@ interface TestsTableProps {
   disableAddButton?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
   insightsEndpointName?: string;
+  onTotalCountChange?: (count: number) => void;
 }
 
 // ─── Toolbar context (passes search/filter state into the DataGrid slot) ──────
@@ -148,6 +149,7 @@ export default function TestsTable({
   disableAddButton: _disableAddButton = false,
   insightsFailedFilter = null,
   insightsEndpointName,
+  onTotalCountChange,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -250,7 +252,7 @@ export default function TestsTable({
 
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
-
+      onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch (_error) {
       setError('Failed to load tests');
