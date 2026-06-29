@@ -728,7 +728,9 @@ export default function ManualTestWriter() {
                     borderWidth: '2px',
                   },
                 // Compact input size matching grid row height
-                '& .MuiInputBase-root': { fontSize: theme => theme.typography.body2.fontSize },
+                '& .MuiInputBase-root': {
+                  fontSize: theme => theme.typography.body2.fontSize,
+                },
                 '& .MuiOutlinedInput-input': {
                   py: '7px',
                   px: '8px',
