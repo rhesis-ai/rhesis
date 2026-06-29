@@ -63,23 +63,24 @@ export default function TestDrawer({
       error={error}
       onSave={handleSave}
     >
-      {test ? (
-        <UpdateTest
-          sessionToken={sessionToken}
-          onSuccess={onSuccess}
-          onError={setError}
-          submitRef={submitRef}
-          test={test}
-        />
-      ) : (
-        <CreateTest
-          sessionToken={sessionToken}
-          onSuccess={onSuccess}
-          onError={setError}
-          defaultOwnerId={getCurrentUserId()}
-          submitRef={submitRef}
-        />
-      )}
+      {open &&
+        (test ? (
+          <UpdateTest
+            sessionToken={sessionToken}
+            onSuccess={onSuccess}
+            onError={setError}
+            submitRef={submitRef}
+            test={test}
+          />
+        ) : (
+          <CreateTest
+            sessionToken={sessionToken}
+            onSuccess={onSuccess}
+            onError={setError}
+            defaultOwnerId={getCurrentUserId()}
+            submitRef={submitRef}
+          />
+        ))}
     </BaseDrawer>
   );
 }
