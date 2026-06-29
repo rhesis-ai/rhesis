@@ -6,10 +6,9 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.app.auth.affordances import populate_permitted_actions
-from rhesis.backend.app.auth.capabilities import Permission, ResourceType
+from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize, authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import authorize, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
@@ -207,15 +206,10 @@ def update_task(
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Unrestricted task:update (admin/moderator) or creator-owns check.
+        # Unrestricted task:update check (admin/moderator).
         principal = resolve_principal_from_request(current_user, request)
         project_id = project_id_from_scope(db)
-        if not (
-            authorize(principal, Permission.Task.UPDATE, project_id=project_id, db=db)
-            or authorize_object(
-                principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
-            )
-        ):
+        if not authorize(principal, Permission.Task.UPDATE, project_id=project_id, db=db):
             raise HTTPException(status_code=403, detail="Not authorized to update this task")
 
         # Validate organization-level constraints
@@ -245,9 +239,7 @@ def update_task(
             fields_updated=list(task.dict(exclude_unset=True).keys()),
         )
 
-        return populate_permitted_actions(
-            updated_task, ResourceType.TASK, current_user=current_user, request=request, db=db
-        )
+        return updated_task
     except HTTPException:
         raise
     except ValueError as e:
@@ -281,15 +273,10 @@ def delete_task(
         if db_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Unrestricted task:delete (admin/moderator) or creator-owns check.
+        # Unrestricted task:delete check (admin/moderator).
         principal = resolve_principal_from_request(current_user, request)
         project_id = project_id_from_scope(db)
-        if not (
-            authorize(principal, Permission.Task.DELETE, project_id=project_id, db=db)
-            or authorize_object(
-                principal, Permission.Task.DELETE_OWN, db_task, project_id=project_id, db=db
-            )
-        ):
+        if not authorize(principal, Permission.Task.DELETE, project_id=project_id, db=db):
             raise HTTPException(status_code=403, detail="Not authorized to delete this task")
 
         success = crud.delete_task(
