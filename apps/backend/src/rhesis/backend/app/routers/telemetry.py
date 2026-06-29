@@ -5,18 +5,12 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
-from rhesis.backend.app.services.review import (
-    authorize_review_action,
-    get_review_status_details,
-    update_review_metadata,
-)
+from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.rbac import project_id_from_scope
@@ -30,6 +24,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     StatusCode,
@@ -42,6 +37,11 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.services.async_service import BROKER_ERRORS
+from rhesis.backend.app.services.review import (
+    authorize_review_action,
+    get_review_status_details,
+    update_review_metadata,
+)
 from rhesis.backend.app.services.trace_review_override import (
     apply_review_override as trace_apply_review_override,
 )
@@ -788,8 +788,6 @@ def get_metrics(
 # ---------------------------------------------------------------------------
 
 
-
-
 @router.post(
     "/traces/{trace_db_id}/reviews",
     response_model=schemas.ReviewResponse,
@@ -895,8 +893,11 @@ def update_trace_review(
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     if not authorize_review_action(
-        principal, review_to_update, Permission.TestResult.UPDATE_OWN,
-        project_id=project_id, db=db,
+        principal,
+        review_to_update,
+        Permission.TestResult.UPDATE_OWN,
+        project_id=project_id,
+        db=db,
     ):
         raise HTTPException(status_code=403, detail="Not authorized to update this review")
 
@@ -985,8 +986,11 @@ def delete_trace_review(
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     if not authorize_review_action(
-        principal, reviews[review_index], Permission.TestResult.DELETE_OWN,
-        project_id=project_id, db=db,
+        principal,
+        reviews[review_index],
+        Permission.TestResult.DELETE_OWN,
+        project_id=project_id,
+        db=db,
     ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this review")
 
