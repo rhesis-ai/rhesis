@@ -133,6 +133,7 @@ async def handle_architect_message(
                     role="user",
                     content=user_message,
                     attachments=payload.get("attachments"),
+                    project_id=active_project_id,
                 ),
                 organization_id=str(user.organization_id),
                 user_id=str(user.id),
