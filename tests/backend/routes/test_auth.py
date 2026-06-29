@@ -562,6 +562,19 @@ class TestAuthLogout:
             assert response.status_code == status.HTTP_200_OK
             assert response.url == "http://localhost:3000/"
 
+    def test_logout_clears_session_cookie_secure_variants(self, client: TestClient):
+        """Logout clears the backend session cookie with both Secure variants."""
+        with patch.dict(os.environ, {"FRONTEND_URL": "https://app.example.com"}):
+            response = client.get("/auth/logout", follow_redirects=False)
+
+        assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+        set_cookies = response.headers.get_list("set-cookie")
+        session_clears = [h for h in set_cookies if h.startswith("session=")]
+        assert len(session_clears) == 2
+        assert any("Secure" in h for h in session_clears)
+        assert any("Secure" not in h for h in session_clears)
+        assert all("domain=" not in h.lower() for h in session_clears)
+
 
 @pytest.mark.unit
 @pytest.mark.critical

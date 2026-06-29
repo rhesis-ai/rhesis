@@ -38,7 +38,7 @@ from rhesis.backend.app.auth.token_utils import (
     verify_email_flow_token,
     verify_jwt_token,
 )
-from rhesis.backend.app.auth.url_utils import build_redirect_url, logout_cookie_domains
+from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
@@ -1345,8 +1345,6 @@ async def logout(
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
     frontend_url = get_frontend_settings().url
-    cookie_domains = logout_cookie_domains(frontend_url)
-    cookie_secure = urlparse(frontend_url).scheme == "https"
 
     # Check if this is an API call (from frontend middleware)
     if "application/json" in accept_header or "api" in request.url.path:
@@ -1356,53 +1354,22 @@ async def logout(
         return_to_url = frontend_url + "/"
         response = RedirectResponse(url=return_to_url)
 
-    # Clear all authentication-related cookies on the server side
-    cookies_to_clear = [
-        "next-auth.session-token",
-        "next-auth.csrf-token",
-        "next-auth.callback-url",
-        "authjs.session-token",
-        "authjs.csrf-token",
-        "__Host-next-auth.csrf-token",
-        "__Secure-next-auth.callback-url",
-        "__Secure-next-auth.session-token",
-        "session",
-    ]
-
-    for cookie_name in cookies_to_clear:
+    # Clear the backend SessionMiddleware cookie (host-only on the API origin).
+    # NextAuth cookies live on the frontend host and are cleared there.
+    # Emit both Secure and non-Secure clears so logout works regardless of
+    # how the cookie was set (SessionMiddleware uses https_only=not
+    # is_running_locally()). The mismatched variant is a harmless no-op.
+    for secure in (False, True):
         response.set_cookie(
-            key=cookie_name,
+            key="session",
             value="",
             max_age=0,
             expires=0,
             path="/",
             httponly=True,
+            secure=secure,
             samesite="lax",
         )
-
-        for domain in cookie_domains:
-            response.set_cookie(
-                key=cookie_name,
-                value="",
-                max_age=0,
-                expires=0,
-                path="/",
-                domain=domain,
-                httponly=True,
-                secure=cookie_secure,
-                samesite="lax",
-            )
-            response.set_cookie(
-                key=cookie_name,
-                value="",
-                max_age=0,
-                expires=0,
-                path="/",
-                domain=f".{domain}",
-                httponly=True,
-                secure=cookie_secure,
-                samesite="lax",
-            )
 
     logger.info("Logout completed, cookies cleared")
     return response

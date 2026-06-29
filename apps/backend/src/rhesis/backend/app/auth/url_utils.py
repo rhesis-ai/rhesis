@@ -90,22 +90,3 @@ def _is_loopback_dev_origin(parsed_origin) -> bool:
         return False
     return (parsed_origin.hostname or "").lower() in _LOOPBACK_HOSTNAMES
 
-
-def logout_cookie_domains(frontend_url: str) -> list[str]:
-    """Exact host to target when clearing auth cookies on logout (no leading dot).
-
-    Browsers only delete a cookie when ``Set-Cookie`` matches the original
-    name, path, and domain. All auth cookies are host-only by design — NextAuth
-    sets ``domain: undefined`` and the backend ``SessionMiddleware`` sets no
-    domain — so sibling subdomains such as ``dev.rhesis.ai`` and
-    ``stg.rhesis.ai`` never share a session. We therefore never clear a parent
-    domain: it would be a no-op (no cookie is scoped there) and could nuke a
-    sibling environment's session if a shared cookie were ever introduced.
-
-    Derived from ``FRONTEND_URL`` so deployments never need a hardcoded domain.
-    """
-    host = (urlparse(frontend_url).hostname or "").lower()
-    if not host or host in _LOOPBACK_HOSTNAMES:
-        return []
-
-    return [host]

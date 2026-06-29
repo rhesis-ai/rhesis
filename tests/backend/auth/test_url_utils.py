@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rhesis.backend.app.auth.url_utils import build_redirect_url, logout_cookie_domains
+from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
@@ -284,19 +284,3 @@ class TestRedirectUrlAuthCode:
         request = _make_request(return_to="/settings")
         url = build_redirect_url(request, "token123")
         assert "return_to=/settings" in url
-
-
-@pytest.mark.unit
-class TestLogoutCookieDomains:
-    @pytest.mark.parametrize(
-        ("frontend_url", "expected"),
-        [
-            ("http://localhost:3000", []),
-            ("http://127.0.0.1:3000", []),
-            ("https://example.com", ["example.com"]),
-            ("https://app.example.com", ["app.example.com"]),
-            ("https://app.staging.example.com", ["app.staging.example.com"]),
-        ],
-    )
-    def test_derives_domains_from_frontend_url(self, frontend_url, expected):
-        assert logout_cookie_domains(frontend_url) == expected
