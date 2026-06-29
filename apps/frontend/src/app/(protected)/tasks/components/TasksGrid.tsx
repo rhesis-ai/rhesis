@@ -43,6 +43,7 @@ interface TasksGridProps {
   sessionToken: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 const STATUS_PILL_TABS = [
@@ -114,6 +115,7 @@ export default function TasksGrid({
   sessionToken,
   refreshKey,
   onRefresh: _onRefresh,
+  onTotalCountChange,
 }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -168,6 +170,7 @@ export default function TasksGrid({
 
       setTasks(response.data);
       setTotalCount(response.totalCount || 0);
+      onTotalCountChange?.(response.totalCount || 0);
       setError(null);
     } catch {
       if (!isMounted.current) return;

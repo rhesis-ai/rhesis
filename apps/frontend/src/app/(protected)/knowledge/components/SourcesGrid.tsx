@@ -46,6 +46,7 @@ interface SourcesGridProps {
   sessionToken: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 interface SourcesToolbarState {
@@ -98,6 +99,7 @@ export default function SourcesGrid({
   sessionToken,
   refreshKey,
   onRefresh,
+  onTotalCountChange,
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -154,6 +156,7 @@ export default function SourcesGrid({
 
       setSources(response.data);
       setTotalCount(response.pagination.totalCount);
+      onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
       setError('Failed to load knowledge sources');

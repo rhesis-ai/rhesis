@@ -43,6 +43,7 @@ interface EndpointsGridProps {
   sessionToken?: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
   projectId?: string;
 }
 
@@ -100,6 +101,7 @@ export default function EndpointsGrid({
   sessionToken: sessionTokenProp,
   refreshKey,
   onRefresh,
+  onTotalCountChange,
   projectId,
 }: EndpointsGridProps) {
   const theme = useTheme();
@@ -149,6 +151,7 @@ export default function EndpointsGrid({
 
       setEndpoints(response.data);
       setTotalCount(response.pagination.totalCount);
+      onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
       const hasActiveFilters =
@@ -156,9 +159,11 @@ export default function EndpointsGrid({
       if (hasActiveFilters) {
         setEndpoints([]);
         setTotalCount(0);
+        onTotalCountChange?.(0);
         setError(null);
       } else {
         setError('Failed to load endpoints');
+        onTotalCountChange?.(0);
         setEndpoints([]);
       }
     } finally {
