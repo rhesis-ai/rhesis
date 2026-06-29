@@ -39,7 +39,9 @@ test.describe('Traces @sanity', () => {
     // Use .first() to avoid Playwright strict-mode violations when both the
     // DataGrid (which shows "No traces found" in its empty overlay) and the
     // page-level empty state ("No traces yet") are simultaneously visible.
-    await expect(emptyState.or(traceTable).or(authRequired).first()).toBeVisible({
+    await expect(
+      emptyState.or(traceTable).or(authRequired).first()
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
