@@ -294,8 +294,8 @@ class TestLogoutCookieDomains:
             ("http://localhost:3000", []),
             ("http://127.0.0.1:3000", []),
             ("https://example.com", ["example.com"]),
-            ("https://app.example.com", ["app.example.com", "example.com"]),
-            ("https://app.staging.example.com", ["app.staging.example.com", "staging.example.com"]),
+            ("https://app.example.com", ["app.example.com"]),
+            ("https://app.staging.example.com", ["app.staging.example.com"]),
         ],
     )
     def test_derives_domains_from_frontend_url(self, frontend_url, expected):
