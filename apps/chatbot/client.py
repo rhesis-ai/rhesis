@@ -4,7 +4,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from dotenv import load_dotenv
 
@@ -13,6 +13,7 @@ load_dotenv()
 # Import endpoint module first to initialize RhesisClient
 # This ensures only ONE tracer provider exists (critical for proper trace nesting)
 import endpoint as endpoint_module
+from cachetools import TTLCache
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
@@ -144,7 +145,10 @@ CHATBOT_UNLIMITED_EMAIL_DOMAINS = {
 }
 
 _TOKEN_INTROSPECT_TTL = 300  # seconds to cache introspection results
-_token_cache: dict = {}  # token -> (expires_at, email_or_None)
+# Bounded TTL cache: evicts least-recently-used entries once full, and
+# automatically expires entries after _TOKEN_INTROSPECT_TTL seconds.
+# Prevents unbounded memory growth from high-volume distinct rh- tokens.
+_token_cache: TTLCache = TTLCache(maxsize=500, ttl=_TOKEN_INTROSPECT_TTL)
 
 # Session management configuration
 SESSION_TIMEOUT_HOURS = int(os.getenv("SESSION_TIMEOUT_HOURS", "24"))  # Default 24 hours
@@ -197,16 +201,12 @@ def _introspect_user_key(token: str) -> Optional[str]:
     Results are cached for _TOKEN_INTROSPECT_TTL seconds. Transient network
     failures return None without caching so the next request retries immediately.
     """
-    import time
-
     import requests as _requests
 
     from rhesis.sdk.config import get_base_url
 
-    now = time.time()
-    cached = _token_cache.get(token)
-    if cached and cached[0] > now:
-        return cached[1]
+    if token in _token_cache:
+        return _token_cache[token]
 
     email = None
     try:
@@ -217,11 +217,18 @@ def _introspect_user_key(token: str) -> Optional[str]:
         )
         if resp.status_code == 200:
             email = resp.json().get("user_email")
+            _token_cache[token] = email
+        elif resp.status_code in (401, 403, 404):
+            # Definitive "bad key" — cache the negative result
+            _token_cache[token] = None
+        # 5xx / 429 / other transient errors: don't cache, let next request retry
+        else:
+            logger.warning("Unexpected status %d from token introspection", resp.status_code)
+            return None
     except Exception:
         logger.warning("User key introspection failed", exc_info=True)
         return None  # transient failure — don't cache
 
-    _token_cache[token] = (now + _TOKEN_INTROSPECT_TTL, email)
     return email
 
 
