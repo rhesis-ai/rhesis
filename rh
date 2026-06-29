@@ -1171,7 +1171,8 @@ start_worker() {
         --pool threads \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry,architect \
-        --concurrency=${CELERY_WORKER_CONCURRENCY:-2} \
+        --concurrency=${CELERY_WORKER_CONCURRENCY:-4} \
+        --prefetch-multiplier=4 \
         --optimization=fair \
         -E &
     WORKER_PID=$!
