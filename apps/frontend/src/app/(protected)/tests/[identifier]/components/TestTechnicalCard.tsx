@@ -27,7 +27,7 @@ import { useRouter } from 'next/navigation';
 
 const MONO_SX = {
   fontFamily: '"Sometype Mono", monospace',
-  fontSize: '16px',
+  fontSize: 16,
   lineHeight: '24px',
   fontWeight: 400,
 };

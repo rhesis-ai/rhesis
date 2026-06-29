@@ -5,6 +5,7 @@ import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
+import AccessDenied from '@/components/common/AccessDenied';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -125,7 +126,9 @@ export default function KnowledgeClientWrapper({
               title="No knowledge sources yet"
               description="Upload files or import from tool connections to use as context for test generation and evaluation."
               actionLabel={canCreateSource ? 'Upload source' : undefined}
-              onAction={canCreateSource ? () => setUploadDrawerOpen(true) : undefined}
+              onAction={
+                canCreateSource ? () => setUploadDrawerOpen(true) : undefined
+              }
             />
           ) : (
             <Paper

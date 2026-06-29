@@ -454,7 +454,9 @@ export default function TestRunMainView({
     'aria-controls': `test-run-tabpanel-${index}`,
   }));
 
-  const canRerun = Boolean(testRun.test_configuration_id) && can(testRun, Capability.TestRun.CREATE);
+  const canRerun =
+    Boolean(testRun.test_configuration_id) &&
+    can(testRun, Capability.TestRun.CREATE);
 
   return (
     <Box>
