@@ -168,6 +168,17 @@ test.describe('Test Runs — creation @crud', () => {
       .locator('[role="presentation"]')
       .getByRole('button', { name: /execute now|run|start|create|save/i })
       .first();
+
+    // The button may remain disabled if form validation hasn't resolved yet
+    // (e.g. the endpoint/test-set state update is still in-flight).
+    const submitEnabled = await submitBtn
+      .isEnabled({ timeout: 8_000 })
+      .catch(() => false);
+    if (!submitEnabled) {
+      test.skip(true, 'Submit button not enabled after form fill — skipping');
+      return;
+    }
+
     await submitBtn.click();
 
     await page

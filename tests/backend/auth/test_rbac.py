@@ -518,22 +518,35 @@ class TestCapabilities:
         assert get_all_capabilities() == []
 
     def test_register_capabilities_is_idempotent(self):
-        """Calling register_capabilities twice replaces the cache cleanly."""
+        """Calling register_capabilities twice replaces the cache cleanly.
+
+        ``register_capabilities`` merges route-derived caps with the full
+        ``Permission`` enum.  To verify the route-derived part is *replaced*
+        (not merged), we use resource names that have no corresponding
+        ``Permission`` enum entry — otherwise the enum contribution would keep
+        the capability in the cache regardless.
+        """
         from rhesis.backend.app.auth.capabilities import (
             get_all_capabilities,
             register_capabilities,
         )
 
-        app1 = self._make_app([("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"})])
-        app2 = self._make_app([("/risks", {"GET"}, {"x-rhesis-resource": "risk"})])
+        # "app1_sentinel" and "app2_sentinel" are deliberately not in the
+        # Permission enum, so their presence/absence reflects only routes.
+        app1 = self._make_app(
+            [("/app1_sentinel", {"GET"}, {"x-rhesis-resource": "app1_sentinel"})]
+        )
+        app2 = self._make_app(
+            [("/app2_sentinel", {"GET"}, {"x-rhesis-resource": "app2_sentinel"})]
+        )
 
         register_capabilities(app1)
-        assert "behavior:read" in get_all_capabilities()
+        assert "app1_sentinel:read" in get_all_capabilities()
 
         register_capabilities(app2)
         caps = get_all_capabilities()
-        assert "risk:read" in caps
-        assert "behavior:read" not in caps  # replaced, not merged
+        assert "app2_sentinel:read" in caps
+        assert "app1_sentinel:read" not in caps  # route-derived part replaced, not merged
 
 
 # ---------------------------------------------------------------------------
