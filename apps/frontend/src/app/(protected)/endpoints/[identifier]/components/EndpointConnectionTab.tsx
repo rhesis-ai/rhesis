@@ -28,6 +28,8 @@ interface RestConnectionDraft {
 interface HeadersDraft {
   auth_token: string;
   request_headers: string;
+  // true when the user explicitly removed the saved token
+  clear_token: boolean;
 }
 
 function parseStringRecord(
@@ -73,6 +75,7 @@ export default function EndpointConnectionTab() {
     () => ({
       auth_token: '',
       request_headers: JSON.stringify(endpoint.request_headers || {}, null, 2),
+      clear_token: false,
     }),
     [endpoint.request_headers]
   );
@@ -152,7 +155,8 @@ export default function EndpointConnectionTab() {
         initialValue={headersInitial}
         isDirty={(draft, initial) =>
           draft.request_headers !== initial.request_headers ||
-          draft.auth_token.trim() !== ''
+          draft.auth_token.trim() !== '' ||
+          draft.clear_token
         }
         onSave={async draft => {
           const parsed = parseStringRecord(
@@ -162,9 +166,13 @@ export default function EndpointConnectionTab() {
           );
           const payload: {
             request_headers: Record<string, string>;
-            auth_token?: string;
+            auth_token?: string | null;
           } = { request_headers: parsed };
-          if (draft.auth_token.trim()) payload.auth_token = draft.auth_token;
+          if (draft.auth_token.trim()) {
+            payload.auth_token = draft.auth_token;
+          } else if (draft.clear_token) {
+            payload.auth_token = null;
+          }
           await saveFields(payload);
         }}
       >
@@ -173,7 +181,14 @@ export default function EndpointConnectionTab() {
             authToken={draft.auth_token}
             requestHeaders={draft.request_headers}
             onAuthTokenChange={value =>
-              setDraft(prev => ({ ...prev, auth_token: value }))
+              setDraft(prev => ({
+                ...prev,
+                auth_token: value,
+                // typing a real replacement cancels a pending removal;
+                // whitespace-only input is treated as empty on save, so it
+                // must not silently cancel the removal
+                clear_token: value.trim() !== '' ? false : prev.clear_token,
+              }))
             }
             onRequestHeadersChange={value =>
               setDraft(prev => ({ ...prev, request_headers: value }))
@@ -193,6 +208,14 @@ export default function EndpointConnectionTab() {
             onTokenBlur={() => {
               if (draft.auth_token === '') setTokenFieldFocused(false);
             }}
+            tokenCleared={draft.clear_token}
+            onToggleTokenCleared={() =>
+              setDraft(prev => ({
+                ...prev,
+                clear_token: !prev.clear_token,
+                auth_token: '',
+              }))
+            }
             editorWrapperStyle={editorWrapperStyle}
           />
         )}
