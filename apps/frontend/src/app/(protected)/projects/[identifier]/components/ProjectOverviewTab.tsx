@@ -4,6 +4,8 @@ import * as React from 'react';
 import { Project } from '@/utils/api-client/interfaces/project';
 import ProjectMetadataCard from './ProjectMetadataCard';
 import ProjectTagsCard from './ProjectTagsCard';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ProjectOverviewTabProps {
   project: Project;
@@ -16,15 +18,22 @@ export default function ProjectOverviewTab({
   sessionToken,
   onProjectUpdate,
 }: ProjectOverviewTabProps) {
+  const canUpdateProject = useCan(Capability.Project.UPDATE);
+
   return (
     <>
       <ProjectMetadataCard
         project={project}
         sessionToken={sessionToken}
         onSave={onProjectUpdate}
+        editable={canUpdateProject}
       />
 
-      <ProjectTagsCard project={project} onSave={onProjectUpdate} />
+      <ProjectTagsCard
+        project={project}
+        onSave={onProjectUpdate}
+        editable={canUpdateProject}
+      />
     </>
   );
 }

@@ -28,6 +28,7 @@ import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 import type {
   BehaviorReference,
   BehaviorWithMetrics,
@@ -48,6 +49,7 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 export default function MetricDetailPageTabs() {
   const params = useParams();
   const { data: session } = useSession();
+  const canRead = useCan(Capability.Metric.READ);
 
   const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
@@ -60,6 +62,8 @@ export default function MetricDetailPageTabs() {
   }));
 
   const sessionToken = session?.session_token ?? '';
+
+  if (!canRead) return <AccessDenied resource="metrics" />;
 
   const tabNav = (
     <DetailTabNav

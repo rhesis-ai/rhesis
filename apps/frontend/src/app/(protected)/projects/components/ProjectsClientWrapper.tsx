@@ -33,6 +33,7 @@ import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -47,7 +48,9 @@ export default function ProjectsClientWrapper({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const canRead = useCan(Capability.Project.READ);
   const canCreate = useCan(Capability.Project.CREATE);
+  const canUpdateProject = useCan(Capability.Project.UPDATE);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [activeFilters, setActiveFilters] =
     useState<ProjectFilters>(EMPTY_FILTERS);
@@ -199,6 +202,8 @@ export default function ProjectsClientWrapper({
     { value: 'inactive', label: 'Inactive' },
   ];
 
+  if (!canRead) return <AccessDenied resource="projects" />;
+
   return (
     <PageLayout
       title="Projects"
@@ -306,11 +311,14 @@ export default function ProjectsClientWrapper({
                 <ProjectCard
                   key={project.id}
                   project={project}
-                  onDelete={() =>
-                    setDeleteTarget({
-                      id: String(project.id),
-                      name: project.name,
-                    })
+                  onDelete={
+                    canUpdateProject
+                      ? () =>
+                          setDeleteTarget({
+                            id: String(project.id),
+                            name: project.name,
+                          })
+                      : undefined
                   }
                 />
               ))}

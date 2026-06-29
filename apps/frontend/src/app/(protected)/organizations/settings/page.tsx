@@ -9,9 +9,13 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
+import AccessDenied from '@/components/common/AccessDenied';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
+  const canRead = useCan(Capability.Organization.READ);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +74,8 @@ export default function OrganizationSettingsPage() {
       "Manage your organization's profile, contact details, and security settings.",
     breadcrumbs,
   };
+
+  if (!canRead) return <AccessDenied resource="organization settings" />;
 
   if (initialLoading) {
     return (

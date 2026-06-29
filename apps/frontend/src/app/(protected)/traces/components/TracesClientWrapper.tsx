@@ -11,6 +11,9 @@ import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TracesClient from './TracesClient';
+import AccessDenied from '@/components/common/AccessDenied';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface TracesClientWrapperProps {
   sessionToken: string;
@@ -28,6 +31,7 @@ export default function TracesClientWrapper({
   const searchParams = useSearchParams();
   const initialTraceId = searchParams.get('open_trace');
   const initialProjectId = searchParams.get('project_id');
+  const canRead = useCan(Capability.Telemetry.READ);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showEmptyHint, setShowEmptyHint] = useState(false);
 
@@ -40,6 +44,8 @@ export default function TracesClientWrapper({
   const handleUnfilteredEmpty = useCallback((empty: boolean) => {
     setShowEmptyHint(empty);
   }, []);
+
+  if (!canRead) return <AccessDenied resource="traces" />;
 
   if (!sessionToken) {
     return (

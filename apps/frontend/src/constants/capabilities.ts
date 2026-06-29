@@ -137,6 +137,12 @@ export const Capability = {
     CREATE: 'architect:create',
     DELETE: 'architect:delete',
   },
+  Telemetry: {
+    READ: 'telemetry:read',
+    CREATE: 'telemetry:create',
+    UPDATE: 'telemetry:update',
+    DELETE: 'telemetry:delete',
+  },
   Preflight: {
     CREATE: 'preflight:create',
   },
@@ -291,6 +297,11 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'architect:read': 'View Architect sessions',
   'architect:create': 'Start Architect sessions',
   'architect:delete': 'Delete Architect sessions',
+  // Telemetry (traces)
+  'telemetry:read': 'View traces',
+  'telemetry:create': 'Create traces',
+  'telemetry:update': 'Update traces',
+  'telemetry:delete': 'Delete traces',
   // Preflight
   'preflight:create': 'Run preflight checks',
   // Files

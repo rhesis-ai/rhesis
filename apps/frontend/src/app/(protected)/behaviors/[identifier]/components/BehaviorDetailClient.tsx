@@ -7,6 +7,9 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import BehaviorDetailTabs from './BehaviorDetailTabs';
+import AccessDenied from '@/components/common/AccessDenied';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface BehaviorDetailClientProps {
   behavior: BehaviorWithMetrics;
@@ -19,12 +22,15 @@ export default function BehaviorDetailClient({
   sessionToken,
   identifier,
 }: BehaviorDetailClientProps) {
+  const canRead = useCan(Capability.Behavior.READ);
   const [behavior, setBehavior] =
     React.useState<BehaviorWithMetrics>(initialBehavior);
 
   React.useEffect(() => {
     setBehavior(initialBehavior);
   }, [initialBehavior]);
+
+  if (!canRead) return <AccessDenied resource="behaviors" />;
 
   const title = behavior.name || `Behavior ${identifier}`;
   const breadcrumbs = [
