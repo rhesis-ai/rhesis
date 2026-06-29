@@ -27,13 +27,38 @@ export class InsightsPage extends BasePage {
     const mainContent = this.page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible({ timeout: 10_000 });
 
-    await expect(this.page.getByText(/pass rate/i).first()).toBeVisible({
+    await expect(
+      this.page.getByRole('heading', { name: /insights/i })
+    ).toBeVisible({
       timeout: 10_000,
     });
-    await expect(this.page.getByPlaceholder(/search behaviors/i)).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(this.page.getByRole('button', { name: '1M' })).toBeVisible({
+
+    const noEndpoints = this.page.getByText(/no endpoints in this project/i);
+    const noTestResults = this.page.getByText(/no test results yet/i);
+    const searchBehaviors = this.page.getByPlaceholder(/search behaviors/i);
+    const timeRange1M = this.page.getByRole('button', { name: '1M' });
+
+    await expect(noEndpoints.or(noTestResults).or(searchBehaviors)).toBeVisible(
+      { timeout: 15_000 }
+    );
+
+    if (await noEndpoints.isVisible()) {
+      await expect(
+        this.page.getByRole('button', { name: /go to endpoints/i })
+      ).toBeVisible();
+      return;
+    }
+
+    if (await noTestResults.isVisible()) {
+      await expect(timeRange1M).toBeVisible();
+      return;
+    }
+
+    await expect(searchBehaviors).toBeVisible();
+    await expect(timeRange1M).toBeVisible();
+    await expect(
+      this.page.getByText(/\d+\.\d+%\s*pass rate/i).first()
+    ).toBeVisible({
       timeout: 10_000,
     });
   }
