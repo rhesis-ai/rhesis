@@ -1,8 +1,10 @@
-"""Unit tests for object-level authorization on test_result and test_run routes.
+"""Unit tests for object-level authorization on task, test_result, and test_run routes.
 
 Tests verify that non-creators receive HTTP 403 while the creator receives HTTP
 200 for routes that are gated with ``authorize_object``:
 
+- PATCH /tasks/{id}          — creator or assignee only
+- DELETE /tasks/{id}         — creator only
 - PUT  /test_results/{id}
 - DELETE /test_results/{id}
 - DELETE /test_runs/{id}
@@ -138,6 +140,35 @@ def _db_test_run(*, owner_id: uuid.UUID) -> Mock:
     obj.attributes = {}
     obj.owner_id = None
     obj.assignee_id = None
+    obj.permitted_actions = []
+    return obj
+
+
+def _db_task(*, owner_id: uuid.UUID, assignee_id: uuid.UUID | None = None) -> Mock:
+    obj = Mock(spec_set=[
+        "id", "user_id", "organization_id", "assignee_id",
+        "title", "description", "status_id", "priority_id",
+        "entity_type", "entity_id", "completed_at", "task_metadata",
+        "comment_count", "user", "assignee", "status", "priority",
+        "permitted_actions",
+    ])
+    obj.id = _RESOURCE_ID
+    obj.user_id = owner_id
+    obj.assignee_id = assignee_id
+    obj.organization_id = _ORG_ID
+    obj.title = "test task"
+    obj.description = None
+    obj.status_id = uuid.uuid4()  # required (UUID4, not Optional)
+    obj.priority_id = None
+    obj.entity_type = None
+    obj.entity_id = None
+    obj.completed_at = None
+    obj.task_metadata = None
+    obj.comment_count = 0
+    obj.user = None
+    obj.assignee = None
+    obj.status = None
+    obj.priority = None
     obj.permitted_actions = []
     return obj
 
@@ -296,5 +327,130 @@ class TestDeleteTestRunObjectAuth:
             return_value=None,
         ):
             resp = client.delete(f"/test_runs/{_RESOURCE_ID}")
+
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ---------------------------------------------------------------------------
+# Tests: PATCH /tasks/{id}  — creator OR assignee may update
+# ---------------------------------------------------------------------------
+
+_ASSIGNEE_ID = uuid.uuid4()
+
+
+class TestUpdateTaskObjectAuth:
+    def test_creator_can_update(self):
+        task = _db_task(owner_id=_CREATOR_ID)
+        client = _client(caller_id=_CREATOR_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=task,
+        ), patch(
+            "rhesis.backend.app.routers.task_management.crud.update_task",
+            return_value=task,
+        ), patch(
+            "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
+        ):
+            resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
+
+        assert resp.status_code == status.HTTP_200_OK
+
+    def test_assignee_can_update(self):
+        task = _db_task(owner_id=_CREATOR_ID, assignee_id=_ASSIGNEE_ID)
+        client = _client(caller_id=_ASSIGNEE_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=task,
+        ), patch(
+            "rhesis.backend.app.routers.task_management.crud.update_task",
+            return_value=task,
+        ), patch(
+            "rhesis.backend.app.routers.task_management.validate_task_organization_constraints",
+        ):
+            resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
+
+        assert resp.status_code == status.HTTP_200_OK
+
+    def test_unrelated_member_cannot_update(self):
+        """A project member who is neither creator nor assignee must be denied."""
+        task = _db_task(owner_id=_CREATOR_ID, assignee_id=_ASSIGNEE_ID)
+        client = _client(caller_id=_OTHER_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=task,
+        ):
+            resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_missing_task_returns_404(self):
+        client = _client(caller_id=_CREATOR_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=None,
+        ):
+            resp = client.patch(f"/tasks/{_RESOURCE_ID}", json={"title": "updated"})
+
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ---------------------------------------------------------------------------
+# Tests: DELETE /tasks/{id}  — creator only
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteTaskObjectAuth:
+    def test_creator_can_delete(self):
+        task = _db_task(owner_id=_CREATOR_ID)
+        client = _client(caller_id=_CREATOR_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=task,
+        ), patch(
+            "rhesis.backend.app.routers.task_management.crud.delete_task",
+            return_value=True,
+        ):
+            resp = client.delete(f"/tasks/{_RESOURCE_ID}")
+
+        assert resp.status_code == status.HTTP_200_OK
+
+    def test_assignee_cannot_delete(self):
+        """Being the assignee does NOT grant delete rights."""
+        task = _db_task(owner_id=_CREATOR_ID, assignee_id=_ASSIGNEE_ID)
+        client = _client(caller_id=_ASSIGNEE_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=task,
+        ):
+            resp = client.delete(f"/tasks/{_RESOURCE_ID}")
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_unrelated_member_cannot_delete(self):
+        task = _db_task(owner_id=_CREATOR_ID)
+        client = _client(caller_id=_OTHER_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=task,
+        ):
+            resp = client.delete(f"/tasks/{_RESOURCE_ID}")
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_missing_task_returns_404(self):
+        client = _client(caller_id=_CREATOR_ID)
+
+        with patch(
+            "rhesis.backend.app.routers.task_management.crud.get_task",
+            return_value=None,
+        ):
+            resp = client.delete(f"/tasks/{_RESOURCE_ID}")
 
         assert resp.status_code == status.HTTP_404_NOT_FOUND
