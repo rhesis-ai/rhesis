@@ -526,8 +526,6 @@ def delete_test_result(
 # ============================================================================
 
 
-
-
 @router.post("/{test_result_id}/reviews", response_model=schemas.ReviewResponse)
 def add_review(
     test_result_id: UUID,
@@ -658,8 +656,11 @@ def update_review(
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     if not authorize_review_action(
-        principal, review_to_update, Permission.TestResult.UPDATE_OWN,
-        project_id=project_id, db=db,
+        principal,
+        review_to_update,
+        Permission.TestResult.UPDATE_OWN,
+        project_id=project_id,
+        db=db,
     ):
         raise HTTPException(status_code=403, detail="Not authorized to update this review")
 
@@ -767,8 +768,11 @@ def delete_review(
     principal = resolve_principal_from_request(current_user, request)
     project_id = project_id_from_scope(db)
     if not authorize_review_action(
-        principal, reviews[review_index], Permission.TestResult.DELETE_OWN,
-        project_id=project_id, db=db,
+        principal,
+        reviews[review_index],
+        Permission.TestResult.DELETE_OWN,
+        project_id=project_id,
+        db=db,
     ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this review")
 
