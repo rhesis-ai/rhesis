@@ -119,6 +119,7 @@ class Permission:
     class TestResult(_PermissionEnum):
         READ = "test_result:read"
         UPDATE = "test_result:update"
+        DELETE = "test_result:delete"
         UPDATE_OWN = "test_result:update:own"
         DELETE_OWN = "test_result:delete:own"
 
@@ -275,6 +276,7 @@ class ResourceType(_PermissionEnum):
     EXPERIMENT = "experiment"
     TASK = "task"
     TEST_RESULT = "test_result"
+    TEST_RUN = "test_run"
 
 
 # ---------------------------------------------------------------------------

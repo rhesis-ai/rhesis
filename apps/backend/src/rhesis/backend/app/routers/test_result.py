@@ -12,6 +12,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -425,6 +428,7 @@ def read_test_result(
 def update_test_result(
     test_result_id: UUID,
     test_result: schemas.TestResultUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -445,6 +449,13 @@ def update_test_result(
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.TestResult.UPDATE_OWN, db_test_result, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to update this test result")
 
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     if test_result.test_metrics and not test_result.status_id:
@@ -480,17 +491,25 @@ def update_test_result(
 @router.delete("/{test_result_id}", response_model=schemas.TestResult)
 def delete_test_result(
     test_result_id: UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete a test result"""
+    """Delete a test result. Only the creator may delete their own result."""
     organization_id, user_id = tenant_context
     db_test_result = crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.TestResult.DELETE_OWN, db_test_result, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
     return crud.delete_test_result(
         db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id

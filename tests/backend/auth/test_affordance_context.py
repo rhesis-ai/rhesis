@@ -97,6 +97,28 @@ class _TaskSchema(WithPermittedActions):
     assignee_id: Optional[UUID] = None
 
 
+class _TestResultSchema(WithPermittedActions):
+    """Mirrors the production TestResult schema for affordance tests."""
+
+    __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RESULT  # type: ignore[assignment]
+    # __owner_attr__ defaults to "user_id" — same as production schema.
+
+    id: UUID = Field(default_factory=uuid.uuid4)
+    user_id: Optional[UUID] = None
+    test_configuration_id: UUID = Field(default_factory=uuid.uuid4)
+
+
+class _TestRunSchema(WithPermittedActions):
+    """Mirrors the production TestRun schema for affordance tests."""
+
+    __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RUN  # type: ignore[assignment]
+    # __owner_attr__ defaults to "user_id" — same as production schema.
+
+    id: UUID = Field(default_factory=uuid.uuid4)
+    user_id: Optional[UUID] = None
+    test_configuration_id: UUID = Field(default_factory=uuid.uuid4)
+
+
 class _NoResourceTypeSchema(WithPermittedActions):
     """Schema that does not set __resource_type__ — should stay empty."""
 
@@ -330,3 +352,98 @@ class TestAssignedQualifier:
             assert "task:delete" not in schema.permitted_actions
         finally:
             reset_affordance_context(token)
+
+
+# ---------------------------------------------------------------------------
+# Tests: TestResult and TestRun affordances
+# ---------------------------------------------------------------------------
+
+
+class TestTestResultAffordances:
+    """Verify permitted_actions is populated on the TestResult schema."""
+
+    @pytest.fixture(autouse=True)
+    def _reset(self):
+        yield
+        ctx = current_affordance_context()
+        if ctx is not None:
+            from rhesis.backend.app.auth.affordances import _affordance_ctx
+
+            token = _affordance_ctx.set(ctx)
+            reset_affordance_context(token)
+
+    def _bind(self, user_id: uuid.UUID, caps: list[str]):
+        from rhesis.backend.app.auth.affordances import _affordance_ctx
+
+        ctx = _make_context(user_id, caps)
+        return _affordance_ctx.set(ctx)
+
+    def test_creator_with_update_own_gets_update(self):
+        token = self._bind(OWNER, ["test_result:update:own"])
+        try:
+            schema = _TestResultSchema(user_id=OWNER)
+            assert "test_result:update" in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_non_creator_denied_update_own(self):
+        token = self._bind(OTHER, ["test_result:update:own"])
+        try:
+            schema = _TestResultSchema(user_id=OWNER)
+            assert "test_result:update" not in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_creator_with_delete_own_gets_delete(self):
+        token = self._bind(OWNER, ["test_result:delete:own"])
+        try:
+            schema = _TestResultSchema(user_id=OWNER)
+            assert "test_result:delete" in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_no_context_yields_empty(self):
+        assert current_affordance_context() is None
+        schema = _TestResultSchema(user_id=OWNER)
+        assert schema.permitted_actions == []
+
+
+class TestTestRunAffordances:
+    """Verify permitted_actions is populated on the TestRun schema."""
+
+    @pytest.fixture(autouse=True)
+    def _reset(self):
+        yield
+        ctx = current_affordance_context()
+        if ctx is not None:
+            from rhesis.backend.app.auth.affordances import _affordance_ctx
+
+            token = _affordance_ctx.set(ctx)
+            reset_affordance_context(token)
+
+    def _bind(self, user_id: uuid.UUID, caps: list[str]):
+        from rhesis.backend.app.auth.affordances import _affordance_ctx
+
+        ctx = _make_context(user_id, caps)
+        return _affordance_ctx.set(ctx)
+
+    def test_creator_with_delete_own_gets_delete(self):
+        token = self._bind(OWNER, ["test_run:delete:own"])
+        try:
+            schema = _TestRunSchema(user_id=OWNER)
+            assert "test_run:delete" in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_non_creator_denied_delete_own(self):
+        token = self._bind(OTHER, ["test_run:delete:own"])
+        try:
+            schema = _TestRunSchema(user_id=OWNER)
+            assert "test_run:delete" not in schema.permitted_actions
+        finally:
+            reset_affordance_context(token)
+
+    def test_no_context_yields_empty(self):
+        assert current_affordance_context() is None
+        schema = _TestRunSchema(user_id=OWNER)
+        assert schema.permitted_actions == []
