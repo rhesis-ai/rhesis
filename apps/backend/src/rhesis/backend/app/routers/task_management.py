@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import authorize, authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
@@ -92,7 +92,6 @@ def create_task(
             raise HTTPException(status_code=400, detail="Invalid reference in task data")
         if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="Task with this title already exists")
-        # Re-raise other database errors as 500
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -206,18 +205,22 @@ def update_task(
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Object-level authorization: creator (UPDATE_OWN) OR assignee (UPDATE_ASSIGNED) may edit
+        # Unrestricted task:update (admin/moderator) OR creator-owns OR assignee-owns.
         principal = resolve_principal_from_request(current_user, request)
         project_id = project_id_from_scope(db)
-        can_update = authorize_object(
-            principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
-        ) or authorize_object(
-            principal,
-            Permission.Task.UPDATE_ASSIGNED,
-            current_task,
-            project_id=project_id,
-            db=db,
-            owner_attr="assignee_id",
+        can_update = (
+            authorize(principal, Permission.Task.UPDATE, project_id=project_id, db=db)
+            or authorize_object(
+                principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
+            )
+            or authorize_object(
+                principal,
+                Permission.Task.UPDATE_ASSIGNED,
+                current_task,
+                project_id=project_id,
+                db=db,
+                owner_attr="assignee_id",
+            )
         )
         if not can_update:
             raise HTTPException(status_code=403, detail="Not authorized to update this task")
@@ -282,11 +285,14 @@ def delete_task(
         if task_obj is None:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Object-level authorization: only the creator may delete
+        # Unrestricted task:delete (admin/moderator) OR creator-owns.
         principal = resolve_principal_from_request(current_user, request)
         project_id = project_id_from_scope(db)
-        if not authorize_object(
-            principal, Permission.Task.DELETE_OWN, task_obj, project_id=project_id, db=db
+        if not (
+            authorize(principal, Permission.Task.DELETE, project_id=project_id, db=db)
+            or authorize_object(
+                principal, Permission.Task.DELETE_OWN, task_obj, project_id=project_id, db=db
+            )
         ):
             raise HTTPException(status_code=403, detail="Not authorized to delete this task")
 
