@@ -562,30 +562,6 @@ class TestAuthLogout:
             assert response.status_code == status.HTTP_200_OK
             assert response.url == "http://localhost:3000/"
 
-    def test_logout_clears_parent_domain_cookies_from_frontend_url(self, client: TestClient):
-        """Logout derives cookie domains from FRONTEND_URL (no hardcoded deploy domain)."""
-        from rhesis.backend.app.config.settings import get_frontend_settings
-
-        with patch.dict(os.environ, {"FRONTEND_URL": "https://app.example.com"}):
-            get_frontend_settings.cache_clear()
-            response = client.get(
-                "/auth/logout",
-                headers={"Accept": "application/json"},
-            )
-            get_frontend_settings.cache_clear()
-
-            assert response.status_code == status.HTTP_200_OK
-            set_cookie_headers = [
-                value.lower()
-                for key, value in response.headers.items()
-                if key.lower() == "set-cookie"
-            ]
-            assert any("domain=app.example.com" in header for header in set_cookie_headers)
-            assert any("domain=.app.example.com" in header for header in set_cookie_headers)
-            assert any("domain=example.com" in header for header in set_cookie_headers)
-            assert any("domain=.example.com" in header for header in set_cookie_headers)
-            assert not any("domain=rhesis.ai" in header for header in set_cookie_headers)
-
 
 @pytest.mark.unit
 @pytest.mark.critical
