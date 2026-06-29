@@ -1,11 +1,15 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.affordances import populate_permitted_actions
+from rhesis.backend.app.auth.capabilities import Permission, ResourceType
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize, authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
@@ -179,6 +183,7 @@ def get_tasks_by_entity(
 def update_task(
     task_id: uuid.UUID,
     task: schemas.TaskUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     current_user=Depends(require_current_user_or_token),
 ):
@@ -201,6 +206,17 @@ def update_task(
         )
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
+
+        # Unrestricted task:update (admin/moderator) or creator-owns check.
+        principal = resolve_principal_from_request(current_user, request)
+        project_id = project_id_from_scope(db)
+        if not (
+            authorize(principal, Permission.Task.UPDATE, project_id=project_id, db=db)
+            or authorize_object(
+                principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
+            )
+        ):
+            raise HTTPException(status_code=403, detail="Not authorized to update this task")
 
         # Validate organization-level constraints
         validate_task_organization_constraints(db, task, current_user, current_task)
@@ -229,7 +245,11 @@ def update_task(
             fields_updated=list(task.dict(exclude_unset=True).keys()),
         )
 
-        return updated_task
+        return populate_permitted_actions(
+            updated_task, ResourceType.TASK, current_user=current_user, request=request, db=db
+        )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -245,12 +265,33 @@ def update_task(
 @router.delete("/{task_id}")
 def delete_task(
     task_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    current_user=Depends(require_current_user_or_token),
 ):
     """Delete a task"""
     try:
         organization_id, user_id = tenant_context
+
+        # Fetch first to run the object-level ownership check.
+        db_task = crud.get_task(
+            db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
+        )
+        if db_task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Unrestricted task:delete (admin/moderator) or creator-owns check.
+        principal = resolve_principal_from_request(current_user, request)
+        project_id = project_id_from_scope(db)
+        if not (
+            authorize(principal, Permission.Task.DELETE, project_id=project_id, db=db)
+            or authorize_object(
+                principal, Permission.Task.DELETE_OWN, db_task, project_id=project_id, db=db
+            )
+        ):
+            raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+
         success = crud.delete_task(
             db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
         )
