@@ -13,6 +13,7 @@ prefix). The same wrapper serves comment today and any future ``:own`` resource
 
 from __future__ import annotations
 
+from collections.abc import Iterable as IterableABC
 from typing import Iterable, Union
 
 from fastapi import Request
@@ -62,7 +63,7 @@ def populate_permitted_actions(
     project_id = project_id_from_scope(db)
     caps = effective_permissions(principal, project_id=project_id, db=db)
     own_gated = _own_gated_actions(resource_type)
-    items = objs if isinstance(objs, (list, tuple)) else [objs]
+    items = list(objs) if isinstance(objs, IterableABC) and not isinstance(objs, (str, bytes)) else [objs]
     for obj in items:
         obj.permitted_actions = permitted_actions_for(
             caps,
