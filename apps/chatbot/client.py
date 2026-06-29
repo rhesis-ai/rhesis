@@ -135,6 +135,17 @@ RATE_LIMIT_PUBLIC = f"{RATE_LIMIT_PER_WORKER_PUBLIC}/day"
 # API Key for backend authentication (optional)
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
 
+# Email domains whose rh- key holders are granted unlimited rate-limit tier.
+# Comma-separated; defaults to "rhesis.ai". Override via CHATBOT_UNLIMITED_EMAIL_DOMAINS.
+CHATBOT_UNLIMITED_EMAIL_DOMAINS = {
+    d.strip().lower()
+    for d in os.getenv("CHATBOT_UNLIMITED_EMAIL_DOMAINS", "rhesis.ai").split(",")
+    if d.strip()
+}
+
+_TOKEN_INTROSPECT_TTL = 300  # seconds to cache introspection results
+_token_cache: dict = {}  # token -> (expires_at, email_or_None)
+
 # Session management configuration
 SESSION_TIMEOUT_HOURS = int(os.getenv("SESSION_TIMEOUT_HOURS", "24"))  # Default 24 hours
 SESSION_TTL_SECONDS = SESSION_TIMEOUT_HOURS * 60 * 60
@@ -180,6 +191,40 @@ async def lifespan(app: FastAPI):
     await session_store.close()
 
 
+def _introspect_user_key(token: str) -> Optional[str]:
+    """Call GET /tokens/current with a personal API key and return the owner's email.
+
+    Results are cached for _TOKEN_INTROSPECT_TTL seconds. Transient network
+    failures return None without caching so the next request retries immediately.
+    """
+    import time
+
+    import requests as _requests
+
+    from rhesis.sdk.config import get_base_url
+
+    now = time.time()
+    cached = _token_cache.get(token)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    email = None
+    try:
+        resp = _requests.get(
+            f"{get_base_url().rstrip('/')}/tokens/current",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            email = resp.json().get("user_email")
+    except Exception:
+        logger.warning("User key introspection failed", exc_info=True)
+        return None  # transient failure — don't cache
+
+    _token_cache[token] = (now + _TOKEN_INTROSPECT_TTL, email)
+    return email
+
+
 def verify_api_key(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -189,40 +234,62 @@ def verify_api_key(
     Returns authentication info. Does not raise error if no key is provided (allows public access).
     Also sets rate_limit_id and rate_limit_tier in request.state for proper rate limiting.
     """
-    if not CHATBOT_API_KEY:
-        # No API key configured - all requests are treated as public
+    def _set_public(reason: str) -> dict:
         ip = get_remote_address(request)
         request.state.rate_limit_id = f"public:{ip}"
         request.state.rate_limit_tier = "public"
+        logger.debug("Public tier (%s) - IP: %s", reason, ip)
         return {"authenticated": False, "tier": "public"}
 
-    if not credentials:
-        # No credentials provided - public access with stricter limits
-        ip = get_remote_address(request)
-        request.state.rate_limit_id = f"public:{ip}"
-        request.state.rate_limit_tier = "public"
-        return {"authenticated": False, "tier": "public"}
+    token = credentials.credentials if credentials else None
 
-    if credentials.credentials != CHATBOT_API_KEY:
-        # Invalid credentials
+    # --- Fast path: shared service key ---
+    if CHATBOT_API_KEY and token == CHATBOT_API_KEY:
+        org_id = request.headers.get("X-Organization-ID", "default-org")
+        user_id = request.headers.get("X-User-ID", "default-user")
+        request.state.rate_limit_id = f"authenticated:{org_id}:{user_id}"
+        request.state.rate_limit_tier = "authenticated"
+        logger.info(
+            "Authenticated (shared key) - Identifier: %s, Rate limit: %s",
+            request.state.rate_limit_id,
+            RATE_LIMIT_AUTHENTICATED,
+        )
+        return {"authenticated": True, "tier": "authenticated"}
+
+    # --- Personal rh- key path ---
+    if token and token.startswith("rh-"):
+        email = _introspect_user_key(token)
+        if email is None:
+            # Introspection failed or key is invalid — fail-closed to public
+            return _set_public("rh- key unverifiable")
+        domain = email.split("@")[-1].lower() if "@" in email else ""
+        if domain in CHATBOT_UNLIMITED_EMAIL_DOMAINS:
+            request.state.rate_limit_id = f"unlimited:{email}"
+            request.state.rate_limit_tier = "unlimited"
+            logger.info("Unlimited tier granted for %s", email)
+            return {"authenticated": True, "tier": "unlimited"}
+        # Valid rh- key but non-unlimited domain — authenticated tier, bucketed by email
+        request.state.rate_limit_id = f"authenticated:{email}"
+        request.state.rate_limit_tier = "authenticated"
+        logger.info(
+            "Authenticated (rh- key) - Identifier: %s, Rate limit: %s",
+            request.state.rate_limit_id,
+            RATE_LIMIT_AUTHENTICATED,
+        )
+        return {"authenticated": True, "tier": "authenticated"}
+
+    # --- No credentials, no recognised key ---
+    if token and not CHATBOT_API_KEY:
+        # Service key not configured — unknown token, fall through to public
+        pass
+    elif token:
+        # Token was provided but doesn't match the shared key and isn't an rh- key
         raise HTTPException(
             status_code=401,
             detail="Invalid API key. Public access available with rate limit of 100 requests/day.",
         )
 
-    # Valid credentials - authenticated access
-    # Use user/org ID for per-user rate limiting
-    org_id = request.headers.get("X-Organization-ID", "default-org")
-    user_id = request.headers.get("X-User-ID", "default-user")
-    request.state.rate_limit_id = f"authenticated:{org_id}:{user_id}"
-    request.state.rate_limit_tier = "authenticated"
-
-    logger.info(
-        f"✅ Authenticated request - Identifier: {request.state.rate_limit_id}, "
-        f"Rate limit: {RATE_LIMIT_AUTHENTICATED}"
-    )
-
-    return {"authenticated": True, "tier": "authenticated"}
+    return _set_public("no credentials")
 
 
 async def check_rate_limit_chatbot(
@@ -252,6 +319,11 @@ async def check_rate_limit_chatbot(
             return auth
     except Exception:
         pass
+
+    # Unlimited tier: skip all rate limit checks
+    if request.state.rate_limit_tier == "unlimited":
+        logger.debug("Rate limit skipped for unlimited tier")
+        return auth
 
     # Get the rate limit identifier and tier from request state (set by verify_api_key)
     identifier = request.state.rate_limit_id
