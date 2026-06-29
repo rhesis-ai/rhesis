@@ -7,6 +7,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useSession } from 'next-auth/react';
 import { PlaygroundIcon } from '@/components/icons';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -60,21 +62,25 @@ export default function EndpointHeaderActions() {
           onClick={() => router.push(`/playground?endpointId=${endpoint.id}`)}
           disabled={isDeleting}
         />
-        <Fab
-          icon={<ContentCopyIcon />}
-          tooltip="Duplicate"
-          aria-label="Duplicate"
-          onClick={duplicateEndpoint}
-          loading={isDuplicating}
-          disabled={isDeleting}
-        />
-        <Fab
-          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-          tooltip="Delete endpoint"
-          aria-label="Delete endpoint"
-          onClick={() => setDeleteDialogOpen(true)}
-          loading={isDeleting}
-        />
+        <Can capability={Capability.Endpoint.CREATE}>
+          <Fab
+            icon={<ContentCopyIcon />}
+            tooltip="Duplicate"
+            aria-label="Duplicate"
+            onClick={duplicateEndpoint}
+            loading={isDuplicating}
+            disabled={isDeleting}
+          />
+        </Can>
+        <Can capability={Capability.Endpoint.DELETE}>
+          <Fab
+            icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+            tooltip="Delete endpoint"
+            aria-label="Delete endpoint"
+            onClick={() => setDeleteDialogOpen(true)}
+            loading={isDeleting}
+          />
+        </Can>
       </FabGroup>
 
       <DeleteModal

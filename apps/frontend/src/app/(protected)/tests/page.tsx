@@ -21,6 +21,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
@@ -29,6 +30,7 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
+  const canRead = useCan(Capability.Test.READ);
   const canCreate = useCan(Capability.Test.CREATE);
 
   const insightsFailedFilter = React.useMemo(
@@ -143,6 +145,8 @@ export default function TestsPage() {
       </PageLayout>
     );
   }
+
+  if (!canRead) return <AccessDenied resource="tests" />;
 
   if (!session?.session_token) {
     return (

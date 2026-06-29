@@ -4,6 +4,8 @@ import * as React from 'react';
 import Grid from '@mui/material/Grid';
 import { Box, TextField, Typography } from '@mui/material';
 import EditableSection from '@/components/common/EditableSection';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import ViewField from '@/components/common/ViewField';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
 import MultiFileUpload from '@/components/common/MultiFileUpload';
@@ -126,6 +128,7 @@ export default function TestTechnicalCard({
 }: TestTechnicalCardProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditTest = useCan(Capability.Test.UPDATE);
 
   const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
 
@@ -200,6 +203,7 @@ export default function TestTechnicalCard({
 
     return (
       <EditableSection
+        editable={canEditTest}
         title="Test input"
         initialValue={initialMultiTurnDraft}
         onSave={handleMultiTurnSave}
@@ -220,6 +224,7 @@ export default function TestTechnicalCard({
 
   return (
     <EditableSection
+      editable={canEditTest}
       title="Test input"
       initialValue={initialDraft}
       onSave={handleSave}

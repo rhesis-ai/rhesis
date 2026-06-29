@@ -37,6 +37,8 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { getProjectIcon } from './endpoint-icon-utils';
 
 interface EndpointsGridProps {
@@ -106,6 +108,8 @@ export default function EndpointsGrid({
   const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
+  const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
 
   const sessionToken = sessionTokenProp || session?.session_token || '';
 
@@ -322,6 +326,8 @@ export default function EndpointsGrid({
         router.push(`/endpoints/${id}`);
       },
       onDelete: id => handleRowDeleteAction(id),
+      canEdit: () => canEditEndpoint,
+      canDelete: () => canDeleteEndpoint,
     });
     return [
       {

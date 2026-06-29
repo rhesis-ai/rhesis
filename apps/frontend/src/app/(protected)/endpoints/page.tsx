@@ -18,11 +18,13 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const canRead = useCan(Capability.Endpoint.READ);
   const canCreate = useCan(Capability.Endpoint.CREATE);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
@@ -88,6 +90,8 @@ export default function EndpointsPage() {
       </PageLayout>
     );
   }
+
+  if (!canRead) return <AccessDenied resource="endpoints" />;
 
   if (!sessionToken) {
     return (

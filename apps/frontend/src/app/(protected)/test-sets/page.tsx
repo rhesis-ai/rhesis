@@ -24,11 +24,13 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 
 export default function TestSetsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const notifications = useNotifications();
+  const canRead = useCan(Capability.TestSet.READ);
   const canCreate = useCan(Capability.TestSet.CREATE);
   const canGenerate = useCan(Capability.TestSet.GENERATE);
 
@@ -106,6 +108,8 @@ export default function TestSetsPage() {
       </PageLayout>
     );
   }
+
+  if (!canRead) return <AccessDenied resource="test sets" />;
 
   if (!sessionToken) {
     return (

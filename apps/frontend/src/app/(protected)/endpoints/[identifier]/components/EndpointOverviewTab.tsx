@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   Box,
   CircularProgress,
@@ -57,6 +59,7 @@ function detailsFromEndpoint(endpoint: {
 export default function EndpointOverviewTab() {
   const { endpoint, projects, loadingProjects, saveFields } =
     useEndpointDetailContext();
+  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const projectList = useMemo(() => Object.values(projects), [projects]);
 
   const detailsInitial = useMemo(
@@ -73,6 +76,7 @@ export default function EndpointOverviewTab() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <EditableSection
+        editable={canEditEndpoint}
         title="Endpoint details"
         initialValue={detailsInitial}
         onSave={async draft => {

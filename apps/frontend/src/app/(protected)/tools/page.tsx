@@ -9,6 +9,9 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -34,6 +37,8 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 export default function ToolsPage() {
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const canRead = useCan(Capability.Tool.READ);
+  const canCreateTool = useCan(Capability.Tool.CREATE);
   useDocumentTitle('Tools');
   const [tools, setTools] = useState<Tool[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
@@ -182,6 +187,8 @@ export default function ToolsPage() {
     setConnectionDrawerOpen(true);
   };
 
+  if (!canRead) return <AccessDenied resource="tool connections" />;
+
   return (
     <PageLayout
       title="Tools"
@@ -189,12 +196,14 @@ export default function ToolsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Add tool connection"
-            aria-label="Add tool connection"
-            onClick={openConnectionDrawer}
-          />
+          <Can capability={Capability.Tool.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Add tool connection"
+              aria-label="Add tool connection"
+              onClick={openConnectionDrawer}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -215,8 +224,8 @@ export default function ToolsPage() {
             icon={BuildIcon}
             title="No tool connections yet"
             description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
-            actionLabel="Add tool connection"
-            onAction={openConnectionDrawer}
+            actionLabel={canCreateTool ? 'Add tool connection' : undefined}
+            onAction={canCreateTool ? openConnectionDrawer : undefined}
           />
         ) : (
           <>

@@ -39,7 +39,7 @@ import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
 import { Capability } from '@/constants/capabilities';
-import { can } from '@/utils/affordances';
+import { can, Can } from '@/components/common/Can';
 import { EntityType } from '@/types/entity-type';
 import {
   findStatusByCategory,
@@ -602,18 +602,20 @@ export default function TraceReviewsTab({
           </Paper>
         )}
 
-        {/* Add Review Section */}
+        {/* Add Review Section — hidden when user lacks test_result:update */}
         <Box sx={{ mt: 3 }}>
           {!showReviewForm ? (
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setShowReviewForm(true)}
-              fullWidth
-              sx={{ py: 1.5 }}
-            >
-              Add Review
-            </Button>
+            <Can capability={Capability.TestResult.UPDATE}>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setShowReviewForm(true)}
+                fullWidth
+                sx={{ py: 1.5 }}
+              >
+                Add Review
+              </Button>
+            </Can>
           ) : (
             <Collapse in={showReviewForm}>
               <Paper

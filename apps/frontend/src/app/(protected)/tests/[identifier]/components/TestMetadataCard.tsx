@@ -8,6 +8,8 @@ import BaseFreesoloAutocomplete, {
 } from '@/components/common/BaseFreesoloAutocomplete';
 import ViewField from '@/components/common/ViewField';
 import EditableSection from '@/components/common/EditableSection';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -56,6 +58,7 @@ export default function TestMetadataCard({
 }: TestMetadataCardProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditTest = useCan(Capability.Test.UPDATE);
 
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
@@ -131,6 +134,7 @@ export default function TestMetadataCard({
 
   return (
     <EditableSection
+      editable={canEditTest}
       title="Test details"
       initialValue={initialDraft}
       onSave={handleSave}
