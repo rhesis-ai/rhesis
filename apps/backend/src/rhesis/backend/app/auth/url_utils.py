@@ -89,4 +89,3 @@ def _is_loopback_dev_origin(parsed_origin) -> bool:
     if parsed_origin.scheme not in ("http", "https"):
         return False
     return (parsed_origin.hostname or "").lower() in _LOOPBACK_HOSTNAMES
-
