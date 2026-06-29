@@ -164,9 +164,7 @@ class Permission:
         READ = "task:read"
         CREATE = "task:create"
         UPDATE = "task:update"
-        UPDATE_OWN = "task:update:own"
         DELETE = "task:delete"
-        DELETE_OWN = "task:delete:own"
 
     # --- Architect agent (project-scoped, WebSocket-driven) -----------------
 
@@ -262,7 +260,6 @@ class ResourceType(_PermissionEnum):
 
     COMMENT = "comment"
     EXPERIMENT = "experiment"
-    TASK = "task"
 
 
 # ---------------------------------------------------------------------------

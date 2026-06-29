@@ -73,4 +73,4 @@ def populate_permitted_actions(
             current_user_id=principal.user_id,
             own_gated_actions=own_gated,
         )
-    return items if is_collection else items[0]
+    return objs
