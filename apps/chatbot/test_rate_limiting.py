@@ -166,12 +166,57 @@ def test_rate_limit_info():
     print(f"  Current Tier: {auth_data['rate_limits']['current_tier']}")
 
 
+def test_rhesis_key_unlimited(rh_key: str):
+    """Test that a valid rh- key for an @rhesis.ai account gets unlimited tier (no 429)."""
+    print("\n" + "=" * 60)
+    print("TEST 6: Rhesis personal key - unlimited tier (rh- key)")
+    print("=" * 60)
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {rh_key}",
+    }
+
+    response = requests.post(
+        f"{BASE_URL}/chat",
+        json={"message": "What is liability insurance?"},
+        headers=headers,
+    )
+
+    print(f"Status Code: {response.status_code}")
+    if response.status_code == 200:
+        data = response.json()
+        print("✅ SUCCESS - rh- key accepted, no 429")
+        print(f"   Session ID: {data['session_id']}")
+    elif response.status_code == 429:
+        print("❌ FAILED - Got 429, unlimited tier not applied")
+    else:
+        print(f"Result: {response.status_code} - {response.text[:200]}")
+
+    # Verify the root endpoint reports the correct tier
+    info_response = requests.get(f"{BASE_URL}/", headers=headers)
+    if info_response.status_code == 200:
+        info_data = info_response.json()
+        tier = info_data["authentication"]["tier"]
+        print(f"\nAuthentication tier: {tier}")
+        if tier == "unlimited":
+            print("Expected: unlimited ✅")
+        else:
+            print(f"Expected: unlimited ❌ (got {tier})")
+
+
 def main():
     print("\n" + "=" * 60)
     print("CHATBOT SERVICE RATE LIMITING TEST SUITE")
     print("=" * 60)
+    import sys
+
+    rh_key = sys.argv[1] if len(sys.argv) > 1 else None
+
     print(f"\nTesting endpoint: {BASE_URL}")
     print(f"API Key configured: {API_KEY[:10]}...")
+    if rh_key:
+        print(f"rh- key provided: {rh_key[:6]}...")
 
     try:
         # Test health endpoint first
@@ -196,6 +241,10 @@ def main():
         time.sleep(2)
 
         test_rate_limit_info()
+
+        if rh_key:
+            time.sleep(2)
+            test_rhesis_key_unlimited(rh_key)
 
         # Summary
         print("\n" + "=" * 60)

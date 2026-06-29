@@ -258,7 +258,7 @@ def verify_api_key(
 
     # --- Personal rh- key path ---
     if token and token.startswith("rh-"):
-        email = _introspect_user_key(token)
+        email = _introspect_rhesis_key(token)
         if email is None:
             # Introspection failed or key is invalid — fail-closed to public
             return _set_public("rh- key unverifiable")

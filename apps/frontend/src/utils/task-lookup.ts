@@ -1,4 +1,5 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { EntityType } from '@/types/entity-type';
 import { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { Status as ApiStatus } from '@/utils/api-client/interfaces/status';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';

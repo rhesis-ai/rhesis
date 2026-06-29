@@ -1,4 +1,4 @@
-import { EntityType } from '@/types/tasks';
+import { EntityType } from '@/types/entity-type';
 import type { TaskMetadata } from '@/utils/api-client/interfaces/task';
 
 /**
