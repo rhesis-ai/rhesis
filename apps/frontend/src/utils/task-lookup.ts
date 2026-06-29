@@ -52,7 +52,9 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
 
     const clientFactory = new ApiClientFactory(token);
     const statusClient = clientFactory.getStatusClient();
-    const apiStatuses = await statusClient.getStatuses({ entity_type: EntityType.TASK });
+    const apiStatuses = await statusClient.getStatuses({
+      entity_type: EntityType.TASK,
+    });
 
     // Convert API statuses to task statuses and filter for specific options
     const allowedStatusNames = ['Open', 'In Progress', 'Completed'];

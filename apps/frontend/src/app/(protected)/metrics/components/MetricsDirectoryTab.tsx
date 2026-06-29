@@ -500,7 +500,7 @@ export default function MetricsDirectoryTab({
       title="Metrics"
       description="Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met."
       breadcrumbs={[]}
-        actions={
+      actions={
         <FabGroup>
           <Can capability={Capability.Metric.CREATE}>
             <Fab
@@ -548,7 +548,11 @@ export default function MetricsDirectoryTab({
           title="No metrics yet"
           description="Create your first metric to measure behaviors and evaluate whether your AI applications meet requirements."
           actionLabel={canCreate ? 'Create metric' : undefined}
-          onAction={canCreate ? () => router.push('/metrics/new?type=custom-prompt') : undefined}
+          onAction={
+            canCreate
+              ? () => router.push('/metrics/new?type=custom-prompt')
+              : undefined
+          }
           enrichment={getEntityEmptyStateEnrichment('metrics')}
         />
       ) : (

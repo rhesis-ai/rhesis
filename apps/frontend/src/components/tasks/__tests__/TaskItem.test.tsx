@@ -94,16 +94,12 @@ describe('TaskItem', () => {
   });
 
   it('hides edit icon when task:update is not in permitted_actions', () => {
-    renderWithTheme(
-      <TaskItem task={makeTask(['task:delete']) as never} />
-    );
+    renderWithTheme(<TaskItem task={makeTask(['task:delete']) as never} />);
     expect(screen.queryByTestId('edit-icon')).not.toBeInTheDocument();
   });
 
   it('hides delete icon when task:delete is not in permitted_actions', () => {
-    renderWithTheme(
-      <TaskItem task={makeTask(['task:update']) as never} />
-    );
+    renderWithTheme(<TaskItem task={makeTask(['task:update']) as never} />);
     expect(screen.queryByTestId('delete-icon')).not.toBeInTheDocument();
   });
 

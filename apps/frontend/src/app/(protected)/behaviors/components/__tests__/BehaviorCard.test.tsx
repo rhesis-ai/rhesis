@@ -9,6 +9,12 @@ import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior
 
 const mockDeleteBehavior = jest.fn().mockResolvedValue(undefined);
 
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
+
 jest.mock('@/utils/api-client/behavior-client', () => ({
   BehaviorClient: jest.fn().mockImplementation(() => ({
     deleteBehavior: mockDeleteBehavior,

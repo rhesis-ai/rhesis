@@ -265,7 +265,9 @@ export function CommentItem({
                   placement="top"
                 >
                   <Box
-                    onClick={canReact ? () => onReact(comment.id, emoji) : undefined}
+                    onClick={
+                      canReact ? () => onReact(comment.id, emoji) : undefined
+                    }
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -280,7 +282,9 @@ export function CommentItem({
                       py: '2px',
                       cursor: canReact ? 'pointer' : 'default',
                       userSelect: 'none',
-                      '&:hover': canReact ? { borderColor: 'text.primary' } : {},
+                      '&:hover': canReact
+                        ? { borderColor: 'text.primary' }
+                        : {},
                     }}
                   >
                     <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>

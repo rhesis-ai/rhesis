@@ -62,7 +62,12 @@ const API_STATUSES = [
     entity_type: EntityType.TASK,
   },
   // This one should be filtered OUT (not in the allowed list)
-  { id: 's5', name: 'Archived', description: 'archived', entity_type: EntityType.TASK },
+  {
+    id: 's5',
+    name: 'Archived',
+    description: 'archived',
+    entity_type: EntityType.TASK,
+  },
 ];
 
 const API_PRIORITIES = [

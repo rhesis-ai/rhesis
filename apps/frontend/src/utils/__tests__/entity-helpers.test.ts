@@ -73,7 +73,10 @@ describe('buildLinkedEntityUrl', () => {
   it('returns null when entity is missing', () => {
     expect(buildLinkedEntityUrl({})).toBeNull();
     expect(
-      buildLinkedEntityUrl({ entity_type: EntityType.TEST, entity_id: undefined })
+      buildLinkedEntityUrl({
+        entity_type: EntityType.TEST,
+        entity_id: undefined,
+      })
     ).toBeNull();
   });
 

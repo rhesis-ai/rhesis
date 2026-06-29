@@ -214,7 +214,9 @@ function BehaviorBasicInfo({
   return (
     <>
       <Stack spacing={3}>
-        <GeneralInfoCard onEdit={canEditBehavior ? () => setEditOpen(true) : undefined}>
+        <GeneralInfoCard
+          onEdit={canEditBehavior ? () => setEditOpen(true) : undefined}
+        >
           <Stack spacing={3}>
             <ViewField label="Name" value={behavior.name} />
 

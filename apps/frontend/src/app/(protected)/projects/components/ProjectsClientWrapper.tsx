@@ -289,7 +289,9 @@ export default function ProjectsClientWrapper({
                 title="No project yet"
                 description="Create your first project to start organizing your AI applications. Projects help you group endpoints, tests, and results so you can collaborate with your team."
                 actionLabel={canCreate ? 'Create project' : undefined}
-                onAction={canCreate ? () => setCreateDrawerOpen(true) : undefined}
+                onAction={
+                  canCreate ? () => setCreateDrawerOpen(true) : undefined
+                }
                 actionDisabled={isProjectButtonDisabled}
                 enrichment={getEntityEmptyStateEnrichment('projects')}
               />

@@ -382,7 +382,9 @@ export default function ExperimentDetailClient({
               setSelectedVersionHashes(new Set([versionHash]));
               setRunDrawerOpen(true);
             }}
-            onAddConfiguration={canUpdate ? () => setConfigDrawerOpen(true) : undefined}
+            onAddConfiguration={
+              canUpdate ? () => setConfigDrawerOpen(true) : undefined
+            }
           />
         </DetailTabPanel>
 

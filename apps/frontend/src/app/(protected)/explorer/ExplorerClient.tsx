@@ -123,7 +123,9 @@ export default function ExplorerClient() {
               title="No explorer sessions yet"
               description="Start a new session to explore behaviors and generate tests, or load an existing test set."
               actionLabel={canCreateSession ? 'New session' : undefined}
-              onAction={canCreateSession ? () => setCreateDialogOpen(true) : undefined}
+              onAction={
+                canCreateSession ? () => setCreateDialogOpen(true) : undefined
+              }
             />
           ) : (
             <Paper

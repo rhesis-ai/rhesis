@@ -449,7 +449,13 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           },
         },
       ],
-      [experimentName, sharedExperiments, theme, handleDeleteRow, canUpdateProject]
+      [
+        experimentName,
+        sharedExperiments,
+        theme,
+        handleDeleteRow,
+        canUpdateProject,
+      ]
     );
 
     if (loading) {

@@ -374,7 +374,8 @@ function TestRunsGrid({
       onCancel: id => handleRowCancelAction(id),
       canCancel: isCancellableRun,
       onDelete: id => handleRowDeleteAction(id),
-      canDelete: row => can(row as unknown as TestRun, Capability.TestRun.DELETE),
+      canDelete: row =>
+        can(row as unknown as TestRun, Capability.TestRun.DELETE),
       width: 112,
     });
     return [

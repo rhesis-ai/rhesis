@@ -378,8 +378,10 @@ export default function ExperimentsClientWrapper({
       createRowActionsColumn({
         onEdit: id => router.push(`/experiments/${id}`),
         onDelete: id => setDeleteTargetId(id),
-        canEdit: row => can(row as unknown as ExperimentRead, Capability.Experiment.UPDATE),
-        canDelete: row => can(row as unknown as ExperimentRead, Capability.Experiment.DELETE),
+        canEdit: row =>
+          can(row as unknown as ExperimentRead, Capability.Experiment.UPDATE),
+        canDelete: row =>
+          can(row as unknown as ExperimentRead, Capability.Experiment.DELETE),
         editTooltip: 'Open experiment',
         deleteTooltip: 'Delete experiment',
       }),

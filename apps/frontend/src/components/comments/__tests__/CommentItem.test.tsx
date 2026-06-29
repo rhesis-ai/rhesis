@@ -20,6 +20,12 @@ function getIconButton(testId: string) {
 }
 
 // Heavy dependencies mocked for isolation
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
+
 jest.mock('emoji-picker-react', () => ({
   __esModule: true,
   default: ({

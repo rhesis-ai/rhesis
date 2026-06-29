@@ -143,6 +143,7 @@ const makeTestRun = (
   tags: [],
   counts: { comments: 0, tasks: 0 },
   created_at: '2024-01-01T00:00:00Z',
+  permitted_actions: ['test_run:read', 'test_run:update', 'test_run:delete'],
 });
 
 const makePaginatedResponse = <T,>(data: T[], total?: number) => ({

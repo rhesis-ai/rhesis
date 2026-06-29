@@ -390,13 +390,15 @@ export default function ModelsPage() {
               onClick={handleFabClick}
             />
             <Menu
-            anchorEl={fabAnchorEl}
-            open={fabMenuOpen}
-            onClose={handleFabMenuClose}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          >
-              <MenuItem onClick={handleAddLanguageModel}>Language model</MenuItem>
+              anchorEl={fabAnchorEl}
+              open={fabMenuOpen}
+              onClose={handleFabMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem onClick={handleAddLanguageModel}>
+                Language model
+              </MenuItem>
               <MenuItem onClick={handleAddEmbeddingModel}>
                 Embedding model
               </MenuItem>

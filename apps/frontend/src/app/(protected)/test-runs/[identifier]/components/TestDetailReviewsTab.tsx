@@ -248,7 +248,8 @@ export default function TestDetailReviewsTab({
                           <WarningAmberIcon
                             sx={{
                               fontSize: '14px !important',
-                              color: theme => `${theme.palette.error.main} !important`,
+                              color: theme =>
+                                `${theme.palette.error.main} !important`,
                             }}
                           />
                         }
@@ -327,12 +328,16 @@ export default function TestDetailReviewsTab({
       {noReviewsAtAll ? (
         <EmptyStateCard
           title="No reviews created yet"
-          onCreateReview={canCreateReview ? () => setCreateOpen(true) : undefined}
+          onCreateReview={
+            canCreateReview ? () => setCreateOpen(true) : undefined
+          }
         />
       ) : myReviewsEmpty && !showOthers ? (
         <EmptyStateCard
           title="You have not created any reviews yet"
-          onCreateReview={canCreateReview ? () => setCreateOpen(true) : undefined}
+          onCreateReview={
+            canCreateReview ? () => setCreateOpen(true) : undefined
+          }
           showOthersCount={otherReviews.length}
           onShowOthers={() => setShowOthers(true)}
         />

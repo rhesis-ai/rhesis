@@ -230,7 +230,9 @@ export default function ProjectParameters({
               return (
                 <ListItemButton
                   key={field._key}
-                  onClick={canUpdate ? () => handleOpenDrawer(field._key) : undefined}
+                  onClick={
+                    canUpdate ? () => handleOpenDrawer(field._key) : undefined
+                  }
                   sx={{
                     borderLeft: '3px solid',
                     borderLeftColor:

@@ -6,6 +6,12 @@ import lightTheme from '@/styles/theme';
 import { TasksSection } from '../TasksSection';
 import { ApiClientFactory } from '../../../utils/api-client/client-factory';
 
+jest.mock('../../../components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
+
 // Mock dependencies
 jest.mock('../../../utils/api-client/client-factory');
 jest.mock('next/navigation', () => ({

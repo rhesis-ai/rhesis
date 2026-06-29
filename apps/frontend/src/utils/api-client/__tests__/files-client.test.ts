@@ -61,7 +61,11 @@ describe('FilesClient', () => {
       const file = new File(['image data'], 'test.png', {
         type: 'image/png',
       });
-      const result = await client.uploadFiles([file], 'test-123', EntityType.TEST);
+      const result = await client.uploadFiles(
+        [file],
+        'test-123',
+        EntityType.TEST
+      );
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/files'),

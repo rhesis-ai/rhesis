@@ -150,7 +150,9 @@ export function ConnectedModelCard({
           ? () => onCardClick(model)
           : undefined
       }
-      onDelete={!model.is_protected && onDelete ? () => onDelete(model) : undefined}
+      onDelete={
+        !model.is_protected && onDelete ? () => onDelete(model) : undefined
+      }
       topRightActions={topRightActions}
       chipSections={chipSections}
       footer={footer}

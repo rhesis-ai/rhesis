@@ -5,6 +5,12 @@ import '@testing-library/jest-dom';
 import { CommentsSection } from '../CommentsSection';
 import { EntityType } from '@/types/entity-type';
 
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
+
 // Mock CommentItem and UserAvatar to keep tests focused on CommentsSection behavior
 jest.mock('../CommentItem', () => ({
   CommentItem: ({

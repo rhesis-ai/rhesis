@@ -175,7 +175,7 @@ export default function ProjectMembers({
       width: 56,
       sortable: false,
       filterable: false,
-        renderCell: params => {
+      renderCell: params => {
         const member = params.row as ProjectMember;
         // Never show delete for the project owner, and only for users with manage capability.
         if ((ownerId && member.user_id === ownerId) || !canManageMembers) {

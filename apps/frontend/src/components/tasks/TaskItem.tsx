@@ -1,13 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Typography,
-  Chip,
-  Tooltip,
-  useTheme,
-} from '@mui/material';
+import { Box, Typography, Chip, Tooltip, useTheme } from '@mui/material';
 import { EditIcon, DeleteIcon, AssignmentIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
 import type { Task } from '@/types/tasks';
@@ -223,7 +217,9 @@ export function TaskItem({
         >
           <Typography variant="caption" color="text.secondary">
             Related to:{' '}
-            {getEntityDisplayName((task.entity_type as EntityType) || EntityType.TASK)}
+            {getEntityDisplayName(
+              (task.entity_type as EntityType) || EntityType.TASK
+            )}
           </Typography>
         </Box>
       )}

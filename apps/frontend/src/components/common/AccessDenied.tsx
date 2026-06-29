@@ -58,8 +58,8 @@ export default function AccessDenied({ resource }: AccessDeniedProps) {
           <Typography variant="body2" color="text.secondary">
             {resource
               ? `You do not have permission to view ${resource}.`
-              : 'You do not have permission to view this page.'}
-            {' '}Contact your administrator if you need access.
+              : 'You do not have permission to view this page.'}{' '}
+            Contact your administrator if you need access.
           </Typography>
         </Box>
       </Box>

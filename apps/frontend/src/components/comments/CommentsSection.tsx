@@ -175,62 +175,62 @@ export function CommentsSection({
           onSubmit={handleSubmit}
           sx={{ display: 'flex', alignItems: 'flex-start', gap: '30px' }}
         >
-        <UserAvatar
-          userName={currentUserName}
-          userPicture={currentUserPicture}
-          sx={{ width: 48, height: 48, flexShrink: 0 }}
-        />
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <TextField
-            value={newComment}
-            onChange={e => setNewComment(e.target.value)}
-            placeholder="Add comment"
-            multiline
-            minRows={1}
-            fullWidth
-            variant="outlined"
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-            InputProps={{
-              endAdornment:
-                newComment.trim().length > 0 ? (
-                  <Tooltip title="Send comment">
-                    <IconButton
-                      type="submit"
-                      disabled={isSubmitting || !newComment.trim()}
-                      size="small"
-                      sx={{
-                        mr: 0.5,
-                        color: 'text.secondary',
-                        '&:hover': { color: 'primary.main' },
-                        '&:disabled': { color: 'action.disabled' },
-                      }}
-                    >
-                      {isSubmitting ? (
-                        <CircularProgress size={16} color="inherit" />
-                      ) : (
-                        <SendIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                ) : null,
-            }}
+          <UserAvatar
+            userName={currentUserName}
+            userPicture={currentUserPicture}
+            sx={{ width: 48, height: 48, flexShrink: 0 }}
           />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <TextField
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              placeholder="Add comment"
+              multiline
+              minRows={1}
+              fullWidth
+              variant="outlined"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              InputProps={{
+                endAdornment:
+                  newComment.trim().length > 0 ? (
+                    <Tooltip title="Send comment">
+                      <IconButton
+                        type="submit"
+                        disabled={isSubmitting || !newComment.trim()}
+                        size="small"
+                        sx={{
+                          mr: 0.5,
+                          color: 'text.secondary',
+                          '&:hover': { color: 'primary.main' },
+                          '&:disabled': { color: 'action.disabled' },
+                        }}
+                      >
+                        {isSubmitting ? (
+                          <CircularProgress size={16} color="inherit" />
+                        ) : (
+                          <SendIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  ) : null,
+              }}
+            />
 
-          {error && (
-            <Typography
-              variant="caption"
-              color="error"
-              sx={{ mt: 1, display: 'block' }}
-            >
-              {error}
-            </Typography>
-          )}
-        </Box>
+            {error && (
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{ mt: 1, display: 'block' }}
+              >
+                {error}
+              </Typography>
+            )}
+          </Box>
         </Box>
       </Can>
     </SectionCard>
