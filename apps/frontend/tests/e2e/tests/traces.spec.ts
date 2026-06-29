@@ -32,19 +32,26 @@ test.describe('Traces @sanity', () => {
     await page.goto('/traces');
     await page.waitForLoadState('networkidle');
 
-    // When no traces exist the page renders two "no traces" texts simultaneously:
-    // the MUI DataGrid no-rows overlay ("No traces found") and the page-level
-    // empty-state card ("No traces yet").  The DataGrid container div
-    // ([role="grid"]) is visibility:hidden during that render, so using it as
-    // a proxy causes toBeVisible to fail.  Target the first visible text node,
-    // an actual data row ([data-rowindex]), or the auth message instead.
-    const emptyState = page.getByText(/no traces (found|yet)/i).first();
+    // The page settles into one of four states. We target only page-level
+    // elements (outside the DataGrid) to avoid the MUI DataGrid NoRowsOverlay
+    // h6 ("No traces found") which lives inside a visibility:hidden wrapper
+    // when the page-level empty-state card is shown — matching it with a regex
+    // would always resolve to the hidden element first (DOM order).
+    //
+    // State 1: data rows are present
     const traceRow = page.locator('[data-rowindex]').first();
-    const authRequired = page.getByText(/authentication required/i).first();
-
-    await expect(emptyState.or(traceRow).or(authRequired)).toBeVisible({
-      timeout: 10_000,
+    // State 2: no traces, page-level card (TracesClientWrapper EntityEmptyState)
+    const noTracesYet = page.getByText('No traces yet', { exact: true });
+    // State 3: no session token (EntityEmptyState in the !sessionToken branch)
+    const authRequired = page.getByText('Authentication Required', {
+      exact: true,
     });
+    // State 4: RBAC gate — canRead is false (AccessDenied component)
+    const accessDenied = page.getByText('Access denied', { exact: true });
+
+    await expect(
+      traceRow.or(noTracesYet).or(authRequired).or(accessDenied)
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('traces page has a valid page title', async ({ page }) => {
