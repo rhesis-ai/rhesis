@@ -28,9 +28,11 @@ on:
         required: false
         default: ''
         type: string
+  schedule:
+    - cron: '0 0 * * *'
 
 concurrency:
-  group: k8s-deploy-all-${{ inputs.environment }}
+  group: k8s-deploy-all-${{ inputs.environment || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -41,7 +43,7 @@ jobs:
     steps:
       - name: Approve build and push all K8s services
         run: |
-          echo "Building and pushing all K8s service images to ${{ inputs.environment }}"
+          echo "Building and pushing all K8s service images to ${{ inputs.environment || 'dev' }}"
           echo "Tag override: ${{ inputs.tag || '(short git SHA)' }}"
 
       - id: resolve-tag
@@ -62,7 +64,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/backend-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -71,7 +73,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/worker-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -80,7 +82,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/frontend-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -89,7 +91,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/docs-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -98,7 +100,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/polyphemus-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -107,7 +109,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/otel-collector-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -116,7 +118,7 @@ jobs:
     needs: gate
     uses: ./.github/workflows/telemetry-processor-k8s.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       deploy: false
     secrets: inherit
@@ -135,7 +137,7 @@ jobs:
       - telemetry-processor-build
     uses: ./.github/workflows/k8s-deploy.yml
     with:
-      environment: ${{ inputs.environment }}
+      environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
       # service left empty → deploy-all helm-set list in k8s-deploy.yml
     secrets: inherit
