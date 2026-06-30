@@ -171,7 +171,11 @@ export default function TasksGrid({
 
       setTasks(response.data);
       setTotalCount(response.totalCount || 0);
-      onTotalCountChange?.(response.totalCount || 0);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery ||
+        hasActiveTaskFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.totalCount || 0);
       setError(null);
     } catch {
       if (!isMounted.current) return;

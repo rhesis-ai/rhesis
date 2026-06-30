@@ -156,7 +156,11 @@ export default function SourcesGrid({
 
       setSources(response.data);
       setTotalCount(response.pagination.totalCount);
-      onTotalCountChange?.(response.pagination.totalCount);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery ||
+        hasActiveSourceFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
       setError('Failed to load knowledge sources');

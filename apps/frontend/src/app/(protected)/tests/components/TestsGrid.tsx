@@ -252,7 +252,11 @@ export default function TestsTable({
 
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
-      onTotalCountChange?.(response.pagination.totalCount);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery ||
+        hasActiveTestFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch (_error) {
       setError('Failed to load tests');

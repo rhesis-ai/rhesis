@@ -214,7 +214,12 @@ function TestRunsGrid({
         if (isMounted.current) {
           setTestRuns(response.data);
           setTotalCount(response.pagination.totalCount);
-          onTotalCountChange?.(response.pagination.totalCount);
+          const filtersActive =
+            filterModel.items.length > 0 ||
+            !!searchQuery ||
+            hasActiveTestRunFilters(drawerFilters);
+          if (!filtersActive)
+            onTotalCountChange?.(response.pagination.totalCount);
           setError(null);
         }
       } catch (_error) {

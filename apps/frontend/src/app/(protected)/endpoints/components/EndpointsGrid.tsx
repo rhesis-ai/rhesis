@@ -151,20 +151,23 @@ export default function EndpointsGrid({
 
       setEndpoints(response.data);
       setTotalCount(response.pagination.totalCount);
-      onTotalCountChange?.(response.pagination.totalCount);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery.trim() ||
+        hasActiveEndpointFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
-      const hasActiveFilters =
-        hasActiveEndpointFilters(drawerFilters) || searchQuery.trim() !== '';
-      if (hasActiveFilters) {
-        setEndpoints([]);
-        setTotalCount(0);
-        onTotalCountChange?.(0);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery.trim() ||
+        hasActiveEndpointFilters(drawerFilters);
+      setEndpoints([]);
+      setTotalCount(0);
+      if (filtersActive) {
         setError(null);
       } else {
         setError('Failed to load endpoints');
-        onTotalCountChange?.(0);
-        setEndpoints([]);
       }
     } finally {
       setLoading(false);
