@@ -33,8 +33,11 @@ function AllProviders({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+});
+
+function AllProviders({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={testQueryClient}>
       <ThemeProvider theme={lightTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );

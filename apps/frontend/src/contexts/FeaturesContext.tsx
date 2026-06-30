@@ -68,6 +68,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
     // gated UI (and downstream RBAC permissions) would flash permissive.
     if (!sessionToken || isLoading) return DEFAULT_STATE;
     if (isLoading || !data) return DEFAULT_STATE;
+    if (isLoading) return DEFAULT_STATE;
     if (error)
       return {
         license: null,
