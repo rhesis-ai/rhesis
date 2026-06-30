@@ -8,7 +8,8 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import BehaviorDetailTabs from './BehaviorDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
-import { useCan } from '@/components/common/Can';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 interface BehaviorDetailClientProps {
@@ -22,7 +23,9 @@ export default function BehaviorDetailClient({
   sessionToken,
   identifier,
 }: BehaviorDetailClientProps) {
-  const canRead = useCan(Capability.Behavior.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Behavior.READ
+  );
   const [behavior, setBehavior] =
     React.useState<BehaviorWithMetrics>(initialBehavior);
 
@@ -30,6 +33,7 @@ export default function BehaviorDetailClient({
     setBehavior(initialBehavior);
   }, [initialBehavior]);
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="behaviors" />;
 
   const title = behavior.name || `Behavior ${identifier}`;

@@ -23,7 +23,8 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import CreateJiraIssueButton from '../components/CreateJiraIssueButton';
 import TaskDetailTabs from './components/TaskDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
-import { useCan } from '@/components/common/Can';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 interface PageProps {
@@ -230,7 +231,9 @@ function TaskDetailNotFoundState({
 export default function TaskDetailPage({ params }: PageProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const canRead = useCan(Capability.Task.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Task.READ
+  );
   const { getTask, updateTask } = useTasks({ autoFetch: false });
   const { show } = useNotifications();
 
@@ -354,6 +357,7 @@ export default function TaskDetailPage({ params }: PageProps) {
     loadInitialData(true);
   };
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
   if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {

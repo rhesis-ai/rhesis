@@ -28,9 +28,10 @@ import ModelFilterDrawer, {
 } from './components/ModelFilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
@@ -39,7 +40,9 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
-  const canRead = useCan(Capability.Model.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Model.READ
+  );
   const canEditModel = useCan(Capability.Model.UPDATE);
   const canDeleteModel = useCan(Capability.Model.DELETE);
 
@@ -361,6 +364,7 @@ export default function ModelsPage() {
     return typeMatch && searchMatch && providerMatch && statusMatch;
   });
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="models" />;
 
   return (

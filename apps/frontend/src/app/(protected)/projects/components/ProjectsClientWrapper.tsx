@@ -31,9 +31,10 @@ import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -48,7 +49,9 @@ export default function ProjectsClientWrapper({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
-  const canRead = useCan(Capability.Project.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Project.READ
+  );
   const canCreate = useCan(Capability.Project.CREATE);
   const canUpdateProject = useCan(Capability.Project.UPDATE);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -202,6 +205,7 @@ export default function ProjectsClientWrapper({
     { value: 'inactive', label: 'Inactive' },
   ];
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="projects" />;
 
   return (

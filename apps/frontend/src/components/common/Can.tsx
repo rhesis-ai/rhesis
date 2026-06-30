@@ -38,6 +38,28 @@ export function useCan(capability: string): boolean {
 }
 
 /**
+ * Loading-aware variant of {@link useCan} for page/section read guards.
+ *
+ * Returns `loading` so callers can distinguish "not yet resolved" from "denied"
+ * and avoid flashing an Access-Denied screen during the permission-fetch window
+ * (which exists even for community/RBAC-off users while feature flags load).
+ * Guard sites should render a neutral loading state while `loading` is true and
+ * only fall through to `<AccessDenied />` once `allowed` is known false.
+ *
+ * `allowed` matches `useCan` exactly: fail-closed while loading, permissive when
+ * RBAC is off, otherwise a membership check against the ambient scope set.
+ */
+export function useCanWithStatus(capability: string): {
+  allowed: boolean;
+  loading: boolean;
+} {
+  const ambient = useAmbientPermissions();
+  if (ambient.loading) return { allowed: false, loading: true };
+  if (!ambient.enabled) return { allowed: true, loading: false };
+  return { allowed: can(ambient, capability), loading: false };
+}
+
+/**
  * Declarative gate. Pass `subject` for an object-level check (always reflects the
  * resource's `permitted_actions`); omit it for an ambient (scope) check, which is
  * a permissive no-op when RBAC is off. Renders `children` when allowed.

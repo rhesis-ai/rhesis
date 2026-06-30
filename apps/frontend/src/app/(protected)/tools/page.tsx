@@ -9,9 +9,10 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -37,7 +38,9 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 export default function ToolsPage() {
   const { data: session } = useSession();
   const notifications = useNotifications();
-  const canRead = useCan(Capability.Tool.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Tool.READ
+  );
   const canCreateTool = useCan(Capability.Tool.CREATE);
   useDocumentTitle('Tools');
   const [tools, setTools] = useState<Tool[]>([]);
@@ -187,6 +190,7 @@ export default function ToolsPage() {
     setConnectionDrawerOpen(true);
   };
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tool connections" />;
 
   return (

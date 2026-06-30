@@ -10,12 +10,15 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
 import AccessDenied from '@/components/common/AccessDenied';
-import { useCan } from '@/components/common/Can';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
-  const canRead = useCan(Capability.Organization.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Organization.READ
+  );
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +78,7 @@ export default function OrganizationSettingsPage() {
     breadcrumbs,
   };
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="organization settings" />;
 
   if (initialLoading) {

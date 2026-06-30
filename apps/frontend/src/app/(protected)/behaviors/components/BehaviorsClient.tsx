@@ -25,9 +25,10 @@ import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-en
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
@@ -51,7 +52,9 @@ export default function BehaviorsClient({
 }: BehaviorsClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const canRead = useCan(Capability.Behavior.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Behavior.READ
+  );
   const canCreateBehavior = useCan(Capability.Behavior.CREATE);
 
   // Data state
@@ -534,6 +537,7 @@ export default function BehaviorsClient({
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="behaviors" />;
 
   return (

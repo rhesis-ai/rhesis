@@ -15,15 +15,18 @@ import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const canRead = useCan(Capability.Endpoint.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Endpoint.READ
+  );
   const canCreate = useCan(Capability.Endpoint.CREATE);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
@@ -70,6 +73,7 @@ export default function EndpointsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="endpoints" />;
 
   if (!sessionToken) {

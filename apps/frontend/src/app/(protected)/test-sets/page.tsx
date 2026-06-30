@@ -21,15 +21,18 @@ import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function TestSetsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const notifications = useNotifications();
-  const canRead = useCan(Capability.TestSet.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.TestSet.READ
+  );
   const canCreate = useCan(Capability.TestSet.CREATE);
   const canGenerate = useCan(Capability.TestSet.GENERATE);
 
@@ -88,6 +91,7 @@ export default function TestSetsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="test sets" />;
 
   if (!sessionToken) {

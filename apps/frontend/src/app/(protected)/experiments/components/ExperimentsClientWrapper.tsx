@@ -42,8 +42,9 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { Capability } from '@/constants/capabilities';
 import { can } from '@/utils/affordances';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -159,7 +160,9 @@ export default function ExperimentsClientWrapper({
   const router = useRouter();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
-  const canRead = useCan(Capability.Experiment.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Experiment.READ
+  );
   const canCreateExperiment = useCan(Capability.Experiment.CREATE);
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -394,6 +397,7 @@ export default function ExperimentsClientWrapper({
     [router]
   );
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="experiments" />;
 
   return (

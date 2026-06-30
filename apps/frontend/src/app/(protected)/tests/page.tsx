@@ -19,9 +19,10 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
@@ -30,7 +31,9 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
-  const canRead = useCan(Capability.Test.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Test.READ
+  );
   const canCreate = useCan(Capability.Test.CREATE);
 
   const insightsFailedFilter = React.useMemo(
@@ -129,6 +132,7 @@ export default function TestsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tests" />;
 
   if (!session?.session_token) {

@@ -6,7 +6,8 @@ import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import AccessDenied from '@/components/common/AccessDenied';
-import { Can, useCan } from '@/components/common/Can';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { MenuBookIcon } from '@/components/icons';
@@ -24,7 +25,9 @@ interface KnowledgeClientWrapperProps {
 export default function KnowledgeClientWrapper({
   sessionToken,
 }: KnowledgeClientWrapperProps) {
-  const canRead = useCan(Capability.Source.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Source.READ
+  );
   const canCreateSource = useCan(Capability.Source.CREATE);
   const [refreshKey, setRefreshKey] = useState(0);
   const [sourceCount, setSourceCount] = useState<number | null>(null);
@@ -66,6 +69,7 @@ export default function KnowledgeClientWrapper({
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="knowledge sources" />;
 
   return (

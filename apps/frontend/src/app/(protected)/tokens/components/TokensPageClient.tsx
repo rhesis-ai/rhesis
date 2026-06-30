@@ -23,9 +23,10 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 interface TokensPageClientProps {
   sessionToken: string;
@@ -34,7 +35,9 @@ interface TokensPageClientProps {
 export default function TokensPageClient({
   sessionToken,
 }: TokensPageClientProps) {
-  const canManage = useCan(Capability.Token.MANAGE);
+  const { allowed: canManage, loading: permsLoading } = useCanWithStatus(
+    Capability.Token.MANAGE
+  );
 
   // Data state
   const [tokens, setTokens] = useState<Token[]>([]);
@@ -224,6 +227,7 @@ export default function TokensPageClient({
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canManage) return <AccessDenied resource="API tokens" />;
 
   return (

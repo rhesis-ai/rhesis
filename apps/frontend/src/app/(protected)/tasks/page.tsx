@@ -10,9 +10,10 @@ import { useSearchParams } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import TasksGrid from './components/TasksGrid';
 import TaskDrawer, {
   type TaskDrawerInitialEntity,
@@ -23,7 +24,9 @@ import { EntityType } from '@/types/tasks';
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
-  const canRead = useCan(Capability.Task.READ);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Task.READ
+  );
   const canCreateTask = useCan(Capability.Task.CREATE);
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -95,6 +98,7 @@ export default function TasksPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="tasks" />;
 
   if (!sessionToken) {

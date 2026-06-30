@@ -3,6 +3,8 @@
  * from apps/backend/src/rhesis/backend/app/schemas/telemetry.py
  */
 
+import type { WithPermittedActions } from '@/types/affordances';
+
 /** Span event with known structure from OpenTelemetry */
 export interface SpanEvent {
   name: string;
@@ -49,7 +51,7 @@ export interface TraceReviewStatus {
   name: string;
 }
 
-export interface TraceReview {
+export interface TraceReview extends WithPermittedActions {
   review_id: string;
   status: TraceReviewStatus;
   user: TraceReviewUser;
@@ -57,7 +59,6 @@ export interface TraceReview {
   created_at: string;
   updated_at: string;
   target: TraceReviewTarget;
-  permitted_actions?: string[];
 }
 
 export interface TraceReviewsMetadata {
