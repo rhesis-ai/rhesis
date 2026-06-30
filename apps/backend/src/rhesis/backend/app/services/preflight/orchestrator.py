@@ -201,6 +201,15 @@ async def run_preflight_checks_multi(
                     ),
                 )
             )
+        else:
+            r = _make_result(
+                CHECK_METRIC_COMPATIBILITY,
+                PreflightCheckStatus.SKIPPED,
+                "Metric compatibility check skipped: endpoint not found",
+            )
+            _apply_test_set_fields(r, ts_id_str, ts_label)
+            results.append(r)
+            await _publish_result(r, correlation_id, publish)
 
         tasks.append(
             (
