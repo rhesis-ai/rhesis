@@ -45,7 +45,9 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
-  const userScope = session?.user?.id ?? '';
+  // Prefer the stable user id, but fall back to the per-user session token so
+  // the cache key is never shared across users even if `user.id` is missing.
+  const userScope = session?.user?.id ?? sessionToken ?? '';
 
   const { data, isLoading, error } = useQuery({
     queryKey: featureKeys.all(userScope),
