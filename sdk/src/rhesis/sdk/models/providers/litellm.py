@@ -113,6 +113,10 @@ class LiteLLM(BaseLLM):
         if stream:
             return self._a_generate_stream(messages, schema, *args, **kwargs)
 
+        # Connection: close prevents httpx from pooling the socket across
+        # asyncio.run() calls (e.g. Celery tasks), which would cause
+        # RuntimeError: Event loop is closed on teardown.
+        extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
         response = await acompletion(
             model=self.model_name,
             messages=messages,
@@ -120,6 +124,7 @@ class LiteLLM(BaseLLM):
             api_key=self.api_key,
             api_base=self.api_base,
             api_version=self.api_version,
+            extra_headers=extra_headers,
             *args,
             **kwargs,
         )
@@ -160,6 +165,10 @@ class LiteLLM(BaseLLM):
         **kwargs,
     ) -> AsyncGenerator[str, None]:
         """Yield token chunks from a streaming LiteLLM completion."""
+        # Connection: close prevents httpx from pooling the socket across
+        # asyncio.run() calls (e.g. Celery tasks), which would cause
+        # RuntimeError: Event loop is closed on teardown.
+        extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
         response = await acompletion(
             model=self.model_name,
             messages=messages,
@@ -168,6 +177,7 @@ class LiteLLM(BaseLLM):
             api_key=self.api_key,
             api_base=self.api_base,
             api_version=self.api_version,
+            extra_headers=extra_headers,
             *args,
             **kwargs,
         )

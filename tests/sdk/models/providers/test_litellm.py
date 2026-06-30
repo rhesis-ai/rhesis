@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pydantic import BaseModel
@@ -51,6 +51,7 @@ class TestLiteLLM:
             api_key=None,
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -77,6 +78,7 @@ class TestLiteLLM:
             api_key=api_key,
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -113,6 +115,7 @@ class TestLiteLLM:
             api_key=None,
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -150,6 +153,7 @@ class TestLiteLLM:
             api_key=api_key,
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -195,6 +199,7 @@ class TestLiteLLM:
             api_key=None,
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
             temperature=0.7,
             max_tokens=100,
         )
@@ -461,6 +466,73 @@ class TestLiteLLM:
             api_version=None,
             n=1,
         )
+
+    # Tests for Connection: close injection in async paths
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_injects_connection_close(self, mock_acompletion):
+        """a_generate must always include Connection: close in extra_headers."""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "ok"
+        mock_acompletion.return_value = mock_response
+
+        llm = LiteLLM("provider/model")
+        await llm.a_generate(prompt="hello")
+
+        _, kwargs = mock_acompletion.call_args
+        assert kwargs.get("extra_headers", {}).get("Connection") == "close"
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_preserves_caller_extra_headers(self, mock_acompletion):
+        """Caller-supplied extra_headers survive alongside the injected Connection header."""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "ok"
+        mock_acompletion.return_value = mock_response
+
+        llm = LiteLLM("provider/model")
+        await llm.a_generate(prompt="hello", extra_headers={"X-Custom": "value"})
+
+        _, kwargs = mock_acompletion.call_args
+        headers = kwargs.get("extra_headers", {})
+        assert headers.get("Connection") == "close"
+        assert headers.get("X-Custom") == "value"
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_stream_injects_connection_close(self, mock_acompletion):
+        """_a_generate_stream (streaming path) must include Connection: close."""
+
+        async def _fake_stream(*args, **kwargs):
+            yield Mock(choices=[Mock(delta=Mock(content="tok"))])
+
+        mock_acompletion.return_value = _fake_stream()
+
+        llm = LiteLLM("provider/model")
+        chunks = []
+        async for chunk in await llm.a_generate(prompt="hello", stream=True):
+            chunks.append(chunk)
+
+        _, kwargs = mock_acompletion.call_args
+        assert kwargs.get("extra_headers", {}).get("Connection") == "close"
+
+    @pytest.mark.asyncio
+    @patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+    async def test_a_generate_caller_connection_header_not_overwritten(self, mock_acompletion):
+        """A caller-supplied Connection header value is kept unchanged (setdefault semantics)."""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "ok"
+        mock_acompletion.return_value = mock_response
+
+        llm = LiteLLM("provider/model")
+        await llm.a_generate(prompt="hello", extra_headers={"Connection": "keep-alive"})
+
+        _, kwargs = mock_acompletion.call_args
+        assert kwargs.get("extra_headers", {}).get("Connection") == "keep-alive"
 
     @patch("rhesis.sdk.models.providers.litellm.batch_completion")
     def test_generate_batch_with_schema_and_system_prompt(self, mock_batch_completion):
