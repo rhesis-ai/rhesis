@@ -2,6 +2,7 @@ import logging
 
 from celery.signals import (
     after_setup_logger,
+    celeryd_init,
     task_failure,
     task_revoked,
     worker_shutdown,
@@ -47,6 +48,21 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                 )
     except Exception as e:
         logger.error(f"Failed to update test run status for task {task_id}: {e}", exc_info=True)
+
+
+@celeryd_init.connect
+def setup_worker_log_format(sender=None, conf=None, **kwargs):
+    """Prefix Celery log lines with MAIN/ARCHITECT so both workers are distinguishable."""
+    if conf is None:
+        return
+    role = (sender.split("@", 1)[0] if sender else "worker").upper()
+    conf.worker_log_format = (
+        f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] %(message)s"
+    )
+    conf.worker_task_log_format = (
+        f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] "
+        "[%(task_name)s(%(task_id)s)] %(message)s"
+    )
 
 
 @after_setup_logger.connect

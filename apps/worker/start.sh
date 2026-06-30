@@ -3,6 +3,22 @@
 # Exit on any error
 set -e
 
+# ---------------------------------------------------------------------------
+# Defaults — single source of truth for all tunables.
+# Override any of these by setting the corresponding environment variable
+# before starting the container.
+# ---------------------------------------------------------------------------
+: "${CELERY_WORKER_CONCURRENCY:=2}"            # threads for the main worker
+: "${CELERY_ARCHITECT_CONCURRENCY:=2}"         # threads for the architect worker
+: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=4}"    # prefetch multiplier for the main worker
+: "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=4}" # prefetch multiplier for the architect worker
+: "${CELERY_WORKER_LOGLEVEL:=WARNING}"         # overridden to DEBUG in dev below
+: "${CELERY_WORKER_OPTS:=}"                   # extra flags passed to both workers
+: "${ENABLE_FLOWER:=no}"
+export CELERY_WORKER_CONCURRENCY CELERY_ARCHITECT_CONCURRENCY \
+    CELERY_WORKER_PREFETCH_MULTIPLIER CELERY_ARCHITECT_PREFETCH_MULTIPLIER \
+    CELERY_WORKER_LOGLEVEL CELERY_WORKER_OPTS ENABLE_FLOWER
+
 # Print environment variables for debugging (excluding sensitive info)
 echo "=== Environment Configuration Debug ==="
 echo "BROKER_URL exists: $(if [ ! -z "$BROKER_URL" ]; then echo "yes"; else echo "no"; fi)"
@@ -11,19 +27,21 @@ echo "DB_HOST exists: $(if [ ! -z "$DB_HOST" ]; then echo "yes"; else echo "no";
 echo "Worker environment: ${WORKER_ENV:-not_set}"
 echo "Git branch: ${GIT_BRANCH:-unknown}"
 echo "Git commit: ${GIT_COMMIT:-unknown}"
-echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
+echo "Celery worker concurrency: $CELERY_WORKER_CONCURRENCY"
+echo "Celery architect concurrency: $CELERY_ARCHITECT_CONCURRENCY"
+echo "Celery worker prefetch multiplier: $CELERY_WORKER_PREFETCH_MULTIPLIER"
+echo "Celery architect prefetch multiplier: $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
 echo "Celery worker pool: threads"
 
 # Set log level based on worker environment
 if [ "${WORKER_ENV}" = "development" ]; then
-    export CELERY_WORKER_LOGLEVEL="DEBUG"
+    CELERY_WORKER_LOGLEVEL="DEBUG"
     echo "🔧 Development environment detected - setting log level to DEBUG"
 else
-    export CELERY_WORKER_LOGLEVEL="${CELERY_WORKER_LOGLEVEL:-WARNING}"
-    echo "🔧 Production/staging environment - using log level: ${CELERY_WORKER_LOGLEVEL}"
+    echo "🔧 Production/staging environment - using log level: $CELERY_WORKER_LOGLEVEL"
 fi
 
-echo "Celery worker log level: ${CELERY_WORKER_LOGLEVEL}"
+echo "Celery worker log level: $CELERY_WORKER_LOGLEVEL"
 
 # Enhanced TLS detection and debugging
 if [[ "$BROKER_URL" == rediss://* ]]; then
@@ -173,7 +191,7 @@ for endpoint in "ping" "health/basic" "health" "debug" "debug/env" "debug/redis"
 done
 
 # Start Flower monitoring tool if ENABLE_FLOWER is set
-if [ "${ENABLE_FLOWER:-no}" = "yes" ]; then
+if [ "$ENABLE_FLOWER" = "yes" ]; then
     echo "Starting Flower monitoring on port 5555..."
     celery -A rhesis.backend.worker.app flower --port=5555 &
     FLOWER_PID=$!
@@ -194,10 +212,16 @@ forward_signal() {
         kill -TERM $FLOWER_PID || true
     fi
     
-    if [ ! -z "$CELERY_PID" ] && kill -0 $CELERY_PID 2>/dev/null; then
-        echo "Stopping Celery worker (PID: $CELERY_PID)..."
-        kill -TERM $CELERY_PID || true
-        wait $CELERY_PID
+    if [ ! -z "$MAIN_PID" ] && kill -0 $MAIN_PID 2>/dev/null; then
+        echo "Stopping main Celery worker (PID: $MAIN_PID)..."
+        kill -TERM $MAIN_PID || true
+        wait $MAIN_PID 2>/dev/null || true
+    fi
+
+    if [ ! -z "$ARCHITECT_PID" ] && kill -0 $ARCHITECT_PID 2>/dev/null; then
+        echo "Stopping architect Celery worker (PID: $ARCHITECT_PID)..."
+        kill -TERM $ARCHITECT_PID || true
+        wait $ARCHITECT_PID 2>/dev/null || true
     fi
     
     exit 0
@@ -211,45 +235,70 @@ echo ""
 echo "=== Celery Worker Startup ==="
 echo "Starting Celery worker with full output..."
 
-# Set worker context environment variable for RPC detection
-# Generate unique worker ID using hostname + UUID
-# Format: worker@hostname-uuid (e.g., worker@server1-a1b2c3d4)
-# UUID ensures no collisions even with rapid worker restarts
-WORKER_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
-export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
-echo "Worker context identifier: $CELERY_WORKER_NAME"
-
-# Build the Celery worker command.
+# Two workers share the same hostname; -n gives each a unique node name so
+# they don't collide on the broker. %h expands to the container hostname.
+# CELERY_WORKER_CONCURRENCY           -> main worker  (celery, execution, telemetry)
+# CELERY_ARCHITECT_CONCURRENCY        -> architect worker (architect queue only)
+# CELERY_WORKER_PREFETCH_MULTIPLIER   -> prefetch for main worker
+# CELERY_ARCHITECT_PREFETCH_MULTIPLIER -> prefetch for architect worker
+#
 # Uses the threads pool: no fork(), so no fork-safety issues with native
 # libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
 # work (LLM API calls, DB queries). -E enables events for Flower/monitoring.
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --pool threads --queues=celery,execution,telemetry,architect --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --optimization=fair -E ${CELERY_WORKER_OPTS}"
 
-echo "Command: $CELERY_CMD"
-echo "Queues: celery,execution,telemetry,architect"
-echo "Pool: threads"
-echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
-echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
-echo "Additional opts: ${CELERY_WORKER_OPTS:-none}"
+MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
+ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair -E $CELERY_WORKER_OPTS"
 
-# Run celery worker in background
-$CELERY_CMD &
+echo "--- Main worker ---"
+echo "Command:     $MAIN_CMD"
+echo "Queues:      celery,execution,telemetry"
+echo "Concurrency: $CELERY_WORKER_CONCURRENCY"
+echo "Prefetch:    $CELERY_WORKER_PREFETCH_MULTIPLIER"
+echo ""
+echo "--- Architect worker ---"
+echo "Command:     $ARCHITECT_CMD"
+echo "Queues:      architect"
+echo "Concurrency: $CELERY_ARCHITECT_CONCURRENCY"
+echo "Prefetch:    $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
+echo ""
+echo "Pool:        threads"
+echo "Log level:   $CELERY_WORKER_LOGLEVEL"
+echo "Extra opts:  ${CELERY_WORKER_OPTS:-none}"
 
-# Store Celery worker PID
-CELERY_PID=$!
-echo "Celery worker started with PID: $CELERY_PID"
+# Start main worker in background
+$MAIN_CMD &
+MAIN_PID=$!
+echo "Main Celery worker started with PID: $MAIN_PID"
 
-# Enhanced startup monitoring
+# Start architect worker in background
+$ARCHITECT_CMD &
+ARCHITECT_PID=$!
+echo "Architect Celery worker started with PID: $ARCHITECT_PID"
+
+# Enhanced startup monitoring — check both workers
 echo ""
 echo "=== Celery Worker Startup Monitoring ==="
 for i in {1..10}; do
-    if ! kill -0 $CELERY_PID 2>/dev/null; then
-        echo "❌ Celery worker died after ${i} seconds!"
-        wait $CELERY_PID
-        EXIT_CODE=$?
+    MAIN_ALIVE=true
+    ARCHITECT_ALIVE=true
+
+    if ! kill -0 $MAIN_PID 2>/dev/null; then
+        MAIN_ALIVE=false
+    fi
+    if ! kill -0 $ARCHITECT_PID 2>/dev/null; then
+        ARCHITECT_ALIVE=false
+    fi
+
+    if [ "$MAIN_ALIVE" = "false" ] || [ "$ARCHITECT_ALIVE" = "false" ]; then
+        if [ "$MAIN_ALIVE" = "false" ]; then
+            echo "❌ Main Celery worker died after ${i} seconds!"
+            wait $MAIN_PID 2>/dev/null; EXIT_CODE=$?
+        else
+            echo "❌ Architect Celery worker died after ${i} seconds!"
+            wait $ARCHITECT_PID 2>/dev/null; EXIT_CODE=$?
+        fi
+
         echo "Worker exit code: $EXIT_CODE"
-        
-        # Try to get more information about the failure
         echo ""
         echo "=== Failure Analysis ==="
         echo "Checking system resources..."
@@ -257,15 +306,21 @@ for i in {1..10}; do
         df -h 2>/dev/null || echo "Disk info not available"
         echo "Checking for core dumps..."
         ls -la core* 2>/dev/null || echo "No core dumps found"
-        
+
+        # Terminate the survivor before exiting
+        kill -TERM $MAIN_PID 2>/dev/null || true
+        kill -TERM $ARCHITECT_PID 2>/dev/null || true
+        wait $MAIN_PID 2>/dev/null || true
+        wait $ARCHITECT_PID 2>/dev/null || true
+
         exit $EXIT_CODE
     fi
-    
-    echo "Worker running... check $i/10 (PID: $CELERY_PID)"
+
+    echo "Workers running... check $i/10 (main PID: $MAIN_PID, architect PID: $ARCHITECT_PID)"
     sleep 1
 done
 
-echo "✅ Celery worker is stable after 10 seconds"
+echo "✅ Both Celery workers are stable after 10 seconds"
 
 # Test worker connectivity - wait for worker to be ready first
 echo ""
@@ -297,10 +352,10 @@ try:
     # Give a moment for workers to register
     time.sleep(2)
     
-    # Test if we can connect to our own worker  
+    # Both workers (main@ and architect@) should respond
     result = app.control.inspect().ping()
     if result:
-        print('✅ Worker is responding to ping')
+        print('✅ Workers are responding to ping')
         print(f'Active workers: {list(result.keys())}')
         print(f'Worker count: {len(result)}')
         sys.exit(0)
@@ -324,12 +379,38 @@ except Exception as e:
 }
 done
 
-# Wait for Celery worker to exit and handle signals
-wait $CELERY_PID
+# Supervise both workers: if either exits unexpectedly, tear down the other
+# and exit non-zero so the orchestrator (K8s/compose) restarts the pod.
+supervise_workers() {
+    while true; do
+        MAIN_ALIVE=true
+        ARCHITECT_ALIVE=true
 
-# Get the exit code
+        kill -0 $MAIN_PID 2>/dev/null || MAIN_ALIVE=false
+        kill -0 $ARCHITECT_PID 2>/dev/null || ARCHITECT_ALIVE=false
+
+        if [ "$MAIN_ALIVE" = "false" ]; then
+            wait $MAIN_PID 2>/dev/null; EXIT_CODE=$?
+            echo "❌ Main Celery worker exited with code: $EXIT_CODE — stopping architect worker and exiting"
+            kill -TERM $ARCHITECT_PID 2>/dev/null || true
+            wait $ARCHITECT_PID 2>/dev/null || true
+            return $EXIT_CODE
+        fi
+
+        if [ "$ARCHITECT_ALIVE" = "false" ]; then
+            wait $ARCHITECT_PID 2>/dev/null; EXIT_CODE=$?
+            echo "❌ Architect Celery worker exited with code: $EXIT_CODE — stopping main worker and exiting"
+            kill -TERM $MAIN_PID 2>/dev/null || true
+            wait $MAIN_PID 2>/dev/null || true
+            return $EXIT_CODE
+        fi
+
+        sleep 5
+    done
+}
+
+supervise_workers
 EXIT_CODE=$?
-echo "Celery worker exited with code: $EXIT_CODE"
 
 # Clean up remaining processes
 if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
