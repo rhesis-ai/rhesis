@@ -541,24 +541,32 @@ async def check_metric_compatibility(
             else:
                 capabilities = _infer_endpoint_capabilities(endpoint)
 
-                # Count how many tests are missing expected_response so we can give a
-                # precise warning instead of silently passing when only some tests have it.
-                total_tests = (
-                    db.query(test_test_set_association.c.test_id)
-                    .filter(test_test_set_association.c.test_set_id == test_set_id)
-                    .count()
-                )
-                missing_ground_truth = (
-                    db.query(Prompt.id)
-                    .join(Test, Test.prompt_id == Prompt.id)
-                    .join(
-                        test_test_set_association,
-                        Test.id == test_test_set_association.c.test_id,
+                # Ground-truth coverage only applies to single-turn tests: multi-turn tests
+                # have prompt_id=NULL so the Prompt join would undercount. Skip the query
+                # entirely when no metric needs it.
+                needs_ground_truth = any(m.ground_truth_required for m in scope_compatible)
+                if needs_ground_truth and required_scope == MetricScope.SINGLE_TURN:
+                    total_tests = (
+                        db.query(test_test_set_association.c.test_id)
+                        .filter(test_test_set_association.c.test_set_id == test_set_id)
+                        .count()
                     )
-                    .filter(test_test_set_association.c.test_set_id == test_set_id)
-                    .filter((Prompt.expected_response.is_(None)) | (Prompt.expected_response == ""))
-                    .count()
-                )
+                    missing_ground_truth = (
+                        db.query(Prompt.id)
+                        .join(Test, Test.prompt_id == Prompt.id)
+                        .join(
+                            test_test_set_association,
+                            Test.id == test_test_set_association.c.test_id,
+                        )
+                        .filter(test_test_set_association.c.test_set_id == test_set_id)
+                        .filter(
+                            (Prompt.expected_response.is_(None)) | (Prompt.expected_response == "")
+                        )
+                        .count()
+                    )
+                else:
+                    total_tests = 0
+                    missing_ground_truth = 0
 
                 issues = _check_metric_endpoint_issues(
                     scope_compatible, capabilities, missing_ground_truth, total_tests

@@ -542,31 +542,21 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "Accuracy"
         metric.class_name = "AccuracyMetric"
-        metric.metric_scope = ["single_turn"]
+        metric.metric_scope = ["Single-Turn"]  # real DB value
         metric.context_required = False
         metric.ground_truth_required = False
 
         db = MagicMock()
         db.query.return_value.filter.return_value.all.return_value = [metric]
-        # total_tests count
-        db.query.return_value.filter.return_value.count.return_value = 5
-        # missing ground truth count (chained joins)
-        db.query.return_value.join.return_value.join.return_value\
-            .filter.return_value.filter.return_value.count.return_value = 0
 
         endpoint = MagicMock()
         endpoint.response_mapping = {"output": "$.output"}
         ts_id = uuid4()
 
-        with patch(
-            "rhesis.backend.app.services.preflight.checks.MetricScope"
-        ) as mock_scope:
-            mock_scope.SINGLE_TURN.value = "single_turn"
-            mock_scope.MULTI_TURN.value = "multi_turn"
-            result = await check_metric_compatibility(
-                db, endpoint, ts_id, "define_custom",
-                selected_metrics=[metric], publish=False
-            )
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], publish=False
+        )
 
         assert result.status == PreflightCheckStatus.PASSED
         assert "Accuracy" in result.detail
@@ -578,29 +568,21 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "Faithfulness"
         metric.class_name = "FaithfulnessMetric"
-        metric.metric_scope = ["single_turn"]
+        metric.metric_scope = ["Single-Turn"]  # real DB value
         metric.context_required = True
         metric.ground_truth_required = False
 
         db = MagicMock()
         db.query.return_value.filter.return_value.all.return_value = [metric]
-        db.query.return_value.filter.return_value.count.return_value = 5
-        db.query.return_value.join.return_value.join.return_value\
-            .filter.return_value.filter.return_value.count.return_value = 0
 
         endpoint = MagicMock()
         endpoint.response_mapping = {"output": "$.output"}  # no context key
         ts_id = uuid4()
 
-        with patch(
-            "rhesis.backend.app.services.preflight.checks.MetricScope"
-        ) as mock_scope:
-            mock_scope.SINGLE_TURN.value = "single_turn"
-            mock_scope.MULTI_TURN.value = "multi_turn"
-            result = await check_metric_compatibility(
-                db, endpoint, ts_id, "define_custom",
-                selected_metrics=[metric], publish=False
-            )
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], publish=False
+        )
 
         assert result.status == PreflightCheckStatus.WARNING
         assert "issue(s)" in result.message
@@ -613,13 +595,15 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "Correctness"
         metric.class_name = "CorrectnessMetric"
-        metric.metric_scope = ["single_turn"]
+        metric.metric_scope = ["Single-Turn"]  # real DB value
         metric.context_required = False
         metric.ground_truth_required = True
 
         db = MagicMock()
         db.query.return_value.filter.return_value.all.return_value = [metric]
+        # total_tests count (filter().count())
         db.query.return_value.filter.return_value.count.return_value = 10
+        # missing ground truth count (join().join().filter().filter().count())
         db.query.return_value.join.return_value.join.return_value\
             .filter.return_value.filter.return_value.count.return_value = 3
 
@@ -627,19 +611,43 @@ class TestCheckMetricCompatibility:
         endpoint.response_mapping = {}
         ts_id = uuid4()
 
-        with patch(
-            "rhesis.backend.app.services.preflight.checks.MetricScope"
-        ) as mock_scope:
-            mock_scope.SINGLE_TURN.value = "single_turn"
-            mock_scope.MULTI_TURN.value = "multi_turn"
-            result = await check_metric_compatibility(
-                db, endpoint, ts_id, "define_custom",
-                selected_metrics=[metric], publish=False
-            )
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], publish=False
+        )
 
         assert result.status == PreflightCheckStatus.WARNING
         assert "3" in result.detail
         assert "10" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_skips_ground_truth_query(self):
+        """Ground-truth query must not run for multi-turn scope (prompt_id is NULL)."""
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        metric = MagicMock()
+        metric.name = "ConvJudge"
+        metric.class_name = "ConversationalJudge"
+        metric.metric_scope = ["Multi-Turn"]  # real DB value
+        metric.context_required = False
+        metric.ground_truth_required = True  # even if set, should not trigger query
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [metric]
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {}
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], is_multi_turn=True, publish=False
+        )
+
+        # No ground-truth warning should appear since the query is skipped
+        assert result.status == PreflightCheckStatus.PASSED
+        # The Prompt-join count query must not have been called
+        db.query.return_value.join.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_db_error_returns_failed(self):
