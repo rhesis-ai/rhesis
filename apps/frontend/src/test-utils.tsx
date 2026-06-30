@@ -30,6 +30,11 @@ beforeEach(() => {
 function AllProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={testQueryClient}>
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={lightTheme}>{children}</ThemeProvider>
     </QueryClientProvider>
   );
