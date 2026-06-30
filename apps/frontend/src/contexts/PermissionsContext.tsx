@@ -27,15 +27,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useFeature, useFeaturesState } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
+import { permissionKeys } from '@/constants/query-keys';
+import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { WithPermittedActions } from '@/types/affordances';
 
 export interface AmbientPermissions extends WithPermittedActions {
@@ -73,73 +68,40 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { activeProject } = useActiveProject();
   const { loading: featuresLoading } = useFeaturesState();
   const rbacEnabled = useFeature(FeatureName.RBAC);
-  const [state, setState] = useState<AmbientPermissions>(DEFAULT_STATE);
+  const sessionToken =
+    status === 'authenticated' ? session?.session_token : undefined;
 
-  useEffect(() => {
-    // Feature flags still loading ⇒ RBAC status unknown. Stay loading (so useCan
-    // is fail-closed) rather than dropping to permissive, which would briefly
-    // fail-open and flash EE nav unlocked→locked.
-    if (featuresLoading) {
-      setState(DEFAULT_STATE);
-      return;
-    }
+  const { data, isLoading, error, isSuccess } = useQuery({
+    queryKey: permissionKeys.all(activeProject?.id ?? ''),
+    queryFn: () =>
+      new ApiClientFactory(sessionToken!)
+        .getPermissionsClient()
+        .getMyPermissions(activeProject?.id ?? undefined),
+    enabled: !featuresLoading && rbacEnabled && !!sessionToken,
+    staleTime: 5 * 60_000,
+  });
 
-    // RBAC off ⇒ role-level gating is inert. No request; useCan stays permissive.
-    if (!rbacEnabled) {
-      setState(DISABLED_STATE);
-      return;
-    }
-
-    if (status !== 'authenticated' || !session?.session_token) {
-      // Logout / session expiry: clear any prior permissions so they cannot
-      // leak across an auth transition (fail-closed).
-      setState(DEFAULT_STATE);
-      return;
-    }
-
-    // Reset to loading whenever the token or scope changes so gated UI stays
-    // hidden while the new set is in flight.
-    setState({ ...DEFAULT_STATE, enabled: true });
-
-    let cancelled = false;
-    const client = new ApiClientFactory(
-      session.session_token
-    ).getPermissionsClient();
-
-    client
-      .getMyPermissions(activeProject?.id ?? undefined)
-      .then(caps => {
-        if (cancelled) return;
-        setState({
-          permitted_actions: caps,
-          loading: false,
-          error: null,
-          enabled: true,
-        });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const error = err instanceof Error ? err : new Error(String(err));
-        setState({
-          permitted_actions: [],
-          loading: false,
-          error,
-          enabled: true,
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    featuresLoading,
-    rbacEnabled,
-    status,
-    session?.session_token,
-    activeProject?.id,
-  ]);
-
-  const value = useMemo(() => state, [state]);
+  const value = useMemo<AmbientPermissions>(() => {
+    if (featuresLoading) return DEFAULT_STATE;
+    if (!rbacEnabled && !featuresLoading) return DISABLED_STATE;
+    if (isLoading || (!isSuccess && !error))
+      return { ...DEFAULT_STATE, enabled: true };
+    if (error)
+      return {
+        permitted_actions: [],
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        enabled: true,
+      };
+    if (data)
+      return {
+        permitted_actions: data,
+        loading: false,
+        error: null,
+        enabled: true,
+      };
+    return DEFAULT_STATE;
+  }, [featuresLoading, rbacEnabled, isLoading, isSuccess, error, data]);
 
   return (
     <PermissionsContext.Provider value={value}>

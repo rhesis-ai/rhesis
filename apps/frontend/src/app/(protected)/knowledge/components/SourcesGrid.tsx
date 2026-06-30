@@ -9,10 +9,8 @@ import React, {
 } from 'react';
 import {
   GridColDef,
-  GridRowParams,
-  GridPaginationModel,
   GridFilterModel,
-  GridSortModel,
+  GridRowParams,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -41,6 +39,10 @@ import SourceFilterDrawer, {
   hasActiveSourceFilters,
   countActiveSourceFilters,
 } from './SourceFilterDrawer';
+import { useQueryClient } from '@tanstack/react-query';
+import { sourceKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface SourcesGridProps {
   sessionToken: string;
@@ -103,23 +105,10 @@ export default function SourcesGrid({
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const queryClient = useQueryClient();
 
   // Component state
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
-  const [sortModel, setSortModel] = useState<GridSortModel>([
-    { field: 'created_at', sort: 'desc' },
-  ]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -127,150 +116,105 @@ export default function SourcesGrid({
     useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Data fetching function
-  const fetchSources = useCallback(async () => {
-    if (!sessionToken) return;
+  const {
+    filterModel,
+    paginationModel,
+    sortModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+    handleSortModelChange,
+  } = useGridState({
+    searchQuery,
+    applyDrawerFilters: useCallback(
+      (prev: GridFilterModel) => {
+        const DRAWER_FIELDS = ['source_type.type_value', 'user.name', 'tags'];
+        const otherItems = prev.items.filter(
+          item => !DRAWER_FIELDS.includes(item.field ?? '')
+        );
+        const drawerItems: typeof prev.items = [];
+        if (drawerFilters.sourceType) {
+          drawerItems.push({
+            field: 'source_type.type_value',
+            operator: 'equals',
+            value: drawerFilters.sourceType,
+          });
+        }
+        if (drawerFilters.creator) {
+          drawerItems.push({
+            field: 'user.name',
+            operator: 'contains',
+            value: drawerFilters.creator,
+          });
+        }
+        if (drawerFilters.tag) {
+          drawerItems.push({
+            field: 'tags',
+            operator: 'contains',
+            value: drawerFilters.tag,
+          });
+        }
+        const newItems = [...otherItems, ...drawerItems];
+        return { ...prev, items: newItems };
+      },
+      [drawerFilters]
+    ),
+  });
 
-    try {
-      setLoading(true);
+  const filterString = combineSourceFiltersToOData(filterModel);
+  const sortField = sortModel[0]?.field || 'created_at';
+  const sortOrder = (sortModel[0]?.sort || 'desc') as 'asc' | 'desc';
 
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const sourcesClient = clientFactory.getSourcesClient();
-
-      // Convert filter model to OData filter string
-      const filterString = combineSourceFiltersToOData(filterModel);
-
-      // Get sort field and order from sortModel
-      const sortField = sortModel[0]?.field || 'created_at';
-      const sortOrder = sortModel[0]?.sort || 'desc';
-
-      const apiParams = {
+  const {
+    data: sourcesData,
+    isLoading: loading,
+    error: fetchError,
+  } = useGridQuery({
+    queryKey: sourceKeys.list(
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+      sortField,
+      sortOrder
+    ),
+    queryFn: () => {
+      const client = new ApiClientFactory(sessionToken).getSourcesClient();
+      return client.getSources({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: sortField,
-        sort_order: sortOrder as 'asc' | 'desc',
+        sort_order: sortOrder,
         ...(filterString && { $filter: filterString }),
-      };
+      });
+    },
+    enabled: !!sessionToken,
+  });
 
-      const response = await sourcesClient.getSources(apiParams);
+  const sources = sourcesData?.data ?? [];
+  const totalCount = sourcesData?.pagination.totalCount ?? 0;
+  const error = fetchError ? 'Failed to load knowledge sources' : null;
 
-      setSources(response.data);
-      setTotalCount(response.pagination.totalCount);
-      const filtersActive =
-        filterModel.items.length > 0 ||
-        !!searchQuery ||
-        hasActiveSourceFilters(drawerFilters);
-      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
-      setError(null);
-    } catch {
-      setError('Failed to load knowledge sources');
-      setSources([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    sessionToken,
-    paginationModel.page,
-    paginationModel.pageSize,
-    filterModel,
-    sortModel,
-  ]);
-
-  // Initial data fetch
   useEffect(() => {
-    fetchSources();
-  }, [fetchSources]);
+    if (!sourcesData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveSourceFilters(drawerFilters);
+    if (!filtersActive) onTotalCountChange?.(totalCount);
+  }, [
+    sourcesData,
+    filterModel.items.length,
+    searchQuery,
+    drawerFilters,
+    onTotalCountChange,
+    totalCount,
+  ]);
 
   useEffect(() => {
     if (refreshKey !== undefined && refreshKey > 0) {
-      fetchSources();
+      queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      if (
-        items.length === prev.items.length &&
-        items.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const DRAWER_FIELDS = ['source_type.type_value', 'user.name', 'tags'];
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
-      );
-      const drawerItems: typeof prev.items = [];
-      if (drawerFilters.sourceType) {
-        drawerItems.push({
-          field: 'source_type.type_value',
-          operator: 'equals',
-          value: drawerFilters.sourceType,
-        });
-      }
-      if (drawerFilters.creator) {
-        drawerItems.push({
-          field: 'user.name',
-          operator: 'contains',
-          value: drawerFilters.creator,
-        });
-      }
-      if (drawerFilters.tag) {
-        drawerItems.push({
-          field: 'tags',
-          operator: 'contains',
-          value: drawerFilters.tag,
-        });
-      }
-      const newItems = [...otherItems, ...drawerItems];
-      if (
-        newItems.length === prev.items.length &&
-        newItems.every(
-          (it, i) => JSON.stringify(it) === JSON.stringify(prev.items[i])
-        )
-      )
-        return prev;
-      return { ...prev, items: newItems };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [drawerFilters]);
-
-  // Handle pagination
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
-
-  // Handle filter change
-  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    setFilterModel(newModel);
-    // Reset to first page when filters change
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
-
-  // Handle sort change
-  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
-    setSortModel(newModel);
-    // Reset to first page when sort changes
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
+  }, [refreshKey, queryClient]);
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
@@ -304,7 +248,7 @@ export default function SourcesGrid({
       });
 
       setPendingDeleteId(null);
-      fetchSources();
+      queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
       onRefresh?.();
     } catch {
       notifications.show('Failed to delete source', {

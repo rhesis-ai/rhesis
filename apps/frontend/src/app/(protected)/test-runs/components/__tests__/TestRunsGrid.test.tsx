@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TestRunsGrid from '../TestRunsGrid';
@@ -97,7 +97,14 @@ jest.mock('../TestRunFilterDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="test-run-filter-drawer" /> : null,
-  EMPTY_TEST_RUN_FILTERS: { testSet: '', executor: '', tag: '' },
+  EMPTY_TEST_RUN_FILTERS: {
+    testSet: '',
+    executor: '',
+    tag: '',
+    tags: 'all',
+    comments: 'all',
+    tasks: 'all',
+  },
   hasActiveTestRunFilters: () => false,
   countActiveTestRunFilters: () => 0,
 }));
