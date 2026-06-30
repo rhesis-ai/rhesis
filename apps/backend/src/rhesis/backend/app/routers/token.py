@@ -191,6 +191,7 @@ def current_token_info(
     return TokenInfoResponse(
         project_id=token_project_id,
         organization_id=organization_id,
+        user_email=current_user.email,
     )
 
 

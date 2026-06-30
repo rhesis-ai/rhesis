@@ -76,6 +76,7 @@ class TokenInfoResponse(Base):
 
     project_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+    user_email: Optional[str] = None
 
 
 # Special response schema for token creation that includes the actual token value

@@ -113,6 +113,9 @@ COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh ./start.s
 # Remove .env files
 RUN find /app -name ".env" -type f -delete
 
+# Pre-create the logs directory so rhesis-user can write to it at runtime.
+RUN mkdir -p logs && chown rhesis-user:rhesis-user logs
+
 # Switch to the non-root user
 USER rhesis-user
 

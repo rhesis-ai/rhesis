@@ -137,7 +137,6 @@ def local_storage_service():
     with tempfile.TemporaryDirectory() as temp_dir:
         with pytest.MonkeyPatch().context() as mp:
             mp.setenv("LOCAL_STORAGE_PATH", temp_dir)
-            mp.setenv("BACKEND_ENV", "test")
 
             storage_service = StorageService()
             yield storage_service

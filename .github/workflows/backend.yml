@@ -394,7 +394,7 @@ jobs:
             --memory=1Gi \
             --cpu=1 \
             --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-            --set-env-vars="ENVIRONMENT=${{ env.ENVIRONMENT }},DB_DRIVER=${{ secrets.DB_DRIVER }},DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_NAME=${{ secrets.DB_NAME }},APP_DB_USER=${{ secrets.APP_DB_USER }},APP_DB_PASS=${{ secrets.APP_DB_PASS }},ADMIN_DB_USER=${{ secrets.ADMIN_DB_USER }},ADMIN_DB_PASS=${{ secrets.ADMIN_DB_PASS }}" \
+            --set-env-vars="DB_DRIVER=${{ secrets.DB_DRIVER }},DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_NAME=${{ secrets.DB_NAME }},APP_DB_USER=${{ secrets.APP_DB_USER }},APP_DB_PASS=${{ secrets.APP_DB_PASS }},ADMIN_DB_USER=${{ secrets.ADMIN_DB_USER }},ADMIN_DB_PASS=${{ secrets.ADMIN_DB_PASS }}" \
             --args=bash,-c,./migrate.sh
 
           echo "✅ Migration job definition updated"
@@ -538,7 +538,6 @@ jobs:
               --revision-suffix=${{ env.COMMIT_SHA }} \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
-          ENVIRONMENT=${{ env.ENVIRONMENT }},
           DB_DRIVER=${{ secrets.DB_DRIVER }},
           DB_HOST=${{ secrets.DB_HOST }},
           DB_PORT=${{ secrets.DB_PORT }},
@@ -622,7 +621,6 @@ jobs:
               --port=8080 \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
-          ENVIRONMENT=${{ env.ENVIRONMENT }},
           DB_DRIVER=${{ secrets.DB_DRIVER }},
           DB_HOST=${{ secrets.DB_HOST }},
           DB_PORT=${{ secrets.DB_PORT }},
@@ -827,7 +825,6 @@ jobs:
             --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="$(cat <<EOF
           PROJECT_ID=${{ env.PROJECT_ID }},
-          ENVIRONMENT=${{ env.ENVIRONMENT }},
           DB_DRIVER=${{ secrets.DB_DRIVER }},
           DB_HOST=${{ secrets.DB_HOST }},
           DB_PORT=${{ secrets.DB_PORT }},
@@ -916,7 +913,6 @@ jobs:
             --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="$(cat <<EOF
           PROJECT_ID=${{ env.PROJECT_ID }},
-          ENVIRONMENT=${{ env.ENVIRONMENT }},
           DB_DRIVER=${{ secrets.DB_DRIVER }},
           DB_HOST=${{ secrets.DB_HOST }},
           DB_PORT=${{ secrets.DB_PORT }},

@@ -84,7 +84,8 @@ export interface Endpoint {
 
 // Type for editing endpoints - includes write-only fields
 export interface EndpointEditData extends Partial<Endpoint> {
-  auth_token?: string;
+  // null clears the stored token; undefined leaves it untouched
+  auth_token?: string | null;
   client_secret?: string;
 }
 

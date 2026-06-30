@@ -193,10 +193,9 @@ def _get_api_base_url() -> str:
 def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
-    Never uses any request-derived data. Uses three independent signals:
+    Never uses any request-derived data. Uses two independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
     2. API_BASE_URL explicitly configured for localhost
-    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
@@ -205,11 +204,6 @@ def is_running_locally() -> bool:
     # Signal 2: API_BASE_URL points to a local address
     parsed_host = urlparse(_get_api_base_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
-        return True
-
-    # Signal 3: BACKEND_ENV explicitly set to local
-    settings = get_application_settings()
-    if settings.is_local:
         return True
 
     return False
@@ -1351,7 +1345,6 @@ async def logout(
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
     frontend_url = get_frontend_settings().url
-    frontend_env = os.getenv("FRONTEND_ENV", "development")
 
     # Check if this is an API call (from frontend middleware)
     if "application/json" in accept_header or "api" in request.url.path:
@@ -1361,54 +1354,22 @@ async def logout(
         return_to_url = frontend_url + "/"
         response = RedirectResponse(url=return_to_url)
 
-    # Clear all authentication-related cookies on the server side
-    cookies_to_clear = [
-        "next-auth.session-token",
-        "next-auth.csrf-token",
-        "next-auth.callback-url",
-        "authjs.session-token",
-        "authjs.csrf-token",
-        "__Host-next-auth.csrf-token",
-        "__Secure-next-auth.callback-url",
-        "__Secure-next-auth.session-token",
-        "session",
-    ]
-
-    for cookie_name in cookies_to_clear:
+    # Clear the backend SessionMiddleware cookie (host-only on the API origin).
+    # NextAuth cookies live on the frontend host and are cleared there.
+    # Emit both Secure and non-Secure clears so logout works regardless of
+    # how the cookie was set (SessionMiddleware uses https_only=not
+    # is_running_locally()). The mismatched variant is a harmless no-op.
+    for secure in (False, True):
         response.set_cookie(
-            key=cookie_name,
+            key="session",
             value="",
             max_age=0,
             expires=0,
             path="/",
             httponly=True,
+            secure=secure,
             samesite="lax",
         )
-
-        if frontend_env in ["staging", "production"]:
-            domain = "rhesis.ai" if frontend_env == "production" else "stg.rhesis.ai"
-            response.set_cookie(
-                key=cookie_name,
-                value="",
-                max_age=0,
-                expires=0,
-                path="/",
-                domain=domain,
-                httponly=True,
-                secure=True,
-                samesite="lax",
-            )
-            response.set_cookie(
-                key=cookie_name,
-                value="",
-                max_age=0,
-                expires=0,
-                path="/",
-                domain=f".{domain}",
-                httponly=True,
-                secure=True,
-                samesite="lax",
-            )
 
     logger.info("Logout completed, cookies cleared")
     return response

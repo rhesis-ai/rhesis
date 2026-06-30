@@ -20,7 +20,6 @@ _TEST_DB_NAME = "rhesis-test-db"
 _TEST_DB_DRIVER = "postgresql"
 
 _TEST_ENV_VARS = {
-    "ENVIRONMENT": "test",
     "LOG_LEVEL": "WARNING",
     "RHESIS_CONNECTOR_DISABLED": "true",
     "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
