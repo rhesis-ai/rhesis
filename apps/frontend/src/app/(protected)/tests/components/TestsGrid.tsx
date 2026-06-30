@@ -695,7 +695,7 @@ export default function TestsTable({
   const handleTestSaved = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: testKeys.all() });
     if (paginationModel.page > 0) {
-      setPaginationModel({ ...paginationModel, page: 0 });
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
     }
     onRefresh?.();
   }, [queryClient, paginationModel.page, onRefresh]);

@@ -55,7 +55,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
   });
 
   const value = useMemo<FeaturesState>(() => {
-    if (isLoading || !data) return DEFAULT_STATE;
+    if (isLoading) return DEFAULT_STATE;
     if (error)
       return {
         license: null,

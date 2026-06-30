@@ -684,7 +684,7 @@ function TestRunsGrid({
   const handleRunKindFilterChange = useCallback(
     (value: RunKindFilter) => {
       setRunKindFilter(value);
-      setPaginationModel({ ...paginationModel, page: 0 });
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
     },
     [setPaginationModel]
   );
