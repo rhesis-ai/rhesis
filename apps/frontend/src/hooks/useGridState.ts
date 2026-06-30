@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type {
   GridFilterModel,
   GridPaginationModel,
@@ -23,6 +24,7 @@ export interface UseGridStateResult {
   sortModel: GridSortModel;
   setFilterModel: (model: GridFilterModel) => void;
   setPaginationModel: React.Dispatch<React.SetStateAction<GridPaginationModel>>;
+  setPaginationModel: (model: GridPaginationModel) => void;
   handlePaginationModelChange: (model: GridPaginationModel) => void;
   handleFilterModelChange: (model: GridFilterModel) => void;
   handleSortModelChange: (model: GridSortModel) => void;
@@ -41,6 +43,7 @@ export function useGridState({
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: initialPageSize,
+    pageSize: 25,
   });
   const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
 
