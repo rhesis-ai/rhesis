@@ -16,10 +16,18 @@ if (typeof afterEach === 'function') {
   });
 }
 import { ThemeProvider } from '@mui/material/styles';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import lightTheme from '@/styles/theme';
 
 function AllProviders({ children }: { children: React.ReactNode }) {
-  return <ThemeProvider theme={lightTheme}>{children}</ThemeProvider>;
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={lightTheme}>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
 }
 
 function render(
