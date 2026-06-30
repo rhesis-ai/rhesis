@@ -1,4 +1,5 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { EntityType } from '@/types/entity-type';
 import { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { Status as ApiStatus } from '@/utils/api-client/interfaces/status';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -51,7 +52,9 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
 
     const clientFactory = new ApiClientFactory(token);
     const statusClient = clientFactory.getStatusClient();
-    const apiStatuses = await statusClient.getStatuses({ entity_type: 'Task' });
+    const apiStatuses = await statusClient.getStatuses({
+      entity_type: EntityType.TASK,
+    });
 
     // Convert API statuses to task statuses and filter for specific options
     const allowedStatusNames = ['Open', 'In Progress', 'Completed'];

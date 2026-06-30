@@ -1,4 +1,4 @@
-import { EntityType } from '@/types/tasks';
+import { EntityType } from '@/types/entity-type';
 import type { TaskMetadata } from '@/utils/api-client/interfaces/task';
 
 /**
@@ -103,7 +103,10 @@ export const buildLinkedEntityUrl = (task: {
     return null;
   }
 
-  if (task.entity_type === 'TestResult' && task.task_metadata?.test_run_id) {
+  if (
+    task.entity_type === EntityType.TEST_RESULT &&
+    task.task_metadata?.test_run_id
+  ) {
     const queryParams = new URLSearchParams();
     queryParams.append('selectedresult', task.entity_id);
     const queryString = queryParams.toString();
