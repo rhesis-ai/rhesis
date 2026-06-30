@@ -57,16 +57,19 @@ endpoint = Endpoints.pull(name="Customer Support Bot")
 response = endpoint.invoke(input="What are your business hours?")
 print(f"Response: {response['output']}")
 
-# Multi-turn with session
+# Multi-turn with a conversation ID
 response1 = endpoint.invoke(
     input="I need help with my order",
-    session_id="session-abc"
+    conversation_id="conversation-abc"
 )
 response2 = endpoint.invoke(
     input="It was order #12345",
-    session_id="session-abc"  # Same session for context
+    conversation_id=response1.get("conversation_id", "conversation-abc")
 )`}
 </CodeBlock>
+
+`conversation_id` is the preferred parameter for multi-turn invocations.
+`session_id` remains available as a deprecated alias for older scripts.
 
 ### Response Structure
 
@@ -75,7 +78,7 @@ The `invoke()` method returns a standardized response:
 <CodeBlock filename="response_structure.py" language="python">
 {`{
     "output": "Response text from the endpoint",
-    "session_id": "session-abc",
+    "conversation_id": "conversation-abc",
     "context": [...],       # Optional retrieval context (e.g. RAG sources)
     "metadata": {...},      # Optional structured metadata (e.g. confidence scores)
     "tool_calls": [...]     # Optional tool/function calls made by the endpoint
@@ -151,8 +154,8 @@ client = RhesisClient(
 )
 
 @endpoint()
-def my_chatbot(input: str, session_id: str = None) -> dict:
-    return {"output": process(input), "session_id": session_id}`}
+def my_chatbot(input: str, conversation_id: str = None) -> dict:
+    return {"output": process(input), "conversation_id": conversation_id}`}
 </CodeBlock>
 
 These endpoints can be fetched and used like any other:

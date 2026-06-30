@@ -103,7 +103,23 @@ When no experiment is associated with a test run, `params` is an empty object an
 }`}
 </CodeBlock>
 
-SDK connector endpoints can also receive parameters as keyword arguments or via `Parameters.get()` — see [Connector Injection](/docs/experiments/connector-injection).
+### How it works
+
+Parameter injection follows the same flow for both REST and SDK connector endpoints:
+
+1. When a test run is created, the experiment's parameter values are **resolved once** and stored as an immutable snapshot on the test run.
+2. During execution, the snapshot is injected into the Jinja2 template context as `params`.
+3. The template renderer evaluates `\{\{ params.model \}\}` (or any other parameter name) against the snapshot.
+
+This means every test in a run uses the exact same parameter values, and those values are recorded alongside the test results for full reproducibility.
+
+### REST vs. SDK connector
+
+Both endpoint types receive the same resolved parameters:
+
+- **REST endpoints** access parameters through `\{\{ params.* \}\}` in request mappings, as shown above. Your external API receives the rendered values in the HTTP request body.
+- **SDK connector endpoints** should access parameters through `\{\{ params.* \}\}` in `request_mapping`, or read the test-run snapshot through `Parameters.get()` from inside the function. The legacy `@endpoint(parameters=...)` kwarg-merging path is deprecated. See [Connector Injection](/docs/experiments/connector-injection) for details.
+
 
 ## Managing Endpoints
 
@@ -111,7 +127,12 @@ SDK connector endpoints can also receive parameters as keyword arguments or via 
 - **Duplicate** — Click **Duplicate** on the detail page to copy the full configuration. "(Copy)" is appended to the name. You can also bulk-duplicate from the grid.
 - **Delete** — Select one or more endpoints from the grid and click **Delete**. Historical test results are preserved.
 
-The detail page has four tabs: **Overview** (template + response mapping), **Headers** (auth token + custom headers), **Test** (interactive test-and-map workbench), and **Test Runs** (execution history).
+The detail page uses the same configuration structure as the creation wizard:
+**Overview** (name, URL, protocol, method, environment, and tracing toggle),
+**Connection** (auth token, OAuth client credentials, and custom headers),
+**Mapping** (request template and response mapping), and **Test**
+(interactive test-and-map workbench). Test execution history is available from
+the Test Runs pages and grids rather than an endpoint detail tab.
 
 <Callout type="default">
   **Next Steps**

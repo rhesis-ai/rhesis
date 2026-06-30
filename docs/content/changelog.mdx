@@ -128,12 +128,12 @@ Adaptive testing surfaces were expanded and renamed:
 **File Storage Migration**
 
 All file content moved from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). This eliminates Cloud Run memory crashes from multi-MB file buffers and brings consistent streaming upload/download semantics.
+**Test Explorer and Architect**
 
-**Breaking changes:**
-
-- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
-- `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
-- `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
+- Test Explorer adds adaptive test-set creation, import, export, and evaluation workflows
+- Architect task progress events stream worker updates into the active chat bubble
+- Architect plan tracking includes per-category progress and ready/blocked gates
+- Adaptive testing surfaces are now named Explorer across backend, frontend, and SDK clients
 
 **New file features:**
 
@@ -142,10 +142,11 @@ All file content moved from Postgres `bytea` columns to object storage (GCS/S3/l
 - `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes
 - `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`)
 - ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching
+### Deployment notes
 
-**Deployment:** Apply Alembic revision `9b25f353e9c8` (adds storage columns), deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
-
-**IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
+- Apply Alembic revision `9b25f353e9c8`, deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy file `content` column.
+- Backend and worker identities need object read/write permissions for the configured storage bucket or filesystem path.
+- `./rh start` now prompts interactively for `RHESIS_API_KEY` when the local environment file does not contain one.
 
 **Enterprise SSO**
 

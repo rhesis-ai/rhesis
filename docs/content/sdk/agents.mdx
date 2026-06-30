@@ -47,6 +47,73 @@ print(result.final_answer)`}
 
 `MCPTool` reconnects on the next call when the underlying transport or session is lost. This makes it safe to reuse across repeated script or notebook calls that create new event loops. If the transport drops *during* a tool call, that call fails and the caller is responsible for retrying.
 
+## Connect to external MCP servers
+
+Use `MCPAgent` when your workflow needs tools from an external MCP server such
+as GitHub, Jira, Linear, Notion, or a custom stdio, HTTP, or SSE server. The
+public import path is `rhesis.sdk.agents.mcp`.
+
+<CodeBlock filename="external_mcp_agent.py" language="python">
+{`from rhesis.sdk.agents.mcp import MCPAgent, MCPClientFactory
+
+factory = MCPClientFactory.from_provider(
+    "github",
+    credentials={
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_...",
+    },
+)
+client = factory.create_client("github")
+
+agent = MCPAgent(
+    model="openai/gpt-4o-mini",
+    mcp_client=client,
+    max_iterations=8,
+)
+
+result = agent.run("List the open issues assigned to me and summarize the blockers.")
+print(result.final_answer)`}
+</CodeBlock>
+
+`MCPAgent` connects before each run and disconnects afterward. It raises
+MCP-specific exceptions for configuration, validation, application, and
+connection failures.
+
+| Class | Purpose |
+| --- | --- |
+| `MCPClient` | Low-level client for one MCP server using `stdio`, `http`, or `sse` transport |
+| `MCPClientFactory` | Builds clients from an `mcpServers` configuration or built-in provider template |
+| `MCPAgent` | ReAct agent that discovers and calls tools exposed by the MCP client |
+| `ToolExecutor` | Executes tool calls against the connected MCP server |
+
+For custom servers, pass a config dictionary with an `mcpServers` key:
+
+<CodeBlock filename="custom_mcp_server.py" language="python">
+{`from rhesis.sdk.agents.mcp import MCPAgent, MCPClientFactory
+
+factory = MCPClientFactory(
+    config_dict={
+        "mcpServers": {
+            "local-tools": {
+                "transport": "stdio",
+                "command": "python",
+                "args": ["./server.py"],
+                "env": {"LOG_LEVEL": "INFO"},
+            }
+        }
+    }
+)
+
+client = factory.create_client("local-tools")
+agent = MCPAgent(mcp_client=client)
+result = agent.run("Use the local tools to inspect today's queue.")
+print(result.final_answer)`}
+</CodeBlock>
+
+<Callout type="info">
+  If you imported MCP helpers from the old `rhesis.sdk.services.mcp` path, move
+  those imports to `rhesis.sdk.agents.mcp`.
+</Callout>
+
 ## Create a custom tool
 
 Subclass `BaseTool` when your agent needs SDK-side behavior that is not exposed by MCP.

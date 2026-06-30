@@ -42,6 +42,7 @@ model = get_model("polyphemus")
 synthesizer = PromptSynthesizer(
     prompt="Generate adversarial tests for a medical advice chatbot",
     model=model,
+    harmful=True,
 )
 test_set = synthesizer.generate(num_tests=20)
 
@@ -63,6 +64,7 @@ synthesizer = Synthesizer(
     categories=["fraudulent claims", "policy disputes", "escalation attempts"],
     topics=["coverage denial", "claim manipulation", "social engineering"],
     model=model,
+    harmful=True,
 )
 test_set = synthesizer.generate(num_tests=30)`}
 </CodeBlock>
@@ -88,8 +90,23 @@ adversarial_model = get_model("polyphemus")
 adversarial_synthesizer = PromptSynthesizer(
     prompt="Generate adversarial tests targeting policy violations and edge cases",
     model=adversarial_model,
+    harmful=True,
 )
 adversarial_tests = adversarial_synthesizer.generate(num_tests=20)`}
+</CodeBlock>
+
+<Callout type="info">
+  `harmful=True` switches SDK synthesizer prompts to adversarial-only generation.
+  Polyphemus also injects a server-side adversarial primer, so direct
+  `model.generate()` calls can differ from raw model-serving responses.
+</Callout>
+
+## Notebook example
+
+The repository includes a runnable notebook for adversarial test generation:
+
+<CodeBlock filename="terminal" language="bash">
+{`jupyter notebook examples/polyphemus.ipynb`}
 </CodeBlock>
 
 ## Generating Text Directly

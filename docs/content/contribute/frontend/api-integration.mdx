@@ -42,7 +42,7 @@ The API client is implemented in `src/utils/api-client/`:
           description: "Main export file",
         },
         {
-          name: "client.ts",
+          name: "base-client.ts",
           type: "file",
           description: "Base API client implementation",
         },
@@ -107,113 +107,100 @@ The API client is implemented in `src/utils/api-client/`:
 
 ### Base Client
 
-The base client is implemented in `src/utils/api-client/client.ts` and handles communication with the Rhesis backend API:
+The base client is implemented in `src/utils/api-client/base-client.ts` and resolves the backend URL when each client instance is constructed. This avoids holding a server-only URL in a browser bundle.
 
-<CodeBlock filename="client.ts" language="typescript">
-{`import { getTokens } from '@/auth';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+<CodeBlock filename="src/utils/api-client/base-client.ts" language="typescript">
+{`import { API_CONFIG, API_ENDPOINTS } from './config';
+import { getBaseUrl } from '../url-resolver';
+import { readActiveProjectId } from '../active-project';
+import { joinUrl } from '@/utils/url';
 
-const API_BASE_URL = getClientApiBaseUrl();
+export class BaseApiClient {
+  protected baseUrl: string;
+  protected sessionToken?: string;
+  protected projectId?: string;
 
-export class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
+  constructor(sessionToken?: string, projectId?: string) {
+    this.baseUrl = getBaseUrl();
+    this.sessionToken = sessionToken;
+    this.projectId = projectId;
   }
-}
 
-export async function apiClient<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const tokens = getTokens();
-  const headers = new Headers(options.headers);
+  protected getHeaders(): HeadersInit {
+    const headers: Record<string, string> = { ...API_CONFIG.defaultHeaders };
+    if (this.sessionToken) {
+      headers.Authorization = \`Bearer \${this.sessionToken}\`;
+    }
 
-// Add authentication header if tokens exist
-if (tokens?.accessToken) {
-headers.append('Authorization', \`Bearer \${tokens.accessToken}\`);
-}
+    const activeProject = this.projectId ?? readActiveProjectId();
+    if (activeProject) {
+      headers['X-Project-Id'] = activeProject;
+    }
+    return headers;
+  }
 
-// Add content type if not present
-if (!headers.has('Content-Type') && options.method !== 'GET') {
-headers.append('Content-Type', 'application/json');
-}
-
-const response = await fetch(\`\${API_BASE_URL}\${endpoint}\`, {
-...options,
-headers,
-});
-
-// Handle non-JSON responses
-const contentType = response.headers.get('Content-Type');
-if (contentType && !contentType.includes('application/json')) {
-if (!response.ok) {
-throw new ApiError(response.status, response.statusText);
-}
-return response as unknown as T;
-}
-
-// Parse JSON response
-const data = await response.json();
-
-// Handle error responses
-if (!response.ok) {
-throw new ApiError(
-response.status,
-data.message || response.statusText
-);
-}
-
-return data;
+  protected async fetch<T>(
+    endpoint: keyof typeof API_ENDPOINTS | string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const path = API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const url = joinUrl(this.baseUrl, path);
+    const response = await fetch(url, { ...options, headers: this.getHeaders() });
+    return response.json() as Promise<T>;
+  }
 }`}
-
 </CodeBlock>
+
+`getBaseUrl()` chooses `BACKEND_URL` for server-side code and `NEXT_PUBLIC_API_BASE_URL` for browser-side code, with localhost normalized to `127.0.0.1` to avoid IPv6 localhost issues.
+
+### Runtime backend proxy
+
+Route handlers under `src/app/api/` proxy frontend `/api/*` requests to the backend at runtime:
+
+<CodeBlock filename="src/app/api/[...path]/route.ts" language="typescript">
+{`import { NextRequest } from 'next/server';
+import { proxyToBackend } from '@/utils/backend-proxy';
+
+export const dynamic = 'force-dynamic';
+
+export function GET(req: NextRequest) {
+  return proxyToBackend(req);
+}
+export function POST(req: NextRequest) {
+  return proxyToBackend(req);
+}`}
+</CodeBlock>
+
+`proxyToBackend()` reads `BACKEND_URL` on every request, forwards authorization, content, and active-project headers, and preserves redirect responses. Do not add `next.config.mjs` rewrites for `/api/*`; rewrite destinations are baked into `.next/routes-manifest.json` at build time.
 
 ### Endpoint Definitions
 
 API endpoints are defined in separate files for each resource, all targeting the Rhesis backend API:
 
-<CodeBlock language="tsx" filename="src/utils/api-client/endpoints/projects.ts">
-{`// src/utils/api-client/endpoints/projects.ts
-import { apiClient } from "../client";
-import type { Project, ProjectCreate, ProjectUpdate } from "../types/projects";
+<CodeBlock language="tsx" filename="src/utils/api-client/projects-client.ts">
+{`import { BaseApiClient } from './base-client';
+import { API_ENDPOINTS } from './config';
+import { Project, ProjectCreate, ProjectUpdate } from './interfaces/project';
 
-export const projectsApi = {
-  getAll: async (params?: { skip?: number; limit?: number }) => {
-    return apiClient<{ data: Project[]; total: number }>("/projects", {
-      method: "GET",
-      ...(params && {
-        query: new URLSearchParams(params as Record<string, string>).toString(),
-      }),
-    });
-  },
+export class ProjectsClient extends BaseApiClient {
+  async getProject(id: string): Promise<Project> {
+    return this.fetch<Project>(\`\${API_ENDPOINTS.projects}/\${id}\`);
+  }
 
-  getById: async (id: string) => {
-    return apiClient<Project>(\`/projects/\${id}\`, {
-      method: "GET",
+  async createProject(project: ProjectCreate): Promise<Project> {
+    return this.fetch<Project>(API_ENDPOINTS.projects, {
+      method: 'POST',
+      body: JSON.stringify(project),
     });
-  },
+  }
 
-  create: async (data: ProjectCreate) => {
-    return apiClient<Project>("/projects", {
-      method: "POST",
-      body: JSON.stringify(data),
+  async updateProject(id: string, project: ProjectUpdate): Promise<Project> {
+    return this.fetch<Project>(\`\${API_ENDPOINTS.projects}/\${id}\`, {
+      method: 'PUT',
+      body: JSON.stringify(project),
     });
-  },
-
-  update: async (id: string, data: ProjectUpdate) => {
-    return apiClient<Project>(\`/projects/\${id}\`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-  },
-
-  delete: async (id: string) => {
-    return apiClient<void>(\`/projects/\${id}\`, {
-      method: "DELETE",
-    });
-  },
-};`}
+  }
+}`}
 </CodeBlock>
 
 ### WebSocket API for Playground chat
@@ -446,16 +433,22 @@ export async function deleteProject(id: string) {
 The Rhesis backend API URL is configured in environment variables:
 
 <CodeBlock filename=".env.local" language="bash">
-  {`# .env.local
-API_BASE_URL=https://api.rhesis.ai`}
+{`# Browser-visible API URL
+NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
+
+# Server-side Route Handler proxy target
+BACKEND_URL=http://backend:8080`}
 </CodeBlock>
 
-For local development, you might point to a local instance of the Rhesis backend:
+For local development, both can point to your local backend:
 
 <CodeBlock language="bash" filename=".env.local">
 {`# .env.local
-API_BASE_URL=http://localhost:3001`}
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+BACKEND_URL=http://localhost:8080`}
 </CodeBlock>
+
+Container startup runs `scripts/replace-runtime-env.sh`, which replaces the `__NEXT_PUBLIC_API_BASE_URL__` and `__NEXT_PUBLIC_QUICK_START__` placeholders in the built bundle. This lets one frontend image move between local, preview, staging, and production deployments without rebuilding.
 
 ## Error Handling
 
@@ -466,7 +459,6 @@ The API client includes centralized error handling for Rhesis backend API errors
 "use client";
 
 import { useEffect } from "react";
-import { ApiError } from "@/utils/api-client/client";
 
 export default function ErrorBoundary({
   error,
@@ -476,13 +468,14 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log error to monitoring service
     console.error(error);
   }, [error]);
 
-  if (error instanceof ApiError) {
+  const apiStatus = "status" in error ? (error as Error & { status?: number }).status : undefined;
+
+  if (apiStatus) {
     // Handle API-specific errors from the Rhesis backend
-    if (error.status === 401) {
+    if (apiStatus === 401) {
       return (
         <div>
           <h2>Session expired</h2>
@@ -494,7 +487,7 @@ export default function ErrorBoundary({
       );
     }
 
-    if (error.status === 403) {
+    if (apiStatus === 403) {
       return (
         <div>
           <h2>Access denied</h2>
