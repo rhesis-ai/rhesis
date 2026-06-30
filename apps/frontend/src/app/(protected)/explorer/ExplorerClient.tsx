@@ -13,7 +13,6 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 import ExplorerGrid from './components/ExplorerGrid';
@@ -33,20 +32,6 @@ export default function ExplorerClient() {
   useDocumentTitle('Explorer');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const client = new ApiClientFactory(sessionToken).getExplorerClient();
-        const sessions = await client.getExplorerTestSets();
-        setSessionCount(sessions.length);
-      } catch {
-        setSessionCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
@@ -134,6 +119,7 @@ export default function ExplorerClient() {
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setSessionCount}
               />
             </Paper>
           )}

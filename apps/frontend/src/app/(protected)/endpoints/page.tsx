@@ -15,7 +15,6 @@ import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
@@ -31,26 +30,6 @@ export default function EndpointsPage() {
   useDocumentTitle('Endpoints');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const response = await endpointsClient.getEndpoints({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        setEndpointCount(response.pagination?.totalCount ?? 0);
-      } catch {
-        setEndpointCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
@@ -138,6 +117,7 @@ export default function EndpointsPage() {
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setEndpointCount}
               />
             </Paper>
           )}

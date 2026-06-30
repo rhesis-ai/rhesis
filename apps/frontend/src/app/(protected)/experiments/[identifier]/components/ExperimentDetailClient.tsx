@@ -130,9 +130,11 @@ export default function ExperimentDetailClient({
         const client = apiFactory.getParametersClient();
         const detail = await client.getExperiment(experimentId);
         setExperiment(detail);
-        const schemaResp = await client.getSchema(detail.project_id);
+        const [schemaResp, envResp] = await Promise.all([
+          client.getSchema(detail.project_id),
+          client.getEnvironments(detail.project_id),
+        ]);
         setSchema(schemaResp);
-        const envResp = await client.getEnvironments(detail.project_id);
         setEnvironments(envResp);
         const latest = detail.versions[detail.versions.length - 1];
         setDraft(valuesFromVersion(latest, schemaResp));
