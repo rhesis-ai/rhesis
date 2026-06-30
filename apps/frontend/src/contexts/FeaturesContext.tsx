@@ -18,17 +18,12 @@
  */
 
 import { FeatureName } from '@/constants/features';
+import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { LicenseInfo } from '@/utils/api-client/features-client';
+import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 interface FeaturesState {
   license: LicenseInfo | null;
@@ -48,56 +43,33 @@ const FeaturesContext = createContext<FeaturesState>(DEFAULT_STATE);
 
 export function FeaturesProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  const [state, setState] = useState<FeaturesState>(DEFAULT_STATE);
+  const sessionToken =
+    status === 'authenticated' ? session?.session_token : undefined;
 
-  useEffect(() => {
-    // Wait for the session to resolve before attempting the fetch.
-    // Unauthenticated users never reach protected layouts, but if the
-    // session is still loading we stay in the fail-closed default state.
-    if (status !== 'authenticated' || !session?.session_token) {
-      return;
-    }
+  const { data, isLoading, error } = useQuery({
+    queryKey: featureKeys.all(),
+    queryFn: () =>
+      new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
+    enabled: !!sessionToken,
+    staleTime: 5 * 60_000,
+  });
 
-    // Reset to loading each time the token changes (e.g. after re-login).
-    // Without this the component stays in the previous error/stale state
-    // while the new fetch is in flight, keeping gated UI hidden.
-    setState(DEFAULT_STATE);
-
-    let cancelled = false;
-    const client = new ApiClientFactory(
-      session.session_token
-    ).getFeaturesClient();
-
-    client
-      .getFeatures()
-      .then(response => {
-        if (cancelled) return;
-        setState({
-          license: response.license,
-          enabled: new Set<string>(response.enabled),
-          loading: false,
-          error: null,
-        });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const error = err instanceof Error ? err : new Error(String(err));
-        setState({
-          license: null,
-          enabled: new Set<string>(),
-          loading: false,
-          error,
-        });
-      });
-
-    return () => {
-      cancelled = true;
+  const value = useMemo<FeaturesState>(() => {
+    if (isLoading || !data) return DEFAULT_STATE;
+    if (error)
+      return {
+        license: null,
+        enabled: new Set<string>(),
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    return {
+      license: data.license,
+      enabled: new Set<string>(data.enabled),
+      loading: false,
+      error: null,
     };
-  }, [status, session?.session_token]);
-
-  // Stable reference avoids re-rendering every consumer on unrelated
-  // parent re-renders.
-  const value = useMemo(() => state, [state]);
+  }, [data, isLoading, error]);
 
   return (
     <FeaturesContext.Provider value={value}>
