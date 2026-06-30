@@ -247,7 +247,7 @@ class TestGetMyPermissions:
     def test_non_member_without_project_id_gets_standard_capabilities(
         self, authed_client: TestClient, mock_non_member
     ):
-        """Org member without ownership or project membership gets standard (non-owner) capabilities.
+        """Org member without project membership gets standard (non-owner) capabilities.
 
         Community tier rule: any authenticated org member may exercise non-owner-only
         capabilities when no project scope is given.  The ORM scope already limits

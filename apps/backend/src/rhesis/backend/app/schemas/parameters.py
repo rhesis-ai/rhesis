@@ -35,6 +35,7 @@ from pydantic import (
     ValidationError,
     model_validator,
 )
+
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
