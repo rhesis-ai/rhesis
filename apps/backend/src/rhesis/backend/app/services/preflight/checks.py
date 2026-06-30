@@ -555,9 +555,7 @@ async def check_metric_compatibility(
                         Test.id == test_test_set_association.c.test_id,
                     )
                     .filter(test_test_set_association.c.test_set_id == test_set_id)
-                    .filter(
-                        (Prompt.expected_response.is_(None)) | (Prompt.expected_response == "")
-                    )
+                    .filter((Prompt.expected_response.is_(None)) | (Prompt.expected_response == ""))
                     .count()
                 )
 
