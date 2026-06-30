@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -13,7 +13,6 @@ import { MenuBookIcon } from '@/components/icons';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
@@ -37,29 +36,6 @@ export default function KnowledgeClientWrapper({
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
-
-  useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const sourcesClient = apiFactory.getSourcesClient();
-        const response = await sourcesClient.getSources({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        const count = Array.isArray(response)
-          ? response.length
-          : (response?.pagination?.totalCount ?? 0);
-        setSourceCount(count);
-      } catch {
-        setSourceCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   const handleUploadSuccess = useCallback(() => {
     setUploadDrawerOpen(false);
@@ -145,6 +121,7 @@ export default function KnowledgeClientWrapper({
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setSourceCount}
               />
             </Paper>
           )}

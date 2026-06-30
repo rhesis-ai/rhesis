@@ -45,6 +45,7 @@ interface EndpointsGridProps {
   sessionToken?: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
   projectId?: string;
 }
 
@@ -102,6 +103,7 @@ export default function EndpointsGrid({
   sessionToken: sessionTokenProp,
   refreshKey,
   onRefresh,
+  onTotalCountChange,
   projectId,
 }: EndpointsGridProps) {
   const theme = useTheme();
@@ -153,17 +155,23 @@ export default function EndpointsGrid({
 
       setEndpoints(response.data);
       setTotalCount(response.pagination.totalCount);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery.trim() ||
+        hasActiveEndpointFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
-      const hasActiveFilters =
-        hasActiveEndpointFilters(drawerFilters) || searchQuery.trim() !== '';
-      if (hasActiveFilters) {
-        setEndpoints([]);
-        setTotalCount(0);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery.trim() ||
+        hasActiveEndpointFilters(drawerFilters);
+      setEndpoints([]);
+      setTotalCount(0);
+      if (filtersActive) {
         setError(null);
       } else {
         setError('Failed to load endpoints');
-        setEndpoints([]);
       }
     } finally {
       setLoading(false);
@@ -199,9 +207,14 @@ export default function EndpointsGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   useEffect(() => {
@@ -236,9 +249,15 @@ export default function EndpointsGrid({
         });
       }
 
-      return { ...prev, items: [...otherItems, ...drawerItems] };
+      const newItems = [...otherItems, ...drawerItems];
+      if (
+        newItems.length === prev.items.length &&
+        newItems.every((it, i) => it === prev.items[i])
+      )
+        return prev;
+      return { ...prev, items: newItems };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters, projectId]);
 
   useEffect(() => {

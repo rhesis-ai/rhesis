@@ -96,13 +96,27 @@ for field in schema.fields:
 params = Parameters.get("My Project", environment="production")
 
 # By project UUID (no lookup needed)
-params = Parameters.get(project_id="550e8400-...", version="v_abc123")
+params = Parameters.get(project_id="550e8400-...", version="v3")
 
 # From a Project entity
 from rhesis.sdk.entities import Projects
 project = Projects.pull(name="My Project")
 params = project.parameters(experiment_id="exp-uuid")`}
 </CodeBlock>
+
+### Resolution order
+
+`Parameters.get()` resolves from the most specific pin to the broadest environment pointer. Use this order when you need predictable deployment behavior:
+
+| Source | How to request it | When to use it |
+|---|---|---|
+| Explicit version | `Parameters.get("My Project", version="v3")` | Immutable deploy pins and reproducing a past run |
+| Explicit experiment | `Parameters.get("My Project", experiment_id="exp-uuid")` | Latest version of one experiment |
+| Explicit environment | `Parameters.get("My Project", environment="production")` | Runtime routing through an environment pointer |
+| Environment variable | `RHESIS_PARAMETERS_ENVIRONMENT=production` | Code-free deployment routing when no explicit argument is passed |
+| Default environment | No `version`, `experiment_id`, or `environment` | The implicit `default` environment |
+
+The SDK also accepts the legacy `RHESIS_PARAMETERS_LABEL` environment variable as an alias for `RHESIS_PARAMETERS_ENVIRONMENT`.
 
 ### Accessing values
 
@@ -144,7 +158,7 @@ Every `ResolvedParameters` carries metadata about where the values came from:
 
 <CodeBlock filename="provenance.py" language="python">
 {`params.experiment_id   # UUID of the source experiment
-params.version         # content hash, e.g. "v_a3f9b8..."
+params.version         # sequential version, e.g. "v3"
 params.source          # "environment", "experiment_id", or "version"
 params.source_environment    # "default", "production", etc. (if resolved via environment)`}
 </CodeBlock>
@@ -163,6 +177,25 @@ Parameters.invalidate()                # all projects`}
 
 ## Managing environments
 
+Rhesis always recognizes the built-in environments exported by `BuiltInEnvironment`. Environment names are still free-form strings, but using the constants avoids typos in application code.
+
+| Constant | Value | Typical use |
+|---|---|---|
+| `BuiltInEnvironment.DEFAULT` | `default` | The implicit fallback used by `Parameters.get()` |
+| `BuiltInEnvironment.DEVELOPMENT` | `development` | Local or development deployments |
+| `BuiltInEnvironment.STAGING` | `staging` | Pre-production validation |
+| `BuiltInEnvironment.PRODUCTION` | `production` | Production traffic |
+
+<CodeBlock filename="builtin_environments.py" language="python">
+{`from rhesis.sdk import Parameters
+from rhesis.sdk.models.parameters import BuiltInEnvironment
+
+params = Parameters.get(
+    "My Project",
+    environment=BuiltInEnvironment.PRODUCTION,
+)`}
+</CodeBlock>
+
 <CodeBlock filename="environments.py" language="python">
 {`# Read current environment bindings
 envs = Parameters.environments("My Project")
@@ -173,9 +206,16 @@ for name, pointer in envs.environments.items():
 Parameters.put_environment(
     "My Project", "staging",
     experiment_id="exp-uuid",
-    version="v_abc123",
+    version="v3",
 )`}
 </CodeBlock>
+
+<Callout type="info">
+  Older SDK and API payloads may still contain `labels`, `source_label`, or
+  `parameter_source_label`. The v0.8.0 SDK normalizes those names to
+  environments on read. Use `environment` and `RHESIS_PARAMETERS_ENVIRONMENT` in
+  new code.
+</Callout>
 
 ## Experiments
 
@@ -258,7 +298,7 @@ result = test_set.execute(endpoint, experiment_id="exp-uuid")`}
 </CodeBlock>
 
 <Callout type="default">
-  When you pass only `experiment_id` without a `version`, the backend automatically resolves to the experiment's latest version. You don't need to look up the version hash yourself.
+  When you pass only `experiment_id` without a `version`, the backend automatically resolves to the experiment's latest version. You don't need to look up the version identifier yourself.
 </Callout>
 
 The resolved values are snapshotted at queue time. Moving an environment after the run is queued does not affect it.
@@ -316,6 +356,16 @@ def chat(query: str):
         temperature=params.temperature,
         prompt=query,
     )`}
+</CodeBlock>
+
+If you only need the current test-run snapshot and do not want fallback API resolution, use `get_parameters()`:
+
+<CodeBlock filename="current_snapshot.py" language="python">
+{`from rhesis.sdk import get_parameters
+
+params = get_parameters()
+if params is not None:
+    print(params.source, params.version)`}
 </CodeBlock>
 
 ---

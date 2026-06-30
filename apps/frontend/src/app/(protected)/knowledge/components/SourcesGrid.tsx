@@ -48,6 +48,7 @@ interface SourcesGridProps {
   sessionToken: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 interface SourcesToolbarState {
@@ -100,6 +101,7 @@ export default function SourcesGrid({
   sessionToken,
   refreshKey,
   onRefresh,
+  onTotalCountChange,
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -158,6 +160,11 @@ export default function SourcesGrid({
 
       setSources(response.data);
       setTotalCount(response.pagination.totalCount);
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery ||
+        hasActiveSourceFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch {
       setError('Failed to load knowledge sources');
@@ -196,9 +203,14 @@ export default function SourcesGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   useEffect(() => {
@@ -229,9 +241,17 @@ export default function SourcesGrid({
           value: drawerFilters.tag,
         });
       }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
+      const newItems = [...otherItems, ...drawerItems];
+      if (
+        newItems.length === prev.items.length &&
+        newItems.every(
+          (it, i) => JSON.stringify(it) === JSON.stringify(prev.items[i])
+        )
+      )
+        return prev;
+      return { ...prev, items: newItems };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   // Handle pagination

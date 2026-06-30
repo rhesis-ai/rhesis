@@ -19,7 +19,6 @@ import TaskDrawer, {
 } from './components/TaskDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { EntityType } from '@/types/tasks';
 
 export default function TasksPage() {
@@ -37,26 +36,6 @@ export default function TasksPage() {
   useDocumentTitle('Tasks');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const tasksClient = apiFactory.getTasksClient();
-        const response = await tasksClient.getTasks({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        setTaskCount(response.totalCount ?? 0);
-      } catch {
-        setTaskCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   React.useEffect(() => {
     const shouldOpen = searchParams.get('create') === 'true';
@@ -180,6 +159,7 @@ export default function TasksPage() {
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setTaskCount}
               />
             </Paper>
           )}

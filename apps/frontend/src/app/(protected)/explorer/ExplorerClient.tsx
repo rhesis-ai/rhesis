@@ -13,7 +13,6 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -36,20 +35,6 @@ export default function ExplorerClient() {
 
   const sessionToken = session?.session_token ?? '';
   const canCreateSession = useCan(Capability.Explorer.CREATE);
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const client = new ApiClientFactory(sessionToken).getExplorerClient();
-        const sessions = await client.getExplorerTestSets();
-        setSessionCount(sessions.length);
-      } catch {
-        setSessionCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
@@ -141,6 +126,7 @@ export default function ExplorerClient() {
                 sessionToken={sessionToken}
                 refreshKey={refreshKey}
                 onRefresh={handleRefresh}
+                onTotalCountChange={setSessionCount}
               />
             </Paper>
           )}

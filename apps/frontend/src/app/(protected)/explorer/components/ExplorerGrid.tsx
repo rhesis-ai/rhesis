@@ -27,6 +27,7 @@ interface ExplorerGridProps {
   sessionToken: string;
   refreshKey?: number;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 interface ExplorerToolbarState {
@@ -62,6 +63,7 @@ export default function ExplorerGrid({
   sessionToken,
   refreshKey = 0,
   onRefresh,
+  onTotalCountChange,
 }: ExplorerGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -88,10 +90,12 @@ export default function ExplorerGrid({
         const sessions = await client.getExplorerTestSets();
         if (!cancelled) {
           setAllRows(sessions);
+          onTotalCountChange?.(sessions.length);
         }
       } catch {
         if (!cancelled) {
           setAllRows([]);
+          onTotalCountChange?.(0);
         }
       } finally {
         if (!cancelled) {

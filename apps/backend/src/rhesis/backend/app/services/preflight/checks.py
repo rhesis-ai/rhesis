@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.behavior import Behavior
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.metric import Metric, behavior_metric_association
+from rhesis.backend.app.models.prompt import Prompt
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 
 from .constants import (
@@ -20,6 +22,7 @@ from .constants import (
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
+    CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
     CHECK_TEST_SET_NOT_EMPTY,
 )
@@ -413,6 +416,192 @@ async def _validate_metrics_loadable(
     )
 
 
+def _infer_endpoint_capabilities(endpoint: Endpoint) -> dict[str, bool]:
+    """Derive what data the endpoint provides from its response_mapping."""
+    mapping = endpoint.response_mapping or {}
+    return {
+        "context": "context" in mapping,
+        "tool_calls": "tool_calls" in mapping,
+        "metadata": "metadata" in mapping,
+    }
+
+
+TOOL_CALLS_CLASS_NAMES = {"DeepEvalToolUse"}
+
+
+def _check_metric_endpoint_issues(
+    metrics: List[Metric],
+    capabilities: dict[str, bool],
+    missing_ground_truth_count: int,
+    total_tests: int,
+) -> list[str]:
+    """Return one issue string per incompatible metric (deduplicated by metric)."""
+    issues: list[str] = []
+    for m in metrics:
+        name = m.name or m.class_name or "Unknown"
+        if m.context_required and not capabilities["context"]:
+            issues.append(
+                f"{name} requires context but endpoint response mapping has no context field"
+            )
+        if m.ground_truth_required and missing_ground_truth_count > 0:
+            issues.append(
+                f"{name} requires ground truth but {missing_ground_truth_count} of "
+                f"{total_tests} test(s) have no expected_response"
+            )
+        if m.class_name in TOOL_CALLS_CLASS_NAMES and not capabilities["tool_calls"]:
+            issues.append(
+                f"{name} requires tool_calls but endpoint response mapping has no tool_calls field"
+            )
+    return issues
+
+
+async def check_metric_compatibility(
+    db: Session,
+    endpoint: Endpoint,
+    test_set_id: UUID,
+    metric_mode: str,
+    selected_metrics: Optional[list] = None,
+    is_multi_turn: bool = False,
+    correlation_id: Optional[str] = None,
+    publish: bool = True,
+    test_set_name: Optional[str] = None,
+) -> PreflightCheckResult:
+    """Check whether metrics' data requirements match endpoint capabilities."""
+    check_id = CHECK_METRIC_COMPATIBILITY
+    ts_id_str = str(test_set_id) if test_set_name else None
+    comp_key = _make_composite_key(check_id, ts_id_str)
+
+    if publish and correlation_id:
+        await _publish_check_status(
+            correlation_id,
+            check_id,
+            PreflightCheckStatus.RUNNING,
+            test_set_id=ts_id_str,
+            test_set_name=test_set_name,
+            composite_key=comp_key,
+        )
+
+    try:
+        metrics: List[Metric] = []
+
+        if metric_mode == "define_custom" and selected_metrics:
+            metric_ids = [m.id for m in selected_metrics]
+            metrics = db.query(Metric).filter(Metric.id.in_(metric_ids)).all()
+        elif metric_mode == "use_test_set":
+            test_set = db.query(TestSet).filter(TestSet.id == test_set_id).first()
+            if test_set:
+                metrics = list(test_set.metrics)
+        else:
+            behavior_ids = (
+                db.query(Test.behavior_id)
+                .join(
+                    test_test_set_association,
+                    Test.id == test_test_set_association.c.test_id,
+                )
+                .filter(test_test_set_association.c.test_set_id == test_set_id)
+                .filter(Test.behavior_id.isnot(None))
+                .distinct()
+                .all()
+            )
+            behavior_id_set = {b[0] for b in behavior_ids}
+            if behavior_id_set:
+                metrics = (
+                    db.query(Metric)
+                    .join(
+                        behavior_metric_association,
+                        Metric.id == behavior_metric_association.c.metric_id,
+                    )
+                    .filter(behavior_metric_association.c.behavior_id.in_(behavior_id_set))
+                    .distinct()
+                    .all()
+                )
+
+        if not metrics:
+            result = _make_result(
+                check_id,
+                PreflightCheckStatus.SKIPPED,
+                "No metrics to check compatibility for",
+            )
+        else:
+            required_scope = MetricScope.MULTI_TURN if is_multi_turn else MetricScope.SINGLE_TURN
+            scope_compatible = [
+                m
+                for m in metrics
+                if m.class_name and m.metric_scope and required_scope.value in m.metric_scope
+            ]
+
+            if not scope_compatible:
+                result = _make_result(
+                    check_id,
+                    PreflightCheckStatus.SKIPPED,
+                    "No scope-compatible metrics to validate",
+                )
+            else:
+                capabilities = _infer_endpoint_capabilities(endpoint)
+
+                # Ground-truth coverage only applies to single-turn tests: multi-turn tests
+                # have prompt_id=NULL so the Prompt join would undercount. Skip the query
+                # entirely when no metric needs it.
+                needs_ground_truth = any(m.ground_truth_required for m in scope_compatible)
+                if needs_ground_truth and required_scope == MetricScope.SINGLE_TURN:
+                    total_tests = (
+                        db.query(test_test_set_association.c.test_id)
+                        .filter(test_test_set_association.c.test_set_id == test_set_id)
+                        .count()
+                    )
+                    missing_ground_truth = (
+                        db.query(Prompt.id)
+                        .join(Test, Test.prompt_id == Prompt.id)
+                        .join(
+                            test_test_set_association,
+                            Test.id == test_test_set_association.c.test_id,
+                        )
+                        .filter(test_test_set_association.c.test_set_id == test_set_id)
+                        .filter(
+                            (Prompt.expected_response.is_(None)) | (Prompt.expected_response == "")
+                        )
+                        .count()
+                    )
+                else:
+                    total_tests = 0
+                    missing_ground_truth = 0
+
+                issues = _check_metric_endpoint_issues(
+                    scope_compatible, capabilities, missing_ground_truth, total_tests
+                )
+
+                if issues:
+                    # Dedupe by metric: each metric contributes at most one entry per requirement,
+                    # so count unique issues (one per metric-requirement pair) for the summary.
+                    result = _make_result(
+                        check_id,
+                        PreflightCheckStatus.WARNING,
+                        f"{len(issues)} compatibility issue(s) detected",
+                        "; ".join(issues[:5]),
+                    )
+                else:
+                    metric_names = [m.name for m in scope_compatible if m.name]
+                    result = _make_result(
+                        check_id,
+                        PreflightCheckStatus.PASSED,
+                        f"All {len(scope_compatible)} metric(s) are "
+                        "compatible with endpoint configuration",
+                        ", ".join(metric_names) if metric_names else None,
+                    )
+
+    except Exception as e:
+        result = _make_result(
+            check_id,
+            PreflightCheckStatus.FAILED,
+            "Error checking metric compatibility",
+            str(e),
+        )
+
+    _apply_test_set_fields(result, ts_id_str, test_set_name)
+    await _publish_result(result, correlation_id, publish)
+    return result
+
+
 async def check_metric_functionality(
     db: Session,
     user: User,
@@ -481,8 +670,6 @@ async def check_metric_functionality(
                 "No metrics found for this configuration",
             )
         else:
-            from rhesis.backend.app.schemas.metric import MetricScope
-
             required_scope = MetricScope.MULTI_TURN if is_multi_turn else MetricScope.SINGLE_TURN
             scope_compatible = [
                 m

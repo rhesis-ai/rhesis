@@ -76,6 +76,7 @@ interface TestsTableProps {
   disableAddButton?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
   insightsEndpointName?: string;
+  onTotalCountChange?: (count: number) => void;
 }
 
 // ─── Toolbar context (passes search/filter state into the DataGrid slot) ──────
@@ -150,6 +151,7 @@ export default function TestsTable({
   disableAddButton: _disableAddButton = false,
   insightsFailedFilter = null,
   insightsEndpointName,
+  onTotalCountChange,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -254,7 +256,11 @@ export default function TestsTable({
 
       setTests(response.data);
       setTotalCount(response.pagination.totalCount);
-
+      const filtersActive =
+        filterModel.items.length > 0 ||
+        !!searchQuery ||
+        hasActiveTestFilters(drawerFilters);
+      if (!filtersActive) onTotalCountChange?.(response.pagination.totalCount);
       setError(null);
     } catch (_error) {
       setError('Failed to load tests');
@@ -304,15 +310,20 @@ export default function TestsTable({
       const otherItems = prev.items.filter(
         item => item.field !== 'quickFilter'
       );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
+      const newItem = searchQuery
+        ? { field: 'quickFilter', operator: 'contains', value: searchQuery }
+        : null;
+      const items = newItem ? [...otherItems, newItem] : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every(
+          (it, i) => JSON.stringify(it) === JSON.stringify(prev.items[i])
+        )
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   // Sync external typeFilter prop into filterModel
@@ -321,20 +332,25 @@ export default function TestsTable({
       const otherItems = prev.items.filter(
         item => item.field !== 'test_type.type_value'
       );
-      const items =
+      const newItem =
         typeFilter && typeFilter !== 'all'
-          ? [
-              ...otherItems,
-              {
-                field: 'test_type.type_value',
-                operator: 'equals',
-                value: typeFilter,
-              },
-            ]
-          : otherItems;
+          ? {
+              field: 'test_type.type_value',
+              operator: 'equals',
+              value: typeFilter,
+            }
+          : null;
+      const items = newItem ? [...otherItems, newItem] : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every(
+          (it, i) => JSON.stringify(it) === JSON.stringify(prev.items[i])
+        )
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [typeFilter]);
 
   // Apply Insights failed-test filter from URL params
@@ -390,8 +406,13 @@ export default function TestsTable({
 
   // Sync drawer filters into filterModel
   useEffect(() => {
-    setFilterModel(prev => applyTestDrawerFiltersToModel(prev, drawerFilters));
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setFilterModel(prev => {
+      const next = applyTestDrawerFiltersToModel(prev, drawerFilters);
+      return next === prev || JSON.stringify(next) === JSON.stringify(prev)
+        ? prev
+        : next;
+    });
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   // Row action handlers

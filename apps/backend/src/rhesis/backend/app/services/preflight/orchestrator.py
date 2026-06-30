@@ -18,6 +18,7 @@ from .checks import (
     check_endpoint_connectivity,
     check_evaluation_model,
     check_execution_model,
+    check_metric_compatibility,
     check_metric_functionality,
     check_test_set_not_empty,
 )
@@ -26,6 +27,7 @@ from .constants import (
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
+    CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
@@ -181,6 +183,33 @@ async def run_preflight_checks_multi(
                 ),
             )
         )
+
+        if endpoint:
+            tasks.append(
+                (
+                    _make_composite_key(CHECK_METRIC_COMPATIBILITY, ts_id_str),
+                    check_metric_compatibility(
+                        db,
+                        endpoint,
+                        ts_id,
+                        metric_mode,
+                        selected_metrics,
+                        is_mt,
+                        correlation_id,
+                        publish,
+                        test_set_name=ts_label,
+                    ),
+                )
+            )
+        else:
+            r = _make_result(
+                CHECK_METRIC_COMPATIBILITY,
+                PreflightCheckStatus.SKIPPED,
+                "Metric compatibility check skipped: endpoint not found",
+            )
+            _apply_test_set_fields(r, ts_id_str, ts_label)
+            results.append(r)
+            await _publish_result(r, correlation_id, publish)
 
         tasks.append(
             (

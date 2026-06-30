@@ -152,6 +152,37 @@ You can pass provider-specific keyword arguments through `generate(...)` or `a_g
 For example, streaming is exposed through `stream=True` on providers that support token streaming,
 and structured output is requested with the `schema` argument.
 
+### Multi-turn messages
+
+Pass a pre-built `messages` list to `a_generate(...)` when you already have
+conversation history. When `messages` is provided, `prompt` and `system_prompt`
+are ignored because the full chat payload is supplied by the caller.
+
+<CodeBlock filename="multi_turn_messages.py" language="python">
+{`import asyncio
+
+from rhesis.sdk.models import get_model
+
+model = get_model("openai/gpt-4o-mini")
+
+messages = [
+    {"role": "system", "content": "You are a concise support assistant."},
+    {"role": "user", "content": "Can I change my delivery address?"},
+    {"role": "assistant", "content": "Yes, before the package ships."},
+    {"role": "user", "content": "Where do I do that?"},
+]
+
+async def main():
+    response = await model.a_generate(messages=messages)
+    print(response)
+
+asyncio.run(main())`}
+</CodeBlock>
+
+Use either `messages` or `prompt` plus `system_prompt` for a single call. Keeping
+the two modes separate avoids accidentally dropping system instructions when a
+multi-turn history is already assembled.
+
 **Generate text using prompt only:**
 
 <CodeBlock filename="generate_text.py" language="python">

@@ -92,6 +92,27 @@ This is particularly useful when you want to:
 - **Compare evaluation criteria** by re-scoring the same outputs with different metric configurations
 - **Validate metric changes** by checking how updated metrics affect existing results
 
+## Preflight Checks
+
+Before execution, the run drawer can validate the selected endpoint, models, test
+sets, and metrics through `POST /preflight-checks`. Results stream back to the
+drawer while checks run, so you can retry, continue, or adjust configuration
+before starting the test run.
+
+| Check | When it runs | What it validates |
+| --- | --- | --- |
+| Endpoint Connectivity | Fresh-output runs | The selected endpoint can be reached before live execution |
+| Evaluation Model | All runs | An evaluation model is configured and usable |
+| Execution Model | Multi-turn runs | A Penelope execution model is configured and usable |
+| Test Set Has Tests | All runs | Each selected test set contains tests |
+| Behavior-Metric Coverage | All runs | Tests have behavior and metric coverage for scoring |
+| Metric Functionality | All runs | Selected metrics can run before the full execution starts |
+
+<Callout type="info">
+  Endpoint connectivity is skipped for **Reuse Outputs** runs because the endpoint
+  is not called in that mode.
+</Callout>
+
 ## Model Settings
 
 Override the default models used for evaluation and execution on a per-run basis.

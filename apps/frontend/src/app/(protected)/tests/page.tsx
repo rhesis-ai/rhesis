@@ -17,8 +17,8 @@ import TestsGrid from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -67,23 +67,6 @@ export default function TestsPage() {
       window.history.replaceState({}, '', newUrl.toString());
     }
   }, [searchParams, router]);
-
-  React.useEffect(() => {
-    const fetchTestCount = async () => {
-      if (!session?.session_token) return;
-
-      try {
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const testsClient = apiFactory.getTestsClient();
-        const response = await testsClient.getTests({ skip: 0, limit: 1 });
-        setTestCount(response.pagination?.totalCount || 0);
-      } catch {
-        // Silently fail
-      }
-    };
-
-    fetchTestCount();
-  }, [session?.session_token, refreshKey]);
 
   React.useEffect(() => {
     if (!insightsFailedFilter || !session?.session_token) {
@@ -211,6 +194,7 @@ export default function TestsPage() {
               disableAddButton={shouldDisableAddButton}
               insightsFailedFilter={insightsFailedFilter}
               insightsEndpointName={insightsEndpointName}
+              onTotalCountChange={setTestCount}
             />
           </Paper>
         )}

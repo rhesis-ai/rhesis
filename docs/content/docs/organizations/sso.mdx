@@ -1,0 +1,94 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Single Sign-On
+
+Single Sign-On lets an Enterprise Edition organization authenticate users through its own OIDC provider. Use it when your organization needs centralized identity, domain-based access rules, and IdP-managed login policy.
+
+<Callout type="info">
+  SSO is an Enterprise Edition feature. Community installations return a feature-unavailable response and hide the SSO settings UI.
+</Callout>
+
+## How it works
+
+Rhesis stores SSO configuration per organization. When a user starts SSO login, Rhesis builds an OIDC authorization request with PKCE, validates the callback state, exchanges the code with your provider, and signs the user into the matching organization.
+
+The login URL uses the organization slug when one is configured:
+
+<CodeBlock filename="sso-login-url.txt" language="text">
+{`https://api.example.com/auth/sso/acme`}
+</CodeBlock>
+
+If the organization has no slug, the API can fall back to the organization ID, but API Clients require a slug for token-exchange audiences.
+
+## Configure an OIDC provider
+
+In your identity provider, create an OIDC client for Rhesis:
+
+| Setting | Value |
+|---|---|
+| Application type | Confidential OIDC client |
+| Redirect URI | `https://<your-rhesis-api>/auth/sso/callback` |
+| Grant type | Authorization Code with PKCE |
+| Scopes | `openid email profile` unless your deployment requires more |
+
+Then configure the organization in Rhesis with these values:
+
+| Field | Required | Description |
+|---|---|---|
+| `enabled` | Yes | Turns SSO login on or off |
+| `provider_type` | Yes | Currently `oidc` |
+| `issuer_url` | Yes | HTTPS issuer URL for OIDC discovery |
+| `client_id` | Yes | OIDC client ID |
+| `client_secret` | Yes on first setup | OIDC client secret, encrypted at rest |
+| `scopes` | No | Defaults to `openid email profile` |
+| `auto_provision_users` | No | Creates users on first valid SSO login |
+| `allowed_domains` | No | Restricts login to normalized email domains |
+| `allowed_auth_methods` | No | Optional list from `sso`, `email`, `google`, `github` |
+| `slug` | Recommended | Stable login slug used in SSO URLs and API Client audiences |
+
+## Admin API
+
+Organization admins can manage SSO through the organization settings UI or the API:
+
+<CodeBlock filename="configure_sso.sh" language="bash">
+{`curl -X PUT "https://api.example.com/organizations/<org-id>/sso" \
+  -H "Authorization: Bearer $RHESIS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "provider_type": "oidc",
+    "issuer_url": "https://idp.example.com/realms/acme",
+    "client_id": "rhesis",
+    "client_secret": "client-secret",
+    "scopes": "openid email profile",
+    "auto_provision_users": true,
+    "allowed_domains": ["acme.example"],
+    "allowed_auth_methods": ["sso", "email"],
+    "slug": "acme"
+  }'`}
+</CodeBlock>
+
+Useful endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /organizations/{org_id}/sso` | Read masked configuration and login URL |
+| `PUT /organizations/{org_id}/sso` | Create or update configuration |
+| `DELETE /organizations/{org_id}/sso` | Remove configuration |
+| `POST /organizations/{org_id}/sso/test` | Test OIDC discovery |
+| `GET /auth/sso/{org_id_or_slug}` | Start SSO login |
+| `GET /auth/sso/callback` | OIDC callback |
+
+## Troubleshooting
+
+- `issuer_url` must use HTTPS in production and cannot point to private or cloud metadata addresses.
+- If you omit `client_secret` on an update, Rhesis preserves the existing encrypted secret.
+- `allowed_domains` values are lowercased and normalized without leading dots.
+- Slugs must be lowercase, 3-50 characters, alphanumeric or hyphenated, and cannot contain consecutive hyphens.
+- Failed login attempts redirect to the SSO error page without exposing provider details.
+
+## Related pages
+
+- [API Clients](/docs/organizations/api-clients)
+- [Organizations & Team](/docs/organizations)
+- [Self-Hosting](/docs/deployment/self-hosting)

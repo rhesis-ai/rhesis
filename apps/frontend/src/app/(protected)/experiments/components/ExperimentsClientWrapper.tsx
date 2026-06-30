@@ -247,7 +247,7 @@ export default function ExperimentsClientWrapper({
 
   // Sync search + visibility into the filter model
   useEffect(() => {
-    setFilterModel(() => {
+    setFilterModel(prev => {
       const items = [];
       if (searchQuery.trim()) {
         items.push({
@@ -263,9 +263,14 @@ export default function ExperimentsClientWrapper({
           value: visibilityFilter,
         });
       }
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery, visibilityFilter]);
 
   const handleDeleteExperiment = async () => {

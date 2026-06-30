@@ -138,9 +138,9 @@ client = RhesisClient(
 )
 
 @endpoint()
-def chat(input: str, session_id: str = None) -> dict:
+def chat(input: str, conversation_id: str = None) -> dict:
     # Automatically traced and registered as endpoint
-    return {"output": process(input), "session_id": session_id}`}
+    return {"output": process(input), "conversation_id": conversation_id}`}
 </CodeBlock>
 
 ---

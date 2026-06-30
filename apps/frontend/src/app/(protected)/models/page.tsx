@@ -32,7 +32,6 @@ import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import type { ValidationStatus } from './types';
-import { EntityType } from '@/types/entity-type';
 
 export type { ValidationStatus } from './types';
 
@@ -89,50 +88,39 @@ export default function ModelsPage() {
         const typeLookupClient = apiFactory.getTypeLookupClient();
         const usersClient = apiFactory.getUsersClient();
 
-        const types = await typeLookupClient.getTypeLookups({
-          $filter: "type_name eq 'ProviderType'",
-          limit: 100,
-        });
+        const organizationsClient = apiFactory.getOrganizationsClient();
+
+        const [types, settings, org, modelsResponse, statuses] =
+          await Promise.all([
+            typeLookupClient.getTypeLookups({
+              $filter: "type_name eq 'ProviderType'",
+              limit: 100,
+            }),
+            usersClient.getUserSettings().catch(() => null),
+            session.user?.organization_id
+              ? organizationsClient
+                  .getOrganization(session.user.organization_id)
+                  .catch(() => null)
+              : Promise.resolve(null),
+            modelsClient.getModels().catch(() => null),
+            apiFactory
+              .getStatusClient()
+              .getStatuses({
+                sort_by: 'name',
+                sort_order: 'asc',
+                entity_type: 'Model',
+              })
+              .catch(() => null),
+          ]);
+
         setProviderTypes(types);
-
-        try {
-          const settings = await usersClient.getUserSettings();
-          setUserSettings(settings);
-        } catch {
-          // continue without user settings
-        }
-
-        if (session.user?.organization_id) {
-          try {
-            const organizationsClient = apiFactory.getOrganizationsClient();
-            const org = await organizationsClient.getOrganization(
-              session.user.organization_id
-            );
-            setOrganization(org);
-          } catch {
-            // continue without organization
-          }
-        }
-
-        try {
-          const modelsResponse = await modelsClient.getModels();
-          setConnectedModels(modelsResponse.data);
-        } catch {
-          // show empty state
-        }
-
-        try {
-          const statuses = await apiFactory.getStatusClient().getStatuses({
-            sort_by: 'name',
-            sort_order: 'asc',
-            entity_type: EntityType.MODEL,
-          });
+        if (settings) setUserSettings(settings);
+        if (org) setOrganization(org);
+        if (modelsResponse) setConnectedModels(modelsResponse.data);
+        if (statuses)
           setStatusOptions(
             filterUniqueValidOptions(statuses).map(status => status.name)
           );
-        } catch {
-          // continue without status filter options
-        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to load providers'
