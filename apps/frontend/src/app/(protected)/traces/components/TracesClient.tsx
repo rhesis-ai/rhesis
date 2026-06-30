@@ -95,21 +95,15 @@ export default function TracesClient({
   const pageSize = normalizePageSize(limit);
 
   const queryParams: TraceQueryParams = useMemo(
-    () => ({
-      ...buildTraceQueryParams(
+    () =>
+      buildTraceQueryParams(
         drawerFilters,
         searchQuery,
         typeFilter,
         pageSize,
         offset
       ),
-      // Traces are project-scoped (fail-closed). Always filter by the active
-      // project unless the drawer explicitly overrides it.
-      ...(scopedProjectId && !drawerFilters.projectId
-        ? { project_id: scopedProjectId }
-        : {}),
-    }),
-    [drawerFilters, searchQuery, typeFilter, pageSize, offset, scopedProjectId]
+    [drawerFilters, searchQuery, typeFilter, pageSize, offset]
   );
 
   const listLoading = loading || projectLoading;
