@@ -76,6 +76,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   const { data, isLoading, error, isSuccess } = useQuery({
     queryKey: permissionKeys.all(userScope, activeProject?.id ?? ''),
+
+  const { data, isLoading, error, isSuccess } = useQuery({
+    queryKey: permissionKeys.all(activeProject?.id ?? ''),
     queryFn: () =>
       new ApiClientFactory(sessionToken!)
         .getPermissionsClient()
