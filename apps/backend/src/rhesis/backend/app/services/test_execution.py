@@ -61,14 +61,16 @@ async def execute_test_in_place(
 
     evaluation_model = get_evaluation_model(db, user_id)
     execution_model = get_execution_model(db, user_id)
-    logger.info(
-        f"[InPlaceExecution] Using evaluation model for user {user_id}: "
-        f"{type(evaluation_model).__name__ if not isinstance(evaluation_model, str) else evaluation_model}"
+    eval_model_name = (
+        type(evaluation_model).__name__
+        if not isinstance(evaluation_model, str)
+        else evaluation_model
     )
-    logger.info(
-        f"[InPlaceExecution] Using execution model for user {user_id}: "
-        f"{type(execution_model).__name__ if not isinstance(execution_model, str) else execution_model}"
+    logger.info(f"[InPlaceExecution] Using evaluation model for user {user_id}: {eval_model_name}")
+    exec_model_name = (
+        type(execution_model).__name__ if not isinstance(execution_model, str) else execution_model
     )
+    logger.info(f"[InPlaceExecution] Using execution model for user {user_id}: {exec_model_name}")
 
     # Determine if using existing test or creating temporary one
     test_id = request_data.get("test_id")
