@@ -175,14 +175,27 @@ export default function TestSetTestsGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   useEffect(() => {
-    setFilterModel(prev => applyTestDrawerFiltersToModel(prev, drawerFilters));
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setFilterModel(prev => {
+      const next = applyTestDrawerFiltersToModel(prev, drawerFilters);
+      if (
+        next.items.length === prev.items.length &&
+        next.items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
+      return next;
+    });
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   const handlePaginationModelChange = useCallback(

@@ -263,9 +263,14 @@ function TestRunsGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   // ── Sync statusFilter pill tab into filterModel ───────────────────────────
@@ -286,9 +291,14 @@ function TestRunsGrid({
               },
             ]
           : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [statusFilter]);
 
   // ── Sync drawer filters into filterModel ─────────────────────────────────
@@ -325,16 +335,22 @@ function TestRunsGrid({
           value: drawerFilters.tag,
         });
       }
-      return {
-        ...prev,
-        items: appendPresenceFilterItems([...otherItems, ...drawerItems], {
+      const newItems = appendPresenceFilterItems(
+        [...otherItems, ...drawerItems],
+        {
           tags: drawerFilters.tags,
           comments: drawerFilters.comments,
           tasks: drawerFilters.tasks,
-        }),
-      };
+        }
+      );
+      if (
+        newItems.length === prev.items.length &&
+        newItems.every((it, i) => it === prev.items[i])
+      )
+        return prev;
+      return { ...prev, items: newItems };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   // ── Row action handlers ────────────────────────────────────────────────────

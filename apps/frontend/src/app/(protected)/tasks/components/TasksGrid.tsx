@@ -208,9 +208,14 @@ export default function TasksGrid({
             { field: 'quickFilter', operator: 'contains', value: searchQuery },
           ]
         : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [searchQuery]);
 
   useEffect(() => {
@@ -223,9 +228,14 @@ export default function TasksGrid({
               { field: 'status', operator: 'equals', value: statusFilter },
             ]
           : otherItems;
+      if (
+        items.length === prev.items.length &&
+        items.every((it, i) => it === prev.items[i])
+      )
+        return prev;
       return { ...prev, items };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [statusFilter]);
 
   useEffect(() => {
@@ -256,9 +266,15 @@ export default function TasksGrid({
           value: drawerFilters.assignee,
         });
       }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
+      const newItems = [...otherItems, ...drawerItems];
+      if (
+        newItems.length === prev.items.length &&
+        newItems.every((it, i) => it === prev.items[i])
+      )
+        return prev;
+      return { ...prev, items: newItems };
     });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
   }, [drawerFilters]);
 
   const handleRowClick = useCallback(
