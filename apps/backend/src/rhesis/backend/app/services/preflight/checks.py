@@ -14,6 +14,7 @@ from rhesis.backend.app.models.prompt import Prompt
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 
 from .constants import (
@@ -663,8 +664,6 @@ async def check_metric_functionality(
                 "No metrics found for this configuration",
             )
         else:
-            from rhesis.backend.app.schemas.metric import MetricScope
-
             required_scope = MetricScope.MULTI_TURN if is_multi_turn else MetricScope.SINGLE_TURN
             scope_compatible = [
                 m
