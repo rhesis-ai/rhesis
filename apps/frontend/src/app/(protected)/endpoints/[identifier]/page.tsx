@@ -4,79 +4,68 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import { use, useEffect, useState } from 'react';
+import { use } from 'react';
 import { format } from 'date-fns';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { EndpointDetailProvider } from './components/EndpointDetailContext';
 import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
+import { useQuery } from '@tanstack/react-query';
+import { endpointKeys } from '@/constants/query-keys';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function EndpointPage({ params }: PageProps) {
   const { identifier } = use(params);
 
   const { data: session, status } = useSession();
-  const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
-  const [projectName, setProjectName] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const sessionToken = session?.session_token ?? '';
+
+  const isValidId = !!identifier && UUID_REGEX.test(identifier);
+
+  const {
+    data: endpoint,
+    isLoading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: endpointKeys.detail(identifier),
+    queryFn: async () => {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const data = await apiFactory
+        .getEndpointsClient()
+        .getEndpoint(identifier);
+      if (data.project_id) {
+        try {
+          const project = await apiFactory
+            .getProjectsClient()
+            .getProject(data.project_id);
+          return { ...data, project: { ...data.project, name: project.name } };
+        } catch {
+          // project name is non-critical; proceed with endpoint data as-is
+        }
+      }
+      return data;
+    },
+    enabled: status === 'authenticated' && !!sessionToken && isValidId,
+  });
 
   useDocumentTitle(endpoint?.name || null);
 
-  useEffect(() => {
-    const fetchEndpoint = async () => {
-      try {
-        if (status === 'loading') return;
-        if (!identifier) return;
-
-        if (!session) {
-          throw new Error('No session available');
-        }
-
-        const uuidRegex =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(identifier)) {
-          throw new Error('Invalid endpoint identifier format');
-        }
-
-        const sessionToken = session.session_token || '';
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const data = await endpointsClient.getEndpoint(identifier);
-        setEndpoint(data);
-
-        if (data.project_id) {
-          try {
-            const projectsClient = apiFactory.getProjectsClient();
-            const project = await projectsClient.getProject(data.project_id);
-            setProjectName(project.name);
-            setEndpoint(prev =>
-              prev
-                ? { ...prev, project: { ...prev.project, name: project.name } }
-                : prev
-            );
-          } catch (projectErr) {
-            console.error(
-              '[EndpointPage] Failed to fetch project name:',
-              projectErr
-            );
-          }
-        }
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEndpoint();
-  }, [identifier, session, status]);
+  const loading = status === 'loading' || isLoading;
+  const error = !isValidId
+    ? 'Invalid endpoint identifier format'
+    : fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to load endpoint'
+        : null;
 
   if (status === 'unauthenticated') {
     return (
@@ -88,7 +77,7 @@ export default function EndpointPage({ params }: PageProps) {
     );
   }
 
-  if (status === 'loading' || loading || !identifier || (!endpoint && !error)) {
+  if (loading || (!endpoint && !error)) {
     return (
       <Box
         sx={{
@@ -119,6 +108,8 @@ export default function EndpointPage({ params }: PageProps) {
       </Box>
     );
   }
+
+  const projectName = endpoint.project?.name ?? '';
 
   const breadcrumbs =
     endpoint.project_id && projectName

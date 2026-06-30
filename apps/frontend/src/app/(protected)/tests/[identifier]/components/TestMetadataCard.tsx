@@ -16,6 +16,8 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
 import { EntityType } from '@/types/entity-type';
+import { useQuery } from '@tanstack/react-query';
+import { behaviorKeys, topicKeys, categoryKeys } from '@/constants/query-keys';
 
 interface TestDetailOption {
   id: UUID;
@@ -60,13 +62,20 @@ export default function TestMetadataCard({
   const notifications = useNotifications();
   const canEditTest = useCan(Capability.Test.UPDATE);
 
-  const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
-  const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
-  const [categories, setCategories] = React.useState<TestDetailOption[]>([]);
+  const apiFactory = React.useMemo(
+    () => (sessionToken ? new ApiClientFactory(sessionToken) : null),
+    [sessionToken]
+  );
 
-  React.useEffect(() => {
-    if (!sessionToken) return;
-    const apiFactory = new ApiClientFactory(sessionToken);
+  const { data: behaviorsData } = useQuery({
+    queryKey: behaviorKeys.list(),
+    queryFn: () =>
+      apiFactory!
+        .getBehaviorClient()
+        .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
+    enabled: !!apiFactory,
+    staleTime: 5 * 60_000,
+  });
 
     const run = async () => {
       const [behaviorsData, topicsData, categoriesData] = await Promise.all([
@@ -104,6 +113,53 @@ export default function TestMetadataCard({
     };
     run();
   }, [sessionToken]);
+  const { data: topicsData } = useQuery({
+    queryKey: topicKeys.list('Test'),
+    queryFn: () =>
+      apiFactory!
+        .getTopicClient()
+        .getTopics({ entity_type: 'Test', sort_by: 'name', sort_order: 'asc' }),
+    enabled: !!apiFactory,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: categoryKeys.list('Test'),
+    queryFn: () =>
+      apiFactory!.getCategoryClient().getCategories({
+        entity_type: 'Test',
+        sort_by: 'name',
+        sort_order: 'asc',
+      }),
+    enabled: !!apiFactory,
+    staleTime: 5 * 60_000,
+  });
+
+  const behaviors: TestDetailOption[] = React.useMemo(
+    () =>
+      (behaviorsData ?? [])
+        .filter((b: { id: UUID; name: string }) => b.id && b.name?.trim())
+        .map((b: { id: UUID; name: string }) => ({ id: b.id, name: b.name })),
+    [behaviorsData]
+  );
+
+  const topics: TestDetailOption[] = React.useMemo(
+    () =>
+      (topicsData ?? []).map((t: { id: UUID; name: string }) => ({
+        id: t.id,
+        name: t.name,
+      })),
+    [topicsData]
+  );
+
+  const categories: TestDetailOption[] = React.useMemo(
+    () =>
+      (categoriesData ?? []).map((c: { id: UUID; name: string }) => ({
+        id: c.id,
+        name: c.name,
+      })),
+    [categoriesData]
+  );
 
   const initialDraft: MetadataDraft = {
     behavior_id: (test.behavior?.id ?? null) as UUID | null,

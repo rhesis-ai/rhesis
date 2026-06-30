@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Box,
   CircularProgress,
@@ -26,6 +26,8 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useQuery } from '@tanstack/react-query';
+import { testKeys } from '@/constants/query-keys';
 import { formatDuration } from '@/utils/format-duration';
 import { IndividualTestStats } from '@/utils/api-client/interfaces/individual-test-stats';
 import BasePieChart from '@/components/common/BasePieChart';
@@ -472,35 +474,25 @@ export default function TestDetailCharts({
   sessionToken,
 }: TestDetailChartsProps) {
   const _theme = useTheme();
-  const [stats, setStats] = useState<IndividualTestStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const {
+    data: stats,
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: [...testKeys.detail(testId), 'stats'],
+    queryFn: () =>
+      new ApiClientFactory(sessionToken)
+        .getTestsClient()
+        .getIndividualTestStats(testId, { recent_runs_limit: 5 }),
+    enabled: !!sessionToken && !!testId,
+  });
 
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testsClient = apiFactory.getTestsClient();
-
-        const data = await testsClient.getIndividualTestStats(testId, {
-          recent_runs_limit: 5,
-        });
-
-        setStats(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to load statistics'
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [testId, sessionToken]);
+  const error = fetchError
+    ? fetchError instanceof Error
+      ? fetchError.message
+      : 'Failed to load statistics'
+    : null;
 
   if (loading) {
     return (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -27,6 +27,8 @@ import { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type { UUID } from 'crypto';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { testSetKeys } from '@/constants/query-keys';
 
 interface TestSetMetricsProps {
   testSetId: string;
@@ -64,46 +66,42 @@ export default function TestSetMetrics({
   testSetId,
   sessionToken,
 }: TestSetMetricsProps) {
-  const [metrics, setMetrics] = useState<TestSetMetric[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
 
   const notifications = useNotifications();
+  const queryClient = useQueryClient();
 
-  const fetchMetrics = useCallback(async () => {
-    if (!sessionToken) return;
+  const metricsQueryKey = [
+    ...testSetKeys.detail(testSetId),
+    'metrics',
+  ] as const;
 
-    try {
-      setLoading(true);
-      setError(null);
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-      const fetchedMetrics = await testSetsClient.getTestSetMetrics(testSetId);
-      setMetrics(fetchedMetrics);
-    } catch (err: unknown) {
-      console.error('Failed to fetch test set metrics:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load metrics');
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionToken, testSetId]);
+  const {
+    data: metrics = [],
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: metricsQueryKey,
+    queryFn: () =>
+      new ApiClientFactory(sessionToken)
+        .getTestSetsClient()
+        .getTestSetMetrics(testSetId),
+    enabled: !!sessionToken,
+  });
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [fetchMetrics]);
+  const error = fetchError
+    ? fetchError instanceof Error
+      ? fetchError.message
+      : 'Failed to load metrics'
+    : null;
 
   const handleAddMetric = async (metricId: UUID) => {
     try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-      const updatedMetrics = await testSetsClient.addMetricToTestSet(
-        testSetId,
-        metricId as string
-      );
-      setMetrics(updatedMetrics);
-
+      await new ApiClientFactory(sessionToken)
+        .getTestSetsClient()
+        .addMetricToTestSet(testSetId, metricId as string);
+      queryClient.invalidateQueries({ queryKey: metricsQueryKey });
       notifications.show('Metric added to test set successfully', {
         severity: 'success',
         autoHideDuration: 4000,
@@ -111,10 +109,7 @@ export default function TestSetMetrics({
     } catch (err: unknown) {
       notifications.show(
         err instanceof Error ? err.message : 'Failed to add metric to test set',
-        {
-          severity: 'error',
-          autoHideDuration: 4000,
-        }
+        { severity: 'error', autoHideDuration: 4000 }
       );
     }
   };
@@ -122,14 +117,10 @@ export default function TestSetMetrics({
   const handleRemoveMetric = async (metricId: string) => {
     try {
       setIsRemoving(metricId);
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-      const updatedMetrics = await testSetsClient.removeMetricFromTestSet(
-        testSetId,
-        metricId
-      );
-      setMetrics(updatedMetrics);
-
+      await new ApiClientFactory(sessionToken)
+        .getTestSetsClient()
+        .removeMetricFromTestSet(testSetId, metricId);
+      queryClient.invalidateQueries({ queryKey: metricsQueryKey });
       notifications.show('Metric removed from test set successfully', {
         severity: 'success',
         autoHideDuration: 4000,
@@ -139,10 +130,7 @@ export default function TestSetMetrics({
         err instanceof Error
           ? err.message
           : 'Failed to remove metric from test set',
-        {
-          severity: 'error',
-          autoHideDuration: 4000,
-        }
+        { severity: 'error', autoHideDuration: 4000 }
       );
     } finally {
       setIsRemoving(null);
