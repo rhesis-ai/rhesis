@@ -81,19 +81,19 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
         id: '550e8400-e29b-41d4-a716-446655440001',
         name: 'Open',
         description: 'Task is open',
-        entity_type_id: 'Task',
+        entity_type_id: EntityType.TASK,
       },
       {
         id: '550e8400-e29b-41d4-a716-446655440002',
         name: 'In Progress',
         description: 'Task is in progress',
-        entity_type_id: 'Task',
+        entity_type_id: EntityType.TASK,
       },
       {
         id: '550e8400-e29b-41d4-a716-446655440003',
         name: 'Completed',
         description: 'Task is completed',
-        entity_type_id: 'Task',
+        entity_type_id: EntityType.TASK,
       },
     ];
     taskDataCache.set(cacheKey, defaultStatuses);

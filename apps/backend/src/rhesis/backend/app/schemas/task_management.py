@@ -3,6 +3,9 @@ from typing import Dict, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict
 
+from rhesis.backend.app.auth.capabilities import ResourceType
+
+from .affordances import WithPermittedActions
 from .base import Base
 from .status import Status
 from .type_lookup import TypeLookup
@@ -51,8 +54,19 @@ class TaskUpdate(BaseModel):
     task_metadata: Optional[Dict] = None
 
 
-class Task(Base):
-    """Schema for Task with relationships and auto-generated fields"""
+class Task(Base, WithPermittedActions):
+    """Schema for Task with relationships and auto-generated fields.
+
+    ``permitted_actions`` (server-resolved object-level affordances) is filled
+    automatically during response serialization — see
+    :class:`WithPermittedActions`.
+
+    Edit (update) is permitted for the creator (``:own``) or the assignee
+    (``:assigned``); delete is permitted for the creator only (``:own``).
+    """
+
+    __resource_type__ = ResourceType.TASK
+    __assignee_attr__ = "assignee_id"
 
     title: str
     description: Optional[str] = None

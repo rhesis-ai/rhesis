@@ -13,6 +13,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
 import { TEST_TYPES } from '@/constants/test-types';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import { EntityType } from '@/types/entity-type';
 import {
   EMPTY_ACTIVITY_PRESENCE_FILTERS,
   countActivePresenceFilters,
@@ -121,12 +122,12 @@ export default function TestFilterDrawer({
             apiFactory.getCategoryClient().getCategories({
               sort_by: 'name',
               sort_order: 'asc',
-              entity_type: 'Test',
+              entity_type: EntityType.TEST,
             }),
             apiFactory.getTopicClient().getTopics({
               sort_by: 'name',
               sort_order: 'asc',
-              entity_type: 'Test',
+              entity_type: EntityType.TEST,
             }),
           ]);
 

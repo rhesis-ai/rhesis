@@ -2,6 +2,7 @@
 
 import React, {
   useEffect,
+  useRef,
   useState,
   useContext,
   useCallback,
@@ -52,6 +53,8 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   getTestContentValue,
   renderTestContentCell,
@@ -156,6 +159,9 @@ export default function TestsTable({
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const isMounted = useRef(true);
+  const canEditTest = useCan(Capability.Test.UPDATE);
+  const canDeleteTest = useCan(Capability.Test.DELETE);
   const queryClient = useQueryClient();
 
   // Search + tab filter — managed here, shared to toolbar via context
@@ -346,6 +352,8 @@ export default function TestsTable({
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
       onDelete: id => handleRowDeleteAction(id),
+      canEdit: () => canEditTest,
+      canDelete: () => canDeleteTest,
     });
     return [
       {

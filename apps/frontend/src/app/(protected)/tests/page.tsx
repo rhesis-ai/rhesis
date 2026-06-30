@@ -19,6 +19,10 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
@@ -27,6 +31,10 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Test.READ
+  );
+  const canCreate = useCan(Capability.Test.CREATE);
 
   const insightsFailedFilter = React.useMemo(
     () =>
@@ -124,6 +132,9 @@ export default function TestsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="tests" />;
+
   if (!session?.session_token) {
     return (
       <PageLayout title="Tests" breadcrumbs={[]}>
@@ -146,13 +157,15 @@ export default function TestsPage() {
             tooltip="Import tests"
             onClick={() => {}}
           />
-          <Fab
-            icon={<EditNoteIcon />}
-            tooltip="Manual test"
-            aria-label="Manual test"
-            onClick={handleCreateManual}
-            disabled={shouldDisableAddButton}
-          />
+          <Can capability={Capability.Test.CREATE}>
+            <Fab
+              icon={<EditNoteIcon />}
+              tooltip="Manual test"
+              aria-label="Manual test"
+              onClick={handleCreateManual}
+              disabled={shouldDisableAddButton}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -163,8 +176,8 @@ export default function TestsPage() {
             icon={ScienceIcon}
             title="No test yet"
             description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
-            actionLabel="Create test"
-            onAction={handleCreateManual}
+            actionLabel={canCreate ? 'Create test' : undefined}
+            onAction={canCreate ? handleCreateManual : undefined}
             actionDisabled={shouldDisableAddButton}
             enrichment={getEntityEmptyStateEnrichment('tests')}
           />

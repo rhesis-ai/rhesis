@@ -1,42 +1,53 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Typography,
-  Chip,
-  IconButton,
-  Tooltip,
-  useTheme,
-} from '@mui/material';
+import { Box, Typography, Chip, Tooltip, useTheme } from '@mui/material';
 import { EditIcon, DeleteIcon, AssignmentIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
-import { Task, EntityType } from '@/types/tasks';
+import type { Task } from '@/types/tasks';
+import { EntityType } from '@/types/entity-type';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { EntityAction } from '@/components/common/entity-actions';
+import { EntityActionBar } from '@/components/common/EntityActionBar';
+import { Capability } from '@/constants/capabilities';
 
 interface TaskItemProps {
   task: Task;
   onEdit?: (taskId: string) => void;
   onDelete?: (taskId: string) => void;
-  currentUserId: string;
   showEntityLink?: boolean;
 }
+
+const TASK_ACTION_DESCRIPTORS: Omit<EntityAction<Task>, 'onSelect'>[] = [
+  {
+    id: 'edit',
+    label: 'Edit Task',
+    icon: EditIcon,
+    capability: Capability.Task.UPDATE,
+  },
+  {
+    id: 'delete',
+    label: 'Delete Task',
+    icon: DeleteIcon,
+    capability: Capability.Task.DELETE,
+  },
+];
 
 export function TaskItem({
   task,
   onEdit,
   onDelete,
-  currentUserId,
   showEntityLink = false,
 }: TaskItemProps) {
   const theme = useTheme();
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
 
-  const isOwner = task.user_id === currentUserId;
-  const canEdit = isOwner || task.assignee_id === currentUserId;
-  const canDelete = isOwner;
+  const actions: EntityAction<Task>[] = [
+    { ...TASK_ACTION_DESCRIPTORS[0], onSelect: (t: Task) => onEdit?.(t.id) },
+    { ...TASK_ACTION_DESCRIPTORS[1], onSelect: (t: Task) => onDelete?.(t.id) },
+  ];
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -67,7 +78,6 @@ export function TaskItem({
   };
 
   const handleTaskClick = (e: React.MouseEvent) => {
-    // Prevent navigation if clicking on action buttons
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
@@ -135,46 +145,15 @@ export function TaskItem({
           </Typography>
         </Box>
 
-        {/* Action Buttons */}
-        {(canEdit || canDelete) && (
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 0.5,
-              opacity: isHovered ? 1 : 0,
-              transition: 'opacity 0.2s',
-            }}
-          >
-            {canEdit && (
-              <Tooltip title="Edit Task">
-                <IconButton
-                  size="small"
-                  onClick={() => onEdit?.(task.id)}
-                  sx={{
-                    color: 'text.secondary',
-                    '&:hover': { color: 'primary.main' },
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {canDelete && (
-              <Tooltip title="Delete Task">
-                <IconButton
-                  size="small"
-                  onClick={() => onDelete?.(task.id)}
-                  sx={{
-                    color: 'text.secondary',
-                    '&:hover': { color: 'error.main' },
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
-        )}
+        {/* Server-driven action bar — visibility derived from permitted_actions */}
+        <Box
+          sx={{
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s',
+          }}
+        >
+          <EntityActionBar subject={task} actions={actions} iconSize={18} />
+        </Box>
       </Box>
 
       {/* Description */}
@@ -238,12 +217,12 @@ export function TaskItem({
         >
           <Typography variant="caption" color="text.secondary">
             Related to:{' '}
-            {getEntityDisplayName((task.entity_type as EntityType) || 'Task')}
+            {getEntityDisplayName(
+              (task.entity_type as EntityType) || EntityType.TASK
+            )}
           </Typography>
         </Box>
       )}
-
-      {/* Comment Link - removed as comment_id is not in API */}
     </Box>
   );
 }

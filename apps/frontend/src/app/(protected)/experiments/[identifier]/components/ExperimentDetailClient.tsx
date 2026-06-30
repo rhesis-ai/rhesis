@@ -33,6 +33,9 @@ import {
   ProjectEnvironments,
 } from '@/utils/api-client/interfaces/parameters';
 import { EditIcon, PlayArrowIcon } from '@/components/icons';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/utils/affordances';
+import { Can } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TypedValueEditor from './TypedValueEditor';
 import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
@@ -296,6 +299,8 @@ export default function ExperimentDetailClient({
     },
   ];
 
+  const canUpdate = can(experiment, Capability.Experiment.UPDATE);
+
   const pageTitle = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Typography
@@ -305,15 +310,17 @@ export default function ExperimentDetailClient({
       >
         {experiment.name}
       </Typography>
-      <Tooltip title="Rename experiment">
-        <IconButton
-          size="small"
-          onClick={handleRenameOpen}
-          aria-label="Rename experiment"
-        >
-          <EditIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
+      {canUpdate && (
+        <Tooltip title="Rename experiment">
+          <IconButton
+            size="small"
+            onClick={handleRenameOpen}
+            aria-label="Rename experiment"
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 
@@ -325,11 +332,13 @@ export default function ExperimentDetailClient({
       metadata={<DetailMetadataStrip items={metadataItems} />}
       actions={
         <FabGroup>
-          <Fab
-            icon={<PlayArrowIcon />}
-            tooltip="Run Experiment"
-            onClick={() => setRunDrawerOpen(true)}
-          />
+          <Can capability={Capability.TestRun.CREATE}>
+            <Fab
+              icon={<PlayArrowIcon />}
+              tooltip="Run Experiment"
+              onClick={() => setRunDrawerOpen(true)}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -375,7 +384,9 @@ export default function ExperimentDetailClient({
               setSelectedVersionHashes(new Set([versionHash]));
               setRunDrawerOpen(true);
             }}
-            onAddConfiguration={() => setConfigDrawerOpen(true)}
+            onAddConfiguration={
+              canUpdate ? () => setConfigDrawerOpen(true) : undefined
+            }
           />
         </DetailTabPanel>
 

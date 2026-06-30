@@ -35,6 +35,8 @@ import {
   TYPE_META,
   useParameterSchema,
 } from './parameter-schema-shared';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ProjectParametersProps {
   projectId: string;
@@ -73,6 +75,7 @@ export default function ProjectParameters({
     handleRevert,
   } = useParameterSchema(projectId, sessionToken);
 
+  const canUpdate = useCan(Capability.Project.UPDATE);
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
   const [newFieldKeys, setNewFieldKeys] = useState<Set<string>>(
     () => new Set()
@@ -174,15 +177,17 @@ export default function ProjectParameters({
   const sectionActions = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {headerAction}
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={<AddIcon sx={{ fontSize: 20 }} />}
-        onClick={handleAdd}
-        sx={sectionEditButtonSx}
-      >
-        Add Parameter
-      </Button>
+      {canUpdate && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+          onClick={handleAdd}
+          sx={sectionEditButtonSx}
+        >
+          Add Parameter
+        </Button>
+      )}
     </Box>
   );
 
@@ -204,8 +209,8 @@ export default function ProjectParameters({
 
       {draft.length === 0 ? (
         <ParametersEmptyState
-          onAdd={handleAdd}
-          showAddButton={!useHeaderActions}
+          onAdd={canUpdate ? handleAdd : undefined}
+          showAddButton={!useHeaderActions && canUpdate}
         />
       ) : (
         <Box
@@ -225,7 +230,9 @@ export default function ProjectParameters({
               return (
                 <ListItemButton
                   key={field._key}
-                  onClick={() => handleOpenDrawer(field._key)}
+                  onClick={
+                    canUpdate ? () => handleOpenDrawer(field._key) : undefined
+                  }
                   sx={{
                     borderLeft: '3px solid',
                     borderLeftColor:
@@ -273,43 +280,45 @@ export default function ProjectParameters({
                       {field.required ? ' · required' : ''}
                     </Typography>
                   </Box>
-                  <Stack direction="row" spacing={0}>
-                    <Tooltip title="Move up">
-                      <span>
-                        <IconButton
-                          size="small"
-                          disabled={isFirst}
-                          onClick={e => {
-                            e.stopPropagation();
-                            move(field._key, -1);
-                          }}
-                          aria-label="Move up"
-                        >
-                          <KeyboardArrowUpIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Move down">
-                      <span>
-                        <IconButton
-                          size="small"
-                          disabled={isLast}
-                          onClick={e => {
-                            e.stopPropagation();
-                            move(field._key, 1);
-                          }}
-                          aria-label="Move down"
-                        >
-                          <KeyboardArrowDownIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Stack>
+                  {canUpdate && (
+                    <Stack direction="row" spacing={0}>
+                      <Tooltip title="Move up">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={isFirst}
+                            onClick={e => {
+                              e.stopPropagation();
+                              move(field._key, -1);
+                            }}
+                            aria-label="Move up"
+                          >
+                            <KeyboardArrowUpIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Move down">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={isLast}
+                            onClick={e => {
+                              e.stopPropagation();
+                              move(field._key, 1);
+                            }}
+                            aria-label="Move down"
+                          >
+                            <KeyboardArrowDownIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Stack>
+                  )}
                 </ListItemButton>
               );
             })}
           </List>
-          {!useHeaderActions && (
+          {!useHeaderActions && canUpdate && (
             <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
               <Button
                 fullWidth

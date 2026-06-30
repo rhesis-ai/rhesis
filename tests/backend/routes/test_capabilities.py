@@ -13,7 +13,6 @@ Test coverage:
 
 from __future__ import annotations
 
-from typing import Optional
 from unittest.mock import Mock
 from uuid import UUID
 
@@ -202,9 +201,9 @@ class TestListCapabilities:
     ):
         import re
 
-        # resource:action, optionally with an object-level :own qualifier (SP10),
-        # e.g. comment:update:own.
-        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own)?$")
+        # resource:action, optionally with an object-level qualifier (SP10),
+        # e.g. comment:update:own or task:update:assigned.
+        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own|:assigned)?$")
         for cap in authed_client.get("/capabilities").json():
             assert pattern.match(cap), (
                 f"Capability '{cap}' does not match resource:action format"
@@ -248,7 +247,7 @@ class TestGetMyPermissions:
     def test_non_member_without_project_id_gets_standard_capabilities(
         self, authed_client: TestClient, mock_non_member
     ):
-        """Org member without ownership or project membership gets standard (non-owner) capabilities.
+        """Org member without project membership gets standard (non-owner) capabilities.
 
         Community tier rule: any authenticated org member may exercise non-owner-only
         capabilities when no project scope is given.  The ORM scope already limits

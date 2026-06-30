@@ -209,6 +209,68 @@ def apply_auth_backstop(app: FastAPI) -> None:
         _inject_route_dependency(route, backstop)
 
 
+def _response_carries_affordances(response_model) -> bool:
+    """True if *response_model* is, contains, or wraps a ``WithPermittedActions`` schema.
+
+    Unwraps typing generics (``List[X]``, ``Optional[X]``, ``Union[...]``) so list
+    and optional response models are detected, not just bare model classes.
+    """
+    from typing import get_args
+
+    from rhesis.backend.app.schemas.affordances import WithPermittedActions
+
+    seen: set = set()
+    stack = [response_model]
+    while stack:
+        tp = stack.pop()
+        if tp is None or id(tp) in seen:
+            continue
+        seen.add(id(tp))
+        args = get_args(tp)
+        if args:
+            stack.extend(args)
+            continue
+        try:
+            if isinstance(tp, type) and issubclass(tp, WithPermittedActions):
+                return True
+        except TypeError:
+            continue
+    return False
+
+
+def apply_affordance_backstop(app: FastAPI) -> None:
+    """Inject the affordance-context binder on every route that returns affordances.
+
+    Object-level ``permitted_actions`` are filled automatically during response
+    serialization by the
+    :class:`~rhesis.backend.app.schemas.affordances.WithPermittedActions` validator,
+    which reads a per-request ContextVar bound by
+    :func:`~rhesis.backend.app.dependencies.bind_affordance_context`. Rather than
+    have every router remember to add that dependency — and silently ship empty
+    affordances if it forgets — inject it here for exactly the routes whose
+    ``response_model`` carries the mixin, detected via
+    :func:`_response_carries_affordances`.
+
+    Routes whose response does not carry the mixin are left untouched, so
+    onboarding/context-free routes are never forced through the tenant-db + auth
+    dependencies the binder pulls in. ``PUBLIC_ROUTES`` are skipped outright.
+
+    Must run **after** all routers (core + EE) are registered, like the auth/authz
+    backstops, so every affordance-bearing route is covered.
+    """
+    from rhesis.backend.app.dependencies import bind_affordance_context
+
+    dep = Depends(bind_affordance_context)
+    for route in app.router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if route.path in PUBLIC_ROUTES:
+            continue
+        if not _response_carries_affordances(route.response_model):
+            continue
+        _inject_route_dependency(route, dep)
+
+
 def get_api_description():
     """Generate API description with version information."""
     version_info = get_version_info()
@@ -738,3 +800,8 @@ register_capabilities(app)
 # backstop derives caps independently via get_capability_for_route, keeping both
 # in sync with the same deriver is belt-and-suspenders).
 apply_authz_backstop(app)
+
+# Inject the per-request affordance-context binder on every route whose response
+# carries WithPermittedActions, so object-level permitted_actions populate
+# automatically during serialization. Runs after all routers are registered.
+apply_affordance_backstop(app)

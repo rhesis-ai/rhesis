@@ -388,45 +388,58 @@ def authorize_object(
     *,
     project_id: Optional[UUID],
     db: Session,
+    owner_attr: str = "user_id",
 ) -> bool:
-    """Evaluate whether *principal* may act on a specific *obj* it created.
+    """Evaluate whether *principal* may act on a specific *obj* via an object-level cap.
 
-    Enforces strict ownership semantics: the caller must be the object's creator
-    (``obj.user_id == principal.user_id``) AND hold the ``:own``-qualified
-    capability via the active PDP.  Non-owners are **always** denied by this
-    helper — there is no admin bypass here.  For unrestricted access to any
-    object, call :func:`authorize` directly with the base capability.
+    Enforces strict ownership semantics: the caller must match the object's owner
+    field (``getattr(obj, owner_attr)``) AND hold the qualified capability via the
+    active PDP.  Non-owners are **always** denied by this helper — there is no admin
+    bypass here.  For unrestricted access to any object, call :func:`authorize`
+    directly with the base capability.
 
     Typical usage in a route handler after fetching the object::
 
         principal = resolve_principal(current_user)
-        scope = db.info.get("_scope")
-        project_id = getattr(scope, "project_id", None)
+        project_id = project_id_from_scope(db)
         if not authorize_object(
             principal, Permission.Comment.UPDATE_OWN, db_comment,
             project_id=project_id, db=db,
         ):
             raise HTTPException(403, "Not authorized to update this comment")
 
+    For assignee-based authorization (e.g. tasks)::
+
+        authorize_object(
+            principal, Permission.Task.UPDATE_ASSIGNED, db_task,
+            project_id=project_id, db=db, owner_attr="assignee_id",
+        )
+
     Args:
         principal: Resolved caller identity (use :func:`resolve_principal`).
-        own_permission: The ``:own``-qualified capability, e.g.
-            ``Permission.Comment.UPDATE_OWN`` (``"comment:update:own"``).
-        obj: ORM object being acted upon; must expose a ``user_id`` attribute
-            that is the UUID of the object's creator.
-        project_id: Project scope (from ``db.info['_scope']``).
+        own_permission: The qualified capability, e.g.
+            ``Permission.Comment.UPDATE_OWN`` (``"comment:update:own"``) or
+            ``Permission.Task.UPDATE_ASSIGNED`` (``"task:update:assigned"``).
+        obj: ORM object being acted upon; must expose the attribute named by
+            *owner_attr* as the UUID of the object's owner/assignee.
+        project_id: Project scope (from :func:`project_id_from_scope`).
         db: Active SQLAlchemy session (tenant-scoped).
+        owner_attr: Attribute on *obj* to compare against ``principal.user_id``.
+            Defaults to ``"user_id"`` (creator). Pass ``"assignee_id"`` for
+            assignee-based checks.
 
     Returns:
-        ``True`` iff the caller owns *obj* AND the PDP grants the capability.
+        ``True`` iff the caller matches the object's *owner_attr* field AND the
+        PDP grants the capability.
     """
     own_perm_str = str(own_permission)
-    obj_user_id = getattr(obj, "user_id", None)
+    obj_user_id = getattr(obj, owner_attr, None)
 
     if obj_user_id is None or obj_user_id != principal.user_id:
         logger.debug(
-            "authorize_object: deny — principal %s does not own object (owner: %s)",
+            "authorize_object: deny — principal %s does not match object %s (value: %s)",
             principal.user_id,
+            owner_attr,
             obj_user_id,
         )
         return False

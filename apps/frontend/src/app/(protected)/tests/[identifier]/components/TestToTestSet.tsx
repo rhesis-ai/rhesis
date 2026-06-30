@@ -10,6 +10,8 @@ import { Fab, FabGroup } from '@/components/common/Fab';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface TestToTestSetProps {
   sessionToken: string;
@@ -88,18 +90,22 @@ export default function TestToTestSet({
     <>
       <FabGroup>
         {parentButton}
-        <Fab
-          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-          tooltip="Delete test"
-          onClick={() => setDeleteDialogOpen(true)}
-          loading={isDeleting}
-        />
-        <Fab
-          icon={<FileCopyOutlinedIcon sx={{ fontSize: 28 }} />}
-          tooltip="Duplicate test"
-          onClick={handleDuplicate}
-          loading={isDuplicating}
-        />
+        <Can capability={Capability.Test.DELETE}>
+          <Fab
+            icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+            tooltip="Delete test"
+            onClick={() => setDeleteDialogOpen(true)}
+            loading={isDeleting}
+          />
+        </Can>
+        <Can capability={Capability.Test.CREATE}>
+          <Fab
+            icon={<FileCopyOutlinedIcon sx={{ fontSize: 28 }} />}
+            tooltip="Duplicate test"
+            onClick={handleDuplicate}
+            loading={isDuplicating}
+          />
+        </Can>
         <Fab
           icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
           tooltip="Run test"

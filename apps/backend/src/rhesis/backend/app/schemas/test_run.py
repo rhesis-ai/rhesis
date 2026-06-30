@@ -1,8 +1,10 @@
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import UUID4
+from pydantic import UUID4, ConfigDict
 
+from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
 
 # TestRun schemas
@@ -28,5 +30,14 @@ class TestRunUpdate(TestRunBase):
     pass
 
 
-class TestRun(TestRunBase):
-    pass
+class TestRun(TestRunBase, WithPermittedActions):
+    """Full TestRun response with server-resolved object-level affordances.
+
+    ``permitted_actions`` is populated automatically during serialization for
+    the calling principal — see :class:`WithPermittedActions`.
+    """
+
+    __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RUN
+    # __owner_attr__ defaults to "user_id", which is the creator column on TestRun.
+
+    model_config = ConfigDict(from_attributes=True)

@@ -219,6 +219,46 @@ def get_tenant_db_session(
         yield db
 
 
+async def bind_affordance_context(
+    request: Request,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Bind the per-request context for server-driven object-level affordances.
+
+    Injected post-registration by ``main.apply_affordance_backstop`` on every route
+    whose ``response_model`` carries
+    :class:`~rhesis.backend.app.schemas.affordances.WithPermittedActions`. The
+    mixin's validator fills ``permitted_actions`` during response serialization by
+    reading the context bound here, so no router needs an explicit call.
+
+    Deliberately ``async``: a sync (threadpool) dependency would set the ContextVar
+    in a worker thread's context, invisible to response serialization on the event
+    loop. As an async ``yield`` dependency it runs in the request's event-loop
+    context, and FastAPI serializes the response *inside* the dependency exit stack
+    — so the value is live during serialization and reset immediately after. The
+    ``db``/``current_user`` dependencies are the same callables the affordance
+    routers already declare, so FastAPI deduplicates them (no second session).
+    """
+    from rhesis.backend.app.auth.affordances import (
+        current_affordance_context,
+        reset_affordance_context,
+        set_affordance_context,
+    )
+
+    token = set_affordance_context(current_user, request, db)
+    try:
+        # Eagerly resolve effective caps here (inside the async dependency) so the
+        # synchronous DB/Redis I/O for effective_permissions() does not happen lazily
+        # during response serialization, where it would block the event loop.
+        ctx = current_affordance_context()
+        if ctx is not None:
+            ctx.precompute()
+        yield
+    finally:
+        reset_affordance_context(token)
+
+
 def get_db_with_tenant_context(
     tenant_context: tuple = Depends(get_tenant_context),
     project_id: Optional[str] = Depends(get_project_context),

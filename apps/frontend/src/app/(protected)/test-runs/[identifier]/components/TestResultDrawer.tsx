@@ -27,6 +27,7 @@ import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrap
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import { MentionOption } from '@/components/common/MentionTextInput';
+import { EntityType } from '@/types/entity-type';
 
 interface TestResultDrawerProps {
   open: boolean;
@@ -216,7 +217,7 @@ export default function TestResultDrawer({
 
       // Get available statuses for TestResult
       const statuses = await statusClient.getStatuses({
-        entity_type: 'TestResult',
+        entity_type: EntityType.TEST_RESULT,
       });
 
       // Determine the automated status from goal_evaluation

@@ -2,6 +2,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useComments } from '../useComments';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';
+import { EntityType } from '@/types/entity-type';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
@@ -62,7 +63,7 @@ describe('useComments', () => {
         {
           id: '1',
           content: 'Test comment',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           entity_id: '123',
           parent_id: null,
           created_at: '2024-01-01T00:00:00Z',
@@ -98,7 +99,7 @@ describe('useComments', () => {
         {
           id: '1',
           content: 'Test comment',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           entity_id: '123',
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
@@ -155,7 +156,7 @@ describe('useComments', () => {
       const newComment = {
         id: 'new-comment-id',
         content: 'New comment',
-        entity_type: 'Test' as const,
+        entity_type: EntityType.TEST,
         entity_id: '123',
         parent_id: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -178,7 +179,7 @@ describe('useComments', () => {
 
       expect(mockCommentsClient.createComment).toHaveBeenCalledWith({
         content: 'New comment',
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
       });
 
@@ -217,7 +218,7 @@ describe('useComments', () => {
       const existingComment = {
         id: '1',
         content: 'Original comment',
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
@@ -231,7 +232,7 @@ describe('useComments', () => {
       const updatedComment = {
         id: '1',
         content: 'Updated comment',
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-02T00:00:00Z',
@@ -289,7 +290,7 @@ describe('useComments', () => {
       const commentToDelete = {
         id: '1',
         content: 'Comment to delete',
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
@@ -344,7 +345,7 @@ describe('useComments', () => {
       const commentWithEmojis = {
         id: '1',
         content: 'Test comment',
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
@@ -387,7 +388,7 @@ describe('useComments', () => {
       const commentWithEmojis = {
         id: '1',
         content: 'Test comment',
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',

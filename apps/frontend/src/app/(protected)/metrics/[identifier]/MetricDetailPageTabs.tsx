@@ -26,6 +26,10 @@ import LinkedEntitiesFilterDrawer, {
 import { MetricDetailView } from './MetricDetailView';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import type {
   BehaviorReference,
   BehaviorWithMetrics,
@@ -46,6 +50,9 @@ const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
 export default function MetricDetailPageTabs() {
   const params = useParams();
   const { data: session } = useSession();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Metric.READ
+  );
 
   const metricId = params.identifier as string;
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
@@ -58,6 +65,9 @@ export default function MetricDetailPageTabs() {
   }));
 
   const sessionToken = session?.session_token ?? '';
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="metrics" />;
 
   const tabNav = (
     <DetailTabNav
@@ -94,6 +104,7 @@ function MetricLinkedBehaviors({
 }) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditMetric = useCan(Capability.Metric.UPDATE);
   const [behaviors, setBehaviors] = useState<LinkedBehaviorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -183,12 +194,13 @@ function MetricLinkedBehaviors({
         ),
       },
       createRowActionsColumn({
+        canDelete: () => canEditMetric,
         onDelete: id => handleUnassign(id),
         deleteTooltip: 'Unassign',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [handleUnassign]
+    [handleUnassign, canEditMetric]
   );
 
   // Assign drawer columns (no actions)
@@ -309,7 +321,7 @@ function MetricLinkedBehaviors({
         loading={loading}
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/behaviors/${String(params.id)}`)}
-        onAssignClick={handleAssignClick}
+        onAssignClick={canEditMetric ? handleAssignClick : undefined}
         searchPlaceholder="Search behaviors…"
         rowFilter={rowFilter}
         onFilterClick={() => setFilterOpen(true)}

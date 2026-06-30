@@ -49,6 +49,8 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { TEST_TYPES } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
 import { useQueryClient } from '@tanstack/react-query';
@@ -168,6 +170,8 @@ export default function TestSetsGrid({
   const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
+  const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
   const queryClient = useQueryClient();
 
   const sessionToken = sessionTokenProp || session?.session_token || '';
@@ -426,6 +430,8 @@ export default function TestSetsGrid({
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
       onDelete: id => handleRowDeleteAction(id),
+      canEdit: () => canEditTestSet,
+      canDelete: () => canDeleteTestSet,
     });
     return [
       {

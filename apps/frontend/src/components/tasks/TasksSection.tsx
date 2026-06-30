@@ -6,6 +6,8 @@ import { AddIcon } from '@/components/icons';
 import TasksIcon from '@/components/TasksIcon';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { SectionCard } from '@/components/common/SectionCard';
 import {
@@ -28,8 +30,6 @@ interface TasksSectionProps {
   onDeleteTask?: (taskId: string) => Promise<void>;
   /** Opens the in-context task creation drawer */
   onOpenCreateDrawer?: (commentId?: string) => void;
-  currentUserId: string;
-  currentUserName: string;
   /** Bump after create/delete so the list refetches. */
   refreshKey?: number;
 }
@@ -42,13 +42,10 @@ export function TasksSection({
   onEditTask: _onEditTask,
   onDeleteTask,
   onOpenCreateDrawer,
-  currentUserId: _currentUserId,
-  currentUserName: _currentUserName,
   refreshKey = 0,
 }: TasksSectionProps) {
   const router = useRouter();
   const { show: showNotification } = useNotifications();
-
   // Component state
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -263,18 +260,20 @@ export function TasksSection({
   ];
 
   const createButton = (
-    <Button
-      variant="outlined"
-      startIcon={
-        <AddIcon
-          sx={{ color: theme => `${theme.palette.primary.main} !important` }}
-        />
-      }
-      onClick={handleCreateTask}
-      size="small"
-    >
-      Create
-    </Button>
+    <Can capability={Capability.Task.CREATE}>
+      <Button
+        variant="outlined"
+        startIcon={
+          <AddIcon
+            sx={{ color: theme => `${theme.palette.primary.main} !important` }}
+          />
+        }
+        onClick={handleCreateTask}
+        size="small"
+      >
+        Create
+      </Button>
+    </Can>
   );
 
   if (error) {
@@ -323,14 +322,16 @@ export function TasksSection({
               Create a task to track follow-ups for this{' '}
               {getEntityDisplayName(entityType).toLowerCase()}.
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon sx={{ color: 'white !important' }} />}
-              onClick={handleCreateTask}
-              sx={{ color: 'white' }}
-            >
-              Create task
-            </Button>
+            <Can capability={Capability.Task.CREATE}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon sx={{ color: 'white !important' }} />}
+                onClick={handleCreateTask}
+                sx={{ color: 'white' }}
+              >
+                Create task
+              </Button>
+            </Can>
           </Box>
         </SectionCard>
       </TaskErrorBoundary>

@@ -27,6 +27,7 @@ import { createReactionTooltipText } from '@/utils/comment-utils';
 import { EntityActionBar } from '@/components/common/EntityActionBar';
 import type { EntityAction } from '@/components/common/entity-actions';
 import { Capability } from '@/constants/capabilities';
+import { can, Can } from '@/components/common/Can';
 
 interface CommentItemProps {
   comment: Comment;
@@ -55,6 +56,8 @@ export function CommentItem({
   const [emojiAnchorEl, setEmojiAnchorEl] = useState<HTMLElement | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const canReact = can(comment, Capability.Comment.REACT);
 
   // Actions declared as data; EntityActionBar renders only those the server
   // permits (capability) and `isVisible` allows. No canEdit/canDelete booleans,
@@ -262,7 +265,9 @@ export function CommentItem({
                   placement="top"
                 >
                   <Box
-                    onClick={() => onReact(comment.id, emoji)}
+                    onClick={
+                      canReact ? () => onReact(comment.id, emoji) : undefined
+                    }
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -275,9 +280,11 @@ export function CommentItem({
                       borderRadius: BORDER_RADIUS.pill,
                       px: '10px',
                       py: '2px',
-                      cursor: 'pointer',
+                      cursor: canReact ? 'pointer' : 'default',
                       userSelect: 'none',
-                      '&:hover': { borderColor: 'text.primary' },
+                      '&:hover': canReact
+                        ? { borderColor: 'text.primary' }
+                        : {},
                     }}
                   >
                     <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
@@ -297,15 +304,17 @@ export function CommentItem({
               );
             })}
 
-            <Tooltip title="Add reaction">
-              <IconButton
-                size="small"
-                onClick={e => setEmojiAnchorEl(e.currentTarget)}
-                sx={actionIconSx}
-              >
-                <EmojiIcon sx={{ fontSize: 20 }} />
-              </IconButton>
-            </Tooltip>
+            <Can subject={comment} capability={Capability.Comment.REACT}>
+              <Tooltip title="Add reaction">
+                <IconButton
+                  size="small"
+                  onClick={e => setEmojiAnchorEl(e.currentTarget)}
+                  sx={actionIconSx}
+                >
+                  <EmojiIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+            </Can>
           </Box>
         </Box>
       </Box>

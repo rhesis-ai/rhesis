@@ -23,6 +23,10 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { Can, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 interface TokensPageClientProps {
   sessionToken: string;
@@ -31,6 +35,10 @@ interface TokensPageClientProps {
 export default function TokensPageClient({
   sessionToken,
 }: TokensPageClientProps) {
+  const { allowed: canManage, loading: permsLoading } = useCanWithStatus(
+    Capability.Token.MANAGE
+  );
+
   // Data state
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,6 +227,9 @@ export default function TokensPageClient({
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canManage) return <AccessDenied resource="API tokens" />;
+
   return (
     <PageLayout
       title="API Tokens"
@@ -226,12 +237,14 @@ export default function TokensPageClient({
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Create API token"
-            aria-label="Create API token"
-            onClick={handleOpenCreateModal}
-          />
+          <Can capability={Capability.Token.MANAGE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Create API token"
+              aria-label="Create API token"
+              onClick={handleOpenCreateModal}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -249,8 +262,8 @@ export default function TokensPageClient({
           icon={VpnKeyIcon}
           title="No API tokens yet"
           description="Create your first API token to start interacting with the Rhesis API. Tokens allow you to authenticate your applications and build powerful integrations."
-          actionLabel="Create API token"
-          onAction={handleOpenCreateModal}
+          actionLabel={canManage ? 'Create API token' : undefined}
+          onAction={canManage ? handleOpenCreateModal : undefined}
         />
       ) : !loading && filteredTokens.length === 0 && hasActiveFilters ? (
         <EntityEmptyState

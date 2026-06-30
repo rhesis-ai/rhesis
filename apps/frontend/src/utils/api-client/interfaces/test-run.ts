@@ -2,6 +2,7 @@ import { UUID } from 'crypto';
 import { UserReference, Status } from './tests';
 import { TestConfigurationDetail } from './test-configuration';
 import { Tag } from './tag';
+import type { WithPermittedActions } from '@/types/affordances';
 
 // Define Organization interface based on API response
 export interface OrganizationReference {
@@ -30,7 +31,7 @@ export type TestRunCreate = TestRunBase;
 
 export type TestRunUpdate = Partial<TestRunBase>;
 
-export interface TestRun extends TestRunBase {
+export interface TestRun extends TestRunBase, WithPermittedActions {
   id: UUID;
   created_at: string;
   updated_at: string;

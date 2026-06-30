@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   Box,
   FormControl,
@@ -62,6 +64,7 @@ function parseStringRecord(
 export default function EndpointConnectionTab() {
   const { endpoint, editorTheme, editorWrapperStyle, saveFields } =
     useEndpointDetailContext();
+  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const notifications = useNotifications();
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
@@ -87,6 +90,7 @@ export default function EndpointConnectionTab() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <EditableSection<RestConnectionDraft>
+        editable={canEditEndpoint}
         title="REST connection"
         initialValue={restInitial}
         onSave={async draft => {
@@ -151,6 +155,7 @@ export default function EndpointConnectionTab() {
       </EditableSection>
 
       <EditableSection
+        editable={canEditEndpoint}
         title="Authentication & headers"
         initialValue={headersInitial}
         isDirty={(draft, initial) =>

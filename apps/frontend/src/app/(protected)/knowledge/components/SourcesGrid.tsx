@@ -25,6 +25,8 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -105,6 +107,8 @@ export default function SourcesGrid({
 }: SourcesGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditSource = useCan(Capability.Source.UPDATE);
+  const canDeleteSource = useCan(Capability.Source.DELETE);
   const queryClient = useQueryClient();
 
   // Component state
@@ -283,6 +287,8 @@ export default function SourcesGrid({
     const actionsCol = createRowActionsColumn({
       onEdit: id => router.push(`/knowledge/${id}`),
       onDelete: id => handleDeleteSource(id),
+      canEdit: () => canEditSource,
+      canDelete: () => canDeleteSource,
     });
     return [
       {

@@ -8,11 +8,14 @@ import BaseFreesoloAutocomplete, {
 } from '@/components/common/BaseFreesoloAutocomplete';
 import ViewField from '@/components/common/ViewField';
 import EditableSection from '@/components/common/EditableSection';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
 interface TestDetailOption {
   id: UUID;
@@ -55,6 +58,7 @@ export default function TestMetadataCard({
 }: TestMetadataCardProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditTest = useCan(Capability.Test.UPDATE);
 
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
@@ -70,12 +74,12 @@ export default function TestMetadataCard({
           .getBehaviorClient()
           .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
         apiFactory.getTopicClient().getTopics({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         }),
         apiFactory.getCategoryClient().getCategories({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         }),
@@ -130,6 +134,7 @@ export default function TestMetadataCard({
 
   return (
     <EditableSection
+      editable={canEditTest}
       title="Test details"
       initialValue={initialDraft}
       onSave={handleSave}

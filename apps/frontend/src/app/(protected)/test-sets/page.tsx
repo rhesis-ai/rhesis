@@ -21,11 +21,20 @@ import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function TestSetsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const notifications = useNotifications();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.TestSet.READ
+  );
+  const canCreate = useCan(Capability.TestSet.CREATE);
+  const canGenerate = useCan(Capability.TestSet.GENERATE);
 
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
@@ -82,6 +91,9 @@ export default function TestSetsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="test sets" />;
+
   if (!sessionToken) {
     return (
       <PageLayout title="Test Sets" breadcrumbs={[]}>
@@ -110,18 +122,22 @@ export default function TestSetsPage() {
               tooltip="Import from Garak"
               onClick={() => setGarakImportDrawerOpen(true)}
             />
-            <Fab
-              icon={<AutoFixHighIcon />}
-              tooltip="AI generated Test Set"
-              aria-label="AI generated Test Set"
-              onClick={() => router.push('/test-sets/new-generated')}
-            />
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Test Set"
-              aria-label="New Test Set"
-              onClick={() => setCreateDrawerOpen(true)}
-            />
+            <Can capability={Capability.TestSet.GENERATE}>
+              <Fab
+                icon={<AutoFixHighIcon />}
+                tooltip="AI generated Test Set"
+                aria-label="AI generated Test Set"
+                onClick={() => router.push('/test-sets/new-generated')}
+              />
+            </Can>
+            <Can capability={Capability.TestSet.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Test Set"
+                aria-label="New Test Set"
+                onClick={() => setCreateDrawerOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -132,8 +148,8 @@ export default function TestSetsPage() {
               icon={HorizontalSplitIcon}
               title="No test sets yet"
               description="Group related tests into a test set to version, share, and run them together."
-              actionLabel="Create test set"
-              onAction={() => setCreateDrawerOpen(true)}
+              actionLabel={canCreate ? 'Create test set' : undefined}
+              onAction={canCreate ? () => setCreateDrawerOpen(true) : undefined}
               enrichment={getEntityEmptyStateEnrichment('test-sets')}
             />
           ) : (

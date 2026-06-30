@@ -3,6 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { CommentsSection } from '../CommentsSection';
+import { EntityType } from '@/types/entity-type';
+
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
 
 // Mock CommentItem and UserAvatar to keep tests focused on CommentsSection behavior
 jest.mock('../CommentItem', () => ({
@@ -49,7 +56,7 @@ function makeComment(id: string, content = 'Hello') {
     updated_at: '2024-01-01T00:00:00',
     reactions: [],
     entity_id: 'e1',
-    entity_type: 'Test' as const,
+    entity_type: EntityType.TEST,
     emojis: {} as Record<string, { user_id: string; user_name: string }[]>,
   };
 }

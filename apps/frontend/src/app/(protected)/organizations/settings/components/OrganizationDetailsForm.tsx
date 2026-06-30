@@ -9,6 +9,8 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { validateUrl, normalizeUrl } from '@/utils/validation';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface OrganizationDetailsFormProps {
   organization: Organization;
@@ -41,6 +43,7 @@ export default function OrganizationDetailsForm({
 }: OrganizationDetailsFormProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canUpdateOrg = useCan(Capability.Organization.UPDATE);
   const initialValue = useMemo(
     () => draftFromOrganization(organization),
     [organization]
@@ -107,6 +110,7 @@ export default function OrganizationDetailsForm({
 
   return (
     <EditableSection
+      editable={canUpdateOrg}
       title="Basic Information"
       initialValue={initialValue}
       onSave={handleSave}

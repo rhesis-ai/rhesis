@@ -120,8 +120,6 @@ export function TasksAndCommentsWrapper({
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
           onOpenCreateDrawer={handleOpenCreateDrawer}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
           refreshKey={tasksRefreshKey}
         />
 
@@ -144,8 +142,6 @@ export function TasksAndCommentsWrapper({
         onSubmit={handleCreateTask}
         entityType={entityType}
         entityId={entityId}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
         isLoading={isCreating}
         commentId={pendingCommentId}
       />

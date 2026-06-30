@@ -42,16 +42,37 @@ export const Capability = {
     UPDATE: 'test_run:update',
     DELETE: 'test_run:delete',
     EXECUTE: 'test_run:execute',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses this to the base cap (`test_run:delete`) in
+     * `permitted_actions`; use `Capability.TestRun.DELETE` for affordance checks.
+     */
+    DELETE_OWN: 'test_run:delete:own',
   },
   TestResult: {
     READ: 'test_result:read',
     UPDATE: 'test_result:update',
+    DELETE: 'test_result:delete',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.TestResult.UPDATE` / `DELETE` for affordance checks.
+     */
+    UPDATE_OWN: 'test_result:update:own',
+    DELETE_OWN: 'test_result:delete:own',
   },
   Experiment: {
     READ: 'experiment:read',
     CREATE: 'experiment:create',
     UPDATE: 'experiment:update',
     DELETE: 'experiment:delete',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.Experiment.UPDATE` / `DELETE` for affordance checks.
+     */
+    UPDATE_OWN: 'experiment:update:own',
+    DELETE_OWN: 'experiment:delete:own',
   },
   Endpoint: {
     READ: 'endpoint:read',
@@ -65,6 +86,11 @@ export const Capability = {
     UPDATE: 'comment:update',
     DELETE: 'comment:delete',
     REACT: 'comment:react',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps in `permitted_actions`;
+     * use `Capability.Comment.UPDATE` / `DELETE` for affordance checks.
+     */
     UPDATE_OWN: 'comment:update:own',
     DELETE_OWN: 'comment:delete:own',
   },
@@ -73,10 +99,49 @@ export const Capability = {
     CREATE: 'task:create',
     UPDATE: 'task:update',
     DELETE: 'task:delete',
+    /**
+     * Role-editor only — do NOT use in `can(subject, …)` / `useCan()` checks.
+     * The backend collapses these to base caps (`task:update`, `task:delete`) in
+     * `permitted_actions`; use `Capability.Task.UPDATE` / `DELETE` for affordance checks.
+     */
+    UPDATE_OWN: 'task:update:own',
+    UPDATE_ASSIGNED: 'task:update:assigned',
+    DELETE_OWN: 'task:delete:own',
+  },
+  Source: {
+    READ: 'source:read',
+    CREATE: 'source:create',
+    UPDATE: 'source:update',
+    DELETE: 'source:delete',
+  },
+  Behavior: {
+    READ: 'behavior:read',
+    CREATE: 'behavior:create',
+    UPDATE: 'behavior:update',
+    DELETE: 'behavior:delete',
+  },
+  Tool: {
+    READ: 'tool:read',
+    CREATE: 'tool:create',
+    UPDATE: 'tool:update',
+    DELETE: 'tool:delete',
+  },
+  Explorer: {
+    READ: 'explorer:read',
+    CREATE: 'explorer:create',
+    UPDATE: 'explorer:update',
+    DELETE: 'explorer:delete',
   },
   Architect: {
     READ: 'architect:read',
     CREATE: 'architect:create',
+    DELETE: 'architect:delete',
+  },
+  Telemetry: {
+    READ: 'telemetry:read',
+    CREATE: 'telemetry:create',
+    UPDATE: 'telemetry:update',
+    DELETE: 'telemetry:delete',
   },
   Preflight: {
     CREATE: 'preflight:create',
@@ -174,14 +239,19 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'test_run:update': 'Edit test runs',
   'test_run:delete': 'Delete test runs',
   'test_run:execute': 'Execute test runs',
+  'test_run:delete:own': 'Delete own test runs',
   // Test results
   'test_result:read': 'View test results',
   'test_result:update': 'Update test results',
+  'test_result:update:own': 'Edit own reviews',
+  'test_result:delete:own': 'Delete own reviews',
   // Experiments
   'experiment:read': 'View experiments',
   'experiment:create': 'Create experiments',
   'experiment:update': 'Edit experiments',
   'experiment:delete': 'Delete experiments',
+  'experiment:update:own': 'Edit own experiments',
+  'experiment:delete:own': 'Delete own experiments',
   // Endpoints
   'endpoint:read': 'View endpoints',
   'endpoint:create': 'Create endpoints',
@@ -200,9 +270,38 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'task:create': 'Create tasks',
   'task:update': 'Edit tasks',
   'task:delete': 'Delete tasks',
+  'task:update:own': 'Edit own tasks',
+  'task:update:assigned': 'Edit assigned tasks',
+  'task:delete:own': 'Delete own tasks',
+  // Sources (knowledge base)
+  'source:read': 'View knowledge sources',
+  'source:create': 'Upload knowledge sources',
+  'source:update': 'Edit knowledge sources',
+  'source:delete': 'Delete knowledge sources',
+  // Behaviors
+  'behavior:read': 'View behaviors',
+  'behavior:create': 'Create behaviors',
+  'behavior:update': 'Edit behaviors',
+  'behavior:delete': 'Delete behaviors',
+  // Tools
+  'tool:read': 'View tool connections',
+  'tool:create': 'Add tool connections',
+  'tool:update': 'Edit tool connections',
+  'tool:delete': 'Delete tool connections',
+  // Explorer
+  'explorer:read': 'View explorer sessions',
+  'explorer:create': 'Create explorer sessions',
+  'explorer:update': 'Edit explorer sessions',
+  'explorer:delete': 'Delete explorer sessions',
   // Architect
   'architect:read': 'View Architect sessions',
   'architect:create': 'Start Architect sessions',
+  'architect:delete': 'Delete Architect sessions',
+  // Telemetry (traces)
+  'telemetry:read': 'View traces',
+  'telemetry:create': 'Create traces',
+  'telemetry:update': 'Update traces',
+  'telemetry:delete': 'Delete traces',
   // Preflight
   'preflight:create': 'Run preflight checks',
   // Files

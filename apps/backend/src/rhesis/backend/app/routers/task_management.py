@@ -1,17 +1,20 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -89,7 +92,6 @@ def create_task(
             raise HTTPException(status_code=400, detail="Invalid reference in task data")
         if "unique constraint" in error_msg.lower() or "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="Task with this title already exists")
-        # Re-raise other database errors as 500
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -179,6 +181,7 @@ def get_tasks_by_entity(
 def update_task(
     task_id: uuid.UUID,
     task: schemas.TaskUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     current_user=Depends(require_current_user_or_token),
 ):
@@ -201,6 +204,28 @@ def update_task(
         )
         if current_task is None:
             raise HTTPException(status_code=404, detail="Task not found")
+
+        # Creator OR assignee may update their task. Unrestricted admin access is
+        # an EE concern — the EE provider grants admins the qualified caps too, so
+        # the checks below become unconditional passes for them without needing a
+        # base-cap bypass here (which would grant every project member full access
+        # in the community tier, where any project membership → any base cap).
+        principal = resolve_principal_from_request(current_user, request)
+        project_id = project_id_from_scope(db)
+        if not (
+            authorize_object(
+                principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
+            )
+            or authorize_object(
+                principal,
+                Permission.Task.UPDATE_ASSIGNED,
+                current_task,
+                project_id=project_id,
+                db=db,
+                owner_attr="assignee_id",
+            )
+        ):
+            raise HTTPException(status_code=403, detail="Not authorized to update this task")
 
         # Validate organization-level constraints
         validate_task_organization_constraints(db, task, current_user, current_task)
@@ -230,6 +255,8 @@ def update_task(
         )
 
         return updated_task
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -245,12 +272,30 @@ def update_task(
 @router.delete("/{task_id}")
 def delete_task(
     task_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
+    current_user=Depends(require_current_user_or_token),
 ):
     """Delete a task"""
     try:
-        organization_id, user_id = tenant_context
+        organization_id = str(current_user.organization_id)
+        user_id = str(current_user.id)
+
+        task_obj = crud.get_task(
+            db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
+        )
+        if task_obj is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Only the creator may delete. Unrestricted admin access is an EE concern
+        # (same reasoning as update_task above).
+        principal = resolve_principal_from_request(current_user, request)
+        project_id = project_id_from_scope(db)
+        if not authorize_object(
+            principal, Permission.Task.DELETE_OWN, task_obj, project_id=project_id, db=db
+        ):
+            raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+
         success = crud.delete_task(
             db=db, task_id=task_id, organization_id=organization_id, user_id=user_id
         )

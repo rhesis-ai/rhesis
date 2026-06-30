@@ -28,6 +28,10 @@ import ModelFilterDrawer, {
 } from './components/ModelFilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
@@ -36,6 +40,12 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Model.READ
+  );
+  const canEditModel = useCan(Capability.Model.UPDATE);
+  const canDeleteModel = useCan(Capability.Model.DELETE);
+
   const [connectedModels, setConnectedModels] = useState<Model[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -354,6 +364,9 @@ export default function ModelsPage() {
     return typeMatch && searchMatch && providerMatch && statusMatch;
   });
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="models" />;
+
   return (
     <PageLayout
       title="Models"
@@ -361,24 +374,28 @@ export default function ModelsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Add model"
-            aria-label="Add model"
-            onClick={handleFabClick}
-          />
-          <Menu
-            anchorEl={fabAnchorEl}
-            open={fabMenuOpen}
-            onClose={handleFabMenuClose}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          >
-            <MenuItem onClick={handleAddLanguageModel}>Language model</MenuItem>
-            <MenuItem onClick={handleAddEmbeddingModel}>
-              Embedding model
-            </MenuItem>
-          </Menu>
+          <Can capability={Capability.Model.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Add model"
+              aria-label="Add model"
+              onClick={handleFabClick}
+            />
+            <Menu
+              anchorEl={fabAnchorEl}
+              open={fabMenuOpen}
+              onClose={handleFabMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem onClick={handleAddLanguageModel}>
+                Language model
+              </MenuItem>
+              <MenuItem onClick={handleAddEmbeddingModel}>
+                Embedding model
+              </MenuItem>
+            </Menu>
+          </Can>
         </FabGroup>
       }
     >
@@ -436,8 +453,8 @@ export default function ModelsPage() {
               userSettings={userSettings}
               isVerified={userSettings?.is_verified}
               validationStatus={modelValidationStatus.get(model.id)}
-              onCardClick={handleCardClick}
-              onDelete={handleDeleteClick}
+              onCardClick={canEditModel ? handleCardClick : undefined}
+              onDelete={canDeleteModel ? handleDeleteClick : undefined}
               onRequestAccess={handleRequestPolyphemusAccess}
             />
           ))}

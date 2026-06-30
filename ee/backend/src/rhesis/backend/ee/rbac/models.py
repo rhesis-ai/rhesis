@@ -110,16 +110,17 @@ _MEMBER_ACTIONS: frozenset[str] = frozenset(
 
 
 def _primary_action(cap: str) -> str:
-    """Return the primary action component of *cap*, stripping any ``:own`` qualifier.
+    """Return the primary action component of *cap*, stripping any object qualifier.
 
-    ``comment:update:own`` → ``"update"``; ``test_set:read`` → ``"read"``.
-    Used by :func:`_member_permissions` so that ``:own``-qualified capabilities
-    are treated the same as their unqualified counterparts when deciding which
-    roles receive them.
+    ``comment:update:own`` → ``"update"``; ``task:update:assigned`` → ``"update"``;
+    ``test_set:read`` → ``"read"``.
+    Used by :func:`_member_permissions` so that object-level-qualified capabilities
+    (e.g. ``:own``, ``:assigned``) are treated the same as their unqualified
+    counterparts when deciding which roles receive them.
     """
     parts = cap.split(":")
-    # Three-part caps end with an object qualifier like "own".
-    if len(parts) >= 3 and parts[-1] == "own":
+    # Three-part caps end with an object qualifier like "own" or "assigned".
+    if len(parts) >= 3 and parts[-1] in ("own", "assigned"):
         return parts[-2]
     return parts[-1] if len(parts) >= 2 else cap
 

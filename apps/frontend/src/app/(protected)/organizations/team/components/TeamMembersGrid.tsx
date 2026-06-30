@@ -28,6 +28,8 @@ import {
   type TeamFilters,
 } from '@/utils/odata-filter';
 import TeamFilterDrawer from './TeamFilterDrawer';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface TeamToolbarState {
   searchQuery: string;
@@ -97,6 +99,7 @@ export default function TeamMembersGrid({
   onTotalCountChange,
 }: TeamMembersGridProps) {
   const { data: session } = useSession();
+  const canDeleteMember = useCan(Capability.Member.DELETE);
   const notifications = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -297,7 +300,13 @@ export default function TeamMembersGrid({
           const user = params.row as User;
           const currentUserId = session?.user?.id;
 
+          // Never show delete for the current user (self-remove prevention).
           if (user.id === currentUserId) {
+            return null;
+          }
+
+          // Role-level gate: only render the button if the caller can delete members.
+          if (!canDeleteMember) {
             return null;
           }
 
@@ -316,7 +325,7 @@ export default function TeamMembersGrid({
         },
       },
     ],
-    [session?.user?.id, handleDeleteUser]
+    [session?.user?.id, handleDeleteUser, canDeleteMember]
   );
 
   return (

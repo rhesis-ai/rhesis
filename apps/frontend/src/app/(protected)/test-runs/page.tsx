@@ -7,6 +7,10 @@ import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { PlayArrowIcon } from '@/components/icons';
@@ -17,6 +21,10 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.TestRun.READ
+  );
+  const canCreateTestRun = useCan(Capability.TestRun.CREATE);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [testRunCount, setTestRunCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
@@ -44,6 +52,9 @@ export default function TestRunsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="test runs" />;
+
   if (!sessionToken) {
     return (
       <PageLayout title="Test Runs" breadcrumbs={[]}>
@@ -62,11 +73,13 @@ export default function TestRunsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Test Run"
-              onClick={() => setCreateDrawerOpen(true)}
-            />
+            <Can capability={Capability.TestRun.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Test Run"
+                onClick={() => setCreateDrawerOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -77,8 +90,10 @@ export default function TestRunsPage() {
               icon={PlayArrowIcon}
               title="No test runs yet"
               description="Execute a test set against an AI endpoint to start your first test run. Test runs measure quality, safety, and reliability of your AI endpoints."
-              actionLabel="Create test run"
-              onAction={() => setCreateDrawerOpen(true)}
+              actionLabel={canCreateTestRun ? 'Create test run' : undefined}
+              onAction={
+                canCreateTestRun ? () => setCreateDrawerOpen(true) : undefined
+              }
               enrichment={getEntityEmptyStateEnrichment('test-runs')}
             />
           ) : (

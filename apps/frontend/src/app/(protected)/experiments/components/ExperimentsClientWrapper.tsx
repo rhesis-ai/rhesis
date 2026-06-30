@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Box, Chip, Paper, Typography } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import {
   GridColDef,
   GridFilterModel,
@@ -22,7 +22,6 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   FilterDrawerShell,
@@ -41,6 +40,11 @@ import {
   ExperimentRead,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/utils/affordances';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { BiotechIcon } from '@/components/icons';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -156,6 +160,10 @@ export default function ExperimentsClientWrapper({
   const router = useRouter();
   const notifications = useNotifications();
   const { activeProject } = useActiveProject();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Experiment.READ
+  );
+  const canCreateExperiment = useCan(Capability.Experiment.CREATE);
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -378,6 +386,10 @@ export default function ExperimentsClientWrapper({
       createRowActionsColumn({
         onEdit: id => router.push(`/experiments/${id}`),
         onDelete: id => setDeleteTargetId(id),
+        canEdit: row =>
+          can(row as unknown as ExperimentRead, Capability.Experiment.UPDATE),
+        canDelete: row =>
+          can(row as unknown as ExperimentRead, Capability.Experiment.DELETE),
         editTooltip: 'Open experiment',
         deleteTooltip: 'Delete experiment',
       }),
@@ -385,19 +397,24 @@ export default function ExperimentsClientWrapper({
     [router]
   );
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="experiments" />;
+
   return (
     <PageLayout
       title="Experiments"
       description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="New Experiment"
-            aria-label="New Experiment"
-            onClick={() => setCreateOpen(true)}
-            disabled={!activeProject}
-          />
+          <Can capability={Capability.Experiment.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="New Experiment"
+              aria-label="New Experiment"
+              onClick={() => setCreateOpen(true)}
+              disabled={!activeProject}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -410,8 +427,8 @@ export default function ExperimentsClientWrapper({
           icon={BiotechIcon}
           title="No experiments yet"
           description="Experiments let you bundle parameter values into versioned configurations. Create one to start tracking how different settings affect your test results."
-          actionLabel="New Experiment"
-          onAction={() => setCreateOpen(true)}
+          actionLabel={canCreateExperiment ? 'New Experiment' : undefined}
+          onAction={canCreateExperiment ? () => setCreateOpen(true) : undefined}
           actionDisabled={!activeProject}
           enrichment={getEntityEmptyStateEnrichment('experiments')}
         />

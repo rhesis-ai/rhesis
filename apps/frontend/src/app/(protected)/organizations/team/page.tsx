@@ -12,6 +12,8 @@ import TeamInviteDrawer from './components/TeamInviteDrawer';
 import TeamMembersGrid from './components/TeamMembersGrid';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 export default function TeamPage() {
   const searchParams = useSearchParams();
@@ -55,13 +57,15 @@ export default function TeamPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="Invite team members"
-              onClick={() => setInviteDrawerOpen(true)}
-              disabled={isOnInviteTour}
-              data-tour="invite-team-button"
-            />
+            <Can capability={Capability.Member.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="Invite team members"
+                onClick={() => setInviteDrawerOpen(true)}
+                disabled={isOnInviteTour}
+                data-tour="invite-team-button"
+              />
+            </Can>
           </FabGroup>
         }
       >

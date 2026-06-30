@@ -15,11 +15,19 @@ import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Endpoint.READ
+  );
+  const canCreate = useCan(Capability.Endpoint.CREATE);
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
@@ -65,6 +73,9 @@ export default function EndpointsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="endpoints" />;
+
   if (!sessionToken) {
     return (
       <PageLayout title="Endpoints" breadcrumbs={[]}>
@@ -83,12 +94,14 @@ export default function EndpointsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Endpoint"
-              onClick={handleCreate}
-              data-tour="create-endpoint-button"
-            />
+            <Can capability={Capability.Endpoint.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Endpoint"
+                onClick={handleCreate}
+                data-tour="create-endpoint-button"
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -99,8 +112,8 @@ export default function EndpointsPage() {
               icon={EndpointsIcon}
               title="No endpoints yet"
               description="Create your first endpoint to connect your application under test and start running tests and evaluations."
-              actionLabel="Create endpoint"
-              onAction={handleCreate}
+              actionLabel={canCreate ? 'Create endpoint' : undefined}
+              onAction={canCreate ? handleCreate : undefined}
               enrichment={getEntityEmptyStateEnrichment('endpoints')}
             />
           ) : (

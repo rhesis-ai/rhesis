@@ -114,16 +114,14 @@ class Permission:
         UPDATE = "test_run:update"
         DELETE = "test_run:delete"
         EXECUTE = "test_run:execute"
+        DELETE_OWN = "test_run:delete:own"
 
     class TestResult(_PermissionEnum):
         READ = "test_result:read"
         UPDATE = "test_result:update"
-
-    class Experiment(_PermissionEnum):
-        READ = "experiment:read"
-        CREATE = "experiment:create"
-        UPDATE = "experiment:update"
-        DELETE = "experiment:delete"
+        DELETE = "test_result:delete"
+        UPDATE_OWN = "test_result:update:own"
+        DELETE_OWN = "test_result:delete:own"
 
     # --- Endpoints & connectors (project-scoped) ----------------------------
 
@@ -160,11 +158,55 @@ class Permission:
         #: Delete a comment the caller created (object-level :own qualifier).
         DELETE_OWN = "comment:delete:own"
 
+    class Experiment(_PermissionEnum):
+        READ = "experiment:read"
+        CREATE = "experiment:create"
+        UPDATE = "experiment:update"
+        DELETE = "experiment:delete"
+        #: Update an experiment the caller owns (object-level :own qualifier).
+        UPDATE_OWN = "experiment:update:own"
+        #: Delete an experiment the caller owns (object-level :own qualifier).
+        DELETE_OWN = "experiment:delete:own"
+
     class Task(_PermissionEnum):
         READ = "task:read"
         CREATE = "task:create"
         UPDATE = "task:update"
         DELETE = "task:delete"
+        #: Update a task the caller created (object-level :own qualifier).
+        UPDATE_OWN = "task:update:own"
+        #: Update a task the caller is assigned to (object-level :assigned qualifier).
+        UPDATE_ASSIGNED = "task:update:assigned"
+        #: Delete a task the caller created (object-level :own qualifier).
+        DELETE_OWN = "task:delete:own"
+
+    # --- Knowledge base (project-scoped) ------------------------------------
+
+    class Source(_PermissionEnum):
+        READ = "source:read"
+        CREATE = "source:create"
+        UPDATE = "source:update"
+        DELETE = "source:delete"
+
+    class Behavior(_PermissionEnum):
+        READ = "behavior:read"
+        CREATE = "behavior:create"
+        UPDATE = "behavior:update"
+        DELETE = "behavior:delete"
+
+    class Tool(_PermissionEnum):
+        READ = "tool:read"
+        CREATE = "tool:create"
+        UPDATE = "tool:update"
+        DELETE = "tool:delete"
+
+    # --- Explorer (project-scoped) ------------------------------------------
+
+    class Explorer(_PermissionEnum):
+        READ = "explorer:read"
+        CREATE = "explorer:create"
+        UPDATE = "explorer:update"
+        DELETE = "explorer:delete"
 
     # --- Architect agent (project-scoped, WebSocket-driven) -----------------
 
@@ -252,14 +294,17 @@ class Permission:
 class ResourceType(_PermissionEnum):
     """Resource identifiers — the prefix of a ``resource:action`` capability.
 
-    Used to tag object-level affordance computation (``permitted_actions_for`` /
-    ``populate_permitted_actions``) instead of bare string literals. Each value
+    Used to tag a response schema's ``__resource_type__`` (and the
+    ``permitted_actions_for`` resolver) instead of bare string literals. Each value
     matches the prefix of the corresponding :class:`Permission` sub-enum. Add a
-    member when a resource gains object-level (``:own``) affordances.
+    member when a resource gains object-level (``:own`` or ``:assigned``) affordances.
     """
 
     COMMENT = "comment"
     EXPERIMENT = "experiment"
+    TASK = "task"
+    TEST_RESULT = "test_result"
+    TEST_RUN = "test_run"
 
 
 # ---------------------------------------------------------------------------
@@ -509,16 +554,17 @@ def permitted_actions_for(
     the caller may exercise on *obj*. The output must match what the endpoint
     actually enforces, so an action is granted as follows:
 
-    - **Ownership-gated** (action in *own_gated_actions* — i.e. a
-      ``{resource}:{action}:own`` variant exists, so the route enforces it via
-      ``authorize_object``): granted **iff** the caller owns the object AND holds
-      the ``:own`` cap. The plain ``{resource}:{action}`` cap does **not** grant
-      it — critically, in the community tier every project member holds the plain
-      cap, yet the endpoint restricts edit/delete to the owner. The ``:own``
-      qualifier is collapsed to the base cap (``comment:update:own`` →
-      ``comment:update``).
-    - **Ungated** (no ``:own`` variant, e.g. ``comment:react``): granted iff the
-      caller holds the plain ``{resource}:{action}`` cap.
+    - **Object-gated** (action in *own_gated_actions* — i.e. a
+      ``{resource}:{action}:own`` or ``{resource}:{action}:assigned`` variant
+      exists, so the route enforces it via ``authorize_object``): granted **iff**
+      the caller is the object's owner (``:own``) or assignee (``:assigned``) AND
+      holds the corresponding qualified cap. The plain ``{resource}:{action}`` cap
+      does **not** grant it — critically, in the community tier every project member
+      holds the plain cap, yet the endpoint restricts edit/delete to the owner or
+      assignee. The qualifier is collapsed to the base cap
+      (``task:update:own`` → ``task:update``).
+    - **Ungated** (no ``:own`` / ``:assigned`` variant, e.g. ``comment:react``):
+      granted iff the caller holds the plain ``{resource}:{action}`` cap.
 
     The output uses the **same full-capability vocabulary** as the scope-level
     ``GET /me/permissions`` feed, so a frontend ``can(subject, capability)`` check
@@ -527,11 +573,16 @@ def permitted_actions_for(
     ``read`` are excluded.
 
     *own_gated_actions* is derived from the live capability catalog by the caller
-    (see :func:`~rhesis.backend.app.auth.affordances.populate_permitted_actions`),
-    so there is no per-resource registry here.
+    (see :class:`~rhesis.backend.app.auth.affordances._AffordanceContext`), so there
+    is no per-resource registry here.
     """
     owner_id = getattr(obj, "user_id", None)
-    is_owner = current_user_id is not None and owner_id == current_user_id
+    assignee_id = getattr(obj, "assignee_id", None)
+    # Normalize to str for comparison: callers may supply UUID objects or plain
+    # strings depending on the serialization path (Pydantic schema vs ORM attr).
+    _uid = str(current_user_id) if current_user_id is not None else None
+    is_owner = _uid is not None and str(owner_id) == _uid if owner_id is not None else False
+    is_assignee = _uid is not None and assignee_id is not None and str(assignee_id) == _uid
     caps_out: set[str] = set()
     for cap in effective_caps:
         parts = cap.split(":")
@@ -541,10 +592,15 @@ def permitted_actions_for(
         if action in ("create", "read"):
             continue
         qualifier = parts[2] if len(parts) > 2 else None
-        if action in own_gated_actions:
-            # Mirror the endpoint's authorize_object: owner-only. The plain cap
-            # (held broadly in community) must NOT advertise the action.
+        # ``"*"`` is a sentinel returned by _own_gated_actions when the catalog is not
+        # yet registered — treat every action as gated (fail-closed).
+        action_is_gated = action in own_gated_actions or "*" in own_gated_actions
+        if action_is_gated:
+            # Mirror the endpoint's authorize_object: object-level gating.
+            # The plain cap (held broadly in community) must NOT advertise the action.
             if qualifier == "own" and is_owner:
+                caps_out.add(f"{resource_type}:{action}")
+            elif qualifier == "assigned" and is_assignee:
                 caps_out.add(f"{resource_type}:{action}")
         elif qualifier is None:
             caps_out.add(f"{resource_type}:{action}")

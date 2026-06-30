@@ -14,6 +14,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import { EntityType } from '@/types/entity-type';
 import MentionTextInput, {
   MentionOption,
   inferReviewTarget,
@@ -74,7 +75,7 @@ export default function ReviewJudgementDrawer({
         const clientFactory = new ApiClientFactory(sessionToken);
         const statusClient = clientFactory.getStatusClient();
         const fetched = await statusClient.getStatuses({
-          entity_type: 'TestResult',
+          entity_type: EntityType.TEST_RESULT,
         });
         setStatuses(fetched);
       } catch (_err) {

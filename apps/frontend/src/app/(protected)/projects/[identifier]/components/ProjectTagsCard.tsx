@@ -12,11 +12,13 @@ interface TagsDraft {
 interface ProjectTagsCardProps {
   project: Project;
   onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
+  editable?: boolean;
 }
 
 export default function ProjectTagsCard({
   project,
   onSave,
+  editable,
 }: ProjectTagsCardProps) {
   const initialTagNames = project.tags ?? [];
   const initialDraft: TagsDraft = { tagNames: initialTagNames };
@@ -30,6 +32,7 @@ export default function ProjectTagsCard({
       title="Tags"
       initialValue={initialDraft}
       onSave={handleSave}
+      editable={editable}
       isDirty={(draft, initial) =>
         JSON.stringify([...draft.tagNames].sort()) !==
         JSON.stringify([...initial.tagNames].sort())
