@@ -1,10 +1,12 @@
 import logging
+import time
 
 from celery.signals import (
     after_setup_logger,
     celeryd_init,
     task_failure,
     task_revoked,
+    worker_ready,
     worker_shutdown,
 )
 
@@ -61,6 +63,39 @@ def setup_worker_log_format(sender=None, conf=None, **kwargs):
         f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] "
         "[%(task_name)s(%(task_id)s)] %(message)s"
     )
+
+
+@worker_ready.connect
+def warm_architect_worker(sender=None, **kwargs):
+    """Preload the backend FastAPI app on the architect worker at boot.
+
+    The architect task imports ``rhesis.backend.app.main`` lazily inside
+    ``build_agent()``, which pulls in every router plus the ragas/sklearn
+    stack and builds the OpenAPI schema — ~15-25s on a cold process. Paid
+    lazily, that cost lands on the user's first message. Doing it here moves
+    it to worker startup so the first architect turn hits a warm process.
+
+    Scoped to the architect worker (node name ``architect@...``) so the main
+    worker doesn't pay for an import it may not need.
+    """
+    hostname = getattr(sender, "hostname", "") or ""
+    if not hostname.startswith("architect@"):
+        return
+
+    logger.info("Architect worker: starting backend app preload to warm import cache")
+    start = time.perf_counter()
+    try:
+        from rhesis.backend.app.main import app
+
+        # Build and cache the OpenAPI schema now; LocalToolProvider needs it
+        # on the first tool call and it is otherwise rebuilt mid-request.
+        app.openapi()
+    except Exception as e:
+        logger.error("Architect worker: backend app preload failed: %s", e, exc_info=True)
+        return
+
+    elapsed = time.perf_counter() - start
+    logger.info("Architect worker: backend app preloaded in %.1fs", elapsed)
 
 
 @after_setup_logger.connect
