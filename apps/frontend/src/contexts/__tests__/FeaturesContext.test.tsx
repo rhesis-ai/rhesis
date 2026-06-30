@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@/test-utils';
 import '@testing-library/jest-dom';
 
 import { FeatureName } from '@/constants/features';

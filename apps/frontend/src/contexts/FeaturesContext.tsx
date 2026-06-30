@@ -56,12 +56,16 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<FeaturesState>(() => {
     if (isLoading) return DEFAULT_STATE;
-    if (error)
+    if (error || !data)
       return {
         license: null,
         enabled: new Set<string>(),
         loading: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error
+          ? error instanceof Error
+            ? error
+            : new Error(String(error))
+          : null,
       };
     return {
       license: data.license,
