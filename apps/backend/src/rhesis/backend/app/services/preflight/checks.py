@@ -482,8 +482,6 @@ async def check_metric_compatibility(
         )
 
     try:
-        from rhesis.backend.app.schemas.metric import MetricScope
-
         metrics: List[Metric] = []
 
         if metric_mode == "define_custom" and selected_metrics:

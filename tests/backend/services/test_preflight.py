@@ -526,12 +526,9 @@ class TestCheckMetricCompatibility:
         endpoint.response_mapping = {}
         ts_id = uuid4()
 
-        with patch(
-            "rhesis.backend.app.schemas.metric.MetricScope",
-        ):
-            result = await check_metric_compatibility(
-                db, endpoint, ts_id, "define_custom", selected_metrics=[], publish=False
-            )
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom", selected_metrics=[], publish=False
+        )
 
         assert result.status == PreflightCheckStatus.SKIPPED
 
