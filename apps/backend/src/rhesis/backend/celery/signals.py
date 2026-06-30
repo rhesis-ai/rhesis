@@ -56,9 +56,7 @@ def setup_worker_log_format(sender=None, conf=None, **kwargs):
     if conf is None:
         return
     role = (sender.split("@", 1)[0] if sender else "worker").upper()
-    conf.worker_log_format = (
-        f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] %(message)s"
-    )
+    conf.worker_log_format = f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] %(message)s"
     conf.worker_task_log_format = (
         f"[%(asctime)s: %(levelname)s/{role}/%(processName)s] "
         "[%(task_name)s(%(task_id)s)] %(message)s"
