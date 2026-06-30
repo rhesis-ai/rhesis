@@ -989,7 +989,7 @@ class TestQueryValidation:
     """Test input validation for query endpoints"""
 
     def test_list_traces_missing_project_id(self, authenticated_client: TestClient):
-        """Test that project_id is optional and defaults to session project scope."""
+        """Test that project_id is optional for listing traces (shows all projects)"""
         response = authenticated_client.get("/telemetry/traces")
         assert response.status_code == status.HTTP_200_OK
 
@@ -1001,7 +1001,7 @@ class TestQueryValidation:
         assert "offset" in data
 
     def test_list_traces_all_projects(self, authenticated_client: TestClient):
-        """Test that omitting project_id returns valid response structure (fail-closed)."""
+        """Test that omitting project_id returns valid response structure"""
         # Query without project_id should work and return valid structure
         response = authenticated_client.get("/telemetry/traces")
         assert response.status_code == status.HTTP_200_OK
@@ -1015,53 +1015,6 @@ class TestQueryValidation:
         assert isinstance(data["traces"], list)
         assert isinstance(data["total"], int)
         assert data["total"] >= 0  # Can be 0 if no traces exist
-
-    def test_list_traces_rejects_non_member_project_query_param(
-        self, test_db, client, test_org_id, db_project, db_draft_project
-    ):
-        """Reject project_id query params for projects the caller is not a member of."""
-        import uuid
-        from datetime import datetime
-
-        from rhesis.backend.app.models.project_membership import ProjectMembership
-        from tests.backend.fixtures.test_setup import create_test_api_token, create_test_user
-
-        member_user = create_test_user(
-            test_db,
-            uuid.UUID(test_org_id),
-            f"trace-list-member-{uuid.uuid4().hex[:8]}@rhesis-test.com",
-            "Trace List Member",
-        )
-        test_db.add(
-            ProjectMembership(
-                project_id=db_project.id,
-                user_id=member_user.id,
-                organization_id=uuid.UUID(test_org_id),
-            )
-        )
-        member_token = create_test_api_token(test_db, member_user, name="Trace list member token")
-        test_db.commit()
-
-        spans_data = TraceDataFactory.batch_data(
-            count=1, same_trace=False, project_id=str(db_draft_project.id)
-        )
-        for span_data in spans_data:
-            trace_batch = {"spans": [span_data]}
-            client.post(
-                "/telemetry/traces",
-                json=trace_batch,
-                headers={"Authorization": f"Bearer {member_token.token}"},
-            )
-
-        member_client = TestClient(client.app)
-        member_client.headers.update({"Authorization": f"Bearer {member_token.token}"})
-
-        response = member_client.get(f"/telemetry/traces?project_id={db_draft_project.id}")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert "not a member" in response.json()["detail"].lower()
-
-        member_response = member_client.get(f"/telemetry/traces?project_id={db_project.id}")
-        assert member_response.status_code == status.HTTP_200_OK
 
     def test_get_metrics_missing_project_id(self, authenticated_client: TestClient):
         """Test that project_id is required for metrics"""

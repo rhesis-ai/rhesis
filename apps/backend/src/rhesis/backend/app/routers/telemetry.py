@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -13,9 +13,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
-from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import (
-    assert_project_access,
     get_project_context,
     get_tenant_context,
     get_tenant_db_session,
@@ -218,16 +216,8 @@ def ingest_trace(
 
 @router.get("/traces", response_model=TraceListResponse)
 def list_traces(
-    request: Request,
-    current_user: User = Depends(require_current_user_or_token),
     project_id: Optional[str] = Query(
-        None,
-        description=(
-            "Project ID filter. Defaults to the session project from X-Project-Id "
-            "(or the API token's project scope). When omitted and no session project "
-            "is set, only org-level traces (project_id = NULL) are returned "
-            "(fail-closed). Must be a project the caller is a member of."
-        ),
+        None, description="Project ID (optional - shows all projects if not specified)"
     ),
     endpoint_id: Optional[str] = Query(None, description="Endpoint ID filter"),
     environment: Optional[str] = Query(None, description="Environment filter"),
@@ -277,7 +267,6 @@ def list_traces(
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
-    scope_project_id: Optional[str] = Depends(get_project_context),
 ) -> TraceListResponse:
     """
     List traces with filters and pagination.
@@ -294,9 +283,6 @@ def list_traces(
     - Set root_spans_only=false to return all spans (useful for detailed analysis)
 
     **Filters**:
-    - `project_id`: Filter by project. Defaults to the session project from
-      `X-Project-Id` (or the API token's project scope). When omitted with no
-      session project, only org-level traces are returned (fail-closed).
     - `environment`: Filter by environment (development, staging, production)
     - `search`: Substring search across trace ID, operations, endpoint name/URL, conversation I/O
     - `span_name`: Exact match on root span name (legacy; prefer `search`)
@@ -318,16 +304,13 @@ def list_traces(
         Paginated list of trace summaries
     """
     organization_id, user_id = tenant_context
-    effective_project_id = project_id or scope_project_id
-
-    if project_id is not None:
-        assert_project_access(request, current_user, project_id, db=db)
 
     try:
-        query_kwargs = dict(
+        # Single DB query returns TraceRow(trace, span_count, total) per row
+        rows = crud.query_traces(
             db=db,
             organization_id=organization_id,
-            project_id=effective_project_id,
+            project_id=project_id,
             endpoint_id=endpoint_id,
             root_spans_only=root_spans_only,
             trace_source=trace_source,
@@ -344,18 +327,10 @@ def list_traces(
             test_result_id=test_result_id,
             test_id=test_id,
             conversation_id=conversation_id,
-            trace_metrics_status=(trace_metrics_status.value if trace_metrics_status else None),
+            trace_metrics_status=trace_metrics_status.value if trace_metrics_status else None,
             limit=limit,
             offset=offset,
         )
-
-        # When the query param project differs from the X-Project-Id session scope,
-        # rebind ORM auto-filter for this query so project-scoped rows are visible.
-        if effective_project_id and effective_project_id != scope_project_id:
-            with temporary_project_scope(db, organization_id, user_id, effective_project_id):
-                rows = crud.query_traces(**query_kwargs)
-        else:
-            rows = crud.query_traces(**query_kwargs)
 
         total = rows[0].total if rows else 0
 
