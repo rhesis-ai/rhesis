@@ -6,11 +6,9 @@ import React, {
   useCallback,
   useContext,
   useMemo,
-  useRef,
 } from 'react';
 import {
   GridColDef,
-  GridPaginationModel,
   GridFilterModel,
   GridRowParams,
   GridToolbarColumnsButton,
@@ -40,6 +38,10 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { taskKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -121,28 +123,10 @@ export default function TasksGrid({
 }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const isMounted = useRef(false);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
+  const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
@@ -150,139 +134,107 @@ export default function TasksGrid({
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const fetchTasks = useCallback(async () => {
-    if (!sessionToken) return;
+  const {
+    filterModel,
+    paginationModel,
+    sortModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+    handleSortModelChange,
+  } = useGridState({
+    searchQuery,
+    typeFilter: statusFilter,
+    typeFilterField: 'status',
+    applyDrawerFilters: useCallback(
+      (prev: GridFilterModel) => {
+        const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
+        const otherItems = prev.items.filter(
+          item => !DRAWER_FIELDS.includes(item.field ?? '')
+        );
+        const drawerItems: typeof prev.items = [];
+        if (drawerFilters.status) {
+          drawerItems.push({
+            field: 'status',
+            operator: 'equals',
+            value: drawerFilters.status,
+          });
+        }
+        if (drawerFilters.priority) {
+          drawerItems.push({
+            field: 'priority',
+            operator: 'equals',
+            value: drawerFilters.priority,
+          });
+        }
+        if (drawerFilters.assignee) {
+          drawerItems.push({
+            field: 'assignee',
+            operator: 'equals',
+            value: drawerFilters.assignee,
+          });
+        }
+        const newItems = [...otherItems, ...drawerItems];
+        if (
+          newItems.length === prev.items.length &&
+          newItems.every((it, i) => it === prev.items[i])
+        )
+          return prev;
+        return { ...prev, items: newItems };
+      },
+      [drawerFilters]
+    ),
+  });
 
-    try {
-      setLoading(true);
-
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const tasksClient = clientFactory.getTasksClient();
-
-      const oDataFilter = combineTaskFiltersToOData(filterModel);
-
-      const response = await tasksClient.getTasks({
+  const filterString = combineTaskFiltersToOData(filterModel);
+  const {
+    data: tasksData,
+    isLoading: loading,
+    error: fetchError,
+  } = useGridQuery({
+    queryKey: taskKeys.list(
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+      'created_at',
+      'desc'
+    ),
+    queryFn: () => {
+      const client = new ApiClientFactory(sessionToken).getTasksClient();
+      return client.getTasks({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
         sort_order: 'desc',
-        $filter: oDataFilter,
+        ...(filterString && { $filter: filterString }),
       });
+    },
+    enabled: !!sessionToken,
+  });
+  const tasks: Task[] = tasksData?.data ?? [];
+  const totalCount = tasksData?.totalCount ?? 0;
+  const error = fetchError ? 'Failed to load tasks' : null;
 
-      if (!isMounted.current) return;
-
-      setTasks(response.data);
-      setTotalCount(response.totalCount || 0);
-      const filtersActive =
-        filterModel.items.length > 0 ||
-        !!searchQuery ||
-        hasActiveTaskFilters(drawerFilters);
-      if (!filtersActive) onTotalCountChange?.(response.totalCount || 0);
-      setError(null);
-    } catch {
-      if (!isMounted.current) return;
-      setError('Failed to load tasks');
-      setTasks([]);
-    } finally {
-      if (isMounted.current) setLoading(false);
-    }
+  useEffect(() => {
+    if (!tasksData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveTaskFilters(drawerFilters);
+    if (!filtersActive) onTotalCountChange?.(totalCount);
   }, [
-    sessionToken,
-    paginationModel.page,
-    paginationModel.pageSize,
-    filterModel,
+    tasksData,
+    filterModel.items.length,
+    searchQuery,
+    drawerFilters,
+    onTotalCountChange,
+    totalCount,
   ]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      fetchTasks();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      if (
-        items.length === prev.items.length &&
-        items.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(item => item.field !== 'status');
-      const items =
-        statusFilter && statusFilter !== 'all'
-          ? [
-              ...otherItems,
-              { field: 'status', operator: 'equals', value: statusFilter },
-            ]
-          : otherItems;
-      if (
-        items.length === prev.items.length &&
-        items.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [statusFilter]);
-
-  useEffect(() => {
-    const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
-      );
-      const drawerItems: typeof prev.items = [];
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status',
-          operator: 'equals',
-          value: drawerFilters.status,
-        });
-      }
-      if (drawerFilters.priority) {
-        drawerItems.push({
-          field: 'priority',
-          operator: 'equals',
-          value: drawerFilters.priority,
-        });
-      }
-      if (drawerFilters.assignee) {
-        drawerItems.push({
-          field: 'assignee',
-          operator: 'equals',
-          value: drawerFilters.assignee,
-        });
-      }
-      const newItems = [...otherItems, ...drawerItems];
-      if (
-        newItems.length === prev.items.length &&
-        newItems.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return { ...prev, items: newItems };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [drawerFilters]);
+    if (refreshKey !== undefined && refreshKey > 0)
+      queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+  }, [refreshKey, queryClient]);
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -290,18 +242,6 @@ export default function TasksGrid({
     },
     [router]
   );
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
-
-  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    setFilterModel(newModel);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
 
   const handleRowDeleteAction = useCallback((id: string) => {
     setPendingDeleteId(id);
@@ -320,7 +260,7 @@ export default function TasksGrid({
         autoHideDuration: 4000,
       });
       setPendingDeleteId(null);
-      fetchTasks();
+      queryClient.invalidateQueries({ queryKey: taskKeys.all() });
     } catch {
       notifications.show('Failed to delete task', {
         severity: 'error',
@@ -330,7 +270,7 @@ export default function TasksGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, sessionToken, notifications, fetchTasks]);
+  }, [pendingDeleteId, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
