@@ -67,6 +67,37 @@ Each field is evaluated independently — you can mix JSONPath and Jinja2 in the
 
 Custom fields beyond these are passed through and stored but not actively used by the platform.
 
+## SDK endpoint return values
+
+For SDK connection-type endpoints, response mapping is applied only when the
+decorated function returns a dictionary. If the function returns a string, list,
+or another non-dictionary value, Rhesis skips the configured response mapping and
+wraps the value as `output`.
+
+<CodeBlock filename="sdk_endpoint_return.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint()
+def search(input: str) -> list[str]:
+    return ["first match", "second match"]
+
+# Rhesis receives:
+# {"output": ["first match", "second match"]}`}
+</CodeBlock>
+
+Return a dictionary when you need response mapping to extract multiple fields:
+
+<CodeBlock filename="sdk_endpoint_mapped_return.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint()
+def chat(input: str) -> dict:
+    return {
+        "message": "Hello",
+        "metadata": {"model": "demo"},
+    }`}
+</CodeBlock>
+
 ## Complete Example
 
 **Request headers:**

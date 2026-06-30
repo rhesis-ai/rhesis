@@ -22,6 +22,29 @@ Organize and manage your testing projects with comprehensive project management 
 
 A project also owns a **[Parameter Schema](/docs/experiments/parameter-schema)**, which defines the typed configuration slots your application supports (like model selection, temperature, and system prompts). Within the project, users create and manage **[Experiments](/docs/experiments)** that bundle values for these slots.
 
+## Working in a Project
+
+Most Rhesis views are scoped to the active project. The frontend sends the active
+project as `X-Project-Id`, and backend queries use that project scope for
+endpoints, tests, test sets, test runs, traces, and related records.
+
+The sidebar shows the active project name with the organization name underneath.
+Open the organization menu and choose **Switch project** to select a different
+project from a searchable drawer.
+
+| Project switcher behavior | Details |
+| --- | --- |
+| Single project | Automatically selected |
+| Multiple projects | Choose from project memberships in the switcher drawer |
+| Persistence | Stored in a browser cookie and saved as your `default_project` setting |
+| Switching | Reloads the page so every view refetches with the new project scope |
+| No memberships | Shows **No project access** with create-project and refresh actions |
+
+<Callout type="info">
+  If a grid appears empty after switching workstreams, confirm the active project
+  in the sidebar before changing filters.
+</Callout>
+
 ## Creating a Project
 
 Create a project by clicking on **Project** in the Requirement section, then **Create Project**.

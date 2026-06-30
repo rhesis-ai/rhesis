@@ -51,19 +51,33 @@ Rhesis supports connections to major AI providers including:
 
 ## Connecting a Model Provider
 
-1. Click **"Add Model"** on the Models page
-2. Select a provider (e.g., Google Gemini, OpenAI, Anthropic)
-3. Fill in the required fields:
-   - **Connection Name**: Unique identifier for this connection
-   - **Model Name**: Specific model to use (e.g., "gemini-1.5-pro", "gpt-4-turbo")
-   - **API Key**: Your API key from the provider's dashboard
-4. (Optional) Configure additional settings:
-   - **Custom Headers**: Add HTTP headers required for your API calls
-   - **Default for Test Generation**: Use this model when generating test cases
-   - **Default for Evaluation**: Use this model for metrics evaluation
-   - **Default for Execution (Multi-Turn)**: Use this model for multi-turn test execution with Penelope
-5. Click **"Test Connection"** to verify your configuration
-6. Click **"Save"** to add the model
+Click **Add Model** to open the model connection drawer. The drawer has two
+steps:
+
+<Steps>
+### Select a provider
+
+Choose whether you are adding a language model or an embedder, then select the
+provider from the provider list. Providers display icons and badges so you can
+quickly distinguish hosted, cloud, and restricted-access options.
+
+### Connect to the provider
+
+Fill in the connection details and defaults:
+
+| Field | Purpose |
+| --- | --- |
+| **Connection Name** | Unique display name for this connection |
+| **Model Name** | Provider-specific model or deployment name, such as `gemini-1.5-pro` or `gpt-4-turbo` |
+| **API Key** | Provider API key, when required |
+| **Custom Headers** | Optional HTTP headers for gateways or proxies |
+| **Default for Test Generation** | Use this model when generating tests |
+| **Default for Evaluation** | Use this model for LLM-as-judge metrics |
+| **Default for Execution (Multi-Turn)** | Use this model for conversation simulation with Penelope |
+
+Click **Test Connection** before saving. Click **Connect** for a new provider
+connection or **Update** when editing an existing connection.
+</Steps>
 
 ## Provider-Specific Connection Fields
 

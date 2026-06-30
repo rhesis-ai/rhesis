@@ -9,12 +9,12 @@ There are two ways to set up an endpoint:
 
 ## Manual Configuration
 
-The creation wizard has four tabs: **Overview**, **Headers**, **Mapping**, and **Connection Test**.
+The creation wizard has four tabs: **Overview**, **Connection**, **Mapping**, and **Test**.
 
 <Steps>
 ### Fill in the Overview
 
-Enter the endpoint **Name**, **URL**, **HTTP method**, **protocol** (REST or WebSocket), **project**, and **environment**.
+Enter the endpoint **Name**, **URL**, **HTTP method**, **protocol** (REST or WebSocket), and **environment**. When you create an endpoint from a project-scoped view, the active project is applied automatically.
 
 **Environment** tags the endpoint as Development, Staging, or Production — useful for keeping configurations separate and quickly identifying production-critical endpoints on the grid.
 
@@ -22,7 +22,7 @@ Enter the endpoint **Name**, **URL**, **HTTP method**, **protocol** (REST or Web
 
 ### Set up authentication
 
-In the **Headers** tab, set your API token and any custom request headers.
+In the **Connection** tab, set your API token, OAuth client credentials, and any custom request headers.
 
 The token is stored securely and available as `{{ auth_token }}` in your request template. If you set a token without an explicit `Authorization` header, Rhesis adds `Authorization: Bearer <token>` automatically.
 
@@ -57,11 +57,11 @@ For response variable details and extraction syntax, see [Response Mapping](/doc
 
 ### Verify with a connection test
 
-In the **Connection Test** tab, fire a live request to confirm everything works end-to-end before saving.
+In the **Test** tab, fire a live request to confirm everything works end-to-end before saving.
 
 Fill in the input variable rows on the left, then click **Run test**. You'll see the rendered request preview alongside the raw API response and the extracted mapped output.
 
-<img src="/screenshots/rhesis-ai-endpoint-create-connection-test.png" alt="Connection Test tab — request preview, input variables, and mapped output" className="screenshot" />
+<img src="/screenshots/rhesis-ai-endpoint-create-connection-test.png" alt="Test tab — request preview, input variables, and mapped output" className="screenshot" />
 
 ### Save
 
@@ -79,7 +79,7 @@ Auto-Configure generates your request and response mappings automatically. Use i
 <img src="/screenshots/rhesis-ai-endpoints-auto-configure.png" alt="Auto-configure Endpoint" className="screenshot" />
 
 <Steps>
-### Fill in the Overview and Headers tabs
+### Fill in the Overview and Connection tabs
 
 Provide the endpoint **Name**, **URL**, and **API Token** before running Auto-Configure.
 
@@ -148,7 +148,7 @@ Click **Show probe response** to see the raw JSON your endpoint returned — use
 
 ### Apply and verify
 
-Click **Apply to Endpoint** to populate the Mapping tab, then switch to **Connection Test** to verify end-to-end.
+Click **Apply to Endpoint** to populate the Mapping tab, then switch to **Test** to verify end-to-end.
 
 If only some fields were mapped, apply the partial result as a starting point and fill in the missing fields manually. Even partial results save significant time compared to configuring from scratch.
 </Steps>
@@ -159,7 +159,7 @@ If only some fields were mapped, apply the partial result as a starting point an
 
 **"Could not parse input"** — paste a working curl command with a real request body, or include both a request and response example.
 
-**"Mapping generated but unverified"** — the probe failed; use the **Connection Test** tab to debug manually. Common causes: API requires specific field values, rate limits block the probe, or the endpoint expects pre-existing state (e.g., a valid session).
+**"Mapping generated but unverified"** — the probe failed; use the **Test** tab to debug manually. Common causes: API requires specific field values, rate limits block the probe, or the endpoint expects pre-existing state (e.g., a valid session).
 
 **Partial results** — when only some fields were mapped, apply as a starting point and fill in the rest manually.
 
@@ -169,7 +169,7 @@ If only some fields were mapped, apply the partial result as a starting point an
 - Include **both request and response examples** when possible
 - Mention the **response structure** if your API returns nested JSON
 - Specify the **conversation pattern** for multi-turn endpoints (messages array or conversation IDs)
-- Always **verify in Connection Test** after applying, especially for low-confidence results
+- Always **verify in Test** after applying, especially for low-confidence results
 
 ### From the SDK
 

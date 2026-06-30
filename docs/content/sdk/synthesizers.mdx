@@ -34,6 +34,26 @@ synthesizer = PromptSynthesizer(
 test_set = synthesizer.generate(num_tests=10)`}
 </CodeBlock>
 
+## Adversarial-only generation
+
+Set `harmful=True` when you want the synthesizer prompt to generate adversarial attack tests only. This removes the default harmless category mix and asks the model to focus on harmful, manipulative, or policy-violating inputs.
+
+<CodeBlock filename="harmful_generation.py" language="python">
+{`from rhesis.sdk.synthesizers import PromptSynthesizer
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate attacks against a travel booking chatbot",
+    model="rhesis/polyphemus-default",
+    harmful=True,
+)
+
+test_set = synthesizer.generate(num_tests=20)`}
+</CodeBlock>
+
+<Callout type="info">
+  `OwaspSynthesizer` enables adversarial-only generation by default. For general-purpose synthesizers, pass `harmful=True` explicitly.
+</Callout>
+
 ## Available Synthesizers
 
 ### PromptSynthesizer
@@ -103,10 +123,65 @@ Bluetooth 5.2, and active noise cancellation with transparency mode.
 test_set = synthesizer.generate(num_tests=10, context=product_description)`}
 </CodeBlock>
 
+### OWASPSynthesizer
+
+Generate red-team tests aligned with the OWASP LLM Top 10. Use this when you want
+security-focused prompts tailored to the purpose of your application instead of a
+generic adversarial prompt list.
+
+<CodeBlock filename="owasp_synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import OWASPSynthesizer
+
+synthesizer = OWASPSynthesizer(
+    purpose="Customer support chatbot for a bank with access to account data",
+    categories=["llm01", "llm02", "llm07"],  # Omit to cover all 10 categories
+    batch_size=10,
+    model="gemini/gemini-2.0-flash",
+)
+
+test_set = synthesizer.generate(num_tests=30)
+
+for test in test_set.tests:
+    print(test.prompt.content)
+    print(test.metadata["owasp_category"], test.metadata["owasp_name"])`}
+</CodeBlock>
+
+`OWASPSynthesizer` always creates harmful single-turn tests. The generator spreads
+`num_tests` as evenly as possible across the selected OWASP categories and tags
+each generated test with `metadata["owasp_category"]` and `metadata["owasp_name"]`.
+
+| Category ID | OWASP category | Rhesis behavior |
+| --- | --- | --- |
+| `llm01` | Prompt Injection | Robustness |
+| `llm02` | Sensitive Information Disclosure | Compliance |
+| `llm03` | Supply Chain Vulnerabilities | Reliability |
+| `llm04` | Data and Model Poisoning | Reliability |
+| `llm05` | Improper Output Handling | Compliance |
+| `llm06` | Excessive Agency | Robustness |
+| `llm07` | System Prompt Leakage | Compliance |
+| `llm08` | Vector and Embedding Weaknesses | Reliability |
+| `llm09` | Misinformation | Reliability |
+| `llm10` | Unbounded Consumption | Robustness |
+
+You can inspect the registry programmatically with `OWASP_LLM_TOP_10`:
+
+<CodeBlock filename="owasp_categories.py" language="python">
+{`from rhesis.sdk.synthesizers import OWASP_LLM_TOP_10
+
+for category_id, category in OWASP_LLM_TOP_10.items():
+    print(category_id, category.name, category.topic)`}
+</CodeBlock>
+
+<Callout type="info">
+  OWASP generation uses an LLM to create fresh attacks for each run. For high-risk
+  adversarial testing, pair these tests with a suitable generation model and review
+  outputs before running them against production systems.
+</Callout>
+
 
 ## Using Source Documents
 
-Synthesizers can extract content from documents to generate contextually relevant tests.
+Synthesizers can extract content from documents, websites, text snippets, and images to generate contextually relevant tests.
 
 <CodeBlock filename="with_sources.py" language="python">
 {`from rhesis.sdk.services.extractor import SourceSpecification, SourceType
@@ -123,6 +198,11 @@ sources = [
         name="Knowledge Base",
         metadata={"path": "./knowledge_base.pdf"},
     ),
+    SourceSpecification(
+        type=SourceType.IMAGE,
+        name="Product Screenshot",
+        metadata={"path": "./screenshot.png"},
+    ),
 ]
 
 synthesizer = PromptSynthesizer(
@@ -131,6 +211,40 @@ synthesizer = PromptSynthesizer(
 )
 test_set = synthesizer.generate(num_tests=50)`}
 </CodeBlock>
+
+### Image sources
+
+`SourceType.IMAGE` supports local image paths and image URLs. Without a vision-capable model, extraction falls back to metadata available through MarkItDown. Pass a model to enable vision-based image descriptions.
+
+<CodeBlock filename="image_sources.py" language="python">
+{`from rhesis.sdk.models.factory import get_language_model
+from rhesis.sdk.services.extractor import SourceSpecification, SourceType
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+vision_model = get_language_model("openai/gpt-4o")
+
+sources = [
+    SourceSpecification(
+        type=SourceType.IMAGE,
+        name="Checkout Screenshot",
+        metadata={"path": "./checkout.png"},
+    ),
+    SourceSpecification(
+        type=SourceType.IMAGE,
+        name="Remote Diagram",
+        metadata={"url": "https://example.com/flow.png"},
+    ),
+]
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate UI validation tests from these images",
+    sources=sources,
+    model=vision_model,
+)
+test_set = synthesizer.generate(num_tests=12)`}
+</CodeBlock>
+
+For uploaded test attachments, the execution pipeline uses the shared `extract_with_vision_fallback` path: images go through image extraction first, documents use their text layer first, and image-heavy documents can fall back to a vision model when one is configured.
 
 ## Chunking strategies for source-based generation (v0.6.11)
 

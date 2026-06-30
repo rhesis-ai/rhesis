@@ -1,0 +1,75 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# File Attachments in SDK Connector Endpoints
+
+Rhesis passes file attachments through SDK connector executions as metadata-rich references instead of embedding raw bytes in the WebSocket payload. Use `FileReference` when your endpoint needs uploaded images, PDFs, audio, or other supported files during test execution.
+
+<Callout type="info">
+  Prefer `extracted_text` when it is enough for your use case. Fetch raw bytes only when your endpoint must inspect the original file.
+</Callout>
+
+## How files reach your function
+
+Add `files` to your endpoint's request mapping and type the function argument as a list of `FileReference` objects:
+
+<CodeBlock filename="endpoint_with_files.py" language="python">
+{`from rhesis.sdk import endpoint
+from rhesis.sdk.connector.types import FileReference
+
+@endpoint(
+    name="document-review",
+    request_mapping={
+        "question": "{{ input }}",
+        "files": "{{ files }}",
+    },
+    response_mapping={"output": "$.answer"},
+)
+def document_review(question: str, files: list[FileReference]) -> dict:
+    snippets = [f.extracted_text or f.filename for f in files]
+    answer = answer_question(question, snippets)
+    return {"answer": answer}`}
+</CodeBlock>
+
+## `FileReference` fields
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `str` | File identifier in Rhesis |
+| `filename` | `str` | Original filename |
+| `content_type` | `str` | MIME type such as `image/png` or `application/pdf` |
+| `size_bytes` | `int` | File size in bytes |
+| `content_hash` | `str` | SHA-256 digest of the file bytes |
+| `storage_path` | `str \| None` | Internal object-storage path when available |
+| `signed_url` | `str \| None` | Temporary URL for raw byte reads |
+| `extracted_text` | `str \| None` | Text or image description extracted at upload time |
+
+## Reading bytes on demand
+
+Most endpoints should use `extracted_text`. If you need the original bytes, call `read_bytes()` from synchronous code or `aread_bytes()` from async code.
+
+<CodeBlock filename="read_file_bytes.py" language="python">
+{`from rhesis.sdk.connector.types import FileReference
+
+def first_file_size(files: list[FileReference]) -> int:
+    if not files:
+        return 0
+    return len(files[0].read_bytes())`}
+</CodeBlock>
+
+<CodeBlock filename="read_file_bytes_async.py" language="python">
+{`import aiohttp
+
+from rhesis.sdk.connector.types import FileReference
+
+async def read_all(files: list[FileReference]) -> list[bytes]:
+    async with aiohttp.ClientSession() as session:
+        return [await file.aread_bytes(session=session) for file in files]`}
+</CodeBlock>
+
+`read_bytes()` and `aread_bytes()` require a populated `signed_url`. During platform-initiated test execution, the backend signs URLs before passing `FileReference` objects to SDK code that needs raw bytes.
+
+## Related pages
+
+- [Input/Output Mapping](/sdk/connector/mapping)
+- [Files entity reference](/sdk/entities/files)
+- [Multi-modal Testing](/docs/multimodal-testing)

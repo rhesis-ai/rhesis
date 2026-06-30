@@ -52,12 +52,12 @@ client = RhesisClient(
 {`from rhesis.sdk import endpoint
 
 @endpoint()
-def chat(input: str, session_id: str = None) -> dict:
+def chat(input: str, conversation_id: str = None) -> dict:
     """Handle chat messages."""
     response = generate_response(input)
     return {
         "output": response,
-        "session_id": session_id or generate_session_id(),
+        "conversation_id": conversation_id or generate_conversation_id(),
     }`}
 </CodeBlock>
 
@@ -73,19 +73,19 @@ with connection type `SDK` and status `Active`.
 When your function uses standard field names, the SDK automatically maps them
 to platform variables. No manual mapping configuration is needed.
 
-**Standard request fields**: `input`, `session_id` (or `conversation_id`),
+**Standard request fields**: `input`, `conversation_id` (or legacy `session_id`),
 `context`, `metadata`, `tool_calls`
 
 **Standard response fields**: `output`, `context`, `metadata`, `tool_calls`,
-`session_id` (or `conversation_id`)
+`conversation_id` (or legacy `session_id`)
 
 <CodeBlock filename="auto_mapped.py" language="python">
 {`@endpoint()
-def chat(input: str, session_id: str = None) -> dict:
+def chat(input: str, conversation_id: str = None) -> dict:
     """Standard names are auto-detected."""
     return {
         "output": process_message(input),
-        "session_id": session_id,
+        "conversation_id": conversation_id,
     }`}
 </CodeBlock>
 
@@ -121,9 +121,9 @@ becomes its own endpoint:
 
 <CodeBlock filename="multi_function.py" language="python">
 {`@endpoint()
-def handle_chat(input: str, session_id: str = None) -> dict:
+def handle_chat(input: str, conversation_id: str = None) -> dict:
     """Process chat messages."""
-    return {"output": generate_response(input), "session_id": session_id}
+    return {"output": generate_response(input), "conversation_id": conversation_id}
 
 @endpoint()
 def search_documents(input: str) -> dict:
@@ -163,19 +163,33 @@ For full details on binding patterns, see
 
 ## Parameter-aware Endpoints
 
-When your project uses **[Parameters & Experiments](/docs/experiments/parameter-schema)**, the SDK connector automatically merges the resolved parameter snapshot into your function's keyword arguments if you specify the `parameters` list in the decorator:
+When your project uses **[Parameters & Experiments](/docs/experiments/parameter-schema)**, map resolved parameter values from `params` into your function arguments with `request_mapping`. This is the same `{{ params.* }}` path used by REST endpoints, so SDK and REST endpoints behave consistently during test runs.
 
-```python
+<CodeBlock filename="parameter_aware_endpoint.py" language="python">
+{`from rhesis.sdk import endpoint
+
 @endpoint(
     name="chat",
-    parameters=["model", "temperature", "system_prompt"]
+    request_mapping={
+        "input": "{{ input }}",
+        "model": "{{ params.model | default('gpt-4o') }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+        "system_prompt": "{{ params.system_prompt | default('You are helpful.') }}",
+    },
+    response_mapping={"output": "$.answer"},
 )
 def chat(input: str, *, model: str, temperature: float, system_prompt: str) -> dict:
-    """The platform injects model, temperature, and system_prompt directly."""
-    return {"output": "..."}
-```
+    answer = run_chat(input, model=model, temperature=temperature, system_prompt=system_prompt)
+    return {"answer": answer}`}
+</CodeBlock>
 
-For more details on both kwarg-injection and context-resolved injection, see [Connector Injection](/docs/experiments/connector-injection).
+<Callout type="info">
+  The older `@endpoint(parameters=["model", "temperature"])` kwarg-merging
+  path is deprecated. It still works for existing applications, but new
+  endpoints should use `{{ params.* }}` in `request_mapping`.
+</Callout>
+
+For more details on request-mapping and context-resolved injection, see [Connector Injection](/docs/experiments/connector-injection).
 
 ## SDK vs. REST Endpoints
 
