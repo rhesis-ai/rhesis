@@ -232,6 +232,7 @@ function TestRunsGrid({
     typeFilter: statusFilter,
     typeFilterField: 'status.name',
     applyDrawerFilters,
+    initialPageSize: 50,
   });
 
   // ── Data fetching ─────────────────────────────────────────────────────────

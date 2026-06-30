@@ -70,9 +70,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
+  const userScope = session?.user?.id ?? '';
 
   const { data, isLoading, error, isSuccess } = useQuery({
-    queryKey: permissionKeys.all(activeProject?.id ?? ''),
+    queryKey: permissionKeys.all(userScope, activeProject?.id ?? ''),
     queryFn: () =>
       new ApiClientFactory(sessionToken!)
         .getPermissionsClient()

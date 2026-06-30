@@ -13,6 +13,8 @@ export interface UseGridStateOptions {
   typeFilter?: string;
   typeFilterField?: string;
   applyDrawerFilters?: (prev: GridFilterModel) => GridFilterModel;
+  /** Initial rows-per-page. Defaults to 25; pass each grid's prior default. */
+  initialPageSize?: number;
 }
 
 export interface UseGridStateResult {
@@ -31,13 +33,14 @@ export function useGridState({
   typeFilter,
   typeFilterField,
   applyDrawerFilters,
+  initialPageSize = 25,
 }: UseGridStateOptions = {}): UseGridStateResult {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
-    pageSize: 25,
+    pageSize: initialPageSize,
   });
   const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
 

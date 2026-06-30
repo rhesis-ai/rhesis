@@ -22,12 +22,15 @@ export const fileKeys = {
   contentUrl: (fileId: string) => ['files', 'contentUrl', fileId] as const,
 };
 
-// Other keys that do not fit the pattern above: they are single fetches for a single value
+// Other keys that do not fit the pattern above: they are single fetches for a single value.
+// These are scoped by a stable per-user identifier so cached auth data never bleeds
+// across login/logout or user switches while the QueryClient is alive.
 
 export const featureKeys = {
-  all: () => ['features'] as const,
+  all: (userScope: string) => ['features', userScope] as const,
 };
 
 export const permissionKeys = {
-  all: (projectId: string) => ['permissions', projectId] as const,
+  all: (userScope: string, projectId: string) =>
+    ['permissions', userScope, projectId] as const,
 };
