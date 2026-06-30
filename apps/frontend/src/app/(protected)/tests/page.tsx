@@ -18,6 +18,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
