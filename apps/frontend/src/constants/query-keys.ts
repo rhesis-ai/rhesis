@@ -14,6 +14,14 @@ export const endpointKeys = createEntityKeys('endpoints');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
 
+export const fileKeys = {
+  all: ['files'] as const,
+  metadata: (fileId: string) => ['files', 'metadata', fileId] as const,
+  thumbnail: (fileId: string, size: number) =>
+    ['files', 'thumbnail', fileId, size] as const,
+  contentUrl: (fileId: string) => ['files', 'contentUrl', fileId] as const,
+};
+
 // Other keys that do not fit the pattern above: they are single fetches for a single value
 
 export const featureKeys = {
