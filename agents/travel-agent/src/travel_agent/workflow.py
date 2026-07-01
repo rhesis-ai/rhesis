@@ -233,6 +233,11 @@ async def invoke_travel_workflow_async(
     final_text: str | None = None
 
     user_msg = Message(role="user", contents=[Content.from_text(text=user_message)])
+    # Always pass a ``list[Message]`` to ``Workflow.run``. Its ``message`` param
+    # is typed ``Any`` and is forwarded to the start executor, which accepts a
+    # message list (the multi-turn path already relied on this by passing
+    # ``[*conversation_history, user_msg]``). Using the list form uniformly keeps
+    # single-turn and multi-turn runs on the same, verified input shape.
     workflow_input = [*(conversation_history or []), user_msg]
 
     async def _consume_events() -> None:
