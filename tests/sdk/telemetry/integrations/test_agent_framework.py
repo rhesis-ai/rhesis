@@ -521,9 +521,9 @@ def test_extract_handoff_targets_skips_non_chat_spans():
 
 def test_extract_handoff_targets_empty_without_output_messages():
     """No output messages (e.g. content capture disabled) -> no targets."""
-    assert mapping.extract_handoff_targets_from_messages(
-        {mapping.GEN_AI_OPERATION_NAME: "chat"}
-    ) == []
+    assert (
+        mapping.extract_handoff_targets_from_messages({mapping.GEN_AI_OPERATION_NAME: "chat"}) == []
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -921,8 +921,7 @@ async def test_handoff_workflow_emits_synthesized_agent_handoff_spans(
     spans = _drain_spans(provider, captured_spans)
     handoffs = [s for s in spans if s.name == "ai.agent.handoff"]
     assert handoffs, (
-        "no ai.agent.handoff span synthesized from chat output; "
-        f"got {[s.name for s in spans]!r}"
+        f"no ai.agent.handoff span synthesized from chat output; got {[s.name for s in spans]!r}"
     )
     targets = {s.attributes.get(AIAttributes.AGENT_HANDOFF_TO) for s in handoffs}
     assert "specialist" in targets
@@ -1360,6 +1359,32 @@ def test_extract_conversation_output_joins_text_and_skips_tool_calls():
     assert mapping.extract_conversation_output(handoff_attrs) is None
 
 
+def test_extract_conversation_output_filters_non_assistant_roles():
+    """Only ``role == "assistant"`` output text is stamped into conversation.output."""
+    import json as _json
+
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(
+            [
+                {"role": "tool", "parts": [{"type": "text", "content": "tool noise"}]},
+                {"role": "user", "parts": [{"type": "text", "content": "echoed user text"}]},
+                {"role": "assistant", "parts": [{"type": "text", "content": "Here is your plan"}]},
+            ]
+        ),
+    }
+    assert mapping.extract_conversation_output(attrs) == "Here is your plan"
+
+    # Output array with no assistant message -> nothing to stamp.
+    no_assistant = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(
+            [{"role": "tool", "parts": [{"type": "text", "content": "tool noise"}]}]
+        ),
+    }
+    assert mapping.extract_conversation_output(no_assistant) is None
+
+
 def test_extract_conversation_input_output_ignore_non_chat_spans():
     attrs = {mapping.GEN_AI_OPERATION_NAME: "invoke_agent"}
     assert mapping.extract_conversation_input(attrs) is None
@@ -1390,6 +1415,41 @@ def test_conversation_content_registry_records_session_first_wins():
 
     assert reg.get_session(7) == "session-a"
     assert reg.get_session(999) is None
+
+
+def test_conversation_content_registry_consume_pops_entries():
+    """``consume`` returns the recorded triple once and clears it afterwards."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry()
+    reg.record_chat(7, input_text="first query", output_text="final plan")
+    reg.record_session(7, "session-a")
+
+    assert reg.consume(7) == ("session-a", "first query", "final plan")
+    # Entries are gone after the first consume: the root span is exported once.
+    assert reg.consume(7) == (None, None, None)
+    assert reg.get(7) == (None, None)
+    assert reg.get_session(7) is None
+    # Unknown trace ids yield an all-None triple.
+    assert reg.consume(999) == (None, None, None)
+
+
+def test_exporter_consumes_conversation_content_after_stamping():
+    """After the root span is exported, its per-trace content is released."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xBEEF01
+    tr_mod._conversation_content.record_chat(
+        trace_id, input_text="Plan a day trip", output_text="Here is your plan"
+    )
+    tr_mod._conversation_content.record_session(trace_id, "sess-consume")
+    run = _FakeChatSpan(span_id=760, trace_id=trace_id, parent_id=None, name="workflow.run")
+
+    exporter = tr_mod.MAFTranslatingExporter(InMemorySpanExporter())
+    exporter.export([run])
+
+    # The registry no longer retains anything for this trace.
+    assert tr_mod._conversation_content.consume(trace_id) == (None, None, None)
 
 
 def test_exporter_stamps_turn_root_on_root_workflow_run():

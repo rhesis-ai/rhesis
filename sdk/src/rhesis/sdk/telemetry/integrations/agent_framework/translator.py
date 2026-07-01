@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import Any, Iterable, Mapping, Sequence
 
 from opentelemetry.sdk.trace import Event, ReadableSpan, SpanProcessor
@@ -514,6 +515,7 @@ class _ConversationContentRegistry:
         self._output_by_trace: dict[int, str] = {}
         self._session_by_trace: dict[int, str] = {}
         self._max_entries = max_entries
+        self._lock = threading.Lock()
 
     def _evict_if_needed(self, store: dict[int, str]) -> None:
         if len(store) < self._max_entries:
@@ -534,12 +536,13 @@ class _ConversationContentRegistry:
         if trace_id is None:
             return
         try:
-            if input_text and trace_id not in self._input_by_trace:
-                self._evict_if_needed(self._input_by_trace)
-                self._input_by_trace[trace_id] = input_text
-            if output_text:
-                self._evict_if_needed(self._output_by_trace)
-                self._output_by_trace[trace_id] = output_text
+            with self._lock:
+                if input_text and trace_id not in self._input_by_trace:
+                    self._evict_if_needed(self._input_by_trace)
+                    self._input_by_trace[trace_id] = input_text
+                if output_text:
+                    self._evict_if_needed(self._output_by_trace)
+                    self._output_by_trace[trace_id] = output_text
         except Exception:  # noqa: BLE001 - recording must never break tracing
             logger.debug("Failed to record conversation content", exc_info=True)
 
@@ -548,9 +551,10 @@ class _ConversationContentRegistry:
         if trace_id is None or not session_id:
             return
         try:
-            if trace_id not in self._session_by_trace:
-                self._evict_if_needed(self._session_by_trace)
-                self._session_by_trace[trace_id] = session_id
+            with self._lock:
+                if trace_id not in self._session_by_trace:
+                    self._evict_if_needed(self._session_by_trace)
+                    self._session_by_trace[trace_id] = session_id
         except Exception:  # noqa: BLE001 - recording must never break tracing
             logger.debug("Failed to record conversation session id", exc_info=True)
 
@@ -558,13 +562,32 @@ class _ConversationContentRegistry:
         """Return ``(input, output)`` recorded for ``trace_id`` (None if absent)."""
         if trace_id is None:
             return None, None
-        return self._input_by_trace.get(trace_id), self._output_by_trace.get(trace_id)
+        with self._lock:
+            return self._input_by_trace.get(trace_id), self._output_by_trace.get(trace_id)
 
     def get_session(self, trace_id: int | None) -> str | None:
         """Return the conversation/session id recorded for ``trace_id`` (None if absent)."""
         if trace_id is None:
             return None
-        return self._session_by_trace.get(trace_id)
+        with self._lock:
+            return self._session_by_trace.get(trace_id)
+
+    def consume(self, trace_id: int | None) -> tuple[str | None, str | None, str | None]:
+        """Pop and return ``(session_id, input, output)`` for ``trace_id``.
+
+        Called exactly once per trace when its root ``workflow.run`` span is
+        exported, so per-trace entries do not linger for the process lifetime
+        (bounding memory beyond the eviction cap and removing any risk of stale
+        content resurfacing if a trace id were ever reused). Returns all-``None``
+        when nothing was recorded for the trace.
+        """
+        if trace_id is None:
+            return None, None, None
+        with self._lock:
+            session = self._session_by_trace.pop(trace_id, None)
+            conv_input = self._input_by_trace.pop(trace_id, None)
+            conv_output = self._output_by_trace.pop(trace_id, None)
+        return session, conv_input, conv_output
 
 
 # Shared singleton: the dedup processor records chat I/O at span end, the
@@ -611,8 +634,10 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
     if trace_id is None:
         return None
 
-    session_id = _conversation_content.get_session(trace_id)
-    conv_input, conv_output = _conversation_content.get(trace_id)
+    # Pop the recorded content: the root span is exported once, so consuming
+    # here also frees the per-trace entries instead of retaining them for the
+    # process lifetime.
+    session_id, conv_input, conv_output = _conversation_content.consume(trace_id)
 
     attrs: dict[str, Any] = {}
     if session_id:

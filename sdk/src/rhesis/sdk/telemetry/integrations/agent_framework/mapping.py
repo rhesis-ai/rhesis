@@ -594,11 +594,15 @@ def extract_conversation_input(attributes: Mapping[str, Any]) -> str | None:
 def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
     """Return the assistant response text from a chat span's output messages.
 
-    Reads ``gen_ai.output.messages`` and joins the text parts of every output
-    message. Tool-call-only turns (e.g. a ``handoff_to_*`` decision) yield an
-    empty string and are skipped. The caller records the latest non-empty
-    result per run, so the final synthesizing agent's answer is what remains.
-    Returns ``None`` for non-chat spans or when there is no text output.
+    Reads ``gen_ai.output.messages`` and joins the text parts of every
+    ``role == "assistant"`` message. Restricting to assistant messages mirrors
+    :func:`extract_conversation_input` (which restricts to ``role == "user"``)
+    and guards against stamping non-assistant text (e.g. a tool/user entry MAF
+    may include in the output array) into ``conversation.output``. Tool-call-only
+    turns (e.g. a ``handoff_to_*`` decision) yield an empty string and are
+    skipped. The caller records the latest non-empty result per run, so the final
+    synthesizing agent's answer is what remains. Returns ``None`` for non-chat
+    spans or when there is no assistant text output.
     """
     if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
         return None
@@ -607,7 +611,7 @@ def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
         return None
     chunks: list[str] = []
     for message in messages:
-        if not isinstance(message, Mapping):
+        if not isinstance(message, Mapping) or message.get("role") != "assistant":
             continue
         content = _join_text_parts(message.get("parts")).strip()
         if content:
