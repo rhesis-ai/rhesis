@@ -91,6 +91,7 @@ export default function ExperimentDetailClient({
 
   // Configuration tab state
   const [draft, setDraft] = useState<Record<string, ParameterValue | null>>({});
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
 
@@ -156,17 +157,18 @@ export default function ExperimentDetailClient({
     [queryClient, experimentId]
   );
 
-  // Seed draft from latest version whenever data loads/refreshes
+  // Seed draft on first load only; skip if user has unsaved edits
   useEffect(() => {
-    if (!expData) return;
+    if (!expData || isDraftDirty) return;
     const { experiment: detail, schema: schemaResp } = expData;
     const latest = detail.versions[detail.versions.length - 1];
     setDraft(valuesFromVersion(latest, schemaResp));
-  }, [expData]);
+  }, [expData, isDraftDirty]);
 
   const updateDraft = useCallback(
     (name: string, value: ParameterValue | null) => {
       setDraft(prev => ({ ...prev, [name]: value }));
+      setIsDraftDirty(true);
     },
     []
   );
@@ -186,6 +188,7 @@ export default function ExperimentDetailClient({
       });
       notifications.show('Version saved', { severity: 'success' });
       setMessage('');
+      setIsDraftDirty(false);
       await refresh({ silent: true });
       return true;
     } catch (e) {
@@ -460,7 +463,10 @@ export default function ExperimentDetailClient({
 
       <BaseDrawer
         open={configDrawerOpen}
-        onClose={() => setConfigDrawerOpen(false)}
+        onClose={() => {
+          setConfigDrawerOpen(false);
+          setIsDraftDirty(false);
+        }}
         title="Add configuration"
         onSave={async () => {
           const ok = await handleSaveVersion();

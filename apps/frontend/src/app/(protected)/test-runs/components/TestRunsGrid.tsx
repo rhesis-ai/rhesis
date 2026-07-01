@@ -691,7 +691,6 @@ function TestRunsGrid({
     (value: RunKindFilter) => {
       setRunKindFilter(value);
       setPaginationModel(prev => ({ ...prev, page: 0 }));
-      setPaginationModel({ ...paginationModel, page: 0 });
     },
     [setPaginationModel]
   );
