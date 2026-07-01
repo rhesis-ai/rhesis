@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -25,6 +25,8 @@ import SectionCard from '@/components/common/SectionCard';
 import ViewField from '@/components/common/ViewField';
 import { ArrowOutwardIcon, PlayArrowIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useQuery } from '@tanstack/react-query';
+import { experimentKeys } from '@/constants/query-keys';
 import {
   ExperimentResultsRunItem,
   shortVersion,
@@ -43,9 +45,6 @@ export default function ExperimentRunsTab({
   sessionToken,
   onRunExperiment,
 }: ExperimentRunsTabProps) {
-  const [runs, setRuns] = useState<ExperimentResultsRunItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [drawerRun, setDrawerRun] = useState<ExperimentResultsRunItem | null>(
     null
   );
@@ -56,27 +55,24 @@ export default function ExperimentRunsTab({
     [sessionToken]
   );
 
-  useEffect(() => {
-    let mounted = true;
-    async function fetch() {
-      setLoading(true);
-      setError(null);
-      try {
-        const client = apiFactory.getParametersClient();
-        const res = await client.getExperimentResultsByRun(experimentId);
-        if (mounted) setRuns(res.items);
-      } catch (e) {
-        if (mounted)
-          setError(e instanceof Error ? e.message : 'Failed to load runs');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    fetch();
-    return () => {
-      mounted = false;
-    };
-  }, [apiFactory, experimentId]);
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: [...experimentKeys.detail(experimentId), 'runs'],
+    queryFn: () =>
+      apiFactory.getParametersClient().getExperimentResultsByRun(experimentId),
+    enabled: !!sessionToken && !!experimentId,
+  });
+
+  const runs = data?.items ?? [];
+  const error =
+    fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to load runs'
+        : null;
 
   const columns: GridColDef<ExperimentResultsRunItem>[] = useMemo(
     () => [

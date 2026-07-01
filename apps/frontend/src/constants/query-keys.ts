@@ -13,6 +13,17 @@ export const testRunKeys = createEntityKeys('test-runs');
 export const endpointKeys = createEntityKeys('endpoints');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
+export const experimentKeys = createEntityKeys('experiments');
+export const behaviorKeys = createEntityKeys('behaviors');
+export const projectKeys = createEntityKeys('projects');
+
+export const topicKeys = {
+  list: (entityType = '') => ['topics', 'list', entityType] as const,
+};
+
+export const categoryKeys = {
+  list: (entityType = '') => ['categories', 'list', entityType] as const,
+};
 
 export const fileKeys = {
   all: ['files'] as const,
