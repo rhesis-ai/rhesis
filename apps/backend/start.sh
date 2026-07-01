@@ -26,12 +26,8 @@ is_production() {
     [ "${BACKEND_ENV}" = "production" ]
 }
 
-is_local() {
-    [ "${BACKEND_ENV}" = "local" ]
-}
-
-is_development() {
-    [ "${BACKEND_ENV}" = "development" ]
+dev_mode_enabled() {
+    [ "${DEV_MODE:-false}" = "true" ]
 }
 
 # Function to display banner
@@ -121,7 +117,8 @@ start_server() {
     log "  Port: $port"
     log "  Workers: $workers"
     log "  Timeout: ${timeout}s"
-    log "  Environment: $(is_production && echo "production" || echo "development")"
+    log "  Environment: ${BACKEND_ENV:-unset}"
+    log "  DEV_MODE (reload): $(dev_mode_enabled && echo "true" || echo "false")"
     echo ""
 
     # Determine command prefix
@@ -145,14 +142,8 @@ start_server() {
             --error-logfile - \
             --log-level info \
             rhesis.backend.app.main:app
-    elif is_local; then
-        log "${BLUE}🛠️  Starting local production server with Uvicorn...${NC}"
-        exec ${CMD_PREFIX}uvicorn \
-            rhesis.backend.app.main:app \
-            --host "$host" \
-            --port "$port"
-    elif is_development; then
-        log "${BLUE}🛠️  Starting development server with Uvicorn (hot reload)...${NC}"
+    elif dev_mode_enabled; then
+        log "${BLUE}🛠️  Starting server with Uvicorn (hot reload)...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
@@ -160,13 +151,12 @@ start_server() {
             --log-level debug \
             --reload
     else
-        # Default: no BACKEND_ENV (e.g. docker-compose for integration tests)
-        log "${BLUE}🛠️  Starting server with Uvicorn (default)...${NC}"
+        # Default: local, development, staging, integration tests — no reload
+        log "${BLUE}🛠️  Starting server with Uvicorn...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
-            --port "$port" \
-            --log-level debug
+            --port "$port"
     fi
 }
 
