@@ -4,7 +4,6 @@ import React, {
   forwardRef,
   useCallback,
   useContext,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useState,
@@ -56,6 +55,8 @@ import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
+import { useQuery } from '@tanstack/react-query';
+import { projectKeys } from '@/constants/query-keys';
 
 interface ProjectTraceMetricsProps {
   project: Project;
@@ -113,9 +114,6 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
   ) {
     const theme = useTheme();
     const canUpdateProject = useCan(Capability.Project.UPDATE);
-    const [metrics, setMetrics] = useState<MetricDetail[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -127,55 +125,47 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
       openAddDialog: () => setMetricsDialogOpen(true),
     }));
 
-    const fetchMetrics = useCallback(async () => {
-      if (!sessionToken || !project) {
-        setLoading(false);
-        return;
-      }
+    const metricIds: string[] = useMemo(() => {
+      const rawIds = project.attributes?.trace_metrics;
+      return Array.isArray(rawIds) ? rawIds.map(String) : [];
+    }, [project.attributes?.trace_metrics]);
 
-      try {
-        setLoading(true);
-        setError(null);
-
-        const rawIds = project.attributes?.trace_metrics;
-        const metricIds = Array.isArray(rawIds) ? rawIds : [];
-        if (metricIds.length === 0) {
-          setMetrics([]);
-          return;
-        }
-
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const metricsClient = apiFactory.getMetricsClient();
-
+    const {
+      data: metrics = [],
+      isLoading: loading,
+      error: fetchError,
+    } = useQuery({
+      queryKey: [
+        ...projectKeys.detail(project.id as string),
+        'trace-metrics',
+        metricIds,
+      ],
+      queryFn: async () => {
+        if (metricIds.length === 0) return [];
+        const metricsClient = new ApiClientFactory(
+          sessionToken
+        ).getMetricsClient();
         const results = await Promise.allSettled(
-          metricIds.map((id: string) =>
+          metricIds.map(id =>
             metricsClient.getMetric(
               id as `${string}-${string}-${string}-${string}-${string}`
             )
           )
         );
-
-        const fetchedMetrics = results
+        return results
           .filter(
             (r): r is PromiseFulfilledResult<MetricDetail> =>
               r.status === 'fulfilled'
           )
           .map(r => r.value)
           .filter(m => m.metric_scope?.includes('Trace'));
+      },
+      enabled: !!sessionToken,
+    });
 
-        setMetrics(fetchedMetrics);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'An unknown error occurred';
-        setError(`Failed to load metrics: ${errorMessage}`);
-      } finally {
-        setLoading(false);
-      }
-    }, [project, sessionToken]);
-
-    useEffect(() => {
-      fetchMetrics();
-    }, [fetchMetrics]);
+    const error = fetchError
+      ? `Failed to load metrics: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
+      : null;
 
     const handleAddMetric = async (metricId: UUID) => {
       try {

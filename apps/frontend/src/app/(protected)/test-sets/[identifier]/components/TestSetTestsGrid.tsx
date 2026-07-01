@@ -1,18 +1,10 @@
 'use client';
 
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
-  useContext,
-  useMemo,
-} from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import {
   GridColDef,
   GridFilterModel,
   GridRowParams,
-  GridPaginationModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -22,7 +14,6 @@ import { Alert } from '@mui/material';
 import GridToolbar from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
-import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
 import { getTestSetTestColumns } from './testSetTestColumns';
 import TestFilterDrawer, {
@@ -31,6 +22,9 @@ import TestFilterDrawer, {
   hasActiveTestFilters,
 } from '@/app/(protected)/tests/components/TestFilterDrawer';
 import { applyTestDrawerFiltersToModel } from '@/app/(protected)/tests/components/test-filter-model';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
+import { testSetKeys } from '@/constants/query-keys';
 
 interface LinkedTestsToolbarState {
   searchQuery: string;
@@ -90,120 +84,56 @@ export default function TestSetTestsGrid({
   testSetType,
   onTotalCountChange,
 }: TestSetTestsGridProps) {
-  const isMounted = useRef(true);
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
   const [drawerFilters, setDrawerFilters] =
     useState<TestFilters>(EMPTY_TEST_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [tests, setTests] = useState<TestDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 10,
+
+  const { filterModel, paginationModel, handlePaginationModelChange } =
+    useGridState({
+      searchQuery,
+      applyDrawerFilters: useCallback(
+        (prev: GridFilterModel) =>
+          applyTestDrawerFiltersToModel(prev, drawerFilters),
+        [drawerFilters]
+      ),
+    });
+
+  const filterString = combineTestFiltersToOData(filterModel);
+
+  const {
+    data,
+    isLoading: loading,
+    error: fetchError,
+  } = useGridQuery({
+    queryKey: [
+      ...testSetKeys.detail(testSetId),
+      'tests',
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+    ],
+    queryFn: () =>
+      new ApiClientFactory(sessionToken)
+        .getTestSetsClient()
+        .getTestSetTests(testSetId, {
+          skip: paginationModel.page * paginationModel.pageSize,
+          limit: paginationModel.pageSize,
+          sort_by: 'topic',
+          sort_order: 'asc',
+          ...(filterString && { $filter: filterString }),
+        }),
+    enabled: !!sessionToken && !!testSetId,
   });
 
-  const fetchTests = useCallback(async () => {
-    if (!sessionToken || !testSetId) return;
+  const tests = data?.data ?? [];
+  const totalCount = data?.pagination.totalCount ?? 0;
+  const error = fetchError ? 'Failed to load tests' : null;
 
-    try {
-      if (isMounted.current) {
-        setLoading(true);
-      }
-
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-      const filterString = combineTestFiltersToOData(filterModel);
-
-      const response = await testSetsClient.getTestSetTests(testSetId, {
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by: 'topic',
-        sort_order: 'asc',
-        ...(filterString && { $filter: filterString }),
-      });
-
-      if (isMounted.current) {
-        setTests(response.data);
-        const count = response.pagination.totalCount;
-        setTotalCount(count);
-        if (!filterString) {
-          onTotalCountChange?.(count);
-        }
-        setError(null);
-      }
-    } catch (_error) {
-      if (isMounted.current) {
-        setError('Failed to load tests');
-        setTests([]);
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
-  }, [
-    sessionToken,
-    testSetId,
-    paginationModel.page,
-    paginationModel.pageSize,
-    filterModel,
-    onTotalCountChange,
-  ]);
-
-  useEffect(() => {
-    isMounted.current = true;
-    fetchTests();
-    return () => {
-      isMounted.current = false;
-    };
-  }, [fetchTests]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      if (
-        items.length === prev.items.length &&
-        items.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const next = applyTestDrawerFiltersToModel(prev, drawerFilters);
-      if (
-        next.items.length === prev.items.length &&
-        next.items.every((it, i) => it === prev.items[i])
-      )
-        return prev;
-      return next;
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [drawerFilters]);
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
+  React.useEffect(() => {
+    if (data && !filterString) onTotalCountChange?.(totalCount);
+  }, [data, filterString, totalCount, onTotalCountChange]);
 
   const columns: GridColDef[] = React.useMemo(
     () => getTestSetTestColumns(testSetType),
