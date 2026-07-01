@@ -68,9 +68,16 @@ uv sync
 
 ### 3. Generate Traces (CLI)
 
-Run a batch of scenarios that exercise the full multi-agent workflow. Each
-scenario uses its own conversation id; multi-turn scenarios replay their
-history so the workflow remembers earlier turns:
+Run a minimal in-process `auto_instrument` smoke test: a batch of scenarios
+that exercise the full multi-agent workflow. There is no manual tracing here —
+the SDK produces and ships every span automatically. The only manual step is a
+single `shutdown_tracer_provider()` at the end to flush the final batch before
+this short-lived process exits. Each scenario is one-shot and single-turn: it
+sets no conversation/session id, so it produces a single ordinary trace rooted
+at MAF's `function.workflow.run` and shows up in the default Traces view (not as
+a multi-turn conversation). Multi-turn grouping is exercised separately by the
+chat session path (`travel_agent.session.run_chat_turn`) used by the app and
+playground:
 
 ```bash
 uv run python examples/run_traces.py
@@ -198,7 +205,11 @@ uvx ruff format src/ examples/
 
 ## How Travel Agent Exercises the SDK
 
-When the workflow runs with a Rhesis `TracerProvider` active, MAF emits spans that the SDK translator rewrites into the Rhesis schema:
+Travel Agent uses only `@endpoint` + `auto_instrument("agent_framework")`. It
+never creates a span, sets a span attribute, or flushes the tracer by hand —
+every span and attribute is produced by the SDK. When the workflow runs with a
+Rhesis `TracerProvider` active, MAF emits spans that the SDK translator rewrites
+into the Rhesis schema:
 
 - `ai.agent.invoke` for each agent activation (`trip_coordinator`, `destination_finder`, `sightseeing_scout`, `logistics_planner`)
 - `ai.llm.invoke` for Gemini chat completions

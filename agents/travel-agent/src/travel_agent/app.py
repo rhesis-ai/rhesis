@@ -8,20 +8,18 @@ from __future__ import annotations
 
 import logging
 import os
-import uuid
 from contextlib import asynccontextmanager
+from typing import Any
 
-from agent_framework import Message
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from opentelemetry import trace as otel_trace
 from pydantic import BaseModel, Field
-from rhesis.telemetry.constants import ConversationContext
 
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
-from travel_agent.workflow import build_travel_workflow, invoke_travel_workflow
+from travel_agent.session import default_store, run_chat_turn
+from travel_agent.workflow import build_travel_workflow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,24 +48,26 @@ else:
 # THE line under test: turn on the SDK's MAF integration.
 auto_instrument("agent_framework")
 
-# Per-conversation message history. Production deployments would persist this
-# in a database; in-memory is fine for a trace-generation demo.
-conversations: dict[str, list[Message]] = {}
-
 _startup_validated: bool = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Validate travel workflow construction once at startup."""
+    """Validate the travel workflow once at startup."""
     global _startup_validated
 
-    logger.info("Validating Travel Agent multi-agent workflow construction (MAF)...")
+    logger.info("Initialising Travel Agent multi-agent workflow (MAF)...")
+    # Build once at startup purely to validate construction. Each chat turn
+    # builds its own fresh workflow instead of reusing a cached instance: MAF
+    # agents keep per-call history, and the connector runs sync handlers in a
+    # thread pool with a new event loop per turn, so a shared workflow both
+    # leaks state across conversations and breaks with "Queue is bound to a
+    # different event loop".
     build_travel_workflow()
     _startup_validated = True
     logger.info(
-        "Travel Agent workflow construction validated: trip_coordinator + "
-        "destination_finder + sightseeing_scout + logistics_planner"
+        "Travel Agent workflow ready: trip_coordinator + destination_finder + "
+        "sightseeing_scout + logistics_planner"
     )
 
     yield
@@ -139,6 +139,26 @@ class ConversationInfo(BaseModel):
     message_count: int
 
 
+def _chat_response_from_result(result: dict[str, Any]) -> ChatResponse:
+    tools_called = [
+        ToolCall(
+            tool_name=tc["tool_name"],
+            agent=tc.get("agent", "travel_agent"),
+            tool_args=tc.get("tool_args", {}),
+        )
+        for tc in result.get("tools_called", [])
+    ]
+    return ChatResponse(
+        response=result["response"],
+        conversation_id=result["conversation_id"],
+        tools_called=tools_called,
+        tool_chain=result.get("tool_chain", ""),
+        agents_involved=result.get("agents_involved", []),
+        agent_workflow=result.get("agent_workflow", ""),
+        agent=result.get("agent", "trip_coordinator"),
+    )
+
+
 @app.get("/")
 async def root():
     """Root endpoint with a quick orientation."""
@@ -193,77 +213,55 @@ async def health():
         ),
     },
 )
-def chat_endpoint_traced(
+async def chat_endpoint_traced(
     message: str,
     conversation_id: str | None = None,
 ) -> ChatResponse:
-    """Traced entry point for the MAF travel multi-agent workflow."""
+    """Traced entry point for the MAF travel multi-agent workflow.
+
+    Async so the FastAPI ``/chat`` route can ``await`` it directly from the
+    running event loop while still going through the ``@endpoint`` decorator
+    (which creates the Rhesis endpoint span and applies the request/response
+    mappings used for conversation grouping). A sync helper would have to use
+    ``run_chat_turn_sync``, which cannot run inside an active event loop.
+    """
     logger.info("=" * 80)
     logger.info("TRAVEL AGENT MULTI-AGENT CHAT")
     logger.info("Message: %s...", message[:100])
     logger.info("Conversation ID: %s", conversation_id)
     logger.info("=" * 80)
 
-    conv_id = conversation_id or str(uuid.uuid4())
-
-    # Stamp the conversation attributes on the active @endpoint span (the
-    # turn root). On the first turn the playground sends no conversation_id,
-    # so the SDK/backend cannot inject one before the span is created.
-    conv_attr = ConversationContext.SpanAttributes
-    max_io = ConversationContext.MAX_IO_LENGTH
-    span = otel_trace.get_current_span()
-    span.set_attribute(conv_attr.IS_TURN_ROOT, True)
-    span.set_attribute(conv_attr.CONVERSATION_ID, conv_id)
-    span.set_attribute(conv_attr.CONVERSATION_INPUT, message[:max_io])
-
-    # Replay prior turns so the workflow actually remembers the conversation.
-    history = conversations.get(conv_id, [])
-    workflow = build_travel_workflow()
-    result = invoke_travel_workflow(
-        workflow,
+    result = await run_chat_turn(
+        build_travel_workflow(),
         message,
-        conversation_history=history,
-        conversation_id=conv_id,
+        conversation_id=conversation_id,
     )
-    conversations[conv_id] = result["messages"]
-
-    span.set_attribute(conv_attr.CONVERSATION_OUTPUT, (result["response"] or "")[:max_io])
-
-    tools_called = [
-        ToolCall(
-            tool_name=tc["tool_name"],
-            agent=tc.get("agent", "travel_agent"),
-            tool_args=tc.get("tool_args", {}),
-        )
-        for tc in result.get("tools_called", [])
-    ]
 
     logger.info("Travel response generated")
     logger.info("Agents involved: %s", result.get("agents_involved", []))
-    logger.info("Tools called: %s", [tc.tool_name for tc in tools_called])
+    logger.info(
+        "Tools called: %s",
+        [tc["tool_name"] for tc in result.get("tools_called", [])],
+    )
     logger.info("=" * 80)
 
-    return ChatResponse(
-        response=result["response"],
-        conversation_id=conv_id,
-        tools_called=tools_called,
-        tool_chain=result.get("tool_chain", ""),
-        agents_involved=result.get("agents_involved", []),
-        agent_workflow=result.get("agent_workflow", ""),
-    )
+    return _chat_response_from_result(result)
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
     """Chat with the Microsoft Agent Framework travel multi-agent system."""
     if not _startup_validated:
         raise HTTPException(status_code=503, detail="Travel Agent not initialised")
 
     try:
-        return chat_endpoint_traced(
+        return await chat_endpoint_traced(
             message=request.message,
             conversation_id=request.conversation_id,
         )
+    except TimeoutError as exc:
+        logger.error("Travel workflow timed out: %s", exc, exc_info=True)
+        raise HTTPException(status_code=504, detail="Travel Agent request timed out")
     except Exception as exc:
         logger.error("Error in /chat: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Error processing request")
@@ -273,18 +271,18 @@ def chat(request: ChatRequest):
 async def list_conversations():
     """List every active conversation."""
     return [
-        ConversationInfo(conversation_id=cid, message_count=len(messages))
-        for cid, messages in conversations.items()
+        ConversationInfo(conversation_id=conversation_id, message_count=message_count)
+        for conversation_id, message_count in default_store.list_conversations().items()
     ]
 
 
 @app.get("/conversations/{conversation_id}")
 async def get_conversation(conversation_id: str):
-    """Return a conversation's flat message history."""
-    if conversation_id not in conversations:
+    """Return a conversation's user-visible message history."""
+    messages = default_store.get_messages(conversation_id)
+    if messages is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = conversations[conversation_id]
     history = [
         {
             "role": message.role,
@@ -303,9 +301,8 @@ async def get_conversation(conversation_id: str):
 @app.delete("/conversations/{conversation_id}")
 async def delete_conversation(conversation_id: str):
     """Delete a stored conversation."""
-    if conversation_id not in conversations:
+    if not default_store.delete(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found")
-    del conversations[conversation_id]
     return {"message": f"Conversation {conversation_id} deleted"}
 
 

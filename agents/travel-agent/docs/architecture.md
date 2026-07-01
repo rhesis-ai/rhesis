@@ -108,20 +108,23 @@ This keeps the behavior simple and traceable. The specialist tools are mock tool
 
 ## Conversation Memory
 
-The FastAPI app stores per-conversation MAF `Message` history in memory:
+The FastAPI app stores per-conversation **user-visible** MAF ``Message`` history in
+memory (user turns plus the coordinator's final plan for each turn). Specialist
+outputs stay inside the workflow run and are not persisted:
 
 ```mermaid
 flowchart LR
     ConversationId[conversation_id]
-    History[Message History]
-    NextTurn[Next Chat Turn]
+    History[User-visible history]
+    NextTurn[Next chat turn]
 
     ConversationId --> History
     History --> NextTurn
     NextTurn --> History
 ```
 
-This is enough for a local trace-generation demo. A production deployment would persist this state in a database.
+This is enough for a local trace-generation demo. A production deployment would
+persist this state in a database.
 
 ## Trace Surface Generated
 
@@ -134,4 +137,4 @@ A single user query can produce the following Rhesis span shapes:
 | `ai.llm.invoke` | Gemini chat completions through MAF. |
 | `ai.tool.invoke` | Domain tool execution: `get_random_destination`, `find_sightseeing`, `estimate_travel`. |
 
-The example scripts also create a manual turn-root span with `rhesis.conversation.*` attributes so trace details can be grouped by conversation outside the FastAPI endpoint path.
+The example scripts contain no manual tracing: every span and attribute is produced by the SDK via `auto_instrument`. The in-process `examples/run_traces.py` smoke test runs with no `@endpoint` and sets no conversation/session id, so each scenario is a one-shot single-turn run that produces a single ordinary trace rooted at MAF's `function.workflow.run` and appears in the default Traces view (not as a multi-turn conversation). Multi-turn conversation grouping is exercised separately by the chat session path (`travel_agent.session.run_chat_turn`): the FastAPI `/chat` route and the playground connector go through the `@endpoint` decorator, where that decorator's span is the turn root and conversation grouping is handled by the SDK request/response mapping plus backend backfill.

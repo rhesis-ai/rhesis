@@ -23,6 +23,13 @@ from rhesis.telemetry.schemas import AIOperationType
 
 INSTRUMENTATION_SCOPE_PREFIX = "agent_framework"
 
+# MAF's top-level workflow execution span name. It is the structural root of a
+# workflow run (every executor/agent/chat/tool span nests under it). The
+# translator treats it as the Rhesis conversation turn root when it is also the
+# trace root (i.e. the workflow was run directly, not inside an enclosing
+# Rhesis @endpoint/@observe span).
+WORKFLOW_RUN_SPAN_NAME = "workflow.run"
+
 # MAF's HandoffBuilder workflow implements agent-to-agent handoffs as
 # auto-generated tool calls named ``handoff_to_<target_agent>``. These are
 # scheduling primitives, not real domain tools — we recognise them so the
@@ -412,17 +419,29 @@ def extract_handoff_targets_from_messages(attributes: Mapping[str, Any]) -> list
 
 
 # Original MAF span-name prefixes for low-value workflow infrastructure spans.
-# These are routing/transport primitives that carry no agent/chat/tool payload
-# and never *parent* a meaningful span (edge-group and message-send spans use
-# OTel links rather than nesting for causality — see
-# ``agent_framework.observability.create_edge_group_processing_span``). Dropping
-# them sharply reduces span volume for fan-out topologies (e.g. MAF's
+# These are routing/transport/construction primitives that carry no
+# agent/chat/tool payload and never *parent* a meaningful span:
+#
+# - ``edge_group.`` / ``message.send`` are routing primitives that use OTel
+#   links rather than nesting for causality (see
+#   ``agent_framework.observability.create_edge_group_processing_span``).
+# - ``workflow.build`` wraps graph validation/compilation at
+#   ``WorkflowBuilder.build()`` time. It is emitted *outside* any
+#   ``workflow.run`` span, so it surfaces as its own standalone (and otherwise
+#   empty) trace — one extra root per build. Its only children would be the
+#   ``build.*`` events it records itself; agents are constructed before
+#   ``.build()`` and are not nested under it. Dropping it keeps each workflow
+#   run a single trace instead of a build-trace plus a run-trace.
+#
+# Dropping these sharply reduces span volume for fan-out topologies (e.g. MAF's
 # ``HandoffBuilder`` broadcasts to every participant each superstep) without
 # orphaning children. Note: ``executor.process`` is deliberately NOT here — it
-# is the structural parent of ``invoke_agent`` spans.
+# is the structural parent of ``invoke_agent`` spans, and ``workflow.run`` is
+# kept because it is the run's trace root.
 _LOW_VALUE_WORKFLOW_PREFIXES: tuple[str, ...] = (
     "edge_group.",
     "message.send",
+    "workflow.build",
 )
 
 
@@ -517,6 +536,88 @@ def _join_message_parts(parts: Any) -> str:
         elif part is not None:
             chunks.append(_to_json_text(part))
     return "".join(chunks)
+
+
+def _join_text_parts(parts: Any) -> str:
+    """Concatenate only the human-readable ``text``/``reasoning`` parts.
+
+    Unlike :func:`_join_message_parts`, non-text parts (tool calls, blobs, ...)
+    are skipped rather than JSON-encoded. Used for conversation input/output
+    capture, where we want the user's query and the assistant's prose answer,
+    not the JSON of a ``handoff_to_*`` tool call.
+    """
+    if isinstance(parts, str):
+        return parts
+    if not isinstance(parts, list):
+        return ""
+    chunks: list[str] = []
+    for part in parts:
+        if isinstance(part, Mapping):
+            if part.get("type") in ("text", "reasoning"):
+                content = part.get("content")
+                if isinstance(content, str):
+                    chunks.append(content)
+        elif isinstance(part, str):
+            chunks.append(part)
+    return "".join(chunks)
+
+
+def is_workflow_run_span(original_name: str | None) -> bool:
+    """Return True for MAF's top-level ``workflow.run`` span (the run root)."""
+    return original_name == WORKFLOW_RUN_SPAN_NAME
+
+
+def extract_conversation_input(attributes: Mapping[str, Any]) -> str | None:
+    """Return the original user query text from a chat span's input messages.
+
+    Reads ``gen_ai.input.messages`` and returns the text of the first
+    ``role == "user"`` message. Within a single workflow run every agent's chat
+    span carries the same original user message as the first user entry, so the
+    caller can record the first non-empty result and treat it as the turn input.
+    Returns ``None`` for non-chat spans, missing/empty content, or when capture
+    is disabled.
+    """
+    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+        return None
+    messages = _coerce_message_list(attributes.get(GEN_AI_INPUT_MESSAGES))
+    if not messages:
+        return None
+    for message in messages:
+        if not isinstance(message, Mapping) or message.get("role") != "user":
+            continue
+        content = _join_text_parts(message.get("parts")).strip()
+        if content:
+            return content
+    return None
+
+
+def extract_conversation_output(attributes: Mapping[str, Any]) -> str | None:
+    """Return the assistant response text from a chat span's output messages.
+
+    Reads ``gen_ai.output.messages`` and joins the text parts of every
+    ``role == "assistant"`` message. Restricting to assistant messages mirrors
+    :func:`extract_conversation_input` (which restricts to ``role == "user"``)
+    and guards against stamping non-assistant text (e.g. a tool/user entry MAF
+    may include in the output array) into ``conversation.output``. Tool-call-only
+    turns (e.g. a ``handoff_to_*`` decision) yield an empty string and are
+    skipped. The caller records the latest non-empty result per run, so the final
+    synthesizing agent's answer is what remains. Returns ``None`` for non-chat
+    spans or when there is no assistant text output.
+    """
+    if attributes.get(GEN_AI_OPERATION_NAME) != OP_CHAT:
+        return None
+    messages = _coerce_message_list(attributes.get(GEN_AI_OUTPUT_MESSAGES))
+    if not messages:
+        return None
+    chunks: list[str] = []
+    for message in messages:
+        if not isinstance(message, Mapping) or message.get("role") != "assistant":
+            continue
+        content = _join_text_parts(message.get("parts")).strip()
+        if content:
+            chunks.append(content)
+    joined = "\n".join(chunks).strip()
+    return joined or None
 
 
 def synthesize_message_events(
