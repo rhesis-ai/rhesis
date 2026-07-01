@@ -15,7 +15,6 @@ import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { UUID } from 'crypto';
-import { EntityType } from '@/types/entity-type';
 import { useQuery } from '@tanstack/react-query';
 import { behaviorKeys, topicKeys, categoryKeys } from '@/constants/query-keys';
 
