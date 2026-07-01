@@ -432,6 +432,11 @@ async def lifespan(app: FastAPI):
 
     garak_cache_task.add_done_callback(_log_task_exception)
 
+    if getattr(app.state, "mcp_server", None) is None:
+        from rhesis.backend.app.mcp_server import setup_mcp_server
+
+        setup_mcp_server(app)
+
     # Start MCP session manager (Mount doesn't propagate lifespan).
     # StreamableHTTPSessionManager.run() can only be called once per
     # instance, so create a fresh one each time the lifespan starts
@@ -689,10 +694,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 for router in routers:
     app.include_router(router)
 
-# Mount MCP server for agent tool access
-from rhesis.backend.app.mcp_server import setup_mcp_server
-
-setup_mcp_server(app)
+# MCP server (/mcp) is mounted inside the lifespan handler (see above), not at
+# import time, so processes that only import the app object (e.g. the Celery
+# architect worker) don't build/mount an endpoint they never serve.
 
 # Bootstrap Enterprise Edition features (no-op when ee extra is not installed).
 #
