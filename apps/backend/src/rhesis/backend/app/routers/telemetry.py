@@ -142,7 +142,8 @@ def ingest_trace(
     # Store spans, then enqueue linking + enrichment as a background task.
     _stage = "span_storage"
     try:
-        stored_spans = crud.create_trace_spans(db, trace_batch.spans, organization_id)
+        with temporary_project_scope(db, organization_id, user_id or "", project_id):
+            stored_spans = crud.create_trace_spans(db, trace_batch.spans, organization_id)
 
         if not stored_spans:
             logger.warning(f"No spans were stored for trace_id={trace_id}")
