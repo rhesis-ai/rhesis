@@ -25,7 +25,6 @@ from travel_agent.tools import (
 from travel_agent.workflow import (
     build_travel_workflow,
     get_participants,
-    get_travel_workflow,
     invoke_travel_workflow,
     invoke_travel_workflow_async,
     run_query,
@@ -59,7 +58,6 @@ __all__ = [
     "find_sightseeing",
     "get_participants",
     "get_random_destination",
-    "get_travel_workflow",
     "invoke_travel_workflow",
     "invoke_travel_workflow_async",
     "run_chat_turn",

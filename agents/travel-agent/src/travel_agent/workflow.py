@@ -87,17 +87,6 @@ def build_travel_workflow() -> Workflow:
     )
 
 
-_workflow: Workflow | None = None
-
-
-def get_travel_workflow(*, rebuild: bool = False) -> Workflow:
-    """Return a cached workflow instance, building it on first use."""
-    global _workflow
-    if rebuild or _workflow is None:
-        _workflow = build_travel_workflow()
-    return _workflow
-
-
 def _coerce_args(arguments: Any) -> dict[str, Any]:
     """Coerce a MAF ``function_call`` ``arguments`` payload into a plain dict.
 
@@ -317,8 +306,14 @@ def invoke_travel_workflow(
 
 
 async def run_query(query: str) -> dict[str, Any]:
-    """Run a single query against the cached workflow."""
-    return await invoke_travel_workflow_async(get_travel_workflow(), query)
+    """Build a fresh workflow and run a single query.
+
+    A new workflow is built per call on purpose: the participating agents use
+    ``require_per_service_call_history_persistence=True``, so a shared instance
+    would carry one caller's conversation context into later calls (cross-session
+    leakage in a multi-user or long-lived service).
+    """
+    return await invoke_travel_workflow_async(build_travel_workflow(), query)
 
 
 def get_participants(workflow: Workflow) -> list[Agent]:
@@ -340,7 +335,6 @@ __all__ = [
     "WORKFLOW_TIMEOUT_SECONDS",
     "build_travel_workflow",
     "get_participants",
-    "get_travel_workflow",
     "invoke_travel_workflow",
     "invoke_travel_workflow_async",
     "run_query",
