@@ -18,7 +18,7 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.owasp_extractor import (
     DEFAULT_OWASP_AGENTIC_PDF_URL,
     DEFAULT_OWASP_LLM_PDF_URL,
-    DEFAULT_SUBSECTION_BLACKLIST,
+    DEFAULT_SUBSECTION_EXCLUSIONS,
     ReportSection,
     fetch_owasp_sections,
 )
@@ -30,6 +30,7 @@ __all__ = [
     "OWASPSynthesizer",
     "DEFAULT_OWASP_LLM_PDF_URL",
     "DEFAULT_OWASP_AGENTIC_PDF_URL",
+    "DEFAULT_SUBSECTION_EXCLUSIONS",
     "ReportSection",
 ]
 
@@ -75,9 +76,10 @@ class OWASPSynthesizer(TestSetSynthesizer):
         purpose: str,
         report_url: str = DEFAULT_OWASP_LLM_PDF_URL,
         categories: Optional[List[str]] = None,
-        subsection_blacklist: Collection[str] = DEFAULT_SUBSECTION_BLACKLIST,
+        subsection_exclusions: Collection[str] = DEFAULT_SUBSECTION_EXCLUSIONS,
         batch_size: int = 10,
         model: Optional[Union[str, BaseLLM]] = None,
+        behavior: str = "OWASP LLM Top 10",
     ):
         """
         Args:
@@ -89,19 +91,23 @@ class OWASPSynthesizer(TestSetSynthesizer):
             categories: Optional list of section IDs to include, e.g.
                 ``["llm01", "llm07"]`` or ``["asi01", "asi03"]``.
                 Defaults to all sections found in the report.
-            subsection_blacklist: Subsection headings to strip from every
+            subsection_exclusions: Subsection headings to strip from every
                 section before generation.  Defaults to
-                :data:`~rhesis.sdk.services.owasp_extractor.DEFAULT_SUBSECTION_BLACKLIST`
+                :data:`~rhesis.sdk.services.owasp_extractor.DEFAULT_SUBSECTION_EXCLUSIONS`
                 which drops reference appendices.  Pass an empty collection to
                 keep all subsections.
             batch_size: Max attacks to generate per LLM call per section.
             model: LLM to use for generation.
+            behavior: Behavior label stored on every generated test, used for
+                analytics grouping.  Override to e.g. ``"OWASP Agentic Top 10"``
+                when using :data:`DEFAULT_OWASP_AGENTIC_PDF_URL`.
         """
         super().__init__(batch_size=batch_size, model=model, harmful=True)
         self.purpose = purpose
         self._report_url = report_url
+        self._behavior = behavior
         self._category_filter = [c.lower() for c in categories] if categories else None
-        self._subsection_blacklist = subsection_blacklist
+        self._subsection_exclusions = subsection_exclusions
         self._sections: Optional[List[ReportSection]] = None  # lazy-loaded on first use
 
     # ------------------------------------------------------------------
@@ -171,7 +177,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
             return self._sections
 
         all_sections = fetch_owasp_sections(
-            self._report_url, subsection_blacklist=self._subsection_blacklist
+            self._report_url, subsection_exclusions=self._subsection_exclusions
         )
 
         if self._category_filter is not None:
@@ -199,7 +205,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
             "section_id": section.id,
             "section_name": section.name,
             "section_content": section.content,
-            "behavior": "Robustness",
+            "behavior": self._behavior,
             "topic": section.name.lower(),
             "harmful": True,
             **extra,

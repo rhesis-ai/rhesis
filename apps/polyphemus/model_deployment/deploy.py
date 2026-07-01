@@ -35,7 +35,7 @@ def deploy_model_vllm(
     service_account: str,
     enable_lora: bool = False,
     enforce_eager: bool = False,
-    guided_decoding_backend: str = "auto",
+    structured_outputs_backend: str = "auto",
 ) -> tuple[aiplatform.Model, aiplatform.Endpoint]:
     """Deploy a model with vLLM on Vertex AI.
 
@@ -44,7 +44,7 @@ def deploy_model_vllm(
         service_account: Service account email for deployment
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
-        guided_decoding_backend: Structured outputs backend (auto, xgrammar, outlines)
+        structured_outputs_backend: Structured outputs backend (auto, xgrammar, outlines)
 
     Returns:
         Tuple of (Model, Endpoint) objects
@@ -65,7 +65,7 @@ def deploy_model_vllm(
         model_config=model_config,
         enable_lora=enable_lora,
         enforce_eager=enforce_eager,
-        structured_outputs_backend=guided_decoding_backend,
+        structured_outputs_backend=structured_outputs_backend,
     )
 
     logger.info(f"Uploading model: {model_config['model_name']}")
@@ -194,7 +194,7 @@ def deploy_models(
     skip_existing: bool = True,
     enable_lora: bool = False,
     enforce_eager: bool = False,
-    guided_decoding_backend: str = "auto",
+    structured_outputs_backend: str = "auto",
 ) -> None:
     """Deploy multiple models to Vertex AI.
 
@@ -205,7 +205,7 @@ def deploy_models(
             rolling replacement (deploy new model, undeploy old)
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
-        guided_decoding_backend: Structured outputs backend (auto, xgrammar, outlines)
+        structured_outputs_backend: Structured outputs backend (auto, xgrammar, outlines)
     """
     # Validate configuration
     validate_config()
@@ -284,7 +284,7 @@ def deploy_models(
                 service_account=service_account,
                 enable_lora=enable_lora,
                 enforce_eager=enforce_eager,
-                guided_decoding_backend=guided_decoding_backend,
+                structured_outputs_backend=structured_outputs_backend,
             )
 
             # After successful deployment, undeploy old models
@@ -364,7 +364,7 @@ def main():
         skip_existing=not args.force,
         enable_lora=args.enable_lora,
         enforce_eager=args.enforce_eager,
-        guided_decoding_backend=args.structured_outputs_backend,
+        structured_outputs_backend=args.structured_outputs_backend,
     )
 
 

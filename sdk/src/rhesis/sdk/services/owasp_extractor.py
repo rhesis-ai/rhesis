@@ -34,7 +34,7 @@ DEFAULT_OWASP_LLM_PDF_URL = (
 DEFAULT_OWASP_AGENTIC_PDF_URL = "https://genai.owasp.org/download/52117/"
 
 # Reference appendices add noise without attack-surface value.
-DEFAULT_SUBSECTION_BLACKLIST: frozenset[str] = frozenset(
+DEFAULT_SUBSECTION_EXCLUSIONS: frozenset[str] = frozenset(
     {"reference links", "related frameworks and taxonomies", "references"}
 )
 
@@ -288,12 +288,12 @@ def _clean_section(content: str, boilerplate: frozenset[str]) -> str:
     return result.strip()
 
 
-def _drop_subsections(content: str, blacklist: Collection[str]) -> str:
-    """Remove blacklisted ## subsections from section content."""
-    if not blacklist:
+def _drop_subsections(content: str, exclusions: Collection[str]) -> str:
+    """Remove excluded ## subsections from section content."""
+    if not exclusions:
         return content
 
-    bl = frozenset(h.lower().strip() for h in blacklist)
+    bl = frozenset(h.lower().strip() for h in exclusions)
     result: list[str] = []
     skip = False
 
@@ -346,17 +346,17 @@ def _parse_sections(text: str) -> list[ReportSection]:
 
 def fetch_owasp_sections(
     url: str,
-    subsection_blacklist: Collection[str] = DEFAULT_SUBSECTION_BLACKLIST,
+    subsection_exclusions: Collection[str] = DEFAULT_SUBSECTION_EXCLUSIONS,
 ) -> list[ReportSection]:
     """Download an OWASP Top 10 PDF and return its risk sections.
 
     Extracts text with pdfminer (font-size-based heading detection), splits by
-    section, and applies the subsection blacklist.  The default blacklist drops
+    section, and applies the subsection exclusions.  The default exclusions drop
     reference appendices which add noise without attack-surface value.
 
     Args:
         url: Direct URL to an OWASP Top 10 PDF.
-        subsection_blacklist: Headings to strip from every section, matched
+        subsection_exclusions: Headings to strip from every section, matched
             case-insensitively.  Pass an empty collection to keep all subsections.
 
     Returns:
@@ -376,7 +376,7 @@ def fetch_owasp_sections(
 
         llm_sections = fetch_owasp_sections(DEFAULT_OWASP_LLM_PDF_URL)
         agentic_sections = fetch_owasp_sections(DEFAULT_OWASP_AGENTIC_PDF_URL)
-        full_sections = fetch_owasp_sections(DEFAULT_OWASP_LLM_PDF_URL, subsection_blacklist=set())
+        full_sections = fetch_owasp_sections(DEFAULT_OWASP_LLM_PDF_URL, subsection_exclusions=set())
     """
     logger.info("[OWASPExtractor] Fetching report from %s", url)
     pdf_bytes = _fetch_pdf_bytes(url)
@@ -388,9 +388,9 @@ def fetch_owasp_sections(
             "The document may not follow the expected OWASP section-per-page layout."
         )
 
-    if subsection_blacklist:
+    if subsection_exclusions:
         sections = [
-            ReportSection(s.id, s.name, _drop_subsections(s.content, subsection_blacklist))
+            ReportSection(s.id, s.name, _drop_subsections(s.content, subsection_exclusions))
             for s in sections
         ]
 

@@ -1,7 +1,7 @@
 from rhesis.sdk.services.owasp_extractor import (
     DEFAULT_OWASP_AGENTIC_PDF_URL,
     DEFAULT_OWASP_LLM_PDF_URL,
-    DEFAULT_SUBSECTION_BLACKLIST,
+    DEFAULT_SUBSECTION_EXCLUSIONS,
     ReportSection,
 )
 from rhesis.sdk.synthesizers.config_synthesizer import ConfigSynthesizer, GenerationConfig
@@ -22,5 +22,5 @@ __all__ = [
     "ReportSection",
     "DEFAULT_OWASP_LLM_PDF_URL",
     "DEFAULT_OWASP_AGENTIC_PDF_URL",
-    "DEFAULT_SUBSECTION_BLACKLIST",
+    "DEFAULT_SUBSECTION_EXCLUSIONS",
 ]
