@@ -63,10 +63,12 @@ logger = logging.getLogger(__name__)
 
 @router.post("/traces", response_model=TraceResponse)
 def ingest_trace(
+    request: Request,
     trace_batch: OTELTraceBatch,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     scope_project_id: str | None = Depends(get_project_context),
+    current_user: User = Depends(require_current_user_or_token),
 ) -> TraceResponse:
     """
     Ingest OpenTelemetry traces from SDK.
@@ -97,7 +99,7 @@ def ingest_trace(
     # Resolve project_id: prefer span value, fall back to token/header scope
     span_project_id = trace_batch.spans[0].project_id if trace_batch.spans else None
     if span_project_id and span_project_id != "unknown":
-        project_id = span_project_id
+        project_id = assert_project_access(request, current_user, span_project_id, db=db)
     elif scope_project_id:
         project_id = scope_project_id
         for span in trace_batch.spans:
