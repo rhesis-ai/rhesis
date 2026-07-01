@@ -53,7 +53,7 @@ _startup_validated: bool = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Validate and cache the travel workflow once at startup."""
+    """Validate the travel workflow once at startup."""
     global _startup_validated
 
     logger.info("Initialising Travel Agent multi-agent workflow (MAF)...")
