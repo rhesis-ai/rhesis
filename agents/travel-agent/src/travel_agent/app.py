@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
-from travel_agent.session import default_store, run_chat_turn, run_chat_turn_sync
+from travel_agent.session import default_store, run_chat_turn
 from travel_agent.workflow import build_travel_workflow
 
 logging.basicConfig(
@@ -213,18 +213,25 @@ async def health():
         ),
     },
 )
-def chat_endpoint_traced(
+async def chat_endpoint_traced(
     message: str,
     conversation_id: str | None = None,
 ) -> ChatResponse:
-    """Traced entry point for the MAF travel multi-agent workflow."""
+    """Traced entry point for the MAF travel multi-agent workflow.
+
+    Async so the FastAPI ``/chat`` route can ``await`` it directly from the
+    running event loop while still going through the ``@endpoint`` decorator
+    (which creates the Rhesis endpoint span and applies the request/response
+    mappings used for conversation grouping). A sync helper would have to use
+    ``run_chat_turn_sync``, which cannot run inside an active event loop.
+    """
     logger.info("=" * 80)
     logger.info("TRAVEL AGENT MULTI-AGENT CHAT")
     logger.info("Message: %s...", message[:100])
     logger.info("Conversation ID: %s", conversation_id)
     logger.info("=" * 80)
 
-    result = run_chat_turn_sync(
+    result = await run_chat_turn(
         build_travel_workflow(),
         message,
         conversation_id=conversation_id,
@@ -248,12 +255,10 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=503, detail="Travel Agent not initialised")
 
     try:
-        result = await run_chat_turn(
-            build_travel_workflow(),
-            request.message,
+        return await chat_endpoint_traced(
+            message=request.message,
             conversation_id=request.conversation_id,
         )
-        return _chat_response_from_result(result)
     except TimeoutError as exc:
         logger.error("Travel workflow timed out: %s", exc, exc_info=True)
         raise HTTPException(status_code=504, detail="Travel Agent request timed out")

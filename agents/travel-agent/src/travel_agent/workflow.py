@@ -267,7 +267,14 @@ async def invoke_travel_workflow_async(
                     final_text = captured
                 continue
 
-    await asyncio.wait_for(_consume_events(), timeout=WORKFLOW_TIMEOUT_SECONDS)
+    # ``asyncio.wait_for`` raises ``asyncio.TimeoutError`` which is only an alias
+    # of the builtin ``TimeoutError`` on Python 3.11+. Normalize to the builtin so
+    # callers (e.g. the FastAPI ``/chat`` route) can catch ``TimeoutError`` on
+    # every supported Python version.
+    try:
+        await asyncio.wait_for(_consume_events(), timeout=WORKFLOW_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError(f"Travel workflow timed out after {WORKFLOW_TIMEOUT_SECONDS}s") from exc
 
     response_text, final_agent = _resolve_response(
         assistant_segments,
