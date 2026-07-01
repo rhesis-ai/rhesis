@@ -15,10 +15,8 @@ and the sightseeing stops in the plan.
 How to behave:
 
 1. Call estimate_travel with the destination and sightseeing stops you received.
-2. Summarize practical travel-time guidance from the city center, central station,
-   and airport.
-3. You must end every turn by calling the handoff_to_trip_coordinator tool. Do not reply
-   with plain text only and do not keep talking after handing off."""
+2. Immediately call handoff_to_trip_coordinator to return the travel-time guidance.
+   Do not send user-facing prose; the coordinator presents logistics to the user."""
 
 DESCRIPTION = "Estimates mock sightseeing distances and travel times."
 

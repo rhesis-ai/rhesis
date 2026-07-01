@@ -24,26 +24,19 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import uuid
 
-from agent_framework import Message
 from dotenv import load_dotenv
-from opentelemetry import trace as otel_trace
-from rhesis.telemetry.constants import ConversationContext
 
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.telemetry import auto_instrument
-from travel_agent import build_travel_workflow, invoke_travel_workflow
+from travel_agent.session import run_chat_turn_sync
+from travel_agent.workflow import build_travel_workflow
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("travel_agent.examples.serve_playground")
-
-# Per-conversation message history so the playground gets real multi-turn
-# memory. In-memory is fine for a demo; production would persist this.
-conversations: dict[str, list[Message]] = {}
 
 
 def _build_chat_endpoint():
@@ -70,35 +63,20 @@ def _build_chat_endpoint():
         },
     )
     def travel_agent_chat(message: str, conversation_id: str | None = None) -> dict:
-        conv_id = conversation_id or str(uuid.uuid4())
-
         logger.info("=" * 80)
-        logger.info("PLAYGROUND TURN | conversation_id=%s", conv_id)
+        logger.info("PLAYGROUND TURN | conversation_id=%s", conversation_id)
         logger.info("Q: %s", message[:100])
         logger.info("=" * 80)
 
-        # Stamp conversation attributes on the active @endpoint span (the turn
-        # root). On the first turn the playground sends no conversation_id, so
-        # the SDK cannot inject one before the span is created.
-        conv_attr = ConversationContext.SpanAttributes
-        max_io = ConversationContext.MAX_IO_LENGTH
-        span = otel_trace.get_current_span()
-        span.set_attribute(conv_attr.IS_TURN_ROOT, True)
-        span.set_attribute(conv_attr.CONVERSATION_ID, conv_id)
-        span.set_attribute(conv_attr.CONVERSATION_INPUT, message[:max_io])
-
-        # Replay prior turns so the workflow actually remembers the conversation.
-        history = conversations.get(conv_id, [])
-        workflow = build_travel_workflow()
-        result = invoke_travel_workflow(
-            workflow,
+        # Build a fresh workflow per turn. The connector runs this sync handler
+        # in a thread pool and ``run_chat_turn_sync`` opens a new event loop via
+        # ``asyncio.run`` each turn; reusing a cached MAF workflow across those
+        # loops fails with "Queue is bound to a different event loop".
+        result = run_chat_turn_sync(
+            build_travel_workflow(),
             message,
-            conversation_history=history,
-            conversation_id=conv_id,
+            conversation_id=conversation_id,
         )
-        conversations[conv_id] = result["messages"]
-
-        span.set_attribute(conv_attr.CONVERSATION_OUTPUT, (result["response"] or "")[:max_io])
 
         logger.info("--- Travel plan ---")
         logger.info(result["response"])
@@ -107,11 +85,12 @@ def _build_chat_endpoint():
 
         return {
             "response": result["response"],
-            "conversation_id": conv_id,
+            "conversation_id": result["conversation_id"],
             "tools_called": result["tools_called"],
             "agents_involved": result["agents_involved"],
             "agent_workflow": result["agent_workflow"],
             "tool_chain": result["tool_chain"],
+            "agent": result.get("agent", "trip_coordinator"),
         }
 
     return travel_agent_chat
