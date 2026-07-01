@@ -33,12 +33,13 @@ echo "Celery worker prefetch multiplier: $CELERY_WORKER_PREFETCH_MULTIPLIER"
 echo "Celery architect prefetch multiplier: $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
 echo "Celery worker pool: threads"
 
-# Set log level based on worker environment
-if [ "${WORKER_ENV}" = "development" ]; then
-    CELERY_WORKER_LOGLEVEL="DEBUG"
-    echo "🔧 Development environment detected - setting log level to DEBUG"
+# Set log level: DEBUG when DEV_MODE=true (local dev) or WORKER_ENV=development (cloud dev tier)
+if [ "${DEV_MODE:-false}" = "true" ] || [ "${WORKER_ENV}" = "development" ]; then
+    export CELERY_WORKER_LOGLEVEL="DEBUG"
+    echo "🔧 Debug logging enabled (DEV_MODE=${DEV_MODE:-false}, WORKER_ENV=${WORKER_ENV:-not_set}) - setting log level to DEBUG"
 else
-    echo "🔧 Production/staging environment - using log level: $CELERY_WORKER_LOGLEVEL"
+    export CELERY_WORKER_LOGLEVEL="${CELERY_WORKER_LOGLEVEL:-WARNING}"
+    echo "🔧 Using log level: ${CELERY_WORKER_LOGLEVEL}"
 fi
 
 echo "Celery worker log level: $CELERY_WORKER_LOGLEVEL"
