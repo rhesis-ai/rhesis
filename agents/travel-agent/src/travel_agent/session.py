@@ -14,19 +14,44 @@ from travel_agent.workflow import invoke_travel_workflow_async
 
 
 class ConversationStore:
-    """Thread-safe in-memory store of user-visible MAF message history."""
+    """Thread-safe in-memory store of user-visible MAF message history.
 
-    def __init__(self) -> None:
+    Bounded so a long-running demo server does not grow memory without limit.
+    Defaults are generous for local development; tighten via constructor args
+    when running unattended.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_conversations: int = 256,
+        max_messages_per_conversation: int = 200,
+    ) -> None:
         self._conversations: dict[str, list[Message]] = {}
         self._lock = Lock()
+        self._max_conversations = max_conversations
+        self._max_messages_per_conversation = max_messages_per_conversation
+
+    def _trim_messages(self, messages: list[Message]) -> list[Message]:
+        if len(messages) <= self._max_messages_per_conversation:
+            return messages
+        return messages[-self._max_messages_per_conversation :]
+
+    def _evict_oldest_conversation_if_needed(self) -> None:
+        while len(self._conversations) >= self._max_conversations:
+            oldest_id = next(iter(self._conversations))
+            del self._conversations[oldest_id]
 
     def get_history(self, conversation_id: str) -> list[Message]:
         with self._lock:
             return list(self._conversations.get(conversation_id, []))
 
     def set_history(self, conversation_id: str, messages: list[Message]) -> None:
+        trimmed = self._trim_messages(messages)
         with self._lock:
-            self._conversations[conversation_id] = messages
+            if conversation_id not in self._conversations:
+                self._evict_oldest_conversation_if_needed()
+            self._conversations[conversation_id] = trimmed
 
     def list_conversations(self) -> dict[str, int]:
         with self._lock:
