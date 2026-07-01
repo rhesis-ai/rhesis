@@ -1540,11 +1540,13 @@ def test_exporter_skips_root_without_session_or_content():
 def test_exporter_skips_turn_root_on_nested_workflow_run():
     """A ``workflow.run`` nested under a parent (e.g. a Rhesis @endpoint span)
     must NOT be stamped as a turn root -- the enclosing span owns that role.
+    Per-trace registry entries must still be released on export.
     """
     from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
 
     trace_id = 0x123456
     tr_mod._conversation_content.record_chat(trace_id, input_text="hi", output_text="hello")
+    tr_mod._conversation_content.record_session(trace_id, "sess-nested")
     run = _FakeChatSpan(span_id=741, trace_id=trace_id, parent_id=510, name="workflow.run")
 
     captured_inner = InMemorySpanExporter()
@@ -1558,6 +1560,20 @@ def test_exporter_skips_turn_root_on_nested_workflow_run():
     assert out[0].name == "function.workflow.run"
     assert sa.IS_TURN_ROOT not in attrs
     assert sa.CONVERSATION_ID not in attrs
+    assert sa.CONVERSATION_INPUT not in attrs
+    assert sa.CONVERSATION_OUTPUT not in attrs
+    assert tr_mod._conversation_content.consume(trace_id) == (None, None, None)
+
+
+def test_conversation_content_registry_truncates_io_at_record_time():
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry()
+    long_text = "x" * (ConversationContext.MAX_IO_LENGTH + 500)
+    reg.record_chat(42, input_text=long_text, output_text=long_text)
+    conv_input, conv_output = reg.get(42)
+    assert conv_input is not None and len(conv_input) == ConversationContext.MAX_IO_LENGTH
+    assert conv_output is not None and len(conv_output) == ConversationContext.MAX_IO_LENGTH
 
 
 # ---------------------------------------------------------------------------

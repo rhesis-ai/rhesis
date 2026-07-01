@@ -501,13 +501,15 @@ class _ConversationContentRegistry:
     chat span echoes as its first user message); the output is overwritten so
     the last assistant turn (the synthesizing agent's answer) is what remains.
 
-    A per-trace conversation/session id is also recorded here. It is the gate
-    for turn-root stamping: only when the agent has set a real conversation id
-    (via ``rhesis.sdk.telemetry.context.set_conversation_id``) for the run does
-    the root ``workflow.run`` span become a Rhesis conversation turn root. Pure
-    single-turn runs (e.g. the ``run_traces`` smoke test) set no id and stay
-    plain traces. All stores are bounded; the oldest entries are evicted once
-    the cap is hit.
+    A per-trace conversation/session id is also recorded here at chat-span
+    *start* (while the caller's ``set_conversation_id`` contextvar is active).
+    It is the gate for turn-root stamping: only when the agent has set a real
+    conversation id for the run does the root ``workflow.run`` span become a
+    Rhesis conversation turn root. Pure single-turn runs (e.g. the ``run_traces``
+    smoke test) set no id and stay plain traces. All stores are bounded; the
+    oldest entries are evicted once the cap is hit. Input/output strings are
+    truncated to :data:`~rhesis.telemetry.constants.ConversationContext.MAX_IO_LENGTH`
+    at record time.
     """
 
     def __init__(self, max_entries: int = 4096) -> None:
@@ -535,6 +537,11 @@ class _ConversationContentRegistry:
         """Record a chat span's input/output for its trace. Never raises."""
         if trace_id is None:
             return
+        max_len = ConversationContext.MAX_IO_LENGTH
+        if input_text:
+            input_text = input_text[:max_len]
+        if output_text:
+            output_text = output_text[:max_len]
         try:
             with self._lock:
                 if input_text and trace_id not in self._input_by_trace:
@@ -596,24 +603,23 @@ _conversation_content = _ConversationContentRegistry()
 
 
 def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
-    """Build conversation attributes for a root ``workflow.run`` span.
+    """Build conversation attributes for a ``workflow.run`` span.
 
-    Returns ``None`` (no stamping) unless both of the following hold:
-
-    1. The span is MAF's ``workflow.run`` span.
-    2. It is the trace root (``parent is None``). This scopes stamping to the
-       in-process / pure-``auto_instrument`` path: when the workflow runs inside
-       a Rhesis ``@endpoint``/``@observe`` span (FastAPI route or playground
-       connector), that enclosing span is the turn root and already carries
-       conversation attributes, so ``workflow.run`` has a parent and is left
-       untouched (no double turn root).
+    Always :meth:`consumes <_ConversationContentRegistry.consume>` the per-trace
+    chat I/O recorded for this span's trace id so entries do not linger when the
+    ``workflow.run`` span is nested under a Rhesis ``@endpoint``/``@observe``
+    parent (the common long-running-service path). Stamping is limited to trace
+    roots only (``parent is None``): when the workflow runs inside an enclosing
+    Rhesis span, that span owns turn-root semantics and ``workflow.run`` must
+    not be stamped again.
 
     When stamped, the span always gets the conversation ``input``/``output``
     (from the nested chat spans via :data:`_conversation_content`) so the
     recorded run shows its conversation content in the UI. Whether it is *also*
     a multi-turn turn root depends on the agent having set a real
     conversation/session id (via ``rhesis.sdk.telemetry.context``,
-    ``set_conversation_id``), recorded per trace at span end:
+    ``set_conversation_id``), captured at chat-span *start* while the
+    contextvar is still active:
 
     - **Session id present** (multi-turn chat session, e.g. the playground):
       additionally stamp ``is_turn_root=True`` and ``conversation.id=<session_id>``
@@ -622,22 +628,23 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
       test): stamp only input/output. The run stays a plain single-turn trace
       (``conversation.id`` remains null) but its conversation is still visible.
 
-    Returns ``None`` when there is neither a session id nor any captured
-    input/output (e.g. content capture disabled), leaving the span untouched.
+    Returns ``None`` when this is not a ``workflow.run`` span, or when it is a
+    trace root with neither a session id nor any captured input/output (e.g.
+    content capture disabled), leaving the span untouched.
     """
     if not mapping.is_workflow_run_span(getattr(span, "name", None)):
-        return None
-    if getattr(span, "parent", None) is not None:
         return None
     ctx = getattr(span, "context", None)
     trace_id = getattr(ctx, "trace_id", None)
     if trace_id is None:
         return None
 
-    # Pop the recorded content: the root span is exported once, so consuming
-    # here also frees the per-trace entries instead of retaining them for the
-    # process lifetime.
+    # Release per-trace entries on every workflow.run export, even when nested
+    # under @endpoint/@observe (no stamping in that case).
     session_id, conv_input, conv_output = _conversation_content.consume(trace_id)
+
+    if getattr(span, "parent", None) is not None:
+        return None
 
     attrs: dict[str, Any] = {}
     if session_id:
@@ -646,13 +653,9 @@ def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
         attrs[ConversationContext.SpanAttributes.IS_TURN_ROOT] = True
         attrs[ConversationContext.SpanAttributes.CONVERSATION_ID] = session_id
     if conv_input:
-        attrs[ConversationContext.SpanAttributes.CONVERSATION_INPUT] = conv_input[
-            : ConversationContext.MAX_IO_LENGTH
-        ]
+        attrs[ConversationContext.SpanAttributes.CONVERSATION_INPUT] = conv_input
     if conv_output:
-        attrs[ConversationContext.SpanAttributes.CONVERSATION_OUTPUT] = conv_output[
-            : ConversationContext.MAX_IO_LENGTH
-        ]
+        attrs[ConversationContext.SpanAttributes.CONVERSATION_OUTPUT] = conv_output
     return attrs or None
 
 
@@ -922,6 +925,15 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
             span_name = getattr(span, "name", "") or ""
             if not span_name.startswith("chat "):
                 return
+            # Capture the conversation/session id while this chat span starts on
+            # the workflow thread. OTel invokes ``on_start`` synchronously on
+            # the thread that created the span, so the ``set_conversation_id``
+            # contextvar set by the caller (e.g. ``run_chat_turn``) is still
+            # active. Recording here avoids relying on ``on_end`` context, which
+            # could differ if a future processor ever deferred span completion.
+            ctx = getattr(span, "context", None)
+            trace_id = getattr(ctx, "trace_id", None)
+            _conversation_content.record_session(trace_id, get_conversation_id())
             prev = is_llm_observation_active()
             self._store_prev_flag(span, prev)
             if not prev:
@@ -949,11 +961,6 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
                 input_text=mapping.extract_conversation_input(attrs),
                 output_text=mapping.extract_conversation_output(attrs),
             )
-            # Capture the agent-supplied conversation/session id (if any) while
-            # we are still on the thread that ran the workflow, so the exporter
-            # can decide whether this run is a conversation turn root. Runs that
-            # set no id stay plain single-turn traces.
-            _conversation_content.record_session(trace_id, get_conversation_id())
             prev = self._retrieve_prev_flag(span)
             if not prev:
                 set_llm_observation_active(False)
