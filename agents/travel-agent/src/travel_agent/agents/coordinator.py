@@ -57,6 +57,19 @@ Critical routing rule: on every turn you must do exactly one of two things.
   the whole plan fresh, as if the user has seen nothing so far - never a one-line
   continuation of the last specialist's message.
 
+Follow-up turns (when prior user messages and your earlier travel plans appear in the
+conversation history):
+
+7. When the user asks to refine or adjust an existing plan (for example "make it more
+   family friendly" or "slow the pace down") without naming a new city or replacing the
+   whole itinerary:
+   - Do NOT hand off to destination_finder unless the user explicitly asks for a new or
+     random destination or names a different city.
+   - Do NOT re-invoke sightseeing_scout or logistics_planner unless the user adds new
+     sights, changes the destination, or explicitly asks for new logistics estimates.
+   - Reply directly with a complete updated travel plan that preserves the existing
+     destination and sightseeing stops unless the user changed them.
+
 Never end a turn with plain text while a required specialist still needs to run, and never
 just describe which specialist you would call. Use the handoff tools to act."""
 

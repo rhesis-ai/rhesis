@@ -18,6 +18,9 @@ from travel_agent.agents import (
 from travel_agent.client import build_chat_client
 from travel_agent.utils import format_agent_workflow, format_tool_chain
 
+WORKFLOW_TIMEOUT_SECONDS = 120
+COORDINATOR_NAME = "trip_coordinator"
+
 # Autonomous-mode retry prompt for specialists that reply without handing back.
 # Replaces MAF's generic "Continue assisting autonomously" default with a
 # targeted nudge so the next turn returns control to the coordinator.
@@ -154,6 +157,15 @@ def _last_segment_text(segments: list[dict[str, Any]], *, author: str) -> str | 
     return None
 
 
+def _user_visible_assistant_message(text: str) -> Message:
+    """Build the single assistant message persisted for a completed turn."""
+    return Message(
+        role="assistant",
+        contents=[Content.from_text(text=text)],
+        author_name=COORDINATOR_NAME,
+    )
+
+
 def _capture_final_text(request_info_data: Any, *, fallback: list[str]) -> str | None:
     """Pull the synthesised final answer out of a handoff request-info event."""
     agent_response = getattr(request_info_data, "agent_response", None)
@@ -180,6 +192,28 @@ def _normalize_agent_order(agents_seen: list[str], handoff_targets: list[str]) -
     return ordered
 
 
+def _resolve_response(
+    assistant_segments: list[dict[str, Any]],
+    *,
+    final_text: str | None,
+) -> tuple[str, str]:
+    """Pick the user-facing response text and the agent that authored it."""
+    coordinator_text = _last_segment_text(assistant_segments, author=COORDINATOR_NAME)
+    if coordinator_text:
+        return coordinator_text, COORDINATOR_NAME
+
+    if final_text:
+        return final_text, COORDINATOR_NAME
+
+    for segment in reversed(assistant_segments):
+        joined = "".join(segment["parts"]).strip()
+        if joined:
+            author = segment.get("author") or "unknown"
+            return joined, author
+
+    return "", "unknown"
+
+
 async def invoke_travel_workflow_async(
     workflow: Workflow,
     user_message: str,
@@ -197,65 +231,54 @@ async def invoke_travel_workflow_async(
     # text per segment, so word boundaries between chunks are preserved.
     assistant_segments: list[dict[str, Any]] = []
     final_text: str | None = None
-    final_messages: list[Message] = []
 
     user_msg = Message(role="user", contents=[Content.from_text(text=user_message)])
-    workflow_input: Any = (
-        [*conversation_history, user_msg] if conversation_history else user_message
+    # Always pass a ``list[Message]`` to ``Workflow.run``. Its ``message`` param
+    # is typed ``Any`` and is forwarded to the start executor, which accepts a
+    # message list (the multi-turn path already relied on this by passing
+    # ``[*conversation_history, user_msg]``). Using the list form uniformly keeps
+    # single-turn and multi-turn runs on the same, verified input shape.
+    workflow_input = [*(conversation_history or []), user_msg]
+
+    async def _consume_events() -> None:
+        nonlocal final_text
+        async for event in workflow.run(workflow_input, stream=True):
+            event_type = getattr(event, "type", None)
+            data = getattr(event, "data", None)
+
+            if event_type == "handoff_sent" and isinstance(data, HandoffSentEvent):
+                handoff_targets.append(data.target)
+                continue
+
+            if event_type == "output" and data is not None:
+                _record_function_calls(data, tools_called=tools_called, agents_seen=agents_seen)
+                if getattr(data, "role", None) == "assistant":
+                    text = getattr(data, "text", "") or ""
+                    if text:
+                        author = getattr(data, "author_name", None)
+                        if not assistant_segments or assistant_segments[-1]["author"] != author:
+                            assistant_segments.append({"author": author, "parts": []})
+                        assistant_segments[-1]["parts"].append(text)
+                continue
+
+            if event_type == "request_info":
+                captured = _capture_final_text(data, fallback=_segment_texts(assistant_segments))
+                if captured:
+                    final_text = captured
+                continue
+
+    await asyncio.wait_for(_consume_events(), timeout=WORKFLOW_TIMEOUT_SECONDS)
+
+    response_text, final_agent = _resolve_response(
+        assistant_segments,
+        final_text=final_text,
     )
+    if not response_text:
+        raise RuntimeError("Travel workflow completed without producing a user-facing response.")
 
-    async for event in workflow.run(workflow_input, stream=True):
-        event_type = getattr(event, "type", None)
-        data = getattr(event, "data", None)
-
-        if event_type == "handoff_sent" and isinstance(data, HandoffSentEvent):
-            handoff_targets.append(data.target)
-            continue
-
-        if event_type == "output" and data is not None:
-            _record_function_calls(data, tools_called=tools_called, agents_seen=agents_seen)
-            if getattr(data, "role", None) == "assistant":
-                text = getattr(data, "text", "") or ""
-                if text:
-                    author = getattr(data, "author_name", None)
-                    if not assistant_segments or assistant_segments[-1]["author"] != author:
-                        assistant_segments.append({"author": author, "parts": []})
-                    assistant_segments[-1]["parts"].append(text)
-                    msg = Message(
-                        role="assistant",
-                        contents=[
-                            content
-                            for content in (getattr(data, "contents", None) or [])
-                            if getattr(content, "type", None) == "text"
-                        ],
-                        author_name=author,
-                    )
-                    final_messages.append(msg)
-            continue
-
-        if event_type == "request_info":
-            captured = _capture_final_text(data, fallback=_segment_texts(assistant_segments))
-            if captured:
-                final_text = captured
-                agent_response_messages = (
-                    getattr(getattr(data, "agent_response", None), "messages", None) or []
-                )
-                if agent_response_messages:
-                    final_messages = list(agent_response_messages)
-            continue
-
-    # Prefer the coordinator's own synthesis (the last contiguous segment it
-    # authored). Fall back to the request_info agent_response (which, with the
-    # coordinator non-autonomous, is normally that same synthesis), then to the
-    # concatenated streamed text from every agent.
-    coordinator_text = _last_segment_text(assistant_segments, author="trip_coordinator")
-    response_text = (
-        coordinator_text
-        or final_text
-        or "\n".join(_segment_texts(assistant_segments)).strip()
-    )
     agents_involved = _normalize_agent_order(agents_seen, handoff_targets)
-    updated_history = [*(conversation_history or []), user_msg, *final_messages]
+    updated_history = [*(conversation_history or []), user_msg]
+    updated_history.append(_user_visible_assistant_message(response_text))
 
     return {
         "response": response_text,
@@ -265,6 +288,7 @@ async def invoke_travel_workflow_async(
         "agent_workflow": format_agent_workflow(agents_involved),
         "tool_chain": format_tool_chain(tools_called),
         "conversation_id": conversation_id,
+        "agent": final_agent,
     }
 
 
@@ -287,9 +311,14 @@ def invoke_travel_workflow(
 
 
 async def run_query(query: str) -> dict[str, Any]:
-    """Build a fresh workflow and run a single query."""
-    workflow = build_travel_workflow()
-    return await invoke_travel_workflow_async(workflow, query)
+    """Build a fresh workflow and run a single query.
+
+    A new workflow is built per call on purpose: the participating agents use
+    ``require_per_service_call_history_persistence=True``, so a shared instance
+    would carry one caller's conversation context into later calls (cross-session
+    leakage in a multi-user or long-lived service).
+    """
+    return await invoke_travel_workflow_async(build_travel_workflow(), query)
 
 
 def get_participants(workflow: Workflow) -> list[Agent]:
@@ -307,6 +336,8 @@ def get_participants(workflow: Workflow) -> list[Agent]:
 
 
 __all__ = [
+    "COORDINATOR_NAME",
+    "WORKFLOW_TIMEOUT_SECONDS",
     "build_travel_workflow",
     "get_participants",
     "invoke_travel_workflow",

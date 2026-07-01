@@ -2,11 +2,12 @@
 
 This script's only job is to fire a handful of representative queries through
 the Travel Agent multi-agent handoff workflow so the Rhesis SDK's MAF
-integration has something real to translate and ship to the backend.
-
-Each scenario is a single user turn. The script creates one Rhesis-visible
-turn-root span per scenario so the frontend can render the Conversation tab
-from ``rhesis.conversation.input`` / ``rhesis.conversation.output``.
+integration has something real to translate and ship to the backend. It is a
+minimal in-process ``auto_instrument`` smoke test: turn Rhesis on, run the
+workflow, and let the SDK produce and ship every span automatically. There is
+no manual span creation and no manual attribute stamping; the only manual step
+is a single ``shutdown_tracer_provider()`` at the end to flush the last batch
+before this short-lived process exits.
 
 Run from ``agents/travel-agent/``:
 
@@ -22,15 +23,18 @@ Optional env vars:
     RHESIS_API_KEY      - Set both to ship spans to the Rhesis backend
     RHESIS_PROJECT_ID
 
-Each query produces a small but rich trace tree:
+Each scenario is one workflow run and produces a single plain trace rooted at
+MAF's ``function.workflow.run``. These are one-shot single-turn runs: they do
+not set a conversation/session id, so the MAF integration leaves them as
+ordinary traces (they appear in the default Traces view, not as multi-turn
+conversations). Multi-turn grouping is exercised separately by the chat session
+path (``travel_agent.session.run_chat_turn``), used by the playground/app:
 
-    function.travel_agent.run
-    +-- function.workflow.build
-    +-- function.workflow.run
-        +-- function.workflow.executor.process (per executor activation)
-            +-- ai.agent.invoke (per agent activation)
-                +-- ai.llm.invoke (per chat completion)
-                +-- ai.tool.invoke (per tool call, with input/output events)
+    function.workflow.run                     (trace root)
+    +-- function.workflow.executor.process    (per executor activation)
+        +-- ai.agent.invoke                   (per agent activation)
+            +-- ai.llm.invoke                 (per chat completion)
+            +-- ai.tool.invoke                (per tool call, with input/output events)
 """
 
 from __future__ import annotations
@@ -42,12 +46,10 @@ import sys
 import uuid
 
 from dotenv import load_dotenv
-from opentelemetry import trace
 
 from rhesis.sdk import RhesisClient
 from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument, shutdown_tracer_provider
-from rhesis.telemetry.constants import ConversationContext
 from travel_agent.workflow import build_travel_workflow, invoke_travel_workflow_async
 
 logging.basicConfig(
@@ -92,40 +94,19 @@ def _section(title: str) -> None:
 
 
 async def _run_scenario(label: str, query: str) -> None:
-    """Run one single-turn scenario under a frontend-readable root span."""
+    """Run one single-turn scenario; auto_instrument captures the full trace tree."""
     conversation_id = str(uuid.uuid4())
-    attrs = ConversationContext.SpanAttributes
-
     _section(f"[{label}] {query}")
 
-    # MAF's workflow/agent spans do not carry Rhesis conversation attributes.
-    # This explicit turn-root span makes the frontend Conversation tab work and
-    # keeps workflow.build/workflow.run under one trace tree for the scenario.
-    tracer = trace.get_tracer("travel_agent.examples.run_traces")
-    with tracer.start_as_current_span("function.travel_agent.run") as span:
-        span.set_attribute(attrs.IS_TURN_ROOT, True)
-        span.set_attribute(attrs.CONVERSATION_ID, conversation_id)
-        span.set_attribute(
-            attrs.CONVERSATION_INPUT,
-            query[: ConversationContext.MAX_IO_LENGTH],
-        )
-
-        span.set_attribute("travel_agent.scenario", label)
-
-        workflow = build_travel_workflow()
-        result = await invoke_travel_workflow_async(
-            workflow,
-            query,
-            conversation_id=conversation_id,
-        )
-
-        response = str(result["response"])
-        span.set_attribute(
-            attrs.CONVERSATION_OUTPUT,
-            response[: ConversationContext.MAX_IO_LENGTH],
-        )
-        span.set_attribute("travel_agent.agent_workflow", result["agent_workflow"])
-        span.set_attribute("travel_agent.tool_chain", result["tool_chain"])
+    # Build a fresh workflow per scenario. MAF agents use
+    # ``require_per_service_call_history_persistence=True``, so reusing a cached
+    # workflow leaks prior scenarios' internal history into later runs.
+    workflow = build_travel_workflow()
+    result = await invoke_travel_workflow_async(
+        workflow,
+        query,
+        conversation_id=conversation_id,
+    )
 
     logger.info("Agents: %s", result["agent_workflow"])
     logger.info("Tools : %s", result["tool_chain"])
@@ -146,23 +127,35 @@ async def main() -> None:
     # returned instance.
     if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
         RhesisClient.from_environment()
-    else:
         logger.info(
-            "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient (no remote traces)."
+            "Remote traces enabled for project %s (%s). "
+            "Select this project in the frontend Traces page to view them.",
+            os.getenv("RHESIS_PROJECT_ID"),
+            os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
+        )
+    else:
+        logger.warning(
+            "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
+            "Traces will NOT be shipped to the backend."
         )
         DisabledClient()
 
     instrumented = auto_instrument("agent_framework")
     logger.info("auto_instrument: %s", instrumented)
 
-    for label, query in SCENARIOS:
-        try:
-            await _run_scenario(label, query)
-        except Exception:  # noqa: BLE001
-            logger.exception("Scenario failed (this still produces an error span):")
+    try:
+        for label, query in SCENARIOS:
+            try:
+                await _run_scenario(label, query)
+            except Exception:  # noqa: BLE001
+                logger.exception("Scenario failed (this still produces an error span):")
+    finally:
+        # This is a short-lived script: flush and shut the tracer provider down
+        # explicitly so the final batch of spans is exported before the process
+        # exits (the BatchSpanProcessor only flushes every few seconds otherwise).
+        shutdown_tracer_provider()
 
     _section("Done")
-    shutdown_tracer_provider()
 
 
 if __name__ == "__main__":
