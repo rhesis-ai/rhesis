@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useContext } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
   GridPaginationModel,
@@ -106,54 +112,57 @@ export default function ExplorerGrid({
     []
   );
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1.5,
-      minWidth: 200,
-    },
-    {
-      field: 'description',
-      headerName: 'Description',
-      flex: 2,
-      minWidth: 200,
-      renderCell: params => (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {params.value || '-'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 120,
-      renderCell: params => {
-        const status = params.value;
-        if (!status) return '-';
-        return <GridBadge label={status} />;
+  const columns = useMemo<GridColDef[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1.5,
+        minWidth: 200,
       },
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created',
-      width: 160,
-      renderCell: params => {
-        if (!params.value) return '-';
-        return (
-          <Typography variant="body2">{formatDate(params.value)}</Typography>
-        );
+      {
+        field: 'description',
+        headerName: 'Description',
+        flex: 2,
+        minWidth: 200,
+        renderCell: params => (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {params.value || '-'}
+          </Typography>
+        ),
       },
-    },
-  ];
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 120,
+        renderCell: params => {
+          const status = params.value;
+          if (!status) return '-';
+          return <GridBadge label={status} />;
+        },
+      },
+      {
+        field: 'created_at',
+        headerName: 'Created',
+        width: 160,
+        renderCell: params => {
+          if (!params.value) return '-';
+          return (
+            <Typography variant="body2">{formatDate(params.value)}</Typography>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   const handleRowClick = (params: GridRowParams) => {
     router.push(`/explorer/${params.id}`);
