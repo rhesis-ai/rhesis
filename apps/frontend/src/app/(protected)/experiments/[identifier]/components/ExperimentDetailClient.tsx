@@ -220,9 +220,7 @@ export default function ExperimentDetailClient({
       await client.patchExperiment(experiment.id, {
         name: trimmed,
       });
-      queryClient.invalidateQueries({
-        queryKey: experimentKeys.detail(experimentId),
-      });
+      refresh();
       notifications.show('Experiment renamed', { severity: 'success' });
       setRenameOpen(false);
     } catch (e) {
@@ -231,7 +229,7 @@ export default function ExperimentDetailClient({
         { severity: 'error' }
       );
     }
-  }, [apiFactory, experiment, notifications, renameValue]);
+  }, [apiFactory, experiment, notifications, refresh, renameValue]);
 
   const handlePromote = useCallback(
     (version?: string, environment?: string) => {
@@ -247,9 +245,7 @@ export default function ExperimentDetailClient({
       try {
         const client = apiFactory.getParametersClient();
         await client.deleteEnvironment(experiment.project_id, environmentName);
-        queryClient.invalidateQueries({
-          queryKey: experimentKeys.detail(experimentId),
-        });
+        refresh();
         notifications.show(`Environment "${environmentName}" unbound`, {
           severity: 'success',
         });
@@ -260,7 +256,7 @@ export default function ExperimentDetailClient({
         );
       }
     },
-    [apiFactory, experiment, notifications]
+    [apiFactory, experiment, notifications, refresh]
   );
 
   const breadcrumbs: BreadcrumbItem[] = useMemo(() => {
