@@ -140,17 +140,10 @@ function TestRunsUnifiedToolbar() {
 
 interface TestRunsGridProps {
   sessionToken: string;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
-  refreshKey?: number;
 }
 
-function TestRunsGrid({
-  sessionToken,
-  onRefresh,
-  onTotalCountChange,
-  refreshKey,
-}: TestRunsGridProps) {
+function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const notifications = useNotifications();
@@ -293,14 +286,6 @@ function TestRunsGrid({
     onTotalCountChange,
     totalCount,
   ]);
-
-  // ── Refresh via parent refreshKey ─────────────────────────────────────────
-
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-    }
-  }, [refreshKey, queryClient]);
 
   // ── Row action handlers ────────────────────────────────────────────────────
 
@@ -673,14 +658,13 @@ function TestRunsGrid({
       });
       setPendingCancelId(null);
       queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
-      onRefresh?.();
     } catch (_error) {
       notifications.show('Failed to cancel test run', { severity: 'error' });
     } finally {
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
-  }, [pendingCancelId, sessionToken, notifications, queryClient, onRefresh]);
+  }, [pendingCancelId, sessionToken, notifications, queryClient]);
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);

@@ -10,6 +10,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar from '@/components/common/GridToolbar';
 import { useRouter } from 'next/navigation';
@@ -22,11 +23,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
+import { explorerKeys } from '@/constants/query-keys';
 
 interface ExplorerGridProps {
   sessionToken: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -61,15 +61,11 @@ function ExplorerUnifiedToolbar() {
 
 export default function ExplorerGrid({
   sessionToken,
-  refreshKey = 0,
-  onRefresh,
   onTotalCountChange,
 }: ExplorerGridProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
-  const [allRows, setAllRows] = useState<ExplorerTestSet[]>([]);
-  const [rows, setRows] = useState<ExplorerTestSet[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -80,51 +76,28 @@ export default function ExplorerGrid({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadSessions = async () => {
-      setLoading(true);
-      try {
-        const client = new ApiClientFactory(sessionToken).getExplorerClient();
-        const sessions = await client.getExplorerTestSets();
-        if (!cancelled) {
-          setAllRows(sessions);
-          onTotalCountChange?.(sessions.length);
-        }
-      } catch {
-        if (!cancelled) {
-          setAllRows([]);
-          onTotalCountChange?.(0);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadSessions();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionToken, refreshKey]);
+  const { data: allRows = [], isLoading: loading } = useQuery({
+    queryKey: explorerKeys.all(),
+    queryFn: () =>
+      new ApiClientFactory(sessionToken)
+        .getExplorerClient()
+        .getExplorerTestSets(),
+    enabled: !!sessionToken,
+  });
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setRows(allRows);
-      return;
-    }
-    const q = searchQuery.toLowerCase();
-    setRows(
-      allRows.filter(
-        r =>
+    onTotalCountChange?.(allRows.length);
+  }, [allRows.length, onTotalCountChange]);
+
+  const rows = searchQuery.trim()
+    ? allRows.filter(r => {
+        const q = searchQuery.toLowerCase();
+        return (
           r.name?.toLowerCase().includes(q) ||
           (r.description ?? '').toLowerCase().includes(q)
-      )
-    );
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [searchQuery, allRows]);
+        );
+      })
+    : allRows;
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -241,10 +214,8 @@ export default function ExplorerGrid({
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      const removed = new Set(selectedRows.map(String));
-      setAllRows(prev => prev.filter(r => !removed.has(String(r.id))));
       setSelectedRows([]);
-      onRefresh?.();
+      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
     } catch {
       notifications.show('Failed to delete sessions', {
         severity: 'error',

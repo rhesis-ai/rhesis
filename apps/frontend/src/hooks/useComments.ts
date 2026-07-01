@@ -1,7 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Comment, EntityType } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { commentKeys } from '@/constants/query-keys';
 
 interface UseCommentsProps {
   entityType: string;
@@ -20,76 +22,61 @@ export function useComments({
   currentUserName,
   currentUserPicture,
 }: UseCommentsProps) {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
+  const queryKey = useMemo(
+    () => commentKeys.list(entityType, entityId),
+    [entityType, entityId]
+  );
 
-  const fetchComments = useCallback(async () => {
-    if (!sessionToken) {
-      setError('No session token available');
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
+  const {
+    data: comments = [],
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: async () => {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const commentsClient = clientFactory.getCommentsClient();
-      const fetchedComments = await commentsClient.getComments(
-        entityType,
-        entityId
-      );
-      setComments(fetchedComments);
-    } catch (_err) {
-      setError('Failed to fetch comments');
-      notifications.show('Failed to fetch comments', {
-        severity: 'error',
-        autoHideDuration: 3000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [entityType, entityId, sessionToken, notifications]);
+      return clientFactory
+        .getCommentsClient()
+        .getComments(entityType, entityId);
+    },
+    enabled: !!sessionToken && !!entityType && !!entityId,
+  });
 
   const createComment = useCallback(
     async (text: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
-      }
+      if (!sessionToken) throw new Error('No session token available');
 
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const commentsClient = clientFactory.getCommentsClient();
-        const newComment = await commentsClient.createComment({
-          content: text,
-          entity_type: entityType as EntityType,
-          entity_id: entityId,
-        });
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      const newComment = await commentsClient.createComment({
+        content: text,
+        entity_type: entityType as EntityType,
+        entity_id: entityId,
+      });
 
-        // Add user information to the new comment since the API doesn't return it
-        const commentWithUser: Comment = {
-          ...newComment,
-          user: {
-            id: currentUserId,
-            name: currentUserName,
-            email: '',
-            picture: currentUserPicture,
-          },
-        };
+      const commentWithUser: Comment = {
+        ...newComment,
+        user: {
+          id: currentUserId,
+          name: currentUserName,
+          email: '',
+          picture: currentUserPicture,
+        },
+      };
 
-        setComments(prev => [commentWithUser, ...prev]);
+      queryClient.setQueryData<Comment[]>(queryKey, prev => [
+        commentWithUser,
+        ...(prev ?? []),
+      ]);
 
-        notifications.show('Comment posted successfully', {
-          severity: 'neutral',
-          autoHideDuration: 3000,
-        });
-        return commentWithUser;
-      } catch (err) {
-        throw err;
-      }
+      notifications.show('Comment posted successfully', {
+        severity: 'neutral',
+        autoHideDuration: 3000,
+      });
+      return commentWithUser;
     },
     [
       entityType,
@@ -99,149 +86,124 @@ export function useComments({
       currentUserName,
       currentUserPicture,
       notifications,
+      queryClient,
+      queryKey,
     ]
   );
 
   const editComment = useCallback(
     async (commentId: string, newText: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
-      }
+      if (!sessionToken) throw new Error('No session token available');
 
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const commentsClient = clientFactory.getCommentsClient();
-        const updatedComment = await commentsClient.updateComment(commentId, {
-          content: newText,
-        });
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      const updatedComment = await commentsClient.updateComment(commentId, {
+        content: newText,
+      });
 
-        // Preserve the existing user information from the current comment
-        const currentComment = comments.find(c => c.id === commentId);
-        const commentWithUser: Comment = {
-          ...updatedComment,
-          user: currentComment?.user || {
-            id: currentUserId,
-            name: currentUserName,
-            email: '',
-            picture: currentUserPicture,
-          },
-        };
+      queryClient.setQueryData<Comment[]>(queryKey, prev =>
+        (prev ?? []).map(comment => {
+          if (comment.id !== commentId) return comment;
+          return {
+            ...updatedComment,
+            user: comment.user ?? {
+              id: currentUserId,
+              name: currentUserName,
+              email: '',
+              picture: currentUserPicture,
+            },
+          };
+        })
+      );
 
-        setComments(prev =>
-          prev.map(comment =>
-            comment.id === commentId ? commentWithUser : comment
-          )
-        );
-
-        notifications.show('Comment updated successfully', {
-          severity: 'neutral',
-          autoHideDuration: 3000,
-        });
-        return commentWithUser;
-      } catch (err) {
-        throw err;
-      }
+      notifications.show('Comment updated successfully', {
+        severity: 'neutral',
+        autoHideDuration: 3000,
+      });
+      return updatedComment;
     },
     [
       sessionToken,
-      comments,
       currentUserId,
       currentUserName,
       currentUserPicture,
       notifications,
+      queryClient,
+      queryKey,
     ]
   );
 
   const deleteComment = useCallback(
     async (commentId: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
-      }
+      if (!sessionToken) throw new Error('No session token available');
 
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const commentsClient = clientFactory.getCommentsClient();
-        const deletedComment = await commentsClient.deleteComment(commentId);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
+      const deletedComment = await commentsClient.deleteComment(commentId);
 
-        setComments(prev => prev.filter(comment => comment.id !== commentId));
+      queryClient.setQueryData<Comment[]>(queryKey, prev =>
+        (prev ?? []).filter(comment => comment.id !== commentId)
+      );
 
-        notifications.show('Comment deleted successfully', {
-          severity: 'neutral',
-          autoHideDuration: 3000,
-        });
-
-        return deletedComment;
-      } catch (err) {
-        throw err;
-      }
+      notifications.show('Comment deleted successfully', {
+        severity: 'neutral',
+        autoHideDuration: 3000,
+      });
+      return deletedComment;
     },
-    [sessionToken, notifications]
+    [sessionToken, notifications, queryClient, queryKey]
   );
 
   const reactToComment = useCallback(
     async (commentId: string, emoji: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
-      }
+      if (!sessionToken) throw new Error('No session token available');
 
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const commentsClient = clientFactory.getCommentsClient();
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const commentsClient = clientFactory.getCommentsClient();
 
-        // Check if user already reacted with this emoji
-        const comment = comments.find(c => c.id === commentId);
-        const hasReacted = comment?.emojis?.[emoji]?.some(
-          reaction => reaction.user_id === currentUserId
-        );
+      const current = queryClient.getQueryData<Comment[]>(queryKey) ?? [];
+      const comment = current.find(c => c.id === commentId);
+      const hasReacted = comment?.emojis?.[emoji]?.some(
+        reaction => reaction.user_id === currentUserId
+      );
 
-        let updatedComment: Comment;
-        if (hasReacted) {
-          // Remove reaction
-          updatedComment = await commentsClient.removeEmojiReaction(
-            commentId,
-            emoji
-          );
-        } else {
-          // Add reaction
-          updatedComment = await commentsClient.addEmojiReaction(
-            commentId,
-            emoji
-          );
-        }
+      const updatedComment = hasReacted
+        ? await commentsClient.removeEmojiReaction(commentId, emoji)
+        : await commentsClient.addEmojiReaction(commentId, emoji);
 
-        // Preserve the existing user information from the current comment
-        const commentWithUser: Comment = {
-          ...updatedComment,
-          user: comment?.user || {
-            id: currentUserId,
-            name: currentUserName,
-            email: '',
-            picture: currentUserPicture,
-          },
-        };
-
-        setComments(prev =>
-          prev.map(c => (c.id === commentId ? commentWithUser : c))
-        );
-      } catch (err) {
-        throw err;
-      }
+      queryClient.setQueryData<Comment[]>(queryKey, prev =>
+        (prev ?? []).map(c => {
+          if (c.id !== commentId) return c;
+          return {
+            ...updatedComment,
+            user: c.user ?? {
+              id: currentUserId,
+              name: currentUserName,
+              email: '',
+              picture: currentUserPicture,
+            },
+          };
+        })
+      );
     },
-    [sessionToken, comments, currentUserId, currentUserName, currentUserPicture]
+    [
+      sessionToken,
+      currentUserId,
+      currentUserName,
+      currentUserPicture,
+      queryClient,
+      queryKey,
+    ]
   );
-
-  useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
 
   return {
     comments,
     isLoading,
-    error,
+    error: queryError ? 'Failed to fetch comments' : null,
     createComment,
     editComment,
     deleteComment,
     reactToComment,
-    refetch: fetchComments,
+    refetch,
   };
 }

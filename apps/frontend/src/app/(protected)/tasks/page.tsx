@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { taskKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -24,12 +26,12 @@ import { EntityType } from '@/types/tasks';
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
   const canCreateTask = useCan(Capability.Task.CREATE);
   const searchParams = useSearchParams();
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [taskCount, setTaskCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [initialEntity, setInitialEntity] = React.useState<
@@ -73,15 +75,11 @@ export default function TasksPage() {
     window.history.replaceState({}, '', newUrl.toString());
   }, [searchParams]);
 
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
     setInitialEntity(undefined);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+  }, [queryClient]);
 
   const handleCloseDrawer = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -161,8 +159,6 @@ export default function TasksPage() {
             >
               <TasksGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
                 onTotalCountChange={setTaskCount}
               />
             </Paper>

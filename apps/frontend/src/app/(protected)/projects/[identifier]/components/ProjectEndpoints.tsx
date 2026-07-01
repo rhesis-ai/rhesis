@@ -14,12 +14,6 @@ export default function ProjectEndpoints({
   projectId,
   sessionToken,
 }: ProjectEndpointsProps) {
-  const [refreshKey, setRefreshKey] = React.useState(0);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   if (!sessionToken) {
     return (
       <Box sx={{ p: 3 }}>
@@ -38,12 +32,7 @@ export default function ProjectEndpoints({
         overflow: 'hidden',
       }}
     >
-      <EndpointsGrid
-        sessionToken={sessionToken}
-        refreshKey={refreshKey}
-        onRefresh={handleRefresh}
-        projectId={projectId}
-      />
+      <EndpointsGrid sessionToken={sessionToken} projectId={projectId} />
     </Paper>
   );
 }
