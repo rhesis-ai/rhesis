@@ -115,6 +115,7 @@ class TestAzureOpenAILLMGenerate:
             api_key="test_key",
             api_base="https://resource.openai.azure.com/",
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -140,6 +141,7 @@ class TestAzureOpenAILLMGenerate:
             api_key="test_key",
             api_base="https://resource.openai.azure.com/",
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -201,6 +203,7 @@ class TestAzureOpenAILLMGenerate:
             api_key="test_key",
             api_base="https://resource.openai.azure.com/",
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -223,6 +226,7 @@ class TestAzureOpenAILLMGenerate:
             api_key="test_key",
             api_base="https://resource.openai.azure.com/",
             api_version=None,
+            extra_headers={"Connection": "close"},
             temperature=0.7,
             max_tokens=100,
         )
