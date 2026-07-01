@@ -37,6 +37,23 @@ DURATION_SECONDS = 0
 ENDPOINT = f"{BACKEND_URL.rstrip('/')}/telemetry/traces"
 HEADERS = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
 
+_seen_errors: set[tuple[str, str]] = set()
+
+
+def _response_detail(resp: httpx.Response) -> object:
+    try:
+        return resp.json()
+    except ValueError:
+        return resp.text or "(empty body)"
+
+
+def _log_error(label: str | int, detail: object) -> None:
+    key = (str(label), str(detail)[:200])
+    if key in _seen_errors:
+        return
+    _seen_errors.add(key)
+    print(f"ERROR {label}: {detail}")
+
 
 def build_trace_batch() -> dict:
     """Build a minimal but valid single-span OTEL trace batch."""
@@ -70,9 +87,15 @@ async def send_one(client: httpx.AsyncClient, delay: float, results: list) -> No
     try:
         resp = await client.post(ENDPOINT, headers=HEADERS, json=build_trace_batch())
         elapsed = time.perf_counter() - sent_at
+        if resp.is_success:
+            results.append((resp.status_code, elapsed))
+            return
+        _log_error(resp.status_code, _response_detail(resp))
         results.append((resp.status_code, elapsed))
-    except Exception as exc:  # noqa: BLE001
-        results.append((repr(exc), time.perf_counter() - sent_at))
+    except httpx.HTTPError as exc:
+        elapsed = time.perf_counter() - sent_at
+        _log_error("request", repr(exc))
+        results.append((repr(exc), elapsed))
 
 
 async def main() -> None:
