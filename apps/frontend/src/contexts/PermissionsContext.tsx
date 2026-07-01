@@ -70,9 +70,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
+  // Prefer the stable user id, but fall back to the per-user session token so
+  // the cache key is never shared across users even if `user.id` is missing.
+  const userScope = session?.user?.id ?? sessionToken ?? '';
 
   const { data, isLoading, error, isSuccess } = useQuery({
-    queryKey: permissionKeys.all(activeProject?.id ?? ''),
+    queryKey: permissionKeys.all(userScope, activeProject?.id ?? ''),
     queryFn: () =>
       new ApiClientFactory(sessionToken!)
         .getPermissionsClient()

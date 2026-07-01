@@ -12,11 +12,17 @@ import {
 
 const mockGetFeatures = jest.fn();
 
+const AUTHENTICATED_SESSION = {
+  data: { session_token: 'test-token', user: { id: 'user-1' } },
+  status: 'authenticated',
+};
+
+// Mutable so individual tests can simulate an unauthenticated/loading session.
+// Named with the `mock` prefix so jest.mock's factory may reference it.
+let mockSession: { data: unknown; status: string } = AUTHENTICATED_SESSION;
+
 jest.mock('next-auth/react', () => ({
-  useSession: () => ({
-    data: { session_token: 'test-token' },
-    status: 'authenticated',
-  }),
+  useSession: () => mockSession,
 }));
 
 jest.mock('@/utils/api-client/client-factory', () => ({
@@ -31,6 +37,7 @@ const LICENSE = { edition: 'community', licensed: false };
 
 beforeEach(() => {
   mockGetFeatures.mockReset();
+  mockSession = AUTHENTICATED_SESSION;
 });
 
 function Probe({ feature }: { feature: FeatureName }) {
@@ -111,6 +118,27 @@ describe('FeaturesProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('edition')).toHaveTextContent('enterprise')
     );
+  });
+});
+
+describe('FeaturesProvider session gating', () => {
+  it('stays fail-closed (loading) while the session is still resolving', () => {
+    // While next-auth resolves the session there is no token, so the query is
+    // disabled/idle (isLoading=false, data=undefined). The provider must report
+    // loading=true rather than treating idle as "loaded, no features".
+    mockSession = { data: null, status: 'loading' };
+    mockGetFeatures.mockResolvedValue({ license: LICENSE, enabled: ['sso'] });
+
+    render(
+      <FeaturesProvider>
+        <Probe feature={FeatureName.SSO} />
+        <StateProbe />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('probe')).toHaveTextContent('off');
+    expect(screen.getByTestId('loading')).toHaveTextContent('true');
+    expect(mockGetFeatures).not.toHaveBeenCalled();
   });
 });
 

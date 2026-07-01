@@ -180,6 +180,7 @@ export default function EndpointsGrid({
       },
       [drawerFilters]
     ),
+    initialPageSize: 10,
   });
 
   const filterString = buildEndpointListFilter(filterModel, projectId);

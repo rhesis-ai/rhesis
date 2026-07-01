@@ -45,9 +45,12 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
+  // Prefer the stable user id, but fall back to the per-user session token so
+  // the cache key is never shared across users even if `user.id` is missing.
+  const userScope = session?.user?.id ?? sessionToken ?? '';
 
   const { data, isLoading, error } = useQuery({
-    queryKey: featureKeys.all(),
+    queryKey: featureKeys.all(userScope),
     queryFn: () =>
       new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
     enabled: !!sessionToken,
@@ -55,25 +58,27 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
   });
 
   const value = useMemo<FeaturesState>(() => {
-    if (isLoading) return DEFAULT_STATE;
-    if (error || !data)
+    // Fail-closed while the session is still resolving or the query is idle/
+    // in-flight. A disabled react-query (enabled: false) reports isLoading=false
+    // with data=undefined, so we must gate on sessionToken explicitly --
+    // otherwise the idle state would be mistaken for "loaded, no features" and
+    // gated UI (and downstream RBAC permissions) would flash permissive.
+    if (!sessionToken || isLoading) return DEFAULT_STATE;
+    if (error)
       return {
         license: null,
         enabled: new Set<string>(),
         loading: false,
-        error: error
-          ? error instanceof Error
-            ? error
-            : new Error(String(error))
-          : null,
+        error: error instanceof Error ? error : new Error(String(error)),
       };
+    if (!data) return DEFAULT_STATE;
     return {
       license: data.license,
       enabled: new Set<string>(data.enabled),
       loading: false,
       error: null,
     };
-  }, [data, isLoading, error]);
+  }, [sessionToken, data, isLoading, error]);
 
   return (
     <FeaturesContext.Provider value={value}>
