@@ -51,11 +51,11 @@ flowchart TB
 | File | Responsibility |
 |---|---|
 | `app.py` | FastAPI API surface, Rhesis `@endpoint` tracing, conversation history. |
-| `workflow.py` | Builds the `HandoffBuilder` workflow, streams events, extracts handoffs and tool calls. |
+| `workflow.py` | Builds the `HandoffBuilder` workflow and runs it, streaming events into a structured result. |
 | `agents/` | Defines the coordinator and three specialist agent factories. |
 | `client.py` | Builds the Gemini-backed OpenAI-compatible MAF chat client. |
 | `tools.py` | Defines `get_random_destination`, `find_sightseeing`, and `estimate_travel`. |
-| `utils.py` | Formats `agent_workflow` and `tool_chain` response fields. |
+| `utils.py` | Parses streamed events (tool calls, text segments, final answer) and formats the `agent_workflow` and `tool_chain` response fields. |
 
 ## Request Flow
 
