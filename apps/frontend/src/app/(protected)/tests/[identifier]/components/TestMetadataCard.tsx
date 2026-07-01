@@ -77,42 +77,6 @@ export default function TestMetadataCard({
     staleTime: 5 * 60_000,
   });
 
-    const run = async () => {
-      const [behaviorsData, topicsData, categoriesData] = await Promise.all([
-        apiFactory
-          .getBehaviorClient()
-          .getBehaviors({ sort_by: 'name', sort_order: 'asc' }),
-        apiFactory.getTopicClient().getTopics({
-          entity_type: EntityType.TEST,
-          sort_by: 'name',
-          sort_order: 'asc',
-        }),
-        apiFactory.getCategoryClient().getCategories({
-          entity_type: EntityType.TEST,
-          sort_by: 'name',
-          sort_order: 'asc',
-        }),
-      ]);
-      setBehaviors(
-        behaviorsData
-          .filter((b: { id: UUID; name: string }) => b.id && b.name?.trim())
-          .map((b: { id: UUID; name: string }) => ({ id: b.id, name: b.name }))
-      );
-      setTopics(
-        topicsData.map((t: { id: UUID; name: string }) => ({
-          id: t.id,
-          name: t.name,
-        }))
-      );
-      setCategories(
-        categoriesData.map((c: { id: UUID; name: string }) => ({
-          id: c.id,
-          name: c.name,
-        }))
-      );
-    };
-    run();
-  }, [sessionToken]);
   const { data: topicsData } = useQuery({
     queryKey: topicKeys.list('Test'),
     queryFn: () =>

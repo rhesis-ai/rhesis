@@ -51,9 +51,6 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
 
   const { data, isLoading, error } = useQuery({
     queryKey: featureKeys.all(userScope),
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: featureKeys.all(),
     queryFn: () =>
       new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
     enabled: !!sessionToken,
@@ -67,8 +64,6 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
     // otherwise the idle state would be mistaken for "loaded, no features" and
     // gated UI (and downstream RBAC permissions) would flash permissive.
     if (!sessionToken || isLoading) return DEFAULT_STATE;
-    if (isLoading || !data) return DEFAULT_STATE;
-    if (isLoading) return DEFAULT_STATE;
     if (error)
       return {
         license: null,
@@ -84,7 +79,6 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
       error: null,
     };
   }, [sessionToken, data, isLoading, error]);
-  }, [data, isLoading, error]);
 
   return (
     <FeaturesContext.Provider value={value}>

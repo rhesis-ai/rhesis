@@ -43,12 +43,4 @@ export const featureKeys = {
 export const permissionKeys = {
   all: (userScope: string, projectId: string) =>
     ['permissions', userScope, projectId] as const,
-// Other keys that do not fit the pattern above: they are single fetches for a single value
-
-export const featureKeys = {
-  all: () => ['features'] as const,
-};
-
-export const permissionKeys = {
-  all: (projectId: string) => ['permissions', projectId] as const,
 };
