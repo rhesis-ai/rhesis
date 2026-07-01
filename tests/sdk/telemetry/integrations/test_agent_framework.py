@@ -47,6 +47,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402
     InMemorySpanExporter,
 )
+from rhesis.telemetry.constants import ConversationContext  # noqa: E402
 
 from rhesis.sdk.telemetry.attributes import AIAttributes, validate_span_name  # noqa: E402
 from rhesis.sdk.telemetry.context import (  # noqa: E402
@@ -537,10 +538,11 @@ def test_extract_handoff_targets_empty_without_output_messages():
         ("edge_group.process", True),
         ("message.send", True),
         ("message.send Foo", True),
+        # workflow.build is a standalone build-time trace with no run payload.
+        ("workflow.build", True),
         # Structural spans must be kept.
         ("executor.process coordinator", False),
         ("workflow.run", False),
-        ("workflow.build", False),
         ("invoke_agent coordinator", False),
         ("chat gpt-4", False),
         ("execute_tool calc", False),
@@ -1289,6 +1291,213 @@ def test_verbose_workflow_spans_env_default(monkeypatch):
 
     monkeypatch.setenv("RHESIS_MAF_VERBOSE_WORKFLOW_SPANS", "1")
     assert tr_mod.MAFTranslatingExporter(InMemorySpanExporter())._verbose_workflow_spans is True
+
+
+def test_exporter_drops_workflow_build_keeps_workflow_run():
+    """The build-time ``workflow.build`` span is dropped; ``workflow.run`` stays.
+
+    ``workflow.build`` is emitted outside any run and would otherwise surface as
+    its own standalone trace (one extra root per build). Dropping it keeps each
+    workflow run a single trace.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    build = _FakeSpan(span_id=730, name="workflow.build")
+    run = _FakeSpan(span_id=731, name="workflow.run")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner, verbose_workflow_spans=False)
+    exporter.export([build, run])
+
+    names = [s.name for s in captured_inner.get_finished_spans()]
+    assert "function.workflow.run" in names
+    assert all("build" not in n for n in names)
+
+
+# ---------------------------------------------------------------------------
+# Conversation turn-root stamping on the root workflow.run span
+# ---------------------------------------------------------------------------
+
+
+def test_extract_conversation_input_returns_first_user_text():
+    import json as _json
+
+    attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_INPUT_MESSAGES: _json.dumps(
+            [
+                {"role": "system", "parts": [{"type": "text", "content": "be helpful"}]},
+                {"role": "user", "parts": [{"type": "text", "content": "Plan a day trip"}]},
+            ]
+        ),
+    }
+    assert mapping.extract_conversation_input(attrs) == "Plan a day trip"
+
+
+def test_extract_conversation_output_joins_text_and_skips_tool_calls():
+    import json as _json
+
+    text_attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(
+            [{"role": "assistant", "parts": [{"type": "text", "content": "Here is your plan"}]}]
+        ),
+    }
+    assert mapping.extract_conversation_output(text_attrs) == "Here is your plan"
+
+    # A handoff (tool-call-only) turn carries no prose -> None.
+    handoff_attrs = {
+        mapping.GEN_AI_OPERATION_NAME: "chat",
+        mapping.GEN_AI_OUTPUT_MESSAGES: _json.dumps(
+            [
+                {
+                    "role": "assistant",
+                    "parts": [{"type": "tool_call", "name": "handoff_to_x", "arguments": "{}"}],
+                }
+            ]
+        ),
+    }
+    assert mapping.extract_conversation_output(handoff_attrs) is None
+
+
+def test_extract_conversation_input_output_ignore_non_chat_spans():
+    attrs = {mapping.GEN_AI_OPERATION_NAME: "invoke_agent"}
+    assert mapping.extract_conversation_input(attrs) is None
+    assert mapping.extract_conversation_output(attrs) is None
+
+
+def test_conversation_content_registry_first_input_wins_last_output_wins():
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry()
+    reg.record_chat(7, input_text="first query", output_text="routing...")
+    # Later turns echo the same query and produce newer output.
+    reg.record_chat(7, input_text="first query", output_text="final plan")
+    reg.record_chat(7, input_text="ignored second input", output_text=None)
+
+    assert reg.get(7) == ("first query", "final plan")
+    assert reg.get(999) == (None, None)
+
+
+def test_conversation_content_registry_records_session_first_wins():
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    reg = tr_mod._ConversationContentRegistry()
+    reg.record_session(7, "session-a")
+    # First session id wins; later turns / empty values do not overwrite it.
+    reg.record_session(7, "session-b")
+    reg.record_session(7, None)
+
+    assert reg.get_session(7) == "session-a"
+    assert reg.get_session(999) is None
+
+
+def test_exporter_stamps_turn_root_on_root_workflow_run():
+    """A root ``workflow.run`` span with a recorded session id becomes a turn root.
+
+    The conversation id is the agent-supplied session id (not the trace id), so
+    multiple turns sharing a session group together.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xABCDEF
+    tr_mod._conversation_content.record_chat(
+        trace_id, input_text="Plan a day trip", output_text="Here is your plan"
+    )
+    tr_mod._conversation_content.record_session(trace_id, "sess-1")
+    run = _FakeChatSpan(span_id=740, trace_id=trace_id, parent_id=None, name="workflow.run")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner)
+    exporter.export([run])
+
+    out = captured_inner.get_finished_spans()
+    assert len(out) == 1
+    attrs = dict(out[0].attributes or {})
+    sa = ConversationContext.SpanAttributes
+    assert out[0].name == "function.workflow.run"
+    assert attrs.get(sa.IS_TURN_ROOT) is True
+    assert attrs.get(sa.CONVERSATION_ID) == "sess-1"
+    assert attrs.get(sa.CONVERSATION_INPUT) == "Plan a day trip"
+    assert attrs.get(sa.CONVERSATION_OUTPUT) == "Here is your plan"
+
+
+def test_exporter_stamps_io_but_not_turn_root_without_session_id():
+    """A root ``workflow.run`` with no session id shows its conversation but stays single-turn.
+
+    This is the single-turn ``run_traces`` path: spans are recorded but no
+    conversation id was set, so input/output are stamped (the conversation is
+    visible) while ``is_turn_root`` / ``conversation.id`` are NOT stamped (the
+    run remains a plain single-turn trace, not grouped as a conversation).
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xFACADE
+    tr_mod._conversation_content.record_chat(
+        trace_id, input_text="Plan a day trip", output_text="Here is your plan"
+    )
+    # No record_session(...) call: this is a one-shot single-turn run.
+    run = _FakeChatSpan(span_id=742, trace_id=trace_id, parent_id=None, name="workflow.run")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner)
+    exporter.export([run])
+
+    out = captured_inner.get_finished_spans()
+    assert len(out) == 1
+    attrs = dict(out[0].attributes or {})
+    sa = ConversationContext.SpanAttributes
+    assert out[0].name == "function.workflow.run"
+    assert sa.IS_TURN_ROOT not in attrs
+    assert sa.CONVERSATION_ID not in attrs
+    assert attrs.get(sa.CONVERSATION_INPUT) == "Plan a day trip"
+    assert attrs.get(sa.CONVERSATION_OUTPUT) == "Here is your plan"
+
+
+def test_exporter_skips_root_without_session_or_content():
+    """A root ``workflow.run`` with neither session id nor captured I/O is untouched."""
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0xC0FFEE
+    # No record_chat and no record_session for this trace.
+    run = _FakeChatSpan(span_id=743, trace_id=trace_id, parent_id=None, name="workflow.run")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner)
+    exporter.export([run])
+
+    out = captured_inner.get_finished_spans()
+    assert len(out) == 1
+    attrs = dict(out[0].attributes or {})
+    sa = ConversationContext.SpanAttributes
+    assert out[0].name == "function.workflow.run"
+    assert sa.IS_TURN_ROOT not in attrs
+    assert sa.CONVERSATION_ID not in attrs
+    assert sa.CONVERSATION_INPUT not in attrs
+    assert sa.CONVERSATION_OUTPUT not in attrs
+
+
+def test_exporter_skips_turn_root_on_nested_workflow_run():
+    """A ``workflow.run`` nested under a parent (e.g. a Rhesis @endpoint span)
+    must NOT be stamped as a turn root -- the enclosing span owns that role.
+    """
+    from rhesis.sdk.telemetry.integrations.agent_framework import translator as tr_mod
+
+    trace_id = 0x123456
+    tr_mod._conversation_content.record_chat(trace_id, input_text="hi", output_text="hello")
+    run = _FakeChatSpan(span_id=741, trace_id=trace_id, parent_id=510, name="workflow.run")
+
+    captured_inner = InMemorySpanExporter()
+    exporter = tr_mod.MAFTranslatingExporter(captured_inner)
+    exporter.export([run])
+
+    out = captured_inner.get_finished_spans()
+    assert len(out) == 1
+    attrs = dict(out[0].attributes or {})
+    sa = ConversationContext.SpanAttributes
+    assert out[0].name == "function.workflow.run"
+    assert sa.IS_TURN_ROOT not in attrs
+    assert sa.CONVERSATION_ID not in attrs
 
 
 # ---------------------------------------------------------------------------

@@ -29,10 +29,12 @@ from opentelemetry.trace.status import Status, StatusCode
 
 from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.context import (
+    get_conversation_id,
     is_llm_observation_active,
     set_llm_observation_active,
 )
 from rhesis.sdk.telemetry.integrations.agent_framework import mapping
+from rhesis.telemetry.constants import ConversationContext
 
 logger = logging.getLogger(__name__)
 
@@ -134,10 +136,17 @@ def _translate_events(
     return new_events
 
 
-def translate_span(span: ReadableSpan) -> _TranslatedSpan:
+def translate_span(
+    span: ReadableSpan,
+    extra_attributes: Mapping[str, Any] | None = None,
+) -> _TranslatedSpan:
     """Build the translated wrapper for a single MAF span.
 
     Pure function so it's trivially testable without an exporter.
+
+    ``extra_attributes`` are merged on top of the translated attributes (they
+    win on conflict). The exporter uses this to stamp Rhesis conversation
+    turn-root attributes on a root ``workflow.run`` span.
     """
     raw_attrs = span.attributes or {}
     new_name = mapping.translate_span_name(span.name, raw_attrs)
@@ -147,6 +156,8 @@ def translate_span(span: ReadableSpan) -> _TranslatedSpan:
     # the trace remains debuggable downstream.
     if new_name.startswith("function.maf.") and span.name and span.name != new_name:
         new_attrs.setdefault("gen_ai.original_span_name", span.name)
+    if extra_attributes:
+        new_attrs.update(extra_attributes)
     new_events = _translate_events(span.events or (), raw_attrs)
     return _TranslatedSpan(span, new_name, new_attrs, new_events)
 
@@ -468,6 +479,158 @@ class _HandoffAncestryRegistry:
 _handoff_ancestry = _HandoffAncestryRegistry()
 
 
+class _ConversationContentRegistry:
+    """Process-lifetime store of per-trace conversation input/output text.
+
+    MAF's ``workflow.run`` span (the structural trace root of an in-process
+    workflow run) carries only ``workflow.id``/``workflow.name``/
+    ``workflow.description`` — it has no record of the user's query or the final
+    response. Those live on the nested ``chat`` spans
+    (``gen_ai.input.messages`` / ``gen_ai.output.messages``).
+
+    To let the translator stamp Rhesis conversation turn-root attributes on the
+    root ``workflow.run`` span — so a pure ``auto_instrument`` workflow run
+    shows up in the Conversation tab without any manual span code — we record
+    each chat span's input/output here at span *end*, keyed by trace id. Under
+    ``BatchSpanProcessor`` every chat span ends (and is recorded here) before
+    the enclosing ``workflow.run`` span ends, so the registry is fully populated
+    by the time the root span is exported, even across export batches.
+
+    The first non-empty user input wins (the original query, which every agent's
+    chat span echoes as its first user message); the output is overwritten so
+    the last assistant turn (the synthesizing agent's answer) is what remains.
+
+    A per-trace conversation/session id is also recorded here. It is the gate
+    for turn-root stamping: only when the agent has set a real conversation id
+    (via ``rhesis.sdk.telemetry.context.set_conversation_id``) for the run does
+    the root ``workflow.run`` span become a Rhesis conversation turn root. Pure
+    single-turn runs (e.g. the ``run_traces`` smoke test) set no id and stay
+    plain traces. All stores are bounded; the oldest entries are evicted once
+    the cap is hit.
+    """
+
+    def __init__(self, max_entries: int = 4096) -> None:
+        self._input_by_trace: dict[int, str] = {}
+        self._output_by_trace: dict[int, str] = {}
+        self._session_by_trace: dict[int, str] = {}
+        self._max_entries = max_entries
+
+    def _evict_if_needed(self, store: dict[int, str]) -> None:
+        if len(store) < self._max_entries:
+            return
+        try:
+            store.pop(next(iter(store)), None)
+        except StopIteration:  # pragma: no cover - racy but harmless
+            pass
+
+    def record_chat(
+        self,
+        trace_id: int | None,
+        *,
+        input_text: str | None = None,
+        output_text: str | None = None,
+    ) -> None:
+        """Record a chat span's input/output for its trace. Never raises."""
+        if trace_id is None:
+            return
+        try:
+            if input_text and trace_id not in self._input_by_trace:
+                self._evict_if_needed(self._input_by_trace)
+                self._input_by_trace[trace_id] = input_text
+            if output_text:
+                self._evict_if_needed(self._output_by_trace)
+                self._output_by_trace[trace_id] = output_text
+        except Exception:  # noqa: BLE001 - recording must never break tracing
+            logger.debug("Failed to record conversation content", exc_info=True)
+
+    def record_session(self, trace_id: int | None, session_id: str | None) -> None:
+        """Record the agent-supplied conversation/session id for a trace. Never raises."""
+        if trace_id is None or not session_id:
+            return
+        try:
+            if trace_id not in self._session_by_trace:
+                self._evict_if_needed(self._session_by_trace)
+                self._session_by_trace[trace_id] = session_id
+        except Exception:  # noqa: BLE001 - recording must never break tracing
+            logger.debug("Failed to record conversation session id", exc_info=True)
+
+    def get(self, trace_id: int | None) -> tuple[str | None, str | None]:
+        """Return ``(input, output)`` recorded for ``trace_id`` (None if absent)."""
+        if trace_id is None:
+            return None, None
+        return self._input_by_trace.get(trace_id), self._output_by_trace.get(trace_id)
+
+    def get_session(self, trace_id: int | None) -> str | None:
+        """Return the conversation/session id recorded for ``trace_id`` (None if absent)."""
+        if trace_id is None:
+            return None
+        return self._session_by_trace.get(trace_id)
+
+
+# Shared singleton: the dedup processor records chat I/O at span end, the
+# translating exporter reads it when stamping a root ``workflow.run`` span.
+_conversation_content = _ConversationContentRegistry()
+
+
+def conversation_root_attributes(span: ReadableSpan) -> dict[str, Any] | None:
+    """Build conversation attributes for a root ``workflow.run`` span.
+
+    Returns ``None`` (no stamping) unless both of the following hold:
+
+    1. The span is MAF's ``workflow.run`` span.
+    2. It is the trace root (``parent is None``). This scopes stamping to the
+       in-process / pure-``auto_instrument`` path: when the workflow runs inside
+       a Rhesis ``@endpoint``/``@observe`` span (FastAPI route or playground
+       connector), that enclosing span is the turn root and already carries
+       conversation attributes, so ``workflow.run`` has a parent and is left
+       untouched (no double turn root).
+
+    When stamped, the span always gets the conversation ``input``/``output``
+    (from the nested chat spans via :data:`_conversation_content`) so the
+    recorded run shows its conversation content in the UI. Whether it is *also*
+    a multi-turn turn root depends on the agent having set a real
+    conversation/session id (via ``rhesis.sdk.telemetry.context``,
+    ``set_conversation_id``), recorded per trace at span end:
+
+    - **Session id present** (multi-turn chat session, e.g. the playground):
+      additionally stamp ``is_turn_root=True`` and ``conversation.id=<session_id>``
+      so turns sharing the session group together as a conversation.
+    - **No session id** (one-shot single-turn run, e.g. the ``run_traces`` smoke
+      test): stamp only input/output. The run stays a plain single-turn trace
+      (``conversation.id`` remains null) but its conversation is still visible.
+
+    Returns ``None`` when there is neither a session id nor any captured
+    input/output (e.g. content capture disabled), leaving the span untouched.
+    """
+    if not mapping.is_workflow_run_span(getattr(span, "name", None)):
+        return None
+    if getattr(span, "parent", None) is not None:
+        return None
+    ctx = getattr(span, "context", None)
+    trace_id = getattr(ctx, "trace_id", None)
+    if trace_id is None:
+        return None
+
+    session_id = _conversation_content.get_session(trace_id)
+    conv_input, conv_output = _conversation_content.get(trace_id)
+
+    attrs: dict[str, Any] = {}
+    if session_id:
+        # Real conversation/session: mark as a multi-turn turn root keyed by the
+        # session id so turns sharing it group together.
+        attrs[ConversationContext.SpanAttributes.IS_TURN_ROOT] = True
+        attrs[ConversationContext.SpanAttributes.CONVERSATION_ID] = session_id
+    if conv_input:
+        attrs[ConversationContext.SpanAttributes.CONVERSATION_INPUT] = conv_input[
+            : ConversationContext.MAX_IO_LENGTH
+        ]
+    if conv_output:
+        attrs[ConversationContext.SpanAttributes.CONVERSATION_OUTPUT] = conv_output[
+            : ConversationContext.MAX_IO_LENGTH
+        ]
+    return attrs or None
+
+
 class MAFTranslatingExporter(SpanExporter):
     """Wrap any ``SpanExporter`` and rewrite MAF spans on their way out.
 
@@ -549,7 +712,13 @@ class MAFTranslatingExporter(SpanExporter):
                             )
                         translated.append(translate_handoff_span(span, from_agent))
                     else:
-                        translated.append(translate_span(span))
+                        # Stamp Rhesis conversation turn-root attributes when
+                        # this is a root ``workflow.run`` span (the in-process /
+                        # pure-auto_instrument path). Returns None otherwise, so
+                        # workflow runs nested under a Rhesis @endpoint/@observe
+                        # span are left to that span's own turn-root handling.
+                        conv_attrs = conversation_root_attributes(span)
+                        translated.append(translate_span(span, extra_attributes=conv_attrs))
                         # Synthesize ai.agent.handoff spans from handoff tool
                         # calls recorded in this chat span's output messages.
                         # This is the primary handoff path for current MAF,
@@ -744,6 +913,22 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
             attrs = span.attributes or {}
             if attrs.get(mapping.GEN_AI_OPERATION_NAME) != mapping.OP_CHAT:
                 return
+            # Record this chat span's user input / assistant output so the
+            # exporter can stamp conversation turn-root attributes on the
+            # enclosing root ``workflow.run`` span (which itself carries no
+            # input/output). Keyed by trace id; safe and bounded.
+            ctx = getattr(span, "context", None)
+            trace_id = getattr(ctx, "trace_id", None)
+            _conversation_content.record_chat(
+                trace_id,
+                input_text=mapping.extract_conversation_input(attrs),
+                output_text=mapping.extract_conversation_output(attrs),
+            )
+            # Capture the agent-supplied conversation/session id (if any) while
+            # we are still on the thread that ran the workflow, so the exporter
+            # can decide whether this run is a conversation turn root. Runs that
+            # set no id stay plain single-turn traces.
+            _conversation_content.record_session(trace_id, get_conversation_id())
             prev = self._retrieve_prev_flag(span)
             if not prev:
                 set_llm_observation_active(False)
