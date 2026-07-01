@@ -619,6 +619,12 @@ jobs:
               --platform=managed \
               --allow-unauthenticated \
               --port=8080 \
+              --memory=2Gi \
+              --cpu=2 \
+              --concurrency=80 \
+              --timeout=3600 \
+              --max-instances=10 \
+              --min-instances=1 \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
           DB_DRIVER=${{ secrets.DB_DRIVER }},
