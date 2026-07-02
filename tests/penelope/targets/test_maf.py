@@ -75,6 +75,32 @@ class ModernFakeAgentWithKwargs:
         return FakeResponse(f"kwargs reply to '{messages}' (turn {turn})")
 
 
+class MixedShapeFakeAgent:
+    """Mixed-shape agent: ``create_session`` but ``run(..., thread=..., **kwargs)``.
+
+    ``run`` honors the explicit ``thread`` parameter and would silently drop a
+    ``session`` passed via ``**kwargs``.  The target must therefore prefer the
+    explicitly declared ``thread`` over routing ``session`` through ``**kwargs``.
+    """
+
+    def __init__(self):
+        self._counter = 0
+        self.calls: list[tuple[str, FakeSession | None, dict[str, Any]]] = []
+
+    def create_session(self, *, session_id: str | None = None) -> FakeSession:
+        self._counter += 1
+        return FakeSession(session_id or f"session-{self._counter}")
+
+    async def run(
+        self, messages: str | None = None, *, thread: FakeSession | None = None, **kwargs
+    ):
+        self.calls.append((messages, thread, kwargs))
+        if thread is not None:
+            thread.history.append(messages or "")
+        turn = len(thread.history) if thread is not None else 1
+        return FakeResponse(f"mixed reply to '{messages}' (turn {turn})")
+
+
 class LegacyFakeAgent:
     """MAF agent exposing the legacy ``get_new_thread`` + ``run(thread=...)`` API."""
 
@@ -229,6 +255,24 @@ def test_kwargs_run_uses_session_for_modern_agent():
     assert agent.calls[0][1] is agent.calls[1][1]
     assert "session" in agent.calls[0][2]
     assert "thread" not in agent.calls[0][2]
+    assert agent.calls[0][1].history == ["turn one", "turn two"]
+
+
+def test_mixed_shape_prefers_explicit_thread_over_kwargs():
+    # create_session() suggests session=, but run() explicitly declares thread=
+    # and only honors that; an explicit param must win over the **kwargs channel
+    # so conversation memory is not silently dropped.
+    agent = MixedShapeFakeAgent()
+    target = MAFTarget(agent, "mixed-bot")
+
+    first = target.send_message("turn one")
+    second = target.send_message("turn two", conversation_id=first.conversation_id)
+
+    assert second.conversation_id == first.conversation_id
+    # State was passed under the explicit ``thread`` param, not through **kwargs.
+    assert agent.calls[0][1] is not None
+    assert "session" not in agent.calls[0][2]
+    assert agent.calls[0][1] is agent.calls[1][1]
     assert agent.calls[0][1].history == ["turn one", "turn two"]
 
 

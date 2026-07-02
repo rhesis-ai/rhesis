@@ -293,17 +293,20 @@ class MAFTarget(Target):
 
         accepts_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
 
-        # Prefer the factory-matched kwarg whenever ``run`` can receive it, either
-        # as an explicit parameter or via ``**kwargs``.
-        if preferred and (preferred in params or accepts_var_keyword):
+        # 1. Best case: the factory-matched kwarg is an explicit ``run`` parameter.
+        if preferred and preferred in params:
             return preferred
 
-        # Otherwise fall back to whatever named state kwarg ``run`` actually exposes.
+        # 2. An explicitly declared state kwarg is honored reliably, whereas
+        #    ``**kwargs`` may silently drop an unknown name.  So for a mixed-shape
+        #    agent (e.g. ``create_session`` but ``run(..., thread=..., **kwargs)``)
+        #    prefer the explicit ``thread`` over routing ``session`` into the void.
         for name in _THREAD_RUN_KWARGS:
             if name in params:
                 return name
 
-        # No named state kwarg; only pass one if ``run`` accepts ``**kwargs``.
+        # 3. No explicit state parameter; route the factory-matched kwarg through
+        #    ``**kwargs`` (the only remaining channel).
         if accepts_var_keyword:
             return preferred or _THREAD_RUN_KWARGS[0]
         return None
