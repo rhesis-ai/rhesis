@@ -22,6 +22,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UsersClient } from '@/utils/api-client/users-client';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 function getUserDisplayName(user: User): string {
   if (user.name) return user.name;
@@ -51,10 +52,15 @@ export default function ProjectAddMemberDrawer({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  const { AddMemberRoleField, assignProjectMemberRole } =
+    getMemberRoleExtensions();
 
   const resetForm = useCallback(() => {
     setSelectedUser(null);
+    setSelectedRoleId(null);
     setUsersError(null);
   }, []);
 
@@ -104,6 +110,16 @@ export default function ProjectAddMemberDrawer({
         user_id: selectedUser.id,
         role: 'member',
       });
+
+      if (selectedRoleId && assignProjectMemberRole) {
+        await assignProjectMemberRole(
+          sessionToken,
+          projectId,
+          selectedUser.id,
+          selectedRoleId
+        );
+      }
+
       notifications.show(
         `${getUserDisplayName(selectedUser)} added to the project.`,
         { severity: 'success' }
@@ -204,6 +220,13 @@ export default function ProjectAddMemberDrawer({
               />
             )}
           />
+          {AddMemberRoleField && (
+            <AddMemberRoleField
+              sessionToken={sessionToken}
+              value={selectedRoleId}
+              onChange={setSelectedRoleId}
+            />
+          )}
         </Box>
       </Box>
     </BaseDrawer>

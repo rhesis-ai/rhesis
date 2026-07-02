@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
@@ -19,6 +19,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectKeys } from '@/constants/query-keys';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 interface ProjectMembersProps {
   projectId: string;
@@ -93,10 +94,10 @@ export default function ProjectMembers({
     }
   }, [refreshKey, queryClient, membersQueryKey]);
 
-  const handleRemoveClick = (member: ProjectMember) => {
+  const handleRemoveClick = useCallback((member: ProjectMember) => {
     setMemberToRemove(member);
     setDeleteOpen(true);
-  };
+  }, []);
 
   const handleRemoveConfirm = async () => {
     if (!memberToRemove) return;
@@ -122,92 +123,121 @@ export default function ProjectMembers({
     }
   };
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1,
-      minWidth: 200,
-      valueGetter: (_value, row) =>
-        getMemberDisplayName((row as ProjectMember).user),
-      renderCell: params => {
-        const member = params.row as ProjectMember;
-        const name = getMemberDisplayName(member.user);
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar
-              src={member.user?.picture ?? undefined}
-              sx={{
-                width: theme => theme.spacing(4),
-                height: theme => theme.spacing(4),
-                flexShrink: 0,
+  const { ProjectRoleCell } = getMemberRoleExtensions();
+
+  const columns: GridColDef[] = React.useMemo(() => {
+    const RoleCell = ProjectRoleCell;
+
+    const roleColumn: GridColDef = RoleCell
+      ? {
+          field: 'role',
+          headerName: 'Role',
+          width: 150,
+          sortable: false,
+          filterable: false,
+          renderCell: params => (
+            <RoleCell
+              userId={(params.row as ProjectMember).user_id}
+              projectId={projectId}
+              sessionToken={sessionToken}
+            />
+          ),
+        }
+      : {
+          field: 'role',
+          headerName: 'Role',
+          width: 120,
+          sortable: false,
+          filterable: false,
+          valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',
+          renderCell: params => (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textTransform: 'capitalize' }}
+            >
+              {(params.row as ProjectMember).role ?? 'member'}
+            </Typography>
+          ),
+        };
+
+    return [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (_value, row) =>
+          getMemberDisplayName((row as ProjectMember).user),
+        renderCell: params => {
+          const member = params.row as ProjectMember;
+          const name = getMemberDisplayName(member.user);
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Avatar
+                src={member.user?.picture ?? undefined}
+                sx={{
+                  width: theme => theme.spacing(4),
+                  height: theme => theme.spacing(4),
+                  flexShrink: 0,
+                }}
+              >
+                {!member.user?.picture && <PersonIcon fontSize="small" />}
+              </Avatar>
+              <Typography variant="body2" fontWeight={500}>
+                {name}
+              </Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'email',
+        headerName: 'Email',
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (_value, row) => (row as ProjectMember).user?.email ?? '',
+        renderCell: params => (
+          <Typography variant="body2" color="text.secondary">
+            {(params.row as ProjectMember).user?.email ?? ''}
+          </Typography>
+        ),
+      },
+      roleColumn,
+      {
+        field: 'actions',
+        headerName: '',
+        width: 56,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const member = params.row as ProjectMember;
+          if ((ownerId && member.user_id === ownerId) || !canManageMembers) {
+            return null;
+          }
+          return (
+            <IconButton
+              size="small"
+              title="Remove from project"
+              onClick={e => {
+                e.stopPropagation();
+                handleRemoveClick(member);
               }}
             >
-              {!member.user?.picture && <PersonIcon fontSize="small" />}
-            </Avatar>
-            <Typography variant="body2" fontWeight={500}>
-              {name}
-            </Typography>
-          </Box>
-        );
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          );
+        },
       },
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      flex: 1,
-      minWidth: 200,
-      valueGetter: (_value, row) => (row as ProjectMember).user?.email ?? '',
-      renderCell: params => (
-        <Typography variant="body2" color="text.secondary">
-          {(params.row as ProjectMember).user?.email ?? ''}
-        </Typography>
-      ),
-    },
-    {
-      field: 'role',
-      headerName: 'Role',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',
-      renderCell: params => (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ textTransform: 'capitalize' }}
-        >
-          {(params.row as ProjectMember).role ?? 'member'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 56,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const member = params.row as ProjectMember;
-        // Never show delete for the project owner, and only for users with manage capability.
-        if ((ownerId && member.user_id === ownerId) || !canManageMembers) {
-          return null;
-        }
-        return (
-          <IconButton
-            size="small"
-            title="Remove from project"
-            onClick={e => {
-              e.stopPropagation();
-              handleRemoveClick(member);
-            }}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        );
-      },
-    },
-  ];
+    ];
+  }, [
+    ProjectRoleCell,
+    projectId,
+    sessionToken,
+    ownerId,
+    canManageMembers,
+    handleRemoveClick,
+  ]);
 
   return (
     <Box>

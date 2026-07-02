@@ -30,6 +30,7 @@ import {
 import TeamFilterDrawer from './TeamFilterDrawer';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 interface TeamToolbarState {
   searchQuery: string;
@@ -217,8 +218,11 @@ export default function TeamMembersGrid({
     setUserToDelete(null);
   };
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const { OrgRoleCell } = getMemberRoleExtensions();
+  const sessionToken = session?.session_token ?? '';
+
+  const columns: GridColDef[] = useMemo(() => {
+    const cols: GridColDef[] = [
       {
         field: 'name',
         headerName: 'Name',
@@ -277,6 +281,26 @@ export default function TeamMembersGrid({
           </Typography>
         ),
       },
+    ];
+
+    if (OrgRoleCell) {
+      const CellComponent = OrgRoleCell;
+      cols.push({
+        field: 'orgRole',
+        headerName: 'Role',
+        width: 150,
+        sortable: false,
+        filterable: false,
+        renderCell: params => (
+          <CellComponent
+            userId={(params.row as User).id}
+            sessionToken={sessionToken}
+          />
+        ),
+      });
+    }
+
+    cols.push(
       {
         field: 'status',
         headerName: 'Status',
@@ -300,12 +324,10 @@ export default function TeamMembersGrid({
           const user = params.row as User;
           const currentUserId = session?.user?.id;
 
-          // Never show delete for the current user (self-remove prevention).
           if (user.id === currentUserId) {
             return null;
           }
 
-          // Role-level gate: only render the button if the caller can delete members.
           if (!canDeleteMember) {
             return null;
           }
@@ -323,10 +345,17 @@ export default function TeamMembersGrid({
             </IconButton>
           );
         },
-      },
-    ],
-    [session?.user?.id, handleDeleteUser, canDeleteMember]
-  );
+      }
+    );
+
+    return cols;
+  }, [
+    session?.user?.id,
+    handleDeleteUser,
+    canDeleteMember,
+    OrgRoleCell,
+    sessionToken,
+  ]);
 
   return (
     <TeamToolbarContext.Provider
