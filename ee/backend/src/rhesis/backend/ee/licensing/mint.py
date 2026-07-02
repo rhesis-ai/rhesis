@@ -26,6 +26,7 @@ Design notes
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import uuid
@@ -71,21 +72,35 @@ DEFAULT_TTL_DAYS = 365
 def _load_private_key() -> Ed25519PrivateKey:
     """Load the Ed25519 signing key from the environment.
 
-    Reads :data:`~rhesis.backend.ee.licensing.entitlements.ENV_LICENSE_PRIVATE_KEY`
-    (a PEM-encoded Ed25519 private key).
+    Reads :data:`~rhesis.backend.ee.licensing.entitlements.ENV_LICENSE_PRIVATE_KEY`.
+    Accepts both raw PEM (starts with ``-----BEGIN``) and the same PEM
+    base64-encoded (the format used by the infrastructure secret store).
 
-    :raises RuntimeError: if the variable is absent, empty, or the PEM cannot
-        be parsed as an Ed25519 private key. Callers must never mint with a
-        missing or wrong-type key.
+    :raises RuntimeError: if the variable is absent, empty, not decodable, or
+        not an Ed25519 private key. Callers must never mint with a missing or
+        wrong-type key.
     """
-    pem_text = os.environ.get(ENV_LICENSE_PRIVATE_KEY, "").strip()
-    if not pem_text:
+    raw = os.environ.get(ENV_LICENSE_PRIVATE_KEY, "").strip()
+    if not raw:
         raise RuntimeError(
             f"{ENV_LICENSE_PRIVATE_KEY} is not set. "
             "The private key must be provided to mint a license token."
         )
+
+    if raw.startswith("-----"):
+        pem_bytes = raw.encode()
+    else:
+        try:
+            pem_bytes = base64.b64decode(raw)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to base64-decode {ENV_LICENSE_PRIVATE_KEY}: {exc}. "
+                "Provide either a raw PEM string (starting with '-----BEGIN') "
+                "or the PEM base64-encoded."
+            ) from exc
+
     try:
-        key = load_pem_private_key(pem_text.encode(), password=None)
+        key = load_pem_private_key(pem_bytes, password=None)
     except Exception as exc:
         raise RuntimeError(
             f"Failed to load Ed25519 private key from {ENV_LICENSE_PRIVATE_KEY}: {exc}"
