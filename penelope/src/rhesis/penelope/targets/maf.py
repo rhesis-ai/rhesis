@@ -122,9 +122,7 @@ class MAFTarget(Target):
         """
         self.agent = agent
         self._target_id = target_id
-        self._description = description or (
-            f"MAF {type(agent).__name__}: {target_id}"
-        )
+        self._description = description or (f"MAF {type(agent).__name__}: {target_id}")
 
         # Registry mapping the string conversation_id Penelope uses to the MAF
         # thread/session object that holds that conversation's context.
@@ -293,9 +291,7 @@ class MAFTarget(Target):
             # Signature unavailable (e.g. C-implemented); trust the factory kwarg.
             return preferred or _THREAD_RUN_KWARGS[0]
 
-        accepts_var_keyword = any(
-            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
-        )
+        accepts_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
 
         # Prefer the factory-matched kwarg whenever ``run`` can receive it, either
         # as an explicit parameter or via ``**kwargs``.
