@@ -15,6 +15,7 @@ from rhesis.backend.app.services.architect.event_handler import (
     _safe_preview,
     _tool_description,
 )
+from rhesis.sdk.agents.errors import format_user_facing_error
 
 _HANDLER_MODULE = "rhesis.backend.app.services.architect.event_handler"
 
@@ -245,7 +246,7 @@ class TestWebSocketEventHandlerStreaming:
 
         payload = mock_pub.call_args[0][1]
         assert payload["content"] == "partial"
-        assert payload["error"] == "LLM timeout"
+        assert payload["error"] == format_user_facing_error("LLM timeout")
 
 
 # ---------------------------------------------------------------------------
