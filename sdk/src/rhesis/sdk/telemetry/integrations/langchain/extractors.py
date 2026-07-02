@@ -7,10 +7,10 @@ invocation data: agent names, model names, providers, inputs/outputs, etc.
 import logging
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+# Re-exported for backwards compatibility; canonical home is attributes.py
+from rhesis.sdk.telemetry.attributes import MAX_CONTENT_LENGTH  # noqa: F401
 
-# Content truncation limit
-MAX_CONTENT_LENGTH = 8000
+logger = logging.getLogger(__name__)
 
 # Provider patterns for LangChain module paths
 PROVIDER_PATTERNS = {

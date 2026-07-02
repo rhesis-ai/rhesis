@@ -6,10 +6,9 @@ from typing import Any, Callable, Optional
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.sdk.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes, AIEvents
 from rhesis.sdk.telemetry.context import is_tracing_disabled
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
-from rhesis.sdk.telemetry.integrations.langchain.extractors import MAX_CONTENT_LENGTH
 from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)
@@ -81,7 +80,12 @@ def _record_run_start(span: trace.Span, agent: Any, user_prompt: Optional[str]) 
     if model_name:
         span.set_attribute(AIAttributes.MODEL_NAME, str(model_name))
 
+    # model.system is not a documented public API; fall back to the model
+    # class module (pydantic_ai.models.openai -> "openai") so the provider
+    # degrades gracefully rather than disappearing if the attribute changes.
     provider = getattr(model, "system", None)
+    if not provider and model is not None and not isinstance(model, str):
+        provider = type(model).__module__.rsplit(".", 1)[-1]
     if provider:
         span.set_attribute(AIAttributes.MODEL_PROVIDER, str(provider))
 
@@ -99,13 +103,26 @@ def _record_run_end(span: trace.Span, result: Any) -> None:
     """Record output content and token usage from an AgentRunResult."""
     output = getattr(result, "output", None)
     if output is not None:
+        span.set_attribute(AIAttributes.COMPLETION_OUTPUT_TYPE, type(output).__name__)
+        # Structured outputs keep their shape via JSON instead of repr()
+        content = None
+        dump = getattr(output, "model_dump_json", None)
+        if callable(dump):
+            try:
+                content = dump()
+            except Exception:
+                content = None
+        if content is None:
+            content = str(output)
         span.add_event(
             AIEvents.COMPLETION,
-            {AIAttributes.COMPLETION_CONTENT: str(output)[:MAX_CONTENT_LENGTH]},
+            {AIAttributes.COMPLETION_CONTENT: content[:MAX_CONTENT_LENGTH]},
         )
 
-    usage_fn = getattr(result, "usage", None)
-    usage = usage_fn() if callable(usage_fn) else None
+    # usage is a method on AgentRunResult today; tolerate it becoming a
+    # property so token counts don't silently stop being recorded.
+    usage_attr = getattr(result, "usage", None)
+    usage = usage_attr() if callable(usage_attr) else usage_attr
     if usage:
         input_tokens = getattr(usage, "input_tokens", 0) or 0
         output_tokens = getattr(usage, "output_tokens", 0) or 0
