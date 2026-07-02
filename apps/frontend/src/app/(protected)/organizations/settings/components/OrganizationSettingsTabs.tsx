@@ -1,32 +1,41 @@
 'use client';
 
 import React, { useCallback, useMemo } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { SectionCard } from '@/components/common/SectionCard';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
-import { getOrgSettingsSections } from '@/lib/extension-registries';
+import { getOrgSettingsTabs } from '@/lib/extension-registries';
 import OrganizationDetailsForm from './OrganizationDetailsForm';
 import ContactInformationForm from './ContactInformationForm';
 import DangerZone from './DangerZone';
 
-const TAB_KEYS = ['information', 'sso', 'api', 'danger'] as const;
-type OrgSettingsTabKey = (typeof TAB_KEYS)[number];
+interface BuiltInTab {
+  id: string;
+  label: string;
+  order: number;
+  dynamic: false;
+}
 
-const LEGACY_TAB_MAP: Record<string, OrgSettingsTabKey> = {
+interface DynamicTab {
+  id: string;
+  label: string;
+  order: number;
+  dynamic: true;
+  component: React.ComponentType;
+}
+
+type MergedTab = BuiltInTab | DynamicTab;
+
+const BUILT_IN_TABS: BuiltInTab[] = [
+  { id: 'information', label: 'Information', order: 0, dynamic: false },
+  { id: 'danger', label: 'Danger zone', order: 999, dynamic: false },
+];
+
+const LEGACY_TAB_MAP: Record<string, string> = {
   'sso-api': 'sso',
-};
-
-const TAB_SECTION_IDS: Record<'sso' | 'api', Set<string>> = {
-  sso: new Set(['sso']),
-  api: new Set(['api-clients']),
-};
-
-const TAB_UNAVAILABLE_COPY: Record<'sso' | 'api', string> = {
-  sso: 'SSO settings are not available for this installation.',
-  api: 'API client settings are not available for this installation.',
 };
 
 interface OrganizationSettingsTabsProps {
@@ -35,22 +44,18 @@ interface OrganizationSettingsTabsProps {
   onUpdate: () => void;
 }
 
-function normalizeTabParam(param: string | null): OrgSettingsTabKey {
+function resolveTabParam(
+  param: string | null,
+  validIds: readonly string[]
+): string {
   if (param && param in LEGACY_TAB_MAP) {
     return LEGACY_TAB_MAP[param];
   }
-  if (param && TAB_KEYS.includes(param as OrgSettingsTabKey)) {
-    return param as OrgSettingsTabKey;
+  if (param && validIds.includes(param)) {
+    return param;
   }
   return 'information';
 }
-
-const TAB_LABELS: Record<OrgSettingsTabKey, string> = {
-  information: 'Information',
-  sso: 'SSO',
-  api: 'API',
-  danger: 'Danger zone',
-};
 
 export default function OrganizationSettingsTabs({
   organization,
@@ -60,51 +65,48 @@ export default function OrganizationSettingsTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = (() => {
-    const key = normalizeTabParam(searchParams.get('tab'));
-    return TAB_KEYS.indexOf(key);
-  })();
+  const dynamicTabs = useMemo(() => getOrgSettingsTabs(), []);
+
+  const allTabs: MergedTab[] = useMemo(() => {
+    const merged: MergedTab[] = [
+      ...BUILT_IN_TABS,
+      ...dynamicTabs.map(
+        (t): DynamicTab => ({
+          id: t.id,
+          label: t.title,
+          order: t.order,
+          dynamic: true,
+          component: t.component,
+        })
+      ),
+    ];
+    return merged.sort((a, b) => a.order - b.order);
+  }, [dynamicTabs]);
+
+  const tabIds = useMemo(() => allTabs.map(t => t.id), [allTabs]);
+
+  const activeTab = useMemo(() => {
+    const key = resolveTabParam(searchParams.get('tab'), tabIds);
+    const idx = tabIds.indexOf(key);
+    return idx >= 0 ? idx : 0;
+  }, [searchParams, tabIds]);
 
   const handleTabChange = useCallback(
     (newIndex: number) => {
-      const key = TAB_KEYS[newIndex];
+      const key = allTabs[newIndex]?.id;
+      if (!key) return;
       const params = new URLSearchParams(searchParams.toString());
       params.set('tab', key);
       router.push(`?${params.toString()}`, { scroll: false });
     },
-    [router, searchParams]
+    [router, searchParams, allTabs]
   );
 
-  const extensionSections = useMemo(() => getOrgSettingsSections(), []);
+  const indexOf = (id: string) => allTabs.findIndex(t => t.id === id);
 
-  const sectionsForTab = (tab: 'sso' | 'api') =>
-    extensionSections.filter(section => TAB_SECTION_IDS[tab].has(section.id));
-
-  const renderExtensionTab = (tab: 'sso' | 'api') => {
-    const sections = sectionsForTab(tab);
-    if (sections.length === 0) {
-      return (
-        <Typography variant="body2" color="text.secondary">
-          {TAB_UNAVAILABLE_COPY[tab]}
-        </Typography>
-      );
-    }
-    return sections.map(section => {
-      const Section = section.component;
-      if (section.id === 'api-clients') {
-        return <Section key={section.id} />;
-      }
-      return (
-        <SectionCard key={section.id} title={section.title}>
-          <Section />
-        </SectionCard>
-      );
-    });
-  };
-
-  const navTabs = TAB_KEYS.map((key, index) => ({
-    key,
-    label: TAB_LABELS[key],
+  const navTabs = allTabs.map((tab, index) => ({
+    key: tab.id,
+    label: tab.label,
     id: `org-settings-tab-${index}`,
     'aria-controls': `org-settings-tabpanel-${index}`,
   }));
@@ -118,7 +120,11 @@ export default function OrganizationSettingsTabs({
         aria-label="Organization settings sections"
       />
 
-      <DetailTabPanel value={activeTab} index={0} prefix="org-settings">
+      <DetailTabPanel
+        value={activeTab}
+        index={indexOf('information')}
+        prefix="org-settings"
+      >
         <OrganizationDetailsForm
           organization={organization}
           sessionToken={sessionToken}
@@ -131,15 +137,27 @@ export default function OrganizationSettingsTabs({
         />
       </DetailTabPanel>
 
-      <DetailTabPanel value={activeTab} index={1} prefix="org-settings">
-        {renderExtensionTab('sso')}
-      </DetailTabPanel>
+      {allTabs
+        .filter((tab): tab is DynamicTab => tab.dynamic)
+        .map(tab => {
+          const TabComponent = tab.component;
+          return (
+            <DetailTabPanel
+              key={tab.id}
+              value={activeTab}
+              index={indexOf(tab.id)}
+              prefix="org-settings"
+            >
+              <TabComponent />
+            </DetailTabPanel>
+          );
+        })}
 
-      <DetailTabPanel value={activeTab} index={2} prefix="org-settings">
-        {renderExtensionTab('api')}
-      </DetailTabPanel>
-
-      <DetailTabPanel value={activeTab} index={3} prefix="org-settings">
+      <DetailTabPanel
+        value={activeTab}
+        index={indexOf('danger')}
+        prefix="org-settings"
+      >
         <SectionCard title="Danger Zone" variant="danger">
           <DangerZone organization={organization} sessionToken={sessionToken} />
         </SectionCard>
