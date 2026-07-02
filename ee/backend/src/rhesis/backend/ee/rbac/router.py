@@ -683,16 +683,18 @@ def assign_project_role(
     target_role = _get_role_or_404(body.role_id, db)
 
     # One-directional scope gate (K8s ClusterRole model):
-    # - Org/built-in roles bind "down" to the project tier, EXCEPT Owner (transfer-only,
-    #   level 100) and None (explicit org-revocation, level 0) which have no project-tier
-    #   meaning. This matches the frontend's isAssignableProjectRole.
+    # - Org/built-in roles bind "down" to the project tier.  Owner (level 100)
+    #   IS now permitted at the project tier so a project creator or lead can
+    #   be designated as the project owner independently of the org owner.
+    #   Only None (level 0, explicit revocation) is blocked — it has no useful
+    #   meaning as a project assignment.  This matches isAssignableProjectRole.
     # - Project-only custom roles (scope=project) are accepted as before.
-    # - The org-tier gate in assign_org_role stays strict: project-only roles cannot
-    #   be promoted org-wide.
-    if target_role.is_built_in and not (0 < target_role.level < 100):
+    # - The org-tier gate in assign_org_role stays strict: project-only roles
+    #   cannot be promoted org-wide.
+    if target_role.is_built_in and target_role.level == 0:
         raise HTTPException(
             status_code=422,
-            detail="Owner and None roles cannot be assigned at the project tier",
+            detail="The None role cannot be assigned at the project tier",
         )
 
     new_perm_names = _role_permission_names_resolved(target_role, db)

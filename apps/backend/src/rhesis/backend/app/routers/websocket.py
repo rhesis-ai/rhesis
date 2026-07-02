@@ -22,6 +22,7 @@ from rhesis.backend.app.auth.principal import (
 from rhesis.backend.app.auth.user_utils import (
     get_authenticated_user_with_context,
     get_secret_key,
+    require_current_user_or_token,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -46,7 +47,7 @@ class WebSocketTokenResponse(BaseModel):
 @router.post("/ws/token", response_model=WebSocketTokenResponse)
 async def get_websocket_token(
     request: Request,
-    current_user: User = Depends(get_authenticated_user_with_context),
+    current_user: User = Depends(require_current_user_or_token),
 ) -> WebSocketTokenResponse:
     """Get a short-lived token for WebSocket connection.
 
