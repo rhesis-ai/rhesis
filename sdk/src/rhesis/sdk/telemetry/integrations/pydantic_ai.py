@@ -64,7 +64,11 @@ def _extract_user_prompt(args: tuple, kwargs: dict) -> Optional[str]:
                 kind = getattr(part, "kind", None) or type(part).__name__
                 parts.append(f"<attachment: {kind}>")
         return " ".join(parts)
-    return str(prompt)
+    # A bare non-str prompt is most likely a single multimodal part
+    # (BinaryContent, ImageUrl, ...); never str() it for the same reason
+    # as the list case above.
+    kind = getattr(prompt, "kind", None) or type(prompt).__name__
+    return f"<attachment: {kind}>"
 
 
 def _record_run_start(span: trace.Span, agent: Any, user_prompt: Optional[str]) -> None:

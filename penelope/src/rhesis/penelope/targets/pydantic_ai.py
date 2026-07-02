@@ -144,7 +144,13 @@ class PydanticAITarget(Target):
         files: Optional[List] = None,
         **kwargs: Any,
     ) -> TargetResponse:
-        """Send a message to the Pydantic AI agent."""
+        """Send a message to the Pydantic AI agent.
+
+        Blocking: materializes FileReference attachments with the synchronous
+        read_bytes() and delegates to agent.run_sync(), which itself refuses to
+        run inside a running event loop. From async contexts (notebooks, async
+        apps) use a_send_message() instead.
+        """
         if not message.strip():
             return TargetResponse(success=False, content="", error="Empty message")
 

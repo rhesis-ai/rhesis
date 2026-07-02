@@ -222,3 +222,12 @@ class TestExtractUserPrompt:
     def test_list_with_multiple_text_parts(self):
         result = _extract_user_prompt((["hello", "world"],), {})
         assert result == "hello world"
+
+    def test_bare_binary_content_does_not_leak_bytes(self):
+        from pydantic_ai import BinaryContent
+
+        bc = BinaryContent(data=b"A" * 5000, media_type="image/png")
+        result = _extract_user_prompt((bc,), {})
+
+        assert result == "<attachment: binary>"
+        assert "AAAA" not in result
