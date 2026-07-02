@@ -95,6 +95,10 @@ export default function ExplorerGrid({
     onTotalCountChange?.(allRows.length);
   }, [allRows.length, onTotalCountChange]);
 
+  useEffect(() => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
   const rows = searchQuery.trim()
     ? allRows.filter(r => {
         const q = searchQuery.toLowerCase();
