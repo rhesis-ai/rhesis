@@ -88,16 +88,16 @@ target = LangGraphTarget(graph=my_graph)`}
 <CodeBlock filename="maf_target.py" language="python">
 {`from agent_framework import ChatAgent
 from agent_framework.openai import OpenAIChatClient
-from rhesis.penelope import MicrosoftAgentFrameworkTarget
+from rhesis.penelope import MAFTarget
 
 maf_agent = ChatAgent(
     chat_client=OpenAIChatClient(),
     instructions="You are helpful.",
 )
-target = MicrosoftAgentFrameworkTarget(maf_agent, target_id="maf-bot")`}
+target = MAFTarget(maf_agent, target_id="maf-bot")`}
 </CodeBlock>
 
-The Microsoft Agent Framework target preserves multi-turn context by keeping a MAF thread/session object per `conversation_id`, and bridges MAF's async `run()` to Penelope's synchronous target contract - so you can drive any MAF agent through Penelope's multi-turn testing without changing the agent.
+The MAF target preserves multi-turn context by keeping a MAF thread/session object per `conversation_id`, and bridges MAF's async `run()` to Penelope's synchronous target contract - so you can drive any MAF agent through Penelope's multi-turn testing without changing the agent.
 
 ### Built-in Tools
 

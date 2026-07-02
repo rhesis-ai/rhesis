@@ -47,13 +47,13 @@ from rhesis.penelope import (
     EndpointTarget,
     LangChainTarget,
     LangGraphTarget,
-    MicrosoftAgentFrameworkTarget,
+    MAFTarget,
 )
 
 penelope = PenelopeAgent()
 
-# Microsoft Agent Framework agent (async run() is bridged automatically)
-target = MicrosoftAgentFrameworkTarget(maf_agent, target_id="maf-bot")
+# MAF (Microsoft Agent Framework) agent (async run() is bridged automatically)
+target = MAFTarget(maf_agent, target_id="maf-bot")
 
 result = penelope.execute_test(
     target=target,
@@ -131,7 +131,7 @@ uv sync
 
 - **True Multi-Turn Understanding**: Native support for stateful conversations
 - **Provider Agnostic**: Works with OpenAI, Anthropic, Vertex AI, and more
-- **Target Flexible**: Test any conversational system (Rhesis endpoints, LangChain, LangGraph, Microsoft Agent Framework, custom targets)
+- **Target Flexible**: Test any conversational system (Rhesis endpoints, LangChain, LangGraph, MAF, custom targets)
 - **Smart Defaults**: Just specify a goal, Penelope plans the rest
 - **LLM-Driven Evaluation**: Intelligent goal achievement detection
 - **Transparent Reasoning**: See Penelope's thought process
