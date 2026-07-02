@@ -927,7 +927,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     db.execute(behavior_metric_association.insert().values(**association_values))
                     db.flush()
 
-        _assign_demo_entities_to_example_project(db, organization_id, initial_data)
+        _assign_demo_entities_to_example_project(db, organization_id, user_id, initial_data)
 
         # Process default Rhesis language model
         print("Processing default Rhesis language model...")
@@ -1415,7 +1415,7 @@ def _build_model_data_map(initial_data: dict) -> dict:
 
 
 def _assign_demo_entities_to_example_project(
-    db: Session, organization_id: str, initial_data: dict
+    db: Session, organization_id: str, user_id: str, initial_data: dict
 ) -> None:
     """Assign onboarding demo content to the example project.
 
@@ -1437,18 +1437,19 @@ def _assign_demo_entities_to_example_project(
     project_id = example_project.id
     model_data_map = _build_model_data_map(initial_data)
 
-    for model_name, identifiers in model_data_map.items():
-        if model_name in _ORG_WIDE_INITIAL_DATA_MODELS or not identifiers:
-            continue
-        model_cls = getattr(models, model_name, None)
-        if model_cls is None or not hasattr(model_cls, "project_id"):
-            continue
-        records = _get_matching_records(db, model_cls, identifiers, organization_id)
-        for record in records:
-            if record.project_id is None:
-                record.project_id = project_id
+    with temporary_project_scope(db, organization_id, user_id, str(project_id)):
+        for model_name, identifiers in model_data_map.items():
+            if model_name in _ORG_WIDE_INITIAL_DATA_MODELS or not identifiers:
+                continue
+            model_cls = getattr(models, model_name, None)
+            if model_cls is None or not hasattr(model_cls, "project_id"):
+                continue
+            records = _get_matching_records(db, model_cls, identifiers, organization_id)
+            for record in records:
+                if record.project_id is None:
+                    record.project_id = project_id
 
-    db.flush()
+        db.flush()
 
 
 def _get_matching_records(db: Session, model, identifiers: set, organization_id: str):

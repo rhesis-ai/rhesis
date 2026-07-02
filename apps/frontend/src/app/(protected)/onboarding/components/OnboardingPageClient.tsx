@@ -175,7 +175,8 @@ export default function OnboardingPageClient({
               };
 
               try {
-                const user = await usersClient.createUser(userData);
+                const user =
+                  await authenticatedUsersClient.createUser(userData);
                 invitationResults.push({ email, success: true });
                 return user;
               } catch (error: unknown) {
