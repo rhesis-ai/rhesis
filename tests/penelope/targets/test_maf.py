@@ -346,6 +346,35 @@ def test_stateless_agent_reports_no_memory():
     assert response.conversation_id
 
 
+def test_deprecated_module_alias_still_works():
+    import sys
+    import warnings
+
+    sys.modules.pop("rhesis.penelope.targets.microsoft_agent_framework", None)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        from rhesis.penelope.targets.microsoft_agent_framework import (
+            MicrosoftAgentFrameworkTarget,
+        )
+
+    assert MicrosoftAgentFrameworkTarget is MAFTarget
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+
+
+def test_deprecated_package_aliases_warn():
+    import warnings
+
+    import rhesis.penelope as pen
+    import rhesis.penelope.targets as targets_pkg
+
+    for module in (pen, targets_pkg):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            alias = module.MicrosoftAgentFrameworkTarget
+        assert alias is MAFTarget
+        assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+
+
 def test_get_tool_documentation(target: MAFTarget):
     doc = target.get_tool_documentation()
     assert "MAF" in doc
