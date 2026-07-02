@@ -18,10 +18,12 @@ adapter bridges both gaps:
 
 The ``agent-framework`` package is intentionally **not** imported at module load
 time; the adapter only duck-types the agent object, so importing this module never
-hard-requires the dependency.  MAF API names differ between versions (older builds
-expose ``ChatAgent`` / ``get_new_thread()`` / ``run(thread=...)`` while newer ones
-expose ``Agent`` / ``create_session()`` / ``run(session=...)``); the helpers below
-adapt to whatever the installed agent provides.
+hard-requires the dependency.  MAF API names differ between versions: current builds
+expose ``Agent`` / ``create_session()`` / ``run(session=...)`` while older builds
+expose ``ChatAgent`` / ``get_new_thread()`` / ``run(thread=...)``.  The helpers below
+try the current names first and fall back to the legacy ones, always passing the
+conversation-state object under the keyword that matches the factory that produced
+it.
 
 Usage::
 
@@ -43,25 +45,55 @@ from uuid import uuid4
 from rhesis.sdk.targets import Target, TargetResponse
 
 # Candidate factory methods used to mint a fresh conversation thread/session,
-# in priority order.  Different MAF versions name this differently.
+# in priority order.  Different MAF versions name this differently; the current
+# ``create_session`` API is tried before the legacy ``get_new_thread`` one.
 _THREAD_FACTORY_METHODS: Tuple[str, ...] = (
-    "get_new_thread",
     "create_session",
     "get_new_session",
+    "get_new_thread",
     "new_thread",
 )
 
 # Candidate keyword names under which the thread/session object is passed to
-# ``agent.run(...)``, in priority order.
-_THREAD_RUN_KWARGS: Tuple[str, ...] = ("thread", "session")
+# ``agent.run(...)``, in priority order (current ``session`` before legacy
+# ``thread``).
+_THREAD_RUN_KWARGS: Tuple[str, ...] = ("session", "thread")
 
 # Maps each thread/session factory method to the ``run`` kwarg it expects.
 _FACTORY_TO_RUN_KWARG: Dict[str, str] = {
-    "get_new_thread": "thread",
     "create_session": "session",
     "get_new_session": "session",
+    "get_new_thread": "thread",
     "new_thread": "thread",
 }
+
+
+def _json_safe(value: Any) -> Any:
+    """
+    Coerce a MAF framework object into something ``json.dumps`` can serialize.
+
+    Response metadata (e.g. ``usage`` / ``usage_details``) is placed into the
+    :class:`TargetResponse` metadata dict, which Penelope's executor serializes
+    with ``json.dumps`` *without* a fallback encoder.  Real MAF responses expose
+    these as framework objects (not plain dicts), so they must be reduced to JSON
+    primitives here to avoid a ``TypeError`` that the target cannot catch.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        try:
+            return _json_safe(model_dump(mode="json"))
+        except Exception:
+            try:
+                return _json_safe(model_dump())
+            except Exception:
+                pass
+    return str(value)
 
 
 class MicrosoftAgentFrameworkTarget(Target):
@@ -210,14 +242,25 @@ class MicrosoftAgentFrameworkTarget(Target):
         agent); the conversation_id remains stable regardless, but per-turn
         context will only persist if the agent itself supports threads/sessions.
         """
+        method_name = self._state_factory_method()
+        if method_name is None:
+            return None
+        factory = getattr(self.agent, method_name)
+        result = factory()
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+
+    def _state_factory_method(self) -> Optional[str]:
+        """Return the name of the first thread/session factory the agent exposes."""
         for method_name in _THREAD_FACTORY_METHODS:
-            factory = getattr(self.agent, method_name, None)
-            if callable(factory):
-                result = factory()
-                if inspect.isawaitable(result):
-                    result = await result
-                return result
+            if callable(getattr(self.agent, method_name, None)):
+                return method_name
         return None
+
+    def is_stateful(self) -> bool:
+        """Whether the agent exposes a thread/session factory for multi-turn memory."""
+        return self._state_factory_method() is not None
 
     async def _run_agent(self, message: str, thread: Any) -> Any:
         """Invoke the agent's async ``run`` with the right thread/session kwarg."""
@@ -233,28 +276,48 @@ class MicrosoftAgentFrameworkTarget(Target):
         return result
 
     def _thread_run_kwarg(self) -> Optional[str]:
-        """Pick the keyword (``thread`` vs ``session``) ``run`` accepts for state."""
+        """
+        Pick the keyword (``session`` vs ``thread``) under which to pass state to ``run``.
+
+        The kwarg is derived from the factory that produced the state object so it
+        always matches what :meth:`_create_thread` built, then validated against
+        ``run``'s real signature.  This keeps object creation and invocation in
+        lock-step: an agent whose ``create_session`` minted a *session* never has
+        that object passed under ``thread=`` (which ``run`` would drop into
+        ``**kwargs`` and silently ignore, losing conversation memory).
+        """
+        preferred = self._state_kwarg_from_factory()
         try:
             params = inspect.signature(self.agent.run).parameters
         except (TypeError, ValueError):
-            # Signature unavailable (e.g. C-implemented); infer from factory API.
-            return self._state_kwarg_from_factory() or _THREAD_RUN_KWARGS[0]
+            # Signature unavailable (e.g. C-implemented); trust the factory kwarg.
+            return preferred or _THREAD_RUN_KWARGS[0]
 
-        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
-            # ``**kwargs`` accepts both names; pick the one matching the factory
-            # API so modern ``create_session`` agents still get ``session=``.
-            return self._state_kwarg_from_factory() or _THREAD_RUN_KWARGS[0]
+        accepts_var_keyword = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+        )
+
+        # Prefer the factory-matched kwarg whenever ``run`` can receive it, either
+        # as an explicit parameter or via ``**kwargs``.
+        if preferred and (preferred in params or accepts_var_keyword):
+            return preferred
+
+        # Otherwise fall back to whatever named state kwarg ``run`` actually exposes.
         for name in _THREAD_RUN_KWARGS:
             if name in params:
                 return name
+
+        # No named state kwarg; only pass one if ``run`` accepts ``**kwargs``.
+        if accepts_var_keyword:
+            return preferred or _THREAD_RUN_KWARGS[0]
         return None
 
     def _state_kwarg_from_factory(self) -> Optional[str]:
         """Return the ``run`` kwarg that matches the agent's thread/session factory."""
-        for method_name in _THREAD_FACTORY_METHODS:
-            if callable(getattr(self.agent, method_name, None)):
-                return _FACTORY_TO_RUN_KWARG[method_name]
-        return None
+        method_name = self._state_factory_method()
+        if method_name is None:
+            return None
+        return _FACTORY_TO_RUN_KWARG[method_name]
 
     @staticmethod
     def _extract_text(response: Any) -> str:
@@ -274,7 +337,7 @@ class MicrosoftAgentFrameworkTarget(Target):
         for field in ("response_id", "usage", "usage_details"):
             value = getattr(response, field, None)
             if value is not None:
-                metadata[field] = value
+                metadata[field] = _json_safe(value)
         return metadata
 
     @staticmethod
@@ -297,15 +360,27 @@ class MicrosoftAgentFrameworkTarget(Target):
 
     def get_tool_documentation(self) -> str:
         """Get documentation for Penelope."""
+        if self.is_stateful():
+            memory = "Yes (stateful agent with conversation history via thread/session)"
+            continuity = (
+                "Maintain conversation_id for conversation continuity across multiple turns.\n"
+                "The agent maintains full conversation context automatically for a given\n"
+                "conversation_id; the first turn returns a new conversation_id to reuse."
+            )
+        else:
+            memory = "No (stateless agent; each turn is independent)"
+            continuity = (
+                "This agent exposes no thread/session factory, so each message is\n"
+                "independent. A conversation_id is still returned for tracking, but it\n"
+                "does not restore prior context."
+            )
         return f"""
 Target: {self._description}
 Type: Microsoft Agent Framework {type(self.agent).__name__}
-Memory: Yes (stateful agent with conversation history via thread/session)
+Memory: {memory}
 
 Send messages using send_message_to_target(message, conversation_id).
-Maintain conversation_id for conversation continuity across multiple turns.
-The agent maintains full conversation context automatically for a given
-conversation_id; the first turn returns a new conversation_id to reuse.
+{continuity}
 """
 
     def clear_session(self, conversation_id: str) -> None:
