@@ -99,15 +99,34 @@ export class WebSocketClient {
   /**
    * Connect to the WebSocket server.
    *
-   * Authentication is performed via query parameter.
+   * When a `tokenProvider` is configured, a fresh token is fetched before
+   * opening the socket. This ensures every connection attempt (including
+   * auto-reconnects) uses a valid short-lived token rather than a stale
+   * long-lived session JWT. The static `token` is used as a fallback if the
+   * provider throws or if no provider is configured.
    */
-  connect(): void {
+  async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
       console.warn('WebSocket already connected');
       return;
     }
 
     this.intentionalDisconnect = false;
+
+    // Fetch a fresh token from the provider when available.
+    if (this.options.tokenProvider) {
+      try {
+        const freshToken = await this.options.tokenProvider();
+        // Abort if disconnect() was called while the token was being fetched.
+        if (this.intentionalDisconnect) return;
+        this.options.token = freshToken;
+      } catch (error) {
+        console.warn(
+          'WebSocket token provider failed, falling back to static token:',
+          error
+        );
+      }
+    }
 
     // Build URL with token
     const url = `${this.options.url}?token=${encodeURIComponent(this.options.token)}`;
