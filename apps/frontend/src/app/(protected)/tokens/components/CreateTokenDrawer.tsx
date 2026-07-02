@@ -15,19 +15,23 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TokenResponse } from '@/utils/api-client/interfaces/token';
 import dayjs from 'dayjs';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { getTokenScopeExtensions } from '@/lib/extension-registries';
 
 interface CreateTokenDrawerProps {
   open: boolean;
   onClose: () => void;
+  sessionToken: string;
   onCreateToken: (
     name: string,
-    expiresInDays: number | null
+    expiresInDays: number | null,
+    scopes: string[] | null
   ) => Promise<TokenResponse>;
 }
 
 export default function CreateTokenDrawer({
   open,
   onClose,
+  sessionToken,
   onCreateToken,
 }: CreateTokenDrawerProps) {
   const [name, setName] = useState('');
@@ -37,13 +41,17 @@ export default function CreateTokenDrawer({
   const [customDate, setCustomDate] = useState<dayjs.Dayjs | null>(
     dayjs().add(1, 'day')
   );
+  const [scopes, setScopes] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const { TokenScopeField } = getTokenScopeExtensions();
 
   useEffect(() => {
     if (open) {
       setName('');
       setExpiryOption('30');
       setCustomDate(dayjs().add(1, 'day'));
+      setScopes(null);
       setLoading(false);
     }
   }, [open]);
@@ -52,6 +60,7 @@ export default function CreateTokenDrawer({
     setName('');
     setExpiryOption('30');
     setCustomDate(dayjs().add(1, 'day'));
+    setScopes(null);
     onClose();
   };
 
@@ -70,7 +79,7 @@ export default function CreateTokenDrawer({
         expiresInDays = parseInt(expiryOption, 10);
       }
 
-      await onCreateToken(trimmedName, expiresInDays);
+      await onCreateToken(trimmedName, expiresInDays, scopes);
       handleClose();
     } catch {
       // Parent handles errors
@@ -131,6 +140,13 @@ export default function CreateTokenDrawer({
               }}
             />
           </LocalizationProvider>
+        )}
+        {TokenScopeField && (
+          <TokenScopeField
+            sessionToken={sessionToken}
+            value={scopes}
+            onChange={setScopes}
+          />
         )}
       </Stack>
     </BaseDrawer>

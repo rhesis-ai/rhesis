@@ -104,12 +104,14 @@ export default function TokensPageClient({
 
   const handleCreateToken = async (
     name: string,
-    expiresInDays: number | null
+    expiresInDays: number | null,
+    scopes: string[] | null
   ) => {
     try {
       const response = await tokensClientRef.current.createToken(
         name,
-        expiresInDays
+        expiresInDays,
+        scopes
       );
       setNewToken({ ...response, name });
       setIsCreateModalOpen(false);
@@ -308,6 +310,7 @@ export default function TokensPageClient({
       <CreateTokenDrawer
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        sessionToken={sessionToken}
         onCreateToken={handleCreateToken}
       />
 
