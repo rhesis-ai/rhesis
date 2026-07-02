@@ -1505,6 +1505,7 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
 
     # Load initial data and build model map
     initial_data = _load_initial_data()
+    _inject_garak_metrics(initial_data)
     model_data_map = _build_model_data_map(initial_data)
 
     # Get models to process
