@@ -654,13 +654,37 @@ class TestProjectMemberAPI:
         assert result.role_id == role.id
         assert result.project_id == self.project_id
 
-    def test_assign_org_scoped_role_to_project_raises_422(self):
+    def test_assign_builtin_org_scoped_role_to_project_succeeds(self):
+        """Built-in Admin (scope='organization') now binds down to the project tier.
+
+        Under the one-directional gate model (K8s ClusterRole semantics), org/built-in
+        roles bind down to projects.  Only Owner (level 100) and None (level 0) are
+        rejected at the project tier.
+        """
         target_id = _create_user(self.db, self.org_id)
         _add_project_member(self.db, self.org_id, self.project_id, target_id)
 
-        # Built-in "Admin" has scope='organization'.
+        admin_role = _builtin_role(self.db, "Admin")
+        result = self._assign(self.project_id, target_id, admin_role)
+        assert result.role_id == admin_role.id
+        assert result.project_id == self.project_id
+
+    def test_assign_owner_to_project_raises_422(self):
+        """Owner (level 100) cannot be assigned at the project tier."""
+        target_id = _create_user(self.db, self.org_id)
+        _add_project_member(self.db, self.org_id, self.project_id, target_id)
+
         with pytest.raises(HTTPException) as exc:
-            self._assign(self.project_id, target_id, _builtin_role(self.db, "Admin"))
+            self._assign(self.project_id, target_id, _builtin_role(self.db, "Owner"))
+        assert exc.value.status_code == 422
+
+    def test_assign_none_to_project_raises_422(self):
+        """None (level 0) cannot be assigned at the project tier."""
+        target_id = _create_user(self.db, self.org_id)
+        _add_project_member(self.db, self.org_id, self.project_id, target_id)
+
+        with pytest.raises(HTTPException) as exc:
+            self._assign(self.project_id, target_id, _builtin_role(self.db, "None"))
         assert exc.value.status_code == 422
 
     def test_assign_role_to_non_member_raises_404(self):

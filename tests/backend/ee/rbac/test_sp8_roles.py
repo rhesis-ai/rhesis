@@ -605,8 +605,14 @@ class TestScopeEnforcement:
         assert exc_info.value.status_code == 422
         assert "project-scoped" in exc_info.value.detail
 
-    def test_assign_project_role_rejects_org_scoped_role(self, test_db, test_org_id: str):
-        """PUT /projects/{pid}/members/{uid}/role with an org-scoped role → 422."""
+    def test_assign_project_role_accepts_builtin_org_role(self, test_db, test_org_id: str):
+        """Built-in org-scoped roles (Admin/Member/Viewer) are now accepted at the project tier.
+
+        Under the one-directional gate model (K8s ClusterRole semantics) org/built-in
+        roles bind *down* to projects.  The old 422 "org-scoped" rejection is gone.
+        The endpoint proceeds past the scope check and fails at membership-not-found (404),
+        proving that the scope guard no longer fires.
+        """
         from unittest.mock import MagicMock, patch
 
         from fastapi import HTTPException
@@ -625,8 +631,100 @@ class TestScopeEnforcement:
         mock_user.id = uuid.uuid4()
         mock_user.organization_id = uuid.UUID(test_org_id)
 
-        with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
+        # Patch with full Admin perms + matching level so the escalation guard passes.
+        # The request then fails at 404 (project membership not found), not 422.
+        with patch(
+            "rhesis.backend.ee.rbac.router._get_actor_permissions",
+            return_value={"organization:update", "role:manage", "test_set:read"},
+        ):
             with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                with patch(
+                    "rhesis.backend.ee.rbac.router._role_permission_names_resolved",
+                    return_value=[],
+                ):
+                    with pytest.raises(HTTPException) as exc_info:
+                        assign_project_role(
+                            project_id=uuid.uuid4(),
+                            user_id=uuid.uuid4(),
+                            body=ProjectMemberRoleAssign(role_id=admin_role.id),
+                            db=test_db,
+                            current_user=mock_user,
+                            _org=MagicMock(),
+                        )
+
+        # 404 (membership not found) — the scope guard did NOT fire.
+        assert exc_info.value.status_code == 404
+        assert "membership" in exc_info.value.detail.lower()
+
+    def test_assign_project_role_rejects_owner_and_none(self, test_db, test_org_id: str):
+        """Owner (level 100) and None (level 0) are rejected at the project tier → 422."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import assign_project_role
+        from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleAssign
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        for role_name in ("Owner", "None"):
+            with bypass_tenant_filter():
+                role = test_db.query(Role).filter_by(name=role_name, is_built_in=True).first()
+            assert role is not None, f"built-in {role_name!r} not found"
+
+            with patch(
+                "rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()
+            ):
+                with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                    with pytest.raises(HTTPException) as exc_info:
+                        assign_project_role(
+                            project_id=uuid.uuid4(),
+                            user_id=uuid.uuid4(),
+                            body=ProjectMemberRoleAssign(role_id=role.id),
+                            db=test_db,
+                            current_user=mock_user,
+                            _org=MagicMock(),
+                        )
+
+            assert exc_info.value.status_code == 422, f"{role_name} should be rejected"
+            assert "Owner and None" in exc_info.value.detail
+
+    def test_assign_project_role_escalation_guard_blocks_low_privilege_actor(
+        self, test_db, test_org_id: str
+    ):
+        """A Member-level actor cannot grant built-in Admin (escalation → 403).
+
+        Prior to the _role_permission_names_resolved fix, built-in roles returned
+        [] from _role_permission_names, letting the escalation check silently pass.
+        This test ensures the resolved helper closes that gap.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import assign_project_role
+        from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleAssign
+
+        with bypass_tenant_filter():
+            admin_role = test_db.query(Role).filter_by(name="Admin", is_built_in=True).first()
+        assert admin_role is not None
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        # Member-level actor: level 60, only member-tier permissions (no role:manage etc.)
+        member_perms = {"test_set:read", "test_set:create", "test_run:read"}
+        with patch(
+            "rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=member_perms
+        ):
+            with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=60):
                 with pytest.raises(HTTPException) as exc_info:
                     assign_project_role(
                         project_id=uuid.uuid4(),
@@ -637,8 +735,9 @@ class TestScopeEnforcement:
                         _org=MagicMock(),
                     )
 
-        assert exc_info.value.status_code == 422
-        assert "org-scoped" in exc_info.value.detail
+        # Escalation denied: Admin level 80 > actor level 60 (or perms overgrant).
+        assert exc_info.value.status_code == 403
+        assert "escalation" in exc_info.value.detail.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -672,8 +771,11 @@ class TestForeignUserValidation:
 
         with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
             with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
-                # Admin role has many permissions; patch names to avoid escalation 403
-                with patch("rhesis.backend.ee.rbac.router._role_permission_names", return_value=[]):
+                # Admin is a built-in; patch the resolved helper to bypass escalation 403.
+                with patch(
+                    "rhesis.backend.ee.rbac.router._role_permission_names_resolved",
+                    return_value=[],
+                ):
                     with pytest.raises(HTTPException) as exc_info:
                         assign_org_role(
                             user_id=foreign_user_id,
