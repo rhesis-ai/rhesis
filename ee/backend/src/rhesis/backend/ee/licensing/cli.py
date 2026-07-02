@@ -250,11 +250,18 @@ def cmd_issue(args: argparse.Namespace) -> None:
         _print_summary(args.org, args.kid, token, dry_run=True)
         return
 
-    # Live issue — use the app's SessionLocal (DB config from DB_* env vars,
-    # same as the migrate.sh and the running backend).
-    from rhesis.backend.app.database import SessionLocal
+    # Live issue — connect with admin credentials (ADMIN_DB_USER / ADMIN_DB_PASS)
+    # so the UPDATE on organization.license succeeds regardless of RLS policy.
+    # DatabaseSettings.admin_url falls back to APP_DB_* for single-role setups.
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
 
-    db = SessionLocal()
+    from rhesis.backend.app.config.settings import get_database_settings
+
+    db_settings = get_database_settings()
+    admin_engine = create_engine(db_settings.admin_url)
+    AdminSession = sessionmaker(bind=admin_engine, autocommit=False, autoflush=False)
+    db = AdminSession()
     try:
         token = issue(
             db,
@@ -269,6 +276,7 @@ def cmd_issue(args: argparse.Namespace) -> None:
         )
     finally:
         db.close()
+        admin_engine.dispose()
 
     _print_summary(args.org, args.kid, token, dry_run=False)
 

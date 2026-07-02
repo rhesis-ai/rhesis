@@ -13,6 +13,7 @@ keypair; here we additionally expose the *private* key as
 
 from __future__ import annotations
 
+import base64
 import os
 from datetime import datetime, timezone
 from typing import Any
@@ -283,6 +284,39 @@ class TestMintTokenErrors:
 
     def test_invalid_pem_raises(self, monkeypatch):
         monkeypatch.setenv(ENV_LICENSE_PRIVATE_KEY, "not-a-pem")
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(RuntimeError):
+            mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1")
+
+    def test_base64_encoded_pem_is_accepted(self, ed25519_keypair, monkeypatch):
+        """A base64-encoded PEM is accepted identically to a raw PEM."""
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            NoEncryption,
+            PrivateFormat,
+        )
+
+        private_key, _ = ed25519_keypair
+        pem = private_key.private_bytes(
+            encoding=Encoding.PEM,
+            format=PrivateFormat.PKCS8,
+            encryption_algorithm=NoEncryption(),
+        ).decode()
+        b64_pem = base64.b64encode(pem.encode()).decode()
+        monkeypatch.setenv(ENV_LICENSE_PRIVATE_KEY, b64_pem)
+
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        token = mint_token(self.ORG_ID, LicenseEdition.ENTERPRISE, kid="test-v1")
+        ent = verify_token(token)
+        assert ent is not None
+        assert ent.edition == LicenseEdition.ENTERPRISE
+
+    def test_invalid_base64_content_raises(self, monkeypatch):
+        """A non-PEM string that is valid base64 but decodes to garbage raises RuntimeError."""
+        junk_b64 = base64.b64encode(b"this is not a pem").decode()
+        monkeypatch.setenv(ENV_LICENSE_PRIVATE_KEY, junk_b64)
         from rhesis.backend.ee.licensing.mint import mint_token
 
         with pytest.raises(RuntimeError):
