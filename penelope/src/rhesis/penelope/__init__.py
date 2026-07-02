@@ -25,6 +25,7 @@ from rhesis.penelope.targets import (
     LangChainTarget,
     LangGraphTarget,
     MAFTarget,
+    PydanticAITarget,
     Target,
 )
 from rhesis.penelope.tools.base import Tool
@@ -51,6 +52,7 @@ __all__ = [
     "LangChainTarget",
     "LangGraphTarget",
     "MAFTarget",
+    "PydanticAITarget",
 ]
 
 # Deprecated alias: MicrosoftAgentFrameworkTarget was renamed to MAFTarget.
