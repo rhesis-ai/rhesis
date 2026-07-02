@@ -1,7 +1,7 @@
 """
 Microsoft Agent Framework (MAF) target implementation for Penelope.
 
-Wraps any Microsoft Agent Framework agent (``agent-framework`` Python package)
+Wraps any MAF agent (``agent-framework`` Python package)
 so it can be driven by Penelope's autonomous, multi-turn testing agent.
 
 MAF agents expose an *async* ``run`` method while Penelope's :class:`Target`
@@ -31,7 +31,7 @@ Usage::
     >>> from agent_framework.openai import OpenAIChatClient
     >>>
     >>> agent = Agent(client=OpenAIChatClient(), instructions="You are helpful.")
-    >>> target = MicrosoftAgentFrameworkTarget(agent, "maf-bot", "My MAF agent")
+    >>> target = MAFTarget(agent, "maf-bot", "My MAF agent")
     >>> response = target.send_message("Hello!")
     >>> follow_up = target.send_message("And again?", response.conversation_id)
 """
@@ -96,9 +96,9 @@ def _json_safe(value: Any) -> Any:
     return str(value)
 
 
-class MicrosoftAgentFrameworkTarget(Target):
+class MAFTarget(Target):
     """
-    Target for Microsoft Agent Framework agents.
+    Target for MAF (Microsoft Agent Framework) agents.
 
     Works with any MAF agent (``ChatAgent``, ``Agent``, ``AIAgent`` or anything
     implementing the framework's async ``run`` method).  Multi-turn context is
@@ -113,7 +113,7 @@ class MicrosoftAgentFrameworkTarget(Target):
         description: Optional[str] = None,
     ):
         """
-        Initialize the Microsoft Agent Framework target.
+        Initialize the MAF target.
 
         Args:
             agent: Any MAF agent exposing an async ``run`` method.
@@ -123,7 +123,7 @@ class MicrosoftAgentFrameworkTarget(Target):
         self.agent = agent
         self._target_id = target_id
         self._description = description or (
-            f"Microsoft Agent Framework {type(agent).__name__}: {target_id}"
+            f"MAF {type(agent).__name__}: {target_id}"
         )
 
         # Registry mapping the string conversation_id Penelope uses to the MAF
@@ -132,11 +132,11 @@ class MicrosoftAgentFrameworkTarget(Target):
 
         is_valid, error = self.validate_configuration()
         if not is_valid:
-            raise ValueError(f"Invalid Microsoft Agent Framework target: {error}")
+            raise ValueError(f"Invalid MAF target: {error}")
 
     @property
     def target_type(self) -> str:
-        return "microsoft_agent_framework"
+        return "maf"
 
     @property
     def target_id(self) -> str:
@@ -147,7 +147,7 @@ class MicrosoftAgentFrameworkTarget(Target):
         return self._description
 
     def validate_configuration(self) -> tuple[bool, Optional[str]]:
-        """Validate the Microsoft Agent Framework target configuration."""
+        """Validate the MAF target configuration."""
         if self.agent is None:
             return False, "Agent cannot be None"
         if not self._target_id:
@@ -213,7 +213,7 @@ class MicrosoftAgentFrameworkTarget(Target):
             return TargetResponse(
                 success=False,
                 content="",
-                error=f"Microsoft Agent Framework error: {e}",
+                error=f"MAF error: {e}",
             )
 
     async def _resolve_thread(self, conversation_id: Optional[str]) -> Tuple[Any, str]:
@@ -376,7 +376,7 @@ class MicrosoftAgentFrameworkTarget(Target):
             )
         return f"""
 Target: {self._description}
-Type: Microsoft Agent Framework {type(self.agent).__name__}
+Type: MAF {type(self.agent).__name__}
 Memory: {memory}
 
 Send messages using send_message_to_target(message, conversation_id).

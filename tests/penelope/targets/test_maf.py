@@ -1,7 +1,7 @@
-"""Tests for MicrosoftAgentFrameworkTarget.
+"""Tests for MAFTarget.
 
-These tests use lightweight fakes that mimic the Microsoft Agent Framework
-(MAF) agent contract, so no LLM or network access is required.  Two fakes are
+These tests use lightweight fakes that mimic the MAF (Microsoft Agent Framework)
+agent contract, so no LLM or network access is required.  Two fakes are
 provided to cover both the modern (``create_session`` / ``run(session=...)``)
 and legacy (``get_new_thread`` / ``run(thread=...)``) MAF API shapes.
 """
@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from rhesis.penelope.targets.microsoft_agent_framework import MicrosoftAgentFrameworkTarget
+from rhesis.penelope.targets.maf import MAFTarget
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -99,25 +99,25 @@ def modern_agent() -> ModernFakeAgent:
 
 
 @pytest.fixture
-def target(modern_agent: ModernFakeAgent) -> MicrosoftAgentFrameworkTarget:
-    return MicrosoftAgentFrameworkTarget(modern_agent, "maf-bot", "A MAF test agent")
+def target(modern_agent: ModernFakeAgent) -> MAFTarget:
+    return MAFTarget(modern_agent, "maf-bot", "A MAF test agent")
 
 
-def test_is_a_target(target: MicrosoftAgentFrameworkTarget):
+def test_is_a_target(target: MAFTarget):
     assert isinstance(target, Target)
 
 
-def test_identity_properties(target: MicrosoftAgentFrameworkTarget):
-    assert target.target_type == "microsoft_agent_framework"
+def test_identity_properties(target: MAFTarget):
+    assert target.target_type == "maf"
     assert isinstance(target.target_id, str) and target.target_id
     assert isinstance(target.description, str) and target.description
 
 
-def test_validate_configuration_good(target: MicrosoftAgentFrameworkTarget):
+def test_validate_configuration_good(target: MAFTarget):
     assert target.validate_configuration() == (True, None)
 
 
-def test_validate_configuration_none_agent(target: MicrosoftAgentFrameworkTarget):
+def test_validate_configuration_none_agent(target: MAFTarget):
     target.agent = None
     is_valid, error = target.validate_configuration()
     assert is_valid is False
@@ -125,8 +125,8 @@ def test_validate_configuration_none_agent(target: MicrosoftAgentFrameworkTarget
 
 
 def test_init_rejects_none_agent():
-    with pytest.raises(ValueError, match="Invalid Microsoft Agent Framework target"):
-        MicrosoftAgentFrameworkTarget(None, "maf-bot")
+    with pytest.raises(ValueError, match="Invalid MAF target"):
+        MAFTarget(None, "maf-bot")
 
 
 def test_init_rejects_agent_without_run():
@@ -134,10 +134,10 @@ def test_init_rejects_agent_without_run():
         pass
 
     with pytest.raises(ValueError, match="callable async run"):
-        MicrosoftAgentFrameworkTarget(NoRun(), "maf-bot")
+        MAFTarget(NoRun(), "maf-bot")
 
 
-def test_send_message_success(target: MicrosoftAgentFrameworkTarget):
+def test_send_message_success(target: MAFTarget):
     response = target.send_message("hello")
     assert isinstance(response, TargetResponse)
     assert response.success is True
@@ -150,7 +150,7 @@ def test_send_message_success(target: MicrosoftAgentFrameworkTarget):
 
 
 @pytest.mark.parametrize("message", ["", "   ", "\n\t"])
-def test_send_message_empty_does_not_raise(target: MicrosoftAgentFrameworkTarget, message: str):
+def test_send_message_empty_does_not_raise(target: MAFTarget, message: str):
     response = target.send_message(message)
     assert response.success is False
     assert response.error == "Empty message"
@@ -158,14 +158,14 @@ def test_send_message_empty_does_not_raise(target: MicrosoftAgentFrameworkTarget
 
 def test_agent_exception_surfaces_as_failure():
     agent = ModernFakeAgent(raises=True)
-    target = MicrosoftAgentFrameworkTarget(agent, "maf-bot")
+    target = MAFTarget(agent, "maf-bot")
     response = target.send_message("hello")
     assert response.success is False
     assert response.content == ""
-    assert response.error and "Microsoft Agent Framework error" in response.error
+    assert response.error and "MAF error" in response.error
 
 
-def test_multi_turn_preserves_thread(target: MicrosoftAgentFrameworkTarget, modern_agent):
+def test_multi_turn_preserves_thread(target: MAFTarget, modern_agent):
     first = target.send_message("turn one")
     conv_id = first.conversation_id
     assert conv_id
@@ -181,17 +181,17 @@ def test_multi_turn_preserves_thread(target: MicrosoftAgentFrameworkTarget, mode
     assert session_turn1.history == ["turn one", "turn two"]
 
 
-def test_unknown_conversation_id_gets_fresh_thread(target: MicrosoftAgentFrameworkTarget):
+def test_unknown_conversation_id_gets_fresh_thread(target: MAFTarget):
     response = target.send_message("hi", conversation_id="caller-supplied-id")
     assert response.success is True
     assert response.conversation_id == "caller-supplied-id"
 
 
-def test_a_send_message_is_coroutine_function(target: MicrosoftAgentFrameworkTarget):
+def test_a_send_message_is_coroutine_function(target: MAFTarget):
     assert inspect.iscoroutinefunction(target.a_send_message)
 
 
-async def test_a_send_message_returns_valid_response(target: MicrosoftAgentFrameworkTarget):
+async def test_a_send_message_returns_valid_response(target: MAFTarget):
     response = await target.a_send_message("hello async")
     assert isinstance(response, TargetResponse)
     assert response.success is True
@@ -199,7 +199,7 @@ async def test_a_send_message_returns_valid_response(target: MicrosoftAgentFrame
     assert response.conversation_id
 
 
-async def test_send_message_works_inside_running_loop(target: MicrosoftAgentFrameworkTarget):
+async def test_send_message_works_inside_running_loop(target: MAFTarget):
     # Called from within an active event loop -> exercises the worker-thread bridge.
     response = target.send_message("from inside loop")
     assert response.success is True
@@ -208,7 +208,7 @@ async def test_send_message_works_inside_running_loop(target: MicrosoftAgentFram
 
 def test_legacy_thread_api_multi_turn():
     agent = LegacyFakeAgent()
-    target = MicrosoftAgentFrameworkTarget(agent, "legacy-bot")
+    target = MAFTarget(agent, "legacy-bot")
 
     first = target.send_message("turn one")
     second = target.send_message("turn two", conversation_id=first.conversation_id)
@@ -220,7 +220,7 @@ def test_legacy_thread_api_multi_turn():
 
 def test_kwargs_run_uses_session_for_modern_agent():
     agent = ModernFakeAgentWithKwargs()
-    target = MicrosoftAgentFrameworkTarget(agent, "kwargs-bot")
+    target = MAFTarget(agent, "kwargs-bot")
 
     first = target.send_message("turn one")
     second = target.send_message("turn two", conversation_id=first.conversation_id)
@@ -269,7 +269,7 @@ def test_metadata_is_json_serializable_with_object_usage():
         async def run(self, messages: str | None = None, *, session=None):
             return ResponseWithObjectUsage(NonSerializableUsage())
 
-    target = MicrosoftAgentFrameworkTarget(AgentWithObjectUsage(), "usage-bot")
+    target = MAFTarget(AgentWithObjectUsage(), "usage-bot")
     response = target.send_message("hi")
 
     assert response.success is True
@@ -283,7 +283,7 @@ def test_metadata_coerces_opaque_usage_to_string():
         async def run(self, messages: str | None = None, *, session=None):
             return ResponseWithObjectUsage(OpaqueUsage())
 
-    target = MicrosoftAgentFrameworkTarget(AgentWithOpaqueUsage(), "usage-bot")
+    target = MAFTarget(AgentWithOpaqueUsage(), "usage-bot")
     response = target.send_message("hi")
 
     assert response.success is True
@@ -292,7 +292,7 @@ def test_metadata_coerces_opaque_usage_to_string():
 
 
 def test_stateless_agent_reports_no_memory():
-    target = MicrosoftAgentFrameworkTarget(StatelessAgent(), "stateless-bot")
+    target = MAFTarget(StatelessAgent(), "stateless-bot")
     assert target.is_stateful() is False
     doc = target.get_tool_documentation()
     assert "Memory: No" in doc
@@ -302,14 +302,14 @@ def test_stateless_agent_reports_no_memory():
     assert response.conversation_id
 
 
-def test_get_tool_documentation(target: MicrosoftAgentFrameworkTarget):
+def test_get_tool_documentation(target: MAFTarget):
     doc = target.get_tool_documentation()
-    assert "Microsoft Agent Framework" in doc
+    assert "MAF" in doc
     assert "conversation_id" in doc
     assert "send_message_to_target" in doc
 
 
-def test_clear_session(target: MicrosoftAgentFrameworkTarget):
+def test_clear_session(target: MAFTarget):
     first = target.send_message("hello")
     conv_id = first.conversation_id
     assert conv_id in target._threads

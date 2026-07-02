@@ -24,7 +24,7 @@ from rhesis.penelope.targets import (
     EndpointTarget,
     LangChainTarget,
     LangGraphTarget,
-    MicrosoftAgentFrameworkTarget,
+    MAFTarget,
     Target,
 )
 from rhesis.penelope.tools.base import Tool
@@ -50,5 +50,5 @@ __all__ = [
     "EndpointTarget",
     "LangChainTarget",
     "LangGraphTarget",
-    "MicrosoftAgentFrameworkTarget",
+    "MAFTarget",
 ]

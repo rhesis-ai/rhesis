@@ -10,7 +10,7 @@ Requirements:
 
 Usage:
     export GEMINI_API_KEY=...   # or GOOGLE_API_KEY
-    uv run python microsoft_agent_framework_minimal.py
+    uv run python maf_minimal.py
 """
 
 import os
@@ -22,7 +22,7 @@ load_dotenv()
 
 google_api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 
-# 1. Create a simple Microsoft Agent Framework agent using Gemini.
+# 1. Create a simple MAF agent using Gemini.
 #    Gemini exposes an OpenAI-compatible endpoint, so MAF's OpenAI chat-completion
 #    client can talk to it by pointing base_url at Google.
 from agent_framework import Agent
@@ -39,9 +39,9 @@ agent = Agent(
 )
 
 # 2. Wrap it in a Penelope target
-from rhesis.penelope import MicrosoftAgentFrameworkTarget
+from rhesis.penelope import MAFTarget
 
-target = MicrosoftAgentFrameworkTarget(agent, "customer-service-agent", "Customer service agent")
+target = MAFTarget(agent, "customer-service-agent", "Customer service agent")
 
 # 3. Test with Penelope (also driven by Gemini, so only a Google key is needed)
 from rhesis.penelope import PenelopeAgent
