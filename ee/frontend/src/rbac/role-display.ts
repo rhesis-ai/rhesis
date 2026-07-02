@@ -92,20 +92,46 @@ export function getRoleChipSx(role: RoleRead): Record<string, unknown> {
 /**
  * Whether a role can be assigned to a user at the **org** tier.
  *
- * Owner (level 100) is excluded — it can only be transferred, not assigned.
+ * None (level 0) is excluded — explicit revocation is not a useful assignment.
+ * Owner (level 100) is permitted: the backend allows multiple org owners and
+ * only protects against removing the *last* one.
  */
 export function isAssignableOrgRole(role: RoleRead): boolean {
-  return !role.is_built_in || role.level < 100;
+  return !role.is_built_in || role.level > 0;
 }
 
 /**
  * Whether a role can be assigned to a user at the **project** tier.
  *
- * Owner (level 100) and None (level 0) are excluded — Owner doesn't apply at
- * the project tier and None means "no access" (an explicit revocation).
+ * Only None (level 0) is excluded — it means "no access" (explicit revocation)
+ * and is not a useful assignment.  Owner (level 100) IS allowed at the project
+ * tier so that a project creator or lead can be designated as the project owner,
+ * independent of who holds the org-level Owner role.
  */
 export function isAssignableProjectRole(role: RoleRead): boolean {
-  return !role.is_built_in || (role.level > 0 && role.level < 100);
+  return !role.is_built_in || role.level > 0;
+}
+
+/**
+ * Whether a role is within the actor's authority to assign.
+ *
+ * Mirrors the two-part backend `_check_escalation`:
+ *   1. Level gate  — role.level must be ≤ actor level.
+ *   2. Permission gate (custom roles only) — every permission on the role must
+ *      be held by the actor.  Built-in roles are exempt because their effective
+ *      permission set is computed server-side and is always a strict subset of a
+ *      higher-level built-in role (the level gate is sufficient).
+ */
+export function isWithinActorAuthority(
+  role: RoleRead,
+  actorLevel: number,
+  actorPermissions: ReadonlySet<string>,
+): boolean {
+  if (role.level > actorLevel) return false;
+  if (!role.is_built_in) {
+    return role.permissions.every((p) => actorPermissions.has(p.name));
+  }
+  return true;
 }
 
 /**

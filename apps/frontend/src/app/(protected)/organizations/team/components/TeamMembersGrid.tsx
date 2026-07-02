@@ -28,6 +28,7 @@ import {
   type TeamFilters,
 } from '@/utils/odata-filter';
 import TeamFilterDrawer from './TeamFilterDrawer';
+import MemberAccessDrawer from './MemberAccessDrawer';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
@@ -117,6 +118,8 @@ export default function TeamMembersGrid({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [accessDrawerOpen, setAccessDrawerOpen] = useState(false);
+  const [accessDrawerUser, setAccessDrawerUser] = useState<User | null>(null);
 
   const fetchUsers = useCallback(
     async (skip = 0, limit = 25) => {
@@ -217,6 +220,11 @@ export default function TeamMembersGrid({
     setDeleteDialogOpen(false);
     setUserToDelete(null);
   };
+
+  const handleRowClick = useCallback((params: { row: User }) => {
+    setAccessDrawerUser(params.row);
+    setAccessDrawerOpen(true);
+  }, []);
 
   const { OrgRoleCell } = getMemberRoleExtensions();
   const sessionToken = session?.session_token ?? '';
@@ -389,6 +397,8 @@ export default function TeamMembersGrid({
         toolbarSlot={TeamUnifiedToolbar}
         persistState
         storageKey="team-members-grid"
+        onRowClick={handleRowClick}
+        sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
       />
 
       <TeamFilterDrawer
@@ -399,6 +409,12 @@ export default function TeamMembersGrid({
           setDrawerFilters(f);
           setFilterDrawerOpen(false);
         }}
+      />
+
+      <MemberAccessDrawer
+        open={accessDrawerOpen}
+        onClose={() => setAccessDrawerOpen(false)}
+        user={accessDrawerUser}
       />
 
       <DeleteModal

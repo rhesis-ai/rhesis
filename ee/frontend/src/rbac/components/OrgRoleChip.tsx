@@ -1,69 +1,24 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Chip,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Skeleton,
-  Typography,
-} from "@mui/material";
-import CheckIcon from "@mui/icons-material/Check";
+import { MenuItem, Select, SelectChangeEvent, Skeleton, Typography } from "@mui/material";
 import { useCan } from "@/components/common/Can";
 import { Capability } from "@/constants/capabilities";
 import { useFeature } from "@/contexts/FeaturesContext";
 import { FeatureName } from "@/constants/features";
 import { RbacClient } from "../api/rbac-client";
 import { fetchRoles } from "../api/role-cache";
-import { getRoleChipSx, isAssignableOrgRole } from "../role-display";
+import {
+  fetchOrgMembers,
+  invalidateOrgMembers,
+  getCachedOrgMembers,
+} from "../api/org-members-cache";
+import { isAssignableOrgRole, isWithinActorAuthority } from "../role-display";
+import { useActorAuthority } from "../hooks/useActorAuthority";
 import type { OrgMemberRead, RoleRead } from "../types";
 
 // ---------------------------------------------------------------------------
-// Module-level cache — shared across all OrgRoleChip instances so only one
-// fetch fires per grid render cycle.
-// ---------------------------------------------------------------------------
-
-interface CacheEntry<T> {
-  key: string;
-  data: T;
-  ts: number;
-}
-
-let _membersCache: CacheEntry<OrgMemberRead[]> | null = null;
-let _membersPending: Promise<OrgMemberRead[]> | null = null;
-
-function fetchOrgMembers(sessionToken: string): Promise<OrgMemberRead[]> {
-  if (
-    _membersCache &&
-    _membersCache.key === sessionToken &&
-    Date.now() - _membersCache.ts < 30_000
-  ) {
-    return Promise.resolve(_membersCache.data);
-  }
-  if (_membersPending) return _membersPending;
-
-  _membersPending = new RbacClient(sessionToken)
-    .getOrganizationMembers()
-    .then((data) => {
-      _membersCache = { key: sessionToken, data, ts: Date.now() };
-      _membersPending = null;
-      return data;
-    })
-    .catch((err) => {
-      _membersPending = null;
-      throw err;
-    });
-  return _membersPending;
-}
-
-function invalidateOrgMembers() {
-  _membersCache = null;
-}
-
-// ---------------------------------------------------------------------------
-// Props & styling
+// Props
 // ---------------------------------------------------------------------------
 
 interface OrgRoleChipProps {
@@ -71,7 +26,6 @@ interface OrgRoleChipProps {
   sessionToken: string;
   onRoleChanged?: () => void;
 }
-
 
 // ---------------------------------------------------------------------------
 // Component
@@ -84,12 +38,9 @@ export default function OrgRoleChip({
 }: OrgRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.Member.MANAGE);
-  const [members, setMembers] = useState<OrgMemberRead[]>(
-    _membersCache?.data ?? [],
-  );
+  const [members, setMembers] = useState<OrgMemberRead[]>(getCachedOrgMembers());
   const [roles, setRoles] = useState<RoleRead[]>([]);
-  const [loading, setLoading] = useState(!_membersCache);
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [loading, setLoading] = useState(getCachedOrgMembers().length === 0);
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
@@ -119,24 +70,19 @@ export default function OrgRoleChip({
     };
   }, [rbacEnabled, sessionToken, canManage]);
 
+  const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
+    sessionToken,
+    "org",
+  );
   const member = members.find((m) => m.user_id === userId);
-  const currentRole = member?.role;
-
-  const assignableRoles = roles.filter(isAssignableOrgRole);
-
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      if (canManage && !assigning) setAnchorEl(e.currentTarget);
-    },
-    [canManage, assigning],
+  const assignableRoles = roles.filter(
+    (r) => isAssignableOrgRole(r) && isWithinActorAuthority(r, myLevel, myPermissions),
   );
 
-  const handleClose = useCallback(() => setAnchorEl(null), []);
-
-  const handleAssign = useCallback(
-    async (roleId: string) => {
-      setAnchorEl(null);
-      if (roleId === member?.role_id) return;
+  const handleChange = useCallback(
+    async (e: SelectChangeEvent<string>) => {
+      const roleId = e.target.value;
+      if (!roleId || roleId === member?.role_id) return;
       setAssigning(true);
       try {
         const client = new RbacClient(sessionToken);
@@ -153,58 +99,36 @@ export default function OrgRoleChip({
   );
 
   if (loading) {
-    return <Skeleton variant="rounded" width={80} height={24} />;
+    return <Skeleton variant="rounded" width={110} height={32} />;
   }
-
-  if (!currentRole) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        —
-      </Typography>
-    );
-  }
-
-  const chipSx = getRoleChipSx(currentRole);
 
   return (
-    <>
-      <Chip
-        label={currentRole.display_name}
-        size="small"
-        onClick={canManage ? handleClick : undefined}
-        sx={{
-          ...chipSx,
-          fontSize: 12,
-          height: 24,
-          cursor: canManage ? "pointer" : "default",
-          opacity: assigning ? 0.6 : 1,
-        }}
-      />
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-        slotProps={{
-          paper: { sx: { minWidth: 180, maxHeight: 300 } },
-        }}
-      >
-        {assignableRoles.map((role) => (
-          <MenuItem
-            key={role.id}
-            selected={role.id === member?.role_id}
-            onClick={() => handleAssign(role.id)}
-          >
-            <ListItemText>
-              <Typography variant="body2">{role.display_name}</Typography>
-            </ListItemText>
-            {role.id === member?.role_id && (
-              <ListItemIcon sx={{ minWidth: "auto", ml: 1 }}>
-                <CheckIcon fontSize="small" color="primary" />
-              </ListItemIcon>
-            )}
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
+    <Select
+      value={member?.role_id ?? ""}
+      onChange={handleChange}
+      disabled={!canManage || assigning}
+      size="small"
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return (
+            <Typography variant="body2" color="text.disabled">
+              Assign role
+            </Typography>
+          );
+        }
+        // Use the full roles list so non-assignable roles (e.g. Owner) still
+        // display their name rather than falling back to the raw UUID.
+        const role = roles.find((r) => r.id === selected);
+        return role?.display_name ?? selected;
+      }}
+      sx={{ minWidth: 120, fontSize: 13 }}
+    >
+      {assignableRoles.map((role) => (
+        <MenuItem key={role.id} value={role.id}>
+          {role.display_name}
+        </MenuItem>
+      ))}
+    </Select>
   );
 }

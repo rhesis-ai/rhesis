@@ -1,75 +1,25 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Chip,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Skeleton,
-  Typography,
-} from "@mui/material";
-import CheckIcon from "@mui/icons-material/Check";
+import { MenuItem, Select, SelectChangeEvent, Skeleton, Typography } from "@mui/material";
 import { useCan } from "@/components/common/Can";
 import { Capability } from "@/constants/capabilities";
 import { useFeature } from "@/contexts/FeaturesContext";
 import { FeatureName } from "@/constants/features";
 import { RbacClient } from "../api/rbac-client";
 import { fetchRoles } from "../api/role-cache";
-import { getRoleChipSx, isAssignableProjectRole } from "../role-display";
+import {
+  fetchProjectMembers,
+  invalidateProjectMembers,
+  hasProjectMembers,
+  getCachedProjectMembers,
+} from "../api/project-members-cache";
+import { isAssignableProjectRole, isWithinActorAuthority } from "../role-display";
+import { useActorAuthority } from "../hooks/useActorAuthority";
 import type { ProjectMemberRoleRead, RoleRead } from "../types";
 
 // ---------------------------------------------------------------------------
-// Module-level cache per project
-// ---------------------------------------------------------------------------
-
-interface CacheEntry<T> {
-  data: T;
-  ts: number;
-}
-
-const _projectMembersCache = new Map<
-  string,
-  CacheEntry<ProjectMemberRoleRead[]>
->();
-const _projectMembersPending = new Map<
-  string,
-  Promise<ProjectMemberRoleRead[]>
->();
-
-function fetchProjectMembers(
-  sessionToken: string,
-  projectId: string,
-): Promise<ProjectMemberRoleRead[]> {
-  const cached = _projectMembersCache.get(projectId);
-  if (cached && Date.now() - cached.ts < 30_000) {
-    return Promise.resolve(cached.data);
-  }
-  const pending = _projectMembersPending.get(projectId);
-  if (pending) return pending;
-
-  const promise = new RbacClient(sessionToken)
-    .getProjectMembers(projectId)
-    .then((data) => {
-      _projectMembersCache.set(projectId, { data, ts: Date.now() });
-      _projectMembersPending.delete(projectId);
-      return data;
-    })
-    .catch((err) => {
-      _projectMembersPending.delete(projectId);
-      throw err;
-    });
-  _projectMembersPending.set(projectId, promise);
-  return promise;
-}
-
-function invalidateProjectMembers(projectId: string) {
-  _projectMembersCache.delete(projectId);
-}
-
-// ---------------------------------------------------------------------------
-// Props & styling
+// Props
 // ---------------------------------------------------------------------------
 
 interface ProjectRoleChipProps {
@@ -78,7 +28,6 @@ interface ProjectRoleChipProps {
   sessionToken: string;
   onRoleChanged?: () => void;
 }
-
 
 // ---------------------------------------------------------------------------
 // Component
@@ -93,11 +42,10 @@ export default function ProjectRoleChip({
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.ProjectMember.MANAGE);
   const [members, setMembers] = useState<ProjectMemberRoleRead[]>(
-    _projectMembersCache.get(projectId)?.data ?? [],
+    getCachedProjectMembers(projectId),
   );
   const [roles, setRoles] = useState<RoleRead[]>([]);
-  const [loading, setLoading] = useState(!_projectMembersCache.has(projectId));
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [loading, setLoading] = useState(!hasProjectMembers(projectId));
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
@@ -131,30 +79,24 @@ export default function ProjectRoleChip({
     };
   }, [rbacEnabled, sessionToken, canManage]);
 
+  const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
+    sessionToken,
+    "project",
+    projectId,
+  );
   const memberEntry = members.find((m) => m.user_id === userId);
-  const currentRole = memberEntry?.role;
-
-  const assignableRoles = roles.filter(isAssignableProjectRole);
-
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      if (canManage && !assigning) setAnchorEl(e.currentTarget);
-    },
-    [canManage, assigning],
+  const assignableRoles = roles.filter(
+    (r) => isAssignableProjectRole(r) && isWithinActorAuthority(r, myLevel, myPermissions),
   );
 
-  const handleClose = useCallback(() => setAnchorEl(null), []);
-
-  const handleAssign = useCallback(
-    async (roleId: string) => {
-      setAnchorEl(null);
-      if (roleId === memberEntry?.role_id) return;
+  const handleChange = useCallback(
+    async (e: SelectChangeEvent<string>) => {
+      const roleId = e.target.value;
+      if (!roleId || roleId === memberEntry?.role_id) return;
       setAssigning(true);
       try {
         const client = new RbacClient(sessionToken);
-        await client.assignProjectRole(projectId, userId, {
-          role_id: roleId,
-        });
+        await client.assignProjectRole(projectId, userId, { role_id: roleId });
         invalidateProjectMembers(projectId);
         const fresh = await fetchProjectMembers(sessionToken, projectId);
         setMembers(fresh);
@@ -167,62 +109,36 @@ export default function ProjectRoleChip({
   );
 
   if (loading) {
-    return <Skeleton variant="rounded" width={80} height={24} />;
+    return <Skeleton variant="rounded" width={110} height={32} />;
   }
-
-  if (!currentRole) {
-    return (
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ textTransform: "capitalize" }}
-      >
-        member
-      </Typography>
-    );
-  }
-
-  const chipSx = getRoleChipSx(currentRole);
 
   return (
-    <>
-      <Chip
-        label={currentRole.display_name}
-        size="small"
-        onClick={canManage ? handleClick : undefined}
-        sx={{
-          ...chipSx,
-          fontSize: 12,
-          height: 24,
-          cursor: canManage ? "pointer" : "default",
-          opacity: assigning ? 0.6 : 1,
-        }}
-      />
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-        slotProps={{
-          paper: { sx: { minWidth: 180, maxHeight: 300 } },
-        }}
-      >
-        {assignableRoles.map((role) => (
-          <MenuItem
-            key={role.id}
-            selected={role.id === memberEntry?.role_id}
-            onClick={() => handleAssign(role.id)}
-          >
-            <ListItemText>
-              <Typography variant="body2">{role.display_name}</Typography>
-            </ListItemText>
-            {role.id === memberEntry?.role_id && (
-              <ListItemIcon sx={{ minWidth: "auto", ml: 1 }}>
-                <CheckIcon fontSize="small" color="primary" />
-              </ListItemIcon>
-            )}
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
+    <Select
+      value={memberEntry?.role_id ?? ""}
+      onChange={handleChange}
+      disabled={!canManage || assigning}
+      size="small"
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return (
+            <Typography variant="body2" color="text.disabled">
+              Assign role
+            </Typography>
+          );
+        }
+        // Use the full roles list so non-assignable roles (e.g. Owner) still
+        // display their name rather than falling back to the raw UUID.
+        const role = roles.find((r) => r.id === selected);
+        return role?.display_name ?? selected;
+      }}
+      sx={{ minWidth: 120, fontSize: 13 }}
+    >
+      {assignableRoles.map((role) => (
+        <MenuItem key={role.id} value={role.id}>
+          {role.display_name}
+        </MenuItem>
+      ))}
+    </Select>
   );
 }

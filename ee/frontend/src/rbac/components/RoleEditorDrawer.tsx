@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import BaseDrawer from "@/components/common/BaseDrawer";
 import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
 import { useOrgSettings } from "@/contexts/OrgSettingsContext";
@@ -243,11 +242,7 @@ export default function RoleEditorDrawer({
             {role.permissions.length} permissions
           </Typography>
           {role.is_built_in && (
-            <Alert
-              severity="info"
-              icon={<LockOutlinedIcon fontSize="small" />}
-              sx={{ py: 0.75 }}
-            >
+            <Alert severity="info">
               Permissions for built-in roles are fixed and cannot be changed.
             </Alert>
           )}
