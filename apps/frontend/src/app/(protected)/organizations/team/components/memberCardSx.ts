@@ -47,10 +47,13 @@ export const projectCardItemSx: SxProps<Theme> = {
 /**
  * Selectable project row card (TeamInviteForm).
  *
- * The MUI Drawer injects a high-specificity global rule
- * (.MuiDrawer-root .MuiListItemButton-root.Mui-selected) that overrides
- * sx bgcolor. The !important on backgroundColor ensures our subtle tint
- * wins so text and the inline role dropdown remain readable.
+ * We intentionally do NOT pass `selected` to the ListItemButton so that MUI
+ * never adds the Mui-selected class. The Drawer's global Mui-selected rules
+ * force color:white and background:#primary on every child (including
+ * Typography), which is unreadable on our near-transparent tint.
+ *
+ * Visual selection state is managed entirely through the `isSelected` JS
+ * variable, bypassing all MUI global overrides.
  */
 export function getSelectableProjectItemSx(isSelected: boolean): SxProps<Theme> {
   return {
@@ -62,10 +65,14 @@ export function getSelectableProjectItemSx(isSelected: boolean): SxProps<Theme> 
     px: 1.5,
     py: 1.25,
     gap: 1.5,
-    '&.Mui-selected, &.Mui-selected:hover': {
-      backgroundColor: theme =>
-        `${alpha(theme.palette.primary.main, 0.06)} !important`,
-    },
+    ...(isSelected && {
+      backgroundColor: theme => alpha(theme.palette.primary.main, 0.06),
+      // Keep the same subtle tint on hover so text/role-dropdown stay readable.
+      '&:hover': {
+        backgroundColor: theme =>
+          `${alpha(theme.palette.primary.main, 0.06)} !important`,
+      },
+    }),
   };
 }
 

@@ -541,7 +541,6 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                       return (
                         <ListItemButton
                           key={projectId}
-                          selected={isSelected}
                           onClick={() =>
                             setProjectRoles(prev => {
                               if (isSelected) {
