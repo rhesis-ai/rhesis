@@ -333,9 +333,28 @@ _METHOD_TO_ACTION: dict[str, str] = {
 # Paths that are silently skipped (no "unmapped" warning).
 # ---------------------------------------------------------------------------
 
+# Exact-match skip list — infrastructure and OpenAPI endpoints.
 _DERIVER_SKIP_PATHS: frozenset[str] = frozenset(
-    ["/", "/health", "/docs", "/openapi.json", "/redoc"]
+    [
+        "/",
+        "/health",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        # Meta/introspection endpoints: universally accessible once authed.
+        "/capabilities",
+        "/features",
+        "/me/permissions",
+        # Home routes (dev/demo).
+        "/home/",
+        "/home/protected",
+    ]
 )
+
+# Prefix-match skip list — all routes under these prefixes are intentionally
+# unmapped. Auth routes are pre-authentication flows; gating them behind a
+# capability would create a bootstrapping paradox.
+_DERIVER_SKIP_PREFIXES: tuple[str, ...] = ("/auth/",)
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +407,7 @@ def get_capability_for_route(route: object) -> Optional[str]:
        :func:`build_capability_map`).
     """
     path: str = getattr(route, "path", "") or ""
-    if path in _DERIVER_SKIP_PATHS:
+    if path in _DERIVER_SKIP_PATHS or path.startswith(_DERIVER_SKIP_PREFIXES):
         return None
 
     extra: dict = getattr(route, "openapi_extra", None) or {}
@@ -434,7 +453,7 @@ def build_capability_map(app: object) -> dict[str, list[str]]:
         cap = get_capability_for_route(route)
         if cap is None:
             p: str = getattr(route, "path", "")
-            if p not in _DERIVER_SKIP_PATHS:
+            if p not in _DERIVER_SKIP_PATHS and not p.startswith(_DERIVER_SKIP_PREFIXES):
                 methods = sorted(getattr(route, "methods", None) or [])
                 unmapped.append(f"{','.join(methods)}: {p}")
             continue
