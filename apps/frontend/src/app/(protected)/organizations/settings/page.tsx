@@ -5,7 +5,10 @@ import { Alert, Box, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  fetchOrganization,
+  invalidateOrganization,
+} from '@/utils/api-client/organization-cache';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
@@ -35,11 +38,14 @@ export default function OrganizationSettingsPage() {
       try {
         if (showLoading) {
           setInitialLoading(true);
+        } else {
+          // A refresh triggered after a mutation (e.g. saving a form) must
+          // bypass the cache so the reloaded data reflects the change.
+          invalidateOrganization();
         }
         setError(null);
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const organizationsClient = apiFactory.getOrganizationsClient();
-        const orgData = await organizationsClient.getOrganization(
+        const orgData = await fetchOrganization(
+          session.session_token,
           session.user.organization_id
         );
         setOrganization(orgData);

@@ -12,6 +12,7 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { fetchOrganization } from '@/utils/api-client/organization-cache';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -91,8 +92,6 @@ export default function ModelsPage() {
         const typeLookupClient = apiFactory.getTypeLookupClient();
         const usersClient = apiFactory.getUsersClient();
 
-        const organizationsClient = apiFactory.getOrganizationsClient();
-
         const [types, settings, org, modelsResponse, statuses] =
           await Promise.all([
             typeLookupClient.getTypeLookups({
@@ -101,9 +100,10 @@ export default function ModelsPage() {
             }),
             usersClient.getUserSettings().catch(() => null),
             session.user?.organization_id
-              ? organizationsClient
-                  .getOrganization(session.user.organization_id)
-                  .catch(() => null)
+              ? fetchOrganization(
+                  session.session_token,
+                  session.user.organization_id
+                ).catch(() => null)
               : Promise.resolve(null),
             modelsClient.getModels().catch(() => null),
             apiFactory
