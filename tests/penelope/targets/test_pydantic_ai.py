@@ -148,6 +148,28 @@ def test_send_message_with_file_reference_extracted_text_used_as_text_part(agent
     assert "Hello from PDF" in captured["user_prompt"][1]
 
 
+def test_send_message_image_with_ocr_text_still_sends_binary(agent):
+    # The backend OCRs images into extracted_text; the real image must still
+    # reach the agent instead of being replaced by the OCR text.
+    captured = {}
+    original_run_sync = agent.run_sync
+
+    def spy_run_sync(user_prompt, **kwargs):
+        captured["user_prompt"] = user_prompt
+        return original_run_sync(user_prompt, **kwargs)
+
+    agent.run_sync = spy_run_sync
+    target = PydanticAITarget(agent, "test-target")
+    file_ref = _FakeFileReference("photo.png", "image/png", b"rawbytes", extracted_text="OCR text")
+
+    target.send_message("What is this?", files=[file_ref])
+
+    from pydantic_ai import BinaryContent
+
+    assert isinstance(captured["user_prompt"][1], BinaryContent)
+    assert captured["user_prompt"][1].media_type == "image/png"
+
+
 def test_a_send_message_with_file_reference_uses_aread_bytes(agent):
     target = PydanticAITarget(agent, "test-target")
     file_ref = _FakeFileReference("photo.png", "image/png", b"rawbytes")

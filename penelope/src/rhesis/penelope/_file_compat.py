@@ -36,13 +36,27 @@ def file_attr(f: Any, key: str, default: Any = "") -> Any:
     return getattr(f, key, default)
 
 
-def file_extracted_text(f: Any) -> Optional[str]:
-    """Return pre-extracted text for a file attachment, if available.
+# Content types whose extracted_text is a faithful stand-in for the file
+# itself. The backend's extraction pipeline also runs a vision/OCR fallback
+# on image/* — for those, extracted_text is a lossy description, and using
+# it would silently drop the real image from multimodal targets.
+_TEXTUAL_CONTENT_PREFIXES = ("text/", "application/pdf")
 
-    Only ``FileReference`` carries this (populated by the backend's text
-    extraction pipeline). Plain dict attachments never have it, so this
-    returns ``None`` for them.
+
+def file_extracted_text(f: Any) -> Optional[str]:
+    """Return pre-extracted text for a file attachment, if it can stand in
+    for the file's actual content.
+
+    Only ``FileReference`` carries ``extracted_text`` (populated by the
+    backend's text extraction pipeline); plain dict attachments never have
+    it. The text is returned only for document-like content types
+    (``text/*``, ``application/pdf``): the backend also OCRs images, and
+    for those the original binary must still reach the target, so this
+    returns ``None`` and callers fall through to the bytes path.
     """
+    content_type = file_attr(f, "content_type", "") or ""
+    if not content_type.startswith(_TEXTUAL_CONTENT_PREFIXES):
+        return None
     return file_attr(f, "extracted_text", None)
 
 

@@ -84,3 +84,13 @@ def test_file_reference_with_extracted_text_becomes_text_block():
     assert result[1]["type"] == "text"
     assert "doc.pdf" in result[1]["text"]
     assert "Hello from PDF" in result[1]["text"]
+
+
+def test_image_with_ocr_extracted_text_still_becomes_image_block():
+    # The backend OCRs images into extracted_text; the real image must still
+    # reach the target instead of being replaced by the OCR text.
+    file_ref = _FakeFileReference("photo.png", "image/png", b"rawbytes", extracted_text="OCR text")
+    result = files_to_content_blocks("What is this?", [file_ref])
+
+    assert result[1]["type"] == "image"
+    assert result[1]["mime_type"] == "image/png"

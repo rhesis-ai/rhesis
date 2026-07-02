@@ -73,6 +73,18 @@ def test_file_extracted_text_file_reference_absent():
     assert file_extracted_text(file) is None
 
 
+def test_file_extracted_text_plain_text_present():
+    file = _FakeFileReference("text/csv", b"unused", extracted_text="a,b,c")
+    assert file_extracted_text(file) == "a,b,c"
+
+
+def test_file_extracted_text_image_ocr_not_used():
+    # The backend OCRs image/* into extracted_text; using it would silently
+    # drop the real image, so the fast-path must not apply to images.
+    file = _FakeFileReference("image/png", b"png-bytes", extracted_text="OCR text")
+    assert file_extracted_text(file) is None
+
+
 @pytest.mark.parametrize("missing_key", [{"content_type": "image/png"}])
 def test_file_bytes_and_type_dict_without_data_raises(missing_key):
     with pytest.raises(KeyError):
