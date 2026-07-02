@@ -182,6 +182,16 @@ def bootstrap(app: "FastAPI") -> None:
 
     register_org_membership_handler(assign_default_org_role)
 
+    # Guard the community add-member endpoint's optional role_id with the same
+    # privilege-escalation check as the EE role-assignment endpoint, so a member
+    # can be added with a role in one atomic request without bypassing the guard.
+    from rhesis.backend.app.auth.role_assignment_hook import (
+        register_role_assignment_validator,
+    )
+    from rhesis.backend.ee.rbac.router import check_project_role_assignment
+
+    register_role_assignment_validator(check_project_role_assignment)
+
     # ---- Public routes (must run before include_router) ------------------
     # AuthenticatedAPIRoute resolves dependencies at registration time;
     # extending the existing list (rather than rebinding) is what lets

@@ -187,6 +187,42 @@ def _check_escalation(
         )
 
 
+def check_project_role_assignment(db: Session, actor: User, role_id: uuid.UUID, project_id: uuid.UUID):
+    """Escalation guard for granting *role_id* on *project_id* to a member.
+
+    Shared by the EE ``assign_project_role`` endpoint and the community
+    ``add_project_member`` validator hook so both paths enforce the identical
+    rule.  Raises 404 (unknown role), 422 (None role at project tier), or 403
+    (escalation) on rejection; returns the resolved ``Role`` so callers can
+    reuse it without a second load.
+    """
+    principal = resolve_principal(actor)
+    # Both halves of the escalation guard use the project scope for consistency.
+    actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
+    actor_level = _get_actor_level(principal, project_id=project_id, db=db)
+
+    target_role = _get_role_or_404(role_id, db)
+
+    # One-directional scope gate (K8s ClusterRole model):
+    # - Org/built-in roles bind "down" to the project tier.  Owner (level 100)
+    #   IS now permitted at the project tier so a project creator or lead can
+    #   be designated as the project owner independently of the org owner.
+    #   Only None (level 0, explicit revocation) is blocked — it has no useful
+    #   meaning as a project assignment.  This matches isAssignableProjectRole.
+    # - Project-only custom roles (scope=project) are accepted as before.
+    # - The org-tier gate in assign_org_role stays strict: project-only roles
+    #   cannot be promoted org-wide.
+    if target_role.is_built_in and target_role.level == 0:
+        raise HTTPException(
+            status_code=422,
+            detail="The None role cannot be assigned at the project tier",
+        )
+
+    new_perm_names = _role_permission_names_resolved(target_role, db)
+    _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
+    return target_role
+
+
 def _bust(user_id: uuid.UUID, org_id: uuid.UUID) -> None:
     """Bust the permission cache for *user_id* within *org_id* (non-fatal)."""
     try:
@@ -675,30 +711,7 @@ def assign_project_role(
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleRead
 
-    principal = resolve_principal(current_user)
-    # Both halves of the escalation guard use the project scope for consistency.
-    actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
-    actor_level = _get_actor_level(principal, project_id=project_id, db=db)
-
-    target_role = _get_role_or_404(body.role_id, db)
-
-    # One-directional scope gate (K8s ClusterRole model):
-    # - Org/built-in roles bind "down" to the project tier.  Owner (level 100)
-    #   IS now permitted at the project tier so a project creator or lead can
-    #   be designated as the project owner independently of the org owner.
-    #   Only None (level 0, explicit revocation) is blocked — it has no useful
-    #   meaning as a project assignment.  This matches isAssignableProjectRole.
-    # - Project-only custom roles (scope=project) are accepted as before.
-    # - The org-tier gate in assign_org_role stays strict: project-only roles
-    #   cannot be promoted org-wide.
-    if target_role.is_built_in and target_role.level == 0:
-        raise HTTPException(
-            status_code=422,
-            detail="The None role cannot be assigned at the project tier",
-        )
-
-    new_perm_names = _role_permission_names_resolved(target_role, db)
-    _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
+    target_role = check_project_role_assignment(db, current_user, body.role_id, project_id)
 
     membership = (
         db.query(ProjectMembership)
