@@ -101,10 +101,11 @@ export function useComments({
         content: newText,
       });
 
+      let commentWithUser: Comment = updatedComment;
       queryClient.setQueryData<Comment[]>(queryKey, prev =>
         (prev ?? []).map(comment => {
           if (comment.id !== commentId) return comment;
-          return {
+          commentWithUser = {
             ...updatedComment,
             user: comment.user ?? {
               id: currentUserId,
@@ -113,6 +114,7 @@ export function useComments({
               picture: currentUserPicture,
             },
           };
+          return commentWithUser;
         })
       );
 
@@ -120,7 +122,7 @@ export function useComments({
         severity: 'neutral',
         autoHideDuration: 3000,
       });
-      return updatedComment;
+      return commentWithUser;
     },
     [
       sessionToken,
@@ -171,10 +173,11 @@ export function useComments({
         ? await commentsClient.removeEmojiReaction(commentId, emoji)
         : await commentsClient.addEmojiReaction(commentId, emoji);
 
+      let commentWithUser: Comment = updatedComment;
       queryClient.setQueryData<Comment[]>(queryKey, prev =>
         (prev ?? []).map(c => {
           if (c.id !== commentId) return c;
-          return {
+          commentWithUser = {
             ...updatedComment,
             user: c.user ?? {
               id: currentUserId,
@@ -183,8 +186,10 @@ export function useComments({
               picture: currentUserPicture,
             },
           };
+          return commentWithUser;
         })
       );
+      return commentWithUser;
     },
     [
       sessionToken,
