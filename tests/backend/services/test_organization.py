@@ -370,6 +370,59 @@ class TestLoadInitialData:
             f"🔄 Records delta: +{final_status_count - initial_status_count} statuses, +{final_behavior_count - initial_behavior_count} behaviors"
         )
 
+    def test_load_initial_data_scopes_demo_content_to_example_project(
+        self, test_db: Session, authenticated_user_id, test_org_id, bound_scope
+    ):
+        """Demo behaviors are scoped to the example project, not org-wide."""
+        organization_service.load_initial_data(
+            db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+
+        example_project = (
+            test_db.query(models.Project)
+            .filter(
+                models.Project.organization_id == test_org_id,
+                models.Project.name == organization_service.EXAMPLE_PROJECT_NAME,
+            )
+            .first()
+        )
+        assert example_project is not None
+
+        other_project = models.Project(
+            name="Empty Demo Project",
+            description="Separate project for isolation test",
+            organization_id=uuid.UUID(test_org_id),
+            user_id=uuid.UUID(authenticated_user_id),
+            owner_id=uuid.UUID(authenticated_user_id),
+            is_active=True,
+        )
+        test_db.add(other_project)
+        test_db.flush()
+
+        demo_behavior = (
+            test_db.query(models.Behavior)
+            .filter(
+                models.Behavior.organization_id == test_org_id,
+                models.Behavior.name == "Reliability",
+            )
+            .first()
+        )
+        assert demo_behavior is not None
+        assert demo_behavior.project_id == example_project.id
+
+        org_statuses = (
+            test_db.query(models.Status)
+            .filter(models.Status.organization_id == test_org_id)
+            .all()
+        )
+        assert org_statuses
+        assert all(s.project_id is None for s in org_statuses)
+
+        with bound_scope(organization_id=test_org_id, project_id=str(other_project.id)):
+            visible = test_db.query(models.Behavior).all()
+
+        assert demo_behavior.id not in {b.id for b in visible}
+
 
 @pytest.mark.unit
 @pytest.mark.service

@@ -107,6 +107,12 @@ def _reassign_default_project_if_removed(
 
 _logger = logging.getLogger(__name__)
 
+EXAMPLE_PROJECT_NAME = "Example Project (Insurance Chatbot)"
+
+# Shared reference data seeded during onboarding — keep project_id NULL so every
+# project can resolve statuses, type lookups, and default models via FK.
+_ORG_WIDE_INITIAL_DATA_MODELS = frozenset({"Status", "TypeLookup", "Model", "Project"})
+
 
 def _bust_permission_cache(user_id: uuid.UUID, organization_id: uuid.UUID) -> None:
     """Bust the permission cache for *user_id* within *organization_id*.
@@ -804,8 +810,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             # fail-closed `project_isolation` RLS policy, which rejects an INSERT
             # whose project_id does not match `app.current_project`. Onboarding
             # runs with no active project, so bind the session to this endpoint's
-            # project for the insert, then restore the org-level (no-project)
-            # scope so entities created afterwards stay org-level (project_id NULL).
+            # project for the insert.
             with temporary_project_scope(db, organization_id, user_id, str(project.id)):
                 get_or_create_entity(
                     db=db,
@@ -921,6 +926,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     }
                     db.execute(behavior_metric_association.insert().values(**association_values))
                     db.flush()
+
+        _assign_demo_entities_to_example_project(db, organization_id, initial_data)
 
         # Process default Rhesis language model
         print("Processing default Rhesis language model...")
@@ -1405,6 +1412,43 @@ def _build_model_data_map(initial_data: dict) -> dict:
         model_data_map.pop(protected, None)
 
     return model_data_map
+
+
+def _assign_demo_entities_to_example_project(
+    db: Session, organization_id: str, initial_data: dict
+) -> None:
+    """Assign onboarding demo content to the example project.
+
+    Demo entities are seeded before the example project exists, leaving
+    ``project_id`` NULL. NULL rows are visible in every project via the
+    auto-filter listener. Status, TypeLookup, and Model stay org-wide.
+    """
+    example_project = (
+        db.query(models.Project)
+        .filter(
+            models.Project.name == EXAMPLE_PROJECT_NAME,
+            models.Project.organization_id == uuid.UUID(organization_id),
+        )
+        .first()
+    )
+    if example_project is None:
+        return
+
+    project_id = example_project.id
+    model_data_map = _build_model_data_map(initial_data)
+
+    for model_name, identifiers in model_data_map.items():
+        if model_name in _ORG_WIDE_INITIAL_DATA_MODELS or not identifiers:
+            continue
+        model_cls = getattr(models, model_name, None)
+        if model_cls is None or not hasattr(model_cls, "project_id"):
+            continue
+        records = _get_matching_records(db, model_cls, identifiers, organization_id)
+        for record in records:
+            if record.project_id is None:
+                record.project_id = project_id
+
+    db.flush()
 
 
 def _get_matching_records(db: Session, model, identifiers: set, organization_id: str):

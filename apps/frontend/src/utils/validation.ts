@@ -186,6 +186,25 @@ export const validateOrganizationName = (name: string): ValidationResult => {
 };
 
 /**
+ * Project name validation (same rules as organization names).
+ */
+export const validateProjectName = (name: string): ValidationResult => {
+  if (!name.trim()) {
+    return { isValid: false, message: 'Project name is required' };
+  }
+
+  const projectNameRegex = /^[a-zA-Z0-9\s'.-]+$/;
+  const isValid = projectNameRegex.test(name.trim()) && name.trim().length >= 2;
+
+  return {
+    isValid,
+    message: isValid
+      ? undefined
+      : 'Project name must be at least 2 characters and contain only letters, numbers, spaces, and basic punctuation',
+  };
+};
+
+/**
  * Phone number validation (basic international format)
  */
 export const validatePhone = (
