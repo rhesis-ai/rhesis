@@ -44,6 +44,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -68,6 +69,29 @@ BUILT_IN_ROLE_LEVELS: dict[str, int] = {
     "Member": 60,
     "Viewer": 40,
     "None": 0,
+}
+
+# One-sentence descriptions shown on the Roles settings page.
+# Backfilled by migration a2b3c4d5e6f7; kept here so all built-in role
+# constants are co-located and reviewable without opening a migration file.
+BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
+    "Owner": (
+        "Complete control of the organization, including billing, "
+        "deletion, and ownership transfer."
+    ),
+    "Admin": (
+        "Manage members, roles, projects, and organization settings. "
+        "Cannot delete the organization."
+    ),
+    "Member": (
+        "Create, edit, and run evaluations across their projects. "
+        "Manage their own API tokens."
+    ),
+    "Viewer": (
+        "Read-only access to all resources. Can browse and export "
+        "but cannot make changes."
+    ),
+    "None": "No access. Explicitly revoke a member while keeping them in the organization.",
 }
 
 # Resource types whose permissions are org-scoped.
@@ -125,11 +149,12 @@ def _primary_action(cap: str) -> str:
     return parts[-1] if len(parts) >= 2 else cap
 
 
-# Org-level reads that are too sensitive for a read-only **Viewer**.  ``role:read``
-# and ``token:read`` expose org-admin configuration; Owner alone holds ``role:read``
-# (Admin excludes it too).  Everything else ending in ``:read`` — including
-# ``organization:read`` and ``member:read`` for basic org context — is fine for a
-# Viewer.
+# Org-level reads excluded from the read-only **Viewer** baseline.
+# ``role:read`` exposes the org's custom role catalog; only Owner and Admin
+# need it (Admin needs it to assign roles via member:manage).  ``token:read``
+# exposes API token metadata.  Everything else ending in ``:read`` — including
+# ``organization:read`` and ``member:read`` for basic org context — is fine
+# for a Viewer.
 _VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read"})
 
 
@@ -189,7 +214,10 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
         case "Owner":
             return cap_set
         case "Admin":
-            excluded = {"role:manage", "role:read", "sso:manage", "api_clients:manage"}
+            # role:read is included so Admins can see the role catalog when
+            # assigning roles via member:manage. role:manage (create/update/delete
+            # custom roles) remains Owner-only.
+            excluded = {"role:manage", "sso:manage", "api_clients:manage"}
             return cap_set - excluded
         case "Member":
             return _member_permissions(cap_set)
@@ -252,6 +280,10 @@ class Role(Base):
     name = Column(String, nullable=False)
     #: Human-readable label for the UI.
     display_name = Column(String, nullable=False, default="")
+    #: One-sentence description shown in the Roles settings page.
+    #: Built-in roles are seeded by migration a2b3c4d5e6f7; custom roles
+    #: default to '' and may be set via the create/update API.
+    description = Column(Text, nullable=False, server_default="")
     #: ``'organization'`` — assignable at org tier via ``organization_member``.
     #: ``'project'``      — assignable at project tier via ``project_membership``.
     scope = Column(String, nullable=False, default=SCOPE_PROJECT)
@@ -362,6 +394,7 @@ class OrganizationMember(Base):
 
 
 __all__ = [
+    "BUILT_IN_ROLE_DESCRIPTIONS",
     "BUILT_IN_ROLE_LEVELS",
     "BUILT_IN_ROLE_NAMES",
     "SCOPE_ORGANIZATION",

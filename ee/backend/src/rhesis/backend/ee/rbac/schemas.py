@@ -33,6 +33,7 @@ class RoleRead(BaseModel):
     id: UUID
     name: str
     display_name: str
+    description: str = ""
     scope: str
     level: int
     is_built_in: bool

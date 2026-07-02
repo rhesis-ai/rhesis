@@ -98,6 +98,22 @@ def _role_permission_names(role_id: uuid.UUID, db: Session) -> list[str]:
     ]
 
 
+def _role_permission_names_resolved(role, db: Session) -> list[str]:
+    """Return effective permission names for *role*, handling built-ins correctly.
+
+    Built-in roles have no ``role_permission`` rows — their permissions are
+    computed from code via ``permissions_for_built_in_role``.  Using this
+    resolver in the escalation guard ensures a Member-level actor cannot silently
+    skip the permissions check when assigning a built-in (whose DB rows return []).
+    """
+    if role.is_built_in:
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        return list(permissions_for_built_in_role(role.name, get_all_capabilities()))
+    return _role_permission_names(role.id, db)
+
+
 def _get_actor_level(principal, project_id, db: Session) -> int:
     """Return the privilege level of the actor (0 when RBAC is off or no role)."""
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
@@ -507,7 +523,7 @@ def assign_org_role(
             detail="Role is project-scoped and cannot be assigned at the organization tier",
         )
 
-    new_perm_names = _role_permission_names(target_role.id, db)
+    new_perm_names = _role_permission_names_resolved(target_role, db)
     _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
 
     # Validate the target user belongs to this org.
@@ -657,7 +673,6 @@ def assign_project_role(
     membership endpoint). The privilege-escalation guard applies.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
-    from rhesis.backend.ee.rbac.models import SCOPE_PROJECT
     from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleRead
 
     principal = resolve_principal(current_user)
@@ -667,14 +682,20 @@ def assign_project_role(
 
     target_role = _get_role_or_404(body.role_id, db)
 
-    # Enforce scope: project-tier assignment requires a project-scoped role.
-    if target_role.scope != SCOPE_PROJECT:
+    # One-directional scope gate (K8s ClusterRole model):
+    # - Org/built-in roles bind "down" to the project tier, EXCEPT Owner (transfer-only,
+    #   level 100) and None (explicit org-revocation, level 0) which have no project-tier
+    #   meaning. This matches the frontend's isAssignableProjectRole.
+    # - Project-only custom roles (scope=project) are accepted as before.
+    # - The org-tier gate in assign_org_role stays strict: project-only roles cannot
+    #   be promoted org-wide.
+    if target_role.is_built_in and not (0 < target_role.level < 100):
         raise HTTPException(
             status_code=422,
-            detail="Role is org-scoped and cannot be assigned at the project tier",
+            detail="Owner and None roles cannot be assigned at the project tier",
         )
 
-    new_perm_names = _role_permission_names(target_role.id, db)
+    new_perm_names = _role_permission_names_resolved(target_role, db)
     _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
 
     membership = (
