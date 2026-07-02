@@ -24,6 +24,7 @@ import {
   TestBulkCreate,
 } from '@/utils/api-client/interfaces/tests';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
+import { EntityType } from '@/types/entity-type';
 
 interface CreateTestFromConversationDrawerProps {
   open: boolean;
@@ -91,12 +92,12 @@ export default function CreateTestFromConversationDrawer({
           apiFactory.getTopicClient().getTopics({
             sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test',
+            entity_type: EntityType.TEST,
           }),
           apiFactory.getCategoryClient().getCategories({
             sort_by: 'name',
             sort_order: 'asc',
-            entity_type: 'Test',
+            entity_type: EntityType.TEST,
           }),
         ]);
 

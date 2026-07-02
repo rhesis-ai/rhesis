@@ -40,7 +40,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         self,
         api_key: str,
         base_url: str,
-        project_id: str,
+        project_id: Optional[str],
         environment: str,
         timeout: int = 10,
         max_attempts: int = 3,

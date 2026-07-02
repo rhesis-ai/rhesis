@@ -2,6 +2,7 @@ import { UUID } from 'crypto';
 import { UserReference, Organization, Status } from './tests';
 import { Tag } from './tag';
 import { FileResponse } from './file';
+import type { WithPermittedActions } from '@/types/affordances';
 
 // Override marker added by backend when a human review changes a metric or turn value
 export interface OverrideMarker {
@@ -146,6 +147,7 @@ export interface Review {
   created_at: string;
   updated_at: string;
   target: ReviewTarget;
+  permitted_actions?: string[];
 }
 
 export interface TestReviewsMetadata {
@@ -311,7 +313,7 @@ export interface ReviewSummaryEntry {
   review_id: string;
 }
 
-export interface TestResult extends TestResultBase {
+export interface TestResult extends TestResultBase, WithPermittedActions {
   id: UUID;
   created_at: string;
   updated_at: string;

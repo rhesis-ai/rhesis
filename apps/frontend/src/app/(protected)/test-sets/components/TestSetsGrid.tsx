@@ -10,10 +10,8 @@ import React, {
 import {
   GridColDef,
   GridRowParams,
-  GridRowSelectionModel,
-  GridPaginationModel,
   GridFilterModel,
-  GridSortModel,
+  GridRowSelectionModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -25,7 +23,7 @@ import {
   appendPresenceFilterItems,
   stripPresenceFilterItems,
 } from '@/components/common/presence-filter';
-import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
+import { gridSortToApiParams } from '@/utils/grid-sort';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Box, Tooltip, Typography, Avatar, Alert, Chip } from '@mui/material';
@@ -51,13 +49,18 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { TEST_TYPES } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
+import { useQueryClient } from '@tanstack/react-query';
+import { testSetKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface TestSetsGridProps {
   sessionToken?: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 // ─── Toolbar context ────────────────────────────────────────────────────────────
@@ -158,12 +161,14 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 
 export default function TestSetsGrid({
   sessionToken: sessionTokenProp,
-  refreshKey,
-  onRefresh,
+  onTotalCountChange,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
+  const canDeleteTestSet = useCan(Capability.TestSet.DELETE);
+  const queryClient = useQueryClient();
 
   const sessionToken = sessionTokenProp || session?.session_token || '';
 
@@ -171,181 +176,121 @@ export default function TestSetsGrid({
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  // ── Core grid state ─────────────────────────────────────────────────────────
-  const [testSets, setTestSets] = useState<TestSet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
+  // ── Drawer / dialog state ───────────────────────────────────────────────────
+  const [drawerFilters, setDrawerFilters] = useState<TestSetFilters>(
+    EMPTY_TEST_SET_FILTERS
+  );
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
-
-  // ── Drawer / dialog state (only what stays in the grid) ─────────────────────
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] = useState<TestSetFilters>(
-    EMPTY_TEST_SET_FILTERS
-  );
 
-  // ── Data fetching ────────────────────────────────────────────────────────────
+  // ── Grid state (pagination, filter, sort) via useGridState ──────────────────
+  const {
+    filterModel,
+    paginationModel,
+    sortModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+    handleSortModelChange,
+  } = useGridState({
+    searchQuery,
+    typeFilter,
+    typeFilterField: 'testSetType',
+    applyDrawerFilters: useCallback(
+      (prev: GridFilterModel) => {
+        const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
+        const otherItems = stripPresenceFilterItems(
+          prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
+        );
+        const drawerItems: typeof prev.items = [];
+        if (drawerFilters.testSetType) {
+          drawerItems.push({
+            field: 'testSetType',
+            operator: 'equals',
+            value: drawerFilters.testSetType,
+          });
+        }
+        if (drawerFilters.status) {
+          drawerItems.push({
+            field: 'status.name',
+            operator: 'contains',
+            value: drawerFilters.status,
+          });
+        }
+        if (drawerFilters.creator) {
+          drawerItems.push({
+            field: 'creator',
+            operator: 'contains',
+            value: drawerFilters.creator,
+          });
+        }
+        if (drawerFilters.tag) {
+          drawerItems.push({
+            field: 'tags',
+            operator: 'contains',
+            value: drawerFilters.tag,
+          });
+        }
+        const newItems = [...otherItems, ...drawerItems];
+        if (JSON.stringify(newItems) === JSON.stringify(prev.items))
+          return prev;
+        return { ...prev, items: newItems };
+      },
+      [drawerFilters]
+    ),
+  });
 
-  const fetchTestSets = useCallback(async () => {
-    if (!sessionToken) return;
-
-    try {
-      setLoading(true);
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testSetsClient = clientFactory.getTestSetsClient();
-
-      const filterString = combineTestSetFiltersToOData(filterModel);
-      const { sort_by, sort_order } = gridSortToApiParams(sortModel);
-
-      const apiParams = {
+  // ── Data fetching via React Query ────────────────────────────────────────────
+  const filterString = combineTestSetFiltersToOData(filterModel);
+  const { sort_by, sort_order } = gridSortToApiParams(sortModel);
+  const {
+    data: testSetsData,
+    isLoading: loading,
+    error: fetchError,
+  } = useGridQuery({
+    queryKey: testSetKeys.list(
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+      sort_by,
+      sort_order
+    ),
+    queryFn: () => {
+      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      return client.getTestSets({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by,
         sort_order,
         ...(filterString && { $filter: filterString }),
-      };
-
-      const response = await testSetsClient.getTestSets(apiParams);
-      setTestSets(response.data);
-      setTotalCount(response.pagination.totalCount);
-      setError(null);
-    } catch {
-      setError('Failed to load test sets');
-      setTestSets([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionToken, paginationModel, filterModel, sortModel]);
-
-  useEffect(() => {
-    fetchTestSets();
-  }, [fetchTestSets]);
-
-  // Refetch when parent signals a refresh (after create/import)
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      fetchTestSets();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  // ── Sync searchQuery into filterModel ────────────────────────────────────────
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      if (JSON.stringify(items) === JSON.stringify(prev.items)) return prev;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  // ── Sync typeFilter pill tab into filterModel ────────────────────────────────
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'testSetType'
-      );
-      const items =
-        typeFilter && typeFilter !== 'all'
-          ? [
-              ...otherItems,
-              {
-                field: 'testSetType',
-                operator: 'equals',
-                value: typeFilter,
-              },
-            ]
-          : otherItems;
-      if (JSON.stringify(items) === JSON.stringify(prev.items)) return prev;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [typeFilter]);
-
-  // ── Sync drawer filters into filterModel ─────────────────────────────────────
-
-  useEffect(() => {
-    const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
-    setFilterModel(prev => {
-      const otherItems = stripPresenceFilterItems(
-        prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
-      );
-      const drawerItems: typeof prev.items = [];
-      if (drawerFilters.testSetType) {
-        drawerItems.push({
-          field: 'testSetType',
-          operator: 'equals',
-          value: drawerFilters.testSetType,
-        });
-      }
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status.name',
-          operator: 'contains',
-          value: drawerFilters.status,
-        });
-      }
-      if (drawerFilters.creator) {
-        drawerItems.push({
-          field: 'creator',
-          operator: 'contains',
-          value: drawerFilters.creator,
-        });
-      }
-      if (drawerFilters.tag) {
-        drawerItems.push({
-          field: 'tags',
-          operator: 'contains',
-          value: drawerFilters.tag,
-        });
-      }
-      const newItems = [...otherItems, ...drawerItems];
-      if (JSON.stringify(newItems) === JSON.stringify(prev.items)) return prev;
-      return { ...prev, items: newItems };
-    });
-    setPaginationModel(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-  }, [drawerFilters]);
-
-  // ── Pagination / filter handlers ─────────────────────────────────────────────
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
+      });
     },
-    []
-  );
+    enabled: !!sessionToken,
+  });
+  const testSets = testSetsData?.data ?? [];
+  const totalCount = testSetsData?.pagination.totalCount ?? 0;
+  const error = fetchError ? 'Failed to load test sets' : null;
 
-  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    setFilterModel(newModel);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
-
-  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
-    setSortModel(newModel);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
+  // ── onTotalCountChange side effect ───────────────────────────────────────────
+  useEffect(() => {
+    if (!testSetsData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveTestSetFilters(drawerFilters);
+    if (!filtersActive) onTotalCountChange?.(totalCount);
+  }, [
+    testSetsData,
+    filterModel.items.length,
+    searchQuery,
+    drawerFilters,
+    onTotalCountChange,
+    totalCount,
+  ]);
 
   // ── Row + selection handlers ─────────────────────────────────────────────────
 
@@ -391,8 +336,7 @@ export default function TestSetsGrid({
 
       setPendingDeleteId(null);
       setSelectedRows([]);
-      fetchTestSets();
-      onRefresh?.();
+      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
     } catch {
       notifications.show('Failed to delete test sets', {
         severity: 'error',
@@ -402,14 +346,7 @@ export default function TestSetsGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [
-    pendingDeleteId,
-    selectedRows,
-    sessionToken,
-    notifications,
-    fetchTestSets,
-    onRefresh,
-  ]);
+  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -474,6 +411,8 @@ export default function TestSetsGrid({
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
       onDelete: id => handleRowDeleteAction(id),
+      canEdit: () => canEditTestSet,
+      canDelete: () => canDeleteTestSet,
     });
     return [
       {

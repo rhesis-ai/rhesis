@@ -1,10 +1,12 @@
+import type { WithPermittedActions } from '@/types/affordances';
+
 /** Known fields in task_metadata - extensible via index signature */
 export interface TaskMetadata {
   space_key?: string;
   [key: string]: unknown;
 }
 
-export interface Task {
+export interface Task extends WithPermittedActions {
   id: string;
   nano_id?: string;
   title: string;
@@ -98,11 +100,6 @@ export interface Tag {
   color?: string;
 }
 
-export type EntityType =
-  | 'Test'
-  | 'TestSet'
-  | 'TestRun'
-  | 'TestResult'
-  | 'Task'
-  | 'Source'
-  | 'Trace';
+// Entity types are defined canonically in `@/types/entity-type` and re-exported
+// here for backward compatibility.
+export { EntityType } from '@/types/entity-type';

@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Experiments
 
-An experiment is a named bundle of parameter values for a project. Each save creates an immutable version identified by a content hash.
+An experiment is a named bundle of parameter values for a project. Each save creates an immutable sequential version such as `v1`, `v2`, or `v3`.
 
 ## Properties
 
@@ -14,7 +14,7 @@ An experiment is a named bundle of parameter values for a project. Each save cre
 | `project_id` | `str` | Parent project ID |
 | `visibility` | `str` | `"private"` (default) or `"shared"` |
 | `versions_count` | `int` | Number of committed versions |
-| `latest_version` | `str` | Content hash of the most recent version |
+| `latest_version` | `str` | Sequential identifier of the most recent version |
 
 ## Creating experiments
 
@@ -39,7 +39,7 @@ Each commit creates an immutable version. Pass bare Python values -- the SDK wra
     {"model": "gpt-4o", "temperature": 0.9},
     message="bump temp",
 )
-print(f"Version: {version['version']}")  # v_a3f9b8...`}
+print(f"Version: {version['version']}")  # v3`}
 </CodeBlock>
 
 Chain versions using `parent_version`:
@@ -94,8 +94,8 @@ for v in exp.list_versions():
 latest = exp.latest_version_data()
 print(f"{latest['version']}: {latest['message']}")
 
-# Specific version by content hash
-v = exp.get_version("v_abc123")
+# Specific version by sequential identifier
+v = exp.get_version("v3")
 print(v["values"])`}
 </CodeBlock>
 
@@ -175,7 +175,7 @@ Deleting an experiment automatically unbinds any environments that point to it:
 | `commit(values, *, message, parent_version)` | `dict` | Append an immutable version |
 | `list_versions()` | `list[dict]` | All versions, oldest to newest |
 | `latest_version_data()` | `dict \| None` | Most recent version entry |
-| `get_version(version)` | `dict` | Single version by content hash |
+| `get_version(version)` | `dict` | Single version by sequential identifier |
 | `share()` | `None` | Set visibility to shared |
 | `unshare()` | `None` | Set visibility to private |
 | `promote(environment)` | `None` | Bind latest version to environment |

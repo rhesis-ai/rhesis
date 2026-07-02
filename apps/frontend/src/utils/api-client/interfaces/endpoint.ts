@@ -76,13 +76,16 @@ export interface Endpoint {
   // Nested status object (when included in response)
   status?: Status;
 
+  has_auth_token?: boolean;
+
   // Note: auth_token, client_secret, last_token are write-only fields
   // They can be set during create/update but are never returned in responses
 }
 
 // Type for editing endpoints - includes write-only fields
 export interface EndpointEditData extends Partial<Endpoint> {
-  auth_token?: string;
+  // null clears the stored token; undefined leaves it untouched
+  auth_token?: string | null;
   client_secret?: string;
 }
 

@@ -233,6 +233,15 @@ class TestEscalationGuard:
             actor_level=80,
         )
 
+    def test_role_create_schema_hides_builtin_and_level(self):
+        """Regression: the create API must not expose `is_built_in` or `level`, so a
+        caller cannot mint a built-in/global role or escalate its privilege level.
+        create_role hardcodes is_built_in=False and level=50 (below Member)."""
+        from rhesis.backend.ee.rbac.schemas import RoleCreate
+
+        assert "is_built_in" not in RoleCreate.model_fields
+        assert "level" not in RoleCreate.model_fields
+
 
 # ---------------------------------------------------------------------------
 # Role precedence (integration — needs synced DB)

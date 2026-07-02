@@ -76,9 +76,7 @@ class TestSet(
     priority = Column(Integer, default=0)
 
     __table_args__ = (
-        CheckConstraint(
-            "visibility IN ('public', 'organization', 'user')", name="test_set_visibility_check"
-        ),
+        CheckConstraint("visibility IN ('organization', 'user')", name="test_set_visibility_check"),
     )
 
     # Relationship to subscriptions

@@ -37,7 +37,7 @@ jest.mock('@monaco-editor/react', () => {
   return { __esModule: true, default: MockEditor };
 });
 
-import TabHeaders from '../tabs/TabHeaders';
+import TabConnection from '../TabConnection';
 import type { FormData } from '../EndpointForm';
 
 const defaultFormData: FormData = {
@@ -57,69 +57,38 @@ const defaultFormData: FormData = {
   disable_tracing: false,
 };
 
-describe('TabHeaders', () => {
+describe('TabConnection — auth token fields', () => {
   it('renders the API token field', () => {
-    render(
-      <TabHeaders
-        formData={defaultFormData}
-        onChange={jest.fn()}
-        showAuthToken={false}
-        onToggleAuthToken={jest.fn()}
-      />
-    );
+    render(<TabConnection formData={defaultFormData} onChange={jest.fn()} />);
     expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
   });
 
   it('token field is type=password by default', () => {
-    render(
-      <TabHeaders
-        formData={defaultFormData}
-        onChange={jest.fn()}
-        showAuthToken={false}
-        onToggleAuthToken={jest.fn()}
-      />
-    );
+    render(<TabConnection formData={defaultFormData} onChange={jest.fn()} />);
     expect(screen.getByLabelText(/api token/i)).toHaveAttribute(
       'type',
       'password'
     );
   });
 
-  it('token field is type=text when showAuthToken is true', () => {
-    render(
-      <TabHeaders
-        formData={defaultFormData}
-        onChange={jest.fn()}
-        showAuthToken={true}
-        onToggleAuthToken={jest.fn()}
-      />
+  it('token field becomes type=text after clicking the visibility toggle', () => {
+    render(<TabConnection formData={defaultFormData} onChange={jest.fn()} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /show|toggle|visibility/i })
     );
     expect(screen.getByLabelText(/api token/i)).toHaveAttribute('type', 'text');
-  });
-
-  it('calls onToggleAuthToken when the visibility button is clicked', () => {
-    const onToggle = jest.fn();
-    render(
-      <TabHeaders
-        formData={defaultFormData}
-        onChange={jest.fn()}
-        showAuthToken={false}
-        onToggleAuthToken={onToggle}
-      />
-    );
-    fireEvent.click(screen.getByRole('button'));
-    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
   it('calls onChange with auth_token when token field changes', () => {
     const onChange = jest.fn();
     render(
-      <TabHeaders
-        formData={defaultFormData}
+      <TabConnection
+        formData={{ ...defaultFormData, auth_token: '' }}
         onChange={onChange}
-        showAuthToken={true}
-        onToggleAuthToken={jest.fn()}
       />
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /show|toggle|visibility/i })
     );
     fireEvent.change(screen.getByLabelText(/api token/i), {
       target: { value: 'sk-test-token' },
@@ -129,12 +98,13 @@ describe('TabHeaders', () => {
 
   it('displays the current token value', () => {
     render(
-      <TabHeaders
+      <TabConnection
         formData={{ ...defaultFormData, auth_token: 'sk-my-token' }}
         onChange={jest.fn()}
-        showAuthToken={true}
-        onToggleAuthToken={jest.fn()}
       />
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /show|toggle|visibility/i })
     );
     expect(screen.getByLabelText(/api token/i)).toHaveValue('sk-my-token');
   });

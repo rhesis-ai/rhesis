@@ -30,33 +30,49 @@ load_dotenv()  # Loads variables from .env file`}
 
 ## Environment-Specific Configuration
 
-The application can load different configuration based on the environment:
+The backend uses `BACKEND_ENV` as the canonical runtime environment label in
+Python settings and logging. Valid values are `production`, `development`,
+`staging`, `local`, and `test`.
 
-<CodeBlock filename="python" language="python">
-{`import os
+<CodeBlock filename="settings.py" language="python">
+{`from rhesis.backend.app.config.settings import get_application_settings
 
-# Determine environment (ENVIRONMENT is preferred; ENV is supported for backward compatibility)
-ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("ENV", "development")
+settings = get_application_settings()
 
-# Load environment-specific settings
-if ENVIRONMENT == "production":
-    # Production settings
-    DEBUG = False
-    LOG_LEVEL = "INFO"
-elif ENVIRONMENT == "testing":
-    # Testing settings
-    DEBUG = True
-    LOG_LEVEL = "DEBUG"
-    # Use in-memory database (component env vars; settings.py builds the URL)
-    DB_HOST = "localhost"
-    DB_NAME = "test_db"
-    APP_DB_USER = "test_user"
-    APP_DB_PASS = "test_pass"
+if settings.backend_env == "production":
+    enable_local_debug = False
+elif settings.backend_env == "test":
+    enable_local_debug = True
 else:
-    # Development settings
-    DEBUG = True
-    LOG_LEVEL = "DEBUG"`}
+    enable_local_debug = settings.is_development`}
 </CodeBlock>
+
+Shell entrypoints may still read `ENVIRONMENT` for deployment-script behavior, but
+application code should use `BACKEND_ENV`.
+
+## Database credentials
+
+Database URLs are built from component environment variables. Runtime application
+sessions use `APP_DB_USER` / `APP_DB_PASS`; migrations and administrative jobs use
+`ADMIN_DB_USER` / `ADMIN_DB_PASS` when present and fall back to the app
+credentials for single-role local setups.
+
+| Variable | Required | Used for |
+| --- | --- | --- |
+| `DB_DRIVER` | No, defaults to `postgresql` | SQLAlchemy driver |
+| `DB_HOST` | Yes | Database host or Unix socket path |
+| `DB_PORT` | No, defaults to `5432` | TCP port when `DB_HOST` is not a socket |
+| `DB_NAME` | Yes | Database name |
+| `APP_DB_USER` | Yes for runtime backend and workers | Least-privilege application database role |
+| `APP_DB_PASS` | Yes when `APP_DB_USER` is set | Application role password |
+| `ADMIN_DB_USER` | Optional | Migration or admin database role |
+| `ADMIN_DB_PASS` | Required when `ADMIN_DB_USER` is set | Admin role password |
+
+<Callout type="info">
+  Managed Postgres deployments should use a separate migration role through
+  `ADMIN_DB_*` and a least-privilege runtime role through `APP_DB_*`. RLS-aware
+  migrations do not require a PostgreSQL superuser.
+</Callout>
 
 ## Configuration Validation
 

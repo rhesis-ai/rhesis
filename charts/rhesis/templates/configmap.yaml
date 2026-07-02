@@ -24,7 +24,6 @@ data:
   # -------------------------------------------------------------------------
   # Application
   # -------------------------------------------------------------------------
-  ENVIRONMENT: {{ .Values.config.environment | quote }}
   FRONTEND_ENV: {{ .Values.config.environment | quote }}
   BACKEND_ENV: {{ .Values.config.environment | quote }}
   WORKER_ENV: {{ .Values.config.environment | quote }}

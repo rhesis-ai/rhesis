@@ -1,0 +1,76 @@
+---
+description: Apply when adding, editing, or reviewing any frontend component that controls what a user can see or do based on permissions. Also apply when touching backend schemas or routers that expose permitted_actions.
+alwaysApply: false
+---
+
+# Affordances (Server-Driven Permissions)
+
+## Three primitives — use the right one
+
+| Primitive | When |
+|---|---|
+| `can(subject, Capability.X.Y)` | Object is in scope and its type extends `WithPermittedActions` |
+| `useCan(Capability.X.Y)` | No object (page guard, create button, conditional prop) |
+| `<Can capability={Capability.X.Y}>` | Declarative JSX wrapper (FABs, buttons) |
+
+**Never** write inline ownership logic (`user.id === currentUserId`). The backend is the single source of truth.
+
+## Object-level vs ambient
+
+```tsx
+// OBJECT-LEVEL — subject has permitted_actions
+const canUpdate = can(experiment, Capability.Experiment.UPDATE);
+{canUpdate && <EditButton />}
+
+// AMBIENT — scope/role check, no object
+const canRead = useCan(Capability.TestRun.READ);
+if (!canRead) return <AccessDenied resource="test runs" />;
+
+// DECLARATIVE ambient
+<Can capability={Capability.TestSet.CREATE}>
+  <Fab icon={<FabAddIcon />} />
+</Can>
+```
+
+## Types that carry object-level affordances
+
+`TestResult`, `ExperimentRead`, `Task`, `TestRun`, `Comment` — their interfaces extend `WithPermittedActions`.
+
+Everything else (Behavior, Metric, Endpoint, TestSet, Source, …) → use `useCan` / `<Can>`.
+
+## Page read guard
+
+Every protected page must guard the READ capability:
+
+```tsx
+const canRead = useCan(Capability.Foo.READ);
+if (!canRead) return <AccessDenied resource="foos" />;
+```
+
+## Adding affordances to a new resource
+
+1. **Backend**: add `WithPermittedActions` to the Pydantic response schema.
+2. **Frontend**: extend the TS interface with `WithPermittedActions` from `@/types/affordances`.
+3. Use `can(subject, …)` instead of `useCan` for that resource.
+4. Add any new capability strings to `apps/frontend/src/constants/capabilities.ts` (must mirror backend `Permission` enum).
+
+## Jest mocks
+
+Any test that renders a component using affordance primitives must mock the module:
+
+```ts
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: () => true,
+}));
+```
+
+## Key files
+
+- `src/components/common/Can.tsx` — primitives
+- `src/contexts/PermissionsContext.tsx` — ambient scope provider
+- `src/constants/capabilities.ts` — `Capability` enum
+- `src/types/affordances.ts` — `WithPermittedActions` interface
+- `apps/backend/.../schemas/affordances.py` — backend mixin
+- `apps/backend/.../auth/capabilities.py` — `Permission` enum

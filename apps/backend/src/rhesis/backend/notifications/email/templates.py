@@ -3,7 +3,7 @@ Template service for email notifications.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -80,7 +80,7 @@ class TemplateService:
             status_title=status.title(),
             task_name=task_name,
             task_id=task_id,
-            completed_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             execution_time=execution_time_text,
             test_run_id=test_run_id_text,
             error_details=error_details_text,
@@ -132,7 +132,7 @@ class TemplateService:
             status_title=status.title(),
             task_name=task_name,
             task_id=task_id,
-            completed_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             execution_time_row=execution_time_row,
             test_run_id_row=test_run_id_row,
             error_details_section=error_details_section,
@@ -189,7 +189,7 @@ class TemplateService:
             tests_passed=tests_passed,
             tests_failed=tests_failed,
             execution_time=execution_time or "N/A",
-            completed_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             test_run_link=test_run_link,
             status_details=status_details or "",
         )
@@ -271,7 +271,7 @@ class TemplateService:
         if frontend_url and test_run_id:
             test_run_link_section = f"""
     <div style="text-align: center; margin: 20px 0;">
-        <a href="{frontend_url}/test-runs/{test_run_id}" 
+        <a href="{frontend_url}/test-runs/{test_run_id}"
            style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
             View Detailed Results
         </a>
@@ -291,7 +291,7 @@ class TemplateService:
             tests_passed=tests_passed,
             tests_failed=tests_failed,
             execution_time=execution_time or "N/A",
-            completed_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             status_bg_color=status_bg_color,
             status_border_color=status_border_color,
             status_text_color=status_text_color,

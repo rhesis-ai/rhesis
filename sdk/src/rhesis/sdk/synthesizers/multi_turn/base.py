@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, Template
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from rhesis.sdk.entities.test import TestConfiguration
 from rhesis.sdk.entities.test_set import TestSet
@@ -40,8 +40,8 @@ class FlatTest(BaseModel):
     test_configuration_instructions: str
     test_configuration_restrictions: str
     test_configuration_scenario: str
-    test_configuration_min_turns: int
-    test_configuration_max_turns: int
+    test_configuration_min_turns: int = Field(ge=1, le=50)
+    test_configuration_max_turns: int = Field(ge=1, le=50)
     behavior: str
     category: str
     topic: str

@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { UUID } from 'crypto';
 import ComparePageClient from './ComparePageClient';
@@ -38,7 +38,7 @@ export default async function TestRunComparePage({
     throw new Error('Authentication required');
   }
 
-  const apiFactory = new ApiClientFactory(session.session_token);
+  const apiFactory = await createServerApiFactory(session.session_token);
   const testRunsClient = apiFactory.getTestRunsClient();
   const testResultsClient = apiFactory.getTestResultsClient();
   const behaviorClient = apiFactory.getBehaviorClient();

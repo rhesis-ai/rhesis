@@ -48,6 +48,8 @@ import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { generateCopyName } from '@/utils/entity-helpers';
 import { TEST_TYPES } from '@/constants/test-types';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -100,6 +102,7 @@ const EditableSection = React.memo(
     onConfirm,
     isSaving,
     checkChanges,
+    editable = true,
   }: {
     title: string;
     section: EditableSectionType;
@@ -110,6 +113,7 @@ const EditableSection = React.memo(
     onConfirm: () => void;
     isSaving?: boolean;
     checkChanges: () => boolean;
+    editable?: boolean;
   }) => {
     const hasChanges = isEditing === section ? checkChanges() : false;
     const actions =
@@ -120,7 +124,7 @@ const EditableSection = React.memo(
           isSaving={isSaving}
           saveDisabled={!hasChanges}
         />
-      ) : isEditing === null ? (
+      ) : isEditing === null && editable ? (
         <SectionEditButton onClick={() => onEdit(section)} />
       ) : null;
 
@@ -186,6 +190,7 @@ export function MetricDetailView({
   const { data: session } = useSession();
   const theme = useTheme();
   const router = useRouter();
+  const canEditMetric = useCan(Capability.Metric.UPDATE);
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const notifications = useNotifications();
@@ -861,6 +866,7 @@ export function MetricDetailView({
         <Stack spacing={3}>
           {/* General Information Section */}
           <EditableSection
+            editable={canEditMetric}
             title="General Information"
             section="general"
             isEditing={isEditing}
@@ -908,6 +914,7 @@ export function MetricDetailView({
 
           {/* Tags Section */}
           <EditableSectionCard
+            editable={canEditMetric}
             title="Tags"
             initialValue={{ tagNames }}
             onSave={handleTagsSave}
@@ -929,6 +936,7 @@ export function MetricDetailView({
 
           {/* Evaluation Process Section */}
           <EditableSection
+            editable={canEditMetric}
             title="Evaluation Process"
             section="evaluation"
             isEditing={isEditing}
@@ -1132,6 +1140,7 @@ export function MetricDetailView({
 
           {/* Result Configuration Section */}
           <EditableSection
+            editable={canEditMetric}
             title="Result Configuration"
             section="configuration"
             isEditing={isEditing}
@@ -1638,14 +1647,16 @@ export function MetricDetailView({
       ]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<ContentCopyIcon />}
-            tooltip="Duplicate"
-            aria-label="Duplicate metric"
-            onClick={handleDuplicate}
-            loading={isDuplicating}
-            disabled={!!isEditing}
-          />
+          <Can capability={Capability.Metric.CREATE}>
+            <Fab
+              icon={<ContentCopyIcon />}
+              tooltip="Duplicate"
+              aria-label="Duplicate metric"
+              onClick={handleDuplicate}
+              loading={isDuplicating}
+              disabled={!!isEditing}
+            />
+          </Can>
         </FabGroup>
       }
     >

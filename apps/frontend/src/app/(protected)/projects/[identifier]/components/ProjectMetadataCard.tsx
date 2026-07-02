@@ -35,6 +35,7 @@ interface ProjectMetadataCardProps {
   project: Project;
   sessionToken: string;
   onSave: (updatedProject: Partial<Project>) => Promise<boolean>;
+  editable?: boolean;
 }
 
 function getUserDisplayName(user: User): string {
@@ -47,6 +48,7 @@ export default function ProjectMetadataCard({
   project,
   sessionToken,
   onSave,
+  editable,
 }: ProjectMetadataCardProps) {
   const [users, setUsers] = useState<User[]>([]);
 
@@ -96,6 +98,7 @@ export default function ProjectMetadataCard({
       title="Project details"
       initialValue={initialDraft}
       onSave={handleSave}
+      editable={editable}
     >
       {({ draft, setDraft, isEditing }) => {
         const selectedOwner = users.find(u => u.id === draft.owner_id);

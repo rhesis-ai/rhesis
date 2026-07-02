@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useContext } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
   GridPaginationModel,
@@ -10,6 +16,7 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
 } from '@mui/x-data-grid';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridToolbar from '@/components/common/GridToolbar';
 import { useRouter } from 'next/navigation';
@@ -21,11 +28,12 @@ import type { ExplorerTestSet } from '@/utils/api-client/interfaces/explorer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { formatDate } from '@/utils/date';
+import { explorerKeys } from '@/constants/query-keys';
 
 interface ExplorerGridProps {
   sessionToken: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 interface ExplorerToolbarState {
@@ -59,14 +67,11 @@ function ExplorerUnifiedToolbar() {
 
 export default function ExplorerGrid({
   sessionToken,
-  refreshKey = 0,
-  onRefresh,
+  onTotalCountChange,
 }: ExplorerGridProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
-  const [allRows, setAllRows] = useState<ExplorerTestSet[]>([]);
-  const [rows, setRows] = useState<ExplorerTestSet[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -77,49 +82,32 @@ export default function ExplorerGrid({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadSessions = async () => {
-      setLoading(true);
-      try {
-        const client = new ApiClientFactory(sessionToken).getExplorerClient();
-        const sessions = await client.getExplorerTestSets();
-        if (!cancelled) {
-          setAllRows(sessions);
-        }
-      } catch {
-        if (!cancelled) {
-          setAllRows([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadSessions();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionToken, refreshKey]);
+  const { data: allRows = [], isLoading: loading } = useQuery({
+    queryKey: explorerKeys.all(),
+    queryFn: () =>
+      new ApiClientFactory(sessionToken)
+        .getExplorerClient()
+        .getExplorerTestSets(),
+    enabled: !!sessionToken,
+  });
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setRows(allRows);
-      return;
-    }
-    const q = searchQuery.toLowerCase();
-    setRows(
-      allRows.filter(
-        r =>
+    onTotalCountChange?.(allRows.length);
+  }, [allRows.length, onTotalCountChange]);
+
+  useEffect(() => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  const rows = searchQuery.trim()
+    ? allRows.filter(r => {
+        const q = searchQuery.toLowerCase();
+        return (
           r.name?.toLowerCase().includes(q) ||
           (r.description ?? '').toLowerCase().includes(q)
-      )
-    );
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [searchQuery, allRows]);
+        );
+      })
+    : allRows;
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -128,56 +116,57 @@ export default function ExplorerGrid({
     []
   );
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1.5,
-      minWidth: 200,
-    },
-    {
-      field: 'description',
-      headerName: 'Description',
-      flex: 2,
-      minWidth: 200,
-      renderCell: params => (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {params.value || '-'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 120,
-      renderCell: params => {
-        const status = params.value;
-        if (!status) return '-';
-        return <GridBadge label={status} />;
+  const columns = useMemo<GridColDef[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1.5,
+        minWidth: 200,
       },
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created',
-      width: 160,
-      renderCell: params => {
-        if (!params.value) return '-';
-        return (
-          <Typography variant="body2">
-            {new Date(params.value).toLocaleDateString()}
+      {
+        field: 'description',
+        headerName: 'Description',
+        flex: 2,
+        minWidth: 200,
+        renderCell: params => (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {params.value || '-'}
           </Typography>
-        );
+        ),
       },
-    },
-  ];
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 120,
+        renderCell: params => {
+          const status = params.value;
+          if (!status) return '-';
+          return <GridBadge label={status} />;
+        },
+      },
+      {
+        field: 'created_at',
+        headerName: 'Created',
+        width: 160,
+        renderCell: params => {
+          if (!params.value) return '-';
+          return (
+            <Typography variant="body2">{formatDate(params.value)}</Typography>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   const handleRowClick = (params: GridRowParams) => {
     router.push(`/explorer/${params.id}`);
@@ -238,10 +227,8 @@ export default function ExplorerGrid({
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      const removed = new Set(selectedRows.map(String));
-      setAllRows(prev => prev.filter(r => !removed.has(String(r.id))));
       setSelectedRows([]);
-      onRefresh?.();
+      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
     } catch {
       notifications.show('Failed to delete sessions', {
         severity: 'error',

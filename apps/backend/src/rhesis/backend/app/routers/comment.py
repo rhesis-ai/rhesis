@@ -1,12 +1,13 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.auth.capabilities import capability
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.dependencies import (
@@ -14,6 +15,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -74,19 +76,22 @@ The structure is: {emoji_character: [list_of_user_reactions]}
 @handle_database_exceptions(entity_name="comment", custom_unique_message="Comment already exists")
 def create_comment(
     comment: schemas.CommentCreate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Create a new comment."""
     organization_id, user_id = tenant_context
-    return crud.create_comment(
+    new_comment = crud.create_comment(
         db=db, comment=comment, organization_id=organization_id, user_id=user_id
     )
+    return new_comment
 
 
 @router.get("/", response_model=List[CommentDetailSchema])
 def read_comments(
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -114,6 +119,7 @@ def read_comments(
 @router.get("/{comment_id}", response_model=CommentDetailSchema)
 def read_comment(
     comment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -132,6 +138,7 @@ def read_comment(
 def update_comment(
     comment_id: uuid.UUID,
     comment: schemas.CommentUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -145,22 +152,28 @@ def update_comment(
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    # Check if user owns the comment
-    if db_comment.user_id != current_user.id:
+    # SP10: object-level ownership check via PDP.
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to update this comment")
 
-    return crud.update_comment(
+    updated = crud.update_comment(
         db=db,
         comment_id=comment_id,
         comment=comment,
         organization_id=organization_id,
         user_id=user_id,
     )
+    return updated
 
 
 @router.delete("/{comment_id}", response_model=schemas.Comment)
 def delete_comment(
     comment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -174,8 +187,12 @@ def delete_comment(
     if db_comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    # Check if user owns the comment
-    if db_comment.user_id != current_user.id:
+    # SP10: object-level ownership check via PDP.
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.Comment.DELETE_OWN, db_comment, project_id=project_id, db=db
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
     return crud.delete_comment(
@@ -187,6 +204,7 @@ def delete_comment(
 def read_comments_by_entity(
     entity_type: str,
     entity_id: uuid.UUID,
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -229,6 +247,7 @@ def read_comments_by_entity(
 def add_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -297,6 +316,7 @@ def add_emoji_reaction(
 def remove_emoji_reaction(
     comment_id: uuid.UUID,
     emoji: str,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),

@@ -171,6 +171,17 @@ def bootstrap(app: "FastAPI") -> None:
     # client-bound refresh.
     register_refresh_client_minter(mint_for_client_bound_refresh)
 
+    # Seed the default org-role (Owner for the creator, Member for invitees) when
+    # a user is associated with an org, so RBAC can be enabled for an org without
+    # locking out users created after the catalog backfill. No-op while RBAC is
+    # dark (DefaultLicenseProvider denies it) — see ee/rbac/default_role.py.
+    from rhesis.backend.app.auth.org_membership_hook import (
+        register_org_membership_handler,
+    )
+    from rhesis.backend.ee.rbac.default_role import assign_default_org_role
+
+    register_org_membership_handler(assign_default_org_role)
+
     # ---- Public routes (must run before include_router) ------------------
     # AuthenticatedAPIRoute resolves dependencies at registration time;
     # extending the existing list (rather than rebinding) is what lets

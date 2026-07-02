@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -19,10 +19,15 @@ import {
 } from '@/components/icons';
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
-import { Comment } from '@/types/comments';
+import { Comment, EntityType } from '@/types/comments';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
+import { EntityActionBar } from '@/components/common/EntityActionBar';
+import type { EntityAction } from '@/components/common/entity-actions';
+import { Capability } from '@/constants/capabilities';
+import { can, Can } from '@/components/common/Can';
 
 interface CommentItemProps {
   comment: Comment;
@@ -52,7 +57,40 @@ export function CommentItem({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isOwner = comment.user_id === currentUserId;
+  const canReact = can(comment, Capability.Comment.REACT);
+
+  // Actions declared as data; EntityActionBar renders only those the server
+  // permits (capability) and `isVisible` allows. No canEdit/canDelete booleans,
+  // no per-button wiring — adding an action is one entry here.
+  const actions = useMemo<EntityAction<Comment>[]>(() => {
+    const list: EntityAction<Comment>[] = [];
+    if (onCreateTask) {
+      list.push({
+        id: 'create-task',
+        label: 'Create task from comment',
+        icon: AddTaskIcon,
+        isVisible: () => entityType !== EntityType.TASK,
+        onSelect: c => onCreateTask(c.id),
+      });
+    }
+    list.push(
+      {
+        id: 'edit',
+        label: 'Edit comment',
+        icon: EditIcon,
+        capability: Capability.Comment.UPDATE,
+        onSelect: () => setIsEditing(true),
+      },
+      {
+        id: 'delete',
+        label: 'Delete comment',
+        icon: DeleteIcon,
+        capability: Capability.Comment.DELETE,
+        onSelect: () => setShowDeleteModal(true),
+      }
+    );
+    return list;
+  }, [onCreateTask, entityType]);
 
   const handleSaveEdit = async () => {
     if (!editText.trim()) return;
@@ -88,7 +126,7 @@ export function CommentItem({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'Z');
+    const date = new Date(dateString);
     const diffInHours =
       (new Date().getTime() - date.getTime()) / (1000 * 60 * 60);
     if (diffInHours < 24) {
@@ -152,48 +190,14 @@ export function CommentItem({
             {formatDate(comment.created_at)}
           </Typography>
 
-          {/* Action icons */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {onCreateTask && entityType !== 'Task' && (
-              <Tooltip title="Create task from comment">
-                <IconButton
-                  size="small"
-                  onClick={() => onCreateTask(comment.id)}
-                  sx={actionIconSx}
-                >
-                  <AddTaskIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {isOwner && (
-              <Tooltip title="Edit comment">
-                <IconButton
-                  size="small"
-                  onClick={() => setIsEditing(true)}
-                  sx={actionIconSx}
-                >
-                  <EditIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {isOwner && (
-              <Tooltip title="Delete comment">
-                <IconButton
-                  size="small"
-                  onClick={() => setShowDeleteModal(true)}
-                  sx={actionIconSx}
-                >
-                  <DeleteIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
+          {/* Action icons — gated + rendered generically from `actions` */}
+          <EntityActionBar subject={comment} actions={actions} />
         </Box>
 
         {/* ── Content box ── */}
         <Box
           sx={{
-            bgcolor: '#f9f9fa',
+            bgcolor: theme => theme.palette.greyscale.surface1,
             borderRadius: '4px',
             p: '16px',
             display: 'flex',
@@ -261,19 +265,26 @@ export function CommentItem({
                   placement="top"
                 >
                   <Box
-                    onClick={() => onReact(comment.id, emoji)}
+                    onClick={
+                      canReact ? () => onReact(comment.id, emoji) : undefined
+                    }
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
                       border: '1px solid',
-                      borderColor: hasReacted ? 'primary.main' : '#b6bdc9',
-                      borderRadius: '999px',
+                      borderColor: theme =>
+                        hasReacted
+                          ? theme.palette.primary.main
+                          : theme.palette.greyscale.border,
+                      borderRadius: BORDER_RADIUS.pill,
                       px: '10px',
                       py: '2px',
-                      cursor: 'pointer',
+                      cursor: canReact ? 'pointer' : 'default',
                       userSelect: 'none',
-                      '&:hover': { borderColor: 'text.primary' },
+                      '&:hover': canReact
+                        ? { borderColor: 'text.primary' }
+                        : {},
                     }}
                   >
                     <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
@@ -283,7 +294,7 @@ export function CommentItem({
                       sx={{
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: '#2a2e36',
+                        color: theme => theme.palette.greyscale.body,
                       }}
                     >
                       {reactions.length}
@@ -293,15 +304,17 @@ export function CommentItem({
               );
             })}
 
-            <Tooltip title="Add reaction">
-              <IconButton
-                size="small"
-                onClick={e => setEmojiAnchorEl(e.currentTarget)}
-                sx={actionIconSx}
-              >
-                <EmojiIcon sx={{ fontSize: 20 }} />
-              </IconButton>
-            </Tooltip>
+            <Can subject={comment} capability={Capability.Comment.REACT}>
+              <Tooltip title="Add reaction">
+                <IconButton
+                  size="small"
+                  onClick={e => setEmojiAnchorEl(e.currentTarget)}
+                  sx={actionIconSx}
+                >
+                  <EmojiIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              </Tooltip>
+            </Can>
           </Box>
         </Box>
       </Box>

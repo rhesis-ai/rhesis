@@ -51,10 +51,4 @@ def generate_embedding_task(
             searchable_text=searchable_text,
         )
 
-    self.log_with_context(
-        "info",
-        "Embedding task finished",
-        status=result["status"],
-        embedding_id=result.get("embedding_id"),
-    )
     return result

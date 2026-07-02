@@ -3,7 +3,6 @@
 import * as React from 'react';
 import {
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,6 +20,8 @@ import { useRouter } from 'next/navigation';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import RunDrawer from '@/components/common/RunDrawer';
 import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface TestSetHeaderActionsProps {
   sessionToken: string;
@@ -140,35 +141,37 @@ export default function TestSetHeaderActions({
   return (
     <>
       <FabGroup>
-        <Fab
-          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-          tooltip="Delete test set"
-          onClick={() => setDeleteDialogOpen(true)}
-          loading={isDeleting}
-        />
+        <Can capability={Capability.TestSet.DELETE}>
+          <Fab
+            icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+            tooltip="Delete test set"
+            onClick={() => setDeleteDialogOpen(true)}
+            loading={isDeleting}
+          />
+        </Can>
         <Fab
           icon={<DownloadIcon sx={{ fontSize: 28 }} />}
           tooltip="Download test set (CSV)"
           onClick={handleDownload}
           loading={isDownloading}
         />
-        <Fab
-          icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
-          tooltip="Execute test set"
-          onClick={() => setExecuteDrawerOpen(true)}
-          disabled={testCount === 0}
-        />
+        <Can capability={Capability.TestSet.EXECUTE}>
+          <Fab
+            icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+            tooltip="Execute test set"
+            onClick={() => setExecuteDrawerOpen(true)}
+            disabled={testCount === 0}
+          />
+        </Can>
         {isGarakTestSet && (
-          <Button
-            variant="outlined"
-            startIcon={
-              isSyncing ? <CircularProgress size={16} /> : <RefreshIcon />
-            }
-            onClick={handleGarakSyncPreview}
-            disabled={isSyncing}
-          >
-            {isSyncing ? 'Syncing…' : 'Sync from Garak'}
-          </Button>
+          <Can capability={Capability.TestSet.UPDATE}>
+            <Fab
+              icon={<RefreshIcon sx={{ fontSize: 28 }} />}
+              tooltip="Sync from Garak"
+              onClick={handleGarakSyncPreview}
+              loading={isSyncing}
+            />
+          </Can>
         )}
       </FabGroup>
 

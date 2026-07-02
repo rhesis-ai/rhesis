@@ -1,4 +1,5 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { EntityType } from '@/types/entity-type';
 import { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { Status as ApiStatus } from '@/utils/api-client/interfaces/status';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -51,7 +52,9 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
 
     const clientFactory = new ApiClientFactory(token);
     const statusClient = clientFactory.getStatusClient();
-    const apiStatuses = await statusClient.getStatuses({ entity_type: 'Task' });
+    const apiStatuses = await statusClient.getStatuses({
+      entity_type: EntityType.TASK,
+    });
 
     // Convert API statuses to task statuses and filter for specific options
     const allowedStatusNames = ['Open', 'In Progress', 'Completed'];
@@ -78,19 +81,19 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
         id: '550e8400-e29b-41d4-a716-446655440001',
         name: 'Open',
         description: 'Task is open',
-        entity_type_id: 'Task',
+        entity_type_id: EntityType.TASK,
       },
       {
         id: '550e8400-e29b-41d4-a716-446655440002',
         name: 'In Progress',
         description: 'Task is in progress',
-        entity_type_id: 'Task',
+        entity_type_id: EntityType.TASK,
       },
       {
         id: '550e8400-e29b-41d4-a716-446655440003',
         name: 'Completed',
         description: 'Task is completed',
-        entity_type_id: 'Task',
+        entity_type_id: EntityType.TASK,
       },
     ];
     taskDataCache.set(cacheKey, defaultStatuses);

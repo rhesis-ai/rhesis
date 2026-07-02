@@ -6,6 +6,8 @@ import Grid from '@mui/material/Grid';
 import ViewField from '@/components/common/ViewField';
 import { BadgeRow } from '@/components/common/GridBadge';
 import EditableSection from '@/components/common/EditableSection';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -33,6 +35,7 @@ export default function TestSetDetailsCard({
 }: TestSetDetailsCardProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
 
   const metadata = testSet.attributes?.metadata;
   const behaviors = metadata?.behaviors ?? [];
@@ -61,6 +64,7 @@ export default function TestSetDetailsCard({
 
   return (
     <EditableSection
+      editable={canEditTestSet}
       title="Test set details"
       initialValue={initialDraft}
       onSave={handleSave}

@@ -61,4 +61,55 @@ describe('EntityEmptyState', () => {
 
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
+
+  it('renders enriched layout with secondary CTA and help section', () => {
+    renderEmptyState({
+      card: true,
+      icon: RouteIcon,
+      title: 'Get started with tests',
+      description: 'Create your first test.',
+      actionLabel: 'Create test',
+      onAction: jest.fn(),
+      enrichment: {
+        secondaryAction: {
+          label: 'Learn more',
+          href: 'https://docs.rhesis.ai/docs/tests',
+        },
+        media: {
+          youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        },
+        helpArticles: {
+          title: 'Top Help Articles',
+          items: [
+            {
+              href: 'https://docs.rhesis.ai/docs/tests',
+              title: 'Tests guide',
+              description: 'Learn how to create tests',
+            },
+          ],
+        },
+        communityLinks: {
+          title: 'Community & Support',
+          items: [
+            {
+              title: 'Documentation',
+              description: 'Guides and API references',
+              linkLabel: 'Browse docs',
+              href: 'https://docs.rhesis.ai',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getByRole('link', { name: /learn more/i })).toHaveAttribute(
+      'href',
+      'https://docs.rhesis.ai/docs/tests'
+    );
+    expect(screen.getByText('Top Help Articles')).toBeInTheDocument();
+    expect(screen.getByText('Community & Support')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /product demo video/i })
+    ).toBeInTheDocument();
+  });
 });

@@ -8,6 +8,12 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
+from rhesis.backend.app.auth.principal import (
+    REQUEST_STATE_API_TOKEN_PROJECT_ID,
+    REQUEST_STATE_API_TOKEN_SCOPES,
+    REQUEST_STATE_AUTH_KIND,
+    AuthKind,
+)
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.database import get_db
@@ -308,7 +314,27 @@ async def get_authenticated_user_with_context(
                         # Store token's project_id on request state so
                         # get_project_context can use it as a fallback
                         if token.project_id is not None:
-                            request.state.api_token_project_id = str(token.project_id)
+                            setattr(
+                                request.state,
+                                REQUEST_STATE_API_TOKEN_PROJECT_ID,
+                                str(token.project_id),
+                            )
+
+                        # SP9: store the token's explicit permission scopes on
+                        # request state so the PEP backstop can include them in
+                        # the Principal.  None means "inherit owner's full access".
+                        token_scopes = getattr(token, "scopes", None)
+                        if token_scopes is not None:
+                            setattr(
+                                request.state,
+                                REQUEST_STATE_API_TOKEN_SCOPES,
+                                frozenset(token_scopes),
+                            )
+
+                        # Always mark the auth kind as a token so resolve_principal
+                        # callers can set kind correctly even when the token carries
+                        # no scopes and no project_id (unscoped rh-* tokens).
+                        setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
 
                         if without_context:
                             # without_context allows users without organization
@@ -459,6 +485,8 @@ async def authenticate_websocket(websocket: WebSocket) -> tuple["User", str | No
     # Harvest the token-scoped project_id that get_authenticated_user_with_context
     # stored on the mock request state (only set for rh- API tokens that carry a
     # project_id; None for JWT tokens and unscoped API tokens).
-    token_project_id: str | None = getattr(mock_request.state, "api_token_project_id", None)
+    token_project_id: str | None = getattr(
+        mock_request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None
+    )
 
     return user, token_project_id

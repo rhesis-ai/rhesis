@@ -89,13 +89,6 @@ def get_visible_experiment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Experiment not found",
         )
-    if db_experiment.visibility == "private" and (
-        user_id is None or str(db_experiment.owner_user_id) != str(user_id)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Experiment not found",
-        )
     return db_experiment
 
 

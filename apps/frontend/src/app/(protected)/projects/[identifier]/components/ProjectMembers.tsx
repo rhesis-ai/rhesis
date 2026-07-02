@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
@@ -15,13 +15,16 @@ import {
   ProjectMemberUser,
 } from '@/utils/api-client/interfaces/project';
 import { DeleteIcon, PersonAddIcon } from '@/components/icons';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { projectKeys } from '@/constants/query-keys';
 
 interface ProjectMembersProps {
   projectId: string;
   sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
-  refreshKey?: number;
   onMembersLoaded?: (members: ProjectMember[]) => void;
 }
 
@@ -38,45 +41,46 @@ export default function ProjectMembers({
   projectId,
   sessionToken,
   ownerId,
-  refreshKey = 0,
   onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
+  const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
+  const queryClient = useQueryClient();
 
-  const [members, setMembers] = useState<ProjectMember[]>([]);
-  const [membersLoading, setMembersLoading] = useState(true);
-  const [membersError, setMembersError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
   });
-
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(
     null
   );
   const [removing, setRemoving] = useState(false);
 
-  const fetchMembers = useCallback(async () => {
-    setMembersLoading(true);
-    setMembersError(null);
-    try {
-      const factory = new ApiClientFactory(sessionToken);
-      const data = await factory
+  const membersQueryKey = [
+    ...projectKeys.detail(projectId),
+    'members',
+  ] as const;
+
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    error: membersQueryError,
+  } = useQuery({
+    queryKey: membersQueryKey,
+    queryFn: async () => {
+      const data = await new ApiClientFactory(sessionToken)
         .getProjectsClient()
         .getProjectMembers(projectId);
-      setMembers(data);
       onMembersLoaded?.(data);
-    } catch {
-      setMembersError('Failed to load project members.');
-    } finally {
-      setMembersLoading(false);
-    }
-  }, [projectId, sessionToken, onMembersLoaded]);
+      return data;
+    },
+    enabled: !!sessionToken && !!projectId,
+  });
 
-  useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers, refreshKey]);
+  const membersError = membersQueryError
+    ? 'Failed to load project members.'
+    : null;
 
   const handleRemoveClick = (member: ProjectMember) => {
     setMemberToRemove(member);
@@ -94,7 +98,7 @@ export default function ProjectMembers({
       notifications.show('Member removed from the project.', {
         severity: 'success',
       });
-      await fetchMembers();
+      queryClient.invalidateQueries({ queryKey: membersQueryKey });
     } catch (err) {
       notifications.show(
         err instanceof Error ? err.message : 'Failed to remove member.',
@@ -174,7 +178,10 @@ export default function ProjectMembers({
       filterable: false,
       renderCell: params => {
         const member = params.row as ProjectMember;
-        if (ownerId && member.user_id === ownerId) return null;
+        // Never show delete for the project owner, and only for users with manage capability.
+        if ((ownerId && member.user_id === ownerId) || !canManageMembers) {
+          return null;
+        }
         return (
           <IconButton
             size="small"

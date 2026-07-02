@@ -11,30 +11,37 @@ export const OUTPUT_VARIABLES = [
   {
     name: 'output',
     label: '{{ output }}',
+    groupLabel: 'Output',
     description:
       'Required. The text your model returned — this is what Rhesis scores.',
   },
   {
     name: 'conversation_id',
     label: '{{ conversation_id }}',
+    groupLabel: 'Conversation ID',
     description: 'Conversation ID for multi-turn tracking.',
+    docsUrl: 'https://docs.rhesis.ai/docs/endpoints/multi-turn-conversations',
   },
   {
     name: 'context',
     label: '{{ context }}',
+    groupLabel: 'Context',
     description:
       'Retrieved documents or sources — used by context-dependent metrics.',
   },
   {
     name: 'metadata',
     label: '{{ metadata }}',
+    groupLabel: 'Metadata',
     description:
-      'Structured data (model version, token counts…). Stored with the result.',
+      'Structured data (model version, token counts…). Stored with the result and available to custom metrics.',
   },
   {
     name: 'tool_calls',
     label: '{{ tool_calls }}',
-    description: 'Tool or function calls made during response generation.',
+    groupLabel: 'Tool calls',
+    description:
+      'Tool or function calls made during response generation. Available to metrics that evaluate tool use.',
   },
 ];
 
@@ -123,7 +130,16 @@ export function JsonPreview({
         {tail}
       </>
     );
-  if (typeof value === 'string')
+  if (typeof value === 'string') {
+    if (/^\{\{[^}]+\}\}$/.test(value))
+      return (
+        <>
+          <Box component="span" sx={varChipSx}>
+            {value}
+          </Box>
+          {tail}
+        </>
+      );
     return (
       <>
         <Box component="span" sx={{ color: T.str }}>
@@ -132,6 +148,7 @@ export function JsonPreview({
         {tail}
       </>
     );
+  }
 
   if (Array.isArray(value)) {
     if (!value.length)

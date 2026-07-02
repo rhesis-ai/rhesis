@@ -20,6 +20,8 @@ interface TestRunDetailHeaderProps {
   isDownloading?: boolean;
   canRerun?: boolean;
   canCompare?: boolean;
+  /** Gate the rename button on server-driven affordances (default true). */
+  canRename?: boolean;
 }
 
 export default function TestRunDetailHeader({
@@ -31,6 +33,7 @@ export default function TestRunDetailHeader({
   isDownloading = false,
   canRerun = true,
   canCompare = true,
+  canRename = true,
 }: TestRunDetailHeaderProps) {
   const creatorName =
     testRun.user?.name || testRun.user?.email || 'Unknown user';
@@ -59,11 +62,13 @@ export default function TestRunDetailHeader({
           >
             {testRun.name || 'Test Run'}
           </Typography>
-          <Tooltip title="Rename test run">
-            <IconButton size="small" onClick={onRename} aria-label="Rename">
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {canRename && (
+            <Tooltip title="Rename test run">
+              <IconButton size="small" onClick={onRename} aria-label="Rename">
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
         <Typography
           variant="body2"

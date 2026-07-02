@@ -40,6 +40,7 @@ import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import SchoolIcon from '@mui/icons-material/School';
 import ScienceIcon from '@mui/icons-material/Science';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import { formatDate } from '@/utils/date';
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -246,8 +247,7 @@ export function ProjectContent({ project }: { project: Project }) {
                       Created At
                     </Typography>
                     <Typography variant="body1">
-                      {new Date(project.createdAt).toLocaleDateString()}{' '}
-                      {new Date(project.createdAt).toLocaleTimeString()}
+                      {formatDate(project.createdAt)}
                     </Typography>
                   </Box>
                 </Box>

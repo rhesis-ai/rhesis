@@ -32,10 +32,10 @@ Note: These commands generate `apps/backend/.env` and `apps/frontend/.env.local`
     ['`DB_ENCRYPTION_KEY`', 'Fernet key for encrypted fields. **Keep secret.** Generate if not using init: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.'],
     ['`BROKER_URL`', 'Celery broker Redis URL (dev: port `11001`).'],
     ['`CELERY_RESULT_BACKEND`', 'Celery results store; use a different Redis DB index than `BROKER_URL` when both are Redis.'],
-    ['`ENVIRONMENT`', 'Environment name (e.g. `development`).'],
-    ['`BACKEND_ENV`', 'Backend environment label (e.g. `development`).'],
+    ['`BACKEND_ENV`', 'Canonical backend runtime label: `production`, `development`, `staging`, `local`, or `test`.'],
+    ['`ENVIRONMENT`', 'Legacy shell-script label used by some entrypoints; application settings use `BACKEND_ENV`.'],
     ['`LOG_LEVEL`', 'Log level (e.g. `DEBUG`).'],
-    ['`API_BASE_URL`', 'Public URL of this deployment\'s backend API (OAuth/SSO callbacks), e.g. `http://localhost:8080`.'],
+    ['`API_BASE_URL`', 'Public URL of this deployment\'s backend API (OAuth/SSO callbacks). A loopback hostname (`localhost`, `127.0.0.1`, `::1`) enables local session/cookie behavior.'],
     ['`FRONTEND_URL`', 'Public frontend URL (CORS and redirects), e.g. `http://localhost:3000`.'],
     ['`BACKEND_URL`', 'Backend URL as reachable by clients and tools, e.g. `http://localhost:8080`.'],
     ['`JWT_SECRET_KEY`', 'Secret for signing JWTs. Change for any non-local deployment.'],
@@ -58,11 +58,13 @@ These are not added by `./rh dev init` but are commonly needed when you deploy, 
     ['`SESSION_SECRET_KEY`', 'Required in production', 'Session middleware signing key. Local dev may use a fallback when running locally; production must set this.'],
     ['`DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, `DEFAULT_EXECUTION_MODEL`', 'Default: `rhesis/rhesis-default`', 'Model IDs in `provider/model` form for generation, evaluation, and endpoint execution. Rhesis defaults need `RHESIS_API_KEY`; switch to OpenAI, Gemini, Azure, or Vertex and set the matching provider env vars instead if you prefer not to use a platform key.'],
     ['`DEFAULT_EMBEDDING_MODEL`', 'Default: `rhesis/rhesis-embedding`', 'Embedding model ID in `provider/model` form. Explicit deployment secrets or `.env` values override this default; keep an older provider value only if you want to continue using that provider for embeddings.'],
+    ['`STORAGE_SERVICE_URI`', 'Required for durable file storage', 'Object storage URI for uploaded files, for example `file:///var/lib/rhesis/files`, `gs://bucket`, or `s3://bucket`. Backend and workers must share access.'],
     ['`OPENAI_API_KEY`, `GEMINI_API_KEY`, Azure / Vertex variables', 'Optional', 'Third-party LLM and embedding providers; set whichever providers you use.'],
     ['`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`', 'Optional', 'OAuth sign-in providers.'],
     ['`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FROM_EMAIL`, …', 'Optional', 'Outbound email.'],
     ['`OTEL_*` (e.g. `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`)', 'Optional', 'OpenTelemetry export and service metadata.'],
     ['`SERVICE_DELEGATION_EXPIRE_MINUTES`', 'Default: `15`', 'Lifetime, in minutes, for short-lived service delegation JWTs used by backend worker flows such as Architect local tool calls.'],
+    ['`RHESIS_DISABLE_SCOPE_LISTENER`', 'Default: unset', 'Emergency kill switch for the ORM auto-filter and auto-stamp listeners. PostgreSQL RLS remains active.'],
     ['`WS_MAX_MESSAGE_SIZE`, `WS_IDLE_TIMEOUT`, `WS_RATE_LIMIT`', 'Defaults documented in code', 'SDK connector WebSocket limits (`/connector/ws`).'],
     ['`CELERY_WORKER_*`', 'Defaults documented in code', 'Celery worker process tuning.'],
   ]}
@@ -84,6 +86,10 @@ For a full production file (many more keys), teams often load secrets from Googl
     ['`NEXT_TELEMETRY_DISABLED`', 'Disables Next.js telemetry in local dev when set (e.g. `1`).'],
   ]}
 />
+
+The production frontend image is built once and configured at container start. `apps/frontend/scripts/replace-runtime-env.sh` replaces `__NEXT_PUBLIC_API_BASE_URL__` and `__NEXT_PUBLIC_QUICK_START__` placeholders in the built bundle, then exports the resolved values. Prefer setting `NEXT_PUBLIC_API_BASE_URL` explicitly; if it is absent, startup falls back to `API_BASE_URL`, then `BACKEND_URL`, then `http://localhost:8080`.
+
+`BACKEND_URL` is also read by the server-side `/api/*` Route Handler proxy on each request, so internal service routing can change without rebuilding the frontend image.
 
 ### Optional frontend variables
 

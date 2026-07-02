@@ -18,6 +18,34 @@ List configured endpoints (the AI systems under test).
 
 ---
 
+### `create_endpoint`
+Register a new REST API endpoint (the AI system to be tested — a chat API, completion API, or chatbot).
+
+Resolve the target project **first** with `list_projects` and pass its id — the endpoint cannot be created without a `project_id`. After creating, verify reachability with `check_endpoint`.
+
+**Key parameters:**
+- `name` (required) — endpoint name, unique within the project
+- `project_id` (required) — UUID of the owning project; resolve via `list_projects`
+- `connection_type` — `"REST"` for HTTP APIs (default for chatbots)
+- `url` (required for REST) — full endpoint URL, e.g. `https://api.example.com/chat`
+- `method` — HTTP method, e.g. `"POST"` or `"GET"`
+- `description` — what the endpoint does
+- `environment` — `"production"`, `"staging"`, `"development"`, or `"local"` (default `"development"`)
+- `request_headers` — object of HTTP headers, e.g. `{"Content-Type": "application/json"}`
+- `request_mapping` — object mapping the request body, using `{{ input }}` for the user message, e.g. `{"message": "{{ input }}"}`
+- `response_mapping` — object mapping the response via JSONPath, e.g. `{"output": "$.response"}`
+- `query_params` — optional object of query-string parameters
+- `response_format` — `"json"` (default), `"xml"`, or `"text"`
+
+**Auth (optional):**
+- `auth_type` — `"bearer_token"`, `"client_credentials"`, or `"api_key"`; omit for unauthenticated endpoints
+- `auth_token` — bearer token / API key (write-only, stored encrypted)
+- `client_id`, `client_secret`, `token_url`, `scopes`, `audience` — OAuth client-credentials fields (`client_secret` is write-only, stored encrypted)
+
+**Common mistakes:** Omitting `project_id` — the create fails because it is a required relationship. Always resolve the project with `list_projects` first. Do NOT send server-managed fields (`id`, `user_id`, `organization_id`, `status_id`, `created_at`, `updated_at`) — `status_id` is auto-assigned to "Active".
+
+---
+
 ### `check_endpoint`
 Send a test message to an endpoint to verify it is reachable and responding.
 
@@ -330,7 +358,7 @@ Run a test set against an endpoint. The backend creates the internal test config
 The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `task_id` until `SUCCESS`, then use `test_run_id` to fetch results via `get_test_run` and `list_test_results`.
 
 **Key parameters:**
-- `test_set_identifier` (required, path parameter) — UUID of the test set
+- `test_set_identifier` (required, path parameter) — test set UUID, nano_id, or slug
 - `endpoint_id` (required, path parameter) — UUID of the target endpoint
 
 ---
@@ -347,7 +375,7 @@ Aggregated statistics for test results. Use for single-run analysis and multi-ru
 - `test_runs` — per-run pass/fail summary; pass multiple `test_run_ids` to compare runs side by side
 - `summary` — lightweight overall totals only
 
-**For single-run analysis:** `mode=all` with `test_run_id`  
+**For single-run analysis:** `mode=all` with `test_run_id`
 **For multi-run comparison:** `mode=test_runs` with `test_run_ids`
 
 **Key parameters:**
@@ -371,3 +399,143 @@ Use for **operational questions** ("how many runs this month?"). For pass/fail o
 - `endpoint_ids`, `test_set_ids` — optional filters
 - `months` — history window (default 6)
 - `start_date`, `end_date`
+
+---
+
+## Inspection (get-by-id)
+
+### `get_test_set`
+Get one test set by UUID, nano_id, or slug.
+
+**CHAIN:** after `generate_test_set` / `get_job_status` → then `list_test_set_tests` to verify prompts.
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `list_test_set_tests`
+List tests inside a single test set.
+
+**CHAIN:** prefer over org-wide `list_tests` when you have the test set ID.
+
+**Default `$select`:** `id,prompt,behavior,category,topic`
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `get_endpoint`
+Full endpoint config including mappings and auth.
+
+**CHAIN:** after `list_endpoints` when you need `request_mapping` / `response_mapping` details.
+
+**Key parameters:** `endpoint_id` (required)
+
+---
+
+### `get_metric`
+Full metric including `evaluation_prompt`.
+
+**CHAIN:** before `update_metric` or `improve_metric`.
+
+**Key parameters:** `metric_id` (required)
+
+---
+
+## Entity mutation (additional)
+
+### `update_test_set`
+Update test set metadata only (name, description). Does not regenerate tests.
+
+**Key parameters:** `test_set_identifier` (required; UUID, nano_id, or slug); send only fields to change.
+
+---
+
+### `update_metric`
+Direct field edits on a metric. Does not change behavior links.
+
+**CHAIN:** `get_metric` first. For NL refactors use `improve_metric` instead.
+
+**Key parameters:** `metric_id` (required)
+
+---
+
+### `remove_behavior_from_metric`
+Unlink a behavior from a metric. Inverse of `add_behavior_to_metric`.
+
+**CHAIN:** confirm link via `get_metric_behaviors` first.
+
+**Key parameters:** `metric_id`, `behavior_id` (required)
+
+---
+
+### `create_source`
+Create a knowledge source for grounding single-turn `generate_test_set`.
+
+**Patterns:**
+- Pasted text: `title` + `content` (Manual type — copy `source_type_id` from `list_sources`)
+- URL: `title` + `url` (Website type)
+- File uploads: UI only (not available via MCP)
+
+**CHAIN:** `create_source` → `generate_test_set` with `sources: [{"id": "…"}]`
+
+---
+
+
+
+### `get_project`
+Get one project by ID.
+
+**CHAIN:** after `list_projects` when you need full project detail before `create_endpoint`.
+
+**Key parameters:** `project_id` (required)
+
+---
+
+### `get_behavior`
+Get one behavior including linked metrics.
+
+**CHAIN:** complement `get_metric_behaviors` — behavior-centric view of metric links.
+
+**Key parameters:** `behavior_id` (required)
+
+---
+
+### `get_test`
+Get one test with full prompt and configuration.
+
+**CHAIN:** after `list_test_set_tests`; before `update_test`.
+
+**Key parameters:** `test_id` (required)
+
+---
+
+### `update_test`
+Fix an individual test prompt without regenerating the whole set.
+
+**CHAIN:** `get_test` first. Send only fields to change.
+
+**Key parameters:** `test_id` (required)
+
+---
+
+### `get_test_set_metrics`
+List metrics attached to a test set (execution overrides).
+
+**CHAIN:** pre-flight before `execute_test_set`. Empty list → behavior metrics apply.
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `get_test_set_last_run`
+Most recent completed run for a test set + endpoint pair.
+
+**CHAIN:** use for run comparison; pair with `get_test_result_stats(mode=test_runs)`.
+
+**Key parameters:** `test_set_identifier`, `endpoint_id` (required)
+
+---
+## Playbooks
+
+See `references/entity-model.md` for the full entity graph and tool chains by intent.

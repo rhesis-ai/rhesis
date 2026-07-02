@@ -27,8 +27,40 @@ export class InsightsPage extends BasePage {
     const mainContent = this.page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible({ timeout: 10_000 });
 
-    const bodyText = await this.page.locator('body').innerText();
-    expect(bodyText.trim().length).toBeGreaterThan(20);
+    await expect(
+      this.page.getByRole('heading', { name: /insights/i })
+    ).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const noEndpoints = this.page.getByText(/no endpoints in this project/i);
+    const noTestResults = this.page.getByText(/no test results yet/i);
+    const searchBehaviors = this.page.getByPlaceholder(/search behaviors/i);
+    const timeRange1M = this.page.getByRole('button', { name: '1M' });
+
+    await expect(noEndpoints.or(noTestResults).or(searchBehaviors)).toBeVisible(
+      { timeout: 15_000 }
+    );
+
+    if (await noEndpoints.isVisible()) {
+      await expect(
+        this.page.getByRole('button', { name: /go to endpoints/i })
+      ).toBeVisible();
+      return;
+    }
+
+    if (await noTestResults.isVisible()) {
+      await expect(timeRange1M).toBeVisible();
+      return;
+    }
+
+    await expect(searchBehaviors).toBeVisible();
+    await expect(timeRange1M).toBeVisible();
+    await expect(
+      this.page.getByText(/\d+\.\d+%\s*pass rate/i).first()
+    ).toBeVisible({
+      timeout: 10_000,
+    });
   }
 
   /** Expand a collapsible sidebar section (e.g. CONNECT for Endpoints). */

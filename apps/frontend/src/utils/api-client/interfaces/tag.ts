@@ -1,23 +1,9 @@
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
-export enum EntityType {
-  TEST = 'Test',
-  TEST_SET = 'TestSet',
-  TEST_RUN = 'TestRun',
-  TEST_RESULT = 'TestResult',
-  PROMPT = 'Prompt',
-  PROMPT_TEMPLATE = 'PromptTemplate',
-  BEHAVIOR = 'Behavior',
-  CATEGORY = 'Category',
-  ENDPOINT = 'Endpoint',
-  USE_CASE = 'UseCase',
-  RESPONSE_PATTERN = 'ResponsePattern',
-  PROJECT = 'Project',
-  ORGANIZATION = 'Organization',
-  METRIC = 'Metric',
-  MODEL = 'Model',
-  SOURCE = 'Source',
-}
+// Re-exported for backward compatibility; canonical definition lives in
+// `@/types/entity-type`.
+export { EntityType };
 
 export interface TagBase {
   name: string;

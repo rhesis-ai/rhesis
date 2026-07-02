@@ -11,20 +11,38 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Test.READ
+  );
+  const canCreate = useCan(Capability.Test.CREATE);
+
+  const insightsFailedFilter = React.useMemo(
+    () =>
+      searchParams ? parseInsightsFailedTestsSearchParams(searchParams) : null,
+    [searchParams]
+  );
+  const [insightsEndpointName, setInsightsEndpointName] = React.useState<
+    string | undefined
+  >();
 
   useDocumentTitle('Tests');
 
@@ -53,25 +71,36 @@ export default function TestsPage() {
   }, [searchParams, router]);
 
   React.useEffect(() => {
-    const fetchTestCount = async () => {
-      if (!session?.session_token) return;
+    if (!insightsFailedFilter || !session?.session_token) {
+      setInsightsEndpointName(undefined);
+      return;
+    }
 
+    let cancelled = false;
+
+    const sessionToken = session.session_token;
+
+    const loadEndpointName = async () => {
       try {
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const testsClient = apiFactory.getTestsClient();
-        const response = await testsClient.getTests({ skip: 0, limit: 1 });
-        setTestCount(response.pagination?.totalCount || 0);
+        const client = new ApiClientFactory(sessionToken).getEndpointsClient();
+        const endpoint = await client.getEndpoint(
+          insightsFailedFilter.endpointId
+        );
+        if (!cancelled) {
+          setInsightsEndpointName(endpoint.name);
+        }
       } catch {
-        // Silently fail
+        if (!cancelled) {
+          setInsightsEndpointName(undefined);
+        }
       }
     };
 
-    fetchTestCount();
-  }, [session?.session_token, refreshKey]);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
+    void loadEndpointName();
+    return () => {
+      cancelled = true;
+    };
+  }, [insightsFailedFilter, session?.session_token]);
 
   const handleCreateManual = React.useCallback(() => {
     if (activeTour === 'testCases') return;
@@ -98,6 +127,9 @@ export default function TestsPage() {
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="tests" />;
+
   if (!session?.session_token) {
     return (
       <PageLayout title="Tests" breadcrumbs={[]}>
@@ -120,25 +152,29 @@ export default function TestsPage() {
             tooltip="Import tests"
             onClick={() => {}}
           />
-          <Fab
-            icon={<EditNoteIcon />}
-            tooltip="Manual test"
-            aria-label="Manual test"
-            onClick={handleCreateManual}
-            disabled={shouldDisableAddButton}
-          />
+          <Can capability={Capability.Test.CREATE}>
+            <Fab
+              icon={<EditNoteIcon />}
+              tooltip="Manual test"
+              aria-label="Manual test"
+              onClick={handleCreateManual}
+              disabled={shouldDisableAddButton}
+            />
+          </Can>
         </FabGroup>
       }
     >
       <Box sx={{ mt: 2, mb: 2 }}>
         {testCount === 0 ? (
           <EntityEmptyState
+            card
             icon={ScienceIcon}
             title="No test yet"
             description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
-            actionLabel="Create test"
-            onAction={handleCreateManual}
+            actionLabel={canCreate ? 'Create test' : undefined}
+            onAction={canCreate ? handleCreateManual : undefined}
             actionDisabled={shouldDisableAddButton}
+            enrichment={getEntityEmptyStateEnrichment('tests')}
           />
         ) : (
           <Paper
@@ -152,9 +188,11 @@ export default function TestsPage() {
           >
             <TestsGrid
               sessionToken={session.session_token}
-              onRefresh={handleRefresh}
               onNewTest={handleCreateManual}
               disableAddButton={shouldDisableAddButton}
+              insightsFailedFilter={insightsFailedFilter}
+              insightsEndpointName={insightsEndpointName}
+              onTotalCountChange={setTestCount}
             />
           </Paper>
         )}

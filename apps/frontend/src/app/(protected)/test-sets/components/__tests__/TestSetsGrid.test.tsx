@@ -258,17 +258,4 @@ describe('TestSetsGrid', () => {
       screen.queryByTestId('action-Import from Garak')
     ).not.toBeInTheDocument();
   });
-
-  it('refetches when refreshKey changes', async () => {
-    const { rerender } = render(
-      <TestSetsGrid sessionToken="tok" refreshKey={0} />
-    );
-    await waitForGrid();
-    const callsAfterMount = mockGetTestSets.mock.calls.length;
-
-    rerender(<TestSetsGrid sessionToken="tok" refreshKey={1} />);
-    await waitFor(() =>
-      expect(mockGetTestSets.mock.calls.length).toBeGreaterThan(callsAfterMount)
-    );
-  });
 });

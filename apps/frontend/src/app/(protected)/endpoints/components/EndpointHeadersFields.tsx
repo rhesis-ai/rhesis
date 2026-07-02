@@ -11,7 +11,9 @@ import {
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import ViewField from '@/components/common/ViewField';
 import {
+  DeleteIcon,
   LockIcon,
+  RefreshIcon,
   VisibilityIcon,
   VisibilityOffIcon,
 } from '@/components/icons';
@@ -32,6 +34,8 @@ export interface EndpointHeadersFieldsProps {
   tokenFieldFocused?: boolean;
   onTokenFocus?: () => void;
   onTokenBlur?: () => void;
+  tokenCleared?: boolean;
+  onToggleTokenCleared?: () => void;
   editorWrapperStyle?: Record<string, unknown>;
 }
 
@@ -48,6 +52,8 @@ export default function EndpointHeadersFields({
   tokenFieldFocused = false,
   onTokenFocus,
   onTokenBlur,
+  tokenCleared = false,
+  onToggleTokenCleared,
   editorWrapperStyle,
 }: EndpointHeadersFieldsProps) {
   const tokenHelper = (
@@ -83,25 +89,32 @@ export default function EndpointHeadersFields({
           label="API Token (optional)"
           type={showAuthToken ? 'text' : 'password'}
           value={
-            tokenFieldFocused || authToken !== ''
-              ? authToken
-              : hasExistingToken
-                ? '••••••••••••••••••••••••'
-                : ''
+            tokenCleared
+              ? ''
+              : tokenFieldFocused || authToken !== ''
+                ? authToken
+                : hasExistingToken
+                  ? '••••••••••••••••••••••••'
+                  : ''
           }
           onChange={e => onAuthTokenChange(e.target.value)}
           onFocus={onTokenFocus}
           onBlur={onTokenBlur}
           placeholder={
-            hasExistingToken
-              ? 'Enter new token or leave empty to keep existing'
-              : 'sk-...'
+            tokenCleared
+              ? 'The saved token will be removed on save'
+              : hasExistingToken
+                ? 'Enter new token or leave empty to keep existing'
+                : 'sk-...'
           }
           sx={{ mb: 3 }}
+          error={tokenCleared}
           helperText={
-            hasExistingToken
-              ? 'Leave empty to keep the existing token.'
-              : tokenHelper
+            tokenCleared
+              ? 'The saved token will be removed when you save. Type a new token or restore to keep it.'
+              : hasExistingToken
+                ? 'Leave empty to keep the existing token, or enter a new one to replace it.'
+                : tokenHelper
           }
           InputProps={{
             startAdornment: (
@@ -111,6 +124,20 @@ export default function EndpointHeadersFields({
             ),
             endAdornment: (
               <InputAdornment position="end">
+                {hasExistingToken &&
+                  authToken === '' &&
+                  onToggleTokenCleared && (
+                    <IconButton
+                      aria-label={
+                        tokenCleared ? 'restore token' : 'remove token'
+                      }
+                      title={tokenCleared ? 'Restore token' : 'Remove token'}
+                      onClick={onToggleTokenCleared}
+                      edge="end"
+                    >
+                      {tokenCleared ? <RefreshIcon /> : <DeleteIcon />}
+                    </IconButton>
+                  )}
                 <IconButton
                   aria-label="toggle token visibility"
                   onClick={onToggleAuthToken}

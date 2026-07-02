@@ -17,12 +17,12 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import get_all_capabilities
-from rhesis.backend.app.auth.principal import resolve_principal
-from rhesis.backend.app.auth.rbac import authorize
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import effective_permissions
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 
@@ -47,6 +47,7 @@ def list_capabilities(
 
 @router.get("/me/permissions", response_model=list[str])
 def get_my_permissions(
+    request: Request,
     project_id: Optional[UUID] = Query(
         None,
         description=(
@@ -71,9 +72,5 @@ def get_my_permissions(
     Returns:
         Sorted list of ``"resource:action"`` strings.
     """
-    principal = resolve_principal(current_user)
-    return [
-        cap
-        for cap in get_all_capabilities()
-        if authorize(principal, cap, project_id=project_id, db=db)
-    ]
+    principal = resolve_principal_from_request(current_user, request)
+    return effective_permissions(principal, project_id=project_id, db=db)

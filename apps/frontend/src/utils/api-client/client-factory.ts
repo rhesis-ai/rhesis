@@ -30,6 +30,7 @@ import { GarakClient } from './garak-client';
 import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
 import { FeaturesClient } from './features-client';
+import { PermissionsClient } from './permissions-client';
 import { ParametersClient } from './parameters-client';
 import { PreflightClient } from './preflight-client';
 
@@ -50,6 +51,7 @@ export class ApiClientFactory {
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
   private featuresClient: FeaturesClient | null = null;
+  private permissionsClient: PermissionsClient | null = null;
   private architectClient: ArchitectClient | null = null;
   private parametersClient: ParametersClient | null = null;
   private preflightClient: PreflightClient | null = null;
@@ -294,6 +296,13 @@ export class ApiClientFactory {
       );
     }
     return this.featuresClient;
+  }
+
+  getPermissionsClient(): PermissionsClient {
+    if (!this.permissionsClient) {
+      this.permissionsClient = new PermissionsClient(this.sessionToken);
+    }
+    return this.permissionsClient;
   }
 
   getArchitectClient(): ArchitectClient {

@@ -205,6 +205,9 @@ export default function HeadersEditor({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: false,
+    });
     editor.setValue(
       buildInitialValue(authTokenRef.current, customHeadersRef.current)
     );
@@ -238,7 +241,7 @@ export default function HeadersEditor({
       <MonacoEditor
         key={`headers-editor-${editorTheme}`}
         height="140px"
-        defaultLanguage="plaintext"
+        defaultLanguage="json"
         theme={editorTheme}
         onMount={handleMount}
         options={{

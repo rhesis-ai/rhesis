@@ -139,7 +139,7 @@ Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Valu
 {{- define "rhesis.image" -}}
 {{- $registry := .global.registry -}}
 {{- $repository := .imageValues.image.repository -}}
-{{- $tag := coalesce .imageValues.image.tag .global.imageTag -}}
+{{- $tag := toString (coalesce .imageValues.image.tag .global.imageTag) -}}
 {{- if not $tag -}}
   {{- if .global.requirePinnedTag -}}
     {{- fail "image tag must be set — CI pins each service via <service>.image.tag; run the build workflow before deploying" -}}

@@ -5,9 +5,12 @@ import React, {
   useState,
   useCallback,
   useContext,
-  useRef,
   useMemo,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { testRunKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 import ListIcon from '@mui/icons-material/List';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
@@ -16,7 +19,6 @@ import {
   GridColDef,
   GridPaginationModel,
   GridFilterModel,
-  GridSortModel,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -41,7 +43,9 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { TestRun, TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
@@ -49,7 +53,7 @@ import {
   appendPresenceFilterItems,
   stripPresenceFilterItems,
 } from '@/components/common/presence-filter';
-import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
+import { gridSortToApiParams } from '@/utils/grid-sort';
 import TestRunFilterDrawer, {
   type TestRunFilters,
   EMPTY_TEST_RUN_FILTERS,
@@ -136,18 +140,11 @@ function TestRunsUnifiedToolbar() {
 
 interface TestRunsGridProps {
   sessionToken: string;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
-  refreshKey?: number;
 }
 
-function TestRunsGrid({
-  sessionToken,
-  onRefresh,
-  onTotalCountChange,
-  refreshKey,
-}: TestRunsGridProps) {
-  const isMounted = useRef(false);
+function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const notifications = useNotifications();
 
@@ -155,11 +152,13 @@ function TestRunsGrid({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // ── Core grid state ────────────────────────────────────────────────────────
-  const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
+  // ── Filter drawer state ────────────────────────────────────────────────────
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] = useState<TestRunFilters>(
+    EMPTY_TEST_RUN_FILTERS
+  );
+
+  // ── Other UI state ─────────────────────────────────────────────────────────
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -167,139 +166,16 @@ function TestRunsGrid({
   const [isCancelling, setIsCancelling] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 50,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
 
-  // ── Filter drawer state ────────────────────────────────────────────────────
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] = useState<TestRunFilters>(
-    EMPTY_TEST_RUN_FILTERS
-  );
+  // ── Grid state (pagination, filter, sort) ─────────────────────────────────
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
-
-  const fetchTestRuns = useCallback(
-    async (skip: number, limit: number) => {
-      if (!sessionToken) return;
-
-      try {
-        if (isMounted.current) {
-          setLoading(true);
-        }
-
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const testRunsClient = clientFactory.getTestRunsClient();
-
-        const filterString = combineTestRunFiltersToOData(filterModel);
-        const { sort_by, sort_order } = gridSortToApiParams(sortModel);
-
-        const apiParams: Parameters<typeof testRunsClient.getTestRuns>[0] = {
-          skip,
-          limit,
-          sort_by,
-          sort_order,
-          ...(filterString && { filter: filterString }),
-          ...(runKindFilter === 'experiments' && { has_experiment: true }),
-          ...(runKindFilter === 'tests' && { has_experiment: false }),
-        };
-
-        const response = await testRunsClient.getTestRuns(apiParams);
-
-        if (isMounted.current) {
-          setTestRuns(response.data);
-          setTotalCount(response.pagination.totalCount);
-          onTotalCountChange?.(response.pagination.totalCount);
-          setError(null);
-        }
-      } catch (_error) {
-        if (isMounted.current) {
-          setError('Failed to load test runs');
-          setTestRuns([]);
-        }
-      } finally {
-        if (isMounted.current) {
-          setLoading(false);
-        }
-      }
-    },
-    [sessionToken, filterModel, sortModel, runKindFilter, onTotalCountChange]
-  );
-
-  useEffect(() => {
-    isMounted.current = true;
-    const skip = paginationModel.page * paginationModel.pageSize;
-    fetchTestRuns(skip, paginationModel.pageSize);
-    return () => {
-      isMounted.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, paginationModel, filterModel, sortModel, runKindFilter]);
-
-  // Refetch when parent signals a refresh
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      const skip = paginationModel.page * paginationModel.pageSize;
-      fetchTestRuns(skip, paginationModel.pageSize);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  // ── Sync searchQuery into filterModel ────────────────────────────────────
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  // ── Sync statusFilter pill tab into filterModel ───────────────────────────
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'status.name'
-      );
-      const items =
-        statusFilter && statusFilter !== 'all'
-          ? [
-              ...otherItems,
-              {
-                field: 'status.name',
-                operator: 'equals',
-                value: statusFilter,
-              },
-            ]
-          : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [statusFilter]);
-
-  // ── Sync drawer filters into filterModel ─────────────────────────────────
-
-  useEffect(() => {
-    const DRAWER_FIELDS = [
-      'test_configuration.test_set.name',
-      'user.name',
-      'tags',
-    ];
-    setFilterModel(prev => {
+  const applyDrawerFilters = useCallback(
+    (prev: GridFilterModel): GridFilterModel => {
+      const DRAWER_FIELDS = [
+        'test_configuration.test_set.name',
+        'user.name',
+        'tags',
+      ];
       const otherItems = stripPresenceFilterItems(
         prev.items.filter(item => !DRAWER_FIELDS.includes(item.field ?? ''))
       );
@@ -325,17 +201,91 @@ function TestRunsGrid({
           value: drawerFilters.tag,
         });
       }
-      return {
-        ...prev,
-        items: appendPresenceFilterItems([...otherItems, ...drawerItems], {
+      const newItems = appendPresenceFilterItems(
+        [...otherItems, ...drawerItems],
+        {
           tags: drawerFilters.tags,
           comments: drawerFilters.comments,
           tasks: drawerFilters.tasks,
-        }),
-      };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [drawerFilters]);
+        }
+      );
+      return { ...prev, items: newItems };
+    },
+    [drawerFilters]
+  );
+
+  const {
+    filterModel,
+    paginationModel,
+    sortModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+    handleSortModelChange,
+  } = useGridState({
+    searchQuery,
+    typeFilter: statusFilter,
+    typeFilterField: 'status.name',
+    applyDrawerFilters,
+    initialPageSize: 50,
+  });
+
+  // ── Data fetching ─────────────────────────────────────────────────────────
+
+  const filterString = combineTestRunFiltersToOData(filterModel);
+  const { sort_by, sort_order } = gridSortToApiParams(sortModel);
+
+  const {
+    data: testRunsData,
+    isLoading: loading,
+    error: fetchError,
+  } = useGridQuery({
+    queryKey: [
+      ...testRunKeys.list(
+        filterString,
+        paginationModel.page,
+        paginationModel.pageSize,
+        sort_by,
+        sort_order
+      ),
+      runKindFilter,
+    ],
+    queryFn: () => {
+      const client = new ApiClientFactory(sessionToken).getTestRunsClient();
+      return client.getTestRuns({
+        skip: paginationModel.page * paginationModel.pageSize,
+        limit: paginationModel.pageSize,
+        sort_by,
+        sort_order,
+        ...(filterString && { filter: filterString }),
+        ...(runKindFilter === 'experiments' && { has_experiment: true }),
+        ...(runKindFilter === 'tests' && { has_experiment: false }),
+      });
+    },
+    enabled: !!sessionToken,
+  });
+
+  const testRuns = testRunsData?.data ?? [];
+  const totalCount = testRunsData?.pagination.totalCount ?? 0;
+  const error = fetchError ? 'Failed to load test runs' : null;
+
+  // ── Side effect: notify parent of total count ─────────────────────────────
+
+  useEffect(() => {
+    if (!testRunsData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveTestRunFilters(drawerFilters);
+    if (!filtersActive) onTotalCountChange?.(totalCount);
+  }, [
+    testRunsData,
+    filterModel.items.length,
+    searchQuery,
+    drawerFilters,
+    onTotalCountChange,
+    totalCount,
+  ]);
 
   // ── Row action handlers ────────────────────────────────────────────────────
 
@@ -368,9 +318,12 @@ function TestRunsGrid({
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
+      canEdit: row => can(row as unknown as TestRun, Capability.TestRun.UPDATE),
       onCancel: id => handleRowCancelAction(id),
       canCancel: isCancellableRun,
       onDelete: id => handleRowDeleteAction(id),
+      canDelete: row =>
+        can(row as unknown as TestRun, Capability.TestRun.DELETE),
       width: 112,
     });
     return [
@@ -656,28 +609,6 @@ function TestRunsGrid({
     [router]
   );
 
-  const handlePaginationModelChange = useCallback(
-    (model: GridPaginationModel) => {
-      setPaginationModel(model);
-      const skip = model.page * model.pageSize;
-      fetchTestRuns(skip, model.pageSize);
-    },
-    [fetchTestRuns]
-  );
-
-  const handleFilterModelChange = useCallback(
-    (newFilterModel: GridFilterModel) => {
-      setFilterModel(newFilterModel);
-      setPaginationModel(prev => ({ ...prev, page: 0 }));
-    },
-    []
-  );
-
-  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
-    setSortModel(newModel);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
-
   // ── Delete handlers ───────────────────────────────────────────────────────
 
   const handleDeleteConfirm = useCallback(async () => {
@@ -695,21 +626,14 @@ function TestRunsGrid({
       });
 
       setPendingDeleteId(null);
-      const skip = paginationModel.page * paginationModel.pageSize;
-      await fetchTestRuns(skip, paginationModel.pageSize);
+      queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
     } catch (_error) {
       notifications.show('Failed to delete test run', { severity: 'error' });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [
-    pendingDeleteId,
-    sessionToken,
-    notifications,
-    paginationModel,
-    fetchTestRuns,
-  ]);
+  }, [pendingDeleteId, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -733,33 +657,27 @@ function TestRunsGrid({
         severity: 'success',
       });
       setPendingCancelId(null);
-      const skip = paginationModel.page * paginationModel.pageSize;
-      await fetchTestRuns(skip, paginationModel.pageSize);
-      onRefresh?.();
+      queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
     } catch (_error) {
       notifications.show('Failed to cancel test run', { severity: 'error' });
     } finally {
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
-  }, [
-    pendingCancelId,
-    sessionToken,
-    notifications,
-    paginationModel,
-    fetchTestRuns,
-    onRefresh,
-  ]);
+  }, [pendingCancelId, sessionToken, notifications, queryClient]);
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);
     setPendingCancelId(null);
   }, []);
 
-  const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
-    setRunKindFilter(value);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
+  const handleRunKindFilterChange = useCallback(
+    (value: RunKindFilter) => {
+      setRunKindFilter(value);
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    },
+    [setPaginationModel]
+  );
 
   const runKindToolbar = useMemo(
     () => (

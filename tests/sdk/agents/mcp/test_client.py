@@ -493,3 +493,13 @@ class TestMCPClientFactory:
         env = factory.config_dict["mcpServers"]["testApi"]["env"]
         assert env["API_KEY"] == "key123"
         assert env["API_SECRET"] == "secret456"
+
+
+@pytest.mark.unit
+class TestMCPJinjaEnv:
+    def test_basic_auth_b64_filter_is_registered(self):
+        from rhesis.sdk.agents.mcp.client import _mcp_jinja_env
+
+        env = _mcp_jinja_env()
+        rendered = env.from_string('{{ "user@example.com:pat" | basic_auth_b64 }}').render()
+        assert rendered == "dXNlckBleGFtcGxlLmNvbTpwYXQ="

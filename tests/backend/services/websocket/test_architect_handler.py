@@ -123,10 +123,11 @@ class TestArchitectHandlerSuccess:
 
             mock_crud = MagicMock()
             # get_architect_session must return a truthy value to pass the ownership check
-            mock_crud.get_architect_session.return_value = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock(project_id=None)
             mock_task = MagicMock()
 
             with (
+                patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
                 patch(
                     "rhesis.backend.app.crud",
                     mock_crud,
@@ -192,10 +193,11 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_crud = MagicMock()
-            mock_crud.get_architect_session.return_value = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock(project_id=None)
             mock_task = MagicMock()
 
             with (
+                patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
                 patch("rhesis.backend.app.crud", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
@@ -228,10 +230,11 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_crud = MagicMock()
-            mock_crud.get_architect_session.return_value = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock(project_id=None)
             mock_task = MagicMock()
 
             with (
+                patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
                 patch("rhesis.backend.app.crud", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
@@ -266,10 +269,11 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_crud = MagicMock()
-            mock_crud.get_architect_session.return_value = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock(project_id=None)
             mock_task = MagicMock()
 
             with (
+                patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
                 patch(
                     "rhesis.backend.app.crud",
                     mock_crud,
@@ -286,7 +290,6 @@ class TestArchitectHandlerSuccess:
 
                 task_kwargs = mock_task.apply_async.call_args[1]
                 assert task_kwargs["kwargs"]["attachments"] == attachments
-
 
     @pytest.mark.asyncio
     async def test_unauthorized_session_rejected(self, mock_manager, mock_user):

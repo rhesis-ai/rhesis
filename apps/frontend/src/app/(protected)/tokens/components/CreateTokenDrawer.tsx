@@ -15,6 +15,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TokenResponse } from '@/utils/api-client/interfaces/token';
 import dayjs from 'dayjs';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 
 interface CreateTokenDrawerProps {
   open: boolean;
@@ -30,6 +31,7 @@ export default function CreateTokenDrawer({
   onClose,
   onCreateToken,
 }: CreateTokenDrawerProps) {
+  const { activeProject } = useActiveProject();
   const [name, setName] = useState('');
   const [expiryOption, setExpiryOption] = useState<
     '30' | '60' | '90' | 'custom' | 'never'
@@ -90,6 +92,13 @@ export default function CreateTokenDrawer({
       loading={loading}
     >
       <Stack spacing={3}>
+        <TextField
+          label="Project"
+          fullWidth
+          value={activeProject?.name ?? 'Organization-level'}
+          disabled
+          InputProps={{ readOnly: true }}
+        />
         <TextField
           autoFocus
           label="Token Name"

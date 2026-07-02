@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Alert,
@@ -10,14 +10,23 @@ import {
   Select,
   MenuItem,
   Link,
+  Chip,
 } from '@mui/material';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TOOL_PROVIDER_ICONS, REST_PROVIDERS } from '@/config/tool-providers';
-import ToolImportPanel from './ToolImportPanel';
+import {
+  TOOL_PROVIDER_ICONS,
+  EXTRACT_PROVIDERS,
+  formatToolProviderDisplayName,
+} from '@/config/tool-providers';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import ToolImportPanel, {
+  ToolImportPanelHandle,
+  PanelFooterState,
+} from './ToolImportPanel';
 
 interface ToolImportDrawerProps {
   open: boolean;
@@ -35,6 +44,14 @@ export default function ToolImportDrawer({
   const [tools, setTools] = useState<Tool[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string>('');
+  const panelRef = useRef<ToolImportPanelHandle>(null);
+  const [panelFooter, setPanelFooter] = useState<PanelFooterState>({
+    primaryLabel: 'Import',
+    primaryLoading: false,
+    primaryDisabled: true,
+    isPreview: false,
+    onBack: onClose,
+  });
 
   const loadTools = useCallback(async () => {
     if (!sessionToken) return;
@@ -45,10 +62,9 @@ export default function ToolImportDrawer({
         .getToolsClient()
         .getTools({ limit: 100 });
       const supported = (response.data || []).filter(t =>
-        REST_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
+        EXTRACT_PROVIDERS.includes(t.tool_provider_type?.type_value ?? '')
       );
       setTools(supported);
-      // Auto-select when there is only one option
       if (supported.length === 1) {
         setSelectedToolId(supported[0].id);
       }
@@ -68,9 +84,9 @@ export default function ToolImportDrawer({
     }
   }, [open, loadTools]);
 
-  const handleClose = () => {
-    onClose();
-  };
+  const handlePanelFooterChange = useCallback((state: PanelFooterState) => {
+    setPanelFooter(state);
+  }, []);
 
   const selectedTool = tools.find(t => t.id === selectedToolId) ?? null;
 
@@ -79,19 +95,25 @@ export default function ToolImportDrawer({
     return TOOL_PROVIDER_ICONS[key] ?? <SmartToyIcon />;
   };
 
-  const providerLabel = (tool: Tool) => {
-    const v = tool.tool_provider_type?.type_value ?? '';
-    return v.charAt(0).toUpperCase() + v.slice(1);
-  };
+  const toolLabel = (tool: Tool) => tool.name;
+
+  const toolSecondaryLabel = (tool: Tool) =>
+    formatToolProviderDisplayName(tool.tool_provider_type?.type_value ?? '');
+
+  const hasTools = !loadingTools && tools.length > 0;
 
   return (
     <BaseDrawer
       open={open}
-      onClose={handleClose}
+      onClose={panelFooter.onBack}
       title="Import from Tool"
       titleIcon={<CloudDownloadIcon color="primary" />}
       width={900}
-      closeButtonText="Cancel"
+      closeButtonText={panelFooter.isPreview ? 'Back' : 'Cancel'}
+      onSave={hasTools ? () => panelRef.current?.triggerPrimary() : undefined}
+      saveButtonText={panelFooter.primaryLabel}
+      loading={panelFooter.primaryLoading}
+      saveDisabled={panelFooter.primaryDisabled}
     >
       {loadingTools ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -99,7 +121,7 @@ export default function ToolImportDrawer({
         </Box>
       ) : tools.length === 0 ? (
         <Alert severity="info">
-          No tools configured. Connect a Notion or GitHub tool in{' '}
+          No tools configured. Connect a tool in{' '}
           <Link href="/tools" underline="hover">
             Settings &rsaquo; Tools
           </Link>{' '}
@@ -107,9 +129,41 @@ export default function ToolImportDrawer({
         </Alert>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Only show the selector when there is more than one option */}
-          {tools.length > 1 && (
-            <FormControl fullWidth>
+          {tools.length === 1 ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                icon={
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      '& svg': { width: 16, height: 16 },
+                      pl: 0.5,
+                    }}
+                  >
+                    {getProviderIcon(tools[0])}
+                  </Box>
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <span>{toolLabel(tools[0])}</span>
+                    <Box
+                      component="span"
+                      sx={theme => ({
+                        opacity: 0.6,
+                        fontSize: theme.typography.caption.fontSize,
+                      })}
+                    >
+                      · {toolSecondaryLabel(tools[0])}
+                    </Box>
+                  </Box>
+                }
+                variant="outlined"
+                size="medium"
+              />
+            </Box>
+          ) : (
+            <FormControl fullWidth sx={drawerOutlinedFieldSx}>
               <InputLabel id="tool-select-label">Source</InputLabel>
               <Select
                 labelId="tool-select-label"
@@ -133,7 +187,18 @@ export default function ToolImportDrawer({
                     >
                       {getProviderIcon(tool)}
                     </Box>
-                    {providerLabel(tool)}
+                    <Box>
+                      <Box>{toolLabel(tool)}</Box>
+                      <Box
+                        component="span"
+                        sx={theme => ({
+                          fontSize: theme.typography.caption.fontSize,
+                          color: 'text.secondary',
+                        })}
+                      >
+                        {toolSecondaryLabel(tool)}
+                      </Box>
+                    </Box>
                   </MenuItem>
                 ))}
               </Select>
@@ -141,11 +206,13 @@ export default function ToolImportDrawer({
           )}
 
           <ToolImportPanel
+            ref={panelRef}
             open={open}
-            onClose={handleClose}
+            onClose={onClose}
             onSuccess={onSuccess}
             sessionToken={sessionToken}
             tool={selectedTool}
+            onFooterStateChange={handlePanelFooterChange}
           />
         </Box>
       )}

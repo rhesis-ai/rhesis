@@ -116,12 +116,12 @@ def get_explorer_test_sets(
         .filter(models.TestSet.attributes["metadata"]["behaviors"].contains(target))
     )
 
-    # Apply sorting
+    # Apply sorting with id tiebreaker for stable pagination
     sort_column = getattr(models.TestSet, sort_by, models.TestSet.created_at)
     if sort_order == "asc":
-        query = query.order_by(sort_column.asc())
+        query = query.order_by(sort_column.asc(), models.TestSet.id.asc())
     else:
-        query = query.order_by(sort_column.desc())
+        query = query.order_by(sort_column.desc(), models.TestSet.id.asc())
 
     test_sets = query.offset(skip).limit(limit).all()
 

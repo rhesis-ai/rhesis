@@ -79,8 +79,18 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     async (payload: EndpointEditData) => {
       try {
         await patchEndpointFields(endpoint.id, payload);
-        const { auth_token: _token, ...rest } = payload;
-        setEndpoint(prev => ({ ...prev, ...rest }));
+        const { auth_token, ...rest } = payload;
+        setEndpoint(prev => {
+          const next: Endpoint = { ...prev, ...rest };
+          // auth_token is write-only; keep the derived has_auth_token flag in
+          // sync so the UI reflects a newly set or removed token without a
+          // full reload. undefined means the token was left untouched.
+          if (auth_token !== undefined) {
+            next.has_auth_token =
+              typeof auth_token === 'string' && auth_token.trim() !== '';
+          }
+          return next;
+        });
         notifications.show('Endpoint updated successfully', {
           severity: 'success',
         });

@@ -242,7 +242,7 @@ def set_logger():
         json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
         root_logger.addHandler(json_console_handler)
 
-    if ENVIRONMENT in ("local", "development"):
+    if ENVIRONMENT == "local":
         color_console_handler = logging.StreamHandler(stream=sys.stdout)
         color_console_handler.setLevel(LOG_LEVEL)
         color_console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))
@@ -267,5 +267,6 @@ def set_logger():
     for name in (
         "celery.utils.functional",
         "celery.app.trace",
+        "kombu.pidbox",
     ):
         logging.getLogger(name).setLevel(logging.WARNING)

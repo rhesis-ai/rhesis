@@ -1,5 +1,6 @@
 import { TopicClient } from '../topic-client';
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
 const BASE_URL = 'http://127.0.0.1:8080/api/v1';
 const TOPIC_ID = 't1t1t1t1-0000-0000-0000-000000000001' as UUID;
@@ -47,11 +48,11 @@ describe('TopicClient', () => {
   it('includes entity_type and $filter when provided', async () => {
     fetchMock.mockResolvedValue(makeFetch([]));
     await client.getTopics({
-      entity_type: 'Test',
+      entity_type: EntityType.TEST,
       $filter: "name eq 'Privacy'",
     });
     const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('entity_type=Test');
+    expect(calledUrl).toContain(`entity_type=${EntityType.TEST}`);
     expect(calledUrl).toContain('%24filter');
   });
 

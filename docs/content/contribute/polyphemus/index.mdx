@@ -12,6 +12,29 @@ It proxies generation requests to Vertex AI and exposes authenticated REST endpo
 - Request schemas: `apps/polyphemus/src/rhesis/polyphemus/schemas/schemas.py`
 - Docker image: API-only service image. PyTorch is not bundled in the Polyphemus
   container; model weights and serving runtime live behind Vertex AI.
+- Dependency shape: Polyphemus depends on backend core only. The SDK, Penelope,
+  Garak, and model-serving stacks live outside the runtime image.
+
+## Building the Docker image
+
+Build the Polyphemus image from the repository root. The Dockerfile depends on
+monorepo paths outside `apps/polyphemus`, so using `apps/polyphemus` as the build
+context will fail.
+
+<CodeBlock filename="terminal" language="bash">
+{`# From repository root
+docker build -t polyphemus:latest -f apps/polyphemus/Dockerfile .`}
+</CodeBlock>
+
+The image uses a two-stage build: the builder installs dependencies with
+`uv sync --no-dev`, and the runtime stage copies only the API service and
+required backend package files. The builder copies `uv` and `uvx` from
+`mirror.gcr.io/astral/uv:0.11.19` for reproducible and reliable Docker builds.
+
+<Callout type="info">
+  Keep the `uv` tag and registry mirror aligned with the Dockerfile when
+  upgrading service image builds.
+</Callout>
 
 ## API endpoints
 
@@ -24,6 +47,22 @@ Polyphemus exposes two primary generation endpoints:
 
 `/generate_batch` accepts up to `50` items per call (`MAX_BATCH_SIZE`).
 
+### Request fields
+
+Both endpoints use the same `GenerateRequest` shape. Batch requests wrap multiple `GenerateRequest` objects under `requests`.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `messages` | `Message[]` | Required | Chat messages with `role` and `content` |
+| `model` | `string \| null` | `polyphemus-default` | Public alias resolved by the service |
+| `temperature` | `float \| null` | `0.7` | Values less than or equal to `0` are reset to `0.7` |
+| `max_tokens` | `int \| null` | Not sent | Passed to vLLM only when provided |
+| `top_p` | `float \| null` | `1.0` | Must be greater than `0` and less than or equal to `1` |
+| `top_k` | `int \| null` | Not sent | Negative values are ignored |
+| `json_schema` | `object \| null` | Not sent | Enables structured output and test-generation hardening |
+
+The service retries transient Vertex AI failures (`429`, `500`, `502`, `503`, `504`) up to three attempts with exponential backoff.
+
 ## Environment configuration
 
 Polyphemus reads Vertex AI target configuration from environment variables:
@@ -33,9 +72,27 @@ Polyphemus reads Vertex AI target configuration from environment variables:
 | `POLYPHEMUS_ENDPOINT_ID` | Yes | Vertex AI endpoint identifier |
 | `POLYPHEMUS_PROJECT_ID` | Yes | GCP project ID for endpoint invocation |
 | `POLYPHEMUS_LOCATION` | No | Vertex AI region (defaults to `us-central1`) |
+| `POLYPHEMUS_DEFAULT_MODEL` | For default alias | Internal Vertex/vLLM model backing the `polyphemus-default` alias |
+| `POLYPHEMUS_OPUS_MODEL` | For opus alias | Internal Vertex/vLLM model backing the `polyphemus-opus` alias |
+| `POLYPHEMUS_BATCH_CONCURRENCY` | No | Maximum concurrent Vertex calls per batch request (defaults to `10`) |
 | `VLLM_LOGGING_LEVEL` | No | vLLM container log verbosity for Vertex serving (for example, `DEBUG`, `INFO`) |
 
 If required variables are missing, the service returns HTTP `400` with configuration error details.
+
+### Authentication and rate limits
+
+Polyphemus accepts two Bearer-token formats:
+
+| Token type | Format | Typical caller |
+|---|---|---|
+| Rhesis API token | `rh-*` | SDK users, scripts, and notebooks |
+| Delegation JWT | JWT | Backend service-to-service calls |
+
+API tokens are validated through the backend token store and require an active, verified user. Delegation JWTs are validated by the Polyphemus delegation-token validator. Rate limiting uses the authenticated user identity when available.
+
+<Callout type="info">
+  Batch rate limiting counts the HTTP request, not every item inside `requests`.
+</Callout>
 
 ### Deployment region variable mapping (v0.2.8+)
 
@@ -67,6 +124,31 @@ If set, deployment injects `VLLM_LOGGING_LEVEL` into the serving container envir
   Polyphemus deployment separates the lightweight API container from the Vertex AI serving
   container. Configure vLLM logging on the Vertex deployment, not by installing PyTorch or model
   runtime dependencies into the Polyphemus API image.
+</Callout>
+
+## Request hardening and adversarial primer
+
+Polyphemus enforces adversarial behavior on the server side before forwarding a request to Vertex AI. This keeps SDK, platform, and direct API callers aligned even if they assemble messages differently.
+
+The hardening path is:
+
+1. The service validates that at least one non-system message has content.
+2. It resolves the public model alias (`polyphemus-default` or `polyphemus-opus`).
+3. It injects an adversarial primer into the system message if that primer is not already present.
+4. It builds the Vertex AI `rawPredict` request body.
+
+Structured-output requests and direct conversation requests are handled slightly differently:
+
+| Request shape | System-message handling | User-message handling |
+|---|---|---|
+| `json_schema` present | Primer is inserted after `/no_think` and before schema instructions | User content receives the adversarial attack prefix |
+| No `json_schema` | Conversational primer is prepended to the system message | User content is unchanged |
+| No system message | A new system message is inserted | Same behavior as above for the request shape |
+
+The injection is idempotent: if the primer text is already present, Polyphemus does not add it again.
+
+<Callout type="info">
+  Product callers do not need to add their own adversarial primer. Add domain-specific instructions in the normal system prompt and let the service enforce the shared hardening layer.
 </Callout>
 
 ## Batch request and response format
@@ -107,9 +189,12 @@ If set, deployment injects `VLLM_LOGGING_LEVEL` into the serving container envir
 </CodeBlock>
 
 <Callout type="info">
-  Rate limiting is applied through `check_rate_limit`. For batch calls, one HTTP request counts as one
-  rate-limit unit regardless of item count.
+  Batch execution is partially tolerant: one failed item does not fail the whole
+  HTTP request. The failed item returns an `error` field, and the service logs
+  the exception at error level with stack trace details for operators.
 </Callout>
+
+Batch concurrency is capped by `POLYPHEMUS_BATCH_CONCURRENCY` to avoid overwhelming the shared HTTP pool or Vertex quota. The default is `10`.
 
 ## Related pages
 

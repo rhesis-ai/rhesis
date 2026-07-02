@@ -5,6 +5,7 @@ import {
 } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { EntityType } from '@/types/entity-type';
 
 interface UseFilesProps {
   entityId: string;
@@ -36,9 +37,9 @@ export function useFiles({
       const filesClient = clientFactory.getFilesClient();
 
       let fetched: FileResponse[];
-      if (entityType === 'Test') {
+      if (entityType === EntityType.TEST) {
         fetched = await filesClient.getTestFiles(entityId);
-      } else if (entityType === 'TestResult') {
+      } else if (entityType === EntityType.TEST_RESULT) {
         fetched = await filesClient.getTestResultFiles(entityId);
       } else {
         fetched = [];

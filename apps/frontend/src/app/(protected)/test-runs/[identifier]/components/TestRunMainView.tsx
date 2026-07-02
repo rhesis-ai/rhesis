@@ -15,6 +15,8 @@ import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
 import { getTestEvaluationSummary } from '@/utils/test-result-status';
@@ -452,7 +454,9 @@ export default function TestRunMainView({
     'aria-controls': `test-run-tabpanel-${index}`,
   }));
 
-  const canRerun = Boolean(testRun.test_configuration_id);
+  const canRerun =
+    Boolean(testRun.test_configuration_id) &&
+    can(testRun, Capability.TestRun.CREATE);
 
   return (
     <Box>
@@ -471,6 +475,7 @@ export default function TestRunMainView({
         isDownloading={isDownloading}
         canRerun={canRerun}
         canCompare={hasComparisonRuns}
+        canRename={can(testRun, Capability.TestRun.UPDATE)}
       />
 
       <BaseDrawer

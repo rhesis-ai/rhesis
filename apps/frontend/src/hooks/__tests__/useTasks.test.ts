@@ -2,6 +2,7 @@
 import { renderHook } from '@testing-library/react';
 import { useTasks } from '../useTasks';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';
+import { EntityType } from '@/types/entity-type';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
@@ -80,7 +81,7 @@ describe('useTasks', () => {
         title: 'Test Task',
         status: { id: '1', name: 'Open' },
         priority: 1,
-        entity_type: 'Test',
+        entity_type: EntityType.TEST,
         entity_id: '123',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',

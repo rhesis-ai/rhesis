@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
+import { taskKeys } from '@/constants/query-keys';
 import { TasksSection } from './TasksSection';
 import { TaskCreationDrawer } from './TaskCreationDrawer';
 
@@ -11,22 +13,16 @@ interface TasksWrapperProps {
   entityType: EntityType;
   entityId: string;
   sessionToken: string;
-  currentUserId: string;
-  currentUserName: string;
-  currentUserPicture?: string;
 }
 
 export function TasksWrapper({
   entityType,
   entityId,
   sessionToken,
-  currentUserId,
-  currentUserName,
-  currentUserPicture: _currentUserPicture,
 }: TasksWrapperProps) {
+  const queryClient = useQueryClient();
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
   const { createTask, deleteTask } = useTasks({
     entityType,
@@ -40,14 +36,14 @@ export function TasksWrapper({
         setIsCreating(true);
         await createTask(taskData as unknown as TaskCreate);
         setCreateDrawerOpen(false);
-        setTasksRefreshKey(key => key + 1);
+        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
       } catch {
         // Errors surfaced by useTasks
       } finally {
         setIsCreating(false);
       }
     },
-    [createTask]
+    [createTask, queryClient]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
@@ -58,12 +54,12 @@ export function TasksWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-        setTasksRefreshKey(key => key + 1);
+        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
       } catch {
         // Errors surfaced by useTasks
       }
     },
-    [deleteTask]
+    [deleteTask, queryClient]
   );
 
   return (
@@ -76,9 +72,6 @@ export function TasksWrapper({
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onOpenCreateDrawer={() => setCreateDrawerOpen(true)}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        refreshKey={tasksRefreshKey}
       />
 
       <TaskCreationDrawer
@@ -89,8 +82,6 @@ export function TasksWrapper({
         onSubmit={handleCreateTask}
         entityType={entityType}
         entityId={entityId}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
         isLoading={isCreating}
       />
     </>

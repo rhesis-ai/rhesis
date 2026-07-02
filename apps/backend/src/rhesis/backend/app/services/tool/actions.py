@@ -40,7 +40,7 @@ class Transport(str, Enum):
 
 # (provider, action) -> transport. REST wherever a client exists. Actions a provider
 # can only serve through the MCP agent (Transport.MCP) are registered the same way —
-# that is how MCP-based providers (e.g. GitLab, Shortcut, Asana) plug in.
+# that is how MCP-based providers (e.g. GitLab, Shortcut, Asana, Azure DevOps, Linear) plug in.
 _ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
     ("notion", ToolAction.EXTRACT): Transport.REST,
     ("notion", ToolAction.TEST_CONNECTION): Transport.REST,
@@ -51,6 +51,14 @@ _ROUTES: Dict[Tuple[str, ToolAction], Transport] = {
     ("confluence", ToolAction.TEST_CONNECTION): Transport.REST,
     ("gitlab", ToolAction.EXTRACT): Transport.MCP,
     ("gitlab", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("shortcut", ToolAction.EXTRACT): Transport.MCP,
+    ("shortcut", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("asana", ToolAction.EXTRACT): Transport.MCP,
+    ("asana", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("linear", ToolAction.EXTRACT): Transport.MCP,
+    ("linear", ToolAction.TEST_CONNECTION): Transport.MCP,
+    ("azure_devops", ToolAction.EXTRACT): Transport.MCP,
+    ("azure_devops", ToolAction.TEST_CONNECTION): Transport.MCP,
 }
 
 

@@ -13,7 +13,7 @@ jest.mock('../JsonPreview', () => ({
     Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k])),
 }));
 
-import TabTest from '../tabs/TabTest';
+import TabTest from '../TabTest';
 
 const defaultProps = {
   url: 'https://api.example.com/chat',

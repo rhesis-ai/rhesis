@@ -32,6 +32,22 @@ class TestRouteTable:
         assert route("gitlab", ToolAction.EXTRACT) is Transport.MCP
         assert route("gitlab", ToolAction.TEST_CONNECTION) is Transport.MCP
 
+    def test_shortcut_routes_to_mcp(self):
+        assert route("shortcut", ToolAction.EXTRACT) is Transport.MCP
+        assert route("shortcut", ToolAction.TEST_CONNECTION) is Transport.MCP
+
+    def test_asana_routes_to_mcp(self):
+        assert route("asana", ToolAction.EXTRACT) is Transport.MCP
+        assert route("asana", ToolAction.TEST_CONNECTION) is Transport.MCP
+
+    def test_azure_devops_routes_to_mcp(self):
+        assert route("azure_devops", ToolAction.EXTRACT) is Transport.MCP
+        assert route("azure_devops", ToolAction.TEST_CONNECTION) is Transport.MCP
+
+    def test_linear_routes_to_mcp(self):
+        assert route("linear", ToolAction.EXTRACT) is Transport.MCP
+        assert route("linear", ToolAction.TEST_CONNECTION) is Transport.MCP
+
     def test_unregistered_provider_raises(self):
         with pytest.raises(ToolConfigurationError, match="does not support"):
             route("unknown", ToolAction.EXTRACT)
@@ -73,6 +89,32 @@ class TestParsing:
 
 
 _OPS = "rhesis.backend.app.services.tool.mcp.operations"
+
+
+class TestResolveToolClient:
+    def test_passes_project_id_to_tenant_session(self):
+        from unittest.mock import Mock
+
+        from rhesis.backend.app.services.tool.mcp.operations import _resolve_tool_client
+
+        with (
+            patch(f"{_OPS}.get_db_with_tenant_variables") as gdb,
+            patch(f"{_OPS}._get_mcp_tool_config", return_value=(object(), "gitlab", None)),
+        ):
+            gdb.return_value.__enter__ = Mock(return_value=Mock())
+            gdb.return_value.__exit__ = Mock(return_value=False)
+            _resolve_tool_client(
+                "org",
+                "user",
+                "tool-id",
+                project_id="b7302a7a-1290-4a9e-9d9a-4bb8cc044057",
+            )
+
+        gdb.assert_called_once_with(
+            "org",
+            "user",
+            "b7302a7a-1290-4a9e-9d9a-4bb8cc044057",
+        )
 
 
 @pytest.mark.asyncio

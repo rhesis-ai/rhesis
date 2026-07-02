@@ -15,6 +15,8 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectDetailTabs from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
@@ -124,19 +126,23 @@ export default function ClientWrapper({
 
   const pageActions = (
     <FabGroup>
-      <Fab
-        icon={<EditIcon sx={{ fontSize: 28 }} />}
-        tooltip="Edit project"
-        onClick={() => setIsDrawerOpen(true)}
-        disabled={isUpdating || isDeleting}
-      />
-      <Fab
-        icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-        tooltip="Delete project"
-        onClick={() => setDeleteConfirmOpen(true)}
-        loading={isDeleting}
-        disabled={isUpdating}
-      />
+      <Can capability={Capability.Project.UPDATE}>
+        <Fab
+          icon={<EditIcon sx={{ fontSize: 28 }} />}
+          tooltip="Edit project"
+          onClick={() => setIsDrawerOpen(true)}
+          disabled={isUpdating || isDeleting}
+        />
+      </Can>
+      <Can capability={Capability.Project.UPDATE}>
+        <Fab
+          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+          tooltip="Delete project"
+          onClick={() => setDeleteConfirmOpen(true)}
+          loading={isDeleting}
+          disabled={isUpdating}
+        />
+      </Can>
     </FabGroup>
   );
 

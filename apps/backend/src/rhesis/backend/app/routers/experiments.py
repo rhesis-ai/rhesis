@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -28,6 +30,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.parameters import (
     ExperimentDetail,
     ExperimentRead,
@@ -59,6 +62,7 @@ router = RhesisRouter(
 @router.get("", response_model=list[ExperimentRead])
 def list_experiments(
     response: Response,
+    request: Request,
     skip: int = 0,
     limit: int = 50,
     sort_by: str = "created_at",
@@ -85,19 +89,23 @@ def list_experiments(
         organization_id=organization_id,
         user_id=user_id,
     )
-    visible = [
-        r
-        for r in rows
-        if r.visibility != "private"
-        or (user_id is not None and str(r.owner_user_id) == str(user_id))
-    ]
-    response.headers["X-Total-Count"] = str(len(visible))
-    return [to_read(r) for r in visible]
+    from rhesis.backend.app.utils.crud_utils import count_items
+
+    total = count_items(
+        db,
+        Experiment,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return [to_read(r) for r in rows]
 
 
 @router.get("/{experiment_id}", response_model=ExperimentDetail)
 def read_experiment(
     experiment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -121,6 +129,7 @@ def read_experiment(
 def update_experiment(
     experiment_id: uuid.UUID,
     payload: ExperimentUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -140,6 +149,13 @@ def update_experiment(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.Experiment.UPDATE_OWN, db_experiment, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to update this experiment")
 
     data = payload.model_dump(exclude_unset=True)
 
@@ -174,6 +190,7 @@ def update_experiment(
 @router.delete("/{experiment_id}", response_model=ExperimentRead)
 def delete_experiment(
     experiment_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -190,6 +207,13 @@ def delete_experiment(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.Experiment.DELETE_OWN, db_experiment, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this experiment")
 
     project = crud.get_project(
         db,

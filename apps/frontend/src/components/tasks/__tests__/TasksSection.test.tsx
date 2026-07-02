@@ -6,6 +6,12 @@ import lightTheme from '@/styles/theme';
 import { TasksSection } from '../TasksSection';
 import { ApiClientFactory } from '../../../utils/api-client/client-factory';
 
+jest.mock('../../../components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
+
 // Mock dependencies
 jest.mock('../../../utils/api-client/client-factory');
 jest.mock('next/navigation', () => ({
@@ -43,8 +49,6 @@ describe('TasksSection - Infinite Loading Fix', () => {
     onCreateTask: jest.fn(),
     onEditTask: jest.fn(),
     onDeleteTask: jest.fn(),
-    currentUserId: 'user-123',
-    currentUserName: 'Test User',
   };
 
   beforeEach(() => {
@@ -116,25 +120,6 @@ describe('TasksSection - Infinite Loading Fix', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/no task created yet/i)).toBeInTheDocument();
-    });
-  });
-
-  it('should refetch when refreshKey changes', async () => {
-    mockTasksClient.getTasks.mockResolvedValue({
-      data: [],
-      totalCount: 0,
-    });
-
-    const { rerender } = render(<TasksSection {...defaultProps} />);
-
-    await waitFor(() => {
-      expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(1);
-    });
-
-    rerender(<TasksSection {...defaultProps} refreshKey={1} />);
-
-    await waitFor(() => {
-      expect(mockTasksClient.getTasks).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -316,7 +316,6 @@ class EncryptedString(TypeDecorator):
         # Try to decrypt
         try:
             decrypted = decrypt(value)
-            logger.debug("Successfully decrypted value from database")
             return decrypted
         except DecryptionError:
             # BACKWARD COMPATIBILITY: During migration, some values may still be plaintext

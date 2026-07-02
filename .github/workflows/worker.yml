@@ -1,24 +1,14 @@
 name: "[Deploy] Worker"
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'apps/worker/**'
-      - 'apps/backend/**'
-      - 'sdk/**'
-      - 'penelope/**'
-      - '.github/workflows/worker.yml'
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'dev'
+        default: 'prd'
         type: choice
         options:
-          - dev
-          - stg
           - prd
       deploy_only:
         description: 'Skip build and only deploy latest image'
@@ -58,10 +48,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'prd' }}
 
     env:
-      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'prd' }}
       SERVICE: worker
 
     outputs:
@@ -157,7 +147,7 @@ jobs:
     environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
 
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'prd' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -201,7 +191,7 @@ jobs:
           # Ensure ENVIRONMENT is set with fallback
           ENV_VALUE="${{ env.ENVIRONMENT }}"
           if [ -z "$ENV_VALUE" ]; then
-            ENV_VALUE="dev"
+            ENV_VALUE="prd"
             echo "⚠️ ENVIRONMENT not set, defaulting to: $ENV_VALUE"
           fi
           echo "ENVIRONMENT=$ENV_VALUE" >> "$GITHUB_ENV"

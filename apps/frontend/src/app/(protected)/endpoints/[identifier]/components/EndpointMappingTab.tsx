@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   Box,
   Button,
@@ -19,7 +21,7 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
 import { testEndpointMapping } from '@/actions/endpoints';
-import TestAndMap from '../../components/TestAndMap';
+import MappingEditor from '../../components/MappingEditor';
 import AutoConfigureDrawer from '../../components/AutoConfigureDrawer';
 import {
   bodyToRequestMapping,
@@ -45,6 +47,7 @@ function mappingFromEndpoint(endpoint: {
 
 export default function EndpointMappingTab() {
   const { endpoint, saveFields } = useEndpointDetailContext();
+  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const notifications = useNotifications();
   const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
   const [manualExpanded, setManualExpanded] = useState(true);
@@ -171,6 +174,7 @@ export default function EndpointMappingTab() {
       />
 
       <EditableSection
+        editable={canEditEndpoint}
         title="Manual Mapping"
         subtitle={
           <>
@@ -225,7 +229,7 @@ export default function EndpointMappingTab() {
         {({ draft, setDraft, isEditing }) => (
           <Collapse in={manualExpanded}>
             {isEditing ? (
-              <TestAndMap
+              <MappingEditor
                 requestTemplate={draft.reqBody}
                 responseMapping={(() => {
                   try {

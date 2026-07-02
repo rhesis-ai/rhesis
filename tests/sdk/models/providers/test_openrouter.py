@@ -64,6 +64,7 @@ class TestOpenRouterLLM:
             api_key="test_key",
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -99,6 +100,7 @@ class TestOpenRouterLLM:
             api_key="test_key",
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -142,6 +144,7 @@ class TestOpenRouterLLM:
             api_key="test_key",
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
             temperature=0.7,
             max_tokens=100,
         )
@@ -167,6 +170,7 @@ class TestOpenRouterLLM:
             api_key="test_key",
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
@@ -193,4 +197,5 @@ class TestOpenRouterLLM:
             api_key="test_key",
             api_base=None,
             api_version=None,
+            extra_headers={"Connection": "close"},
         )

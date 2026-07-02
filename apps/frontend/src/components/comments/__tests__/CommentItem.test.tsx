@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import { CommentItem } from '../CommentItem';
+import { EntityType } from '@/types/entity-type';
 
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
@@ -19,6 +20,12 @@ function getIconButton(testId: string) {
 }
 
 // Heavy dependencies mocked for isolation
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: (_subject: unknown, _capability: string) => true,
+}));
+
 jest.mock('emoji-picker-react', () => ({
   __esModule: true,
   default: ({
@@ -82,6 +89,7 @@ function makeComment(
     user_name: string;
     created_at: string;
     reactions: unknown[];
+    permitted_actions: string[];
   }> = {}
 ) {
   return {
@@ -93,8 +101,12 @@ function makeComment(
     updated_at: '2024-01-01T12:00:00',
     reactions: [],
     entity_id: 'entity-1',
-    entity_type: 'Test' as const,
+    entity_type: EntityType.TEST,
     emojis: {} as Record<string, { user_id: string; user_name: string }[]>,
+    // Server-driven affordances: edit/delete render from this list (full
+    // capability strings), not from client-side ownership. Default grants
+    // both; override with [] to deny.
+    permitted_actions: ['comment:update', 'comment:delete', 'comment:react'],
     ...overrides,
   };
 }
@@ -120,18 +132,17 @@ describe('CommentItem', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
   });
 
-  it('shows edit and delete buttons when the current user owns the comment', () => {
+  it('shows edit and delete buttons when the server permits update/delete', () => {
     renderWithTheme(<CommentItem {...baseProps} />);
     expect(screen.getByTestId('edit-icon')).toBeInTheDocument();
     expect(screen.getByTestId('delete-icon')).toBeInTheDocument();
   });
 
-  it('does not show edit/delete buttons for comments owned by another user', () => {
+  it('does not show edit/delete buttons when the server permits neither', () => {
     renderWithTheme(
       <CommentItem
         {...baseProps}
-        comment={makeComment({ user_id: 'other-user' })}
-        currentUserId="u1"
+        comment={makeComment({ permitted_actions: [] })}
       />
     );
     expect(screen.queryByTestId('edit-icon')).not.toBeInTheDocument();

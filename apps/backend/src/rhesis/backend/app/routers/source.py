@@ -1,19 +1,20 @@
 import urllib.parse
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.embedding import (
     EmbeddingGraphComputeResponse,
     EmbeddingGraphGetResponse,
@@ -286,6 +287,7 @@ def read_source_with_content(
 @router.post(
     "/{source_id}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
+    **capability("source:update"),
 )
 def compute_source_embedding_graph(
     source_id: uuid.UUID,

@@ -13,6 +13,7 @@
 
 import { UUID } from 'crypto';
 import { TestConfigurationDetail } from './test-configuration';
+import type { WithPermittedActions } from '@/types/affordances';
 
 /** Closed set of supported parameter types. Mirrors the backend literal. */
 export type ParameterType =
@@ -114,7 +115,7 @@ export interface ExperimentProject {
 }
 
 /** Compact list / single shape — omits the inline ``versions`` array. */
-export interface ExperimentRead {
+export interface ExperimentRead extends WithPermittedActions {
   id: string;
   project_id: string;
   owner_user_id: string;

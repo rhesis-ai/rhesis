@@ -46,6 +46,7 @@ import {
   getTestResultDisplayStatus,
   truncateText,
 } from './test-run-results-grid-utils';
+import { EntityType } from '@/types/entity-type';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -226,7 +227,7 @@ export default function TestsTableView({
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
       const statuses = await statusClient.getStatuses({
-        entity_type: 'TestResult',
+        entity_type: EntityType.TEST_RESULT,
       });
 
       const metrics = test.test_metrics?.metrics || {};

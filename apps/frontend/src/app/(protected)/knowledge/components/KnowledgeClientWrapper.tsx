@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { sourceKeys } from '@/constants/query-keys';
 import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { MenuBookIcon } from '@/components/icons';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
@@ -22,49 +27,26 @@ interface KnowledgeClientWrapperProps {
 export default function KnowledgeClientWrapper({
   sessionToken,
 }: KnowledgeClientWrapperProps) {
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Source.READ
+  );
+  const canCreateSource = useCan(Capability.Source.CREATE);
+  const queryClient = useQueryClient();
   const [sourceCount, setSourceCount] = useState<number | null>(null);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [toolImportDrawerOpen, setToolImportDrawerOpen] = useState(false);
 
   useDocumentTitle('Knowledge');
 
-  const handleRefresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
-  useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const sourcesClient = apiFactory.getSourcesClient();
-        const response = await sourcesClient.getSources({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        const count = Array.isArray(response)
-          ? response.length
-          : (response?.pagination?.totalCount ?? 0);
-        setSourceCount(count);
-      } catch {
-        setSourceCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
-
   const handleUploadSuccess = useCallback(() => {
     setUploadDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
+  }, [queryClient]);
 
   const handleMcpImportSuccess = useCallback(() => {
     setToolImportDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
+  }, [queryClient]);
 
   if (!sessionToken) {
     return (
@@ -85,6 +67,9 @@ export default function KnowledgeClientWrapper({
     );
   }
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="knowledge sources" />;
+
   return (
     <>
       <PageLayout
@@ -93,18 +78,22 @@ export default function KnowledgeClientWrapper({
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<UploadIcon />}
-              tooltip="Upload Source"
-              aria-label="Upload Source"
-              onClick={() => setUploadDrawerOpen(true)}
-            />
-            <Fab
-              icon={<CloudDownloadIcon />}
-              tooltip="Import from Tool"
-              aria-label="Import from Tool"
-              onClick={() => setToolImportDrawerOpen(true)}
-            />
+            <Can capability={Capability.Source.CREATE}>
+              <Fab
+                icon={<UploadIcon />}
+                tooltip="Upload Source"
+                aria-label="Upload Source"
+                onClick={() => setUploadDrawerOpen(true)}
+              />
+            </Can>
+            <Can capability={Capability.Source.CREATE}>
+              <Fab
+                icon={<CloudDownloadIcon />}
+                tooltip="Import from Tool"
+                aria-label="Import from Tool"
+                onClick={() => setToolImportDrawerOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -114,8 +103,10 @@ export default function KnowledgeClientWrapper({
               icon={MenuBookIcon}
               title="No knowledge sources yet"
               description="Upload files or import from tool connections to use as context for test generation and evaluation."
-              actionLabel="Upload source"
-              onAction={() => setUploadDrawerOpen(true)}
+              actionLabel={canCreateSource ? 'Upload source' : undefined}
+              onAction={
+                canCreateSource ? () => setUploadDrawerOpen(true) : undefined
+              }
             />
           ) : (
             <Paper
@@ -130,8 +121,7 @@ export default function KnowledgeClientWrapper({
             >
               <SourcesGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
+                onTotalCountChange={setSourceCount}
               />
             </Paper>
           )}

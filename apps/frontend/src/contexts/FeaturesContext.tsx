@@ -18,17 +18,12 @@
  */
 
 import { FeatureName } from '@/constants/features';
+import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { LicenseInfo } from '@/utils/api-client/features-client';
+import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 interface FeaturesState {
   license: LicenseInfo | null;
@@ -48,56 +43,42 @@ const FeaturesContext = createContext<FeaturesState>(DEFAULT_STATE);
 
 export function FeaturesProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  const [state, setState] = useState<FeaturesState>(DEFAULT_STATE);
+  const sessionToken =
+    status === 'authenticated' ? session?.session_token : undefined;
+  // Prefer the stable user id, but fall back to the per-user session token so
+  // the cache key is never shared across users even if `user.id` is missing.
+  const userScope = session?.user?.id ?? sessionToken ?? '';
 
-  useEffect(() => {
-    // Wait for the session to resolve before attempting the fetch.
-    // Unauthenticated users never reach protected layouts, but if the
-    // session is still loading we stay in the fail-closed default state.
-    if (status !== 'authenticated' || !session?.session_token) {
-      return;
-    }
+  const { data, isLoading, error } = useQuery({
+    queryKey: featureKeys.all(userScope),
+    queryFn: () =>
+      new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
+    enabled: !!sessionToken,
+    staleTime: 5 * 60_000,
+  });
 
-    // Reset to loading each time the token changes (e.g. after re-login).
-    // Without this the component stays in the previous error/stale state
-    // while the new fetch is in flight, keeping gated UI hidden.
-    setState(DEFAULT_STATE);
-
-    let cancelled = false;
-    const client = new ApiClientFactory(
-      session.session_token
-    ).getFeaturesClient();
-
-    client
-      .getFeatures()
-      .then(response => {
-        if (cancelled) return;
-        setState({
-          license: response.license,
-          enabled: new Set<string>(response.enabled),
-          loading: false,
-          error: null,
-        });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const error = err instanceof Error ? err : new Error(String(err));
-        setState({
-          license: null,
-          enabled: new Set<string>(),
-          loading: false,
-          error,
-        });
-      });
-
-    return () => {
-      cancelled = true;
+  const value = useMemo<FeaturesState>(() => {
+    // Fail-closed while the session is still resolving or the query is idle/
+    // in-flight. A disabled react-query (enabled: false) reports isLoading=false
+    // with data=undefined, so we must gate on sessionToken explicitly --
+    // otherwise the idle state would be mistaken for "loaded, no features" and
+    // gated UI (and downstream RBAC permissions) would flash permissive.
+    if (!sessionToken || isLoading) return DEFAULT_STATE;
+    if (error)
+      return {
+        license: null,
+        enabled: new Set<string>(),
+        loading: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    if (!data) return DEFAULT_STATE;
+    return {
+      license: data.license,
+      enabled: new Set<string>(data.enabled),
+      loading: false,
+      error: null,
     };
-  }, [status, session?.session_token]);
-
-  // Stable reference avoids re-rendering every consumer on unrelated
-  // parent re-renders.
-  const value = useMemo(() => state, [state]);
+  }, [sessionToken, data, isLoading, error]);
 
   return (
     <FeaturesContext.Provider value={value}>

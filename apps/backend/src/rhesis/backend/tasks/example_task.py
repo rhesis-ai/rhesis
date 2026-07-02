@@ -10,7 +10,7 @@ This module demonstrates how to use the task system, including:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import UUID
 
@@ -229,7 +229,7 @@ def example_task(self, name: str, delay_seconds: int = 5):
     return {
         "name": name,
         "duration": delay_seconds,
-        "completed_at": datetime.utcnow().isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
         "message": f"Task '{name}' completed successfully",
     }
 
@@ -294,7 +294,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
             "test_set_id": test_set_id,
             "endpoint_id": endpoint_id,
             "attributes": test_config.attributes or {},
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self.log_with_context(

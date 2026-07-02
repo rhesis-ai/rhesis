@@ -7,13 +7,16 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { explorerKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 import ExplorerGrid from './components/ExplorerGrid';
@@ -23,9 +26,9 @@ import ImportExplorerTestSetDialog from './components/ImportExplorerTestSetDialo
 export default function ExplorerClient() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
 
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [sessionCount, setSessionCount] = React.useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
@@ -33,24 +36,7 @@ export default function ExplorerClient() {
   useDocumentTitle('Explorer');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const client = new ApiClientFactory(sessionToken).getExplorerClient();
-        const sessions = await client.getExplorerTestSets();
-        setSessionCount(sessions.length);
-      } catch {
-        setSessionCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
+  const canCreateSession = useCan(Capability.Explorer.CREATE);
 
   const handleImportedExplorerSet = React.useCallback(
     (result: ImportExplorerTestSetResponse) => {
@@ -64,10 +50,10 @@ export default function ExplorerClient() {
         autoHideDuration: 5000,
       });
       setImportDialogOpen(false);
-      handleRefresh();
+      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
       router.push(`/explorer/${created.id}?openSettings=1`);
     },
-    [handleRefresh, notifications, router]
+    [queryClient, notifications, router]
   );
 
   if (status === 'loading') {
@@ -98,16 +84,18 @@ export default function ExplorerClient() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FileUploadIcon />}
-              tooltip="Load test set"
-              onClick={() => setImportDialogOpen(true)}
-            />
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New session"
-              onClick={() => setCreateDialogOpen(true)}
-            />
+            <Can capability={Capability.Explorer.CREATE}>
+              <Fab
+                icon={<FileUploadIcon />}
+                tooltip="Load test set"
+                onClick={() => setImportDialogOpen(true)}
+              />
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New session"
+                onClick={() => setCreateDialogOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -117,8 +105,10 @@ export default function ExplorerClient() {
               icon={AccountTreeIcon}
               title="No explorer sessions yet"
               description="Start a new session to explore behaviors and generate tests, or load an existing test set."
-              actionLabel="New session"
-              onAction={() => setCreateDialogOpen(true)}
+              actionLabel={canCreateSession ? 'New session' : undefined}
+              onAction={
+                canCreateSession ? () => setCreateDialogOpen(true) : undefined
+              }
             />
           ) : (
             <Paper
@@ -132,8 +122,7 @@ export default function ExplorerClient() {
             >
               <ExplorerGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
+                onTotalCountChange={setSessionCount}
               />
             </Paper>
           )}
@@ -144,7 +133,9 @@ export default function ExplorerClient() {
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         sessionToken={sessionToken}
-        onCreated={handleRefresh}
+        onCreated={() =>
+          queryClient.invalidateQueries({ queryKey: explorerKeys.all() })
+        }
         onNavigateToSession={sessionId => {
           router.push(`/explorer/${sessionId}?openSettings=1`);
         }}

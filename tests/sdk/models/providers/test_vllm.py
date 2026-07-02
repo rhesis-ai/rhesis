@@ -60,6 +60,7 @@ class TestVllmLLM:
             api_key=None,
             api_base="http://localhost:8000",
             api_version=None,
+            extra_headers={"Connection": "close"},
         )
 
     @patch("rhesis.sdk.models.factory._create_from_spec")
