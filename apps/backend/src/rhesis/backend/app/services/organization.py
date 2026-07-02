@@ -1592,8 +1592,8 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
                     ):
                         entities_to_delete.add(entity)
 
-        # Sort entities for deletion
-        # Endpoints must be deleted before Projects due to FK constraint
+        # Endpoints must be deleted before Projects due to FK constraint.
+        # Project-scoped demo rows must be removed before Project.
         deletion_order = {
             "Prompt": 0,
             "Test": 1,
@@ -1601,9 +1601,13 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
             "Behavior": 2,
             "Category": 2,
             "Metric": 2,
-            "TestSet": 3,
-            "Endpoint": 3,  # Delete endpoints before projects
-            "Project": 4,
+            "UseCase": 2,
+            "Risk": 2,
+            "Demographic": 3,
+            "Dimension": 4,
+            "TestSet": 5,
+            "Endpoint": 5,
+            "Project": 6,
         }
         sorted_entities = sorted(
             entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
