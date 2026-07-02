@@ -33,6 +33,9 @@ export interface AddMemberRoleFieldProps {
   sessionToken: string;
   value: string | null;
   onChange: (roleId: string | null) => void;
+  /** 'small' renders a compact inline Select without a label, suitable for
+   *  use inside list items. Defaults to 'medium' (full FormControl). */
+  size?: 'small' | 'medium';
 }
 
 // ---------------------------------------------------------------------------

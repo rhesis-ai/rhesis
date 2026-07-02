@@ -14,12 +14,20 @@ import PersonIcon from '@mui/icons-material/Person';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import GridBadge from '@/components/common/GridBadge';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { Project, ProjectMember } from '@/utils/api-client/interfaces/project';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
+import {
+  memberAvatarSx,
+  orgRoleContainerSx,
+  projectAvatarSx,
+  projectCardItemSx,
+  projectDescriptionSx,
+  projectNameSx,
+  truncateSx,
+} from './memberCardSx';
 
 interface ProjectAccess {
   project: Project;
@@ -112,40 +120,21 @@ export default function MemberAccessDrawer({
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-              <Avatar
-                src={user.picture || undefined}
-                sx={{ width: 48, height: 48, bgcolor: 'primary.main', flexShrink: 0 }}
-              >
+              <Avatar src={user.picture || undefined} sx={memberAvatarSx}>
                 {user.picture ? null : <PersonIcon />}
               </Avatar>
               <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  variant="subtitle1"
-                  fontWeight={600}
-                  sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
+                <Typography variant="subtitle1" fontWeight={600} sx={truncateSx}>
                   {displayName}
                 </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
+                <Typography variant="body2" color="text.secondary" sx={truncateSx}>
                   {user.email}
                 </Typography>
               </Box>
             </Box>
 
             {OrgRoleCell && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                  gap: 0.5,
-                  flexShrink: 0,
-                }}
-              >
+              <Box sx={orgRoleContainerSx}>
                 <Typography variant="overline" color="text.secondary">
                   Org Role
                 </Typography>
@@ -182,65 +171,26 @@ export default function MemberAccessDrawer({
                 {projectAccess.map(({ project, member }) => {
                   const projectId = project.id as string;
                   return (
-                    <ListItem
-                      key={projectId}
-                      disablePadding
-                      sx={{
-                        borderRadius: BORDER_RADIUS.md,
-                        border: theme => `1px solid ${theme.palette.divider}`,
-                        px: 1.5,
-                        py: 1.25,
-                        gap: 1.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                    >
-                      {/* Project avatar — matches ProjectSwitcherDrawer */}
-                      <Avatar
-                        sx={{
-                          width: theme => theme.spacing(4),
-                          height: theme => theme.spacing(4),
-                          bgcolor: 'primary.main',
-                          flexShrink: 0,
-                          fontSize: theme => theme.typography.body2.fontSize,
-                          fontWeight: theme => theme.typography.fontWeightBold,
-                          '& svg': { fontSize: theme => theme.spacing(2) },
-                        }}
-                      >
+                    <ListItem key={projectId} disablePadding sx={projectCardItemSx}>
+                      <Avatar sx={projectAvatarSx}>
                         {getProjectIcon(project)}
                       </Avatar>
 
-                      {/* Project name + description */}
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: theme => theme.typography.fontWeightMedium,
-                            color: theme => theme.palette.greyscale.title,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
+                        <Typography variant="body2" sx={projectNameSx}>
                           {project.name}
                         </Typography>
                         {project.description && (
                           <Typography
                             variant="caption"
                             color="text.secondary"
-                            sx={{
-                              display: 'block',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
+                            sx={projectDescriptionSx}
                           >
                             {project.description}
                           </Typography>
                         )}
                       </Box>
 
-                      {/* Role selector */}
                       {ProjectRoleCell ? (
                         <Box sx={{ flexShrink: 0 }}>
                           <ProjectRoleCell
