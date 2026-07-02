@@ -45,8 +45,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface TasksGridProps {
   sessionToken: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -117,8 +115,6 @@ function TasksUnifiedToolbar() {
 
 export default function TasksGrid({
   sessionToken,
-  refreshKey,
-  onRefresh: _onRefresh,
   onTotalCountChange,
 }: TasksGridProps) {
   const router = useRouter();
@@ -230,11 +226,6 @@ export default function TasksGrid({
     onTotalCountChange,
     totalCount,
   ]);
-
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0)
-      queryClient.invalidateQueries({ queryKey: taskKeys.all() });
-  }, [refreshKey, queryClient]);
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {

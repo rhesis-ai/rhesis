@@ -74,7 +74,7 @@ if MODEL_PATH and DEFAULT_MODEL:
 # Updated to match the notebook version
 VLLM_DOCKER_URI = (
     "us-docker.pkg.dev/vertex-ai/vertex-vision-model-garden-dockers/"
-    "pytorch-vllm-serve:20250710_0916_RC01"
+    "pytorch-vllm-serve:20260622_0916_RC01"
 )
 
 # Default model configurations
@@ -151,7 +151,7 @@ def get_vllm_args(
     model_config: ModelConfig,
     enable_lora: bool = False,
     enforce_eager: bool = False,
-    guided_decoding_backend: str = "auto",
+    structured_outputs_backend: str = "auto",
 ) -> list[str]:
     """Build vLLM arguments for model deployment.
 
@@ -159,7 +159,7 @@ def get_vllm_args(
         model_config: Model configuration dictionary
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
-        guided_decoding_backend: Guided decoding backend (auto, outlines, lm-format-enforcer)
+        structured_outputs_backend: Structured outputs backend (auto, xgrammar, outlines)
 
     Returns:
         List of vLLM command line arguments
@@ -172,13 +172,12 @@ def get_vllm_args(
         "--port=8080",
         f"--model={model_config['model_id']}",
         f"--tensor-parallel-size={model_config['accelerator_count']}",
-        "--swap-space=16",
         "--gpu-memory-utilization=0.9",
         f"--max-model-len={model_config['max_model_len']}",
         "--dtype=auto",
         "--max-num-seqs=256",
         "--disable-log-stats",
-        f"--guided-decoding-backend={guided_decoding_backend}",
+        f"--structured-outputs-config.backend={structured_outputs_backend}",
     ]
 
     if enable_lora:

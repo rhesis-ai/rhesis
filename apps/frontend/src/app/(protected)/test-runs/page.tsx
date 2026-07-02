@@ -5,6 +5,8 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { testRunKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
@@ -21,11 +23,11 @@ import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestRun.READ
   );
   const canCreateTestRun = useCan(Capability.TestRun.CREATE);
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [testRunCount, setTestRunCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
 
@@ -33,14 +35,10 @@ export default function TestRunsPage() {
 
   const sessionToken = session?.session_token ?? '';
 
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
+  }, [queryClient]);
 
   if (status === 'loading') {
     return (
@@ -108,8 +106,6 @@ export default function TestRunsPage() {
             >
               <TestRunsGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
                 onTotalCountChange={setTestRunCount}
               />
             </Paper>

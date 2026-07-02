@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { sourceKeys } from '@/constants/query-keys';
 import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -29,26 +31,22 @@ export default function KnowledgeClientWrapper({
     Capability.Source.READ
   );
   const canCreateSource = useCan(Capability.Source.CREATE);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const queryClient = useQueryClient();
   const [sourceCount, setSourceCount] = useState<number | null>(null);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [toolImportDrawerOpen, setToolImportDrawerOpen] = useState(false);
 
   useDocumentTitle('Knowledge');
 
-  const handleRefresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleUploadSuccess = useCallback(() => {
     setUploadDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
+  }, [queryClient]);
 
   const handleMcpImportSuccess = useCallback(() => {
     setToolImportDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
+  }, [queryClient]);
 
   if (!sessionToken) {
     return (
@@ -123,8 +121,6 @@ export default function KnowledgeClientWrapper({
             >
               <SourcesGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
                 onTotalCountChange={setSourceCount}
               />
             </Paper>

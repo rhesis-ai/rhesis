@@ -48,8 +48,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface SourcesGridProps {
   sessionToken: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -101,8 +99,6 @@ function SourcesUnifiedToolbar() {
 
 export default function SourcesGrid({
   sessionToken,
-  refreshKey,
-  onRefresh,
   onTotalCountChange,
 }: SourcesGridProps) {
   const router = useRouter();
@@ -214,12 +210,6 @@ export default function SourcesGrid({
     totalCount,
   ]);
 
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-    }
-  }, [refreshKey, queryClient]);
-
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -253,7 +243,6 @@ export default function SourcesGrid({
 
       setPendingDeleteId(null);
       queryClient.invalidateQueries({ queryKey: sourceKeys.all() });
-      onRefresh?.();
     } catch {
       notifications.show('Failed to delete source', {
         severity: 'error',

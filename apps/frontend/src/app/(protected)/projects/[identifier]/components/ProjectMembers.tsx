@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
@@ -26,7 +26,6 @@ interface ProjectMembersProps {
   sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
-  refreshKey?: number;
   onMembersLoaded?: (members: ProjectMember[]) => void;
 }
 
@@ -43,7 +42,6 @@ export default function ProjectMembers({
   projectId,
   sessionToken,
   ownerId,
-  refreshKey = 0,
   onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
@@ -84,15 +82,6 @@ export default function ProjectMembers({
   const membersError = membersQueryError
     ? 'Failed to load project members.'
     : null;
-
-  // Re-fetch when refreshKey increments
-  const prevRefreshKey = React.useRef(refreshKey);
-  React.useEffect(() => {
-    if (refreshKey !== prevRefreshKey.current) {
-      prevRefreshKey.current = refreshKey;
-      queryClient.invalidateQueries({ queryKey: membersQueryKey });
-    }
-  }, [refreshKey, queryClient, membersQueryKey]);
 
   const handleRemoveClick = useCallback((member: ProjectMember) => {
     setMemberToRemove(member);

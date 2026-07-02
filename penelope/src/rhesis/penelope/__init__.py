@@ -24,7 +24,7 @@ from rhesis.penelope.targets import (
     EndpointTarget,
     LangChainTarget,
     LangGraphTarget,
-    MicrosoftAgentFrameworkTarget,
+    MAFTarget,
     Target,
 )
 from rhesis.penelope.tools.base import Tool
@@ -50,5 +50,21 @@ __all__ = [
     "EndpointTarget",
     "LangChainTarget",
     "LangGraphTarget",
-    "MicrosoftAgentFrameworkTarget",
+    "MAFTarget",
 ]
+
+# Deprecated alias: MicrosoftAgentFrameworkTarget was renamed to MAFTarget.
+_DEPRECATED_ALIASES = {"MicrosoftAgentFrameworkTarget": MAFTarget}
+
+
+def __getattr__(name: str):
+    if name in _DEPRECATED_ALIASES:
+        import warnings
+
+        warnings.warn(
+            f"{name} is deprecated; use MAFTarget instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _DEPRECATED_ALIASES[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

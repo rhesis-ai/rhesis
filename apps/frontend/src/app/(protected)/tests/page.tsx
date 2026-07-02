@@ -28,7 +28,6 @@ export default function TestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [testCount, setTestCount] = React.useState<number | null>(null);
   const { activeTour, startTour } = useOnboarding();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
@@ -102,10 +101,6 @@ export default function TestsPage() {
       cancelled = true;
     };
   }, [insightsFailedFilter, session?.session_token]);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
 
   const handleCreateManual = React.useCallback(() => {
     if (activeTour === 'testCases') return;
@@ -193,7 +188,6 @@ export default function TestsPage() {
           >
             <TestsGrid
               sessionToken={session.session_token}
-              onRefresh={handleRefresh}
               onNewTest={handleCreateManual}
               disableAddButton={shouldDisableAddButton}
               insightsFailedFilter={insightsFailedFilter}

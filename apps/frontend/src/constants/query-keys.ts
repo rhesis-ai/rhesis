@@ -16,6 +16,12 @@ export const taskKeys = createEntityKeys('tasks');
 export const experimentKeys = createEntityKeys('experiments');
 export const behaviorKeys = createEntityKeys('behaviors');
 export const projectKeys = createEntityKeys('projects');
+export const explorerKeys = createEntityKeys('explorer');
+
+export const commentKeys = {
+  list: (entityType: string, entityId: string) =>
+    ['comments', entityType, entityId] as const,
+};
 
 export const topicKeys = {
   list: (entityType = '') => ['topics', 'list', entityType] as const,
