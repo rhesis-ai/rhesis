@@ -231,23 +231,42 @@ def _is_last_owner(member, org_id: uuid.UUID, db: Session) -> bool:
 
 
 def _role_to_read(role, db: Session) -> RoleRead:
-    """Serialize a Role ORM object to RoleRead, including permission list."""
-    from rhesis.backend.ee.rbac.models import Permission, RolePermission
+    """Serialize a Role ORM object to RoleRead, including permission list.
+
+    Built-in roles have no ``role_permission`` rows — their permissions are
+    computed dynamically from ``permissions_for_built_in_role``.  Custom roles
+    are resolved from the join table as normal.
+    """
+    from rhesis.backend.app.auth.capabilities import get_all_capabilities
+    from rhesis.backend.ee.rbac.models import Permission, RolePermission, permissions_for_built_in_role
     from rhesis.backend.ee.rbac.schemas import PermissionRead
 
-    perms = (
-        db.query(Permission)
-        .join(RolePermission, Permission.id == RolePermission.permission_id)
-        .filter(
-            RolePermission.role_id == role.id,
-            Permission.is_retired.is_(False),
+    if role.is_built_in:
+        perm_names = permissions_for_built_in_role(role.name, get_all_capabilities())
+        perms = (
+            db.query(Permission)
+            .filter(
+                Permission.name.in_(perm_names),
+                Permission.is_retired.is_(False),
+            )
+            .all()
         )
-        .all()
-    )
+    else:
+        perms = (
+            db.query(Permission)
+            .join(RolePermission, Permission.id == RolePermission.permission_id)
+            .filter(
+                RolePermission.role_id == role.id,
+                Permission.is_retired.is_(False),
+            )
+            .all()
+        )
+
     return RoleRead(
         id=role.id,
         name=role.name,
         display_name=role.display_name,
+        description=role.description,
         scope=role.scope,
         level=role.level,
         is_built_in=role.is_built_in,
@@ -574,6 +593,48 @@ def remove_org_member(
 # ---------------------------------------------------------------------------
 # Project-level role assignment
 # ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/projects/{project_id}/members",
+    response_model=list[ProjectMemberRoleRead],
+    **capability(Permission.Member.READ),
+)
+def list_project_members(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+    _org=_RBAC_DEP,
+):
+    """List all project members with their RBAC role assignments.
+
+    Returns every ``project_membership`` row for *project_id*, including the
+    resolved role when ``role_id`` is set.  Members without an explicit
+    project-level role have ``role_id`` and ``role`` as ``None``.
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    memberships = (
+        db.query(ProjectMembership)
+        .filter_by(
+            project_id=project_id,
+            organization_id=current_user.organization_id,
+        )
+        .all()
+    )
+
+    result = []
+    for m in memberships:
+        role = _load_role(m.role_id, db) if m.role_id is not None else None
+        result.append(
+            ProjectMemberRoleRead(
+                project_id=project_id,
+                user_id=m.user_id,
+                role_id=m.role_id,
+                role=_role_to_read(role, db) if role is not None else None,
+            )
+        )
+    return result
 
 
 @router.put(

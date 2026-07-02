@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { BORDER_RADIUS, GREYSCALE } from "@/styles/theme-constants";
+import { BORDER_RADIUS } from "@/styles/theme-constants";
 import {
   CapabilityLevel,
   LEVEL_LABELS,
@@ -104,14 +104,7 @@ export default function PermissionGroupControl({
               fontSize: 12,
               fontWeight: 600,
               textTransform: "none",
-              color: GREYSCALE.light.subtitle,
-              "&.Mui-selected": {
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                "&:hover": {
-                  bgcolor: "primary.dark",
-                },
-              },
+              color: (t: Theme) => t.palette.greyscale.subtitle,
               "&.Mui-disabled": {
                 color: (t: Theme) => t.palette.greyscale.border,
               },
@@ -130,13 +123,21 @@ export default function PermissionGroupControl({
                 sx={{
                   "&.Mui-selected": isNone
                     ? {
-                        bgcolor: GREYSCALE.light.surface2,
-                        color: `${GREYSCALE.light.subtitle} !important`,
+                        bgcolor: (t: Theme) => t.palette.greyscale.surface2,
+                        color: (t: Theme) =>
+                          `${t.palette.greyscale.subtitle} !important`,
                         "&:hover": {
-                          bgcolor: GREYSCALE.light.surface2,
+                          bgcolor: (t: Theme) => t.palette.greyscale.surface2,
                         },
                       }
-                    : {},
+                    : {
+                        bgcolor: "primary.main",
+                        color: (t: Theme) =>
+                          `${t.palette.primary.contrastText} !important`,
+                        "&:hover": {
+                          bgcolor: "primary.dark",
+                        },
+                      },
                 }}
               >
                 {LEVEL_LABELS[lvl]}
