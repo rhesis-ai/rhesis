@@ -12,9 +12,8 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { fetchOrganization } from '@/utils/api-client/organization-cache';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
-import { Organization } from '@/utils/api-client/interfaces/organization';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -63,7 +62,7 @@ export default function ModelsPage() {
     'language' | 'embedding'
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
-  const [organization, setOrganization] = useState<Organization | undefined>();
+  const { organization } = useOrganization();
 
   // Toolbar state
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,19 +91,13 @@ export default function ModelsPage() {
         const typeLookupClient = apiFactory.getTypeLookupClient();
         const usersClient = apiFactory.getUsersClient();
 
-        const [types, settings, org, modelsResponse, statuses] =
+        const [types, settings, modelsResponse, statuses] =
           await Promise.all([
             typeLookupClient.getTypeLookups({
               $filter: "type_name eq 'ProviderType'",
               limit: 100,
             }),
             usersClient.getUserSettings().catch(() => null),
-            session.user?.organization_id
-              ? fetchOrganization(
-                  session.session_token,
-                  session.user.organization_id
-                ).catch(() => null)
-              : Promise.resolve(null),
             modelsClient.getModels().catch(() => null),
             apiFactory
               .getStatusClient()
@@ -118,7 +111,6 @@ export default function ModelsPage() {
 
         setProviderTypes(types);
         if (settings) setUserSettings(settings);
-        if (org) setOrganization(org);
         if (modelsResponse) setConnectedModels(modelsResponse.data);
         if (statuses)
           setStatusOptions(
