@@ -19,7 +19,7 @@ import type { Theme } from "@mui/material/styles";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import LockIcon from "@mui/icons-material/Lock";
 import { GREYSCALE } from "@/styles/theme-constants";
-import { RbacClient } from "../api/rbac-client";
+import { fetchRoles } from "../api/role-cache";
 import type { RoleRead } from "../types";
 import {
   RESOURCE_AREAS,
@@ -54,8 +54,7 @@ export default function TokenScopeField({
   useEffect(() => {
     if (!sessionToken) return;
     let cancelled = false;
-    new RbacClient(sessionToken)
-      .getRoles()
+    fetchRoles(sessionToken)
       .then((data) => {
         if (!cancelled) {
           setRoles(data);

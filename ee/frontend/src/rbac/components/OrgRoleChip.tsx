@@ -15,8 +15,10 @@ import type { Theme } from "@mui/material/styles";
 import CheckIcon from "@mui/icons-material/Check";
 import { useCan } from "@/components/common/Can";
 import { Capability } from "@/constants/capabilities";
+import { useFeature } from "@/contexts/FeaturesContext";
+import { FeatureName } from "@/constants/features";
 import { GREYSCALE } from "@/styles/theme-constants";
-import { RbacClient } from "../api/rbac-client";
+import { fetchRoles } from "../api/role-cache";
 import type { OrgMemberRead, RoleRead } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -106,6 +108,7 @@ export default function OrgRoleChip({
   sessionToken,
   onRoleChanged,
 }: OrgRoleChipProps) {
+  const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.Member.MANAGE);
   const [members, setMembers] = useState<OrgMemberRead[]>(
     _membersCache?.data ?? [],
@@ -130,10 +133,9 @@ export default function OrgRoleChip({
   }, [sessionToken]);
 
   useEffect(() => {
-    if (!sessionToken || !canManage) return;
+    if (!rbacEnabled || !sessionToken || !canManage) return;
     let cancelled = false;
-    new RbacClient(sessionToken)
-      .getRoles()
+    fetchRoles(sessionToken)
       .then((data) => {
         if (!cancelled) setRoles(data);
       })
@@ -141,7 +143,7 @@ export default function OrgRoleChip({
     return () => {
       cancelled = true;
     };
-  }, [sessionToken, canManage]);
+  }, [rbacEnabled, sessionToken, canManage]);
 
   const member = members.find((m) => m.user_id === userId);
   const currentRole = member?.role;

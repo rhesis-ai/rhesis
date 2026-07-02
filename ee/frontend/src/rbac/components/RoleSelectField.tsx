@@ -9,7 +9,7 @@ import {
   Skeleton,
 } from "@mui/material";
 import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
-import { RbacClient } from "../api/rbac-client";
+import { fetchRoles } from "../api/role-cache";
 import type { RoleRead } from "../types";
 
 interface RoleSelectFieldProps {
@@ -29,8 +29,7 @@ export default function RoleSelectField({
   useEffect(() => {
     if (!sessionToken) return;
     let cancelled = false;
-    new RbacClient(sessionToken)
-      .getRoles()
+    fetchRoles(sessionToken)
       .then((data) => {
         if (!cancelled) {
           setRoles(data);
