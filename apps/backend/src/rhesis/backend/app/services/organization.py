@@ -1546,125 +1546,135 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
         if not org.is_onboarding_complete:
             raise ValueError("Organization not initialized yet")
 
-        # Collect entities to delete
-        for model in sorted_models:
-            if model.__name__ in ["User", "Organization"]:
-                continue
+        # Project-scoped demo rows are invisible under the ambient project filter;
+        # bypass it so initial_data entities are found regardless of session scope.
+        with bypass_tenant_filter():
+            # Collect entities to delete
+            for model in sorted_models:
+                if model.__name__ in ["User", "Organization"]:
+                    continue
 
-            identifiers = model_data_map.get(model.__name__, set())
-            if not identifiers:
-                continue
+                identifiers = model_data_map.get(model.__name__, set())
+                if not identifiers:
+                    continue
 
-            # Get matching records. We intentionally do NOT eager-load
-            # relationships here: _get_nested_entities() walks every
-            # non-M2M relationship — including one-to-many collections
-            # — and joinedload across many one-to-many relationships
-            # produces cartesian-product result sets. Lazy-loading per
-            # relationship as we recurse is slower but bounded.
-            query = (
-                QueryBuilder(db, model)
-                .with_organization_filter(organization_id)
-                .with_custom_filter(lambda q: q.filter(model.organization_id == organization_id))
-                .build()
-            )
-
-            if model.__name__ == "Test":
-                records = (
-                    query.join(models.Prompt).filter(models.Prompt.content.in_(identifiers)).all()
-                )
-            elif model.__name__ == "TypeLookup":
-                records = query.filter(model.type_value.in_(identifiers)).all()
-            elif hasattr(model, "content"):
-                records = query.filter(model.content.in_(identifiers)).all()
-            else:
-                records = query.filter(model.name.in_(identifiers)).all()
-
-            for record in records:
-                # Add the record itself if it matches
-                if _get_entity_identifier_from_instance(record) in model_data_map[model.__name__]:
-                    entities_to_delete.add(record)
-
-                # Add nested entities that match initial data
-                for entity in _get_nested_entities(db, record, organization_id):
-                    if (
-                        entity.__class__.__name__ in model_data_map
-                        and _get_entity_identifier_from_instance(entity)
-                        in model_data_map[entity.__class__.__name__]
-                    ):
-                        entities_to_delete.add(entity)
-
-        # Endpoints must be deleted before Projects due to FK constraint.
-        # Project-scoped demo rows must be removed before Project.
-        deletion_order = {
-            "Prompt": 0,
-            "Test": 1,
-            "Topic": 2,
-            "Behavior": 2,
-            "Category": 2,
-            "Metric": 2,
-            "UseCase": 2,
-            "Risk": 2,
-            "Demographic": 3,
-            "Dimension": 4,
-            "TestSet": 5,
-            "Endpoint": 5,
-            "Project": 6,
-        }
-        sorted_entities = sorted(
-            entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
-        )
-
-        # Delete entities
-        deleted_ids = set()
-        for entity in sorted_entities:
-            if entity.id in deleted_ids:
-                continue
-
-            try:
-                # Special handling for Status deletion
-                # Status entities are referenced by many other entities with NOT NULL constraints
-                # We need to delete or update those entities before deleting the Status
-                if entity.__class__.__name__ == "Status":
-                    # Nullify trace_metrics_status_id references before deletion
-                    db.query(models.Trace).filter(
-                        models.Trace.trace_metrics_status_id == entity.id,
-                        models.Trace.organization_id == organization_id,
-                    ).update(
-                        {"trace_metrics_status_id": None},
-                        synchronize_session="fetch",
+                # Get matching records. We intentionally do NOT eager-load
+                # relationships here: _get_nested_entities() walks every
+                # non-M2M relationship — including one-to-many collections
+                # — and joinedload across many one-to-many relationships
+                # produces cartesian-product result sets. Lazy-loading per
+                # relationship as we recurse is slower but bounded.
+                query = (
+                    QueryBuilder(db, model)
+                    .with_organization_filter(organization_id)
+                    .with_custom_filter(
+                        lambda q: q.filter(model.organization_id == organization_id)
                     )
+                    .build()
+                )
 
-                    # Delete tasks that reference this status
-                    tasks_with_status = (
-                        db.query(models.Task)
-                        .filter(
-                            models.Task.status_id == entity.id,
-                            models.Task.organization_id == organization_id,
-                        )
+                if model.__name__ == "Test":
+                    records = (
+                        query.join(models.Prompt)
+                        .filter(models.Prompt.content.in_(identifiers))
                         .all()
                     )
+                elif model.__name__ == "TypeLookup":
+                    records = query.filter(model.type_value.in_(identifiers)).all()
+                elif hasattr(model, "content"):
+                    records = query.filter(model.content.in_(identifiers)).all()
+                else:
+                    records = query.filter(model.name.in_(identifiers)).all()
 
-                    for task in tasks_with_status:
-                        try:
-                            db.delete(task)
-                        except Exception as task_error:
-                            print(f"Error deleting task {task.id}: {task_error}")
+                for record in records:
+                    # Add the record itself if it matches
+                    if (
+                        _get_entity_identifier_from_instance(record)
+                        in model_data_map[model.__name__]
+                    ):
+                        entities_to_delete.add(record)
 
-                    # Also delete embeddings that reference this status
-                    db.query(models.Embedding).filter(
-                        models.Embedding.status_id == entity.id,
-                        models.Embedding.organization_id == organization_id,
-                    ).delete(synchronize_session="fetch")
+                    # Add nested entities that match initial data
+                    for entity in _get_nested_entities(db, record, organization_id):
+                        if (
+                            entity.__class__.__name__ in model_data_map
+                            and _get_entity_identifier_from_instance(entity)
+                            in model_data_map[entity.__class__.__name__]
+                        ):
+                            entities_to_delete.add(entity)
 
-                    db.flush()
+            # Endpoints must be deleted before Projects due to FK constraint.
+            # Project-scoped demo rows must be removed before Project.
+            deletion_order = {
+                "Prompt": 0,
+                "Test": 1,
+                "Topic": 2,
+                "Behavior": 2,
+                "Category": 2,
+                "Metric": 2,
+                "UseCase": 2,
+                "Risk": 2,
+                "Demographic": 3,
+                "Dimension": 4,
+                "TestSet": 5,
+                "Endpoint": 5,
+                "Project": 6,
+            }
+            sorted_entities = sorted(
+                entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+            )
 
-                _delete_entity_associations(db, entity)
-                db.delete(entity)
-                deleted_ids.add(entity.id)
-                db.flush()  # Use flush instead of commit to keep transaction atomic
-            except Exception as e:
-                print(f"Error deleting {entity.__class__.__name__}: {e}")
-                continue
+            # Delete entities
+            deleted_ids = set()
+            for entity in sorted_entities:
+                if entity.id in deleted_ids:
+                    continue
+
+                try:
+                    # Special handling for Status deletion
+                    # Status entities are referenced by many other entities with NOT NULL constraints
+                    # We need to delete or update those entities before deleting the Status
+                    if entity.__class__.__name__ == "Status":
+                        # Nullify trace_metrics_status_id references before deletion
+                        db.query(models.Trace).filter(
+                            models.Trace.trace_metrics_status_id == entity.id,
+                            models.Trace.organization_id == organization_id,
+                        ).update(
+                            {"trace_metrics_status_id": None},
+                            synchronize_session="fetch",
+                        )
+
+                        # Delete tasks that reference this status
+                        tasks_with_status = (
+                            db.query(models.Task)
+                            .filter(
+                                models.Task.status_id == entity.id,
+                                models.Task.organization_id == organization_id,
+                            )
+                            .all()
+                        )
+
+                        for task in tasks_with_status:
+                            try:
+                                db.delete(task)
+                            except Exception as task_error:
+                                print(f"Error deleting task {task.id}: {task_error}")
+
+                        # Also delete embeddings that reference this status
+                        db.query(models.Embedding).filter(
+                            models.Embedding.status_id == entity.id,
+                            models.Embedding.organization_id == organization_id,
+                        ).delete(synchronize_session="fetch")
+
+                        db.flush()
+
+                    _delete_entity_associations(db, entity)
+                    db.delete(entity)
+                    deleted_ids.add(entity.id)
+                    db.flush()  # Use flush instead of commit to keep transaction atomic
+                except Exception as e:
+                    print(f"Error deleting {entity.__class__.__name__}: {e}")
+                    continue
 
         # Update organization status
         org = db.query(models.Organization).filter_by(id=organization_id).first()
