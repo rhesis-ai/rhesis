@@ -5,6 +5,7 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import { use } from 'react';
+import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -13,6 +14,7 @@ import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
 import { useQuery } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -91,6 +93,10 @@ export default function EndpointPage({ params }: PageProps) {
         <Typography>Loading endpoint...</Typography>
       </Box>
     );
+  }
+
+  if (fetchError && isNotFoundApiError(fetchError)) {
+    notFound();
   }
 
   if (error) {

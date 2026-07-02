@@ -5,11 +5,12 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import { useEffect, useState } from 'react';
+import { notFound, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { useParams } from 'next/navigation';
 import { EndpointDetailProvider } from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailContext';
 import EndpointDetailView from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailView';
 import EndpointHeaderActions from '@/app/(protected)/endpoints/[identifier]/components/EndpointHeaderActions';
@@ -21,6 +22,7 @@ export default function ProjectEndpointPage() {
   const [projectName, setProjectName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEntityNotFound, setIsEntityNotFound] = useState(false);
 
   useDocumentTitle(endpoint?.name || null);
 
@@ -56,7 +58,11 @@ export default function ProjectEndpointPage() {
           }
         }
       } catch (err) {
-        setError((err as Error).message);
+        if (isNotFoundApiError(err)) {
+          setIsEntityNotFound(true);
+        } else {
+          setError((err as Error).message);
+        }
       } finally {
         setLoading(false);
       }
@@ -89,6 +95,10 @@ export default function ProjectEndpointPage() {
         </Typography>
       </Box>
     );
+  }
+
+  if (isEntityNotFound) {
+    notFound();
   }
 
   if (error) {
