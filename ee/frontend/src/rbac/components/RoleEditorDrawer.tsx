@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Link, Stack, TextField, Typography } from "@mui/material";
 import BaseDrawer from "@/components/common/BaseDrawer";
 import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
 import { useOrgSettings } from "@/contexts/OrgSettingsContext";
@@ -185,58 +185,36 @@ export default function RoleEditorDrawer({
     >
       {/* Role name and description */}
       {!readOnly && (
-        <Stack spacing={2.5}>
+        <Stack spacing={2}>
           <TextField
             label="Role name"
-            placeholder="e.g. QA Engineer"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            required
             fullWidth
+            required
+            variant="outlined"
+            disabled={submitting}
+            helperText="A clear, descriptive name for this role"
             sx={drawerOutlinedFieldSx}
           />
 
-          {isCreate && copyFromRoles.length > 0 && (
-            <Box>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mb: 0.5, display: "block" }}
-              >
-                Starts blank. Optionally copy from:
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                {copyFromRoles.map((r) => (
-                  <Button
-                    key={r.id}
-                    size="small"
-                    variant="text"
-                    onClick={() => handleCopyFrom(r.id)}
-                    sx={{ textTransform: "none", fontWeight: 500 }}
-                  >
-                    {r.display_name}
-                  </Button>
-                ))}
-              </Box>
-            </Box>
-          )}
-
           <TextField
             label="Description"
-            placeholder="What is this role for?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             multiline
-            minRows={2}
+            rows={4}
             fullWidth
-            sx={drawerOutlinedFieldSx}
+            variant="outlined"
+            disabled={submitting}
+            helperText="Describe what this role is for and who should have it"
           />
         </Stack>
       )}
 
       {/* Read-only header for built-in roles */}
       {readOnly && role && (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
             {role.is_built_in ? "Built-in role" : "Custom role"} ·{" "}
             {role.permissions.length} permissions
@@ -246,26 +224,48 @@ export default function RoleEditorDrawer({
               Permissions for built-in roles are fixed and cannot be changed.
             </Alert>
           )}
-        </Box>
+        </Stack>
       )}
 
       {/* Access by area */}
       <Box>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            mb: 1.5,
-          }}
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="baseline"
+          mb={1.5}
         >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Access by area
-          </Typography>
+          <Typography variant="subtitle2">Access by area</Typography>
           <Typography variant="caption" color="text.secondary">
             View = read · Edit = read + write · Manage = full control
           </Typography>
-        </Box>
+        </Stack>
+        {isCreate && copyFromRoles.length > 0 && (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            mb={1.5}
+          >
+            <Typography variant="caption" color="text.secondary" noWrap>
+              Optionally copy permissions from:
+            </Typography>
+            {copyFromRoles.map((r) => (
+              <Link
+                key={r.id}
+                component="button"
+                type="button"
+                variant="caption"
+                color="primary"
+                onClick={() => handleCopyFrom(r.id)}
+              >
+                {r.display_name}
+              </Link>
+            ))}
+          </Stack>
+        )}
         <Stack spacing={1.5}>
           {RESOURCE_AREAS.map((area) => (
             <PermissionGroupControl

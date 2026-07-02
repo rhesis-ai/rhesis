@@ -187,7 +187,9 @@ def _check_escalation(
         )
 
 
-def check_project_role_assignment(db: Session, actor: User, role_id: uuid.UUID, project_id: uuid.UUID):
+def check_project_role_assignment(
+    db: Session, actor: User, role_id: uuid.UUID, project_id: uuid.UUID
+):
     """Escalation guard for granting *role_id* on *project_id* to a member.
 
     Shared by the EE ``assign_project_role`` endpoint and the community
@@ -282,12 +284,53 @@ def _is_last_owner(member, org_id: uuid.UUID, db: Session) -> bool:
     return owner_count <= 1
 
 
-def _role_to_read(role, db: Session) -> RoleRead:
+def _member_counts_for_roles(
+    role_ids: list[uuid.UUID], org_id: uuid.UUID, db: Session
+) -> dict[uuid.UUID, int]:
+    """Count distinct users holding each role in *role_ids* within *org_id*.
+
+    One grouped query over the union of org-level (``organization_member``) and
+    project-level (``project_membership``) assignments — the ``UNION`` dedups
+    ``(role_id, user_id)`` pairs so a user holding the same role at both tiers
+    (or on several projects) is counted once per role.  Returns ``{role_id: count}``
+    with roles that have no holders omitted (callers default to 0).
+    """
+    from sqlalchemy import func, select, union
+
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.ee.rbac.models import OrganizationMember
+
+    if not role_ids:
+        return {}
+
+    org_q = select(
+        OrganizationMember.role_id.label("role_id"),
+        OrganizationMember.user_id.label("user_id"),
+    ).where(
+        OrganizationMember.role_id.in_(role_ids),
+        OrganizationMember.organization_id == org_id,
+    )
+    proj_q = select(
+        ProjectMembership.role_id.label("role_id"),
+        ProjectMembership.user_id.label("user_id"),
+    ).where(
+        ProjectMembership.role_id.in_(role_ids),
+        ProjectMembership.organization_id == org_id,
+    )
+    unioned = union(org_q, proj_q).subquery()
+    rows = db.execute(
+        select(unioned.c.role_id, func.count().label("cnt")).group_by(unioned.c.role_id)
+    ).all()
+    return {row.role_id: row.cnt for row in rows}
+
+
+def _role_to_read(role, db: Session, member_count: int = 0) -> RoleRead:
     """Serialize a Role ORM object to RoleRead, including permission list.
 
     Built-in roles have no ``role_permission`` rows — their permissions are
     computed dynamically from ``permissions_for_built_in_role``.  Custom roles
-    are resolved from the join table as normal.
+    are resolved from the join table as normal.  *member_count* is supplied by
+    the caller (precomputed in bulk for list views) to avoid an N+1.
     """
     from rhesis.backend.app.auth.capabilities import get_all_capabilities
     from rhesis.backend.ee.rbac.models import Permission, RolePermission, permissions_for_built_in_role
@@ -324,6 +367,7 @@ def _role_to_read(role, db: Session) -> RoleRead:
         is_built_in=role.is_built_in,
         organization_id=role.organization_id,
         permissions=[PermissionRead.model_validate(p) for p in perms],
+        member_count=member_count,
     )
 
 
@@ -352,7 +396,10 @@ def list_roles(
             .all()
         )
 
-    return [_role_to_read(r, db) for r in roles]
+    counts = _member_counts_for_roles(
+        [r.id for r in roles], current_user.organization_id, db
+    )
+    return [_role_to_read(r, db, counts.get(r.id, 0)) for r in roles]
 
 
 @router.get("/roles/{role_id}", response_model=RoleRead, **capability(Permission.Role.READ))
@@ -367,7 +414,8 @@ def get_role(
     # Restrict: must be built-in or owned by the current org.
     if role.organization_id is not None and role.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Role not found")
-    return _role_to_read(role, db)
+    counts = _member_counts_for_roles([role.id], current_user.organization_id, db)
+    return _role_to_read(role, db, counts.get(role.id, 0))
 
 
 @router.post(
@@ -402,9 +450,26 @@ def create_role(
     perm_ids = _resolve_permission_ids(body.permission_names, db)
     _check_escalation(body.permission_names, role_level, actor_permissions, actor_level)
 
+    # Friendly conflict (409) instead of a raw IntegrityError from the
+    # ix_role_name_org unique index (name, organization_id).
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    with bypass_tenant_filter():
+        existing = (
+            db.query(Role)
+            .filter(
+                Role.name == body.name,
+                Role.organization_id == current_user.organization_id,
+            )
+            .first()
+        )
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="A role with this name already exists")
+
     role = Role(
         name=body.name,
         display_name=body.display_name or body.name,
+        description=body.description,
         scope=body.scope,
         level=role_level,
         is_built_in=False,
@@ -449,6 +514,9 @@ def update_role(
     if body.display_name is not None:
         role.display_name = body.display_name
 
+    if body.description is not None:
+        role.description = body.description
+
     if body.permission_names is not None:
         # Validate names exist (422) before escalation guard (403).
         perm_ids = _resolve_permission_ids(body.permission_names, db)
@@ -464,7 +532,8 @@ def update_role(
 
     db.flush()
     db.refresh(role)
-    return _role_to_read(role, db)
+    counts = _member_counts_for_roles([role.id], current_user.organization_id, db)
+    return _role_to_read(role, db, counts.get(role.id, 0))
 
 
 @router.delete("/roles/{role_id}", status_code=204, **capability(Permission.Role.MANAGE))

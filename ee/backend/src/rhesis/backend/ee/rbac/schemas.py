@@ -39,6 +39,10 @@ class RoleRead(BaseModel):
     is_built_in: bool
     organization_id: Optional[UUID] = None
     permissions: list[PermissionRead] = Field(default_factory=list)
+    member_count: int = Field(
+        default=0,
+        description="Number of distinct users holding this role (org + project assignments).",
+    )
 
     model_config = {"from_attributes": True}
 
@@ -48,6 +52,7 @@ class RoleCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=64)
     display_name: str = Field(default="", max_length=128)
+    description: str = Field(default="", max_length=512)
     scope: str = Field(default="organization", pattern="^(organization|project)$")
     permission_names: list[str] = Field(
         default_factory=list,
@@ -59,6 +64,7 @@ class RoleUpdate(BaseModel):
     """Update a custom role (built-in roles are immutable)."""
 
     display_name: Optional[str] = Field(None, max_length=128)
+    description: Optional[str] = Field(None, max_length=512)
     permission_names: Optional[list[str]] = None
 
 
