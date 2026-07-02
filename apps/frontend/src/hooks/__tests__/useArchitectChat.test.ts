@@ -606,9 +606,7 @@ describe('useArchitectChat', () => {
       expect(result.current.error).toBe('Something went wrong');
       expect(result.current.messages).toHaveLength(2);
       expect(result.current.messages[1].role).toBe('assistant');
-      expect(result.current.messages[1].content).toBe(
-        'Error: Something went wrong'
-      );
+      expect(result.current.messages[1].content).toBe('Something went wrong');
       expect(result.current.messages[1].isError).toBe(true);
     });
 

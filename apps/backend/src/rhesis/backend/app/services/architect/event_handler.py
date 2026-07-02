@@ -9,6 +9,7 @@ from rhesis.backend.app.schemas.websocket import (
     WebSocketMessage,
 )
 from rhesis.backend.app.services.websocket.publisher import publish_event
+from rhesis.sdk.agents.errors import format_user_facing_error
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,11 @@ class WebSocketEventHandler:
         error: Optional[str] = None,
         **kw: Any,
     ) -> None:
-        self.publish(EventType.ARCHITECT_STREAM_END, {"content": content, "error": error})
+        friendly_error = format_user_facing_error(error) if error else None
+        self.publish(
+            EventType.ARCHITECT_STREAM_END,
+            {"content": content, "error": friendly_error},
+        )
 
     async def on_agent_end(self, *, result: Any, **kw: Any) -> None:
         pass  # handled after chat_async returns
@@ -142,5 +147,8 @@ class WebSocketEventHandler:
     async def on_error(self, *, error: Exception, **kw: Any) -> None:
         self.publish(
             EventType.ARCHITECT_ERROR,
-            {"error": str(error), "error_type": type(error).__name__},
+            {
+                "error": format_user_facing_error(error),
+                "error_type": type(error).__name__,
+            },
         )

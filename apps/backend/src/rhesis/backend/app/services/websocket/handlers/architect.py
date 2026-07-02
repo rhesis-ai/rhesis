@@ -19,6 +19,8 @@ from rhesis.backend.app.schemas.websocket import (
 if TYPE_CHECKING:
     from rhesis.backend.app.services.websocket.manager import WebSocketManager
 
+from rhesis.sdk.agents.errors import format_user_facing_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -176,7 +178,7 @@ async def handle_architect_message(
             manager,
             conn_id,
             correlation_id,
-            str(e),
+            format_user_facing_error(e),
             error_type=type(e).__name__,
         )
 

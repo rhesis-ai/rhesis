@@ -25,7 +25,7 @@ def _make_tool_result(success: bool = True, content: dict | None = None, error: 
 
 
 class TestRunExplorationTaskSuccess:
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
@@ -62,7 +62,7 @@ class TestRunExplorationTaskSuccess:
         assert result["strategy"] == "domain_probing"
         assert "duration_ms" in result
 
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
@@ -102,7 +102,7 @@ class TestRunExplorationTaskSuccess:
 
 
 class TestRunExplorationTaskFailure:
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
