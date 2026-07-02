@@ -6,9 +6,9 @@ provided to cover both the modern (``create_session`` / ``run(session=...)``)
 and legacy (``get_new_thread`` / ``run(thread=...)``) MAF API shapes.
 """
 
-from typing import Any
-
 import inspect
+import json
+from typing import Any
 
 import pytest
 
@@ -230,6 +230,76 @@ def test_kwargs_run_uses_session_for_modern_agent():
     assert "session" in agent.calls[0][2]
     assert "thread" not in agent.calls[0][2]
     assert agent.calls[0][1].history == ["turn one", "turn two"]
+
+
+class NonSerializableUsage:
+    """Object-style ``usage`` like real MAF returns (not a plain dict)."""
+
+    def __init__(self):
+        self.total_tokens = 42
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict:
+        return {"total_tokens": self.total_tokens}
+
+
+class OpaqueUsage:
+    """Framework object with no ``model_dump`` (must fall back to ``str``)."""
+
+    def __repr__(self) -> str:
+        return "OpaqueUsage(total_tokens=99)"
+
+
+class ResponseWithObjectUsage:
+    def __init__(self, usage: Any):
+        self.text = "hello"
+        self.usage = usage
+
+
+class StatelessAgent:
+    """MAF agent with no thread/session factory (each turn is independent)."""
+
+    async def run(self, messages: str | None = None):
+        return FakeResponse(f"stateless reply to '{messages}'")
+
+
+def test_metadata_is_json_serializable_with_object_usage():
+    # Real MAF returns framework objects for ``usage``; metadata must stay
+    # JSON-serializable because the executor json.dumps() it without a fallback.
+    class AgentWithObjectUsage(ModernFakeAgent):
+        async def run(self, messages: str | None = None, *, session=None):
+            return ResponseWithObjectUsage(NonSerializableUsage())
+
+    target = MicrosoftAgentFrameworkTarget(AgentWithObjectUsage(), "usage-bot")
+    response = target.send_message("hi")
+
+    assert response.success is True
+    # Must not raise -> this is the crash the fix prevents.
+    json.dumps(response.metadata)
+    assert response.metadata["usage"] == {"total_tokens": 42}
+
+
+def test_metadata_coerces_opaque_usage_to_string():
+    class AgentWithOpaqueUsage(ModernFakeAgent):
+        async def run(self, messages: str | None = None, *, session=None):
+            return ResponseWithObjectUsage(OpaqueUsage())
+
+    target = MicrosoftAgentFrameworkTarget(AgentWithOpaqueUsage(), "usage-bot")
+    response = target.send_message("hi")
+
+    assert response.success is True
+    json.dumps(response.metadata)
+    assert response.metadata["usage"] == "OpaqueUsage(total_tokens=99)"
+
+
+def test_stateless_agent_reports_no_memory():
+    target = MicrosoftAgentFrameworkTarget(StatelessAgent(), "stateless-bot")
+    assert target.is_stateful() is False
+    doc = target.get_tool_documentation()
+    assert "Memory: No" in doc
+    # Still returns a conversation_id for tracking, just without restored context.
+    response = target.send_message("hi")
+    assert response.success is True
+    assert response.conversation_id
 
 
 def test_get_tool_documentation(target: MicrosoftAgentFrameworkTarget):
