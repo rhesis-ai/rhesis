@@ -210,8 +210,8 @@ uv run python -m model_deployment.deploy --enable-lora
 # Enforce eager execution (disable CUDA graphs)
 uv run python -m model_deployment.deploy --enforce-eager
 
-# Set guided decoding backend
-uv run python -m model_deployment.deploy --guided-decoding-backend=outlines
+# Set structured outputs backend
+uv run python -m model_deployment.deploy --structured-outputs-backend=outlines
 ```
 
 ### GitHub Actions Deployment
