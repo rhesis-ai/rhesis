@@ -100,6 +100,7 @@ export default function KnowledgeClientWrapper({
         <Box sx={{ mt: 2, mb: 2 }}>
           {sourceCount === 0 ? (
             <EntityEmptyState
+              card
               icon={MenuBookIcon}
               title="No knowledge sources yet"
               description="Upload files or import from tool connections to use as context for test generation and evaluation."
