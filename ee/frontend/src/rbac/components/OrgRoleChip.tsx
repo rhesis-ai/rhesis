@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  alpha,
   Chip,
   ListItemIcon,
   ListItemText,
@@ -11,14 +10,14 @@ import {
   Skeleton,
   Typography,
 } from "@mui/material";
-import type { Theme } from "@mui/material/styles";
 import CheckIcon from "@mui/icons-material/Check";
 import { useCan } from "@/components/common/Can";
 import { Capability } from "@/constants/capabilities";
 import { useFeature } from "@/contexts/FeaturesContext";
 import { FeatureName } from "@/constants/features";
-import { GREYSCALE } from "@/styles/theme-constants";
+import { RbacClient } from "../api/rbac-client";
 import { fetchRoles } from "../api/role-cache";
+import { getRoleChipSx, isAssignableOrgRole } from "../role-display";
 import type { OrgMemberRead, RoleRead } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -73,31 +72,6 @@ interface OrgRoleChipProps {
   onRoleChanged?: () => void;
 }
 
-const ROLE_CHIP_SX: Record<string, Record<string, unknown>> = {
-  owner: {
-    bgcolor: "primary.main",
-    color: "primary.contrastText",
-    fontWeight: 600,
-  },
-  admin: {
-    bgcolor: (t: Theme) => alpha(t.palette.primary.light, 0.13),
-    color: "primary.dark",
-    fontWeight: 600,
-  },
-  member: {
-    bgcolor: (t: Theme) => alpha(t.palette.primary.light, 0.08),
-    color: "primary.main",
-  },
-  viewer: {
-    bgcolor: GREYSCALE.light.surface2,
-    color: GREYSCALE.light.label,
-  },
-  none: {
-    bgcolor: "transparent",
-    color: GREYSCALE.light.subtitle,
-    border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
-  },
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -148,9 +122,7 @@ export default function OrgRoleChip({
   const member = members.find((m) => m.user_id === userId);
   const currentRole = member?.role;
 
-  const assignableRoles = roles.filter(
-    (r) => !r.is_built_in || r.name !== "owner",
-  );
+  const assignableRoles = roles.filter(isAssignableOrgRole);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -192,11 +164,7 @@ export default function OrgRoleChip({
     );
   }
 
-  const chipSx = ROLE_CHIP_SX[currentRole.name] ?? {
-    bgcolor: (t: Theme) => alpha(t.palette.warning.main, 0.1),
-    color: "warning.dark",
-    fontWeight: 600,
-  };
+  const chipSx = getRoleChipSx(currentRole);
 
   return (
     <>

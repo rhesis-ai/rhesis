@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  alpha,
   Box,
   Button,
   Chip,
@@ -15,82 +14,18 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import type { Theme } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import { Can, useCan } from "@/components/common/Can";
+import { Capability } from "@/constants/capabilities";
+import EntityEmptyState from "@/components/common/EntityEmptyState";
 import { SectionCard } from "@/components/common/SectionCard";
 import { useOrgSettings } from "@/contexts/OrgSettingsContext";
-import { BORDER_RADIUS, GREYSCALE } from "@/styles/theme-constants";
-import { RbacClient } from "../api/rbac-client";
+import { BORDER_RADIUS } from "@/styles/theme-constants";
+import { fetchRoles } from "../api/role-cache";
+import { getRoleChipSx } from "../role-display";
 import type { RoleRead } from "../types";
 import RoleEditorDrawer, { type DrawerMode } from "./RoleEditorDrawer";
-
-// ---------------------------------------------------------------------------
-// Built-in role display metadata
-// ---------------------------------------------------------------------------
-
-interface RoleDisplayInfo {
-  description: string;
-  meta: string;
-  chipSx: Record<string, unknown>;
-}
-
-const BUILT_IN_ROLE_DISPLAY: Record<string, RoleDisplayInfo> = {
-  owner: {
-    description:
-      "Complete control of the organization, including billing, " +
-      "deletion, and transferring ownership.",
-    meta: "Every permission",
-    chipSx: {
-      bgcolor: "primary.main",
-      color: "primary.contrastText",
-      fontWeight: 600,
-    },
-  },
-  admin: {
-    description:
-      "Manage members, roles, projects, and organization settings. " +
-      "Cannot delete the organization.",
-    meta: "All but org deletion",
-    chipSx: {
-      bgcolor: (t: Theme) => alpha(t.palette.primary.light, 0.13),
-      color: "primary.dark",
-      fontWeight: 600,
-    },
-  },
-  member: {
-    description:
-      "Create, edit, and run evaluations across their projects. " +
-      "Manage their own API tokens.",
-    meta: "Read & write resources",
-    chipSx: {
-      bgcolor: (t: Theme) => alpha(t.palette.primary.light, 0.08),
-      color: "primary.main",
-    },
-  },
-  viewer: {
-    description:
-      "Read-only access to all resources. Can browse and export " +
-      "but cannot make changes.",
-    meta: "Read-only",
-    chipSx: {
-      bgcolor: GREYSCALE.light.surface2,
-      color: GREYSCALE.light.label,
-    },
-  },
-  none: {
-    description:
-      "No access. Explicitly revoke a member while keeping them " +
-      "in the organization.",
-    meta: "No permissions",
-    chipSx: {
-      bgcolor: "transparent",
-      color: GREYSCALE.light.subtitle,
-      border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
-    },
-  },
-};
-
-const BUILT_IN_ORDER = ["owner", "admin", "member", "viewer", "none"];
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -103,12 +38,6 @@ function BuiltInRoleCard({
   role: RoleRead;
   onDetails: () => void;
 }) {
-  const display = BUILT_IN_ROLE_DISPLAY[role.name] ?? {
-    description: role.display_name,
-    meta: `${role.permissions.length} permissions`,
-    chipSx: {},
-  };
-
   return (
     <Box
       sx={{
@@ -116,7 +45,7 @@ function BuiltInRoleCard({
         alignItems: "center",
         gap: 2,
         p: 2,
-        border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+        border: (t) => `1px solid ${t.palette.greyscale.border}`,
         borderRadius: BORDER_RADIUS.sm,
         transition: "background 0.15s",
         "&:hover": { bgcolor: "action.hover" },
@@ -126,29 +55,14 @@ function BuiltInRoleCard({
         <Chip
           label={role.display_name}
           size="small"
-          sx={{
-            ...display.chipSx,
-            fontSize: 12,
-            height: 24,
-          }}
+          sx={{ ...getRoleChipSx(role), fontSize: 12, height: 24 }}
         />
       </Box>
       <Typography
         variant="body2"
         sx={{ flex: 1, color: "text.primary", lineHeight: 1.5 }}
       >
-        {display.description}
-      </Typography>
-      <Typography
-        variant="caption"
-        sx={{
-          width: 150,
-          flexShrink: 0,
-          textAlign: "right",
-          color: "text.secondary",
-        }}
-      >
-        {display.meta}
+        {role.description}
       </Typography>
       <Button
         size="small"
@@ -192,7 +106,7 @@ function PrivilegeRail() {
           width: 4,
           flex: 1,
           borderRadius: 1,
-          background: (t: Theme) =>
+          background: (t) =>
             `linear-gradient(to bottom, ${t.palette.primary.main} 0%, ${t.palette.primary.light} 45%, ${t.palette.greyscale.border} 100%)`,
           my: 1,
         }}
@@ -220,6 +134,7 @@ function PrivilegeRail() {
 
 export default function RolesTab() {
   const { sessionToken } = useOrgSettings();
+  const canManageRoles = useCan(Capability.Role.MANAGE);
   const [roles, setRoles] = useState<RoleRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -230,9 +145,7 @@ export default function RolesTab() {
   const [selectedRole, setSelectedRole] = useState<RoleRead | undefined>();
 
   const loadRoles = useCallback(() => {
-    const client = new RbacClient(sessionToken);
-    client
-      .getRoles()
+    fetchRoles(sessionToken)
       .then((data) => {
         setRoles(data);
         setLoading(false);
@@ -285,9 +198,9 @@ export default function RolesTab() {
     );
   }
 
-  const builtInRoles = BUILT_IN_ORDER.map((name) =>
-    roles.find((r) => r.is_built_in && r.name === name),
-  ).filter((r): r is RoleRead => r != null);
+  const builtInRoles = roles
+    .filter((r) => r.is_built_in)
+    .sort((a, b) => b.level - a.level);
 
   const customRoles = roles.filter((r) => !r.is_built_in);
 
@@ -296,7 +209,7 @@ export default function RolesTab() {
       {/* Built-in Roles */}
       <SectionCard
         title="Built-in Roles"
-        subtitle="Five roles, ready to use — this is what most teams need. Permissions are fixed."
+        subtitle="Five roles, ready to use. Permissions are fixed and cannot be changed."
       >
         <Box sx={{ display: "flex", gap: 2, alignItems: "stretch" }}>
           <PrivilegeRail />
@@ -322,28 +235,34 @@ export default function RolesTab() {
       {/* Custom Roles */}
       <SectionCard
         title="Custom Roles"
-        subtitle="For separation of duties — named roles built-ins can't express. Common in regulated teams."
+        subtitle="Named roles for separation of duties. Common in regulated teams where built-in roles are not granular enough."
         actions={
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => openDrawer("create")}
-            sx={{ textTransform: "none" }}
-          >
-            New role
-          </Button>
+          <Can capability={Capability.Role.MANAGE}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => openDrawer("create")}
+              sx={{ textTransform: "none" }}
+            >
+              New role
+            </Button>
+          </Can>
         }
       >
         {customRoles.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No custom roles yet. Create one to define permissions that built-in
-            roles don&apos;t cover.
-          </Typography>
+          <EntityEmptyState
+            icon={AdminPanelSettingsIcon}
+            title="No custom roles yet"
+            description="Create a custom role to define permissions that built-in roles do not cover."
+            actionLabel={canManageRoles ? "New role" : undefined}
+            onAction={canManageRoles ? () => openDrawer("create") : undefined}
+            card
+          />
         ) : (
           <TableContainer
             sx={{
-              border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+              border: (t) => `1px solid ${t.palette.greyscale.border}`,
               borderRadius: BORDER_RADIUS.md,
               overflow: "hidden",
             }}
@@ -357,7 +276,7 @@ export default function RolesTab() {
                       fontWeight: 600,
                       fontSize: 14,
                       color: "text.primary",
-                      borderBottom: (t: Theme) =>
+                      borderBottom: (t) =>
                         `1px solid ${t.palette.greyscale.border}`,
                     },
                   }}
@@ -381,13 +300,7 @@ export default function RolesTab() {
                       <Chip
                         label={role.display_name}
                         size="small"
-                        sx={{
-                          bgcolor: (t: Theme) =>
-                            alpha(t.palette.warning.main, 0.1),
-                          color: "warning.dark",
-                          fontWeight: 600,
-                          fontSize: 12,
-                        }}
+                        sx={{ ...getRoleChipSx(role), fontSize: 12 }}
                       />
                     </TableCell>
                     <TableCell>

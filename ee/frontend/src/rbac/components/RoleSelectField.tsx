@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
 import { fetchRoles } from "../api/role-cache";
+import { isAssignableProjectRole } from "../role-display";
 import type { RoleRead } from "../types";
 
 interface RoleSelectFieldProps {
@@ -44,9 +45,7 @@ export default function RoleSelectField({
     };
   }, [sessionToken]);
 
-  const assignableRoles = roles.filter(
-    (r) => !r.is_built_in || (r.name !== "owner" && r.name !== "none"),
-  );
+  const assignableRoles = roles.filter(isAssignableProjectRole);
 
   if (loading) {
     return <Skeleton variant="rounded" height={56} />;

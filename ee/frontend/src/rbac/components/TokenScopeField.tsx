@@ -20,6 +20,7 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import LockIcon from "@mui/icons-material/Lock";
 import { GREYSCALE } from "@/styles/theme-constants";
 import { fetchRoles } from "../api/role-cache";
+import { isAssignableProjectRole } from "../role-display";
 import type { RoleRead } from "../types";
 import {
   RESOURCE_AREAS,
@@ -70,7 +71,7 @@ export default function TokenScopeField({
   }, [sessionToken]);
 
   const assignableRoles = useMemo(
-    () => roles.filter((r) => r.name !== "owner" && r.name !== "none"),
+    () => roles.filter(isAssignableProjectRole),
     [roles],
   );
 

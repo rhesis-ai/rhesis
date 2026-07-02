@@ -19,8 +19,12 @@ export interface RoleRead {
   id: string;
   name: string;
   display_name: string;
+  /** One-sentence description served by the backend. Built-in roles are seeded
+   *  in migration a2b3c4d5e6f7; custom roles default to "". */
+  description: string;
   scope: string;
-  /** Internal ordering — higher = more privileged. Never display to users. */
+  /** Privilege ordering — higher = more privileged. Drive sorting and filter
+   *  logic off this field; never branch on `name` strings. */
   level: number;
   is_built_in: boolean;
   organization_id: string | null;

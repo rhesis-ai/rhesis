@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import BaseDrawer from "@/components/common/BaseDrawer";
 import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
 import { useOrgSettings } from "@/contexts/OrgSettingsContext";
 import { RbacClient } from "../api/rbac-client";
+import { isCopyableRole } from "../role-display";
 import type { RoleRead } from "../types";
 import {
   CapabilityLevel,
@@ -160,9 +162,7 @@ export default function RoleEditorDrawer({
       ? (role?.display_name ?? "Role Details")
       : `Edit ${role?.display_name ?? "Role"}`;
 
-  const copyFromRoles = roles.filter(
-    (r) => r.is_built_in && r.name !== "owner" && r.name !== "none",
-  );
+  const copyFromRoles = roles.filter(isCopyableRole);
 
   return (
     <BaseDrawer
@@ -237,11 +237,20 @@ export default function RoleEditorDrawer({
 
       {/* Read-only header for built-in roles */}
       {readOnly && role && (
-        <Box>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
           <Typography variant="body2" color="text.secondary">
             {role.is_built_in ? "Built-in role" : "Custom role"} ·{" "}
             {role.permissions.length} permissions
           </Typography>
+          {role.is_built_in && (
+            <Alert
+              severity="info"
+              icon={<LockOutlinedIcon fontSize="small" />}
+              sx={{ py: 0.75 }}
+            >
+              Permissions for built-in roles are fixed and cannot be changed.
+            </Alert>
+          )}
         </Box>
       )}
 
