@@ -60,8 +60,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface TestSetsGridProps {
   sessionToken?: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -163,8 +161,6 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 
 export default function TestSetsGrid({
   sessionToken: sessionTokenProp,
-  refreshKey,
-  onRefresh,
   onTotalCountChange,
 }: TestSetsGridProps) {
   const router = useRouter();
@@ -296,13 +292,6 @@ export default function TestSetsGrid({
     totalCount,
   ]);
 
-  // ── refreshKey effect ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-    }
-  }, [refreshKey, queryClient]);
-
   // ── Row + selection handlers ─────────────────────────────────────────────────
 
   const handleRowClick = useCallback(
@@ -348,7 +337,6 @@ export default function TestSetsGrid({
       setPendingDeleteId(null);
       setSelectedRows([]);
       queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-      onRefresh?.();
     } catch {
       notifications.show('Failed to delete test sets', {
         severity: 'error',
@@ -358,14 +346,7 @@ export default function TestSetsGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [
-    pendingDeleteId,
-    selectedRows,
-    sessionToken,
-    notifications,
-    queryClient,
-    onRefresh,
-  ]);
+  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);

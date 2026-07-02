@@ -2,10 +2,17 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { taskKeys } from '@/constants/query-keys';
 import { TasksWrapper } from '../TasksWrapper';
 
 const mockCreateTask = jest.fn();
 const mockDeleteTask = jest.fn();
+const mockInvalidateQueries = jest.fn();
+
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
 
 jest.mock('@/hooks/useTasks', () => ({
   useTasks: jest.fn(() => ({
@@ -22,14 +29,12 @@ jest.mock('../TasksSection', () => ({
   TasksSection: ({
     onCreateTask,
     onDeleteTask,
-    refreshKey,
   }: {
     onCreateTask: (data: Record<string, unknown>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
-    refreshKey?: number;
   }) => {
     return (
-      <div data-testid="tasks-section" data-refresh-key={refreshKey ?? 0}>
+      <div data-testid="tasks-section">
         <button onClick={() => onCreateTask({ title: 'New Task' })}>
           create
         </button>
@@ -67,10 +72,9 @@ describe('TasksWrapper', () => {
     await user.click(screen.getByRole('button', { name: 'create' }));
 
     expect(mockCreateTask).toHaveBeenCalledWith({ title: 'New Task' });
-    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
-      'data-refresh-key',
-      '1'
-    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: taskKeys.all(),
+    });
   });
 
   it('calls deleteTask when onDeleteTask is triggered', async () => {

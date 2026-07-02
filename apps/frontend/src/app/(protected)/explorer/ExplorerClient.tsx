@@ -7,6 +7,8 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { explorerKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -24,9 +26,9 @@ import ImportExplorerTestSetDialog from './components/ImportExplorerTestSetDialo
 export default function ExplorerClient() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
 
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [sessionCount, setSessionCount] = React.useState<number | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
@@ -35,10 +37,6 @@ export default function ExplorerClient() {
 
   const sessionToken = session?.session_token ?? '';
   const canCreateSession = useCan(Capability.Explorer.CREATE);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
 
   const handleImportedExplorerSet = React.useCallback(
     (result: ImportExplorerTestSetResponse) => {
@@ -52,10 +50,10 @@ export default function ExplorerClient() {
         autoHideDuration: 5000,
       });
       setImportDialogOpen(false);
-      handleRefresh();
+      queryClient.invalidateQueries({ queryKey: explorerKeys.all() });
       router.push(`/explorer/${created.id}?openSettings=1`);
     },
-    [handleRefresh, notifications, router]
+    [queryClient, notifications, router]
   );
 
   if (status === 'loading') {
@@ -124,8 +122,6 @@ export default function ExplorerClient() {
             >
               <ExplorerGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
                 onTotalCountChange={setSessionCount}
               />
             </Paper>
@@ -137,7 +133,9 @@ export default function ExplorerClient() {
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         sessionToken={sessionToken}
-        onCreated={handleRefresh}
+        onCreated={() =>
+          queryClient.invalidateQueries({ queryKey: explorerKeys.all() })
+        }
         onNavigateToSession={sessionId => {
           router.push(`/explorer/${sessionId}?openSettings=1`);
         }}

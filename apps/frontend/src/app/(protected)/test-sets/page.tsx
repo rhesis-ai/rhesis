@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useQueryClient } from '@tanstack/react-query';
+import { testSetKeys } from '@/constants/query-keys';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -29,6 +31,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 export default function TestSetsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestSet.READ
@@ -36,7 +39,6 @@ export default function TestSetsPage() {
   const canCreate = useCan(Capability.TestSet.CREATE);
   const canGenerate = useCan(Capability.TestSet.GENERATE);
 
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
@@ -47,28 +49,24 @@ export default function TestSetsPage() {
 
   const sessionToken = session?.session_token ?? '';
 
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+  }, [queryClient]);
 
   const handleFileImportSuccess = React.useCallback(
     (_testSetId: string) => {
-      handleRefresh();
+      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
       notifications.show('Test set imported successfully from file', {
         severity: 'success',
       });
     },
-    [handleRefresh, notifications]
+    [queryClient, notifications]
   );
 
   const handleGarakImportSuccess = React.useCallback(
     (testSetIds: string[]) => {
-      handleRefresh();
+      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
       const count = testSetIds.length;
       notifications.show(
         `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
@@ -78,7 +76,7 @@ export default function TestSetsPage() {
         router.push(`/test-sets/${testSetIds[0]}`);
       }
     },
-    [handleRefresh, notifications, router]
+    [queryClient, notifications, router]
   );
 
   if (status === 'loading') {
@@ -164,8 +162,6 @@ export default function TestSetsPage() {
             >
               <TestSetsGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
                 onTotalCountChange={setTestSetCount}
               />
             </Paper>

@@ -46,8 +46,6 @@ import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface EndpointsGridProps {
   sessionToken?: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
   projectId?: string;
 }
@@ -104,8 +102,6 @@ function EndpointsUnifiedToolbar() {
 
 export default function EndpointsGrid({
   sessionToken: sessionTokenProp,
-  refreshKey,
-  onRefresh,
   onTotalCountChange,
   projectId,
 }: EndpointsGridProps) {
@@ -233,11 +229,6 @@ export default function EndpointsGrid({
   ]);
 
   useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0)
-      queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
-  }, [refreshKey, queryClient]);
-
-  useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
@@ -272,8 +263,7 @@ export default function EndpointsGrid({
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
-    onRefresh?.();
-  }, [queryClient, onRefresh]);
+  }, [queryClient]);
 
   const handleDeleteEndpoints = async () => {
     if (!sessionToken || !pendingDeleteId) return;

@@ -6,6 +6,8 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { endpointKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -23,12 +25,12 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Endpoint.READ
   );
   const canCreate = useCan(Capability.Endpoint.CREATE);
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [createProjectId, setCreateProjectId] = React.useState<
@@ -38,10 +40,6 @@ export default function EndpointsPage() {
   useDocumentTitle('Endpoints');
 
   const sessionToken = session?.session_token ?? '';
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
 
   React.useEffect(() => {
     if (searchParams.get('create') !== '1') return;
@@ -60,8 +58,8 @@ export default function EndpointsPage() {
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
     setCreateProjectId(undefined);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
+  }, [queryClient]);
 
   if (status === 'loading') {
     return (
@@ -128,8 +126,6 @@ export default function EndpointsPage() {
             >
               <EndpointsGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
                 onTotalCountChange={setEndpointCount}
               />
             </Paper>

@@ -25,7 +25,6 @@ interface ProjectMembersProps {
   sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
-  refreshKey?: number;
   onMembersLoaded?: (members: ProjectMember[]) => void;
 }
 
@@ -42,7 +41,6 @@ export default function ProjectMembers({
   projectId,
   sessionToken,
   ownerId,
-  refreshKey = 0,
   onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
@@ -83,15 +81,6 @@ export default function ProjectMembers({
   const membersError = membersQueryError
     ? 'Failed to load project members.'
     : null;
-
-  // Re-fetch when refreshKey increments
-  const prevRefreshKey = React.useRef(refreshKey);
-  React.useEffect(() => {
-    if (refreshKey !== prevRefreshKey.current) {
-      prevRefreshKey.current = refreshKey;
-      queryClient.invalidateQueries({ queryKey: membersQueryKey });
-    }
-  }, [refreshKey, queryClient, membersQueryKey]);
 
   const handleRemoveClick = (member: ProjectMember) => {
     setMemberToRemove(member);

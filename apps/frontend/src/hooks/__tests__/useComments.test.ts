@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useComments } from '../useComments';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';
 import { EntityType } from '@/types/entity-type';
@@ -15,6 +17,19 @@ jest.mock('../../components/common/NotificationContext', () => ({
 const mockApiClientFactory = ApiClientFactory as jest.MockedClass<
   typeof ApiClientFactory
 >;
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
 
 describe('useComments', () => {
   const mockProps = {
@@ -51,7 +66,9 @@ describe('useComments', () => {
 
   describe('initialization', () => {
     it('starts with initial state', () => {
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.comments).toEqual([]);
       expect(result.current.isLoading).toBe(true);
@@ -78,7 +95,9 @@ describe('useComments', () => {
 
       mockCommentsClient.getComments.mockResolvedValue(mockComments);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -113,7 +132,9 @@ describe('useComments', () => {
 
       mockCommentsClient.getComments.mockResolvedValue(mockComments);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -127,7 +148,9 @@ describe('useComments', () => {
       const error = new Error('Failed to fetch');
       mockCommentsClient.getComments.mockRejectedValue(error);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -138,15 +161,17 @@ describe('useComments', () => {
     });
 
     it('handles missing session token', async () => {
-      const { result } = renderHook(() =>
-        useComments({ ...mockProps, sessionToken: '' })
+      const { result } = renderHook(
+        () => useComments({ ...mockProps, sessionToken: '' }),
+        { wrapper: createWrapper() }
       );
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.error).toBe('No session token available');
+      expect(result.current.error).toBe(null);
+      expect(result.current.comments).toEqual([]);
       expect(mockCommentsClient.getComments).not.toHaveBeenCalled();
     });
   });
@@ -170,7 +195,9 @@ describe('useComments', () => {
 
       mockCommentsClient.createComment.mockResolvedValue(newComment);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       let createCommentResult: any;
       await waitFor(async () => {
@@ -195,7 +222,9 @@ describe('useComments', () => {
       const error = new Error('Failed to create');
       mockCommentsClient.createComment.mockRejectedValue(error);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await expect(result.current.createComment('New comment')).rejects.toThrow(
         'Failed to create'
@@ -203,8 +232,9 @@ describe('useComments', () => {
     });
 
     it('handles missing session token for create', async () => {
-      const { result } = renderHook(() =>
-        useComments({ ...mockProps, sessionToken: '' })
+      const { result } = renderHook(
+        () => useComments({ ...mockProps, sessionToken: '' }),
+        { wrapper: createWrapper() }
       );
 
       await expect(result.current.createComment('New comment')).rejects.toThrow(
@@ -246,7 +276,9 @@ describe('useComments', () => {
       // Set up initial state with existing comment
       mockCommentsClient.getComments.mockResolvedValue([existingComment]);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.comments.length).toBe(1);
@@ -270,7 +302,9 @@ describe('useComments', () => {
     it('handles edit comment error', async () => {
       mockCommentsClient.getComments.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.comments.length).toBe(0);
@@ -305,7 +339,9 @@ describe('useComments', () => {
       mockCommentsClient.deleteComment.mockResolvedValue(commentToDelete);
 
       // Set up initial state with comment
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.comments).toHaveLength(1);
@@ -325,7 +361,9 @@ describe('useComments', () => {
     it('handles delete error', async () => {
       mockCommentsClient.getComments.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.comments).toHaveLength(0);
@@ -366,7 +404,9 @@ describe('useComments', () => {
 
       mockCommentsClient.getComments.mockResolvedValue([commentWithEmojis]);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.comments).toHaveLength(1);
@@ -409,7 +449,9 @@ describe('useComments', () => {
 
       mockCommentsClient.getComments.mockResolvedValue([commentWithEmojis]);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.comments).toHaveLength(1);
@@ -432,7 +474,9 @@ describe('useComments', () => {
     it('refetches comments when refetch is called', async () => {
       mockCommentsClient.getComments.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useComments(mockProps));
+      const { result } = renderHook(() => useComments(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
