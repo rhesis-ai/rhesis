@@ -299,6 +299,7 @@ export default function PlaygroundChat({
               <Box
                 component={onChangeEndpoint ? 'button' : 'div'}
                 type={onChangeEndpoint ? 'button' : undefined}
+                aria-label={onChangeEndpoint ? 'Change endpoint' : undefined}
                 onClick={onChangeEndpoint}
                 sx={{
                   display: 'flex',

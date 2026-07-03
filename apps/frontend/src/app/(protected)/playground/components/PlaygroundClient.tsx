@@ -272,12 +272,14 @@ export default function PlaygroundClient() {
           <Fab
             icon={<EndpointsIcon />}
             tooltip={endpointFabTooltip}
+            aria-label="Select endpoint"
             onClick={openEndpointDrawer}
             loading={isLoading && endpointDrawerOpen}
           />
           <Fab
             icon={<RestartAltIcon />}
             tooltip="Reset playground"
+            aria-label="Reset playground"
             onClick={handleReset}
             disabled={!hasActiveSession}
           />

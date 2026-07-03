@@ -28,7 +28,9 @@ export class PlaygroundPage extends BasePage {
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
 
-    const endpointFab = this.page.locator('main button').first();
+    const endpointFab = this.page.getByRole('button', {
+      name: /select endpoint/i,
+    });
     const noEndpointsMsg = this.page.getByText(/no endpoints available/i);
     const emptyState = this.page.getByText(
       /select an endpoint to start chatting/i
