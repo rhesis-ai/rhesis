@@ -14,6 +14,7 @@ export const endpointKeys = createEntityKeys('endpoints');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
 export const experimentKeys = createEntityKeys('experiments');
+export const modelKeys = createEntityKeys('models');
 export const behaviorKeys = createEntityKeys('behaviors');
 export const projectKeys = createEntityKeys('projects');
 export const explorerKeys = createEntityKeys('explorer');
@@ -56,4 +57,8 @@ export const featureKeys = {
 export const permissionKeys = {
   all: (userScope: string, projectId: string) =>
     ['permissions', userScope, projectId] as const,
+};
+
+export const userSettingsKeys = {
+  all: (userScope: string) => ['user-settings', userScope] as const,
 };

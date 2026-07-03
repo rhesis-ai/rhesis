@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -70,18 +69,6 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [queryClient] = React.useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 5 * 60_000,
-            gcTime: 30 * 60_000,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
   const { data: session } = useSession();
   const pathname = usePathname();
   const user = session?.user as ExtendedUser | undefined;
@@ -101,17 +88,15 @@ export default function ProtectedLayout({
     );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthErrorBoundary>
-        <FeaturesProvider>
-          <PermissionsProvider>
-            <WebSocketProvider>
-              {!isOnboarding && !chromeless && <VerificationBanner />}
-              {content}
-            </WebSocketProvider>
-          </PermissionsProvider>
-        </FeaturesProvider>
-      </AuthErrorBoundary>
-    </QueryClientProvider>
+    <AuthErrorBoundary>
+      <FeaturesProvider>
+        <PermissionsProvider>
+          <WebSocketProvider>
+            {!isOnboarding && !chromeless && <VerificationBanner />}
+            {content}
+          </WebSocketProvider>
+        </PermissionsProvider>
+      </FeaturesProvider>
+    </AuthErrorBoundary>
   );
 }

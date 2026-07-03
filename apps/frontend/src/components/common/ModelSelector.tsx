@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Box,
   CircularProgress,
@@ -14,11 +14,14 @@ import {
 import type { SxProps, Theme } from '@mui/material/styles';
 import SettingsSuggestIcon from '@mui/icons-material/SettingsSuggest';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { PROVIDER_ICONS } from '@/config/model-providers';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { useModels } from '@/hooks/useModels';
 
 type ModelPurpose = 'generation' | 'evaluation' | 'execution' | 'embedding';
+
+const EMPTY_MODELS: Model[] = [];
 
 interface ModelSelectorProps {
   sessionToken: string;
@@ -101,74 +104,23 @@ export default function ModelSelector({
   fieldSx,
 }: ModelSelectorProps) {
   const theme = useTheme();
-  const [fetchedModels, setFetchedModels] = useState<Model[]>([]);
-  const [isFetching, setIsFetching] = useState(false);
-  const [defaultModelName, setDefaultModelName] = useState<string | null>(null);
+  const { data: userSettings } = useUserSettings();
+  const { data: fetchedModels, isLoading: isFetching } = useModels(
+    sessionToken,
+    preloadedModels === undefined
+  );
 
   // If preloaded data is supplied, use it; otherwise fetch internally.
-  const models = preloadedModels ?? fetchedModels;
+  const models = preloadedModels ?? fetchedModels ?? EMPTY_MODELS;
   const isLoading =
     preloadedModels !== undefined ? (isLoadingModelsProp ?? false) : isFetching;
 
-  useEffect(() => {
-    // Skip internal fetch when the parent supplies preloaded data.
-    if (preloadedModels !== undefined) {
-      // Still resolve the default model name for the helper text.
-      if (purpose && sessionToken) {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        apiFactory
-          .getUsersClient()
-          .getUserSettings()
-          .then(settings => {
-            const defaultModelId = settings?.models?.[purpose]?.model_id;
-            if (defaultModelId) {
-              const match = preloadedModels.find(m => m.id === defaultModelId);
-              setDefaultModelName(match?.name ?? null);
-            }
-          })
-          .catch(() => {});
-      }
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        setIsFetching(true);
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const modelsClient = apiFactory.getModelsClient();
-        const response = await modelsClient.getModels({
-          sort_by: 'name',
-          sort_order: 'asc',
-          skip: 0,
-          limit: 100,
-        });
-        const fetchedList = response.data || [];
-        setFetchedModels(fetchedList);
-
-        if (purpose) {
-          try {
-            const usersClient = apiFactory.getUsersClient();
-            const settings = await usersClient.getUserSettings();
-            const defaultModelId = settings?.models?.[purpose]?.model_id;
-            if (defaultModelId) {
-              const match = fetchedList.find(m => m.id === defaultModelId);
-              setDefaultModelName(match?.name ?? null);
-            }
-          } catch {
-            // User settings unavailable — leave default name unresolved
-          }
-        }
-      } catch {
-        setFetchedModels([]);
-      } finally {
-        setIsFetching(false);
-      }
-    };
-
-    if (sessionToken) {
-      fetchData();
-    }
-  }, [sessionToken, purpose, preloadedModels]);
+  const defaultModelName = React.useMemo(() => {
+    if (!purpose || !userSettings) return null;
+    const defaultModelId = userSettings.models?.[purpose]?.model_id;
+    if (!defaultModelId) return null;
+    return models.find(m => m.id === defaultModelId)?.name ?? null;
+  }, [purpose, userSettings, models]);
 
   const selectedModel = models.find(m => m.id === value);
 

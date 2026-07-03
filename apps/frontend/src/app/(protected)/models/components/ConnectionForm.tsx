@@ -26,6 +26,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { writeUserSettingsCache } from '@/hooks/useUserSettings';
 import {
   Model,
   ModelCreate,
@@ -234,6 +236,8 @@ export const ConnectionForm = forwardRef<
   }, [modelName, apiKey, endpoint, isEditMode]);
 
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
 
   // Fetch available models for the provider
   useEffect(() => {
@@ -307,7 +311,8 @@ export const ConnectionForm = forwardRef<
       }
 
       if (Object.keys(updates.models).length > 0) {
-        await usersClient.updateUserSettings(updates);
+        const updated = await usersClient.updateUserSettings(updates);
+        writeUserSettingsCache(queryClient, userScope, updated);
         if (onUserSettingsUpdate) {
           await onUserSettingsUpdate();
         }
