@@ -6,16 +6,45 @@ using a persistent background thread/loop to avoid event loop lifecycle issues.
 
 import asyncio
 import atexit
+import logging
 from threading import Thread
+
+logger = logging.getLogger(__name__)
 
 _background_loop = None
 _background_thread = None
+
+
+def reset_litellm_vertex_async_locks() -> None:
+    """Clear litellm Vertex AI asyncio locks tied to a dead event loop.
+
+    litellm.main keeps a module-level ``vertex_chat_completion`` singleton
+    whose ``_async_refresh_locks`` are bound to whichever event loop first
+    touched them.  After ``asyncio.run()`` closes its loop, the next call
+    on a fresh loop raises "Lock ... is bound to a different event loop".
+    """
+    try:
+        import litellm.main as litellm_main
+
+        vertex = getattr(litellm_main, "vertex_chat_completion", None)
+        if vertex is None:
+            return
+        vertex._async_refresh_locks.clear()
+        vertex._async_refresh_lock_refcounts.clear()
+        for task in vertex._background_refresh_tasks.values():
+            if not task.done():
+                task.cancel()
+        vertex._background_refresh_tasks.clear()
+    except Exception:
+        logger.debug("Could not reset litellm Vertex async locks", exc_info=True)
 
 
 def _get_background_loop():
     """Lazily create a single background thread with its own event loop."""
     global _background_loop, _background_thread
     if _background_loop is None or _background_loop.is_closed():
+        if _background_loop is not None and _background_loop.is_closed():
+            reset_litellm_vertex_async_locks()
         _background_loop = asyncio.new_event_loop()
         _background_thread = Thread(
             target=_background_loop.run_forever,

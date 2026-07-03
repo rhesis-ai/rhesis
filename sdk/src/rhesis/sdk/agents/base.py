@@ -17,6 +17,7 @@ from opentelemetry import trace
 from pydantic import ValidationError
 
 from rhesis.sdk.agents.constants import Action, InternalTool
+from rhesis.sdk.agents.errors import format_user_facing_error
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
 from rhesis.sdk.agents.schemas import (
     AgentAction,
@@ -778,7 +779,8 @@ class BaseAgent:
                 span.set_attribute(AIAttributes.ERROR_TYPE, "transport_error")
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 span.record_exception(e)
-                await _emit(self._event_handlers, "on_error", error=e)
+                friendly = RuntimeError(format_user_facing_error(e))
+                await _emit(self._event_handlers, "on_error", error=friendly)
                 return None
 
     async def _handle_finish_action(
@@ -850,7 +852,7 @@ class BaseAgent:
                 self._event_handlers,
                 "on_stream_end",
                 content=fallback_content,
-                error=str(e),
+                error=format_user_facing_error(e),
             )
             return fallback_content
 
