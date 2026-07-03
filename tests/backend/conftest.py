@@ -101,6 +101,40 @@ def isolate_permission_cache():
     get_permission_cache().clear_all()
 
 
+@pytest.fixture(autouse=True)
+def _ensure_ee_features_registered():
+    """Re-bootstrap EE features when the registry has been wiped.
+
+    :class:`~rhesis.backend.app.features.FeatureRegistry` and
+    :mod:`~rhesis.backend.app.auth.provider_hooks` are both process-global
+    state, populated once by ``ee.bootstrap()`` at app import time — it never
+    runs again during a test session. A unit test elsewhere that calls
+    ``FeatureRegistry.reset()`` (for isolation) leaves the registry empty for
+    the rest of the suite: every later test then sees RBAC as unregistered,
+    ``PermissionAuthorizationProvider._rbac_available()`` returns False, and
+    every RBAC permission check silently falls back to the community
+    provider, denying broadly (explorer, behavior, endpoint, etc.).
+
+    Cheap: dict inserts plus ``app.include_router`` on a mock. The enricher
+    list is reset first so re-running ``bootstrap`` does not leave stale
+    callbacks behind from a previous run. Autouse + suite-wide (not just
+    ``tests/backend/ee/``) since the wipe can be triggered by tests anywhere
+    (e.g. ``tests/backend/app/test_feature_registry.py``,
+    ``tests/backend/routes/test_features.py``) and affects tests anywhere.
+    """
+    from rhesis.backend.app.features import FeatureRegistry
+
+    if not FeatureRegistry._features:
+        from unittest.mock import MagicMock
+
+        from rhesis.backend.app.auth.provider_hooks import reset_enrichers
+        from rhesis.backend.ee import bootstrap
+
+        reset_enrichers()
+        bootstrap(MagicMock())
+    yield
+
+
 # =============================================================================
 # Session-scoped database migrations
 # =============================================================================
