@@ -18,6 +18,12 @@ export const behaviorKeys = createEntityKeys('behaviors');
 export const projectKeys = createEntityKeys('projects');
 export const explorerKeys = createEntityKeys('explorer');
 
+export const traceKeys = {
+  all: () => ['traces'] as const,
+  list: (params: Record<string, unknown>) =>
+    ['traces', 'list', params] as const,
+};
+
 export const commentKeys = {
   list: (entityType: string, entityId: string) =>
     ['comments', entityType, entityId] as const,
