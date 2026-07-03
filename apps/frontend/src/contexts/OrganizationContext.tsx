@@ -1,11 +1,6 @@
 'use client';
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useState,
-} from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Organization } from '@/utils/api-client/interfaces/organization';

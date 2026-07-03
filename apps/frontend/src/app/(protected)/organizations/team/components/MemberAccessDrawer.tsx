@@ -119,15 +119,30 @@ export default function MemberAccessDrawer({
               gap: 2,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                minWidth: 0,
+              }}
+            >
               <Avatar src={user.picture || undefined} sx={memberAvatarSx}>
                 {user.picture ? null : <PersonIcon />}
               </Avatar>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle1" fontWeight={600} sx={truncateSx}>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={600}
+                  sx={truncateSx}
+                >
                   {displayName}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={truncateSx}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={truncateSx}
+                >
                   {user.email}
                 </Typography>
               </Box>
@@ -153,7 +168,8 @@ export default function MemberAccessDrawer({
               color="text.secondary"
               sx={{ mb: 1 }}
             >
-              Project access {!loading && `(${count} ${count === 1 ? 'project' : 'projects'})`}
+              Project access{' '}
+              {!loading && `(${count} ${count === 1 ? 'project' : 'projects'})`}
             </Typography>
 
             {loading ? (
@@ -167,11 +183,18 @@ export default function MemberAccessDrawer({
                 No explicit project assignments.
               </Typography>
             ) : (
-              <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <List
+                disablePadding
+                sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
+              >
                 {projectAccess.map(({ project, member }) => {
                   const projectId = project.id as string;
                   return (
-                    <ListItem key={projectId} disablePadding sx={projectCardItemSx}>
+                    <ListItem
+                      key={projectId}
+                      disablePadding
+                      sx={projectCardItemSx}
+                    >
                       <Avatar sx={projectAvatarSx}>
                         {getProjectIcon(project)}
                       </Avatar>

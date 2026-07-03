@@ -55,7 +55,9 @@ export const projectCardItemSx: SxProps<Theme> = {
  * Visual selection state is managed entirely through the `isSelected` JS
  * variable, bypassing all MUI global overrides.
  */
-export function getSelectableProjectItemSx(isSelected: boolean): SxProps<Theme> {
+export function getSelectableProjectItemSx(
+  isSelected: boolean
+): SxProps<Theme> {
   return {
     borderRadius: BORDER_RADIUS.md,
     border: theme =>
@@ -80,7 +82,9 @@ export function getSelectableProjectItemSx(isSelected: boolean): SxProps<Theme> 
  * Project name text with selection-aware font weight.
  * Selected names are medium weight; unselected are regular.
  */
-export function getSelectableProjectNameSx(isSelected: boolean): SxProps<Theme> {
+export function getSelectableProjectNameSx(
+  isSelected: boolean
+): SxProps<Theme> {
   return {
     ...truncateSx,
     fontWeight: theme =>

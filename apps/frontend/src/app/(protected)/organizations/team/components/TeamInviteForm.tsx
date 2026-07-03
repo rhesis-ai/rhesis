@@ -73,7 +73,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const { data: session } = useSession();
     const notifications = useNotifications();
     const { projects: availableProjects } = useActiveProject();
-    const { AddMemberRoleField, assignProjectMemberRole } = getMemberRoleExtensions();
+    const { AddMemberRoleField, assignProjectMemberRole } =
+      getMemberRoleExtensions();
 
     const [formData, setFormData] = useState<FormData>({
       invites: [createInvite()],
@@ -85,7 +86,9 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const [projectSearch, setProjectSearch] = useState('');
     // projectRoles maps projectId → chosen roleId (null = default/unset).
     // A project being present in this map means it is selected for invite.
-    const [projectRoles, setProjectRoles] = useState<Record<string, string | null>>({});
+    const [projectRoles, setProjectRoles] = useState<
+      Record<string, string | null>
+    >({});
 
     useEffect(() => {
       onSubmittingChange?.(isSubmitting);
@@ -264,14 +267,20 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
             return selectedProjectIds.map(async projectId => {
               const userId = String(user.id);
               try {
-                await projectsClient.addProjectMember(projectId, { user_id: userId });
+                await projectsClient.addProjectMember(projectId, {
+                  user_id: userId,
+                });
                 const roleId = projectRoles[projectId];
-                if (assignProjectMemberRole && roleId && session?.session_token) {
+                if (
+                  assignProjectMemberRole &&
+                  roleId &&
+                  session?.session_token
+                ) {
                   await assignProjectMemberRole(
                     session.session_token,
                     projectId,
                     userId,
-                    roleId,
+                    roleId
                   ).catch(() => {
                     // role assignment failure is non-fatal — member is still enrolled
                   });
@@ -573,21 +582,23 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                               </Typography>
                             )}
                           </Box>
-                          {isSelected && AddMemberRoleField && session?.session_token && (
-                            <Box sx={{ flexShrink: 0 }}>
-                              <AddMemberRoleField
-                                sessionToken={session.session_token}
-                                value={projectRoles[projectId] ?? null}
-                                onChange={roleId =>
-                                  setProjectRoles(prev => ({
-                                    ...prev,
-                                    [projectId]: roleId,
-                                  }))
-                                }
-                                size="small"
-                              />
-                            </Box>
-                          )}
+                          {isSelected &&
+                            AddMemberRoleField &&
+                            session?.session_token && (
+                              <Box sx={{ flexShrink: 0 }}>
+                                <AddMemberRoleField
+                                  sessionToken={session.session_token}
+                                  value={projectRoles[projectId] ?? null}
+                                  onChange={roleId =>
+                                    setProjectRoles(prev => ({
+                                      ...prev,
+                                      [projectId]: roleId,
+                                    }))
+                                  }
+                                  size="small"
+                                />
+                              </Box>
+                            )}
                         </ListItemButton>
                       );
                     })}

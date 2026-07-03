@@ -91,23 +91,22 @@ export default function ModelsPage() {
         const typeLookupClient = apiFactory.getTypeLookupClient();
         const usersClient = apiFactory.getUsersClient();
 
-        const [types, settings, modelsResponse, statuses] =
-          await Promise.all([
-            typeLookupClient.getTypeLookups({
-              $filter: "type_name eq 'ProviderType'",
-              limit: 100,
-            }),
-            usersClient.getUserSettings().catch(() => null),
-            modelsClient.getModels().catch(() => null),
-            apiFactory
-              .getStatusClient()
-              .getStatuses({
-                sort_by: 'name',
-                sort_order: 'asc',
-                entity_type: 'Model',
-              })
-              .catch(() => null),
-          ]);
+        const [types, settings, modelsResponse, statuses] = await Promise.all([
+          typeLookupClient.getTypeLookups({
+            $filter: "type_name eq 'ProviderType'",
+            limit: 100,
+          }),
+          usersClient.getUserSettings().catch(() => null),
+          modelsClient.getModels().catch(() => null),
+          apiFactory
+            .getStatusClient()
+            .getStatuses({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: 'Model',
+            })
+            .catch(() => null),
+        ]);
 
         setProviderTypes(types);
         if (settings) setUserSettings(settings);

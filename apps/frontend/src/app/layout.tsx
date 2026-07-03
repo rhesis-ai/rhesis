@@ -51,9 +51,7 @@ import { Capability } from '../constants/capabilities';
 export const dynamic = 'force-dynamic';
 
 // This function will be used to get navigation items with dynamic data
-async function getNavigationItems(
-  session: Session | null
-): Promise<{
+async function getNavigationItems(session: Session | null): Promise<{
   items: NavigationItem[];
   organizationName: string;
   organization: Organization | null;
@@ -226,7 +224,11 @@ async function getNavigationItems(
     },
   ];
 
-  return { items: navItems as NavigationItem[], organizationName, organization };
+  return {
+    items: navItems as NavigationItem[],
+    organizationName,
+    organization,
+  };
 }
 
 export const metadata: Metadata = {
@@ -251,8 +253,11 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
 
   // Get navigation with dynamic organization name
-  const { items: navigation, organizationName, organization } =
-    await getNavigationItems(session);
+  const {
+    items: navigation,
+    organizationName,
+    organization,
+  } = await getNavigationItems(session);
 
   const branding: BrandingProps = {
     title: organizationName,
