@@ -6,6 +6,16 @@ import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import CreateTokenDrawer from '../CreateTokenDrawer';
 
+jest.mock('@/contexts/ActiveProjectContext', () => ({
+  useActiveProject: () => ({
+    activeProject: { id: 'proj-1', name: 'My Project' },
+    projects: [],
+    loading: false,
+    setActiveProject: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}));
+
 const onClose = jest.fn();
 const onCreateToken = jest.fn();
 

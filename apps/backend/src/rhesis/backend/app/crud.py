@@ -1810,6 +1810,7 @@ def get_user_tokens(
     filter: str | None = None,
     valid_only: bool = False,
     organization_id: str = None,
+    project_id: str = None,
 ) -> List[models.Token]:
     """Get all active bearer tokens for a user with pagination and sorting
 
@@ -1822,6 +1823,8 @@ def get_user_tokens(
         sort_order: Sort order (asc/desc)
         filter: OData filter string
         valid_only: If True, only returns valid (non-expired) tokens
+        organization_id: Organization ID for filtering
+        project_id: Project ID for filtering (Token is exempt from auto-filter)
 
     Returns:
         List of token objects
@@ -1833,6 +1836,11 @@ def get_user_tokens(
             lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
         )
     )
+
+    if project_id is not None:
+        query_builder = query_builder.with_custom_filter(
+            lambda q: q.filter(models.Token.project_id == project_id)
+        )
 
     # Add validity check if requested
     if valid_only:
@@ -1857,6 +1865,7 @@ def count_user_tokens(
     user_id: uuid.UUID,
     filter: str | None = None,
     organization_id: str = None,
+    project_id: str = None,
 ) -> int:
     """Count all active bearer tokens for a user
 
@@ -1868,6 +1877,7 @@ def count_user_tokens(
         user_id: User ID to count tokens for
         filter: OData filter string
         organization_id: Organization ID for filtering
+        project_id: Project ID for filtering (Token is exempt from auto-filter)
 
     Returns:
         Count of token objects
@@ -1879,6 +1889,11 @@ def count_user_tokens(
             lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
         )
     )
+
+    if project_id is not None:
+        query_builder = query_builder.with_custom_filter(
+            lambda q: q.filter(models.Token.project_id == project_id)
+        )
 
     return query_builder.with_odata_filter(filter).count()
 

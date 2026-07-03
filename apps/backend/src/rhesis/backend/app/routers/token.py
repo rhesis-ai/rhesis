@@ -205,14 +205,18 @@ async def read_tokens(
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """List all active API tokens for the current user"""
+    """List active API tokens for the current user, scoped to the active project."""
     organization_id, user_id = tenant_context
 
-    # Set the count header with user-specific token count
     count = crud.count_user_tokens(
-        db=db, user_id=current_user.id, filter=filter, organization_id=organization_id
+        db=db,
+        user_id=current_user.id,
+        filter=filter,
+        organization_id=organization_id,
+        project_id=project_id,
     )
     response.headers["X-Total-Count"] = str(count)
 
@@ -225,6 +229,7 @@ async def read_tokens(
         sort_order=sort_order,
         filter=filter,
         organization_id=organization_id,
+        project_id=project_id,
     )
 
 
