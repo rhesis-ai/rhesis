@@ -16,7 +16,8 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import { Can, useCan } from "@/components/common/Can";
+import AccessDenied from "@/components/common/AccessDenied";
+import { Can, useCan, useCanWithStatus } from "@/components/common/Can";
 import { Capability } from "@/constants/capabilities";
 import EntityEmptyState from "@/components/common/EntityEmptyState";
 import { SectionCard } from "@/components/common/SectionCard";
@@ -134,6 +135,9 @@ function PrivilegeRail() {
 
 export default function RolesTab() {
   const { sessionToken } = useOrgSettings();
+  const { allowed: canReadRoles, loading: permsLoading } = useCanWithStatus(
+    Capability.Role.READ,
+  );
   const canManageRoles = useCan(Capability.Role.MANAGE);
   const [roles, setRoles] = useState<RoleRead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,8 +161,9 @@ export default function RolesTab() {
   }, [sessionToken]);
 
   useEffect(() => {
+    if (permsLoading || !canReadRoles) return;
     loadRoles();
-  }, [loadRoles]);
+  }, [loadRoles, permsLoading, canReadRoles]);
 
   const openDrawer = useCallback((mode: DrawerMode, role?: RoleRead) => {
     setDrawerMode(mode);
@@ -181,6 +186,18 @@ export default function RolesTab() {
   const handleDeleted = useCallback((roleId: string) => {
     setRoles((prev) => prev.filter((r) => r.id !== roleId));
   }, []);
+
+  if (permsLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!canReadRoles) {
+    return <AccessDenied resource="roles" />;
+  }
 
   if (loading) {
     return (
@@ -310,7 +327,7 @@ export default function RolesTab() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        —
+                        {role.member_count}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">

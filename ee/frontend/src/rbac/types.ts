@@ -29,17 +29,21 @@ export interface RoleRead {
   is_built_in: boolean;
   organization_id: string | null;
   permissions: PermissionRead[];
+  /** Distinct users holding this role, across org + project assignments. */
+  member_count: number;
 }
 
 export interface RoleCreate {
   name: string;
   display_name?: string;
+  description?: string;
   scope?: string;
   permission_names: string[];
 }
 
 export interface RoleUpdate {
   display_name?: string;
+  description?: string;
   permission_names?: string[];
 }
 

@@ -3,9 +3,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Box, Link, Stack, TextField, Typography } from "@mui/material";
 import BaseDrawer from "@/components/common/BaseDrawer";
+import { DeleteModal } from "@/components/common/DeleteModal";
 import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
+import { useNotifications } from "@/components/common/NotificationContext";
 import { useOrgSettings } from "@/contexts/OrgSettingsContext";
 import { RbacClient } from "../api/rbac-client";
+import { useActorAuthority } from "../hooks/useActorAuthority";
 import { isCopyableRole } from "../role-display";
 import type { RoleRead } from "../types";
 import {
@@ -47,6 +50,7 @@ export default function RoleEditorDrawer({
   onDeleted,
 }: RoleEditorDrawerProps) {
   const { sessionToken } = useOrgSettings();
+  const notifications = useNotifications();
   const readOnly = mode === "view";
   const isCreate = mode === "create";
 
@@ -55,6 +59,12 @@ export default function RoleEditorDrawer({
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  // Org-tier actor authority (matches the backend's project_id=None escalation
+  // check for create_role/update_role) — drives the per-area maxLevel below so
+  // an over-grant is disabled in the UI instead of rejected at save time.
+  const { permissionNames: actorPermissions } = useActorAuthority(sessionToken, "org");
 
   // Reset form when drawer opens or role changes
   useEffect(() => {
@@ -63,7 +73,7 @@ export default function RoleEditorDrawer({
     setSubmitting(false);
     if (role && !isCreate) {
       setDisplayName(role.display_name);
-      setDescription("");
+      setDescription(role.description ?? "");
       setPermissions(new Set(role.permissions.map((p) => p.name)));
     } else {
       setDisplayName("");
@@ -119,11 +129,13 @@ export default function RoleEditorDrawer({
         saved = await client.createRole({
           name: displayName.trim().toLowerCase().replace(/\s+/g, "_"),
           display_name: displayName.trim(),
+          description: description.trim(),
           permission_names: [...permissions],
         });
       } else if (role) {
         saved = await client.updateRole(role.id, {
           display_name: displayName.trim(),
+          description: description.trim(),
           permission_names: [...permissions],
         });
       } else {
@@ -131,14 +143,25 @@ export default function RoleEditorDrawer({
       }
       onSaved?.(saved);
       onClose();
+      notifications.show(
+        isCreate ? "Role created" : "Role updated",
+        { severity: "success" },
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save role");
+      const status = (err as { status?: number })?.status;
+      setError(
+        status === 409
+          ? "A role with this name already exists"
+          : err instanceof Error
+            ? err.message
+            : "Failed to save role",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteConfirmed = async () => {
     if (!role || readOnly || role.is_built_in) return;
     setSubmitting(true);
     setError(undefined);
@@ -146,9 +169,12 @@ export default function RoleEditorDrawer({
 
     try {
       await client.deleteRole(role.id);
+      setDeleteConfirmOpen(false);
       onDeleted?.(role.id);
       onClose();
+      notifications.show("Role deleted", { severity: "success" });
     } catch (err) {
+      setDeleteConfirmOpen(false);
       setError(err instanceof Error ? err.message : "Failed to delete role");
     } finally {
       setSubmitting(false);
@@ -178,7 +204,7 @@ export default function RoleEditorDrawer({
       closeButtonText={readOnly ? "Close" : "Cancel"}
       onDelete={
         !readOnly && !isCreate && role && !role.is_built_in
-          ? handleDelete
+          ? () => setDeleteConfirmOpen(true)
           : undefined
       }
       deleteButtonText="Delete role"
@@ -276,6 +302,7 @@ export default function RoleEditorDrawer({
               permissions={permissions}
               onToggleCapability={handleToggleCapability}
               readOnly={readOnly}
+              maxLevel={levelForArea(actorPermissions, area)}
             />
           ))}
         </Stack>
@@ -283,6 +310,25 @@ export default function RoleEditorDrawer({
 
       {/* Live summary */}
       <RoleSummary permissions={permissions} />
+
+      {role && (
+        <DeleteModal
+          open={deleteConfirmOpen}
+          onClose={() => setDeleteConfirmOpen(false)}
+          onConfirm={handleDeleteConfirmed}
+          isLoading={submitting}
+          title="Delete role"
+          itemName={role.display_name}
+          itemType="role"
+          warningMessage={
+            role.member_count > 0
+              ? `${role.member_count} member${role.member_count === 1 ? "" : "s"} currently ${
+                  role.member_count === 1 ? "holds" : "hold"
+                } this role. Deleting it will require reassigning them first.`
+              : undefined
+          }
+        />
+      )}
     </BaseDrawer>
   );
 }
