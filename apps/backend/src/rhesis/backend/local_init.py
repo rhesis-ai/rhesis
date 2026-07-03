@@ -54,6 +54,13 @@ def initialize_local_environment(db: Session) -> None:
             if user:
                 logger.info("ℹ️  Local user already exists.")
 
+                # Direct ORM construction below never goes through crud.create_user,
+                # so the RBAC default-org-role hook never fired for pre-existing
+                # local envs. Seed it now — no-op if RBAC is unavailable or the
+                # row already exists.
+                _ensure_local_admin_org_role(db, user.id, org.id)
+                db.commit()
+
                 # Check if token exists
                 # (check by user_id since we can't filter encrypted fields directly)
                 token = (
@@ -140,6 +147,12 @@ def initialize_local_environment(db: Session) -> None:
         user.organization_id = org_id
         db.flush()
 
+        # Direct ORM construction above bypasses crud.create_user, so the RBAC
+        # default-org-role hook never fires on its own. owner_id is already set
+        # on the org, so this resolves the admin to Owner (mirrors
+        # routers/organization.py's post-onboarding hook invocation).
+        _ensure_local_admin_org_role(db, user_id, org_id)
+
         # Create API token
         logger.info("🔑 Creating local API token...")
         _create_local_token(db, user_id, org_id)
@@ -161,6 +174,22 @@ def initialize_local_environment(db: Session) -> None:
         logger.error(f"❌ Failed to initialize local environment: {str(e)}")
         logger.error("   This is not critical - you can still use the application.")
         db.rollback()
+
+
+def _ensure_local_admin_org_role(
+    db: Session, user_id: uuid.UUID, organization_id: uuid.UUID
+) -> None:
+    """Fire the RBAC default-org-role hook for the Quick Start admin user.
+
+    ``initialize_local_environment`` builds the org/user via direct ORM
+    construction rather than ``crud.create_user``/the onboarding endpoint, so
+    the hook that seeds the ``organization_member`` row never runs on its own.
+    No-op when RBAC is unavailable or a row already exists (idempotent).
+    """
+    from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+    on_user_org_assigned(db, user_id, organization_id)
+    db.flush()
 
 
 def _apply_default_model_ids_to_user(

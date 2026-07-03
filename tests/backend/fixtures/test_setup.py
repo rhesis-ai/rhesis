@@ -155,6 +155,40 @@ def setup_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         raise
 
 
+def _promote_to_owner_role(db: Session, organization_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Fix up an organization_member row seeded as Member into Owner.
+
+    No-op in community builds (no EE package), when RBAC isn't available for
+    the org, or when the hook never wrote a row in the first place.
+    """
+    try:
+        from rhesis.backend.app.features import FeatureName, FeatureRegistry
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+    except ImportError:
+        return
+
+    with bypass_tenant_filter():
+        organization = db.query(models.Organization).filter_by(id=organization_id).first()
+        if organization is None or not FeatureRegistry.is_available(FeatureName.RBAC, organization):
+            return
+
+        member = (
+            db.query(OrganizationMember)
+            .filter_by(organization_id=organization_id, user_id=user_id)
+            .first()
+        )
+        if member is None:
+            return
+
+        owner_role = (
+            db.query(Role).filter_by(name="Owner", is_built_in=True, organization_id=None).first()
+        )
+        if owner_role is not None and member.role_id != owner_role.id:
+            member.role_id = owner_role.id
+            db.flush()
+
+
 def create_test_organization_and_user(
     db: Session,
     org_name: str = "Test Organization",
@@ -187,6 +221,14 @@ def create_test_organization_and_user(
         organization.owner_id = user.id
         db.flush()
         print(f"👑 Set org owner to user {user.id}")
+
+        # create_test_user() above fires the EE default-org-role hook (via
+        # crud.create_user) before owner_id could be set — the FK requires the
+        # user to exist first — so the hook always seeds this user as "Member".
+        # Promote that row to Owner now that ownership is known. Production
+        # onboarding never hits this because it only fires the hook after
+        # owner_id is already set (see routers/organization.py).
+        _promote_to_owner_role(db, organization.id, user.id)
 
         # Create API token for the user
         api_token = create_test_api_token(db, user)

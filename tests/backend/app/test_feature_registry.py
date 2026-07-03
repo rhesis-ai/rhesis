@@ -153,11 +153,13 @@ class TestDefaultLicenseProvider:
         feature = Feature(name=FeatureName.SSO, display_name="SSO")
         assert provider.allows_feature(feature, org=object()) is True
 
-    def test_denies_rbac_by_default(self):
-        """RBAC must be off by default to avoid locking out users with no org-role rows."""
+    def test_allows_rbac_by_default(self):
+        """RBAC is allowed by default now that the backfill migration seeds
+        organization_member rows for every existing user, so enabling it does
+        not lock anyone out (see DefaultLicenseProvider's docstring)."""
         provider = DefaultLicenseProvider()
         feature = Feature(name=FeatureName.RBAC, display_name="RBAC")
-        assert provider.allows_feature(feature, org=object()) is False
+        assert provider.allows_feature(feature, org=object()) is True
 
     def test_info_marks_dev_edition(self):
         """Edition is 'dev' rather than 'community' when EE pkg is loaded but unlicensed."""

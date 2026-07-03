@@ -52,6 +52,20 @@ def _rbac_on():
         yield
 
 
+@contextmanager
+def _rbac_off():
+    """Force RBAC unavailable, overriding ``DefaultLicenseProvider``'s allow-all
+    default (RBAC ships dark only when explicitly gated off, e.g. no license)."""
+    with (
+        patch(
+            "rhesis.backend.app.features.FeatureRegistry.is_available",
+            return_value=False,
+        ),
+        patch.object(PermissionAuthorizationProvider, "_rbac_available", return_value=False),
+    ):
+        yield
+
+
 def _create_org(db: Session, owner_id: uuid.UUID | None = None) -> uuid.UUID:
     """Create an org. ``owner_id`` is left NULL unless given (the FK requires the
     user to exist first, so creator tests set it via :func:`_set_owner`)."""
@@ -133,9 +147,10 @@ class TestInviteeGetsMember:
 
         with _rbac_on():
             assign_default_org_role(test_db, user_id, org_id)
-            # Member holds project-scoped reads; a random project_id falls back
-            # to the org Member role since there is no project membership.
-            assert _authorized(test_db, user_id, org_id, "test_set:read", project_id=uuid.uuid4())
+            # Org-level check (no project context): Member holds this read.
+            # Project-scoped enrollment gating is covered by
+            # test_sp8_provider.py::TestExplicitEnrollmentRequired.
+            assert _authorized(test_db, user_id, org_id, "test_set:read", project_id=None)
 
     def test_member_denied_on_admin_only_endpoint(self, test_db: Session):
         org_id = _create_org(test_db)
@@ -189,8 +204,10 @@ class TestNoOpAndIdempotency:
         org_id = _create_org(test_db)
         user_id = _create_user(test_db, org_id)
 
-        # No patch → DefaultLicenseProvider denies RBAC → handler no-ops.
-        assign_default_org_role(test_db, user_id, org_id)
+        # DefaultLicenseProvider allows RBAC by default (dev/unlicensed EE);
+        # force it off here to cover the licensed-off / community-build case.
+        with _rbac_off():
+            assign_default_org_role(test_db, user_id, org_id)
 
         assert _member_row(test_db, org_id, user_id) is None
 
