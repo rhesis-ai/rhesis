@@ -38,6 +38,22 @@ export const categoryKeys = {
   list: (entityType = '') => ['categories', 'list', entityType] as const,
 };
 
+export const statusKeys = {
+  list: (entityType = '') => ['statuses', 'list', entityType] as const,
+};
+
+export const tagKeys = {
+  list: () => ['tags', 'list'] as const,
+};
+
+export const userKeys = {
+  list: (filter = '') => ['users', 'list', filter] as const,
+};
+
+export const typeLookupKeys = {
+  list: (filter = '') => ['type-lookups', 'list', filter] as const,
+};
+
 export const fileKeys = {
   all: ['files'] as const,
   metadata: (fileId: string) => ['files', 'metadata', fileId] as const,
