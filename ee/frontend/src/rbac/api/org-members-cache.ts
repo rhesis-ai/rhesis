@@ -17,7 +17,7 @@ interface CacheEntry {
 }
 
 let _cache: CacheEntry | null = null;
-let _pending: Promise<OrgMemberRead[]> | null = null;
+let _pending: { key: string; promise: Promise<OrgMemberRead[]> } | null = null;
 
 const TTL_MS = 30_000;
 
@@ -25,9 +25,11 @@ export function fetchOrgMembers(sessionToken: string): Promise<OrgMemberRead[]> 
   if (_cache && _cache.key === sessionToken && Date.now() - _cache.ts < TTL_MS) {
     return Promise.resolve(_cache.data);
   }
-  if (_pending) return _pending;
+  // Keyed by sessionToken so an in-flight fetch for a prior session/account
+  // is never handed back to a caller running under a new one.
+  if (_pending && _pending.key === sessionToken) return _pending.promise;
 
-  _pending = new RbacClient(sessionToken)
+  const promise = new RbacClient(sessionToken)
     .getOrganizationMembers()
     .then((data) => {
       _cache = { key: sessionToken, data, ts: Date.now() };
@@ -38,7 +40,8 @@ export function fetchOrgMembers(sessionToken: string): Promise<OrgMemberRead[]> 
       _pending = null;
       throw err;
     });
-  return _pending;
+  _pending = { key: sessionToken, promise };
+  return promise;
 }
 
 export function invalidateOrgMembers(): void {

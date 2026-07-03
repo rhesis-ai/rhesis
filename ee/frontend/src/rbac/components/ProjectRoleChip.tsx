@@ -6,6 +6,7 @@ import { useCan } from "@/components/common/Can";
 import { Capability } from "@/constants/capabilities";
 import { useFeature } from "@/contexts/FeaturesContext";
 import { FeatureName } from "@/constants/features";
+import { useNotifications } from "@/components/common/NotificationContext";
 import { RbacClient } from "../api/rbac-client";
 import { fetchRoles } from "../api/role-cache";
 import {
@@ -41,11 +42,12 @@ export default function ProjectRoleChip({
 }: ProjectRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.ProjectMember.MANAGE);
+  const notifications = useNotifications();
   const [members, setMembers] = useState<ProjectMemberRoleRead[]>(
-    getCachedProjectMembers(projectId),
+    getCachedProjectMembers(sessionToken, projectId),
   );
   const [roles, setRoles] = useState<RoleRead[]>([]);
-  const [loading, setLoading] = useState(!hasProjectMembers(projectId));
+  const [loading, setLoading] = useState(!hasProjectMembers(sessionToken, projectId));
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
@@ -97,15 +99,21 @@ export default function ProjectRoleChip({
       try {
         const client = new RbacClient(sessionToken);
         await client.assignProjectRole(projectId, userId, { role_id: roleId });
-        invalidateProjectMembers(projectId);
+        invalidateProjectMembers(sessionToken, projectId);
         const fresh = await fetchProjectMembers(sessionToken, projectId);
         setMembers(fresh);
         onRoleChanged?.();
+        notifications.show("Project role updated", { severity: "success" });
+      } catch (err) {
+        notifications.show(
+          err instanceof Error ? err.message : "Failed to update project role",
+          { severity: "error" },
+        );
       } finally {
         setAssigning(false);
       }
     },
-    [sessionToken, projectId, userId, memberEntry?.role_id, onRoleChanged],
+    [sessionToken, projectId, userId, memberEntry?.role_id, onRoleChanged, notifications],
   );
 
   if (loading) {

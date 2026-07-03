@@ -303,6 +303,7 @@ export default function TeamMembersGrid({
           <CellComponent
             userId={(params.row as User).id}
             sessionToken={sessionToken}
+            currentUserId={session?.user?.id}
           />
         ),
       });

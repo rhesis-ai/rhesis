@@ -20,6 +20,11 @@ export interface OrgRoleCellProps {
   userId: string;
   sessionToken: string;
   onRoleChanged?: () => void;
+  /** The signed-in viewer's user id. When it matches `userId`, the cell
+   *  should render read-only — changing your own org role is high-risk
+   *  (self-demotion) and gets no confirmation loop, so it is disabled
+   *  rather than merely discouraged. */
+  currentUserId?: string;
 }
 
 export interface ProjectRoleCellProps {

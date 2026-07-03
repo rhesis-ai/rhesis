@@ -19,42 +19,56 @@ const _pending = new Map<string, Promise<ProjectMemberRoleRead[]>>();
 
 const TTL_MS = 30_000;
 
+// Keyed by sessionToken:projectId so a session/account change never reuses a
+// prior user's member/role data for the same project.
+function cacheKey(sessionToken: string, projectId: string): string {
+  return `${sessionToken}:${projectId}`;
+}
+
 export function fetchProjectMembers(
   sessionToken: string,
   projectId: string,
 ): Promise<ProjectMemberRoleRead[]> {
-  const cached = _cache.get(projectId);
+  const key = cacheKey(sessionToken, projectId);
+  const cached = _cache.get(key);
   if (cached && Date.now() - cached.ts < TTL_MS) {
     return Promise.resolve(cached.data);
   }
-  const pending = _pending.get(projectId);
+  const pending = _pending.get(key);
   if (pending) return pending;
 
   const promise = new RbacClient(sessionToken)
     .getProjectMembers(projectId)
     .then((data) => {
-      _cache.set(projectId, { data, ts: Date.now() });
-      _pending.delete(projectId);
+      _cache.set(key, { data, ts: Date.now() });
+      _pending.delete(key);
       return data;
     })
     .catch((err) => {
-      _pending.delete(projectId);
+      _pending.delete(key);
       throw err;
     });
-  _pending.set(projectId, promise);
+  _pending.set(key, promise);
   return promise;
 }
 
-export function invalidateProjectMembers(projectId: string): void {
-  _cache.delete(projectId);
+export function invalidateProjectMembers(
+  sessionToken: string,
+  projectId: string,
+): void {
+  _cache.delete(cacheKey(sessionToken, projectId));
 }
 
-export function hasProjectMembers(projectId: string): boolean {
-  return _cache.has(projectId);
+export function hasProjectMembers(
+  sessionToken: string,
+  projectId: string,
+): boolean {
+  return _cache.has(cacheKey(sessionToken, projectId));
 }
 
 export function getCachedProjectMembers(
+  sessionToken: string,
   projectId: string,
 ): ProjectMemberRoleRead[] {
-  return _cache.get(projectId)?.data ?? [];
+  return _cache.get(cacheKey(sessionToken, projectId))?.data ?? [];
 }
