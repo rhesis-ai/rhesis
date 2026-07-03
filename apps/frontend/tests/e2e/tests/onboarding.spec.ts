@@ -144,6 +144,15 @@ test.describe('Onboarding wizard — form @mocked', () => {
       await orgNameInput.fill(`e2e-org-${Date.now()}`);
     }
 
+    const projectNameInput = page
+      .getByRole('textbox', { name: /project name/i })
+      .first();
+    if (
+      await projectNameInput.isVisible({ timeout: 3_000 }).catch(() => false)
+    ) {
+      await projectNameInput.fill(`e2e-project-${Date.now()}`);
+    }
+
     const nextBtn = page.getByRole('button', { name: /^next$/i }).first();
     await nextBtn.click();
     await page.waitForLoadState('networkidle');
@@ -200,6 +209,15 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .first();
     if (await orgNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await orgNameInput.fill(`e2e-skip-org-${Date.now()}`);
+    }
+
+    const projectNameInput = page
+      .getByRole('textbox', { name: /project name/i })
+      .first();
+    if (
+      await projectNameInput.isVisible({ timeout: 2_000 }).catch(() => false)
+    ) {
+      await projectNameInput.fill(`e2e-skip-project-${Date.now()}`);
     }
 
     const nextBtn = page.getByRole('button', { name: /^next$/i }).first();
@@ -268,6 +286,14 @@ test.describe('Onboarding wizard — form @mocked', () => {
     if (await orgNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await orgNameInput.fill(`e2e-email-org-${Date.now()}`);
     }
+    const projectNameInput = page
+      .getByRole('textbox', { name: /project name/i })
+      .first();
+    if (
+      await projectNameInput.isVisible({ timeout: 2_000 }).catch(() => false)
+    ) {
+      await projectNameInput.fill(`e2e-email-project-${Date.now()}`);
+    }
     await page
       .getByRole('button', { name: /^next$/i })
       .first()
@@ -332,6 +358,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /organization name/i })
       .first()
       .fill(`e2e-review-org-${Date.now()}`);
+    await page
+      .getByRole('textbox', { name: /project name/i })
+      .first()
+      .fill(`e2e-review-project-${Date.now()}`);
 
     await page
       .getByRole('button', { name: /^next$/i })

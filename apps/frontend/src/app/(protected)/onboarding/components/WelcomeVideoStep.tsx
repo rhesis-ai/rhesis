@@ -14,6 +14,7 @@ type OnboardingStatus =
   | 'creating_organization'
   | 'updating_user'
   | 'loading_initial_data'
+  | 'creating_project'
   | 'completed';
 
 interface WelcomeVideoStepProps {
@@ -40,6 +41,8 @@ export default function WelcomeVideoStep({
         return 'Updating user information...';
       case 'loading_initial_data':
         return 'Loading initial data...';
+      case 'creating_project':
+        return 'Creating your project...';
       case 'completed':
         return 'Setup complete. Redirecting...';
       default:

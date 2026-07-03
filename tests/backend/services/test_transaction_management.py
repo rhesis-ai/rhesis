@@ -409,7 +409,7 @@ class TestServiceTransactionManagement:
         test_db.flush()
 
         # Now rollback the initial data
-        organization_service.rollback_initial_data(test_db, test_org_id)
+        organization_service.rollback_initial_data(test_db, test_org_id, authenticated_user_id)
 
         # Verify rollback completed successfully
         # (The function should complete without errors)

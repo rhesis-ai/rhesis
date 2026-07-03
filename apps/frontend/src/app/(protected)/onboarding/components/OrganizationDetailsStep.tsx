@@ -17,6 +17,7 @@ import { ONBOARDING_STEPS } from './onboarding-steps';
 import {
   validateName,
   validateOrganizationName,
+  validateProjectName,
   validateUrl,
   normalizeUrl,
 } from '@/utils/validation';
@@ -25,6 +26,7 @@ interface FormData {
   firstName: string;
   lastName: string;
   organizationName: string;
+  projectName: string;
   website: string;
 }
 
@@ -55,6 +57,7 @@ export default function OrganizationDetailsStep({
     firstName: '',
     lastName: '',
     organizationName: '',
+    projectName: '',
     website: '',
   });
 
@@ -120,6 +123,7 @@ export default function OrganizationDetailsStep({
     const organizationNameValidation = validateOrganizationName(
       formData.organizationName
     );
+    const projectNameValidation = validateProjectName(formData.projectName);
     const websiteValidation = validateUrl(formData.website, {
       required: false,
     });
@@ -128,6 +132,7 @@ export default function OrganizationDetailsStep({
       firstName: firstNameValidation.message || '',
       lastName: lastNameValidation.message || '',
       organizationName: organizationNameValidation.message || '',
+      projectName: projectNameValidation.message || '',
       website: websiteValidation.message || '',
     };
 
@@ -137,6 +142,7 @@ export default function OrganizationDetailsStep({
       firstNameValidation.isValid &&
       lastNameValidation.isValid &&
       organizationNameValidation.isValid &&
+      projectNameValidation.isValid &&
       websiteValidation.isValid
     );
   };
@@ -157,6 +163,7 @@ export default function OrganizationDetailsStep({
           lastName: formData.lastName,
           fullName: `${formData.firstName} ${formData.lastName}`,
           organizationName: formData.organizationName,
+          projectName: formData.projectName,
           website: formData.website || '',
         };
         sessionStorage.setItem('onboardingUserData', JSON.stringify(userData));
@@ -255,6 +262,18 @@ export default function OrganizationDetailsStep({
           required
           error={Boolean(errors.organizationName)}
           helperText={errors.organizationName || ''}
+          variant="outlined"
+        />
+
+        <TextField
+          fullWidth
+          label="Project Name"
+          name="projectName"
+          value={formData.projectName}
+          onChange={handleChange}
+          required
+          error={Boolean(errors.projectName)}
+          helperText={errors.projectName || ''}
           variant="outlined"
         />
 
