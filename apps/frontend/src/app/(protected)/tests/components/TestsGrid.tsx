@@ -75,7 +75,6 @@ import {
 
 interface TestsTableProps {
   sessionToken: string;
-  onRefresh?: () => void;
   onNewTest?: () => void;
   disableAddButton?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
@@ -150,7 +149,6 @@ function TestsUnifiedToolbar() {
 
 export default function TestsTable({
   sessionToken,
-  onRefresh,
   onNewTest: _onNewTest,
   disableAddButton: _disableAddButton = false,
   insightsFailedFilter = null,
@@ -666,7 +664,6 @@ export default function TestsTable({
       setPendingDeleteId(null);
       setSelectedRows([]);
       queryClient.invalidateQueries({ queryKey: testKeys.all() });
-      onRefresh?.();
     } catch (_error) {
       notifications.show('Failed to delete tests', {
         severity: 'error',
@@ -676,14 +673,7 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [
-    pendingDeleteId,
-    selectedRows,
-    sessionToken,
-    notifications,
-    queryClient,
-    onRefresh,
-  ]);
+  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -705,8 +695,7 @@ export default function TestsTable({
     if (paginationModel.page > 0) {
       setPaginationModel(prev => ({ ...prev, page: 0 }));
     }
-    onRefresh?.();
-  }, [queryClient, paginationModel.page, onRefresh]);
+  }, [queryClient, paginationModel.page]);
 
   // Get action buttons based on selection (Add Tests removed — FAB in page header handles it)
   const getActionButtons = useCallback(() => {
