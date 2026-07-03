@@ -25,7 +25,9 @@
       "@mui/material": ["./node_modules/@mui/material"],
       "@mui/material/*": ["./node_modules/@mui/material/*"],
       "@mui/icons-material": ["./node_modules/@mui/icons-material"],
-      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"]
+      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"],
+      "next-auth": ["./node_modules/next-auth"],
+      "next-auth/*": ["./node_modules/next-auth/*"]
     },
     "target": "ES2017",
     "typeRoots": ["./node_modules/@types", "./types"],
