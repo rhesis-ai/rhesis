@@ -55,8 +55,7 @@ export default function ProjectAddMemberDrawer({
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const { AddMemberRoleField, assignProjectMemberRole } =
-    getMemberRoleExtensions();
+  const { AddMemberRoleField } = getMemberRoleExtensions();
 
   const resetForm = useCallback(() => {
     setSelectedUser(null);
@@ -106,19 +105,14 @@ export default function ProjectAddMemberDrawer({
     setAdding(true);
     try {
       const factory = new ApiClientFactory(sessionToken);
+      // A single atomic request: the backend applies the escalation guard
+      // before creating the membership row, so there is no window where the
+      // member exists with a role other than the one selected here.
       await factory.getProjectsClient().addProjectMember(projectId, {
         user_id: selectedUser.id,
         role: 'member',
+        role_id: selectedRoleId ?? undefined,
       });
-
-      if (selectedRoleId && assignProjectMemberRole) {
-        await assignProjectMemberRole(
-          sessionToken,
-          projectId,
-          selectedUser.id,
-          selectedRoleId
-        );
-      }
 
       notifications.show(
         `${getUserDisplayName(selectedUser)} added to the project.`,
