@@ -41,6 +41,8 @@ interface ModelSelectorProps {
   /** Whether the pre-fetched models are still loading. */
   isLoadingModels?: boolean;
   fieldSx?: SxProps<Theme>;
+  /** Skip fetching until true — for instances mounted inside a `keepMounted` drawer/dialog that isn't open yet. */
+  enabled?: boolean;
 }
 
 function ProviderIcon({ icon }: { icon?: string }) {
@@ -102,12 +104,13 @@ export default function ModelSelector({
   preloadedModels,
   isLoadingModels: isLoadingModelsProp,
   fieldSx,
+  enabled = true,
 }: ModelSelectorProps) {
   const theme = useTheme();
-  const { data: userSettings } = useUserSettings();
+  const { data: userSettings } = useUserSettings(enabled);
   const { data: fetchedModels, isLoading: isFetching } = useModels(
     sessionToken,
-    preloadedModels === undefined
+    enabled && preloadedModels === undefined
   );
 
   // If preloaded data is supplied, use it; otherwise fetch internally.

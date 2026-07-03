@@ -13,7 +13,7 @@ import { UserSettings } from '@/utils/api-client/interfaces/user';
  * bleeds across login/logout or user switches, matching the pattern used by
  * `featureKeys`/`permissionKeys`.
  */
-export function useUserSettings() {
+export function useUserSettings(enabled = true) {
   const { data: session, status } = useSession();
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
@@ -23,7 +23,7 @@ export function useUserSettings() {
     queryKey: userSettingsKeys.all(userScope),
     queryFn: () =>
       new ApiClientFactory(sessionToken!).getUsersClient().getUserSettings(),
-    enabled: !!sessionToken,
+    enabled: enabled && !!sessionToken,
     staleTime: 5 * 60_000,
   });
 }

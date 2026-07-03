@@ -1809,6 +1809,7 @@ export default function RunDrawer(props: RunDrawerProps) {
             hideHelperText
             compact
             fieldSx={drawerOutlinedFieldSx}
+            enabled={open}
           />
 
           {effectiveTestSetType === 'Multi-Turn' && (
@@ -1821,6 +1822,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               hideHelperText
               compact
               fieldSx={drawerOutlinedFieldSx}
+              enabled={open}
             />
           )}
 
@@ -1987,6 +1989,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                 hideHelperText
                 compact
                 fieldSx={drawerOutlinedFieldSx}
+                enabled={open}
               />
               {(effectiveTestSetType === 'Multi-Turn' ||
                 mode === 'createFromGrid') && (
@@ -1999,6 +2002,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                   hideHelperText
                   compact
                   fieldSx={drawerOutlinedFieldSx}
+                  enabled={open}
                 />
               )}
               <FormControl fullWidth sx={drawerOutlinedFieldSx}>

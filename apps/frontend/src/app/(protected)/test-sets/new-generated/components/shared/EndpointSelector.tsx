@@ -18,6 +18,8 @@ import { useEndpointOptions } from '@/hooks/useEndpoints';
 interface EndpointSelectorProps {
   selectedEndpointId: string | null;
   onEndpointChange: (endpointId: string | null) => void;
+  /** Skip fetching until true — for instances mounted inside a `keepMounted` drawer/dialog that isn't open yet. */
+  enabled?: boolean;
 }
 
 /**
@@ -28,13 +30,14 @@ interface EndpointSelectorProps {
 export default function EndpointSelector({
   selectedEndpointId,
   onEndpointChange,
+  enabled = true,
 }: EndpointSelectorProps) {
   const { data: session } = useSession();
   const {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(session?.session_token ?? '');
+  } = useEndpointOptions(session?.session_token ?? '', enabled);
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;

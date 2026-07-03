@@ -1228,6 +1228,7 @@ export default function TestGenerationInterface({
           <EndpointSelector
             selectedEndpointId={selectedEndpointId}
             onEndpointChange={onEndpointChange}
+            enabled={showEndpointModal}
           />
         </Box>
       </BaseDrawer>
