@@ -24,11 +24,7 @@ export function TasksWrapper({
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  const { createTask, deleteTask } = useTasks({
-    entityType,
-    entityId,
-    autoFetch: false,
-  });
+  const { createTask, deleteTask } = useTasks();
 
   const handleCreateTask = useCallback(
     async (taskData: Record<string, unknown>) => {

@@ -56,6 +56,8 @@ export const typeLookupKeys = {
 
 export const fileKeys = {
   all: ['files'] as const,
+  list: (entityType: string, entityId: string) =>
+    ['files', 'list', entityType, entityId] as const,
   metadata: (fileId: string) => ['files', 'metadata', fileId] as const,
   thumbnail: (fileId: string, size: number) =>
     ['files', 'thumbnail', fileId, size] as const,
