@@ -116,11 +116,8 @@ def _table_for_model(model_name: str) -> str | None:
     return mapping.get(model_name)
 
 
-def upgrade() -> None:
-    conn = op.get_bind()
-    initial_data = _load_initial_data()
-    model_data_map = _build_model_data_map(initial_data)
-
+def _fetch_example_projects(conn) -> list:
+    conn.execute(sa.text("ALTER TABLE project DISABLE ROW LEVEL SECURITY"))
     projects = conn.execute(
         sa.text(
             """
@@ -132,6 +129,17 @@ def upgrade() -> None:
         ),
         {"name": EXAMPLE_PROJECT_NAME},
     ).fetchall()
+    conn.execute(sa.text("ALTER TABLE project ENABLE ROW LEVEL SECURITY"))
+    conn.execute(sa.text("ALTER TABLE project FORCE ROW LEVEL SECURITY"))
+    return projects
+
+
+def upgrade() -> None:
+    conn = op.get_bind()
+    initial_data = _load_initial_data()
+    model_data_map = _build_model_data_map(initial_data)
+
+    projects = _fetch_example_projects(conn)
 
     if not projects:
         return
@@ -154,12 +162,10 @@ def upgrade() -> None:
                         """
                         UPDATE test t
                         SET project_id = :project_id
-                        FROM prompt pr, project p
+                        FROM prompt pr
                         WHERE t.prompt_id = pr.id
                           AND t.organization_id = :organization_id
                           AND t.project_id IS NULL
-                          AND p.id = :project_id
-                          AND p.organization_id = :organization_id
                           AND pr.content = ANY(:identifiers)
                         """
                     ),
@@ -217,17 +223,7 @@ def downgrade() -> None:
     initial_data = _load_initial_data()
     model_data_map = _build_model_data_map(initial_data)
 
-    projects = conn.execute(
-        sa.text(
-            """
-            SELECT id, organization_id
-            FROM project
-            WHERE name = :name
-              AND (deleted_at IS NULL OR deleted_at > now())
-            """
-        ),
-        {"name": EXAMPLE_PROJECT_NAME},
-    ).fetchall()
+    projects = _fetch_example_projects(conn)
 
     if not projects:
         return

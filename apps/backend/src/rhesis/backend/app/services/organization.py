@@ -1557,12 +1557,22 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
             .first()
         )
 
+        scope_user_id = user_id
+        if example_project is not None and not scope_user_id and example_project.owner_id:
+            scope_user_id = str(example_project.owner_id)
+
         # Scope to the example project for Postgres RLS and ORM auto-filter when
         # demo rows carry project_id; fall back to bypass when no project exists.
         with ExitStack() as stack:
-            if example_project is not None and user_id:
+            if example_project is not None and scope_user_id:
                 stack.enter_context(
-                    temporary_project_scope(db, organization_id, user_id, str(example_project.id))
+                    temporary_project_scope(
+                        db, organization_id, scope_user_id, str(example_project.id)
+                    )
+                )
+            elif example_project is not None:
+                raise ValueError(
+                    "user_id is required to rollback project-scoped onboarding demo data"
                 )
             else:
                 stack.enter_context(bypass_tenant_filter())
