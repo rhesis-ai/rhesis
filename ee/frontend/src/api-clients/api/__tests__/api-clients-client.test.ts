@@ -33,7 +33,9 @@ describe('ApiClientsClient', () => {
   it('listClients hits GET /organizations/<id>/auth-clients', async () => {
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.listClients(ORG_ID);
-    expect(fetchSpy).toHaveBeenCalledWith(`/organizations/${ORG_ID}/auth-clients`);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `/organizations/${ORG_ID}/auth-clients`
+    );
   });
 
   it('createClient POSTs the body to /organizations/<id>/auth-clients', async () => {

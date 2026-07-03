@@ -15,9 +15,9 @@
  * Custom roles use level 50 by default (below Member).
  */
 
-import { alpha } from "@mui/material";
-import type { Theme } from "@mui/material/styles";
-import type { RoleRead } from "./types";
+import { alpha } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import type { RoleRead } from './types';
 
 /**
  * Returns MUI `sx`-compatible styles for a role chip.
@@ -39,7 +39,7 @@ function chipSx(
   return {
     bgcolor: bg,
     color: fg,
-    "& .MuiChip-label": { color: fg },
+    '& .MuiChip-label': { color: fg },
     ...extra,
   };
 }
@@ -48,20 +48,20 @@ export function getRoleChipSx(role: RoleRead): Record<string, unknown> {
   if (!role.is_built_in) {
     return chipSx(
       (t: Theme) => alpha(t.palette.warning.main, 0.1),
-      "warning.dark",
+      'warning.dark',
       { fontWeight: 600 }
     );
   }
 
   // Owner (level 100)
   if (role.level >= 100) {
-    return chipSx("primary.main", "primary.contrastText", { fontWeight: 600 });
+    return chipSx('primary.main', 'primary.contrastText', { fontWeight: 600 });
   }
   // Admin (level 80)
   if (role.level >= 80) {
     return chipSx(
       (t: Theme) => alpha(t.palette.primary.light, 0.13),
-      "primary.dark",
+      'primary.dark',
       { fontWeight: 600 }
     );
   }
@@ -69,7 +69,7 @@ export function getRoleChipSx(role: RoleRead): Record<string, unknown> {
   if (role.level >= 60) {
     return chipSx(
       (t: Theme) => alpha(t.palette.primary.light, 0.08),
-      "primary.main"
+      'primary.main'
     );
   }
   // Viewer (level 40)
@@ -81,10 +81,7 @@ export function getRoleChipSx(role: RoleRead): Record<string, unknown> {
   }
   // None (level 0) — outlined / no fill
   return {
-    ...chipSx(
-      "transparent",
-      (t: Theme) => t.palette.greyscale.subtitle
-    ),
+    ...chipSx('transparent', (t: Theme) => t.palette.greyscale.subtitle),
     border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
   };
 }
@@ -125,11 +122,11 @@ export function isAssignableProjectRole(role: RoleRead): boolean {
 export function isWithinActorAuthority(
   role: RoleRead,
   actorLevel: number,
-  actorPermissions: ReadonlySet<string>,
+  actorPermissions: ReadonlySet<string>
 ): boolean {
   if (role.level > actorLevel) return false;
   if (!role.is_built_in) {
-    return role.permissions.every((p) => actorPermissions.has(p.name));
+    return role.permissions.every(p => actorPermissions.has(p.name));
   }
   return true;
 }

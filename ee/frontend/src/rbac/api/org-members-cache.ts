@@ -7,8 +7,8 @@
  * the project members list).
  */
 
-import { RbacClient } from "./rbac-client";
-import type { OrgMemberRead } from "../types";
+import { RbacClient } from './rbac-client';
+import type { OrgMemberRead } from '../types';
 
 interface CacheEntry {
   key: string;
@@ -21,8 +21,14 @@ let _pending: { key: string; promise: Promise<OrgMemberRead[]> } | null = null;
 
 const TTL_MS = 30_000;
 
-export function fetchOrgMembers(sessionToken: string): Promise<OrgMemberRead[]> {
-  if (_cache && _cache.key === sessionToken && Date.now() - _cache.ts < TTL_MS) {
+export function fetchOrgMembers(
+  sessionToken: string
+): Promise<OrgMemberRead[]> {
+  if (
+    _cache &&
+    _cache.key === sessionToken &&
+    Date.now() - _cache.ts < TTL_MS
+  ) {
     return Promise.resolve(_cache.data);
   }
   // Keyed by sessionToken so an in-flight fetch for a prior session/account
@@ -31,12 +37,12 @@ export function fetchOrgMembers(sessionToken: string): Promise<OrgMemberRead[]> 
 
   const promise = new RbacClient(sessionToken)
     .getOrganizationMembers()
-    .then((data) => {
+    .then(data => {
       _cache = { key: sessionToken, data, ts: Date.now() };
       _pending = null;
       return data;
     })
-    .catch((err) => {
+    .catch(err => {
       _pending = null;
       throw err;
     });

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * useActorAuthority — resolves the current user's effective privilege level
@@ -19,12 +19,12 @@
  * the backend enforces the same guard on every write.
  */
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { fetchOrgMembers } from "../api/org-members-cache";
-import { fetchProjectMembers } from "../api/project-members-cache";
-import { fetchRoles } from "../api/role-cache";
-import type { RoleRead } from "../types";
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { fetchOrgMembers } from '../api/org-members-cache';
+import { fetchProjectMembers } from '../api/project-members-cache';
+import { fetchRoles } from '../api/role-cache';
+import type { RoleRead } from '../types';
 
 export interface ActorAuthority {
   level: number;
@@ -38,25 +38,25 @@ function authorityFromRole(role: RoleRead | undefined): ActorAuthority {
   if (!role) return EMPTY;
   return {
     level: role.level,
-    permissionNames: new Set(role.permissions.map((p) => p.name)),
+    permissionNames: new Set(role.permissions.map(p => p.name)),
   };
 }
 
 export function useActorAuthority(
   sessionToken: string,
-  tier: "org",
+  tier: 'org'
 ): ActorAuthority;
 
 export function useActorAuthority(
   sessionToken: string,
-  tier: "project",
-  projectId: string,
+  tier: 'project',
+  projectId: string
 ): ActorAuthority;
 
 export function useActorAuthority(
   sessionToken: string,
-  tier: "org" | "project",
-  projectId?: string,
+  tier: 'org' | 'project',
+  projectId?: string
 ): ActorAuthority {
   const { data: session } = useSession();
   const myUserId = (session?.user as { id?: string } | undefined)?.id;
@@ -73,20 +73,22 @@ export function useActorAuthority(
         fetchRoles(sessionToken),
       ]);
 
-      const findRole = (roleId: string | null | undefined): RoleRead | undefined =>
-        roleId ? roles.find((r) => r.id === roleId) : undefined;
+      const findRole = (
+        roleId: string | null | undefined
+      ): RoleRead | undefined =>
+        roleId ? roles.find(r => r.id === roleId) : undefined;
 
-      const myOrgMember = orgMembers.find((m) => m.user_id === myUserId);
+      const myOrgMember = orgMembers.find(m => m.user_id === myUserId);
       const orgAuthority = authorityFromRole(findRole(myOrgMember?.role_id));
 
       // Org tier, or project tier with no project resolved yet: use org role.
-      if (tier === "org" || !projectId) {
+      if (tier === 'org' || !projectId) {
         if (!cancelled) setAuthority(orgAuthority);
         return;
       }
 
       const projectMembers = await fetchProjectMembers(sessionToken, projectId);
-      const myProjectMember = projectMembers.find((m) => m.user_id === myUserId);
+      const myProjectMember = projectMembers.find(m => m.user_id === myUserId);
 
       // Explicit project role takes precedence; otherwise fall back to the org
       // role (implicit access for Owner/Admin — the access policy itself is

@@ -8,8 +8,8 @@
  * are rendered in a data grid.
  */
 
-import { RbacClient } from "./rbac-client";
-import type { RoleRead } from "../types";
+import { RbacClient } from './rbac-client';
+import type { RoleRead } from '../types';
 
 interface CacheEntry {
   key: string;
@@ -34,12 +34,12 @@ export function fetchRoles(sessionToken: string): Promise<RoleRead[]> {
 
   _rolesPending = new RbacClient(sessionToken)
     .getRoles()
-    .then((data) => {
+    .then(data => {
       _rolesCache = { key: sessionToken, data, ts: Date.now() };
       _rolesPending = null;
       return data;
     })
-    .catch((err) => {
+    .catch(err => {
       _rolesPending = null;
       throw err;
     });

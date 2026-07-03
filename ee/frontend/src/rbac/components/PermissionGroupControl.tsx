@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   alpha,
   Box,
@@ -11,16 +11,16 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
-} from "@mui/material";
-import type { Theme } from "@mui/material/styles";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { BORDER_RADIUS } from "@/styles/theme-constants";
+} from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {
   CapabilityLevel,
   LEVEL_LABELS,
   capabilityLabel,
   type ResourceArea,
-} from "../capability-groups";
+} from '../capability-groups';
 
 interface PermissionGroupControlProps {
   area: ResourceArea;
@@ -51,23 +51,23 @@ export default function PermissionGroupControl({
   const [expanded, setExpanded] = useState(false);
 
   const allCaps = new Set(
-    Object.values(area.levels).flatMap((caps) => [...caps]),
+    Object.values(area.levels).flatMap(caps => [...caps])
   );
-  const grantedCount = [...allCaps].filter((c) => permissions.has(c)).length;
+  const grantedCount = [...allCaps].filter(c => permissions.has(c)).length;
 
   return (
     <Box
       sx={{
         border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
         borderRadius: BORDER_RADIUS.sm,
-        overflow: "hidden",
+        overflow: 'hidden',
       }}
     >
       {/* Header row */}
       <Box
         sx={{
-          display: "flex",
-          alignItems: "center",
+          display: 'flex',
+          alignItems: 'center',
           gap: 2,
           px: 2,
           py: 1.5,
@@ -95,23 +95,23 @@ export default function PermissionGroupControl({
             flexShrink: 0,
             border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
             borderRadius: BORDER_RADIUS.sm,
-            "& .MuiToggleButtonGroup-grouped": {
-              border: "none",
+            '& .MuiToggleButtonGroup-grouped': {
+              border: 'none',
               borderRadius: `${BORDER_RADIUS.sm} !important`,
-              mx: "1px",
+              mx: '1px',
               px: 1.5,
               py: 0.5,
               fontSize: 12,
               fontWeight: 600,
-              textTransform: "none",
+              textTransform: 'none',
               color: (t: Theme) => t.palette.greyscale.subtitle,
-              "&.Mui-disabled": {
+              '&.Mui-disabled': {
                 color: (t: Theme) => t.palette.greyscale.border,
               },
             },
           }}
         >
-          {LEVELS.map((lvl) => {
+          {LEVELS.map(lvl => {
             const isNone = lvl === CapabilityLevel.NONE;
             const aboveMax = lvl > maxLevel;
             return (
@@ -119,23 +119,23 @@ export default function PermissionGroupControl({
                 key={lvl}
                 value={lvl}
                 disabled={readOnly || aboveMax}
-                title={aboveMax ? "Above your own access" : undefined}
+                title={aboveMax ? 'Above your own access' : undefined}
                 sx={{
-                  "&.Mui-selected": isNone
+                  '&.Mui-selected': isNone
                     ? {
                         bgcolor: (t: Theme) => t.palette.greyscale.surface2,
                         color: (t: Theme) =>
                           `${t.palette.greyscale.subtitle} !important`,
-                        "&:hover": {
+                        '&:hover': {
                           bgcolor: (t: Theme) => t.palette.greyscale.surface2,
                         },
                       }
                     : {
-                        bgcolor: "primary.main",
+                        bgcolor: 'primary.main',
                         color: (t: Theme) =>
                           `${t.palette.primary.contrastText} !important`,
-                        "&:hover": {
-                          bgcolor: "primary.dark",
+                        '&:hover': {
+                          bgcolor: 'primary.dark',
                         },
                       },
                 }}
@@ -149,11 +149,11 @@ export default function PermissionGroupControl({
         {/* Expand chevron */}
         <IconButton
           size="small"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => setExpanded(v => !v)}
           sx={{
             flexShrink: 0,
-            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s",
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
           }}
         >
           <ExpandMoreIcon fontSize="small" />
@@ -168,12 +168,12 @@ export default function PermissionGroupControl({
             py: 1.5,
             borderTop: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
             bgcolor: (t: Theme) => alpha(t.palette.greyscale.surface1, 0.5),
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
             gap: 0,
           }}
         >
-          {[...allCaps].map((cap) => (
+          {[...allCaps].map(cap => (
             <FormControlLabel
               key={cap}
               control={

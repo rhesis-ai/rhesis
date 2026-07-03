@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   alpha,
   Box,
@@ -14,20 +14,20 @@ import {
   Select,
   Stack,
   Typography,
-} from "@mui/material";
-import type { Theme } from "@mui/material/styles";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
-import LockIcon from "@mui/icons-material/Lock";
-import { BORDER_RADIUS } from "@/styles/theme-constants";
-import { fetchRoles } from "../api/role-cache";
-import { isAssignableProjectRole } from "../role-display";
-import type { RoleRead } from "../types";
+} from '@mui/material';
+import type { Theme } from '@mui/material/styles';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import LockIcon from '@mui/icons-material/Lock';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { fetchRoles } from '../api/role-cache';
+import { isAssignableProjectRole } from '../role-display';
+import type { RoleRead } from '../types';
 import {
   RESOURCE_AREAS,
   levelForArea,
   CapabilityLevel,
   LEVEL_LABELS,
-} from "../capability-groups";
+} from '../capability-groups';
 
 interface TokenScopeFieldProps {
   sessionToken: string;
@@ -36,10 +36,10 @@ interface TokenScopeFieldProps {
 }
 
 const LEVEL_COLORS: Record<CapabilityLevel, string> = {
-  [CapabilityLevel.NONE]: "default",
-  [CapabilityLevel.VIEW]: "info",
-  [CapabilityLevel.EDIT]: "warning",
-  [CapabilityLevel.MANAGE]: "success",
+  [CapabilityLevel.NONE]: 'default',
+  [CapabilityLevel.VIEW]: 'info',
+  [CapabilityLevel.EDIT]: 'warning',
+  [CapabilityLevel.MANAGE]: 'success',
 };
 
 export default function TokenScopeField({
@@ -48,15 +48,15 @@ export default function TokenScopeField({
   onChange,
 }: TokenScopeFieldProps) {
   const [roles, setRoles] = useState<RoleRead[]>([]);
-  const [selectedRoleId, setSelectedRoleId] = useState<string>("");
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const mode = value === null ? "full" : "restricted";
+  const mode = value === null ? 'full' : 'restricted';
 
   useEffect(() => {
     if (!sessionToken) return;
     let cancelled = false;
     fetchRoles(sessionToken)
-      .then((data) => {
+      .then(data => {
         if (!cancelled) {
           setRoles(data);
           setLoading(false);
@@ -72,30 +72,30 @@ export default function TokenScopeField({
 
   const assignableRoles = useMemo(
     () => roles.filter(isAssignableProjectRole),
-    [roles],
+    [roles]
   );
 
   const selectedRole = useMemo(
-    () => roles.find((r) => r.id === selectedRoleId),
-    [roles, selectedRoleId],
+    () => roles.find(r => r.id === selectedRoleId),
+    [roles, selectedRoleId]
   );
 
   const areaSummary = useMemo(() => {
     if (!selectedRole?.permissions) return [];
-    const permSet = new Set(selectedRole.permissions.map((p) => p.name));
-    return RESOURCE_AREAS.map((area) => ({
+    const permSet = new Set(selectedRole.permissions.map(p => p.name));
+    return RESOURCE_AREAS.map(area => ({
       label: area.label,
       level: levelForArea(permSet, area),
     }));
   }, [selectedRole]);
 
   const handleModeChange = (newMode: string) => {
-    if (newMode === "full") {
-      setSelectedRoleId("");
+    if (newMode === 'full') {
+      setSelectedRoleId('');
       onChange(null);
     } else {
       if (selectedRoleId && selectedRole?.permissions) {
-        onChange(selectedRole.permissions.map((p) => p.name));
+        onChange(selectedRole.permissions.map(p => p.name));
       } else {
         onChange([]);
       }
@@ -104,9 +104,9 @@ export default function TokenScopeField({
 
   const handleRoleChange = (roleId: string) => {
     setSelectedRoleId(roleId);
-    const role = roles.find((r) => r.id === roleId);
+    const role = roles.find(r => r.id === roleId);
     if (role?.permissions) {
-      onChange(role.permissions.map((p) => p.name));
+      onChange(role.permissions.map(p => p.name));
     }
   };
 
@@ -119,10 +119,7 @@ export default function TokenScopeField({
         Token permissions
       </Typography>
 
-      <RadioGroup
-        value={mode}
-        onChange={(e) => handleModeChange(e.target.value)}
-      >
+      <RadioGroup value={mode} onChange={e => handleModeChange(e.target.value)}>
         <FormControlLabel
           value="full"
           control={<Radio size="small" />}
@@ -155,7 +152,7 @@ export default function TokenScopeField({
         />
       </RadioGroup>
 
-      {mode === "restricted" && (
+      {mode === 'restricted' && (
         <>
           <FormControl fullWidth size="small">
             <InputLabel id="token-role-label">Role template</InputLabel>
@@ -163,9 +160,9 @@ export default function TokenScopeField({
               labelId="token-role-label"
               label="Role template"
               value={selectedRoleId}
-              onChange={(e) => handleRoleChange(e.target.value)}
+              onChange={e => handleRoleChange(e.target.value)}
             >
-              {assignableRoles.map((role) => (
+              {assignableRoles.map(role => (
                 <MenuItem key={role.id} value={role.id}>
                   {role.display_name}
                 </MenuItem>
@@ -186,7 +183,7 @@ export default function TokenScopeField({
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ mb: 1, display: "block" }}
+                sx={{ mb: 1, display: 'block' }}
               >
                 Permission summary
               </Typography>
@@ -198,13 +195,13 @@ export default function TokenScopeField({
                     label={`${label}: ${LEVEL_LABELS[level]}`}
                     color={
                       LEVEL_COLORS[level] as
-                        | "default"
-                        | "info"
-                        | "warning"
-                        | "success"
+                        | 'default'
+                        | 'info'
+                        | 'warning'
+                        | 'success'
                     }
                     variant={
-                      level === CapabilityLevel.NONE ? "outlined" : "filled"
+                      level === CapabilityLevel.NONE ? 'outlined' : 'filled'
                     }
                     sx={{ fontSize: 11, height: 22 }}
                   />

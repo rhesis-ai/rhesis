@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Link, Stack, TextField, Typography } from "@mui/material";
-import BaseDrawer from "@/components/common/BaseDrawer";
-import { DeleteModal } from "@/components/common/DeleteModal";
-import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
-import { useNotifications } from "@/components/common/NotificationContext";
-import { useOrgSettings } from "@/contexts/OrgSettingsContext";
-import { RbacClient } from "../api/rbac-client";
-import { useActorAuthority } from "../hooks/useActorAuthority";
-import { isCopyableRole } from "../role-display";
-import type { RoleRead } from "../types";
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Box, Link, Stack, TextField, Typography } from '@mui/material';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { useOrgSettings } from '@/contexts/OrgSettingsContext';
+import { RbacClient } from '../api/rbac-client';
+import { useActorAuthority } from '../hooks/useActorAuthority';
+import { isCopyableRole } from '../role-display';
+import type { RoleRead } from '../types';
 import {
   CapabilityLevel,
   RESOURCE_AREAS,
   applyLevel,
   levelForArea,
-} from "../capability-groups";
-import PermissionGroupControl from "./PermissionGroupControl";
-import RoleSummary from "./RoleSummary";
+} from '../capability-groups';
+import PermissionGroupControl from './PermissionGroupControl';
+import RoleSummary from './RoleSummary';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type DrawerMode = "view" | "create" | "edit";
+export type DrawerMode = 'view' | 'create' | 'edit';
 
 export interface RoleEditorDrawerProps {
   open: boolean;
@@ -51,11 +51,11 @@ export default function RoleEditorDrawer({
 }: RoleEditorDrawerProps) {
   const { sessionToken } = useOrgSettings();
   const notifications = useNotifications();
-  const readOnly = mode === "view";
-  const isCreate = mode === "create";
+  const readOnly = mode === 'view';
+  const isCreate = mode === 'create';
 
-  const [displayName, setDisplayName] = useState("");
-  const [description, setDescription] = useState("");
+  const [displayName, setDisplayName] = useState('');
+  const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -64,7 +64,10 @@ export default function RoleEditorDrawer({
   // Org-tier actor authority (matches the backend's project_id=None escalation
   // check for create_role/update_role) — drives the per-area maxLevel below so
   // an over-grant is disabled in the UI instead of rejected at save time.
-  const { permissionNames: actorPermissions } = useActorAuthority(sessionToken, "org");
+  const { permissionNames: actorPermissions } = useActorAuthority(
+    sessionToken,
+    'org'
+  );
 
   // Reset form when drawer opens or role changes
   useEffect(() => {
@@ -73,28 +76,28 @@ export default function RoleEditorDrawer({
     setSubmitting(false);
     if (role && !isCreate) {
       setDisplayName(role.display_name);
-      setDescription(role.description ?? "");
-      setPermissions(new Set(role.permissions.map((p) => p.name)));
+      setDescription(role.description ?? '');
+      setPermissions(new Set(role.permissions.map(p => p.name)));
     } else {
-      setDisplayName("");
-      setDescription("");
+      setDisplayName('');
+      setDescription('');
       setPermissions(new Set());
     }
   }, [open, role, isCreate]);
 
   const handleLevelChange = useCallback(
     (area: (typeof RESOURCE_AREAS)[number], level: CapabilityLevel) => {
-      setPermissions((prev) => {
+      setPermissions(prev => {
         const next = new Set(prev);
         applyLevel(next, area, level);
         return next;
       });
     },
-    [],
+    []
   );
 
   const handleToggleCapability = useCallback((cap: string) => {
-    setPermissions((prev) => {
+    setPermissions(prev => {
       const next = new Set(prev);
       if (next.has(cap)) {
         next.delete(cap);
@@ -107,12 +110,12 @@ export default function RoleEditorDrawer({
 
   const handleCopyFrom = useCallback(
     (roleId: string) => {
-      const source = roles.find((r) => r.id === roleId);
+      const source = roles.find(r => r.id === roleId);
       if (source) {
-        setPermissions(new Set(source.permissions.map((p) => p.name)));
+        setPermissions(new Set(source.permissions.map(p => p.name)));
       }
     },
-    [roles],
+    [roles]
   );
 
   const canSave = !submitting && displayName.trim().length > 0 && !readOnly;
@@ -127,7 +130,7 @@ export default function RoleEditorDrawer({
       let saved: RoleRead;
       if (isCreate) {
         saved = await client.createRole({
-          name: displayName.trim().toLowerCase().replace(/\s+/g, "_"),
+          name: displayName.trim().toLowerCase().replace(/\s+/g, '_'),
           display_name: displayName.trim(),
           description: description.trim(),
           permission_names: [...permissions],
@@ -143,18 +146,17 @@ export default function RoleEditorDrawer({
       }
       onSaved?.(saved);
       onClose();
-      notifications.show(
-        isCreate ? "Role created" : "Role updated",
-        { severity: "success" },
-      );
+      notifications.show(isCreate ? 'Role created' : 'Role updated', {
+        severity: 'success',
+      });
     } catch (err) {
       const status = (err as { status?: number })?.status;
       setError(
         status === 409
-          ? "A role with this name already exists"
+          ? 'A role with this name already exists'
           : err instanceof Error
             ? err.message
-            : "Failed to save role",
+            : 'Failed to save role'
       );
     } finally {
       setSubmitting(false);
@@ -172,20 +174,20 @@ export default function RoleEditorDrawer({
       setDeleteConfirmOpen(false);
       onDeleted?.(role.id);
       onClose();
-      notifications.show("Role deleted", { severity: "success" });
+      notifications.show('Role deleted', { severity: 'success' });
     } catch (err) {
       setDeleteConfirmOpen(false);
-      setError(err instanceof Error ? err.message : "Failed to delete role");
+      setError(err instanceof Error ? err.message : 'Failed to delete role');
     } finally {
       setSubmitting(false);
     }
   };
 
   const title = isCreate
-    ? "Create Custom Role"
+    ? 'Create Custom Role'
     : readOnly
-      ? (role?.display_name ?? "Role Details")
-      : `Edit ${role?.display_name ?? "Role"}`;
+      ? (role?.display_name ?? 'Role Details')
+      : `Edit ${role?.display_name ?? 'Role'}`;
 
   const copyFromRoles = roles.filter(isCopyableRole);
 
@@ -196,12 +198,12 @@ export default function RoleEditorDrawer({
       title={title}
       onSave={readOnly ? undefined : handleSave}
       saveButtonText={
-        submitting ? "Saving..." : isCreate ? "Create role" : "Save changes"
+        submitting ? 'Saving...' : isCreate ? 'Create role' : 'Save changes'
       }
       saveDisabled={!canSave}
       loading={submitting}
       error={error}
-      closeButtonText={readOnly ? "Close" : "Cancel"}
+      closeButtonText={readOnly ? 'Close' : 'Cancel'}
       onDelete={
         !readOnly && !isCreate && role && !role.is_built_in
           ? () => setDeleteConfirmOpen(true)
@@ -215,7 +217,7 @@ export default function RoleEditorDrawer({
           <TextField
             label="Role name"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={e => setDisplayName(e.target.value)}
             fullWidth
             required
             variant="outlined"
@@ -227,7 +229,7 @@ export default function RoleEditorDrawer({
           <TextField
             label="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value)}
             multiline
             rows={4}
             fullWidth
@@ -242,7 +244,7 @@ export default function RoleEditorDrawer({
       {readOnly && role && (
         <Stack spacing={1.5}>
           <Typography variant="body2" color="text.secondary">
-            {role.is_built_in ? "Built-in role" : "Custom role"} ·{" "}
+            {role.is_built_in ? 'Built-in role' : 'Custom role'} ·{' '}
             {role.permissions.length} permissions
           </Typography>
           {role.is_built_in && (
@@ -278,7 +280,7 @@ export default function RoleEditorDrawer({
             <Typography variant="caption" color="text.secondary" noWrap>
               Optionally copy permissions from:
             </Typography>
-            {copyFromRoles.map((r) => (
+            {copyFromRoles.map(r => (
               <Link
                 key={r.id}
                 component="button"
@@ -293,12 +295,12 @@ export default function RoleEditorDrawer({
           </Stack>
         )}
         <Stack spacing={1.5}>
-          {RESOURCE_AREAS.map((area) => (
+          {RESOURCE_AREAS.map(area => (
             <PermissionGroupControl
               key={area.id}
               area={area}
               currentLevel={levelForArea(permissions, area)}
-              onLevelChange={(lvl) => handleLevelChange(area, lvl)}
+              onLevelChange={lvl => handleLevelChange(area, lvl)}
               permissions={permissions}
               onToggleCapability={handleToggleCapability}
               readOnly={readOnly}
@@ -322,8 +324,8 @@ export default function RoleEditorDrawer({
           itemType="role"
           warningMessage={
             role.member_count > 0
-              ? `${role.member_count} member${role.member_count === 1 ? "" : "s"} currently ${
-                  role.member_count === 1 ? "holds" : "hold"
+              ? `${role.member_count} member${role.member_count === 1 ? '' : 's'} currently ${
+                  role.member_count === 1 ? 'holds' : 'hold'
                 } this role. Deleting it will require reassigning them first.`
               : undefined
           }

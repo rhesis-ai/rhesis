@@ -13,7 +13,7 @@
  * current level from an arbitrary permission set and vice versa.
  */
 
-import { Capability, CAPABILITY_LABELS } from "@/constants/capabilities";
+import { Capability, CAPABILITY_LABELS } from '@/constants/capabilities';
 
 // ---------------------------------------------------------------------------
 // Capability levels
@@ -27,17 +27,17 @@ export enum CapabilityLevel {
 }
 
 export const LEVEL_LABELS: Record<CapabilityLevel, string> = {
-  [CapabilityLevel.NONE]: "None",
-  [CapabilityLevel.VIEW]: "View",
-  [CapabilityLevel.EDIT]: "Edit",
-  [CapabilityLevel.MANAGE]: "Manage",
+  [CapabilityLevel.NONE]: 'None',
+  [CapabilityLevel.VIEW]: 'View',
+  [CapabilityLevel.EDIT]: 'Edit',
+  [CapabilityLevel.MANAGE]: 'Manage',
 };
 
 export const LEVEL_DESCRIPTIONS: Record<CapabilityLevel, string> = {
-  [CapabilityLevel.NONE]: "No access",
-  [CapabilityLevel.VIEW]: "Read-only",
-  [CapabilityLevel.EDIT]: "Read, write, and delete own",
-  [CapabilityLevel.MANAGE]: "Full control",
+  [CapabilityLevel.NONE]: 'No access',
+  [CapabilityLevel.VIEW]: 'Read-only',
+  [CapabilityLevel.EDIT]: 'Read, write, and delete own',
+  [CapabilityLevel.MANAGE]: 'Full control',
 };
 
 // ---------------------------------------------------------------------------
@@ -53,9 +53,9 @@ export interface ResourceArea {
 
 export const RESOURCE_AREAS: readonly ResourceArea[] = [
   {
-    id: "test-resources",
-    label: "Test Resources",
-    description: "Test sets, runs, experiments, endpoints",
+    id: 'test-resources',
+    label: 'Test Resources',
+    description: 'Test sets, runs, experiments, endpoints',
     levels: {
       [CapabilityLevel.NONE]: [],
       [CapabilityLevel.VIEW]: [
@@ -162,9 +162,9 @@ export const RESOURCE_AREAS: readonly ResourceArea[] = [
     },
   },
   {
-    id: "observability",
-    label: "Observability",
-    description: "Traces, explorer sessions",
+    id: 'observability',
+    label: 'Observability',
+    description: 'Traces, explorer sessions',
     levels: {
       [CapabilityLevel.NONE]: [],
       [CapabilityLevel.VIEW]: [
@@ -192,9 +192,9 @@ export const RESOURCE_AREAS: readonly ResourceArea[] = [
     },
   },
   {
-    id: "infrastructure",
-    label: "Infrastructure",
-    description: "Models, metrics, knowledge, tools, files",
+    id: 'infrastructure',
+    label: 'Infrastructure',
+    description: 'Models, metrics, knowledge, tools, files',
     levels: {
       [CapabilityLevel.NONE]: [],
       [CapabilityLevel.VIEW]: [
@@ -262,9 +262,9 @@ export const RESOURCE_AREAS: readonly ResourceArea[] = [
     },
   },
   {
-    id: "administration",
-    label: "Administration",
-    description: "Members, projects, roles, tokens",
+    id: 'administration',
+    label: 'Administration',
+    description: 'Members, projects, roles, tokens',
     levels: {
       [CapabilityLevel.NONE]: [],
       [CapabilityLevel.VIEW]: [
@@ -324,11 +324,11 @@ export const RESOURCE_AREAS: readonly ResourceArea[] = [
  */
 export function levelForArea(
   permissions: ReadonlySet<string>,
-  area: ResourceArea,
+  area: ResourceArea
 ): CapabilityLevel {
   for (let lvl = CapabilityLevel.MANAGE; lvl > CapabilityLevel.NONE; lvl--) {
     const required = area.levels[lvl as CapabilityLevel];
-    if (required.length > 0 && required.every((c) => permissions.has(c))) {
+    if (required.length > 0 && required.every(c => permissions.has(c))) {
       return lvl as CapabilityLevel;
     }
   }
@@ -340,7 +340,7 @@ export function levelForArea(
  * `area.id → CapabilityLevel`.
  */
 export function groupCapabilities(
-  permissions: ReadonlySet<string>,
+  permissions: ReadonlySet<string>
 ): Record<string, CapabilityLevel> {
   const result: Record<string, CapabilityLevel> = {};
   for (const area of RESOURCE_AREAS) {
@@ -357,9 +357,9 @@ export function groupCapabilities(
 export function applyLevel(
   permissions: Set<string>,
   area: ResourceArea,
-  level: CapabilityLevel,
+  level: CapabilityLevel
 ): Set<string> {
-  const allInArea = new Set(Object.values(area.levels).flatMap((caps) => caps));
+  const allInArea = new Set(Object.values(area.levels).flatMap(caps => caps));
   for (const cap of allInArea) {
     permissions.delete(cap);
   }

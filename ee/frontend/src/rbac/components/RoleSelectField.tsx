@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -8,25 +8,28 @@ import {
   Select,
   Skeleton,
   Typography,
-} from "@mui/material";
-import { drawerOutlinedFieldSx } from "@/components/common/drawerFormFieldSx";
-import { fetchRoles } from "../api/role-cache";
-import { isAssignableProjectRole, isWithinActorAuthority } from "../role-display";
-import { useActorAuthority } from "../hooks/useActorAuthority";
-import type { RoleRead } from "../types";
+} from '@mui/material';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import { fetchRoles } from '../api/role-cache';
+import {
+  isAssignableProjectRole,
+  isWithinActorAuthority,
+} from '../role-display';
+import { useActorAuthority } from '../hooks/useActorAuthority';
+import type { RoleRead } from '../types';
 
 interface RoleSelectFieldProps {
   sessionToken: string;
   value: string | null;
   onChange: (roleId: string | null) => void;
-  size?: "small" | "medium";
+  size?: 'small' | 'medium';
 }
 
 export default function RoleSelectField({
   sessionToken,
   value,
   onChange,
-  size = "medium",
+  size = 'medium',
 }: RoleSelectFieldProps) {
   const [roles, setRoles] = useState<RoleRead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +38,7 @@ export default function RoleSelectField({
     if (!sessionToken) return;
     let cancelled = false;
     fetchRoles(sessionToken)
-      .then((data) => {
+      .then(data => {
         if (!cancelled) {
           setRoles(data);
           setLoading(false);
@@ -51,24 +54,26 @@ export default function RoleSelectField({
 
   const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
     sessionToken,
-    "org",
+    'org'
   );
   const assignableRoles = roles.filter(
-    (r) => isAssignableProjectRole(r) && isWithinActorAuthority(r, myLevel, myPermissions),
+    r =>
+      isAssignableProjectRole(r) &&
+      isWithinActorAuthority(r, myLevel, myPermissions)
   );
 
   if (loading) {
-    return <Skeleton variant="rounded" height={size === "small" ? 32 : 56} />;
+    return <Skeleton variant="rounded" height={size === 'small' ? 32 : 56} />;
   }
 
-  if (size === "small") {
+  if (size === 'small') {
     return (
       <Select
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
+        value={value ?? ''}
+        onChange={e => onChange(e.target.value || null)}
         size="small"
         displayEmpty
-        renderValue={(selected) => {
+        renderValue={selected => {
           if (!selected) {
             return (
               <Typography variant="body2" color="text.disabled">
@@ -76,15 +81,18 @@ export default function RoleSelectField({
               </Typography>
             );
           }
-          return assignableRoles.find((r) => r.id === selected)?.display_name ?? selected;
+          return (
+            assignableRoles.find(r => r.id === selected)?.display_name ??
+            selected
+          );
         }}
         sx={{
           minWidth: theme => theme.spacing(15),
           fontSize: theme => theme.typography.body2.fontSize,
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
-        {assignableRoles.map((role) => (
+        {assignableRoles.map(role => (
           <MenuItem key={role.id} value={role.id}>
             {role.display_name}
           </MenuItem>
@@ -99,13 +107,13 @@ export default function RoleSelectField({
       <Select
         labelId="role-select-label"
         label="Project role"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
+        value={value ?? ''}
+        onChange={e => onChange(e.target.value || null)}
       >
         <MenuItem value="">
           <em>Default (Member)</em>
         </MenuItem>
-        {assignableRoles.map((role) => (
+        {assignableRoles.map(role => (
           <MenuItem key={role.id} value={role.id}>
             {role.display_name}
           </MenuItem>

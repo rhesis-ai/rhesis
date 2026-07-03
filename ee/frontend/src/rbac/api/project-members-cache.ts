@@ -6,8 +6,8 @@
  * the singleton pattern in `org-members-cache.ts` and `role-cache.ts`.
  */
 
-import { RbacClient } from "./rbac-client";
-import type { ProjectMemberRoleRead } from "../types";
+import { RbacClient } from './rbac-client';
+import type { ProjectMemberRoleRead } from '../types';
 
 interface CacheEntry {
   data: ProjectMemberRoleRead[];
@@ -27,7 +27,7 @@ function cacheKey(sessionToken: string, projectId: string): string {
 
 export function fetchProjectMembers(
   sessionToken: string,
-  projectId: string,
+  projectId: string
 ): Promise<ProjectMemberRoleRead[]> {
   const key = cacheKey(sessionToken, projectId);
   const cached = _cache.get(key);
@@ -39,12 +39,12 @@ export function fetchProjectMembers(
 
   const promise = new RbacClient(sessionToken)
     .getProjectMembers(projectId)
-    .then((data) => {
+    .then(data => {
       _cache.set(key, { data, ts: Date.now() });
       _pending.delete(key);
       return data;
     })
-    .catch((err) => {
+    .catch(err => {
       _pending.delete(key);
       throw err;
     });
@@ -54,21 +54,21 @@ export function fetchProjectMembers(
 
 export function invalidateProjectMembers(
   sessionToken: string,
-  projectId: string,
+  projectId: string
 ): void {
   _cache.delete(cacheKey(sessionToken, projectId));
 }
 
 export function hasProjectMembers(
   sessionToken: string,
-  projectId: string,
+  projectId: string
 ): boolean {
   return _cache.has(cacheKey(sessionToken, projectId));
 }
 
 export function getCachedProjectMembers(
   sessionToken: string,
-  projectId: string,
+  projectId: string
 ): ProjectMemberRoleRead[] {
   return _cache.get(cacheKey(sessionToken, projectId))?.data ?? [];
 }

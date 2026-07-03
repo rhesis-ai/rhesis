@@ -1,22 +1,33 @@
-"use client";
+'use client';
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Chip, MenuItem, Select, SelectChangeEvent, Skeleton, Typography } from "@mui/material";
-import { useCan } from "@/components/common/Can";
-import { Capability } from "@/constants/capabilities";
-import { useFeature } from "@/contexts/FeaturesContext";
-import { FeatureName } from "@/constants/features";
-import { useNotifications } from "@/components/common/NotificationContext";
-import { RbacClient } from "../api/rbac-client";
-import { fetchRoles } from "../api/role-cache";
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Chip,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
+  Skeleton,
+  Typography,
+} from '@mui/material';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { useFeature } from '@/contexts/FeaturesContext';
+import { FeatureName } from '@/constants/features';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { RbacClient } from '../api/rbac-client';
+import { fetchRoles } from '../api/role-cache';
 import {
   fetchOrgMembers,
   invalidateOrgMembers,
   getCachedOrgMembers,
-} from "../api/org-members-cache";
-import { getRoleChipSx, isAssignableOrgRole, isWithinActorAuthority } from "../role-display";
-import { useActorAuthority } from "../hooks/useActorAuthority";
-import type { OrgMemberRead, RoleRead } from "../types";
+} from '../api/org-members-cache';
+import {
+  getRoleChipSx,
+  isAssignableOrgRole,
+  isWithinActorAuthority,
+} from '../role-display';
+import { useActorAuthority } from '../hooks/useActorAuthority';
+import type { OrgMemberRead, RoleRead } from '../types';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -42,7 +53,9 @@ export default function OrgRoleChip({
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.Member.MANAGE);
   const notifications = useNotifications();
-  const [members, setMembers] = useState<OrgMemberRead[]>(getCachedOrgMembers());
+  const [members, setMembers] = useState<OrgMemberRead[]>(
+    getCachedOrgMembers()
+  );
   const [roles, setRoles] = useState<RoleRead[]>([]);
   const [loading, setLoading] = useState(getCachedOrgMembers().length === 0);
   const [assigning, setAssigning] = useState(false);
@@ -51,7 +64,7 @@ export default function OrgRoleChip({
     if (!sessionToken) return;
     let cancelled = false;
     fetchOrgMembers(sessionToken)
-      .then((data) => {
+      .then(data => {
         if (!cancelled) {
           setMembers(data);
           setLoading(false);
@@ -73,7 +86,7 @@ export default function OrgRoleChip({
     if (!rbacEnabled || !sessionToken || !canManage) return;
     let cancelled = false;
     fetchRoles(sessionToken)
-      .then((data) => {
+      .then(data => {
         if (!cancelled) setRoles(data);
       })
       .catch(() => {});
@@ -84,11 +97,13 @@ export default function OrgRoleChip({
 
   const { level: myLevel, permissionNames: myPermissions } = useActorAuthority(
     sessionToken,
-    "org",
+    'org'
   );
-  const member = members.find((m) => m.user_id === userId);
+  const member = members.find(m => m.user_id === userId);
   const assignableRoles = roles.filter(
-    (r) => isAssignableOrgRole(r) && isWithinActorAuthority(r, myLevel, myPermissions),
+    r =>
+      isAssignableOrgRole(r) &&
+      isWithinActorAuthority(r, myLevel, myPermissions)
   );
 
   const handleChange = useCallback(
@@ -103,20 +118,20 @@ export default function OrgRoleChip({
         const fresh = await fetchOrgMembers(sessionToken);
         setMembers(fresh);
         onRoleChanged?.();
-        notifications.show("Role updated", { severity: "success" });
+        notifications.show('Role updated', { severity: 'success' });
       } catch (err) {
         // A last-owner-demotion or escalation rejection lands here (e.g. 400
         // "Cannot demote the last Owner of an organization"); without this,
         // the select silently re-enables with no indication the change failed.
         notifications.show(
-          err instanceof Error ? err.message : "Failed to update role",
-          { severity: "error" },
+          err instanceof Error ? err.message : 'Failed to update role',
+          { severity: 'error' }
         );
       } finally {
         setAssigning(false);
       }
     },
-    [sessionToken, userId, member?.role_id, onRoleChanged, notifications],
+    [sessionToken, userId, member?.role_id, onRoleChanged, notifications]
   );
 
   if (loading) {
@@ -145,12 +160,12 @@ export default function OrgRoleChip({
 
   return (
     <Select
-      value={member?.role_id ?? ""}
+      value={member?.role_id ?? ''}
       onChange={handleChange}
       disabled={!canManage || assigning}
       size="small"
       displayEmpty
-      renderValue={(selected) => {
+      renderValue={selected => {
         if (!selected) {
           return (
             <Typography variant="body2" color="text.disabled">
@@ -160,12 +175,12 @@ export default function OrgRoleChip({
         }
         // Use the full roles list so non-assignable roles (e.g. Owner) still
         // display their name rather than falling back to the raw UUID.
-        const role = roles.find((r) => r.id === selected);
+        const role = roles.find(r => r.id === selected);
         return role?.display_name ?? selected;
       }}
       sx={{ minWidth: 120, fontSize: 13 }}
     >
-      {assignableRoles.map((role) => (
+      {assignableRoles.map(role => (
         <MenuItem key={role.id} value={role.id}>
           {role.display_name}
         </MenuItem>

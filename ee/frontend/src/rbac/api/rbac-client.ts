@@ -9,7 +9,7 @@
  * URL surface: `ee/backend/src/rhesis/backend/ee/rbac/router.py`.
  */
 
-import { BaseApiClient } from "@/utils/api-client/base-client";
+import { BaseApiClient } from '@/utils/api-client/base-client';
 import type {
   RoleRead,
   RoleCreate,
@@ -18,9 +18,9 @@ import type {
   OrgRoleAssign,
   ProjectMemberRoleRead,
   ProjectMemberRoleAssign,
-} from "../types";
+} from '../types';
 
-const BASE = "/rbac";
+const BASE = '/rbac';
 
 export class RbacClient extends BaseApiClient {
   constructor(sessionToken: string) {
@@ -39,21 +39,21 @@ export class RbacClient extends BaseApiClient {
 
   async createRole(body: RoleCreate): Promise<RoleRead> {
     return this.fetch<RoleRead>(`${BASE}/roles`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify(body),
     });
   }
 
   async updateRole(roleId: string, body: RoleUpdate): Promise<RoleRead> {
     return this.fetch<RoleRead>(`${BASE}/roles/${roleId}`, {
-      method: "PUT",
+      method: 'PUT',
       body: JSON.stringify(body),
     });
   }
 
   async deleteRole(roleId: string): Promise<void> {
     return this.fetch<void>(`${BASE}/roles/${roleId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -65,38 +65,36 @@ export class RbacClient extends BaseApiClient {
 
   async assignOrgRole(
     userId: string,
-    body: OrgRoleAssign,
+    body: OrgRoleAssign
   ): Promise<OrgMemberRead> {
     return this.fetch<OrgMemberRead>(
       `${BASE}/organization-members/${userId}/role`,
-      { method: "PUT", body: JSON.stringify(body) },
+      { method: 'PUT', body: JSON.stringify(body) }
     );
   }
 
   async removeOrgMember(userId: string): Promise<void> {
     return this.fetch<void>(`${BASE}/organization-members/${userId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
   // -- Project-level role assignment -----------------------------------------
 
-  async getProjectMembers(
-    projectId: string,
-  ): Promise<ProjectMemberRoleRead[]> {
+  async getProjectMembers(projectId: string): Promise<ProjectMemberRoleRead[]> {
     return this.fetch<ProjectMemberRoleRead[]>(
-      `${BASE}/projects/${projectId}/members`,
+      `${BASE}/projects/${projectId}/members`
     );
   }
 
   async assignProjectRole(
     projectId: string,
     userId: string,
-    body: ProjectMemberRoleAssign,
+    body: ProjectMemberRoleAssign
   ): Promise<ProjectMemberRoleRead> {
     return this.fetch<ProjectMemberRoleRead>(
       `${BASE}/projects/${projectId}/members/${userId}/role`,
-      { method: "PUT", body: JSON.stringify(body) },
+      { method: 'PUT', body: JSON.stringify(body) }
     );
   }
 }

@@ -11,30 +11,30 @@
  * community empty state. When RBAC is ON, the actual Roles tab loads.
  */
 
-import * as React from "react";
-import { Box, CircularProgress } from "@mui/material";
-import { FeatureName } from "@/constants/features";
-import { FeatureGate } from "@/contexts/FeaturesContext";
+import * as React from 'react';
+import { Box, CircularProgress } from '@mui/material';
+import { FeatureName } from '@/constants/features';
+import { FeatureGate } from '@/contexts/FeaturesContext';
 import {
   registerOrgSettingsTab,
   registerMemberRoleExtensions,
   registerTokenScopeExtensions,
-} from "@/lib/extension-registries";
-import RolesEmptyState from "./components/RolesEmptyState";
-import OrgRoleChip from "./components/OrgRoleChip";
-import ProjectRoleChip from "./components/ProjectRoleChip";
-import RoleSelectField from "./components/RoleSelectField";
-import TokenScopeField from "./components/TokenScopeField";
-import { RbacClient } from "./api/rbac-client";
+} from '@/lib/extension-registries';
+import RolesEmptyState from './components/RolesEmptyState';
+import OrgRoleChip from './components/OrgRoleChip';
+import ProjectRoleChip from './components/ProjectRoleChip';
+import RoleSelectField from './components/RoleSelectField';
+import TokenScopeField from './components/TokenScopeField';
+import { RbacClient } from './api/rbac-client';
 
-const RolesTab = React.lazy(() => import("./components/RolesTab"));
+const RolesTab = React.lazy(() => import('./components/RolesTab'));
 
 function RolesTabSection() {
   return (
     <FeatureGate feature={FeatureName.RBAC} fallback={<RolesEmptyState />}>
       <React.Suspense
         fallback={
-          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress size={24} />
           </Box>
         }
@@ -47,8 +47,8 @@ function RolesTabSection() {
 
 export function registerRBAC(): void {
   registerOrgSettingsTab({
-    id: "roles",
-    title: "Roles",
+    id: 'roles',
+    title: 'Roles',
     order: 150,
     component: RolesTabSection,
   });
@@ -61,7 +61,7 @@ export function registerRBAC(): void {
       sessionToken: string,
       projectId: string,
       userId: string,
-      roleId: string,
+      roleId: string
     ) => {
       const client = new RbacClient(sessionToken);
       await client.assignProjectRole(projectId, userId, {
