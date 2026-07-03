@@ -5,8 +5,8 @@ in human-readable descriptions for the five built-in roles so the frontend can
 display them without hard-coding strings.  Custom role rows are left with an
 empty string — the UI handles that gracefully.
 
-Revision ID: a2b3c4d5e6f7
-Revises: f1a2b3c5d6e7
+Revision ID: 671d10bef526
+Revises: c0d1e2f3a4b5
 Create Date: 2026-07-02
 """
 
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "671d10bef526"
-down_revision: Union[str, None] = "f1a2b3c5d6e7"
+down_revision: Union[str, None] = "c0d1e2f3a4b5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -39,18 +39,15 @@ _BUILT_IN_DESCRIPTIONS: list[tuple[str, str]] = [
     ),
     (
         "Member",
-        "Create, edit, and run evaluations across their projects. "
-        "Manage their own API tokens.",
+        "Create, edit, and run evaluations across their projects. Manage their own API tokens.",
     ),
     (
         "Viewer",
-        "Read-only access to all resources. Can browse and export "
-        "but cannot make changes.",
+        "Read-only access to all resources. Can browse and export but cannot make changes.",
     ),
     (
         "None",
-        "No access. Explicitly revoke a member while keeping them "
-        "in the organization.",
+        "No access. Explicitly revoke a member while keeping them in the organization.",
     ),
 ]
 
@@ -69,8 +66,7 @@ def upgrade() -> None:
     conn = op.get_bind()
     conn.execute(
         sa.text(
-            "UPDATE role SET description = :description "
-            "WHERE name = :name AND is_built_in = true"
+            "UPDATE role SET description = :description WHERE name = :name AND is_built_in = true"
         ),
         [{"name": name, "description": desc} for name, desc in _BUILT_IN_DESCRIPTIONS],
     )

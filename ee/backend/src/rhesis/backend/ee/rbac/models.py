@@ -72,7 +72,7 @@ BUILT_IN_ROLE_LEVELS: dict[str, int] = {
 }
 
 # One-sentence descriptions shown on the Roles settings page.
-# Backfilled by migration a2b3c4d5e6f7; kept here so all built-in role
+# Backfilled by migration 671d10bef526; kept here so all built-in role
 # constants are co-located and reviewable without opening a migration file.
 BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
     "Owner": (
@@ -281,7 +281,7 @@ class Role(Base):
     #: Human-readable label for the UI.
     display_name = Column(String, nullable=False, default="")
     #: One-sentence description shown in the Roles settings page.
-    #: Built-in roles are seeded by migration a2b3c4d5e6f7; custom roles
+    #: Built-in roles are seeded by migration 671d10bef526; custom roles
     #: default to '' and may be set via the create/update API.
     description = Column(Text, nullable=False, server_default="")
     #: ``'organization'`` — assignable at org tier via ``organization_member``.

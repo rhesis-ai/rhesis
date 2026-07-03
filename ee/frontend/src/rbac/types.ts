@@ -20,7 +20,7 @@ export interface RoleRead {
   name: string;
   display_name: string;
   /** One-sentence description served by the backend. Built-in roles are seeded
-   *  in migration a2b3c4d5e6f7; custom roles default to "". */
+   *  in migration 671d10bef526; custom roles default to "". */
   description: string;
   scope: string;
   /** Privilege ordering — higher = more privileged. Drive sorting and filter
