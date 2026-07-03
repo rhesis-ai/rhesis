@@ -238,6 +238,25 @@ def upgrade() -> None:
         conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
         conn.execute(sa.text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
 
+    example_project_ids = [project_id for project_id, _ in projects]
+    if example_project_ids:
+        conn.execute(sa.text("ALTER TABLE metric DISABLE ROW LEVEL SECURITY"))
+        conn.execute(
+            sa.text(
+                """
+                UPDATE metric m
+                SET project_id = NULL
+                FROM type_lookup bt
+                WHERE m.backend_type_id = bt.id
+                  AND m.project_id = ANY(:example_project_ids)
+                  AND bt.type_value IN ('deepeval', 'ragas', 'garak', 'rhesis')
+                """
+            ),
+            {"example_project_ids": example_project_ids},
+        )
+        conn.execute(sa.text("ALTER TABLE metric ENABLE ROW LEVEL SECURITY"))
+        conn.execute(sa.text("ALTER TABLE metric FORCE ROW LEVEL SECURITY"))
+
 
 def downgrade() -> None:
     conn = op.get_bind()
