@@ -27,8 +27,8 @@ export class TagsClient extends BaseApiClient {
 
     const queryString = queryParams.toString();
     const url = queryString
-      ? `${API_ENDPOINTS.tags}?${queryString}`
-      : API_ENDPOINTS.tags;
+      ? `${API_ENDPOINTS.tags}/?${queryString}`
+      : `${API_ENDPOINTS.tags}/`;
 
     return this.fetch<Tag[]>(url, {
       cache: 'no-store',
@@ -40,7 +40,7 @@ export class TagsClient extends BaseApiClient {
   }
 
   async createTag(tag: TagCreate): Promise<Tag> {
-    return this.fetch<Tag>(API_ENDPOINTS.tags, {
+    return this.fetch<Tag>(`${API_ENDPOINTS.tags}/`, {
       method: 'POST',
       body: JSON.stringify(tag),
     });

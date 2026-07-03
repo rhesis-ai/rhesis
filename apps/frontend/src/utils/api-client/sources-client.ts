@@ -72,7 +72,7 @@ export class SourcesClient extends BaseApiClient {
   }
 
   async createSource(source: SourceCreate): Promise<Source> {
-    return this.fetch<Source>(API_ENDPOINTS.sources, {
+    return this.fetch<Source>(`${API_ENDPOINTS.sources}/`, {
       method: 'POST',
       body: JSON.stringify(source),
     });

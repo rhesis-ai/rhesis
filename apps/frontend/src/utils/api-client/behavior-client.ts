@@ -35,7 +35,7 @@ export class BehaviorClient extends BaseApiClient {
     // Note: The backend now always returns behaviors with metrics and their relationships
     // No need for conditional include parameter since get_items_detail always loads relationships
 
-    const url = `${API_ENDPOINTS.behaviors}?${queryParams.toString()}`;
+    const url = `${API_ENDPOINTS.behaviors}/?${queryParams.toString()}`;
 
     return this.fetch<BehaviorWithMetrics[]>(url, {
       cache: 'no-store',
@@ -70,7 +70,7 @@ export class BehaviorClient extends BaseApiClient {
   }
 
   async createBehavior(behavior: BehaviorCreate): Promise<Behavior> {
-    return this.fetch<Behavior>(API_ENDPOINTS.behaviors, {
+    return this.fetch<Behavior>(`${API_ENDPOINTS.behaviors}/`, {
       method: 'POST',
       body: JSON.stringify(behavior),
     });

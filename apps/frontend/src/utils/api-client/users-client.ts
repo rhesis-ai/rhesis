@@ -27,8 +27,8 @@ export class UsersClient extends BaseApiClient {
 
     const queryString = queryParams.toString();
     const url = queryString
-      ? `${API_ENDPOINTS.users}?${queryString}`
-      : API_ENDPOINTS.users;
+      ? `${API_ENDPOINTS.users}/?${queryString}`
+      : `${API_ENDPOINTS.users}/`;
 
     // Make the request manually to access headers
     const path = API_ENDPOINTS[url as keyof typeof API_ENDPOINTS] || url;
@@ -55,7 +55,7 @@ export class UsersClient extends BaseApiClient {
   }
 
   async createUser(user: UserCreate): Promise<User> {
-    return this.fetch<User>(API_ENDPOINTS.users, {
+    return this.fetch<User>(`${API_ENDPOINTS.users}/`, {
       method: 'POST',
       body: JSON.stringify(user),
     });

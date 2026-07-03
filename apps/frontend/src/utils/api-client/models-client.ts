@@ -40,7 +40,7 @@ export class ModelsClient extends BaseApiClient {
   }
 
   async createModel(model: ModelCreate): Promise<Model> {
-    return this.fetch<Model>(API_ENDPOINTS.models, {
+    return this.fetch<Model>(`${API_ENDPOINTS.models}/`, {
       method: 'POST',
       body: JSON.stringify(model),
     });
