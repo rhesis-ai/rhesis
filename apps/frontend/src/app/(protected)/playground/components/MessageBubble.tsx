@@ -14,12 +14,12 @@ import {
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import DownloadIcon from '@mui/icons-material/Download';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
+import { TracesIcon } from '@/components/icons';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
@@ -174,21 +174,114 @@ export default function MessageBubble({
               }),
             }}
           >
-            {/* Message text */}
-            {isUser ? (
-              <Typography
-                variant="body2"
+            {/* Message text + inline actions */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                gap: 1,
+              }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                {isUser ? (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      color: theme => theme.palette.greyscale.body,
+                    }}
+                  >
+                    {message.content}
+                  </Typography>
+                ) : (
+                  <MarkdownContent content={message.content} variant="body2" />
+                )}
+              </Box>
+
+              <Box
                 sx={{
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  color: theme => theme.palette.greyscale.body,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  flexShrink: 0,
+                  alignSelf: 'flex-end',
                 }}
               >
-                {message.content}
-              </Typography>
-            ) : (
-              <MarkdownContent content={message.content} variant="body2" />
-            )}
+                {/* Create single-turn test (user messages) */}
+                {isUser && (
+                  <Tooltip title="Create single-turn test from this message">
+                    <IconButton
+                      size="small"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onCreateSingleTurnTest?.(message.id);
+                      }}
+                      sx={{
+                        p: 0.5,
+                        color: theme => theme.palette.greyscale.label,
+                        '&:hover': {
+                          color: 'primary.main',
+                          bgcolor: theme => theme.palette.background.light1,
+                        },
+                      }}
+                    >
+                      <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {/* Copy (assistant messages) */}
+                {!isUser && !message.isError && (
+                  <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
+                    <IconButton
+                      size="small"
+                      onClick={handleCopy}
+                      sx={{
+                        p: 0.5,
+                        color: theme => theme.palette.greyscale.label,
+                        '&:hover': {
+                          color: 'primary.main',
+                          bgcolor: theme => theme.palette.greyscale.surface2,
+                        },
+                      }}
+                    >
+                      {copied ? (
+                        <CheckIcon sx={{ fontSize: 16 }} />
+                      ) : (
+                        <ContentCopyIcon sx={{ fontSize: 16 }} />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {/* Trace link (assistant messages with trace) */}
+                {hasTrace && (
+                  <Tooltip title="View trace">
+                    <IconButton
+                      size="small"
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (onViewTrace && message.traceId) {
+                          onViewTrace(message.traceId);
+                        }
+                      }}
+                      sx={{
+                        p: 0.5,
+                        color: theme => theme.palette.greyscale.label,
+                        '&:hover': {
+                          color: 'primary.main',
+                          bgcolor: theme => theme.palette.greyscale.surface2,
+                        },
+                      }}
+                    >
+                      <TracesIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </Box>
 
             {/* User: attached file chips */}
             {isUser && message.files && message.files.length > 0 && (
@@ -289,76 +382,6 @@ export default function MessageBubble({
                   )}
                 </Box>
               )}
-
-            {/* Action icons — bottom-right of card */}
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                alignItems: 'center',
-                gap: 0.5,
-                mt: 1,
-              }}
-            >
-              {/* Create single-turn test (user messages) */}
-              {isUser && (
-                <Tooltip title="Create single-turn test from this message">
-                  <IconButton
-                    size="small"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onCreateSingleTurnTest?.(message.id);
-                    }}
-                    sx={{
-                      p: 0.5,
-                      color: theme => theme.palette.greyscale.label,
-                      '&:hover': {
-                        color: 'primary.main',
-                        bgcolor: theme => theme.palette.background.light1,
-                      },
-                    }}
-                  >
-                    <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              {/* Copy (assistant messages) */}
-              {!isUser && !message.isError && (
-                <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
-                  <IconButton
-                    size="small"
-                    onClick={handleCopy}
-                    sx={{
-                      p: 0.5,
-                      color: theme => theme.palette.greyscale.label,
-                      '&:hover': {
-                        color: 'primary.main',
-                        bgcolor: theme => theme.palette.greyscale.surface2,
-                      },
-                    }}
-                  >
-                    {copied ? (
-                      <CheckIcon sx={{ fontSize: 16 }} />
-                    ) : (
-                      <ContentCopyIcon sx={{ fontSize: 16 }} />
-                    )}
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              {/* Trace link (assistant messages with trace) */}
-              {hasTrace && (
-                <Tooltip title="View trace">
-                  <TimelineIcon
-                    sx={{
-                      fontSize: 18,
-                      color: theme => theme.palette.greyscale.label,
-                    }}
-                  />
-                </Tooltip>
-              )}
-            </Box>
           </Paper>
         </Tooltip>
       </Box>
