@@ -6,7 +6,7 @@ from contextlib import ExitStack
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import inspect
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
@@ -113,6 +113,9 @@ EXAMPLE_PROJECT_NAME = "Example Project (Insurance Chatbot)"
 # Shared reference data seeded during onboarding — keep project_id NULL so every
 # project can resolve statuses, type lookups, and default models via FK.
 _ORG_WIDE_INITIAL_DATA_MODELS = frozenset({"Status", "TypeLookup", "Model", "Project"})
+
+# Built-in metric providers are shared across projects (like statuses/models).
+_ORG_WIDE_METRIC_BACKEND_TYPES = frozenset({"deepeval", "ragas", "garak", "rhesis"})
 
 
 def _bust_permission_cache(user_id: uuid.UUID, organization_id: uuid.UUID) -> None:
@@ -1415,6 +1418,12 @@ def _build_model_data_map(initial_data: dict) -> dict:
     return model_data_map
 
 
+def _metric_stays_org_wide(metric: models.Metric) -> bool:
+    """True when a seeded metric should remain visible in every project."""
+    backend_type = metric.backend_type
+    return backend_type is not None and backend_type.type_value in _ORG_WIDE_METRIC_BACKEND_TYPES
+
+
 def _assign_demo_entities_to_example_project(
     db: Session, organization_id: str, user_id: str, initial_data: dict
 ) -> None:
@@ -1422,7 +1431,8 @@ def _assign_demo_entities_to_example_project(
 
     Demo entities are seeded before the example project exists, leaving
     ``project_id`` NULL. NULL rows are visible in every project via the
-    auto-filter listener. Status, TypeLookup, and Model stay org-wide.
+    auto-filter listener. Status, TypeLookup, Model, and built-in metric
+    providers (deepeval/ragas/garak/rhesis) stay org-wide.
     """
     example_project = (
         db.query(models.Project)
@@ -1448,6 +1458,8 @@ def _assign_demo_entities_to_example_project(
             records = _get_matching_records(db, model_cls, identifiers, organization_id)
             for record in records:
                 if record.project_id is None:
+                    if model_name == "Metric" and _metric_stays_org_wide(record):
+                        continue
                     record.project_id = project_id
 
         db.flush()
@@ -1464,6 +1476,12 @@ def _get_matching_records(db: Session, model, identifiers: set, organization_id:
 
     if model.__name__ == "Test":
         return query.join(models.Prompt).filter(models.Prompt.content.in_(identifiers)).all()
+    elif model.__name__ == "Metric":
+        return (
+            query.options(joinedload(models.Metric.backend_type))
+            .filter(model.name.in_(identifiers))
+            .all()
+        )
     elif model.__name__ == "TypeLookup":
         return query.filter(model.type_value.in_(identifiers)).all()
     elif hasattr(model, "content"):

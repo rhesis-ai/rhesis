@@ -195,6 +195,27 @@ def upgrade() -> None:
                         "identifiers": list(identifiers),
                     },
                 )
+        elif model_name == "Metric":
+            for project_id, organization_id in projects:
+                conn.execute(
+                    sa.text(
+                        """
+                        UPDATE metric m
+                        SET project_id = :project_id
+                        FROM type_lookup bt
+                        WHERE m.backend_type_id = bt.id
+                          AND m.organization_id = :organization_id
+                          AND m.project_id IS NULL
+                          AND m.name = ANY(:identifiers)
+                          AND bt.type_value NOT IN ('deepeval', 'ragas', 'garak', 'rhesis')
+                        """
+                    ),
+                    {
+                        "project_id": project_id,
+                        "organization_id": organization_id,
+                        "identifiers": list(identifiers),
+                    },
+                )
         else:
             for project_id, organization_id in projects:
                 conn.execute(
@@ -271,6 +292,27 @@ def downgrade() -> None:
                         WHERE organization_id = :organization_id
                           AND project_id = :project_id
                           AND content = ANY(:identifiers)
+                        """
+                    ),
+                    {
+                        "project_id": project_id,
+                        "organization_id": organization_id,
+                        "identifiers": list(identifiers),
+                    },
+                )
+        elif model_name == "Metric":
+            for project_id, organization_id in projects:
+                conn.execute(
+                    sa.text(
+                        """
+                        UPDATE metric m
+                        SET project_id = NULL
+                        FROM type_lookup bt
+                        WHERE m.backend_type_id = bt.id
+                          AND m.organization_id = :organization_id
+                          AND m.project_id = :project_id
+                          AND m.name = ANY(:identifiers)
+                          AND bt.type_value NOT IN ('deepeval', 'ragas', 'garak', 'rhesis')
                         """
                     ),
                     {

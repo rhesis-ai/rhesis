@@ -423,6 +423,24 @@ class TestLoadInitialData:
 
         assert demo_behavior.id not in {b.id for b in visible}
 
+        framework_metric = (
+            test_db.query(models.Metric)
+            .join(models.TypeLookup, models.Metric.backend_type_id == models.TypeLookup.id)
+            .filter(
+                models.Metric.organization_id == test_org_id,
+                models.TypeLookup.type_value == "deepeval",
+                models.Metric.name == "Contextual Relevancy",
+            )
+            .first()
+        )
+        assert framework_metric is not None
+        assert framework_metric.project_id is None
+
+        with bound_scope(organization_id=test_org_id, project_id=str(other_project.id)):
+            visible_metrics = test_db.query(models.Metric).all()
+
+        assert framework_metric.id in {m.id for m in visible_metrics}
+
 
 @pytest.mark.unit
 @pytest.mark.service
