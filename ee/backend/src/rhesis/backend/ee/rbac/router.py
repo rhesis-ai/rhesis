@@ -396,9 +396,7 @@ def list_roles(
             .all()
         )
 
-    counts = _member_counts_for_roles(
-        [r.id for r in roles], current_user.organization_id, db
-    )
+    counts = _member_counts_for_roles([r.id for r in roles], current_user.organization_id, db)
     return [_role_to_read(r, db, counts.get(r.id, 0)) for r in roles]
 
 
@@ -452,17 +450,14 @@ def create_role(
 
     # Friendly conflict (409) instead of a raw IntegrityError from the
     # ix_role_name_org unique index (name, organization_id).
-    from rhesis.backend.app.scope import bypass_tenant_filter
-
-    with bypass_tenant_filter():
-        existing = (
-            db.query(Role)
-            .filter(
-                Role.name == body.name,
-                Role.organization_id == current_user.organization_id,
-            )
-            .first()
+    existing = (
+        db.query(Role)
+        .filter(
+            Role.name == body.name,
+            Role.organization_id == current_user.organization_id,
         )
+        .first()
+    )
     if existing is not None:
         raise HTTPException(status_code=409, detail="A role with this name already exists")
 
