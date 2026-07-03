@@ -155,22 +155,44 @@ def setup_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         raise
 
 
-def _promote_to_owner_role(db: Session, organization_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    """Fix up an organization_member row seeded as Member into Owner.
+def ensure_owner_membership(db: Session, organization_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Guarantee *user_id* holds the built-in Owner role in *organization_id*.
 
-    No-op in community builds (no EE package), when RBAC isn't available for
-    the org, or when the hook never wrote a row in the first place.
+    With RBAC available by default, every authenticated request from a test
+    user is authorized against its ``organization_member`` role. Test users are
+    created via ``crud.create_user`` which fires the EE default-role hook
+    *before* ``owner_id`` is set (the FK requires the user to exist first), so
+    the hook always seeds them as **Member** — which lacks org-admin and
+    project-create capabilities, causing wholesale 403s. This creates the row
+    if the hook never ran, or upgrades a Member row to Owner.
+
+    The caller controls the transaction — this only flushes, never commits.
+    No-op in community builds (no EE package) or when RBAC is unavailable.
+    Idempotent: a row already at Owner is left untouched.
     """
     try:
         from rhesis.backend.app.features import FeatureName, FeatureRegistry
         from rhesis.backend.app.scope import bypass_tenant_filter
         from rhesis.backend.ee.rbac.models import OrganizationMember, Role
     except ImportError:
-        return
+        return  # community build — no organization_member table
 
     with bypass_tenant_filter():
         organization = db.query(models.Organization).filter_by(id=organization_id).first()
         if organization is None or not FeatureRegistry.is_available(FeatureName.RBAC, organization):
+            return
+
+        owner_role = (
+            db.query(Role).filter_by(name="Owner", is_built_in=True, organization_id=None).first()
+        )
+        if owner_role is None:
+            # Built-in roles are seeded by an Alembic migration; if Owner is
+            # missing the RBAC migrations didn't run — surface it loudly rather
+            # than silently leaving the user without permissions.
+            print(
+                "⚠️ built-in Owner role not found (organization_id=None); "
+                "cannot grant Owner to test user — RBAC migrations may be missing"
+            )
             return
 
         member = (
@@ -179,12 +201,15 @@ def _promote_to_owner_role(db: Session, organization_id: uuid.UUID, user_id: uui
             .first()
         )
         if member is None:
-            return
-
-        owner_role = (
-            db.query(Role).filter_by(name="Owner", is_built_in=True, organization_id=None).first()
-        )
-        if owner_role is not None and member.role_id != owner_role.id:
+            db.add(
+                OrganizationMember(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    role_id=owner_role.id,
+                )
+            )
+            db.flush()
+        elif member.role_id != owner_role.id:
             member.role_id = owner_role.id
             db.flush()
 
@@ -222,20 +247,20 @@ def create_test_organization_and_user(
         db.flush()
         print(f"👑 Set org owner to user {user.id}")
 
-        # create_test_user() above fires the EE default-org-role hook (via
-        # crud.create_user) before owner_id could be set — the FK requires the
-        # user to exist first — so the hook always seeds this user as "Member".
-        # Promote that row to Owner now that ownership is known. Production
-        # onboarding never hits this because it only fires the hook after
-        # owner_id is already set (see routers/organization.py).
-        _promote_to_owner_role(db, organization.id, user.id)
-
         # Create API token for the user
         api_token = create_test_api_token(db, user)
 
         # Load initial data (uses get_db() with direct tenant context passing)
         print(f"🔧 Loading initial data for organization {organization.id}")
         setup_initial_data(db, str(organization.id), str(user.id))
+
+        # Grant the test user the Owner role LAST — after setup_initial_data.
+        # create_test_user() fired the EE default-role hook before owner_id was
+        # set (the FK requires the user to exist first), seeding them as Member;
+        # and load_initial_data runs project-scoped commits/rollbacks that would
+        # clobber an earlier, uncommitted role change. Doing it here, after all
+        # that, ensures the Owner grant is the final write the caller commits.
+        ensure_owner_membership(db, organization.id, user.id)
 
         return organization, user, api_token
 

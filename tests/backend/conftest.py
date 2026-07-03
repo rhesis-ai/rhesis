@@ -132,6 +132,78 @@ def _ensure_ee_features_registered():
 
         reset_enrichers()
         bootstrap(MagicMock())
+
+    # Restore the EE authorization provider too. test_rbac.py and
+    # test_permission_cache.py call _AuthorizationRegistry.reset() in teardown,
+    # which swaps the active provider back to the permissive community
+    # DefaultAuthorizationProvider. That reset does NOT clear _features, so the
+    # branch above won't catch it — reinstall the EE provider directly so RBAC
+    # is actually enforced for the next test. This runs before a test's own
+    # setup_method, so provider-swapping tests that reset in their own setup
+    # still take precedence for their duration.
+    try:
+        from rhesis.backend.app.auth.rbac import (
+            get_authorization_provider,
+            set_authorization_provider,
+        )
+        from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+    except ImportError:
+        pass  # community build — no EE provider to restore
+    else:
+        if not isinstance(get_authorization_provider(), PermissionAuthorizationProvider):
+            set_authorization_provider(PermissionAuthorizationProvider())
+
+    # Restore the capability catalog if empty. auth/test_rbac.py and
+    # test_object_level_auth.py call reset_capabilities() in teardown, leaving
+    # _capability_cache = None; get_all_capabilities() then returns []. A
+    # built-in role's permission set is computed as set(catalog), so an empty
+    # catalog gives even Owner *zero* permissions — 403 on everything. Existing
+    # re-register guards live only in security/, ee/rbac/, and
+    # test_capabilities.py; restore it suite-wide here so routes/ tests (which
+    # authorize against the shared Owner user) aren't denied wholesale.
+    from rhesis.backend.app.auth.capabilities import get_all_capabilities, register_capabilities
+
+    if not get_all_capabilities():
+        from rhesis.backend.app.main import app
+
+        register_capabilities(app)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _ensure_session_user_is_owner(_ensure_ee_features_registered):
+    """Guarantee the shared session-auth user holds the built-in Owner role.
+
+    With RBAC enforced (see _ensure_ee_features_registered), every
+    authenticated request from the shared test user is authorized against its
+    ``organization_member`` role. The role must reliably be **Owner** — the
+    creation flow seeds it as Member and the one-time promotion is fragile
+    across the heavy load_initial_data path — so re-assert it here, per test,
+    on a dedicated committed connection that the auth middleware's fresh
+    get_db() will see. Idempotent and cheap (two indexed lookups when already
+    correct). No-op in community builds or before session auth is created.
+
+    Depends on _ensure_ee_features_registered so RBAC is registered first.
+    """
+    from tests.backend.fixtures import auth as _auth
+
+    cache = _auth._session_auth_cache
+    if cache is not None:
+        import uuid as _uuid
+
+        from tests.backend.fixtures.database import TestingSessionLocal
+        from tests.backend.fixtures.test_setup import ensure_owner_membership
+
+        org_id, user_id, _token = cache
+        db = TestingSessionLocal()
+        try:
+            ensure_owner_membership(db, _uuid.UUID(org_id), _uuid.UUID(user_id))
+            db.commit()
+        except Exception as exc:  # never fail a test on the safety net itself
+            db.rollback()
+            print(f"⚠️ could not ensure session user Owner role: {exc}")
+        finally:
+            db.close()
     yield
 
 
