@@ -58,7 +58,8 @@ const DEFAULTS = {
  */
 export class WebSocketClient {
   private ws: WebSocket | null = null;
-  private options: Required<WebSocketClientOptions>;
+  private options: Required<Omit<WebSocketClientOptions, 'tokenProvider'>> &
+    Pick<WebSocketClientOptions, 'tokenProvider'>;
   private state: WebSocketState = {
     isConnected: false,
     reconnectAttempts: 0,

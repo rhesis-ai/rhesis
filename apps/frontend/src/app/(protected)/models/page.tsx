@@ -497,7 +497,7 @@ export default function ModelsPage() {
         onClose={() => setPolyphemusModalOpen(false)}
         onSuccess={handlePolyphemusAccessSuccess}
         userEmail={session?.user?.email || ''}
-        organization={organization}
+        organization={organization ?? undefined}
       />
     </PageLayout>
   );
