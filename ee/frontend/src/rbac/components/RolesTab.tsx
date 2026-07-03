@@ -106,7 +106,7 @@ function PrivilegeRail() {
         sx={{
           width: 4,
           flex: 1,
-          borderRadius: 1,
+          borderRadius: BORDER_RADIUS.sm,
           background: (t) =>
             `linear-gradient(to bottom, ${t.palette.primary.main} 0%, ${t.palette.primary.light} 45%, ${t.palette.greyscale.border} 100%)`,
           my: 1,

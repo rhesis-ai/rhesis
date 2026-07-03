@@ -18,7 +18,7 @@ import {
 import type { Theme } from "@mui/material/styles";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import LockIcon from "@mui/icons-material/Lock";
-import { GREYSCALE } from "@/styles/theme-constants";
+import { BORDER_RADIUS } from "@/styles/theme-constants";
 import { fetchRoles } from "../api/role-cache";
 import { isAssignableProjectRole } from "../role-display";
 import type { RoleRead } from "../types";
@@ -130,7 +130,7 @@ export default function TokenScopeField({
             <Stack direction="row" spacing={1} alignItems="center">
               <LockOpenIcon
                 fontSize="small"
-                sx={{ color: GREYSCALE.light.subtitle }}
+                sx={{ color: (t: Theme) => t.palette.greyscale.subtitle }}
               />
               <Typography variant="body2">
                 Full access — inherits your permissions
@@ -145,7 +145,7 @@ export default function TokenScopeField({
             <Stack direction="row" spacing={1} alignItems="center">
               <LockIcon
                 fontSize="small"
-                sx={{ color: GREYSCALE.light.subtitle }}
+                sx={{ color: (t: Theme) => t.palette.greyscale.subtitle }}
               />
               <Typography variant="body2">
                 Restricted — scoped to a role
@@ -177,7 +177,7 @@ export default function TokenScopeField({
             <Box
               sx={{
                 p: 1.5,
-                borderRadius: 1,
+                borderRadius: BORDER_RADIUS.sm,
                 bgcolor: (t: Theme) => alpha(t.palette.primary.main, 0.04),
                 border: (t: Theme) =>
                   `1px solid ${alpha(t.palette.primary.main, 0.12)}`,
