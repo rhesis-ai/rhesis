@@ -18,7 +18,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useEndpoint } from '@/hooks/useEndpoints';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -40,9 +40,12 @@ export default function TestsPage() {
       searchParams ? parseInsightsFailedTestsSearchParams(searchParams) : null,
     [searchParams]
   );
-  const [insightsEndpointName, setInsightsEndpointName] = React.useState<
-    string | undefined
-  >();
+  const { data: insightsEndpoint } = useEndpoint(
+    session?.session_token ?? '',
+    insightsFailedFilter?.endpointId ?? '',
+    !!insightsFailedFilter && !!session?.session_token
+  );
+  const insightsEndpointName = insightsEndpoint?.name;
 
   useDocumentTitle('Tests');
 
@@ -69,38 +72,6 @@ export default function TestsPage() {
       window.history.replaceState({}, '', newUrl.toString());
     }
   }, [searchParams, router]);
-
-  React.useEffect(() => {
-    if (!insightsFailedFilter || !session?.session_token) {
-      setInsightsEndpointName(undefined);
-      return;
-    }
-
-    let cancelled = false;
-
-    const sessionToken = session.session_token;
-
-    const loadEndpointName = async () => {
-      try {
-        const client = new ApiClientFactory(sessionToken).getEndpointsClient();
-        const endpoint = await client.getEndpoint(
-          insightsFailedFilter.endpointId
-        );
-        if (!cancelled) {
-          setInsightsEndpointName(endpoint.name);
-        }
-      } catch {
-        if (!cancelled) {
-          setInsightsEndpointName(undefined);
-        }
-      }
-    };
-
-    void loadEndpointName();
-    return () => {
-      cancelled = true;
-    };
-  }, [insightsFailedFilter, session?.session_token]);
 
   const handleCreateManual = React.useCallback(() => {
     if (activeTour === 'testCases') return;

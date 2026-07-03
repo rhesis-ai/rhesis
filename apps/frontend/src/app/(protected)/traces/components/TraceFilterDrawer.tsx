@@ -18,7 +18,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { useEndpoints } from '@/hooks/useEndpoints';
 import { readActiveProjectId } from '@/utils/active-project';
 import { TRACE_METRICS_STATUS } from '@/utils/api-client/interfaces/telemetry';
 import {
@@ -109,7 +109,11 @@ export default function TraceFilterDrawer({
   const [projects, setProjects] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
-  const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
+  const { data: endpoints = [] } = useEndpoints(
+    sessionToken,
+    { limit: 100 },
+    open && !isTestRunScope
+  );
 
   // Use a ref so the effect can read the current projectId without re-running
   // every time the draft changes (which would cause an infinite loop).
@@ -139,17 +143,8 @@ export default function TraceFilterDrawer({
             setDraft(prev => ({ ...prev, projectId: activeId }));
           }
         }
-
-        const endpointsResponse = await clientFactory
-          .getEndpointsClient()
-          .getEndpoints({ limit: 100 });
-        const endpointsData = Array.isArray(endpointsResponse)
-          ? endpointsResponse
-          : endpointsResponse?.data || [];
-        setEndpoints(endpointsData);
       } catch {
         setProjects([]);
-        setEndpoints([]);
       }
     };
 

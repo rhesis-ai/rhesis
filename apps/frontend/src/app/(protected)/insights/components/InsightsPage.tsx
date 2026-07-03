@@ -2,9 +2,8 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useEndpoints } from '@/hooks/useEndpoints';
 import { PageLayout } from '@/components/layout/PageLayout';
 import TestResultsFilters from './TestResultsFilters';
 import BehaviorInsightsView from './BehaviorInsightsView';
@@ -38,9 +37,19 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
-  const [endpointsLoading, setEndpointsLoading] = useState(true);
-  const [endpointsError, setEndpointsError] = useState<string | null>(null);
+  const {
+    data: endpoints = [],
+    isLoading: endpointsLoading,
+    isError: endpointsHasError,
+    refetch: refetchEndpoints,
+  } = useEndpoints(sessionToken, {
+    limit: 100,
+    sort_by: 'name',
+    sort_order: 'asc',
+  });
+  const endpointsError = endpointsHasError
+    ? 'Failed to load endpoints. Please try again.'
+    : null;
 
   const projectEndpoints = useMemo(
     () =>
@@ -122,32 +131,6 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
       return next;
     });
   }, []);
-
-  const loadEndpoints = useCallback(async () => {
-    if (!sessionToken) return;
-
-    setEndpointsLoading(true);
-    setEndpointsError(null);
-
-    try {
-      const client = new ApiClientFactory(sessionToken).getEndpointsClient();
-      const response = await client.getEndpoints({
-        limit: 100,
-        sort_by: 'name',
-        sort_order: 'asc',
-      });
-      setEndpoints(response.data);
-    } catch {
-      setEndpoints([]);
-      setEndpointsError('Failed to load endpoints. Please try again.');
-    } finally {
-      setEndpointsLoading(false);
-    }
-  }, [sessionToken]);
-
-  useEffect(() => {
-    void loadEndpoints();
-  }, [loadEndpoints]);
 
   useEffect(() => {
     if (endpointsLoading) return;
@@ -245,7 +228,11 @@ export default function InsightsPage({ sessionToken }: InsightsPageProps) {
             <Alert
               severity="error"
               action={
-                <Button color="inherit" size="small" onClick={loadEndpoints}>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => refetchEndpoints()}
+                >
                   Retry
                 </Button>
               }

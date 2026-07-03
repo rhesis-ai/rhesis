@@ -75,6 +75,7 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { useEndpointOptions, type EndpointOption } from '@/hooks/useEndpoints';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
@@ -1868,14 +1869,6 @@ export default function ExplorerDetail({
   testSetId,
   sessionToken,
 }: ExplorerDetailProps) {
-  type EndpointOption = {
-    endpointId: string;
-    endpointName: string;
-    projectId: string;
-    projectName: string;
-    environment: Endpoint['environment'];
-  };
-
   const formatEnvironment = (env: Endpoint['environment']) =>
     env.charAt(0).toUpperCase() + env.slice(1);
 
@@ -1922,8 +1915,8 @@ export default function ExplorerDetail({
   );
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
-  const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
-  const [endpointsLoading, setEndpointsLoading] = useState(false);
+  const { options: endpointOptions, isLoading: endpointsLoading } =
+    useEndpointOptions(sessionToken);
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateOutputsTopic, setGenerateOutputsTopic] = useState<
@@ -1988,70 +1981,6 @@ export default function ExplorerDetail({
     () => buildTopicTree(topics, tests),
     [topics, tests]
   );
-
-  // Load endpoints on mount for the selector above the table and for the dialog
-  useEffect(() => {
-    if (!sessionToken) return;
-    let cancelled = false;
-    setEndpointsLoading(true);
-    const clientFactory = new ApiClientFactory(sessionToken);
-    const projectsClient = clientFactory.getProjectsClient();
-    const endpointsClient = clientFactory.getEndpointsClient();
-    Promise.all([
-      projectsClient.getProjects({ limit: 100 }),
-      endpointsClient.getEndpoints({ limit: 100 }),
-    ])
-      .then(([projectsResponse, endpointsResponse]) => {
-        if (cancelled) return;
-
-        const projects = Array.isArray(projectsResponse)
-          ? projectsResponse
-          : projectsResponse?.data || [];
-
-        const endpoints = Array.isArray(endpointsResponse)
-          ? endpointsResponse
-          : endpointsResponse?.data || [];
-
-        const projectMap = new Map<string, { name?: string }>();
-        projects.forEach((project: { id: string; name?: string }) => {
-          projectMap.set(project.id.toString(), project);
-        });
-
-        const options: EndpointOption[] = endpoints
-          .filter(
-            (
-              endpoint: Endpoint
-            ): endpoint is Endpoint & { project_id: string } =>
-              !!endpoint.project_id
-          )
-          .map(endpoint => {
-            const project = projectMap.get(endpoint.project_id ?? '');
-            return {
-              endpointId: endpoint.id,
-              endpointName: endpoint.name,
-              projectId: endpoint.project_id ?? '',
-              projectName: project?.name || 'Unknown Project',
-              environment: endpoint.environment,
-            };
-          })
-          .sort((a, b) => {
-            const projectCompare = a.projectName.localeCompare(b.projectName);
-            if (projectCompare !== 0) return projectCompare;
-            return a.endpointName.localeCompare(b.endpointName);
-          });
-
-        setEndpointOptions(options);
-      })
-      .catch(() => {
-        if (!cancelled) setEndpointOptions([]);
-      })
-      .finally(() => {
-        if (!cancelled) setEndpointsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionToken]);
 
   const loadExplorerSettings = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
