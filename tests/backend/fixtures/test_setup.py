@@ -10,6 +10,7 @@ This module provides utilities for setting up test environment including:
 
 import os
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
@@ -212,6 +213,62 @@ def ensure_owner_membership(db: Session, organization_id: uuid.UUID, user_id: uu
         elif member.role_id != owner_role.id:
             member.role_id = owner_role.id
             db.flush()
+
+
+@contextmanager
+def temporarily_set_org_role(db: Session, organization_id, user_id, role_name: str = "None"):
+    """Temporarily set *user_id*'s org-member role to the built-in *role_name*.
+
+    Under RBAC, authorization is decided by the caller's ``organization_member``
+    role, not ``organization.owner_id``. Tests that assert an unprivileged
+    caller is denied must therefore demote the caller's *role* (the shared
+    session user is otherwise an Owner). Defaults to "None" (empty permission
+    set) so every capability check is denied.
+
+    Busts the permission cache on entry and exit so the change (and its
+    reversal) takes effect immediately, and restores the prior role on exit.
+    No-op in community builds (no EE package). ``organization_id``/``user_id``
+    may be str or UUID.
+    """
+    try:
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+    except ImportError:
+        yield
+        return
+
+    org_uuid = (
+        organization_id
+        if isinstance(organization_id, uuid.UUID)
+        else uuid.UUID(str(organization_id))
+    )
+    user_uuid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
+
+    with bypass_tenant_filter():
+        target_role = (
+            db.query(Role).filter_by(name=role_name, is_built_in=True, organization_id=None).first()
+        )
+        member = (
+            db.query(OrganizationMember)
+            .filter_by(organization_id=org_uuid, user_id=user_uuid)
+            .first()
+        )
+    if target_role is None or member is None:
+        # Nothing to demote (community build, or user has no membership row).
+        yield
+        return
+
+    original_role_id = member.role_id
+    member.role_id = target_role.id
+    db.flush()
+    get_permission_cache().bust_user(user_uuid, org_uuid)
+    try:
+        yield
+    finally:
+        member.role_id = original_role_id
+        db.flush()
+        get_permission_cache().bust_user(user_uuid, org_uuid)
 
 
 def create_test_organization_and_user(

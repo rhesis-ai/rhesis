@@ -268,8 +268,10 @@ class TestAccessMatrix:
     def test_admin_cannot_manage_sso(self):
         assert not self._check("Admin", "sso:manage")
 
-    def test_admin_cannot_read_roles(self):
-        assert not self._check("Admin", "role:read")
+    def test_admin_can_read_roles(self):
+        # Admin holds role:read (to view the catalog when assigning roles via
+        # member:manage); role:manage stays Owner-only.
+        assert self._check("Admin", "role:read")
 
     # Member
     def test_member_can_read_test_set(self):
@@ -658,8 +660,8 @@ class TestProjectMemberAPI:
         """Built-in Admin (scope='organization') now binds down to the project tier.
 
         Under the one-directional gate model (K8s ClusterRole semantics), org/built-in
-        roles bind down to projects.  Only Owner (level 100) and None (level 0) are
-        rejected at the project tier.
+        roles bind down to projects.  Only None (level 0) is rejected at the project
+        tier; Owner (level 100) is assignable so a project lead can be designated.
         """
         target_id = _create_user(self.db, self.org_id)
         _add_project_member(self.db, self.org_id, self.project_id, target_id)
@@ -669,14 +671,21 @@ class TestProjectMemberAPI:
         assert result.role_id == admin_role.id
         assert result.project_id == self.project_id
 
-    def test_assign_owner_to_project_raises_422(self):
-        """Owner (level 100) cannot be assigned at the project tier."""
+    def test_assign_owner_to_project_succeeds(self):
+        """Owner (level 100) IS assignable at the project tier.
+
+        A project creator or lead can be designated the project owner
+        independently of the org owner. The actor here holds the org Owner
+        role, so the escalation guard (role level ≤ actor level, perms ⊆
+        actor perms) passes. Only None is rejected at the project tier.
+        """
         target_id = _create_user(self.db, self.org_id)
         _add_project_member(self.db, self.org_id, self.project_id, target_id)
 
-        with pytest.raises(HTTPException) as exc:
-            self._assign(self.project_id, target_id, _builtin_role(self.db, "Owner"))
-        assert exc.value.status_code == 422
+        owner_role = _builtin_role(self.db, "Owner")
+        result = self._assign(self.project_id, target_id, owner_role)
+        assert result.role_id == owner_role.id
+        assert result.project_id == self.project_id
 
     def test_assign_none_to_project_raises_422(self):
         """None (level 0) cannot be assigned at the project tier."""

@@ -20,6 +20,11 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.auth.rbac import (
+    DefaultAuthorizationProvider,
+    get_authorization_provider,
+    set_authorization_provider,
+)
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -159,15 +164,11 @@ class TestListCapabilities:
         resp = unauthed_client.get("/capabilities")
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_returns_200_for_authenticated_user(
-        self, authed_client: TestClient, mock_org_owner
-    ):
+    def test_returns_200_for_authenticated_user(self, authed_client: TestClient, mock_org_owner):
         resp = authed_client.get("/capabilities")
         assert resp.status_code == status.HTTP_200_OK
 
-    def test_response_is_list_of_strings(
-        self, authed_client: TestClient, mock_org_owner
-    ):
+    def test_response_is_list_of_strings(self, authed_client: TestClient, mock_org_owner):
         resp = authed_client.get("/capabilities")
         body = resp.json()
         assert isinstance(body, list)
@@ -181,9 +182,7 @@ class TestListCapabilities:
         caps = authed_client.get("/capabilities").json()
         assert caps == sorted(caps)
 
-    def test_response_contains_core_capabilities(
-        self, authed_client: TestClient, mock_org_owner
-    ):
+    def test_response_contains_core_capabilities(self, authed_client: TestClient, mock_org_owner):
         caps = set(authed_client.get("/capabilities").json())
         for expected in (
             "behavior:read",
@@ -205,9 +204,7 @@ class TestListCapabilities:
         # e.g. comment:update:own or task:update:assigned.
         pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own|:assigned)?$")
         for cap in authed_client.get("/capabilities").json():
-            assert pattern.match(cap), (
-                f"Capability '{cap}' does not match resource:action format"
-            )
+            assert pattern.match(cap), f"Capability '{cap}' does not match resource:action format"
 
     def test_same_result_regardless_of_caller_identity(
         self,
@@ -227,13 +224,28 @@ class TestListCapabilities:
 
 
 class TestGetMyPermissions:
+    @pytest.fixture(autouse=True)
+    def _force_community_provider(self):
+        """Test the community DefaultAuthorizationProvider's /me/permissions.
+
+        These tests simulate owner/member/non-member via _make_db_mock, which
+        only answers the community provider's query patterns, and assert the
+        community-tier capability rules (_OWNER_ONLY_CAPABILITIES). The suite's
+        root conftest installs the EE provider by default (needed for the
+        RBAC route tests), so pin the community provider here and restore it.
+        """
+        previous = get_authorization_provider()
+        set_authorization_provider(DefaultAuthorizationProvider())
+        try:
+            yield
+        finally:
+            set_authorization_provider(previous)
+
     def test_requires_authentication(self, unauthed_client: TestClient):
         resp = unauthed_client.get("/me/permissions")
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_org_owner_receives_all_capabilities(
-        self, authed_client: TestClient, mock_org_owner
-    ):
+    def test_org_owner_receives_all_capabilities(self, authed_client: TestClient, mock_org_owner):
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
 
         all_caps = set(get_all_capabilities())
@@ -309,9 +321,7 @@ class TestGetMyPermissions:
         perms = authed_client.get("/me/permissions").json()
         assert perms == sorted(perms)
 
-    def test_invalid_project_id_returns_422(
-        self, authed_client: TestClient, mock_org_owner
-    ):
+    def test_invalid_project_id_returns_422(self, authed_client: TestClient, mock_org_owner):
         resp = authed_client.get("/me/permissions", params={"project_id": "not-a-uuid"})
         assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 

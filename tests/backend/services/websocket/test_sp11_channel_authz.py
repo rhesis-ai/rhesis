@@ -283,6 +283,39 @@ class TestChannelAuthorizerIntegration:
         )
         db.flush()
 
+    def _assign_owner_role(self, db, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Give the user the built-in Owner org role.
+
+        Under RBAC, project-channel access for an org owner comes from the
+        Owner role's implicit project access (org level ≥ Admin), not from
+        organization.owner_id. No-op in community builds.
+        """
+        try:
+            from rhesis.backend.app.scope import bypass_tenant_filter
+            from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+        except ImportError:
+            return
+        with bypass_tenant_filter():
+            owner_role = (
+                db.query(Role)
+                .filter_by(name="Owner", is_built_in=True, organization_id=None)
+                .first()
+            )
+            existing = (
+                db.query(OrganizationMember)
+                .filter_by(organization_id=org_id, user_id=user_id)
+                .first()
+            )
+        if owner_role is None:
+            return
+        if existing is None:
+            db.add(
+                OrganizationMember(organization_id=org_id, user_id=user_id, role_id=owner_role.id)
+            )
+        else:
+            existing.role_id = owner_role.id
+        db.flush()
+
     def _point_session(self, db, org_id: uuid.UUID) -> None:
         from sqlalchemy import text
 
@@ -314,6 +347,7 @@ class TestChannelAuthorizerIntegration:
         org_id = self._create_org(db)
         user_id = self._create_user(db, org_id)
         self._set_owner(db, org_id, user_id)
+        self._assign_owner_role(db, org_id, user_id)
         self._point_session(db, org_id)
         project_id = self._create_project(db, org_id, user_id)
 

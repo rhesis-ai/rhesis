@@ -65,6 +65,25 @@ def _set_owner(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
     db.flush()
 
 
+def _assign_owner_role(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Give the user the built-in Owner org role.
+
+    Under RBAC the org-owner project-context exception comes from the Owner
+    role's implicit project access (org level ≥ Admin), not from
+    organization.owner_id. No-op in community builds.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+
+    with bypass_tenant_filter():
+        owner_role = (
+            db.query(Role).filter_by(name="Owner", is_built_in=True, organization_id=None).first()
+        )
+    assert owner_role is not None, "built-in Owner role not seeded"
+    db.add(OrganizationMember(organization_id=org_id, user_id=user_id, role_id=owner_role.id))
+    db.flush()
+
+
 def _create_project(db: Session, org_id: uuid.UUID) -> uuid.UUID:
     pid = uuid.uuid4()
     db.execute(
@@ -130,6 +149,7 @@ class TestOwnerException:
         org_id = _create_org(db)
         owner_id = _create_user(db, org_id)
         _set_owner(db, org_id, owner_id)
+        _assign_owner_role(db, org_id, owner_id)
         project_id = _create_project(db, org_id)
         _point_session_at_org(db, org_id)
 

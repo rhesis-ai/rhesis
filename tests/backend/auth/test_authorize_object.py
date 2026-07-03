@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import Principal
 from rhesis.backend.app.auth.rbac import (
+    DefaultAuthorizationProvider,
     authorize_object,
     get_authorization_provider,
     set_authorization_provider,
@@ -201,6 +202,21 @@ class TestAuthorizeObjectUnit:
 
 @pytest.mark.integration
 class TestAuthorizeObjectCommunity:
+    @pytest.fixture(autouse=True)
+    def _force_community_provider(self):
+        """Pin the community DefaultAuthorizationProvider for this class.
+
+        These tests assert community-tier authorize_object behavior. The root
+        conftest installs the EE provider by default (for the RBAC route
+        tests), so pin community here and restore it afterward.
+        """
+        previous = get_authorization_provider()
+        set_authorization_provider(DefaultAuthorizationProvider())
+        try:
+            yield
+        finally:
+            set_authorization_provider(previous)
+
     def test_owner_allowed_for_own_comment(self, test_db):
         """Org member who owns the comment is allowed (community tier)."""
         db = test_db

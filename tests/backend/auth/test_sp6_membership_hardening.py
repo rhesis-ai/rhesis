@@ -31,6 +31,7 @@ from rhesis.backend.app.services.organization import (
     enroll_user_in_project,
     unenroll_user_from_project,
 )
+from tests.backend.fixtures.test_setup import temporarily_set_org_role
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -182,23 +183,11 @@ class TestMemberEndpointGating:
     # The tests temporarily strip the org's owner_id so the authenticated_client
     # user is definitively NOT an org owner for the scope of the assertion.
 
-    def _strip_owner(self, test_db, test_org_id, authenticated_user_id):
-        """Return the org and its original owner_id, then clear the owner.
-
-        Setting owner_id to None (rather than a random UUID) avoids a FK
-        violation: ``organization.owner_id`` references ``user.id``, so only
-        real user UUIDs are valid non-null values.  NULL is always valid and
-        causes the rbac owner-check query to return no rows → 403.
-        """
-        org = test_db.query(models.Organization).filter_by(id=test_org_id).first()
-        original = org.owner_id
-        org.owner_id = None
-        test_db.flush()
-        return org, original
-
-    def _restore_owner(self, test_db, org, original_owner_id):
-        org.owner_id = original_owner_id
-        test_db.flush()
+    # Under RBAC, project-member management is gated by the caller's role
+    # (ProjectMember.MANAGE), not organization.owner_id. To represent a
+    # non-privileged caller we demote the shared session user to the "None"
+    # org role (no permissions) via temporarily_set_org_role; the project the
+    # caller "owns" grants no capability without a role.
 
     def test_non_owner_cannot_list_members(
         self,
@@ -207,18 +196,15 @@ class TestMemberEndpointGating:
         test_org_id,
         authenticated_user_id,
     ):
-        """GET /projects/{id}/members → 403 when caller is not the org owner."""
+        """GET /projects/{id}/members → 403 for a caller without ProjectMember.MANAGE."""
         project = _make_project(test_db, test_org_id, owner_id=authenticated_user_id)
         _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
 
-        org, original = self._strip_owner(test_db, test_org_id, authenticated_user_id)
-        try:
+        with temporarily_set_org_role(test_db, test_org_id, authenticated_user_id, "None"):
             response = authenticated_client.get(f"/projects/{project.id}/members")
-        finally:
-            self._restore_owner(test_db, org, original)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN, (
-            f"Expected 403 for non-owner member listing, got {response.status_code}: "
+            f"Expected 403 for non-privileged member listing, got {response.status_code}: "
             f"{response.text}"
         )
 
@@ -229,22 +215,19 @@ class TestMemberEndpointGating:
         test_org_id,
         authenticated_user_id,
     ):
-        """POST /projects/{id}/members → 403 when caller is not the org owner."""
+        """POST /projects/{id}/members → 403 for a caller without ProjectMember.MANAGE."""
         project = _make_project(test_db, test_org_id, owner_id=authenticated_user_id)
         _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
         other = _unique_user(test_db, test_org_id)
 
-        org, original = self._strip_owner(test_db, test_org_id, authenticated_user_id)
-        try:
+        with temporarily_set_org_role(test_db, test_org_id, authenticated_user_id, "None"):
             response = authenticated_client.post(
                 f"/projects/{project.id}/members",
                 json={"user_id": str(other.id)},
             )
-        finally:
-            self._restore_owner(test_db, org, original)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN, (
-            f"Expected 403 for non-owner member management, got {response.status_code}: "
+            f"Expected 403 for non-privileged member management, got {response.status_code}: "
             f"{response.text}"
         )
 
@@ -255,20 +238,17 @@ class TestMemberEndpointGating:
         test_org_id,
         authenticated_user_id,
     ):
-        """DELETE /projects/{id}/members/{uid} → 403 when caller is not the org owner."""
+        """DELETE /projects/{id}/members/{uid} → 403 for a caller without ProjectMember.MANAGE."""
         project = _make_project(test_db, test_org_id, owner_id=authenticated_user_id)
         other = _unique_user(test_db, test_org_id)
         _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
         _enroll(test_db, str(other.id), str(project.id), test_org_id)
 
-        org, original = self._strip_owner(test_db, test_org_id, authenticated_user_id)
-        try:
+        with temporarily_set_org_role(test_db, test_org_id, authenticated_user_id, "None"):
             response = authenticated_client.delete(f"/projects/{project.id}/members/{other.id}")
-        finally:
-            self._restore_owner(test_db, org, original)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN, (
-            f"Expected 403 for non-owner member removal, got {response.status_code}: "
+            f"Expected 403 for non-privileged member removal, got {response.status_code}: "
             f"{response.text}"
         )
 
