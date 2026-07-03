@@ -33,6 +33,7 @@ import { Tool } from '@/utils/api-client/interfaces/tool';
 import { UUID } from 'crypto';
 import { getErrorMessage } from '@/utils/entity-error-handler';
 import { ExtractedSource } from '@/utils/api-client/services-client';
+import { useTypeLookups } from '@/hooks/useLookups';
 import {
   drawerOutlinedFieldSx,
   drawerOutlineButtonSx,
@@ -127,32 +128,18 @@ const ToolImportPanel = forwardRef<ToolImportPanelHandle, ToolImportPanelProps>(
     const [previewItems, setPreviewItems] = useState<PreviewItem[] | null>(
       null
     );
-    const [toolSourceTypeId, setToolSourceTypeId] = useState<UUID | undefined>(
-      undefined
-    );
     const notifications = useNotifications();
 
     const [urlItems, setUrlItems] = useState<UrlItem[]>([
       { id: crypto.randomUUID(), url: '', status: 'pending' },
     ]);
 
-    useEffect(() => {
-      if (!sessionToken) return;
-      const fetchSourceType = async () => {
-        try {
-          const clientFactory = new ApiClientFactory(sessionToken);
-          const typeLookupClient = clientFactory.getTypeLookupClient();
-          const results = await typeLookupClient.getTypeLookups({
-            $filter: "type_name eq 'SourceType' and type_value eq 'Tool'",
-            limit: 1,
-          });
-          if (results.length > 0) setToolSourceTypeId(results[0].id as UUID);
-        } catch (err) {
-          console.error('Failed to fetch Tool SourceType:', err);
-        }
-      };
-      fetchSourceType();
-    }, [sessionToken]);
+    const { data: toolSourceTypes } = useTypeLookups(
+      sessionToken ?? '',
+      "type_name eq 'SourceType' and type_value eq 'Tool'",
+      open && !!sessionToken
+    );
+    const toolSourceTypeId = toolSourceTypes?.[0]?.id as UUID | undefined;
 
     const pendingItems = useMemo(
       () =>
