@@ -286,7 +286,7 @@ async def rollback_organization_data(
         if not org.is_onboarding_complete:
             raise HTTPException(status_code=400, detail="Organization not initialized yet")
 
-        rollback_initial_data(db, str(organization_id))
+        rollback_initial_data(db, str(organization_id), str(current_user.id))
 
         # Mark onboarding as incomplete
         org.is_onboarding_complete = False

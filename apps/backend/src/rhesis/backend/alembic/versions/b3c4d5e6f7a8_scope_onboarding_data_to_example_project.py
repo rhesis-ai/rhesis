@@ -107,6 +107,7 @@ def _table_for_model(model_name: str) -> str | None:
         "Dimension": "dimension",
         "Demographic": "demographic",
         "Topic": "topic",
+        "Test": "test",
         "TestSet": "test_set",
         "Metric": "metric",
         "Endpoint": "endpoint",
@@ -146,6 +147,7 @@ def upgrade() -> None:
         conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
 
         if model_name == "Test":
+            conn.execute(sa.text("ALTER TABLE prompt DISABLE ROW LEVEL SECURITY"))
             for project_id, organization_id in projects:
                 conn.execute(
                     sa.text(
@@ -167,6 +169,8 @@ def upgrade() -> None:
                         "identifiers": list(identifiers),
                     },
                 )
+            conn.execute(sa.text("ALTER TABLE prompt ENABLE ROW LEVEL SECURITY"))
+            conn.execute(sa.text("ALTER TABLE prompt FORCE ROW LEVEL SECURITY"))
         elif model_name == "Prompt":
             for project_id, organization_id in projects:
                 conn.execute(
@@ -239,6 +243,7 @@ def downgrade() -> None:
         conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
 
         if model_name == "Test":
+            conn.execute(sa.text("ALTER TABLE prompt DISABLE ROW LEVEL SECURITY"))
             for project_id, organization_id in projects:
                 conn.execute(
                     sa.text(
@@ -258,6 +263,8 @@ def downgrade() -> None:
                         "identifiers": list(identifiers),
                     },
                 )
+            conn.execute(sa.text("ALTER TABLE prompt ENABLE ROW LEVEL SECURITY"))
+            conn.execute(sa.text("ALTER TABLE prompt FORCE ROW LEVEL SECURITY"))
         elif model_name == "Prompt":
             for project_id, organization_id in projects:
                 conn.execute(

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid
+from contextlib import ExitStack
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import inspect
@@ -1495,7 +1496,7 @@ def _delete_entity_associations(db: Session, entity):
             db.execute(stmt)
 
 
-def rollback_initial_data(db: Session, organization_id: str) -> None:
+def rollback_initial_data(db: Session, organization_id: str, user_id: str | None = None) -> None:
     """
     Remove all data that was inserted by load_initial_data for a specific organization.
     Only deletes entities that match the data in initial_data.json.
@@ -1547,9 +1548,25 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
         if not org.is_onboarding_complete:
             raise ValueError("Organization not initialized yet")
 
-        # Project-scoped demo rows are invisible under the ambient project filter;
-        # bypass it so initial_data entities are found regardless of session scope.
-        with bypass_tenant_filter():
+        example_project = (
+            db.query(models.Project)
+            .filter(
+                models.Project.name == EXAMPLE_PROJECT_NAME,
+                models.Project.organization_id == uuid.UUID(organization_id),
+            )
+            .first()
+        )
+
+        # Scope to the example project for Postgres RLS and ORM auto-filter when
+        # demo rows carry project_id; fall back to bypass when no project exists.
+        with ExitStack() as stack:
+            if example_project is not None and user_id:
+                stack.enter_context(
+                    temporary_project_scope(db, organization_id, user_id, str(example_project.id))
+                )
+            else:
+                stack.enter_context(bypass_tenant_filter())
+
             # Collect entities to delete
             for model in sorted_models:
                 if model.__name__ in ["User", "Organization"]:
