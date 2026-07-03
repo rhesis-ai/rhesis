@@ -5,6 +5,12 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "license": "SEE LICENSE IN ../LICENSE",
+  "scripts": {
+    "lint": "../../apps/frontend/node_modules/.bin/eslint src --ext .ts,.tsx",
+    "lint:fix": "../../apps/frontend/node_modules/.bin/eslint src --ext .ts,.tsx --fix",
+    "format": "../../apps/frontend/node_modules/.bin/prettier --write src",
+    "format:check": "../../apps/frontend/node_modules/.bin/prettier --check src"
+  },
   "peerDependencies": {
     "react": "^19",
     "react-dom": "^19",
