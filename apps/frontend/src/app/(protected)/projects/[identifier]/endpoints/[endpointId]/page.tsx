@@ -4,8 +4,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import { useEffect, useState } from 'react';
-import { notFound, useParams } from 'next/navigation';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
@@ -17,59 +18,68 @@ import EndpointHeaderActions from '@/app/(protected)/endpoints/[identifier]/comp
 
 export default function ProjectEndpointPage() {
   const params = useParams<{ identifier: string; endpointId: string }>();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
   const [projectName, setProjectName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isEntityNotFound, setIsEntityNotFound] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useDocumentTitle(endpoint?.name || null);
 
-  useEffect(() => {
-    const fetchEndpoint = async () => {
-      try {
-        if (status === 'loading') return;
-        if (!params?.endpointId) return;
+  const fetchEndpoint = useCallback(async () => {
+    if (status === 'loading') return;
+    if (!params?.endpointId) return;
 
-        if (!session) {
-          throw new Error('No session available');
-        }
+    setLoading(true);
+    setError(null);
+    setIsEntityNotFound(false);
+    setEndpoint(null);
 
-        const uuidRegex =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(params.endpointId)) {
-          throw new Error('Invalid endpoint identifier format');
-        }
-
-        const sessionToken = session.session_token || '';
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const data = await endpointsClient.getEndpoint(params.endpointId);
-        setEndpoint(data);
-
-        if (params.identifier) {
-          try {
-            const projectsClient = apiFactory.getProjectsClient();
-            const project = await projectsClient.getProject(params.identifier);
-            setProjectName(project.name);
-          } catch {
-            // ignore
-          }
-        }
-      } catch (err) {
-        if (isNotFoundApiError(err)) {
-          setIsEntityNotFound(true);
-        } else {
-          setError((err as Error).message);
-        }
-      } finally {
-        setLoading(false);
+    try {
+      if (!session) {
+        throw new Error('No session available');
       }
-    };
 
-    fetchEndpoint();
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(params.endpointId)) {
+        throw new Error('Invalid endpoint identifier format');
+      }
+
+      const sessionToken = session.session_token || '';
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const endpointsClient = apiFactory.getEndpointsClient();
+      const data = await endpointsClient.getEndpoint(params.endpointId);
+      setEndpoint(data);
+
+      if (params.identifier) {
+        try {
+          const projectsClient = apiFactory.getProjectsClient();
+          const project = await projectsClient.getProject(params.identifier);
+          setProjectName(project.name);
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err) {
+      if (isNotFoundApiError(err)) {
+        setIsEntityNotFound(true);
+      } else {
+        setError(
+          err instanceof Error ? err.message : 'Failed to load endpoint'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [params?.endpointId, params?.identifier, session, status]);
+
+  useEffect(() => {
+    fetchEndpoint();
+  }, [fetchEndpoint, retryCount]);
 
   if (status === 'loading' || loading || !params?.endpointId) {
     return (
@@ -97,8 +107,27 @@ export default function ProjectEndpointPage() {
     );
   }
 
-  if (isEntityNotFound) {
-    notFound();
+  if (isEntityNotFound && params?.endpointId) {
+    return (
+      <DetailNotFoundState
+        entityLabel="Endpoint"
+        entityId={params.endpointId}
+        breadcrumbs={[
+          { label: 'Projects', href: '/projects' },
+          {
+            label: projectName || 'Project',
+            href: `/projects/${params.identifier}`,
+          },
+          {
+            label: 'Not Found',
+            href: `/projects/${params.identifier}/endpoints/${params.endpointId}`,
+          },
+        ]}
+        onBack={() => router.push(`/projects/${params.identifier}`)}
+        onRetry={() => setRetryCount(count => count + 1)}
+        isRetrying={loading}
+      />
+    );
   }
 
   if (error) {

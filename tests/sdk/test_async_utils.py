@@ -45,6 +45,7 @@ def test_reset_litellm_vertex_async_locks_clears_stale_locks():
     """Locks created on a closed loop must be cleared before the next use."""
     loop_a = asyncio.new_event_loop()
     try:
+        asyncio.set_event_loop(loop_a)
         lock = asyncio.Lock()
         import litellm.main as litellm_main
 
@@ -54,6 +55,7 @@ def test_reset_litellm_vertex_async_locks_clears_stale_locks():
         vertex._async_refresh_lock_refcounts[key] = 1
     finally:
         loop_a.close()
+        asyncio.set_event_loop(None)
 
     reset_litellm_vertex_async_locks()
 

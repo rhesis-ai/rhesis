@@ -4,8 +4,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import { use } from 'react';
-import { notFound } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -26,6 +27,7 @@ const UUID_REGEX =
 
 export default function EndpointPage({ params }: PageProps) {
   const { identifier } = use(params);
+  const router = useRouter();
 
   const { data: session, status } = useSession();
   const sessionToken = session?.session_token ?? '';
@@ -35,7 +37,9 @@ export default function EndpointPage({ params }: PageProps) {
   const {
     data: endpoint,
     isLoading,
+    isFetching,
     error: fetchError,
+    refetch,
   } = useQuery({
     queryKey: endpointKeys.detail(identifier),
     queryFn: async () => {
@@ -96,7 +100,19 @@ export default function EndpointPage({ params }: PageProps) {
   }
 
   if (fetchError && isNotFoundApiError(fetchError)) {
-    notFound();
+    return (
+      <DetailNotFoundState
+        entityLabel="Endpoint"
+        entityId={identifier}
+        breadcrumbs={[
+          { label: 'Endpoints', href: '/endpoints' },
+          { label: 'Not Found', href: `/endpoints/${identifier}` },
+        ]}
+        onBack={() => router.push('/endpoints')}
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
+    );
   }
 
   if (error) {
