@@ -91,7 +91,13 @@ function mockPlaygroundChat(
 function renderChat(
   props: Partial<React.ComponentProps<typeof PlaygroundChat>> = {}
 ) {
-  const defaults = { endpointId: 'endpoint-1', projectId: 'project-1' };
+  const defaults = {
+    endpointId: 'endpoint-1',
+    projectId: 'project-1',
+    endpointName: 'Test Endpoint',
+    projectName: 'Test Project',
+    environment: 'development',
+  };
   return render(
     <ThemeProvider theme={lightTheme}>
       <PlaygroundChat {...defaults} {...props} />
@@ -397,6 +403,16 @@ describe('PlaygroundChat — header buttons', () => {
     mockPlaygroundChat();
     renderChat({ label: 'Chat 1' });
     expect(screen.getByText('Chat 1')).toBeInTheDocument();
+  });
+
+  it('shows the endpoint name in the pane header', () => {
+    mockSession();
+    mockPlaygroundChat();
+    renderChat();
+    expect(
+      screen.getByText('Test Project › Test Endpoint')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Development')).toBeInTheDocument();
   });
 });
 

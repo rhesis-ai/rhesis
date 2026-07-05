@@ -642,7 +642,7 @@ export function useArchitectChat(
           {
             id: generateId(),
             role: 'assistant',
-            content: `Error: ${errorMsg}`,
+            content: errorMsg,
             timestamp: new Date(),
             isError: true,
           },

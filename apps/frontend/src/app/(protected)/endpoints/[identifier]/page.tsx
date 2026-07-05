@@ -4,7 +4,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import { use } from 'react';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -13,6 +15,7 @@ import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
 import { useQuery } from '@tanstack/react-query';
 import { endpointKeys } from '@/constants/query-keys';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -24,6 +27,7 @@ const UUID_REGEX =
 
 export default function EndpointPage({ params }: PageProps) {
   const { identifier } = use(params);
+  const router = useRouter();
 
   const { data: session, status } = useSession();
   const sessionToken = session?.session_token ?? '';
@@ -33,7 +37,9 @@ export default function EndpointPage({ params }: PageProps) {
   const {
     data: endpoint,
     isLoading,
+    isFetching,
     error: fetchError,
+    refetch,
   } = useQuery({
     queryKey: endpointKeys.detail(identifier),
     queryFn: async () => {
@@ -90,6 +96,22 @@ export default function EndpointPage({ params }: PageProps) {
         <CircularProgress size={24} sx={{ mr: 1 }} />
         <Typography>Loading endpoint...</Typography>
       </Box>
+    );
+  }
+
+  if (fetchError && isNotFoundApiError(fetchError)) {
+    return (
+      <DetailNotFoundState
+        entityLabel="Endpoint"
+        entityId={identifier}
+        breadcrumbs={[
+          { label: 'Endpoints', href: '/endpoints' },
+          { label: 'Not Found', href: `/endpoints/${identifier}` },
+        ]}
+        onBack={() => router.push('/endpoints')}
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
     );
   }
 

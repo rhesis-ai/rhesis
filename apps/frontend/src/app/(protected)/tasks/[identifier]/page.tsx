@@ -18,6 +18,7 @@ import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
 import type { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import CreateJiraIssueButton from '../components/CreateJiraIssueButton';
@@ -201,8 +202,9 @@ function TaskDetailNotFoundState({
             Sorry, we couldn&apos;t load this task
           </Typography>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            The task you&apos;re looking for might have been deleted, moved, or
-            you may not have permission to view it.
+            The task you&apos;re looking for might have been deleted, moved,
+            belongs to a different project, or you may not have permission to
+            view it.
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Task ID: {taskId}
@@ -234,11 +236,12 @@ export default function TaskDetailPage({ params }: PageProps) {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
-  const { getTask, updateTask } = useTasks({ autoFetch: false });
+  const { updateTask } = useTasks({ autoFetch: false });
   const { show } = useNotifications();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTaskNotFound, setIsTaskNotFound] = useState(false);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -275,6 +278,7 @@ export default function TaskDetailPage({ params }: PageProps) {
           setIsLoading(true);
         }
         setError(null);
+        setIsTaskNotFound(false);
 
         if (!taskId) {
           throw new Error('No task ID provided');
@@ -285,10 +289,9 @@ export default function TaskDetailPage({ params }: PageProps) {
         }
 
         const sessionToken = session.session_token;
-        const taskData = await getTask(taskId);
-        if (!taskData) {
-          throw new Error('Task not found');
-        }
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const tasksClient = clientFactory.getTasksClient();
+        const taskData = await tasksClient.getTask(taskId);
 
         const [fetchedStatuses, fetchedPriorities, fetchedUsers] =
           await Promise.all([
@@ -308,6 +311,12 @@ export default function TaskDetailPage({ params }: PageProps) {
         setTask(taskData);
         setHasInitialLoad(true);
       } catch (err) {
+        if (isNotFoundApiError(err)) {
+          setIsTaskNotFound(true);
+          setHasInitialLoad(true);
+          return;
+        }
+
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to load task data';
         setError(errorMessage);
@@ -322,7 +331,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, getTask, session?.session_token, show, hasInitialLoad]
+    [taskId, session?.session_token, show, hasInitialLoad]
   );
 
   useEffect(() => {
@@ -354,6 +363,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   const handleRetry = () => {
     setLoadingTimeout(false);
     setHasInitialLoad(false);
+    setIsTaskNotFound(false);
     loadInitialData(true);
   };
 
@@ -365,6 +375,17 @@ export default function TaskDetailPage({ params }: PageProps) {
       <TaskDetailLoadingState
         taskId={taskId}
         loadingTimeout={loadingTimeout}
+        onBack={() => router.push('/tasks')}
+        onRetry={handleRetry}
+      />
+    );
+  }
+
+  if (isTaskNotFound) {
+    return (
+      <TaskDetailNotFoundState
+        taskId={taskId}
+        isRetrying={isRetrying}
         onBack={() => router.push('/tasks')}
         onRetry={handleRetry}
       />

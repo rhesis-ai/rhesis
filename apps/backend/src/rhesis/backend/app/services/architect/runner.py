@@ -7,7 +7,6 @@ constructing an :class:`~rhesis.sdk.context.EndpointContext` to carry
 tenant identity.
 """
 
-import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -299,12 +298,13 @@ def _make_target_factory(org_id: str, user_id: str, project_id: Optional[str] = 
     """Build a target factory that invokes endpoints via EndpointService."""
     from rhesis.backend.app.services.endpoint.service import EndpointService
     from rhesis.sdk.agents.targets import LocalEndpointTarget
+    from rhesis.sdk.async_utils import run_sync
 
     svc = EndpointService()
 
     def _invoke(endpoint_id: str, input_data: dict) -> dict:
         with get_db_with_tenant_variables(org_id or "", user_id or "", project_id or "") as db:
-            return asyncio.run(
+            return run_sync(
                 svc.invoke_endpoint(
                     db,
                     endpoint_id,

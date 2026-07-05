@@ -11,6 +11,7 @@ interface FormData {
   firstName: string;
   lastName: string;
   organizationName: string;
+  projectName: string;
   website: string;
   invites: { id: string; email: string }[];
 }
@@ -51,6 +52,7 @@ export default function FinishStep({
           label="Organization Name"
           value={formData.organizationName}
         />
+        <ViewField label="Project Name" value={formData.projectName} />
         <ViewField
           label="Your Name"
           value={`${formData.firstName} ${formData.lastName}`}

@@ -191,7 +191,7 @@ class TestExplorationEmitsProgress:
     """
 
     @patch("rhesis.backend.tasks.endpoint.explore.publish_task_progress")
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
@@ -243,7 +243,7 @@ class TestExplorationEmitsProgress:
         assert all(call.kwargs.get("task_id") == "task-abc" for call in mock_publish.call_args_list)
 
     @patch("rhesis.backend.tasks.endpoint.explore.publish_task_progress")
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
@@ -284,7 +284,7 @@ class TestExplorationEmitsProgress:
         mock_publish.assert_not_called()
 
     @patch("rhesis.backend.tasks.endpoint.explore.publish_task_progress")
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
@@ -418,7 +418,7 @@ class TestExplorationProjectIdFlow:
     """Verify that project_id from tenant context flows to make_target_factory."""
 
     @patch("rhesis.backend.tasks.endpoint.explore.publish_task_progress")
-    @patch("rhesis.backend.tasks.endpoint.explore.asyncio.run")
+    @patch("rhesis.sdk.async_utils.run_sync")
     @patch("rhesis.sdk.agents.tools.ExploreEndpointTool")
     @patch("rhesis.backend.tasks.endpoint.explore.make_target_factory")
     @patch("rhesis.backend.tasks.endpoint.explore.get_db_with_tenant_variables")
