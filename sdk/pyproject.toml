@@ -183,6 +183,10 @@ dev = [
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
     "agent-framework-orchestrations>=1.0.0b260421",
+    # Same reasoning: pydantic-ai installed in dev so the integration tests
+    # under tests/sdk/telemetry/integrations/ run without ``--all-extras``.
+    # End users install via the ``rhesis-sdk[pydantic-ai]`` optional extra.
+    "pydantic-ai>=0.0.49",
 ]
 
 [build-system]
