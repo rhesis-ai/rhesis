@@ -6,7 +6,7 @@ display them without hard-coding strings.  Custom role rows are left with an
 empty string — the UI handles that gracefully.
 
 Revision ID: 671d10bef526
-Revises: c0d1e2f3a4b5
+Revises: b3c4d5e6f7a8
 Create Date: 2026-07-02
 """
 
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "671d10bef526"
-down_revision: Union[str, None] = "c0d1e2f3a4b5"
+down_revision: Union[str, None] = "b3c4d5e6f7a8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
