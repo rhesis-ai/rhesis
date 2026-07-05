@@ -468,14 +468,26 @@ class TestCustomRoleLifecycle:
             )
         assert self._can(target_id, "test_set:read") is True
 
-    def test_delete_custom_role_in_use_raises_409(self):
+    def test_delete_custom_role_in_use_reassigns_org_holder_to_none(self):
+        """Deleting an in-use role no longer 409s — it soft-deletes the role and
+        moves org holders to the built-in None role (see test_role_soft_delete.py
+        for the full soft-delete behavior)."""
         role_data = self._create(
             RoleCreate(name="InUseRole", scope="organization", permission_names=[])
         )
-        self._assign_member(role_data.id)
-        with pytest.raises(HTTPException) as exc:
-            delete_role(role_id=role_data.id, db=self.db, current_user=self.actor, _org=None)
-        assert exc.value.status_code == 409
+        target_id = self._assign_member(role_data.id)
+
+        # No longer raises; the holder is reassigned off the deleted role.
+        delete_role(role_id=role_data.id, db=self.db, current_user=self.actor, _org=None)
+
+        none_role = _builtin_role(self.db, "None")
+        member = (
+            self.db.query(OrganizationMember)
+            .filter_by(organization_id=self.org_id, user_id=target_id)
+            .first()
+        )
+        assert member is not None
+        assert member.role_id == none_role.id
 
     def test_delete_custom_role_succeeds_when_unassigned(self):
         role_data = self._create(
