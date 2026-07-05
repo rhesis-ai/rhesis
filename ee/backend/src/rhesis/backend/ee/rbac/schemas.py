@@ -105,7 +105,7 @@ class ProjectMemberRoleRead(BaseModel):
 
     project_id: UUID
     user_id: UUID
-    role_id: UUID
+    role_id: Optional[UUID] = None
     role: Optional[RoleRead] = None
 
     model_config = {"from_attributes": True}
