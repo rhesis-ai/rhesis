@@ -77,6 +77,10 @@ export class WebSocketClient {
   /** Flag to track intentional disconnects */
   private intentionalDisconnect = false;
 
+  /** In-flight connect() promise, so concurrent calls dedupe rather than
+   * opening a second socket while a token fetch is still pending. */
+  private connectPromise: Promise<void> | null = null;
+
   /**
    * Create a new WebSocket client.
    *
@@ -106,12 +110,31 @@ export class WebSocketClient {
    * long-lived session JWT. The static `token` is used as a fallback if the
    * provider throws or if no provider is configured.
    */
-  async connect(): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.warn('WebSocket already connected');
-      return;
+  connect(): Promise<void> {
+    if (
+      this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING
+    ) {
+      console.warn('WebSocket already connected or connecting');
+      return Promise.resolve();
     }
 
+    // A connect() is already in flight (e.g. still awaiting the token fetch).
+    // Return the same promise so callers dedupe instead of opening a 2nd socket.
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    // Cancel any pending reconnect so it doesn't race this fresh attempt.
+    this.clearReconnectTimer();
+
+    this.connectPromise = this.doConnect().finally(() => {
+      this.connectPromise = null;
+    });
+    return this.connectPromise;
+  }
+
+  private async doConnect(): Promise<void> {
     this.intentionalDisconnect = false;
 
     // Fetch a fresh token from the provider when available.
