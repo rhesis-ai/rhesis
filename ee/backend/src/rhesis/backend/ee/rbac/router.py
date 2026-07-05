@@ -538,12 +538,22 @@ def delete_role(
     current_user: User = Depends(require_current_user_or_token),
     _org=_RBAC_DEP,
 ):
-    """Delete a custom role.
+    """Soft-delete a custom role and unassign everyone who held it.
 
-    Built-in roles cannot be deleted. If any users are currently assigned this
-    role, the DELETE is rejected to prevent orphaned members.
+    Built-in roles cannot be deleted. The role row is retained (``deleted_at`` is
+    stamped) for auditability; the global soft-delete filter then hides it from
+    every subsequent query. Rather than blocking the delete when the role is in
+    use, holders are actively removed from it:
+
+    - Org-tier members (``organization_member.role_id`` is NOT NULL) are
+      reassigned to the built-in **None** role (zero permissions) — access is
+      explicitly revoked and must be deliberately re-granted.
+    - Project-tier members (``project_membership.role_id`` is nullable) have
+      their ``role_id`` cleared, so they fall back to their inherited org role.
     """
-    from rhesis.backend.ee.rbac.models import OrganizationMember
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 
     role = _get_role_or_404(role_id, db)
     if role.is_built_in:
@@ -551,18 +561,36 @@ def delete_role(
     if role.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    # Refuse if any org member is currently on this role (FK RESTRICT in DB
-    # would catch it anyway, but a nicer error message helps operators).
-    in_use = db.query(OrganizationMember).filter_by(role_id=role.id).first()
-    if in_use:
-        raise HTTPException(
-            status_code=409,
-            detail="Role is still assigned to one or more org members; reassign them first",
-        )
+    org_id = current_user.organization_id
 
-    # Bust before delete so the query can still find holders.
-    _bust_role_holders(role.id, current_user.organization_id, db)
-    db.delete(role)
+    # Bust the permission cache for every holder while role_id still points here.
+    _bust_role_holders(role.id, org_id, db)
+
+    # Org-tier holders must keep a role (role_id is NOT NULL) — reassign them to
+    # the built-in None role. It has organization_id IS NULL, so the lookup must
+    # bypass the ambient tenant filter.
+    with bypass_tenant_filter():
+        none_role = (
+            db.query(Role)
+            .filter_by(name="None", is_built_in=True, organization_id=None)
+            .first()
+        )
+    if none_role is None:
+        # Fail loudly rather than orphan members; None is seeded by migration.
+        raise HTTPException(
+            status_code=500,
+            detail="Built-in None role missing; cannot safely unassign role holders",
+        )
+    db.query(OrganizationMember).filter_by(role_id=role.id, organization_id=org_id).update(
+        {OrganizationMember.role_id: none_role.id}, synchronize_session=False
+    )
+
+    # Project-tier holders revert to their inherited org role (role_id nullable).
+    db.query(ProjectMembership).filter_by(role_id=role.id, organization_id=org_id).update(
+        {ProjectMembership.role_id: None}, synchronize_session=False
+    )
+
+    role.soft_delete()
     db.flush()
 
 

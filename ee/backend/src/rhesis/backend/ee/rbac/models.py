@@ -46,6 +46,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -302,11 +303,15 @@ class Role(Base):
     __table_args__ = (
         # Built-in role names are globally unique (org IS NULL).
         # Custom role names must be unique per org.
+        # Partial (deleted_at IS NULL) so a soft-deleted role frees its name
+        # for reuse — a role deleted via the API keeps its row for audit but
+        # must not block re-creating a role with the same name.
         Index(
             "ix_role_name_org",
             "name",
             "organization_id",
             unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
         ),
     )
 
