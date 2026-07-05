@@ -73,8 +73,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const { data: session } = useSession();
     const notifications = useNotifications();
     const { projects: availableProjects } = useActiveProject();
-    const { AddMemberRoleField, assignProjectMemberRole } =
-      getMemberRoleExtensions();
+    const { AddMemberRoleField } = getMemberRoleExtensions();
 
     const [formData, setFormData] = useState<FormData>({
       invites: [createInvite()],
@@ -266,25 +265,17 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
             if (!user || !invitationResults[idx]?.success) return [];
             return selectedProjectIds.map(async projectId => {
               const userId = String(user.id);
+              const roleId = projectRoles[projectId];
               try {
+                // Single atomic request: the backend applies the escalation
+                // guard before creating the membership row, so the member is
+                // never left enrolled with a role other than the one selected
+                // here (no best-effort follow-up assignment to partially fail).
                 await projectsClient.addProjectMember(projectId, {
                   user_id: userId,
+                  role: 'member',
+                  role_id: roleId ?? undefined,
                 });
-                const roleId = projectRoles[projectId];
-                if (
-                  assignProjectMemberRole &&
-                  roleId &&
-                  session?.session_token
-                ) {
-                  await assignProjectMemberRole(
-                    session.session_token,
-                    projectId,
-                    userId,
-                    roleId
-                  ).catch(() => {
-                    // role assignment failure is non-fatal — member is still enrolled
-                  });
-                }
               } catch {
                 // enrollment failure is non-fatal — user is still invited
               }

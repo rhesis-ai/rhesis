@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Organization } from '@/utils/api-client/interfaces/organization';
@@ -38,6 +44,25 @@ export function OrganizationProvider({
       // leave stale data in place; callers handle their own error state
     }
   }, [session?.session_token, session?.user?.organization_id]);
+
+  // If the server-rendered organization was unavailable (null) but a session is
+  // now present, fetch it client-side rather than leaving the page stuck on a
+  // hard "No organization information available" state. Runs once per
+  // session-ready transition (organization becomes non-null → condition false).
+  useEffect(() => {
+    if (
+      !organization &&
+      session?.session_token &&
+      session?.user?.organization_id
+    ) {
+      void refresh();
+    }
+  }, [
+    organization,
+    session?.session_token,
+    session?.user?.organization_id,
+    refresh,
+  ]);
 
   return (
     <OrganizationContext.Provider value={{ organization, refresh }}>

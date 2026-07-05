@@ -300,11 +300,24 @@ export default function TeamMembersGrid({
         sortable: false,
         filterable: false,
         renderCell: params => (
-          <CellComponent
-            userId={(params.row as User).id}
-            sessionToken={sessionToken}
-            currentUserId={session?.user?.id}
-          />
+          // Stop clicks on the interactive role Select from bubbling to the
+          // DataGrid row (onRowClick opens MemberAccessDrawer / steals focus).
+          <Box
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              width: '100%',
+              height: '100%',
+            }}
+          >
+            <CellComponent
+              userId={(params.row as User).id}
+              sessionToken={sessionToken}
+              currentUserId={session?.user?.id}
+            />
+          </Box>
         ),
       });
     }
