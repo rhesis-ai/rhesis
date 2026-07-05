@@ -62,8 +62,8 @@ export interface OrgRoleAssign {
 export interface ProjectMemberRoleRead {
   project_id: string;
   user_id: string;
-  role_id: string;
-  role?: RoleRead;
+  role_id: string | null;
+  role?: RoleRead | null;
 }
 
 export interface ProjectMemberRoleAssign {
