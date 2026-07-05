@@ -32,14 +32,14 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.feature_gates import require_feature
 from rhesis.backend.app.auth.principal import resolve_principal
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.dependencies import assert_project_access, get_tenant_db_session
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.models.user import User
 from rhesis.backend.ee.rbac.schemas import (
@@ -333,7 +333,11 @@ def _role_to_read(role, db: Session, member_count: int = 0) -> RoleRead:
     the caller (precomputed in bulk for list views) to avoid an N+1.
     """
     from rhesis.backend.app.auth.capabilities import get_all_capabilities
-    from rhesis.backend.ee.rbac.models import Permission, RolePermission, permissions_for_built_in_role
+    from rhesis.backend.ee.rbac.models import (
+        Permission,
+        RolePermission,
+        permissions_for_built_in_role,
+    )
     from rhesis.backend.ee.rbac.schemas import PermissionRead
 
     if role.is_built_in:
@@ -746,6 +750,7 @@ def remove_org_member(
 )
 def list_project_members(
     project_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
     _org=_RBAC_DEP,
@@ -755,8 +760,16 @@ def list_project_members(
     Returns every ``project_membership`` row for *project_id*, including the
     resolved role when ``role_id`` is set.  Members without an explicit
     project-level role have ``role_id`` and ``role`` as ``None``.
+
+    ``member:read`` is org-scoped, so the capability gate alone does not confirm
+    the caller may see *this* project's roster. Enforce project access
+    explicitly: the caller must be enrolled in the project or hold an org-level
+    ``member:manage`` role (Admin/Owner). Otherwise a plain org Viewer could
+    enumerate any project's members.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    assert_project_access(request, current_user, str(project_id), db)
 
     memberships = (
         db.query(ProjectMembership)
