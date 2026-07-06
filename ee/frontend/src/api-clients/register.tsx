@@ -25,6 +25,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
 import { FeatureGate } from '@/contexts/FeaturesContext';
 import { registerOrgSettingsTab } from '@/lib/extension-registries';
+import ApiClientsEmptyState from './components/ApiClientsEmptyState';
 
 const ApiClientsSection = React.lazy(
   () => import('./components/ApiClientsSection')
@@ -32,7 +33,10 @@ const ApiClientsSection = React.lazy(
 
 function ApiClientsSectionGate() {
   return (
-    <FeatureGate feature={FeatureName.API_CLIENTS}>
+    <FeatureGate
+      feature={FeatureName.API_CLIENTS}
+      fallback={<ApiClientsEmptyState />}
+    >
       <React.Suspense
         fallback={
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
