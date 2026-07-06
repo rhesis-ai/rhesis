@@ -8,7 +8,7 @@ import {
   TestExecutionHistoryRow,
 } from './test-execution-history';
 
-const MAX_RESULTS = 500;
+const MAX_RESULTS = 100;
 
 interface UseTestExecutionHistoryOptions {
   testId: string | undefined;
