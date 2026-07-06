@@ -9,11 +9,12 @@ import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import LinkedTestSetsSection from '@/components/tests/LinkedTestSetsSection';
+import TestExecutionHistorySection from '@/components/tests/TestExecutionHistorySection';
 import TestMetadataCard from './TestMetadataCard';
 import TestTechnicalCard from './TestTechnicalCard';
 import TestFormElementsCard from './TestFormElementsCard';
 
-const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
+const TAB_KEYS = ['basic', 'linked', 'history', 'tasks'] as const;
 
 interface TestDetailTabsProps {
   test: TestDetail;
@@ -40,7 +41,9 @@ export default function TestDetailTabs({
         ? 'Overview'
         : key === 'linked'
           ? 'Linked Test Sets'
-          : 'Tasks',
+          : key === 'history'
+            ? 'Execution History'
+            : 'Tasks',
     id: `test-detail-tab-${index}`,
     'aria-controls': `test-detail-tabpanel-${index}`,
   }));
@@ -81,6 +84,13 @@ export default function TestDetailTabs({
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="test-detail">
+        <TestExecutionHistorySection
+          testId={test.id}
+          sessionToken={sessionToken}
+        />
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={3} prefix="test-detail">
         <TasksAndCommentsWrapper
           entityType="Test"
           entityId={test.id}
