@@ -1576,11 +1576,6 @@ def delete_user(
     return db_user
 
 
-def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
-    """Get a user by their Auth0 ID"""
-    return db.query(models.User).filter(models.User.auth0_id == auth0_id).first()
-
-
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     from sqlalchemy import func
 

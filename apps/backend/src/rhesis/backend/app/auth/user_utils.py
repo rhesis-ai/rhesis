@@ -28,85 +28,10 @@ if TYPE_CHECKING:
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: dict) -> User:
-    """
-    Find existing user or create a new one (legacy Auth0 version).
-
-    This function is kept for backward compatibility during migration.
-    New code should use find_or_create_user_from_auth() instead.
-    """
-    user = None
-    current_time = datetime.now(timezone.utc)
-    is_new_user = False
-
-    # First try to find user by email (this is our primary matching criteria)
-    if email:
-        user = crud.get_user_by_email(db, email)
-        if user:
-            # Found user by email - update profile info, auth0_id, and last login
-            user.name = user_profile["name"]
-            user.given_name = user_profile["given_name"]
-            user.family_name = user_profile["family_name"]
-            user.picture = user_profile["picture"]
-            user.auth0_id = auth0_id
-            user.last_login_at = current_time
-            user.is_email_verified = True  # Auth via provider confirms email
-            # Transaction commit is handled by the session context manager
-            return user
-
-    # If not found by email, try auth0_id as fallback
-    if not user and auth0_id:
-        user = crud.get_user_by_auth0_id(db, auth0_id)
-        if user:
-            # If emails don't match, we should create a new user
-            if email.lower() != user.email.lower():
-                user = None
-            else:
-                # Only update profile info and last login if emails match
-                user.name = user_profile["name"]
-                user.given_name = user_profile["given_name"]
-                user.family_name = user_profile["family_name"]
-                user.picture = user_profile["picture"]
-                user.last_login_at = current_time
-                user.is_email_verified = True  # Auth via provider confirms email
-                # Transaction commit is handled by the session context manager
-                return user
-
-    # If no user found or emails don't match, create new user
-    if not user:
-        # OAuth providers verify email ownership themselves; skip MX deliverability
-        # check to avoid DNS failures in split-horizon environments where the
-        # internal BIND9 zone only carries subdomain A records (no apex MX).
-        from rhesis.backend.app.utils.validation import validate_and_normalize_email
-
-        normalized_email = validate_and_normalize_email(email, check_deliverability=False)
-
-        user_data = UserCreate(
-            email=normalized_email,
-            name=user_profile["name"],
-            given_name=user_profile["given_name"],
-            family_name=user_profile["family_name"],
-            auth0_id=auth0_id,
-            picture=user_profile["picture"],
-            is_active=True,
-            is_email_verified=True,  # Auth0/IdP has verified the email
-            last_login_at=current_time,
-        )
-        user = crud.create_user(db, user_data)
-        is_new_user = True
-
-    # Send welcome email to new users
-    if is_new_user:
-        _send_welcome_email(user)
-
-    return user
-
-
 def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     """
     Find existing user or create a new one from provider-agnostic AuthUser.
 
-    This is the new provider-agnostic version that replaces find_or_create_user.
     Users are matched primarily by email, with provider info updated on each login.
 
     Args:

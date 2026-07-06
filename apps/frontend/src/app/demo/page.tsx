@@ -13,7 +13,6 @@ import {
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Image from 'next/image';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
 export default function DemoPage() {
   const [showCredentials, setShowCredentials] = useState(false);
@@ -41,8 +40,8 @@ export default function DemoPage() {
   const handleContinue = () => {
     setIsRedirecting(true);
 
-    // Redirect to backend demo endpoint which will redirect to Auth0 with login_hint
-    window.location.href = `${getClientApiBaseUrl()}/auth/demo`;
+    // Redirect to the sign-in page where the demo credentials above can be entered
+    window.location.href = '/auth/signin';
   };
 
   return (

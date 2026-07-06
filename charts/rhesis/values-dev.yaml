@@ -29,8 +29,6 @@ config:
   apiBaseUrl: "https://dev-api.rhesis.ai"
   nextPublicAppUrl: "https://dev-app.rhesis.ai"
   nextauthUrl: "https://dev-app.rhesis.ai"
-  nextPublicAuth0ClientId: ""
-  nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
   nextPublicSupportEmail: "hello@rhesis.ai"
   nextPublicOnboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend
