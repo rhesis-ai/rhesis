@@ -45,19 +45,32 @@ from tests.backend.ee.rbac._rbac_helpers import (
     _principal,
 )
 
-_ALL_CAPABILITIES = sorted(get_all_capabilities())
 
-assert _ALL_CAPABILITIES, (
-    "Capability catalog is empty — register_capabilities() must run before "
-    "collection (see tests/backend/conftest.py::_ensure_ee_features_registered)."
-)
+def _all_capabilities() -> list[str]:
+    capabilities = sorted(get_all_capabilities())
+    assert capabilities, (
+        "Capability catalog is empty — register_capabilities() must run before "
+        "collection (see tests/backend/conftest.py::_ensure_ee_features_registered)."
+    )
+    return capabilities
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """Parametrize ``cap`` from the live catalog at collection time.
+
+    A `pytest_generate_tests` hook (rather than a bare module-level global)
+    keeps the import-order dependency on capability registration inside
+    pytest's own collection machinery, so a violation surfaces as a normal
+    collection error instead of failing at raw module import.
+    """
+    if "cap" in metafunc.fixturenames:
+        metafunc.parametrize("cap", _all_capabilities())
 
 
 @pytest.mark.ee
 @pytest.mark.integration
 @pytest.mark.security
 @pytest.mark.parametrize("role_name", BUILT_IN_ROLE_NAMES)
-@pytest.mark.parametrize("cap", _ALL_CAPABILITIES)
 def test_role_capability_matrix(cap: str, role_name: str, test_db: Session) -> None:
     """``authorize()`` must match the oracle for every (role, capability) pair."""
     db = test_db
@@ -72,7 +85,7 @@ def test_role_capability_matrix(cap: str, role_name: str, test_db: Session) -> N
         project_id = _create_project(db, org_id)
         _add_project_member(db, org_id, project_id, user_id, role_id=None)
 
-    expected = cap in permissions_for_built_in_role(role_name, _ALL_CAPABILITIES)
+    expected = cap in permissions_for_built_in_role(role_name, _all_capabilities())
 
     with _ee_provider_active():
         result = authorize(_principal(user_id, org_id), cap, project_id=project_id, db=db)

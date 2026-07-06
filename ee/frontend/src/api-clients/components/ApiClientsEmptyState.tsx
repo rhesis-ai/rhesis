@@ -11,7 +11,9 @@ export default function ApiClientsEmptyState() {
       title="API Clients are an Enterprise feature"
       description="Issue scoped OAuth client credentials for machine-to-machine access to your organization's data."
       actionLabel="Learn about Enterprise"
-      onAction={() => window.open('https://rhesis.ai/pricing', '_blank')}
+      onAction={() =>
+        window.open('https://rhesis.ai/pricing', '_blank', 'noopener,noreferrer')
+      }
     />
   );
 }
