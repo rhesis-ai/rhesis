@@ -23,20 +23,23 @@ function makeRow(
 describe('mapTestResultToHistoryRow', () => {
   it('computes pass when all metrics succeed', () => {
     const result = {
-      id: 'result-1',
-      test_run_id: 'run-1',
+      id: 'a1111111-1111-4111-8111-111111111111',
+      test_run_id: 'b1111111-1111-4111-8111-111111111111',
+      updated_at: '2026-07-01T10:00:00Z',
+      test_configuration_id: 'c1111111-1111-4111-8111-111111111111',
       created_at: '2026-07-01T10:00:00Z',
       test_metrics: {
         metrics: {
           a: { is_successful: true },
           b: { is_successful: true },
         },
+        execution_time: 1,
       },
-    } as TestResultDetail;
+    } as unknown as TestResultDetail;
 
     const row = mapTestResultToHistoryRow(
       result,
-      new Map([['run-1', 'spinning-caracal']])
+      new Map([['b1111111-1111-4111-8111-111111111111', 'spinning-caracal']])
     );
 
     expect(row.passed).toBe(true);
@@ -47,16 +50,21 @@ describe('mapTestResultToHistoryRow', () => {
 
   it('prefers expanded test_run name over lookup map', () => {
     const result = {
-      id: 'result-1',
-      test_run_id: 'run-1',
-      test_run: { id: 'run-1', name: 'embedded-run-name' },
+      id: 'a1111111-1111-4111-8111-111111111111',
+      test_run_id: 'b1111111-1111-4111-8111-111111111111',
+      test_run: {
+        id: 'b1111111-1111-4111-8111-111111111111',
+        name: 'embedded-run-name',
+      },
+      updated_at: '2026-07-01T10:00:00Z',
+      test_configuration_id: 'c1111111-1111-4111-8111-111111111111',
       created_at: '2026-07-01T10:00:00Z',
-      test_metrics: { metrics: {} },
-    } as TestResultDetail;
+      test_metrics: { metrics: {}, execution_time: 0 },
+    } as unknown as TestResultDetail;
 
     const row = mapTestResultToHistoryRow(
       result,
-      new Map([['run-1', 'map-name']])
+      new Map([['b1111111-1111-4111-8111-111111111111', 'map-name']])
     );
 
     expect(row.testRunName).toBe('embedded-run-name');
@@ -64,16 +72,19 @@ describe('mapTestResultToHistoryRow', () => {
 
   it('computes fail when any metric fails', () => {
     const result = {
-      id: 'result-2',
-      test_run_id: 'run-2',
+      id: 'd2222222-2222-4222-8222-222222222222',
+      test_run_id: 'e2222222-2222-4222-8222-222222222222',
+      updated_at: '2026-07-02T10:00:00Z',
+      test_configuration_id: 'c1111111-1111-4111-8111-111111111111',
       created_at: '2026-07-02T10:00:00Z',
       test_metrics: {
         metrics: {
           a: { is_successful: true },
           b: { is_successful: false },
         },
+        execution_time: 1,
       },
-    } as TestResultDetail;
+    } as unknown as TestResultDetail;
 
     const row = mapTestResultToHistoryRow(result, new Map());
 

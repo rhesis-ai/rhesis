@@ -1,14 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  CircularProgress,
-  Paper,
-  TablePagination,
-  Typography,
-} from '@mui/material';
+import React from 'react';
+import { Alert, Box, CircularProgress, Paper, Typography } from '@mui/material';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TestExecutionHistoryTable from './TestExecutionHistoryTable';
@@ -19,8 +12,6 @@ interface TestExecutionHistorySectionProps {
   sessionToken: string;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50];
-
 export default function TestExecutionHistorySection({
   testId,
   sessionToken,
@@ -29,13 +20,6 @@ export default function TestExecutionHistorySection({
     testId,
     sessionToken,
   });
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const paginatedRows = useMemo(() => {
-    const start = page * rowsPerPage;
-    return rows.slice(start, start + rowsPerPage);
-  }, [rows, page, rowsPerPage]);
 
   if (loading) {
     return (
@@ -90,24 +74,7 @@ export default function TestExecutionHistorySection({
         Execution History ({rows.length})
       </Typography>
 
-      <TestExecutionHistoryTable rows={paginatedRows} />
-
-      {rows.length > PAGE_SIZE_OPTIONS[0] && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <TablePagination
-            component="div"
-            count={rows.length}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={event => {
-              setRowsPerPage(parseInt(event.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={PAGE_SIZE_OPTIONS}
-          />
-        </Box>
-      )}
+      <TestExecutionHistoryTable rows={rows} />
     </Paper>
   );
 }

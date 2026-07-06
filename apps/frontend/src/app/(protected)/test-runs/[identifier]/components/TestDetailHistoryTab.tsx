@@ -12,7 +12,7 @@ import {
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestExecutionHistoryTable from '@/components/tests/TestExecutionHistoryTable';
 import { useTestExecutionHistory } from '@/components/tests/useTestExecutionHistory';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface TestDetailHistoryTabProps {
   test: TestResultDetail;
@@ -34,8 +34,7 @@ export default function TestDetailHistoryTab({
 
   const stats = useMemo(() => {
     const passedCount = rows.filter(h => h.passed).length;
-    const passRate =
-      rows.length > 0 ? (passedCount / rows.length) * 100 : 0;
+    const passRate = rows.length > 0 ? (passedCount / rows.length) * 100 : 0;
 
     return [
       {
@@ -91,11 +90,12 @@ export default function TestDetailHistoryTab({
           {stats.map(stat => (
             <Card
               key={stat.label}
+              elevation={0}
               sx={{
                 flex: 1,
                 bgcolor: 'grey.100',
                 borderRadius: BORDER_RADIUS.sm,
-                boxShadow: ELEVATION.xs,
+                boxShadow: 'none',
               }}
             >
               <CardContent
@@ -132,26 +132,13 @@ export default function TestDetailHistoryTab({
       )}
 
       {rows.length === 0 ? (
-        <Box
-          sx={{
-            bgcolor: 'background.paper',
-            borderRadius: BORDER_RADIUS.md,
-            border: 1,
-            borderColor: 'divider',
-            boxShadow: ELEVATION.xs,
-            p: 3,
-            textAlign: 'center',
-          }}
-        >
+        <Box sx={{ py: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
             No historical data available for this test
           </Typography>
         </Box>
       ) : (
-        <TestExecutionHistoryTable
-          rows={rows}
-          highlightTestRunId={testRunId}
-        />
+        <TestExecutionHistoryTable rows={rows} highlightTestRunId={testRunId} />
       )}
     </Box>
   );

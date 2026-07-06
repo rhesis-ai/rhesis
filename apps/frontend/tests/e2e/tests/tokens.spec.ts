@@ -14,23 +14,14 @@ test.describe('API Tokens @sanity', () => {
   test('tokens page shows empty state or token list', async ({ page }) => {
     await page.goto('/tokens');
 
-    // Either the empty state or a data grid should be present
     const emptyState = page.getByText(/no api tokens yet/i);
     const createButton = page.getByRole('button', {
       name: /create api token/i,
     });
     const dataGrid = page.locator('[role="grid"]');
 
-    // Wait for the page to settle (loading completes)
-    await page.waitForLoadState('networkidle');
+    await expect(emptyState.or(dataGrid)).toBeVisible({ timeout: 15_000 });
 
-    const hasEmptyState = await emptyState.isVisible().catch(() => false);
-    const hasGrid = await dataGrid.isVisible().catch(() => false);
-
-    // One of these should be true
-    expect(hasEmptyState || hasGrid).toBeTruthy();
-
-    // The create button should always be available
     await expect(createButton).toBeVisible();
   });
 });
