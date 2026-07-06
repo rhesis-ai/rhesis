@@ -18,6 +18,7 @@ import {
 import type { Theme } from '@mui/material/styles';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import LockIcon from '@mui/icons-material/Lock';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { fetchRoles } from '../api/role-cache';
 import { isAssignableProjectRole } from '../role-display';
@@ -154,7 +155,7 @@ export default function TokenScopeField({
 
       {mode === 'restricted' && (
         <>
-          <FormControl fullWidth size="small">
+          <FormControl fullWidth size="small" sx={drawerOutlinedFieldSx}>
             <InputLabel id="token-role-label">Role template</InputLabel>
             <Select
               labelId="token-role-label"
@@ -203,7 +204,10 @@ export default function TokenScopeField({
                     variant={
                       level === CapabilityLevel.NONE ? 'outlined' : 'filled'
                     }
-                    sx={{ fontSize: 11, height: 22 }}
+                    sx={(t: Theme) => ({
+                      fontSize: t.typography.caption.fontSize,
+                      height: t.spacing(2.75),
+                    })}
                   />
                 ))}
               </Stack>
