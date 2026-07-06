@@ -29,6 +29,7 @@ x-sdk-backend-config: &sdk-backend-config
   LOG_LEVEL: DEBUG
   RHESIS_CONNECTOR_DISABLED: true
   API_BASE_URL: "http://localhost:10003"
+  OTEL_RHESIS_TELEMETRY_ENABLED: "false"
 
 services:
   # ==========================================================================
