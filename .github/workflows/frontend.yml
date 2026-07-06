@@ -299,7 +299,8 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
-          FROM_EMAIL=${{ secrets.FROM_EMAIL }}
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          NEXT_PUBLIC_ONBOARDING_VIDEO_URL=${{ secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
           EOF
           )"
 
@@ -336,7 +337,8 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
-          FROM_EMAIL=${{ secrets.FROM_EMAIL }}
+          FROM_EMAIL=${{ secrets.FROM_EMAIL }},
+          NEXT_PUBLIC_ONBOARDING_VIDEO_URL=${{ secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
           EOF
           )"
 
