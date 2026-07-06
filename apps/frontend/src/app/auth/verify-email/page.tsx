@@ -7,6 +7,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 
 const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
@@ -91,7 +92,7 @@ export default function VerifyEmailPage() {
           </Typography>
           <Button
             variant="contained"
-            href="/architect"
+            href={DEFAULT_AUTHENTICATED_PATH}
             fullWidth
             sx={{
               mt: 1,
@@ -104,7 +105,7 @@ export default function VerifyEmailPage() {
               },
             }}
           >
-            Go to dashboard
+            Go back to app
           </Button>
         </>
       )}
