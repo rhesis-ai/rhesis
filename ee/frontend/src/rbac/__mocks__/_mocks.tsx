@@ -20,9 +20,18 @@ import type { RoleRead } from '../types';
 
 export const canMock = {
   can: jest.fn(() => true),
-  useCan: jest.fn(() => true),
+  useCan: jest.fn((_capability?: string) => true),
   useCanWithStatus: jest.fn(() => ({ allowed: true, loading: false })),
-  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  // Ambient-only stub (no `subject` support): mirrors useCan so a single
+  // `canMock.useCan.mockReturnValue(false)` drives both the hook and the
+  // declarative wrapper consistently within a test.
+  Can: ({
+    capability,
+    children,
+  }: {
+    capability?: string;
+    children: React.ReactNode;
+  }) => (canMock.useCan(capability) ? <>{children}</> : null),
 };
 
 // ---------------------------------------------------------------------------
