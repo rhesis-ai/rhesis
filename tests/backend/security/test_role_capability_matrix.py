@@ -30,8 +30,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.capabilities import get_all_capabilities
 from rhesis.backend.app.auth.rbac import authorize
 from rhesis.backend.ee.rbac.models import (
-    SCOPE_ORGANIZATION,
     BUILT_IN_ROLE_NAMES,
+    SCOPE_ORGANIZATION,
     capability_scope,
     permissions_for_built_in_role,
 )

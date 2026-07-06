@@ -41,10 +41,11 @@ from rhesis.backend.ee.rbac.models import (
     OrganizationMember,
     Role,
 )
-from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
 from rhesis.backend.ee.rbac.router import (
+    _check_escalation,
     assign_org_role,
     assign_project_role,
+    check_project_role_assignment,
     create_role,
     delete_role,
     list_org_members,
@@ -69,7 +70,6 @@ from tests.backend.ee.rbac._rbac_helpers import (
     _create_user,
     _custom_role,
     _grant_permission,
-    _principal,
     _rbac_enabled,
     _user,
 )
@@ -480,6 +480,114 @@ class TestMultiUserScenarios:
         for (role, perm), want in expected.items():
             got = _authorized(self.db, users[role], self.org_id, perm)
             assert got == want, f"role={role} perm={perm}: expected {want}, got {got}"
+
+
+# ---------------------------------------------------------------------------
+# 4b. Escalation guards — _check_escalation / check_project_role_assignment
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestEscalationGuards:
+    """Direct unit tests for the privilege-escalation guard (router.py).
+
+    ``_check_escalation`` is a pure function (no DB) — tested directly with
+    hand-built inputs. ``check_project_role_assignment`` resolves the actor's
+    effective permissions/level from the DB, so those cases use real rows.
+    """
+
+    def test_check_escalation_allows_subset_and_equal_level(self):
+        _check_escalation(
+            permission_names=["test_set:read"],
+            role_level=60,
+            actor_permissions={"test_set:read", "test_set:create"},
+            actor_level=60,
+        )  # does not raise
+
+    def test_check_escalation_denies_permission_over_grant(self):
+        with pytest.raises(HTTPException) as exc:
+            _check_escalation(
+                permission_names=["role:manage"],
+                role_level=60,
+                actor_permissions={"test_set:read"},
+                actor_level=80,
+            )
+        assert exc.value.status_code == 403
+        assert "role:manage" in exc.value.detail
+
+    def test_check_escalation_denies_level_above_actor(self):
+        with pytest.raises(HTTPException) as exc:
+            _check_escalation(
+                permission_names=[],
+                role_level=100,
+                actor_permissions=set(),
+                actor_level=80,
+            )
+        assert exc.value.status_code == 403
+        assert "level" in exc.value.detail.lower()
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session):
+        self.db = test_db
+        self.org_id = _create_org(test_db)
+        self.project_id = _create_project(test_db, self.org_id)
+
+    def test_project_assignment_rejects_unknown_role(self):
+        actor_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, actor_id, "Owner")
+        with pytest.raises(HTTPException) as exc, _rbac_enabled():
+            check_project_role_assignment(
+                self.db, _user(actor_id, self.org_id), uuid.uuid4(), self.project_id
+            )
+        assert exc.value.status_code == 404
+
+    def test_project_assignment_rejects_none_role_at_project_tier(self):
+        actor_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, actor_id, "Owner")
+        none_role = _builtin_role(self.db, "None")
+        with pytest.raises(HTTPException) as exc, _rbac_enabled():
+            check_project_role_assignment(
+                self.db, _user(actor_id, self.org_id), none_role.id, self.project_id
+            )
+        assert exc.value.status_code == 422
+
+    def test_project_assignment_allows_owner_role_for_owner_actor(self):
+        """Owner (level 100) IS assignable at the project tier (K8s-ClusterRole model)."""
+        actor_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, actor_id, "Owner")
+        owner_role = _builtin_role(self.db, "Owner")
+        with _rbac_enabled():
+            resolved = check_project_role_assignment(
+                self.db, _user(actor_id, self.org_id), owner_role.id, self.project_id
+            )
+        assert resolved.id == owner_role.id
+
+    def test_project_assignment_denies_over_privileged_grant(self):
+        """A Member actor cannot grant the Owner role at the project tier."""
+        actor_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, actor_id, "Member")
+        _assign_project_role(self.db, self.org_id, self.project_id, actor_id, "Member")
+        owner_role = _builtin_role(self.db, "Owner")
+        with pytest.raises(HTTPException) as exc, _rbac_enabled():
+            check_project_role_assignment(
+                self.db, _user(actor_id, self.org_id), owner_role.id, self.project_id
+            )
+        assert exc.value.status_code == 403
+
+    def test_project_promotion_does_not_leak_to_other_project(self):
+        """Org-level Viewer promoted to Member on one project only stays scoped."""
+        user_id = _create_user(self.db, self.org_id)
+        other_project_id = _create_project(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, user_id, "Viewer")
+        _assign_project_role(self.db, self.org_id, self.project_id, user_id, "Member")
+
+        assert _authorized(
+            self.db, user_id, self.org_id, "test_set:create", project_id=self.project_id
+        )
+        assert not _authorized(
+            self.db, user_id, self.org_id, "test_set:create", project_id=other_project_id
+        )
 
 
 # ---------------------------------------------------------------------------
