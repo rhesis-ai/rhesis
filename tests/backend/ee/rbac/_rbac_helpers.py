@@ -21,6 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.principal import Principal
+from rhesis.backend.app.auth.rbac import get_authorization_provider, set_authorization_provider
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.ee.rbac.models import OrganizationMember, Permission, Role, RolePermission
@@ -169,3 +170,27 @@ def _authorized(
         return PermissionAuthorizationProvider().is_authorized(
             _principal(user_id, org_id), permission, project_id=project_id, db=db
         )
+
+
+@contextmanager
+def _ee_provider_active():
+    """Install the EE ``PermissionAuthorizationProvider`` as the active PDP provider.
+
+    Unlike :func:`_rbac_enabled`/:func:`_authorized`, which call the EE provider
+    directly, this installs it into the global registry so callers can exercise
+    the real single-decision-point ``authorize()`` function (``app/auth/rbac.py``)
+    exactly as production code does.
+    """
+    previous = get_authorization_provider()
+    set_authorization_provider(PermissionAuthorizationProvider())
+    try:
+        with (
+            patch(
+                "rhesis.backend.app.features.FeatureRegistry.is_available",
+                return_value=True,
+            ),
+            patch.object(PermissionAuthorizationProvider, "_rbac_available", return_value=True),
+        ):
+            yield
+    finally:
+        set_authorization_provider(previous)
