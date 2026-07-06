@@ -29,7 +29,6 @@ Usage::
 from __future__ import annotations
 
 import logging
-import os
 from typing import Optional
 
 from opentelemetry import trace
@@ -47,6 +46,21 @@ from rhesis.sdk.telemetry.integrations.agent_framework.translator import (
 )
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
 
+# Shared with other native-GenAI integrations (see genai.py); imported under
+# the historical private names so existing references keep working.
+from rhesis.sdk.telemetry.integrations.genai import (
+    DISABLE_CONTENT_CAPTURE_ENV as _DISABLE_CONTENT_CAPTURE_ENV,
+)
+from rhesis.sdk.telemetry.integrations.genai import (
+    content_capture_enabled as _content_capture_enabled,
+)
+from rhesis.sdk.telemetry.integrations.genai import (
+    get_processor_exporter as _get_processor_exporter,
+)
+from rhesis.sdk.telemetry.integrations.genai import (
+    set_processor_exporter as _set_processor_exporter,
+)
+
 logger = logging.getLogger(__name__)
 
 # Span-processor types whose underlying exporter we know how to swap out for
@@ -59,29 +73,6 @@ _WRAPPABLE_PROCESSORS: tuple[type[SpanProcessor], ...] = (
     BatchSpanProcessor,
     SimpleSpanProcessor,
 )
-
-# Opt-out env var for message/tool content capture. When truthy, the
-# integration disables MAF's ``enable_sensitive_data`` so prompts, completions,
-# and tool arguments/results are NOT captured into spans.
-_DISABLE_CONTENT_CAPTURE_ENV = "RHESIS_DISABLE_CONTENT_CAPTURE"
-
-# Truthy string values for the opt-out env var.
-_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
-
-
-def _content_capture_enabled() -> bool:
-    """Return whether MAF should capture message/tool content into spans.
-
-    Defaults to ``True`` because the whole point of the Rhesis integration is
-    to ship prompts/completions/tool I/O to the backend so they render in the
-    trace UI. Privacy-sensitive deployments can opt out by setting
-    ``RHESIS_DISABLE_CONTENT_CAPTURE`` to a truthy value (``1``/``true``/
-    ``yes``/``on``).
-    """
-    raw = os.getenv(_DISABLE_CONTENT_CAPTURE_ENV)
-    if raw is None:
-        return True
-    return raw.strip().lower() not in _TRUTHY_ENV_VALUES
 
 
 class MAFIntegration(BaseIntegration):
@@ -318,48 +309,6 @@ class MAFIntegration(BaseIntegration):
                 "Rhesis ai.* schema. Ensure RhesisClient is created before "
                 "auto_instrument()."
             )
-
-
-def _get_processor_exporter(processor: SpanProcessor) -> Optional[SpanExporter]:
-    """Read the underlying exporter on a span processor across OTEL SDK versions.
-
-    Mirrors :func:`_set_processor_exporter` so the read and write paths use the
-    same detection. Today both layouts resolve via the public ``span_exporter``
-    attribute (newer ``BatchSpanProcessor`` exposes it as a property that
-    delegates to ``self._batch_processor._exporter``), but probing the inner
-    slot first is defense-in-depth: if a future OTEL release drops the
-    convenience property, the reader still finds the exporter the same way the
-    writer would set it.
-    """
-    inner = getattr(processor, "_batch_processor", None)
-    if inner is not None:
-        exp = getattr(inner, "_exporter", None)
-        if exp is not None:
-            return exp
-    return getattr(processor, "span_exporter", None)
-
-
-def _set_processor_exporter(processor: SpanProcessor, exporter: SpanExporter) -> None:
-    """Set the underlying exporter on a span processor across OTEL SDK versions.
-
-    Works for both :class:`BatchSpanProcessor` and :class:`SimpleSpanProcessor`:
-
-    - Newer ``BatchSpanProcessor`` exposes the exporter as a read-only property
-      that delegates to ``self._batch_processor._exporter``; we set the inner
-      slot directly.
-    - Older ``BatchSpanProcessor`` and ``SimpleSpanProcessor`` keep
-      ``span_exporter`` as a plain settable attribute.
-
-    We try the inner attribute first (newer Batch layout), then fall back to
-    direct assignment (Simple / older Batch).
-    """
-    inner = getattr(processor, "_batch_processor", None)
-    if inner is not None and hasattr(inner, "_exporter"):
-        inner._exporter = exporter  # noqa: SLF001
-        return
-    # Older OTEL Batch SDK or SimpleSpanProcessor: span_exporter is a plain
-    # attribute we can set directly.
-    setattr(processor, "span_exporter", exporter)
 
 
 _maf_integration = MAFIntegration()

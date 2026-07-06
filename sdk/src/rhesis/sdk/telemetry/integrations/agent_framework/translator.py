@@ -20,9 +20,9 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
-from opentelemetry.sdk.trace import Event, ReadableSpan, SpanProcessor
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
@@ -35,6 +35,15 @@ from rhesis.sdk.telemetry.context import (
     set_llm_observation_active,
 )
 from rhesis.sdk.telemetry.integrations.agent_framework import mapping
+
+# Shared with other native-GenAI integrations (see genai.py); imported under
+# the historical private names so existing references keep working.
+from rhesis.sdk.telemetry.integrations.genai import (
+    TranslatedSpan as _TranslatedSpan,
+)
+from rhesis.sdk.telemetry.integrations.genai import (
+    translate_events as _translate_events,
+)
 from rhesis.telemetry.constants import ConversationContext
 
 logger = logging.getLogger(__name__)
@@ -62,79 +71,10 @@ def _verbose_workflow_spans_enabled() -> bool:
     return raw.strip().lower() in _TRUTHY_ENV_VALUES
 
 
-class _TranslatedSpan(ReadableSpan):
-    """Read-only view that swaps the original span's name/attributes/events.
-
-    OTEL ``ReadableSpan`` exposes its data via properties. By overriding only
-    the three we care about we get a span that quacks like the original (kind,
-    parent, status, timestamps, resource, instrumentation_scope, ...) but that
-    appears in the Rhesis ``ai.*`` namespace to downstream consumers.
-    """
-
-    def __init__(
-        self,
-        original: ReadableSpan,
-        new_name: str,
-        new_attributes: Mapping[str, Any],
-        new_events: Sequence[Event],
-    ) -> None:
-        # Skip ReadableSpan.__init__ on purpose: the parent stores fields in
-        # private slots and forces us to copy them all over. Instead, we keep
-        # the underlying span and forward unknown attribute access via
-        # ``__getattr__`` below.
-        self._original = original
-        self._new_name = new_name
-        self._new_attributes = dict(new_attributes)
-        self._new_events = tuple(new_events)
-
-    @property
-    def name(self) -> str:  # type: ignore[override]
-        return self._new_name
-
-    @property
-    def attributes(self):  # type: ignore[override]
-        return self._new_attributes
-
-    @property
-    def events(self):  # type: ignore[override]
-        return self._new_events
-
-    def __getattr__(self, item: str) -> Any:
-        # __getattr__ is only consulted when normal lookup fails, so it never
-        # masks the explicit overrides above.
-        return getattr(self._original, item)
-
-    def to_json(self, indent: int = 4) -> str:  # type: ignore[override]
-        return self._original.to_json(indent=indent)
-
-    def __repr__(self) -> str:  # pragma: no cover - cosmetic
-        return f"_TranslatedSpan(name={self._new_name!r}, original={self._original!r})"
-
-
 def _is_maf_span(span: ReadableSpan) -> bool:
     scope = getattr(span, "instrumentation_scope", None)
     scope_name = getattr(scope, "name", None)
     return mapping.is_maf_scope(scope_name)
-
-
-def _translate_events(
-    original_events: Iterable[Event],
-    span_attributes: Mapping[str, Any],
-) -> list[Event]:
-    """Build the new event list, including synthesized tool I/O events."""
-    new_events: list[Event] = []
-    for event in original_events:
-        new_name = mapping.translate_event_name(event.name)
-        new_attrs = mapping.translate_event_attributes(event.name, event.attributes or {})
-        new_events.append(Event(name=new_name, attributes=new_attrs, timestamp=event.timestamp))
-
-    for synth_name, synth_attrs in mapping.synthesize_message_events(span_attributes):
-        new_events.append(Event(name=synth_name, attributes=synth_attrs))
-
-    for synth_name, synth_attrs in mapping.synthesize_tool_io_events(span_attributes):
-        new_events.append(Event(name=synth_name, attributes=synth_attrs))
-
-    return new_events
 
 
 def translate_span(
