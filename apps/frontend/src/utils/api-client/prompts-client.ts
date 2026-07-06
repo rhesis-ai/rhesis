@@ -36,8 +36,8 @@ export class PromptsClient extends BaseApiClient {
 
     const queryString = queryParams.toString();
     const url = queryString
-      ? `${API_ENDPOINTS.prompts}?${queryString}`
-      : API_ENDPOINTS.prompts;
+      ? `${API_ENDPOINTS.prompts}/?${queryString}`
+      : `${API_ENDPOINTS.prompts}/`;
 
     return this.fetch<Prompt[]>(url, {
       cache: 'no-store',
@@ -58,7 +58,7 @@ export class PromptsClient extends BaseApiClient {
    * Create a new prompt
    */
   async createPrompt(prompt: PromptCreate): Promise<Prompt> {
-    return this.fetch<Prompt>(API_ENDPOINTS.prompts, {
+    return this.fetch<Prompt>(`${API_ENDPOINTS.prompts}/`, {
       method: 'POST',
       body: JSON.stringify(prompt),
     });

@@ -101,7 +101,14 @@ const nextConfig = {
   // webpack treat the symlinked package as if its files were physically inside
   // apps/frontend/node_modules, so MUI/React resolve via normal walk-up —
   // no aliases needed.
-  transpilePackages: ['@rhesis/ee-frontend'],
+  // next-auth ships ESM-only (no CJS build, no "require" export condition),
+  // so Jest's default node_modules-are-untransformed rule leaves its
+  // `import`/`export` syntax unparsed for any test that imports it without
+  // mocking it out. next/jest derives its transform-ignore allowlist from
+  // this array (see next/dist/build/jest/jest.js), so it must be listed
+  // here, not in jest.config.js's transformIgnorePatterns — that option can
+  // only add more exclusions, never un-ignore what this array controls.
+  transpilePackages: ['@rhesis/ee-frontend', 'next-auth', '@auth/core'],
 
   // embedding-atlas pulls in Mosaic/DuckDB WASM; keep it off the server bundle.
   // Do not also list these in transpilePackages — Turbopack rejects that conflict.

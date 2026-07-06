@@ -37,7 +37,7 @@ export class EndpointsClient extends BaseApiClient {
 
   async createEndpoint(endpoint: EndpointCreate): Promise<Endpoint> {
     try {
-      return await this.fetch<Endpoint>(API_ENDPOINTS.endpoints, {
+      return await this.fetch<Endpoint>(`${API_ENDPOINTS.endpoints}/`, {
         method: 'POST',
         body: JSON.stringify(endpoint),
       });

@@ -74,7 +74,6 @@ interface TestSetTestsGridProps {
   testSetType?: string;
   /** When true, grid is rendered inside embedding atlas (spacing only). */
   embedded?: boolean;
-  onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
 }
 
@@ -105,7 +104,8 @@ export default function TestSetTestsGrid({
   const {
     data,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: [
       ...testSetKeys.detail(testSetId),
@@ -114,6 +114,7 @@ export default function TestSetTestsGrid({
       paginationModel.page,
       paginationModel.pageSize,
     ],
+    errorFallbackMessage: 'Failed to load tests',
     queryFn: () =>
       new ApiClientFactory(sessionToken)
         .getTestSetsClient()
@@ -129,7 +130,6 @@ export default function TestSetTestsGrid({
 
   const tests = data?.data ?? [];
   const totalCount = data?.pagination.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load tests' : null;
 
   React.useEffect(() => {
     if (data && !filterString) onTotalCountChange?.(totalCount);
@@ -161,7 +161,7 @@ export default function TestSetTestsGrid({
   return (
     <LinkedTestsToolbarContext.Provider value={toolbarContextValue}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

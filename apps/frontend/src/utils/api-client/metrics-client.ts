@@ -63,7 +63,7 @@ export class MetricsClient extends BaseApiClient {
   }
 
   async createMetric(metric: MetricCreate): Promise<Metric> {
-    return this.fetch<Metric>(API_ENDPOINTS.metrics, {
+    return this.fetch<Metric>(`${API_ENDPOINTS.metrics}/`, {
       method: 'POST',
       body: JSON.stringify(metric),
     });

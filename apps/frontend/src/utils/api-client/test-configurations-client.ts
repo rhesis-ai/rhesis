@@ -51,10 +51,13 @@ export class TestConfigurationsClient extends BaseApiClient {
   async createTestConfiguration(
     testConfiguration: TestConfigurationCreate
   ): Promise<TestConfiguration> {
-    return this.fetch<TestConfiguration>(API_ENDPOINTS.testConfigurations, {
-      method: 'POST',
-      body: JSON.stringify(testConfiguration),
-    });
+    return this.fetch<TestConfiguration>(
+      `${API_ENDPOINTS.testConfigurations}/`,
+      {
+        method: 'POST',
+        body: JSON.stringify(testConfiguration),
+      }
+    );
   }
 
   async updateTestConfiguration(

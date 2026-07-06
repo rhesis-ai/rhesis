@@ -52,7 +52,7 @@ export class TestResultsClient extends BaseApiClient {
   }
 
   async createTestResult(testResult: TestResultCreate): Promise<TestResult> {
-    return this.fetch<TestResult>(API_ENDPOINTS.testResults, {
+    return this.fetch<TestResult>(`${API_ENDPOINTS.testResults}/`, {
       method: 'POST',
       body: JSON.stringify(testResult),
     });

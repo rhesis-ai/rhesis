@@ -203,7 +203,17 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockRejectedValue(new Error('Network error'));
     render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(screen.getByText(/failed to load test runs/i)).toBeInTheDocument();
+    expect(screen.getByText(/network error/i)).toBeInTheDocument();
+  });
+
+  it('dismisses the error alert on close', async () => {
+    mockGetTestRuns.mockRejectedValue(new Error('Network error'));
+    render(<TestRunsGrid sessionToken="tok" />);
+    await screen.findByRole('alert');
+    await userEvent.click(screen.getByLabelText(/close/i));
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    );
   });
 
   it('navigates to test run detail on row click', async () => {

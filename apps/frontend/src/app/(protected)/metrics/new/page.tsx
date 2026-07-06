@@ -40,6 +40,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TEST_TYPES } from '@/constants/test-types';
 import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
+import { useTypeLookups } from '@/hooks/useLookups';
 
 // Add session type augmentation
 declare module 'next-auth' {
@@ -95,6 +96,13 @@ export default function NewMetricPage() {
   const { data: session } = useSession();
   const theme = useTheme();
   const type = searchParams.get('type');
+  const { data: allTypeLookups } = useTypeLookups(
+    session?.session_token ?? '',
+    type
+      ? `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
+      : '',
+    !!type
+  );
   const [activeStep, setActiveStep] = React.useState(0);
   const [formData, setFormData] =
     React.useState<MetricFormData>(initialFormData);
@@ -223,18 +231,12 @@ export default function NewMetricPage() {
 
       const apiClient = new ApiClientFactory(session.session_token);
       const metricsClient = apiClient.getMetricsClient();
-      const typeLookupClient = apiClient.getTypeLookupClient();
 
-      // Get both metric type and backend type in a single API call
-      const allTypeLookups = await typeLookupClient.getTypeLookups({
-        $filter: `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`,
-      });
-
-      const typeLookups = allTypeLookups.filter(
+      const typeLookups = (allTypeLookups ?? []).filter(
         lookup =>
           lookup.type_name === 'MetricType' && lookup.type_value === type
       );
-      const backendTypes = allTypeLookups.filter(
+      const backendTypes = (allTypeLookups ?? []).filter(
         lookup =>
           lookup.type_name === 'BackendType' && lookup.type_value === 'custom'
       );
