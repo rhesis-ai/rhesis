@@ -153,10 +153,14 @@ export function useEndpointOptions(sessionToken: string, enabled = true) {
 export function useDeleteEndpoint(sessionToken: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      new ApiClientFactory(sessionToken)
+    mutationFn: (id: string) => {
+      if (!sessionToken) {
+        throw new Error('No session token available');
+      }
+      return new ApiClientFactory(sessionToken)
         .getEndpointsClient()
-        .deleteEndpoint(id),
+        .deleteEndpoint(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
     },
@@ -165,10 +169,14 @@ export function useDeleteEndpoint(sessionToken: string) {
 
 export function useTestEndpoint(sessionToken: string) {
   return useMutation({
-    mutationFn: (testConfig: EndpointTestRequest) =>
-      new ApiClientFactory(sessionToken)
+    mutationFn: (testConfig: EndpointTestRequest) => {
+      if (!sessionToken) {
+        throw new Error('No session token available');
+      }
+      return new ApiClientFactory(sessionToken)
         .getEndpointsClient()
-        .testEndpoint(testConfig),
+        .testEndpoint(testConfig);
+    },
   });
 }
 
@@ -180,10 +188,14 @@ export function useInvokeEndpoint(sessionToken: string) {
     }: {
       id: string;
       inputData: Record<string, unknown>;
-    }) =>
-      new ApiClientFactory(sessionToken)
+    }) => {
+      if (!sessionToken) {
+        throw new Error('No session token available');
+      }
+      return new ApiClientFactory(sessionToken)
         .getEndpointsClient()
-        .invokeEndpoint(id, inputData),
+        .invokeEndpoint(id, inputData);
+    },
   });
 }
 
