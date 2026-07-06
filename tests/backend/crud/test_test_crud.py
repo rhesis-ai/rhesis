@@ -126,8 +126,14 @@ class TestTestOperations:
         assert result is not None
         assert result.behavior_id == robustness.id
 
-        test_db.refresh(test_set)
-        assert test_set.attributes["metadata"]["behaviors"] == ["Robustness"]
+        reloaded_test_set = crud.get_test_set(
+            test_db,
+            test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert reloaded_test_set is not None
+        assert reloaded_test_set.attributes["metadata"]["behaviors"] == ["Robustness"]
 
     def test_update_test_skips_attribute_refresh_for_non_metadata_fields(
         self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str
@@ -196,5 +202,13 @@ class TestTestOperations:
             user_id=authenticated_user_id,
         )
 
-        test_db.refresh(explorer_test_set)
-        assert explorer_test_set.attributes["metadata"]["behaviors"] == [ADAPTIVE_TESTING_BEHAVIOR]
+        reloaded_explorer_test_set = crud.get_test_set(
+            test_db,
+            explorer_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert reloaded_explorer_test_set is not None
+        assert reloaded_explorer_test_set.attributes["metadata"]["behaviors"] == [
+            ADAPTIVE_TESTING_BEHAVIOR
+        ]
