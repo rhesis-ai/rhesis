@@ -53,7 +53,9 @@ export default function TestSetSelectionDrawer({
 
     setLoading(true);
     try {
-      const testSetsClient = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const testSetsClient = new ApiClientFactory(
+        sessionToken
+      ).getTestSetsClient();
       const typeFilter = resolvedTestSetTypeId
         ? `test_set_type_id eq '${resolvedTestSetTypeId}'`
         : undefined;
@@ -82,9 +84,7 @@ export default function TestSetSelectionDrawer({
   }, [open, fetchTestSets]);
 
   const handleAssign = async (selectedIds: string[]) => {
-    const selected = testSets.filter(ts =>
-      selectedIds.includes(String(ts.id))
-    );
+    const selected = testSets.filter(ts => selectedIds.includes(String(ts.id)));
     if (selected.length === 0) return;
 
     await onSelect(selected);

@@ -14,9 +14,7 @@ import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { CategoryIcon, ScienceIcon } from '@/components/icons';
-import TestsGrid, {
-  type TestsBulkActionsState,
-} from './components/TestsGrid';
+import TestsGrid, { type TestsBulkActionsState } from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';

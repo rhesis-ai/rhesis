@@ -29,7 +29,14 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { Typography, Box, Alert, Chip, FormControlLabel, Switch } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Alert,
+  Chip,
+  FormControlLabel,
+  Switch,
+} from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
@@ -773,8 +780,7 @@ export default function TestsTable({
     }
   }, [queryClient, paginationModel.page]);
 
-  const showSelectionActions =
-    checkboxSelectionMode && selectedRows.length > 0;
+  const showSelectionActions = checkboxSelectionMode && selectedRows.length > 0;
 
   const bulkHandlersRef = useRef({
     onAssign: handleCreateTestSet,
@@ -792,11 +798,7 @@ export default function TestsTable({
       onAssign: () => bulkHandlersRef.current.onAssign(),
       onDelete: () => bulkHandlersRef.current.onDelete(),
     });
-  }, [
-    showSelectionActions,
-    selectedTestTypes.isMixed,
-    onBulkActionsChange,
-  ]);
+  }, [showSelectionActions, selectedTestTypes.isMixed, onBulkActionsChange]);
 
   useEffect(() => {
     return () => {
@@ -857,9 +859,7 @@ export default function TestsTable({
         rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
         onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
         getRowUrl={
-          checkboxSelectionMode
-            ? undefined
-            : row => `/tests/${row.id}`
+          checkboxSelectionMode ? undefined : row => `/tests/${row.id}`
         }
         serverSidePagination={true}
         totalRows={totalCount}

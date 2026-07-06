@@ -208,9 +208,7 @@ async function enableSelectionMode() {
   await userEvent.click(screen.getByRole('switch', { name: /select tests/i }));
 }
 
-function TestsTableHarness(
-  props: React.ComponentProps<typeof TestsTable>
-) {
+function TestsTableHarness(props: React.ComponentProps<typeof TestsTable>) {
   const bulkRef = React.useRef<TestsBulkActionsState>({
     visible: false,
     assignDisabled: false,

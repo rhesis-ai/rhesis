@@ -36,9 +36,7 @@ import {
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import TestResultDrawer, {
-  TEST_RESULT_DRAWER_TAB,
-} from './TestResultDrawer';
+import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import {
