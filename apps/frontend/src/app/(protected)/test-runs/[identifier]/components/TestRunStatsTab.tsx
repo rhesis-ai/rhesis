@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   CategoryPassRates,
@@ -35,6 +36,7 @@ import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
 import {
   BehaviorStat,
+  aggregateMetricStats,
   getReviewBand,
   MetricStat,
 } from './test-run-summary-utils';
@@ -329,16 +331,43 @@ function MetricTable({
                   canDrilldown ? () => onViewMetric!(stat.name) : undefined
                 }
               >
-                <TableCell sx={{ maxWidth: 300 }}>
-                  <Tooltip title={stat.name} placement="top" arrow>
-                    <Typography
-                      variant="body2"
-                      noWrap
-                      sx={{ maxWidth: 280, display: 'block' }}
-                    >
-                      {stat.name}
-                    </Typography>
-                  </Tooltip>
+                <TableCell sx={{ maxWidth: 360 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <Tooltip title={stat.name} placement="top" arrow>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ maxWidth: 200, display: 'block' }}
+                      >
+                        {stat.name}
+                      </Typography>
+                    </Tooltip>
+                    {(stat.humanReviewCount ?? 0) > 0 && (
+                      <Tooltip
+                        title={`Automated: ${stat.automatedPassed ?? 0} passed, ${stat.automatedFailed ?? 0} failed. After human review: ${stat.passed} passed, ${stat.failed} failed.`}
+                        placement="top"
+                        arrow
+                      >
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          icon={
+                            <RateReviewIcon sx={{ '&&': { fontSize: 16 } }} />
+                          }
+                          label={`${stat.humanReviewCount} reviewed`}
+                          sx={{ flexShrink: 0 }}
+                        />
+                      </Tooltip>
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell align="right">{stat.total}</TableCell>
                 <TableCell
@@ -602,6 +631,9 @@ export default function TestRunStatsTab({
   }, [stats]);
 
   const metricStats = useMemo((): MetricStat[] => {
+    if (testResults.length > 0) {
+      return aggregateMetricStats(testResults);
+    }
     if (!stats?.metric_pass_rates) return [];
     return Object.entries(stats.metric_pass_rates).map(([name, s]) => ({
       name,
@@ -609,8 +641,11 @@ export default function TestRunStatsTab({
       passed: s.passed,
       failed: s.failed,
       failRate: s.total > 0 ? ((s.total - s.passed) / s.total) * 100 : 0,
+      automatedPassed: s.automated_passed,
+      automatedFailed: s.automated_failed,
+      humanReviewCount: s.human_review_count,
     }));
-  }, [stats]);
+  }, [stats, testResults]);
 
   const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
 

@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import OverallTestResult
 from rhesis.backend.app.models.stats_views import TestResultStatsView
 
-from .common import build_pass_rate_stats, build_response_data, parse_date_range
+from .common import (
+    build_metric_pass_rate_stats,
+    build_pass_rate_stats,
+    build_response_data,
+    effective_metric_success,
+    parse_date_range,
+)
 
 MODE_DEFINITIONS = {
     "all": [
@@ -148,7 +154,11 @@ def _timeline_stats(base_q):
                         continue
                     if name not in bucket["metrics"]:
                         bucket["metrics"][name] = {P: 0, F: 0}
-                    if data["is_successful"]:
+                    if effective_metric_success(
+                        r.result,
+                        bool(data["is_successful"]),
+                        bool(data.get("override")),
+                    ):
                         bucket["metrics"][name][P] += 1
                     else:
                         bucket["metrics"][name][F] += 1
@@ -225,10 +235,10 @@ def _metric_stats(base_q):
     """Aggregate per-metric pass rates from the JSONB test_metrics column.
     Uses a lightweight Python loop over only the JSON column — the view has
     already performed all joins so no ORM objects are loaded."""
-    results = base_q.with_entities(V.test_metrics).all()
+    results = base_q.with_entities(V.test_metrics, V.result).all()
     P, F = OverallTestResult.PASSED, OverallTestResult.FAILED
     metric_agg: dict = {}
-    for (metrics_json,) in results:
+    for metrics_json, overall_result in results:
         if not metrics_json or not isinstance(metrics_json, dict):
             continue
         metrics = metrics_json.get("metrics")
@@ -238,12 +248,42 @@ def _metric_stats(base_q):
             if not isinstance(data, dict) or "is_successful" not in data:
                 continue
             if name not in metric_agg:
-                metric_agg[name] = {P: 0, F: 0}
-            if data["is_successful"]:
-                metric_agg[name][P] += 1
+                metric_agg[name] = {
+                    P: 0,
+                    F: 0,
+                    "automated_passed": 0,
+                    "automated_failed": 0,
+                    "human_review_count": 0,
+                }
+            bucket = metric_agg[name]
+            automated = bool(data["is_successful"])
+            effective = effective_metric_success(
+                overall_result,
+                automated,
+                bool(data.get("override")),
+            )
+            if effective:
+                bucket[P] += 1
             else:
-                metric_agg[name][F] += 1
-    return build_pass_rate_stats(metric_agg)
+                bucket[F] += 1
+            if automated:
+                bucket["automated_passed"] += 1
+            else:
+                bucket["automated_failed"] += 1
+            if effective != automated:
+                bucket["human_review_count"] += 1
+
+    normalized = {
+        name: {
+            "passed": stats[P],
+            "failed": stats[F],
+            "automated_passed": stats["automated_passed"],
+            "automated_failed": stats["automated_failed"],
+            "human_review_count": stats["human_review_count"],
+        }
+        for name, stats in metric_agg.items()
+    }
+    return build_metric_pass_rate_stats(normalized)
 
 
 def get_test_result_stats(

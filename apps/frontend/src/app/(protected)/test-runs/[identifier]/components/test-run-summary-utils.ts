@@ -33,6 +33,11 @@ export interface MetricStat {
   passed: number;
   failed: number;
   failRate: number;
+  /** Raw automated pass count before human reviews */
+  automatedPassed?: number;
+  automatedFailed?: number;
+  /** Tests where effective outcome differs from automated metric result */
+  humanReviewCount?: number;
 }
 
 export function aggregateBehaviorStats(
@@ -64,23 +69,64 @@ export function aggregateBehaviorStats(
 export function aggregateMetricStats(
   testResults: TestResultDetail[]
 ): MetricStat[] {
-  const map = new Map<string, { passed: number; total: number }>();
+  const map = new Map<
+    string,
+    {
+      passed: number;
+      total: number;
+      automatedPassed: number;
+      humanReviewCount: number;
+    }
+  >();
 
   for (const result of testResults) {
     const metrics = result.test_metrics?.metrics ?? {};
     for (const [name, m] of Object.entries(metrics)) {
-      const entry = map.get(name) ?? { passed: 0, total: 0 };
+      const entry = map.get(name) ?? {
+        passed: 0,
+        total: 0,
+        automatedPassed: 0,
+        humanReviewCount: 0,
+      };
       entry.total += 1;
-      if (m.is_successful) entry.passed += 1;
+      const automated = m.is_successful;
+      const effective = getEffectiveMetricSuccess(result, m);
+      if (automated) entry.automatedPassed += 1;
+      if (effective) entry.passed += 1;
+      if (automated !== effective) entry.humanReviewCount += 1;
       map.set(name, entry);
     }
   }
 
-  return Array.from(map.entries()).map(([name, { passed, total }]) => ({
-    name,
-    total,
-    passed,
-    failed: total - passed,
-    failRate: total > 0 ? ((total - passed) / total) * 100 : 0,
-  }));
+  return Array.from(map.entries()).map(
+    ([name, { passed, total, automatedPassed, humanReviewCount }]) => ({
+      name,
+      total,
+      passed,
+      failed: total - passed,
+      failRate: total > 0 ? ((total - passed) / total) * 100 : 0,
+      automatedPassed,
+      automatedFailed: total - automatedPassed,
+      humanReviewCount,
+    })
+  );
+}
+
+export function getEffectiveMetricSuccess(
+  test: TestResultDetail,
+  metric: { is_successful: boolean; override?: { original_value: boolean } }
+): boolean {
+  if (metric.override) {
+    return metric.is_successful;
+  }
+
+  const overall = getEffectiveTestResultStatus(test);
+  if (overall === 'Pass' && !metric.is_successful) {
+    return true;
+  }
+  if (overall === 'Fail' && metric.is_successful) {
+    return false;
+  }
+
+  return metric.is_successful;
 }
