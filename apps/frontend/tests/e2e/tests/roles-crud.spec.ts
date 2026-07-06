@@ -35,7 +35,7 @@ test.describe('RBAC Roles — CRUD @mocked', () => {
       'role:manage',
       'token:manage',
     ]);
-    await rbac.mockOrganizationMembers();
+    await rbac.mockOrganizationMembersCrud();
     await rbac.mockRolesCrud();
   });
 

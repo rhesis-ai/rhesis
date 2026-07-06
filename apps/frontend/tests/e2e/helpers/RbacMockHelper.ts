@@ -23,9 +23,10 @@ function permissionFromName(name: string): JsonRecord {
  * `GET /me/permissions`) — none of which the base `mock-backend.mjs` server
  * or `MockApiHelper` know about, since RBAC ships dark by default.
  *
- * `mockRolesCrud()` keeps an in-memory copy of the roles list so a
- * create/edit/delete flow within one test sees its own writes reflected on
- * the next read, mirroring the real backend's request/response cycle.
+ * `mockRolesCrud()` and `mockOrganizationMembersCrud()` each keep an
+ * in-memory copy of their list so a create/edit/delete/assign flow within
+ * one test sees its own writes reflected on the next read, mirroring the
+ * real backend's request/response cycle.
  */
 export class RbacMockHelper {
   constructor(private readonly page: Page) {}
@@ -65,9 +66,18 @@ export class RbacMockHelper {
     });
   }
 
-  /** Org-level role assignments — drives useActorAuthority and OrgRoleChip. */
-  async mockOrganizationMembers(members: JsonRecord[] = orgMembersFixture) {
-    await this.page.route('**/rbac/organization-members**', route => {
+  /**
+   * Stateful GET /rbac/organization-members plus PUT/DELETE for a single
+   * member's org role — drives useActorAuthority, OrgRoleChip's read, and
+   * its assign-role flow (client.assignOrgRole → PUT .../role).
+   */
+  async mockOrganizationMembersCrud(
+    initialMembers: JsonRecord[] = orgMembersFixture,
+    roles: JsonRecord[] = rolesFixture
+  ) {
+    const members: JsonRecord[] = initialMembers.map(m => ({ ...m }));
+
+    await this.page.route(/\/rbac\/organization-members(\?|$)/, async route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         status: 200,
@@ -75,6 +85,57 @@ export class RbacMockHelper {
         body: JSON.stringify(members),
       });
     });
+
+    await this.page.route(
+      /\/rbac\/organization-members\/[^/?]+\/role(\?|$)/,
+      async route => {
+        if (route.request().method() !== 'PUT') return route.fallback();
+        const segments = new URL(route.request().url()).pathname
+          .split('/')
+          .filter(Boolean);
+        const userId = segments[segments.length - 2];
+        const body = route.request().postDataJSON() as JsonRecord;
+        const roleId = body.role_id as string;
+        const role = roles.find(r => r.id === roleId);
+        let member = members.find(m => m.user_id === userId);
+        if (member) {
+          member.role_id = roleId;
+          member.role = role;
+        } else {
+          member = {
+            id: `e2e-member-${userId}`,
+            organization_id: 'e2e00000-0000-0000-0000-000000000002',
+            user_id: userId,
+            role_id: roleId,
+            role,
+          };
+          members.push(member);
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(member),
+        });
+      }
+    );
+
+    await this.page.route(
+      /\/rbac\/organization-members\/[^/?]+(\?|$)/,
+      async route => {
+        if (route.request().method() !== 'DELETE') return route.fallback();
+        const userId = new URL(route.request().url()).pathname
+          .split('/')
+          .filter(Boolean)
+          .pop();
+        const index = members.findIndex(m => m.user_id === userId);
+        if (index >= 0) members.splice(index, 1);
+        return route.fulfill({
+          status: 204,
+          contentType: 'application/json',
+          body: '',
+        });
+      }
+    );
   }
 
   /**
