@@ -257,8 +257,10 @@ function isFixedWidthColumn(col: GridColDef): boolean {
 }
 
 /**
- * Apply proportional flex sizing so visible columns expand to fill the grid
- * width instead of leaving an empty filler column after the actions column.
+ * Normalize column sizing for BaseDataGrid.
+ * - Explicit `flex` columns grow proportionally.
+ * - `width` without `flex` is treated as a fixed cap (`maxWidth`).
+ * - Unsized columns receive `flex: 1` to absorb remaining grid width.
  */
 export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
   return columns.map(col => {
@@ -266,22 +268,25 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
     const normalized =
       field === 'actions' ? { ...col, hideable: false } : { ...col };
 
-    if (
-      isFixedWidthColumn(normalized) ||
-      normalized.flex != null ||
-      normalized.maxWidth != null
-    ) {
+    if (isFixedWidthColumn(normalized) || normalized.flex != null) {
       return normalized;
     }
 
-    const minWidth = normalized.minWidth ?? normalized.width ?? 50;
-    const flex = normalized.width ?? normalized.minWidth ?? 1;
-    const { width: _width, ...rest } = normalized;
+    if (normalized.maxWidth != null) {
+      return normalized;
+    }
+
+    if (normalized.width != null) {
+      return {
+        ...normalized,
+        maxWidth: normalized.width,
+      };
+    }
 
     return {
-      ...rest,
-      flex,
-      minWidth,
+      ...normalized,
+      flex: 1,
+      minWidth: normalized.minWidth ?? 50,
     };
   });
 }

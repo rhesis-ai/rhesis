@@ -10,6 +10,7 @@ from rhesis.backend.app.constants import OverallTestResult
 from rhesis.backend.app.models.stats_views import TestResultStatsView
 
 from .common import (
+    automated_metric_success,
     build_metric_pass_rate_stats,
     build_pass_rate_stats,
     build_response_data,
@@ -256,11 +257,13 @@ def _metric_stats(base_q):
                     "human_review_count": 0,
                 }
             bucket = metric_agg[name]
-            automated = bool(data["is_successful"])
+            has_metric_override = bool(data.get("override"))
+            reviewed = bool(data["is_successful"])
+            automated = automated_metric_success(data)
             effective = effective_metric_success(
                 overall_result,
-                automated,
-                bool(data.get("override")),
+                reviewed,
+                has_metric_override,
             )
             if effective:
                 bucket[P] += 1
@@ -270,7 +273,7 @@ def _metric_stats(base_q):
                 bucket["automated_passed"] += 1
             else:
                 bucket["automated_failed"] += 1
-            if effective != automated:
+            if has_metric_override or effective != automated:
                 bucket["human_review_count"] += 1
 
     normalized = {

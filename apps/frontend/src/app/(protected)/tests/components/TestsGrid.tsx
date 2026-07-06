@@ -399,7 +399,7 @@ export default function TestsTable({
       {
         field: 'prompt.content',
         headerName: 'Content',
-        width: 360,
+        flex: 2,
         minWidth: 200,
         resizable: true,
         filterable: true,

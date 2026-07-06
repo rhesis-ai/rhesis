@@ -80,7 +80,7 @@ const sampleRows = [
 ];
 
 describe('applyFlexColumnSizing', () => {
-  it('applies flex to data columns and removes fixed width', () => {
+  it('caps width-only columns with maxWidth instead of converting to flex', () => {
     const columns: GridColDef[] = [
       { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
       { field: 'status', headerName: 'Status', width: 120, minWidth: 90 },
@@ -89,11 +89,24 @@ describe('applyFlexColumnSizing', () => {
 
     const sized = applyFlexColumnSizing(columns);
 
-    expect(sized[0]).toMatchObject({ flex: 300, minWidth: 150 });
-    expect(sized[0].width).toBeUndefined();
-    expect(sized[1]).toMatchObject({ flex: 120, minWidth: 90 });
+    expect(sized[0]).toMatchObject({
+      width: 300,
+      maxWidth: 300,
+      minWidth: 150,
+    });
+    expect(sized[0].flex).toBeUndefined();
+    expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
     expect(sized[2]).toMatchObject({ width: 88, hideable: false });
     expect(sized[2].flex).toBeUndefined();
+  });
+
+  it('gives unsized columns flex to fill remaining width', () => {
+    const columns: GridColDef[] = [{ field: 'name', headerName: 'Name' }];
+
+    expect(applyFlexColumnSizing(columns)[0]).toMatchObject({
+      flex: 1,
+      minWidth: 50,
+    });
   });
 
   it('preserves columns that already define flex', () => {

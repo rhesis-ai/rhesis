@@ -61,6 +61,14 @@ def build_metric_pass_rate_stats(
     return result
 
 
+def automated_metric_success(data: dict) -> bool:
+    """Return the pre-review automated metric outcome from stored JSON."""
+    override = data.get("override")
+    if isinstance(override, dict) and "original_value" in override:
+        return bool(override["original_value"])
+    return bool(data["is_successful"])
+
+
 def effective_metric_success(
     overall_result: str | None,
     is_successful: bool,

@@ -89,11 +89,14 @@ export function aggregateMetricStats(
         humanReviewCount: 0,
       };
       entry.total += 1;
-      const automated = m.is_successful;
+      const automated =
+        m.override?.original_value !== undefined
+          ? m.override.original_value
+          : m.is_successful;
       const effective = getEffectiveMetricSuccess(result, m);
       if (automated) entry.automatedPassed += 1;
       if (effective) entry.passed += 1;
-      if (automated !== effective) entry.humanReviewCount += 1;
+      if (m.override || automated !== effective) entry.humanReviewCount += 1;
       map.set(name, entry);
     }
   }

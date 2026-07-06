@@ -51,7 +51,7 @@ describe('aggregateMetricStats', () => {
     );
   });
 
-  it('uses metric override marker without counting test-level adjustment twice', () => {
+  it('uses metric override for automated counts and human review', () => {
     const result = makeResult({
       last_review: undefined,
       status: { id: '00000000-0000-0000-0000-000000000002', name: 'Fail' },
@@ -77,8 +77,9 @@ describe('aggregateMetricStats', () => {
     expect(stats[0]).toEqual(
       expect.objectContaining({
         passed: 1,
-        automatedPassed: 1,
-        humanReviewCount: 0,
+        automatedPassed: 0,
+        automatedFailed: 1,
+        humanReviewCount: 1,
       })
     );
   });
