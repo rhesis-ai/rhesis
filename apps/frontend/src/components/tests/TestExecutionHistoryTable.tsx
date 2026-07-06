@@ -22,13 +22,11 @@ import { TestExecutionHistoryRow } from './test-execution-history';
 
 interface TestExecutionHistoryTableProps {
   rows: TestExecutionHistoryRow[];
-  testId?: string;
   highlightTestRunId?: string;
 }
 
 export default function TestExecutionHistoryTable({
   rows,
-  testId,
   highlightTestRunId,
 }: TestExecutionHistoryTableProps) {
   const theme = useTheme();
@@ -96,7 +94,7 @@ export default function TestExecutionHistoryTable({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {item.testRunId !== 'unknown' ? (
                       <Link
-                        href={`/test-runs/${item.testRunId}${testId ? `?selectedresult=${testId}` : ''}`}
+                        href={`/test-runs/${item.testRunId}?selectedresult=${item.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ textDecoration: 'none' }}

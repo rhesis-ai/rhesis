@@ -24,7 +24,9 @@ export function mapTestResultToHistoryRow(
     id: result.id,
     testRunId: result.test_run_id || 'unknown',
     testRunName: result.test_run_id
-      ? testRunNamesMap.get(result.test_run_id) || result.test_run_id
+      ? result.test_run?.name ||
+        testRunNamesMap.get(result.test_run_id) ||
+        result.test_run_id
       : 'unknown',
     passed,
     passedMetrics,

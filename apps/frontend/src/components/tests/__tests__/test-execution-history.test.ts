@@ -45,6 +45,23 @@ describe('mapTestResultToHistoryRow', () => {
     expect(row.testRunName).toBe('spinning-caracal');
   });
 
+  it('prefers expanded test_run name over lookup map', () => {
+    const result = {
+      id: 'result-1',
+      test_run_id: 'run-1',
+      test_run: { id: 'run-1', name: 'embedded-run-name' },
+      created_at: '2026-07-01T10:00:00Z',
+      test_metrics: { metrics: {} },
+    } as TestResultDetail;
+
+    const row = mapTestResultToHistoryRow(
+      result,
+      new Map([['run-1', 'map-name']])
+    );
+
+    expect(row.testRunName).toBe('embedded-run-name');
+  });
+
   it('computes fail when any metric fails', () => {
     const result = {
       id: 'result-2',

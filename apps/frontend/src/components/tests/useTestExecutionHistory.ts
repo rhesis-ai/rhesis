@@ -68,32 +68,47 @@ export function useTestExecutionHistory({
 
         if (cancelled) return;
 
-        const testRunIds = [
+        const testRunNamesMap = new Map<string, string>();
+        for (const result of results.data) {
+          if (result.test_run_id && result.test_run?.name) {
+            testRunNamesMap.set(result.test_run_id, result.test_run.name);
+          }
+        }
+
+        const missingTestRunIds = [
           ...new Set(
             results.data
               .filter(
-                (r): r is typeof r & { test_run_id: string } => !!r.test_run_id
+                (r): r is typeof r & { test_run_id: string } =>
+                  !!r.test_run_id && !testRunNamesMap.has(r.test_run_id)
               )
               .map(r => r.test_run_id)
           ),
         ];
 
-        const testRunsClient = clientFactory.getTestRunsClient();
-        const testRunsData = await Promise.allSettled(
-          testRunIds.map(id => testRunsClient.getTestRun(id))
-        );
+        if (missingTestRunIds.length > 0) {
+          const testRunsClient = clientFactory.getTestRunsClient();
+          const testRunsData = await Promise.allSettled(
+            missingTestRunIds.map(id => testRunsClient.getTestRun(id))
+          );
 
-        if (cancelled) return;
+          if (cancelled) return;
 
-        const testRunNamesMap = new Map<string, string>();
-        testRunsData.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            const testRun = result.value;
-            testRunNamesMap.set(testRun.id, testRun.name || testRunIds[index]);
-          } else {
-            testRunNamesMap.set(testRunIds[index], testRunIds[index]);
-          }
-        });
+          testRunsData.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+              const testRun = result.value;
+              testRunNamesMap.set(
+                testRun.id,
+                testRun.name || missingTestRunIds[index]
+              );
+            } else {
+              testRunNamesMap.set(
+                missingTestRunIds[index],
+                missingTestRunIds[index]
+              );
+            }
+          });
+        }
 
         const historicalData = results.data.map(result =>
           mapTestResultToHistoryRow(result, testRunNamesMap)

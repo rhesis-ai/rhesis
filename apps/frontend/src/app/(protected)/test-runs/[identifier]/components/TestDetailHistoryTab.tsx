@@ -150,7 +150,6 @@ export default function TestDetailHistoryTab({
       ) : (
         <TestExecutionHistoryTable
           rows={rows}
-          testId={test.test_id}
           highlightTestRunId={testRunId}
         />
       )}

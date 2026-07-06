@@ -90,7 +90,7 @@ export default function TestExecutionHistorySection({
         Execution History ({rows.length})
       </Typography>
 
-      <TestExecutionHistoryTable rows={paginatedRows} testId={testId} />
+      <TestExecutionHistoryTable rows={paginatedRows} />
 
       {rows.length > PAGE_SIZE_OPTIONS[0] && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
