@@ -7,6 +7,7 @@ with Penelope's autonomous testing agent.
 
 from typing import Any, Dict, List, Optional
 
+from rhesis.penelope.targets._content_blocks import files_to_content_blocks
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -116,7 +117,8 @@ class LangGraphTarget(Target):
             # Add user message to conversation history
             from langchain_core.messages import HumanMessage
 
-            user_message = HumanMessage(content=message)
+            content = files_to_content_blocks(message, files)
+            user_message = HumanMessage(content=content)
             self._session_states[session_key].append(user_message)
 
             # Prepare state for LangGraph
