@@ -36,7 +36,9 @@ import {
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import TestResultDrawer from './TestResultDrawer';
+import TestResultDrawer, {
+  TEST_RESULT_DRAWER_TAB,
+} from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import {
@@ -528,7 +530,7 @@ export default function TestsTableView({
                   <Box
                     onClick={e => {
                       e.stopPropagation();
-                      openTestDrawer(test, 4);
+                      openTestDrawer(test, TEST_RESULT_DRAWER_TAB.tasks);
                     }}
                     sx={{
                       display: 'flex',
@@ -555,7 +557,7 @@ export default function TestsTableView({
                   <Box
                     onClick={e => {
                       e.stopPropagation();
-                      openTestDrawer(test, 4);
+                      openTestDrawer(test, TEST_RESULT_DRAWER_TAB.tasks);
                     }}
                     sx={{
                       display: 'flex',

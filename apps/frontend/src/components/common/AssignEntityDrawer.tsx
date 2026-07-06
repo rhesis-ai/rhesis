@@ -47,6 +47,7 @@ export interface AssignEntityDrawerProps {
   totalRows?: number;
   paginationModel?: GridPaginationModel;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
+  disableMultipleRowSelection?: boolean;
 }
 
 export default function AssignEntityDrawer({
@@ -75,6 +76,7 @@ export default function AssignEntityDrawer({
   totalRows,
   paginationModel,
   onPaginationModelChange,
+  disableMultipleRowSelection = false,
 }: AssignEntityDrawerProps) {
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const [selected, setSelected] = useState<GridRowSelectionModel>([]);
@@ -229,6 +231,7 @@ export default function AssignEntityDrawer({
             getRowId={getRowId}
             checkboxSelection
             disableRowSelectionOnClick
+            disableMultipleRowSelection={disableMultipleRowSelection}
             disableColumnResize
             autoHeight={!serverSidePagination}
             onRowSelectionModelChange={setSelected}

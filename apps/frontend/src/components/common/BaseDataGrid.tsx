@@ -363,6 +363,12 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-footerContainer': {
     borderTop: `1px solid ${theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider}`,
   },
+  '& .MuiDataGrid-checkboxInput': {
+    color: theme.palette.primary.main,
+    '&.Mui-checked, &.MuiCheckbox-indeterminate': {
+      color: theme.palette.primary.main,
+    },
+  },
 }));
 
 function QuickFilterToolbar() {
@@ -1309,6 +1315,11 @@ export default function BaseDataGrid({
                 onPaginationModelChange={onPaginationModelChange}
                 pageSizeOptions={pageSizeOptions}
                 checkboxSelection={checkboxSelection}
+                {...(checkboxSelection && {
+                  slotProps: {
+                    baseCheckbox: { color: 'primary' as const },
+                  },
+                })}
                 disableVirtualization={false}
                 loading={loading}
                 slots={resolvedSlots}
@@ -1381,6 +1392,11 @@ export default function BaseDataGrid({
                   onPaginationModelChange={onPaginationModelChange}
                   pageSizeOptions={pageSizeOptions}
                   checkboxSelection={checkboxSelection}
+                  {...(checkboxSelection && {
+                    slotProps: {
+                      baseCheckbox: { color: 'primary' as const },
+                    },
+                  })}
                   disableVirtualization={false}
                   loading={loading}
                   slots={resolvedSlots}

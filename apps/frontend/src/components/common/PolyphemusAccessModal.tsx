@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   TextField,
   Typography,
@@ -42,8 +42,45 @@ export default function PolyphemusAccessModal({
 }: PolyphemusAccessModalProps) {
   const [justification, setJustification] = useState('');
   const [expectedMonthlyRequests, setExpectedMonthlyRequests] = useState(1000);
+  const [valueLabelVisible, setValueLabelVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hideValueLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const { show } = useNotifications();
+
+  const scheduleHideValueLabel = useCallback(() => {
+    if (hideValueLabelTimeoutRef.current) {
+      clearTimeout(hideValueLabelTimeoutRef.current);
+    }
+    hideValueLabelTimeoutRef.current = setTimeout(() => {
+      setValueLabelVisible(false);
+    }, 3000);
+  }, []);
+
+  const handleSliderChange = (_: Event, newValue: number | number[]) => {
+    setExpectedMonthlyRequests(newValue as number);
+    setValueLabelVisible(true);
+    scheduleHideValueLabel();
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setValueLabelVisible(false);
+      if (hideValueLabelTimeoutRef.current) {
+        clearTimeout(hideValueLabelTimeoutRef.current);
+      }
+    }
+  }, [open]);
+
+  useEffect(
+    () => () => {
+      if (hideValueLabelTimeoutRef.current) {
+        clearTimeout(hideValueLabelTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   const handleClose = () => {
     if (isSubmitting) return;
@@ -190,17 +227,15 @@ export default function PolyphemusAccessModal({
           >
             Estimate how many requests you expect to make per month
           </Typography>
-          <Box sx={{ px: 2, pt: 2 }}>
+          <Box sx={{ px: 2, pt: valueLabelVisible ? 3 : 1.5 }}>
             <Slider
               value={expectedMonthlyRequests}
-              onChange={(_, newValue) =>
-                setExpectedMonthlyRequests(newValue as number)
-              }
+              onChange={handleSliderChange}
               min={0}
               max={10000}
               step={100}
               marks={SLIDER_MARKS}
-              valueLabelDisplay="on"
+              valueLabelDisplay={valueLabelVisible ? 'on' : 'off'}
               valueLabelFormat={value => {
                 if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
                 return value.toString();
