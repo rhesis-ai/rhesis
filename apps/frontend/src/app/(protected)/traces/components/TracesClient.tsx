@@ -105,9 +105,11 @@ export default function TracesClient({
   const {
     data,
     isFetching,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: traceKeys.list({ ...queryParams, scopedProjectId }),
+    errorFallbackMessage: 'Failed to fetch traces',
     queryFn: () => {
       if (!scopedProjectId)
         return Promise.reject(new Error('No active project'));
@@ -119,7 +121,6 @@ export default function TracesClient({
 
   const traces = data?.traces ?? [];
   const totalCount = data?.total ?? 0;
-  const error = fetchError ? 'Failed to fetch traces' : null;
   const listLoading = isFetching || projectLoading;
 
   useEffect(() => {
@@ -195,7 +196,7 @@ export default function TracesClient({
   return (
     <>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@/test-utils';
+import { render, screen, waitFor, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TestsTable from '../TestsGrid';
@@ -226,7 +226,17 @@ describe('TestsTable', () => {
     mockGetTests.mockRejectedValue(new Error('Network error'));
     render(<TestsTable sessionToken="tok" />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(screen.getByText(/failed to load tests/i)).toBeInTheDocument();
+    expect(screen.getByText(/network error/i)).toBeInTheDocument();
+  });
+
+  it('dismisses the error alert on close', async () => {
+    mockGetTests.mockRejectedValue(new Error('Network error'));
+    render(<TestsTable sessionToken="tok" />);
+    const alert = await screen.findByRole('alert');
+    await userEvent.click(within(alert).getByLabelText(/close/i));
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    );
   });
 
   it('navigates to test detail on row click', async () => {
