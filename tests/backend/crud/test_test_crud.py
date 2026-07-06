@@ -112,8 +112,14 @@ class TestTestOperations:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test_db.refresh(test_set)
-        assert test_set.attributes["metadata"]["behaviors"] == ["Compliance"]
+        seeded_test_set = crud.get_test_set(
+            test_db,
+            test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert seeded_test_set is not None
+        assert seeded_test_set.attributes["metadata"]["behaviors"] == ["Compliance"]
 
         result = crud.update_test(
             db=test_db,
