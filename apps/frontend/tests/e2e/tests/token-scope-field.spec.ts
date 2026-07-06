@@ -20,6 +20,7 @@ test.describe('API Tokens — scoped token creation @mocked', () => {
   test.beforeEach(async ({ page }) => {
     const mock = new MockApiHelper(page);
     await mock.mockLayoutPrerequisites();
+    await mock.mockList('/tokens', []);
 
     const rbac = new RbacMockHelper(page);
     await rbac.mockFeaturesEnabled();
@@ -33,20 +34,9 @@ test.describe('API Tokens — scoped token creation @mocked', () => {
     const UNIQUE_NAME = `e2e-scoped-token-${Date.now()}`;
     const captured: { body?: { name?: string; scopes?: string[] } } = {};
 
-    // Anchored to the /api/v1 prefix (not MockApiHelper's optional-prefix
-    // convention) — a bare `/tokens` pattern also matches the frontend's own
-    // `/tokens` page navigation, which would hijack the page load itself.
-    await page.route(/\/api\/v1\/tokens(\?|$)/, async route => {
-      const method = route.request().method();
-      if (method === 'GET') {
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          headers: { 'x-total-count': '0' },
-          body: JSON.stringify([]),
-        });
-      }
-      if (method !== 'POST') return route.fallback();
+    // POST-only — GET /tokens is already handled by mockList() above.
+    await page.route(/\/tokens(\?|$)/, async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
       const body = route.request().postDataJSON() as {
         name?: string;
         scopes?: string[];
