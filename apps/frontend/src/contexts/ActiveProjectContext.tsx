@@ -30,6 +30,8 @@ interface ActiveProjectContextValue {
   setActiveProject: (project: Project | null) => void;
   /** Reload the member-project list from the API. */
   refresh: (options?: { listOnly?: boolean }) => Promise<void>;
+  /** Update cached project data after an in-place edit (no reload). */
+  syncProject: (project: Project) => void;
 }
 
 const ActiveProjectContext = createContext<ActiveProjectContextValue>({
@@ -38,6 +40,7 @@ const ActiveProjectContext = createContext<ActiveProjectContextValue>({
   loading: false,
   setActiveProject: () => {},
   refresh: async () => {},
+  syncProject: () => {},
 });
 
 export function ActiveProjectProvider({
@@ -51,7 +54,9 @@ export function ActiveProjectProvider({
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(
+    initialActiveProject ? [initialActiveProject] : []
+  );
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
   );
@@ -186,6 +191,18 @@ export function ActiveProjectProvider({
     [fetchProjects]
   );
 
+  const syncProject = useCallback((project: Project) => {
+    const id = String(project.id);
+    setProjects(prev => {
+      const exists = prev.some(p => String(p.id) === id);
+      if (!exists) return [...prev, project];
+      return prev.map(p => (String(p.id) === id ? { ...p, ...project } : p));
+    });
+    setActiveProjectState(prev =>
+      prev && String(prev.id) === id ? { ...prev, ...project } : prev
+    );
+  }, []);
+
   return (
     <ActiveProjectContext.Provider
       value={{
@@ -194,6 +211,7 @@ export function ActiveProjectProvider({
         loading,
         setActiveProject,
         refresh,
+        syncProject,
       }}
     >
       {children}
