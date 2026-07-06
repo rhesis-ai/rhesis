@@ -1,5 +1,6 @@
 import { DevelopmentResourcesGrid } from "@/components/DevelopmentResourcesGrid";
 import { ArchitectureOverview } from "@/components/ArchitectureOverview";
+import { CodeBlock } from '@/components/CodeBlock';
 
 # Contribute
 
@@ -8,12 +9,12 @@ We welcome contributions of all kinds: code, ideas, documentation, and bug repor
 
 ## Quick start (from repo root)
 
-```bash
-./rh dev init         # env files (one-time)
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`./rh dev init         # env files (one-time)
 ./rh dev up           # postgres + redis
 ./rh dev backend      # API (e.g. /docs on port 8080)
-./rh dev frontend     # UI at http://localhost:3000
-```
+./rh dev frontend     # UI at http://localhost:3000`}
+</CodeBlock>
 
 Run `./rh help` for all commands.
 

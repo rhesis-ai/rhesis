@@ -112,4 +112,14 @@ describe('EntityCard', () => {
       minHeight: '66px',
     });
   });
+
+  it('top-aligns card content in stretched grid layouts', () => {
+    render(<EntityCard {...defaultProps} />);
+
+    expect(screen.getByText('My Entity').closest('.MuiButtonBase-root')).toHaveStyle(
+      {
+        justifyContent: 'flex-start',
+      }
+    );
+  });
 });

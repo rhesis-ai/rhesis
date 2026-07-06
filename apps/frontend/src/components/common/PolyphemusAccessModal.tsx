@@ -1,19 +1,20 @@
+'use client';
+
 import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
-  Button,
   Typography,
   Box,
-  CircularProgress,
   Slider,
   Alert,
   Stack,
 } from '@mui/material';
 import Image from 'next/image';
+import BaseDrawer from '@/components/common/BaseDrawer';
+import {
+  drawerFieldsSx,
+  drawerOutlinedFieldSx,
+} from '@/components/common/drawerFormFieldSx';
 import { useNotifications } from './NotificationContext';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 
@@ -43,6 +44,11 @@ export default function PolyphemusAccessModal({
   const [expectedMonthlyRequests, setExpectedMonthlyRequests] = useState(1000);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { show } = useNotifications();
+
+  const handleClose = () => {
+    if (isSubmitting) return;
+    onClose();
+  };
 
   const handleSubmit = async () => {
     if (!justification.trim() || justification.trim().length < 10) {
@@ -77,9 +83,7 @@ export default function PolyphemusAccessModal({
         setJustification('');
         setExpectedMonthlyRequests(1000);
         onClose();
-        if (onSuccess) {
-          onSuccess();
-        }
+        onSuccess?.();
       } else {
         throw new Error(data.detail || 'Failed to submit access request');
       }
@@ -98,43 +102,42 @@ export default function PolyphemusAccessModal({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: theme => theme.spacing(1),
-        }}
-      >
+    <BaseDrawer
+      open={open}
+      onClose={handleClose}
+      title="Request Polyphemus Access"
+      titleIcon={
         <Image
           src="/logos/polyphemus-logo-favicon-transparent.svg"
           alt="Polyphemus"
           width={32}
           height={32}
         />
-        <Box sx={{ fontWeight: theme => theme.typography.fontWeightBold }}>
-          Request Polyphemus Access
-        </Box>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Alert severity="warning" sx={{ mb: theme => theme.spacing(3) }}>
-          <Typography variant="body2" gutterBottom>
-            <strong>Important Notice:</strong> Polyphemus is an adversarial
-            model designed to generate potentially harmful content for testing
-            purposes. Access is restricted to verified users belonging to
-            organizations to ensure responsible use. Your request will be
-            reviewed by our team.
-          </Typography>
-        </Alert>
+      }
+      onSave={handleSubmit}
+      saveButtonText="Submit Request"
+      saveDisabled={isSubmitting || justification.trim().length < 10}
+      loading={isSubmitting}
+      closeButtonText="Cancel"
+    >
+      <Alert severity="warning">
+        <Typography variant="body2" gutterBottom>
+          <strong>Important Notice:</strong> Polyphemus is an adversarial model
+          designed to generate potentially harmful content for testing
+          purposes. Access is restricted to verified users belonging to
+          organizations to ensure responsible use. Your request will be reviewed
+          by our team.
+        </Typography>
+      </Alert>
 
-        <Box sx={{ mb: theme => theme.spacing(3) }}>
+      <Box sx={drawerFieldsSx}>
+        <Box>
           <Typography
-            variant="h6"
-            gutterBottom
+            variant="body1"
             sx={{
-              fontSize: theme => theme.typography.body1.fontSize,
-              fontWeight: theme => theme.typography.fontWeightMedium,
-              mb: theme => theme.spacing(2),
+              fontWeight: 600,
+              mb: 2,
+              color: theme => theme.palette.greyscale.title,
             }}
           >
             Request Information
@@ -170,14 +173,13 @@ export default function PolyphemusAccessModal({
           </Stack>
         </Box>
 
-        <Box sx={{ mb: theme => theme.spacing(3) }}>
+        <Box>
           <Typography
-            variant="h6"
-            gutterBottom
+            variant="body1"
             sx={{
-              fontSize: theme => theme.typography.body1.fontSize,
-              fontWeight: theme => theme.typography.fontWeightMedium,
-              mb: theme => theme.spacing(0.5),
+              fontWeight: 600,
+              mb: 0.5,
+              color: theme => theme.palette.greyscale.title,
             }}
           >
             Expected Monthly Requests
@@ -185,16 +187,11 @@ export default function PolyphemusAccessModal({
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ display: 'block', mb: theme => theme.spacing(1.5) }}
+            sx={{ display: 'block', mb: 1.5 }}
           >
             Estimate how many requests you expect to make per month
           </Typography>
-          <Box
-            sx={{
-              px: theme => theme.spacing(2),
-              pt: theme => theme.spacing(2),
-            }}
-          >
+          <Box sx={{ px: 2, pt: 2 }}>
             <Slider
               value={expectedMonthlyRequests}
               onChange={(_, newValue) =>
@@ -214,7 +211,7 @@ export default function PolyphemusAccessModal({
           <Typography
             variant="body2"
             color="primary"
-            sx={{ mt: theme => theme.spacing(1), textAlign: 'center' }}
+            sx={{ mt: 1, textAlign: 'center' }}
           >
             {expectedMonthlyRequests.toLocaleString()} requests/month
           </Typography>
@@ -222,12 +219,11 @@ export default function PolyphemusAccessModal({
 
         <Box>
           <Typography
-            variant="h6"
-            gutterBottom
+            variant="body1"
             sx={{
-              fontSize: theme => theme.typography.body1.fontSize,
-              fontWeight: theme => theme.typography.fontWeightMedium,
-              mb: theme => theme.spacing(0.5),
+              fontWeight: 600,
+              mb: 0.5,
+              color: theme => theme.palette.greyscale.title,
             }}
           >
             Justification & Use Case
@@ -235,14 +231,13 @@ export default function PolyphemusAccessModal({
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ display: 'block', mb: theme => theme.spacing(1.5) }}
+            sx={{ display: 'block', mb: 1.5 }}
           >
-            Please provide details about why you need access and how you'll use
-            it responsibly
+            Please provide details about why you need access and how you&apos;ll
+            use it responsibly
           </Typography>
           <TextField
             autoFocus
-            margin="none"
             id="justification"
             fullWidth
             multiline
@@ -250,32 +245,20 @@ export default function PolyphemusAccessModal({
             value={justification}
             onChange={e => setJustification(e.target.value)}
             required
-            placeholder="Please describe:
+            label="Justification"
+            placeholder={`Please describe:
 • Why you need access to Polyphemus
 • How you plan to use it (e.g., adversarial testing, red-teaming)
 • The types of tests you'll be conducting
-• How you'll ensure responsible use"
+• How you'll ensure responsible use`}
             helperText={`${justification.length}/2000 characters (minimum 10 required)`}
             inputProps={{
               maxLength: 2000,
             }}
+            sx={drawerOutlinedFieldSx}
           />
         </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={isSubmitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          color="primary"
-          disabled={isSubmitting || justification.trim().length < 10}
-          startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Request'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </BaseDrawer>
   );
 }

@@ -244,6 +244,44 @@ function reconcileOrderedFields(
   return result;
 }
 
+/** Fields that stay at a fixed width while other columns grow to fill the grid. */
+const FIXED_WIDTH_COLUMN_FIELDS = new Set(['actions']);
+
+function isFixedWidthColumn(col: GridColDef): boolean {
+  const field = String(col.field);
+  return (
+    FIXED_WIDTH_COLUMN_FIELDS.has(field) ||
+    field.startsWith('__') ||
+    col.flex === 0
+  );
+}
+
+/**
+ * Apply proportional flex sizing so visible columns expand to fill the grid
+ * width instead of leaving an empty filler column after the actions column.
+ */
+export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
+  return columns.map(col => {
+    const field = String(col.field);
+    const normalized =
+      field === 'actions' ? { ...col, hideable: false } : { ...col };
+
+    if (isFixedWidthColumn(normalized) || normalized.flex != null) {
+      return normalized;
+    }
+
+    const minWidth = normalized.minWidth ?? normalized.width ?? 50;
+    const flex = normalized.width ?? normalized.minWidth ?? 1;
+    const { width: _width, ...rest } = normalized;
+
+    return {
+      ...rest,
+      flex,
+      minWidth,
+    };
+  });
+}
+
 // Create a styled version of DataGrid with Figma-aligned borders and headers
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   border: 'none',
@@ -301,6 +339,13 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   },
   '&& .MuiDataGrid-cell:last-of-type': {
     paddingRight: theme.spacing(3.75),
+  },
+  // Hide the trailing filler column once flex columns consume the full width.
+  '& .MuiDataGrid-filler': {
+    maxWidth: 0,
+    minWidth: 0,
+    padding: 0,
+    border: 'none',
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
@@ -538,10 +583,7 @@ export default function BaseDataGrid({
   const apiRef = useGridApiRef();
 
   const gridColumns = React.useMemo(
-    () =>
-      columns.map(col =>
-        col.field === 'actions' ? { ...col, hideable: false } : col
-      ),
+    () => applyFlexColumnSizing(columns),
     [columns]
   );
 

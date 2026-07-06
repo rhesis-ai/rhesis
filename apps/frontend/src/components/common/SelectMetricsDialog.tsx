@@ -32,11 +32,14 @@ import type { UUID } from 'crypto';
 import { getMetricScopeIcon } from '@/constants/metric-scopes';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
+import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
 import {
   drawerFieldsSx,
   drawerOutlinedFieldSx,
   drawerSectionSx,
 } from '@/components/common/drawerFormFieldSx';
+
+const METRICS_SELECT_DRAWER_WIDTH = 640;
 
 const RhesisAIIcon = () => (
   <SvgIcon fontSize="small" viewBox="0 0 390 371">
@@ -115,6 +118,7 @@ export default function SelectMetricsDialog({
     []
   );
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [backendFilter, setBackendFilter] = React.useState<string[]>([]);
   const [isLoading, setIsLoading] = React.useState(open);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -160,28 +164,51 @@ export default function SelectMetricsDialog({
       setFilteredMetrics([]);
       setError(null);
       setSearchQuery('');
+      setBackendFilter([]);
       fetchMetrics();
     }
   }, [open, fetchMetrics]);
 
-  // Filter metrics based on search query
+  const backendFilterOptions = React.useMemo(() => {
+    const unique = new Map<string, string>();
+    metrics.forEach(metric => {
+      if (metric.backend_type?.type_value) {
+        const raw = metric.backend_type.type_value;
+        const display =
+          raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+        unique.set(raw.toLowerCase(), display);
+      }
+    });
+    return Array.from(unique.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [metrics]);
+
+  // Filter metrics based on search query and backend pills
   React.useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredMetrics(metrics);
-      return;
+    let filtered = metrics;
+
+    if (backendFilter.length > 0) {
+      filtered = filtered.filter(
+        metric =>
+          metric.backend_type &&
+          backendFilter.includes(metric.backend_type.type_value.toLowerCase())
+      );
     }
 
-    const query = searchQuery.toLowerCase();
-    const filtered = metrics.filter(
-      metric =>
-        metric.name?.toLowerCase().includes(query) ||
-        metric.description?.toLowerCase().includes(query) ||
-        metric.backend_type?.type_value?.toLowerCase().includes(query) ||
-        metric.metric_type?.type_value?.toLowerCase().includes(query)
-    );
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        metric =>
+          metric.name?.toLowerCase().includes(query) ||
+          metric.description?.toLowerCase().includes(query) ||
+          metric.backend_type?.type_value?.toLowerCase().includes(query) ||
+          metric.metric_type?.type_value?.toLowerCase().includes(query)
+      );
+    }
 
     setFilteredMetrics(filtered);
-  }, [searchQuery, metrics]);
+  }, [searchQuery, backendFilter, metrics]);
 
   const handleSelect = (metricId: UUID) => {
     onSelect(metricId);
@@ -194,6 +221,9 @@ export default function SelectMetricsDialog({
       return () => window.clearTimeout(timer);
     }
   }, [open, variant]);
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 || backendFilter.length > 0;
 
   const pickerContent = (
     <>
@@ -216,6 +246,34 @@ export default function SelectMetricsDialog({
         />
       </Box>
 
+      {backendFilterOptions.length > 0 && (
+        <Box
+          sx={{
+            overflowX: 'auto',
+            width: '100%',
+            mb: variant === 'drawer' ? 2 : 2,
+            '& > div': {
+              flex: 'none',
+              justifyContent: 'flex-start',
+            },
+          }}
+        >
+          <PrimarySegmentedPills
+            mode="multi"
+            tabs={[
+              { value: '', label: 'All' },
+              ...backendFilterOptions.map(option => ({
+                value: option.value,
+                label: option.label,
+              })),
+            ]}
+            selectedValues={backendFilter}
+            onMultiChange={setBackendFilter}
+            clearValue=""
+          />
+        </Box>
+      )}
+
       {isLoading ? (
         <Box
           sx={{
@@ -237,7 +295,9 @@ export default function SelectMetricsDialog({
           <Typography color="text.secondary">
             {metrics.length === 0
               ? 'No metrics available'
-              : 'No metrics match your search'}
+              : hasActiveFilters
+                ? 'No metrics match your search or filters'
+                : 'No metrics match your search'}
           </Typography>
         </Box>
       ) : (
@@ -350,6 +410,7 @@ export default function SelectMetricsDialog({
         onClose={onClose}
         title={title}
         closeButtonText="Cancel"
+        width={METRICS_SELECT_DRAWER_WIDTH}
       >
         <Box sx={drawerSectionSx}>
           {subtitle ? (

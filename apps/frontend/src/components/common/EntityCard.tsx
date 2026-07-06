@@ -131,6 +131,7 @@ export default function EntityCard({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
+        justifyContent: 'flex-start',
         textAlign: 'left',
         bgcolor: 'background.paper',
         border: `1px solid ${resolvedBorderColor}`,
@@ -340,7 +341,7 @@ export default function EntityCard({
       )}
 
       {/* Footer slot — model-specific content (status chip, action buttons) */}
-      {footer && <Box>{footer}</Box>}
+      {footer && <Box sx={{ mt: 'auto' }}>{footer}</Box>}
     </ButtonBase>
   );
 }

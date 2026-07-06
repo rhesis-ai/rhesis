@@ -147,6 +147,7 @@ export default function TestRunMainView({
   const [renameValue, setRenameValue] = useState('');
   // Whether another test run exists on the same test set to compare against.
   const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
+  const [testSetExists, setTestSetExists] = useState<boolean | null>(null);
 
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
@@ -337,6 +338,9 @@ export default function TestRunMainView({
   }, [testRunId, sessionToken, notifications]);
 
   const handleRerun = useCallback(() => {
+    if (testSetExists === false) {
+      return;
+    }
     if (!testRun.test_configuration_id) {
       notifications.show('Cannot re-run: No test configuration found', {
         severity: 'error',
@@ -352,9 +356,30 @@ export default function TestRunMainView({
       return;
     }
     setIsRerunDrawerOpen(true);
-  }, [testRun, notifications]);
+  }, [testRun, notifications, testSetExists]);
 
   const testSetId = testRun.test_configuration?.test_set?.id;
+
+  useEffect(() => {
+    if (!testSetId) {
+      setTestSetExists(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        await new ApiClientFactory(sessionToken)
+          .getTestSetsClient()
+          .getTestSet(testSetId);
+        if (!cancelled) setTestSetExists(true);
+      } catch {
+        if (!cancelled) setTestSetExists(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [testSetId, sessionToken]);
 
   useEffect(() => {
     if (!testSetId) {
@@ -454,9 +479,22 @@ export default function TestRunMainView({
     'aria-controls': `test-run-tabpanel-${index}`,
   }));
 
+  const canCreateRerun = can(testRun, Capability.TestRun.CREATE);
   const canRerun =
     Boolean(testRun.test_configuration_id) &&
-    can(testRun, Capability.TestRun.CREATE);
+    canCreateRerun &&
+    testSetExists === true;
+
+  const rerunTooltip =
+    testSetExists === false
+      ? 'The test set for this run no longer exists'
+      : !canCreateRerun
+        ? 'You do not have permission to re-run tests'
+        : !testRun.test_configuration_id
+          ? 'Cannot re-run: No test configuration found'
+          : testSetExists === null
+            ? 'Checking test set…'
+            : 'Re-run test';
 
   return (
     <Box>
@@ -474,6 +512,7 @@ export default function TestRunMainView({
         onRerun={handleRerun}
         isDownloading={isDownloading}
         canRerun={canRerun}
+        rerunTooltip={rerunTooltip}
         canCompare={hasComparisonRuns}
         canRename={can(testRun, Capability.TestRun.UPDATE)}
       />

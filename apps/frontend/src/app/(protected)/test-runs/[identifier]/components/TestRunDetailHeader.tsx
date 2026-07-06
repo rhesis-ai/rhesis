@@ -19,6 +19,8 @@ interface TestRunDetailHeaderProps {
   onRerun: () => void;
   isDownloading?: boolean;
   canRerun?: boolean;
+  /** Tooltip for the re-run FAB (e.g. when disabled because the test set was deleted). */
+  rerunTooltip?: string;
   canCompare?: boolean;
   /** Gate the rename button on server-driven affordances (default true). */
   canRename?: boolean;
@@ -32,6 +34,7 @@ export default function TestRunDetailHeader({
   onRerun,
   isDownloading = false,
   canRerun = true,
+  rerunTooltip = 'Re-run test',
   canCompare = true,
   canRename = true,
 }: TestRunDetailHeaderProps) {
@@ -103,7 +106,7 @@ export default function TestRunDetailHeader({
         />
         <Fab
           icon={<RestartAltOutlinedIcon />}
-          tooltip="Re-run test"
+          tooltip={rerunTooltip}
           onClick={onRerun}
           disabled={!canRerun}
           aria-label="Re-run test"

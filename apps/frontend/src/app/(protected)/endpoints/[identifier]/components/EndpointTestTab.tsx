@@ -144,7 +144,7 @@ export default function EndpointTestTab() {
             loadingPosition="start"
             startIcon={<PlayArrowIcon />}
           >
-            Run test
+            Check connection
           </LoadingButton>
         ) : undefined
       }

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import BaseDataGrid from '../BaseDataGrid';
+import BaseDataGrid, { applyFlexColumnSizing } from '../BaseDataGrid';
 import { GridColDef, GridRowModel } from '@mui/x-data-grid';
 
 // Lightweight stub for MUI DataGrid — renders rows as a plain HTML table so
@@ -78,6 +78,32 @@ const sampleRows = [
   { id: '2', name: 'Bob', status: 'inactive' },
   { id: '3', name: 'Charlie', status: 'active' },
 ];
+
+describe('applyFlexColumnSizing', () => {
+  it('applies flex to data columns and removes fixed width', () => {
+    const columns: GridColDef[] = [
+      { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
+      { field: 'status', headerName: 'Status', width: 120, minWidth: 90 },
+      { field: 'actions', headerName: '', width: 88 },
+    ];
+
+    const sized = applyFlexColumnSizing(columns);
+
+    expect(sized[0]).toMatchObject({ flex: 300, minWidth: 150 });
+    expect(sized[0].width).toBeUndefined();
+    expect(sized[1]).toMatchObject({ flex: 120, minWidth: 90 });
+    expect(sized[2]).toMatchObject({ width: 88, hideable: false });
+    expect(sized[2].flex).toBeUndefined();
+  });
+
+  it('preserves columns that already define flex', () => {
+    const columns: GridColDef[] = [
+      { field: 'name', headerName: 'Name', flex: 2, minWidth: 100 },
+    ];
+
+    expect(applyFlexColumnSizing(columns)[0]).toEqual(columns[0]);
+  });
+});
 
 describe('BaseDataGrid', () => {
   beforeEach(() => {

@@ -59,6 +59,8 @@ interface TestRunFilterBarProps {
   onRerun?: () => void;
   isRerunning?: boolean;
   canRerun?: boolean;
+  /** Shown when re-run is disabled (e.g. deleted test set). */
+  rerunDisabledReason?: string;
   /** Linked entities tab: search + status pills + advanced filters only */
   variant?: 'default' | 'linkedEntities';
   hideViewModeToggle?: boolean;
@@ -80,6 +82,7 @@ export default function TestRunFilterBar({
   onRerun,
   isRerunning = false,
   canRerun = false,
+  rerunDisabledReason,
   variant = 'default',
   hideViewModeToggle = false,
 }: TestRunFilterBarProps) {
@@ -345,16 +348,24 @@ export default function TestRunFilterBar({
           </Button>
         )}
         {showHeaderActions && onRerun && (
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            startIcon={<ReplayIcon />}
-            onClick={onRerun}
-            disabled={isRerunning || !canRerun}
+          <Tooltip
+            title={
+              canRerun && !isRerunning ? '' : (rerunDisabledReason ?? '')
+            }
           >
-            Re-run
-          </Button>
+            <span>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                startIcon={<ReplayIcon />}
+                onClick={onRerun}
+                disabled={isRerunning || !canRerun}
+              >
+                Re-run
+              </Button>
+            </span>
+          </Tooltip>
         )}
       </Box>
 
