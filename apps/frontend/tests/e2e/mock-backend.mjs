@@ -150,7 +150,14 @@ const server = http.createServer((req, res) => {
   }
 
   if (method === 'GET' && pathname === '/features') {
-    sendJson(res, 200, { features: [], license: { tier: 'community' } });
+    // Shape must match FeaturesResponse (utils/api-client/features-client.ts):
+    // {license: {edition, licensed}, enabled: string[]}. Individual specs
+    // override this route (e.g. RbacMockHelper.mockFeaturesEnabled) to turn
+    // specific features on.
+    sendJson(res, 200, {
+      enabled: [],
+      license: { edition: 'community', licensed: false },
+    });
     return;
   }
 

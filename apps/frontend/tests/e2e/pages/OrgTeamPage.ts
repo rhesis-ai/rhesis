@@ -49,6 +49,16 @@ export class OrgTeamPage extends BasePage {
   }
 
   /**
+   * The RBAC org-role cell (OrgRoleChip, field `orgRole`) for the grid row
+   * containing `identifierText` (typically the member's email).
+   */
+  roleCellForRow(identifierText: string) {
+    return this.page
+      .locator('[role="row"]', { hasText: identifierText })
+      .locator('[data-field="orgRole"]');
+  }
+
+  /**
    * Assert that the team members grid is shown.
    */
   async expectMembersAreaVisible() {

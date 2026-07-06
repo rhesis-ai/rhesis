@@ -1,0 +1,84 @@
+[
+  {
+    "id": "a0000000-0000-0000-0000-000000000001",
+    "name": "owner",
+    "display_name": "Owner",
+    "description": "Full control of the organization.",
+    "scope": "organization",
+    "level": 100,
+    "is_built_in": true,
+    "organization_id": null,
+    "permissions": [],
+    "member_count": 1
+  },
+  {
+    "id": "a0000000-0000-0000-0000-000000000002",
+    "name": "admin",
+    "display_name": "Admin",
+    "description": "Manage members and most organization settings.",
+    "scope": "organization",
+    "level": 80,
+    "is_built_in": true,
+    "organization_id": null,
+    "permissions": [],
+    "member_count": 0
+  },
+  {
+    "id": "a0000000-0000-0000-0000-000000000003",
+    "name": "member",
+    "display_name": "Member",
+    "description": "Create and manage everyday work.",
+    "scope": "organization",
+    "level": 60,
+    "is_built_in": true,
+    "organization_id": null,
+    "permissions": [],
+    "member_count": 0
+  },
+  {
+    "id": "a0000000-0000-0000-0000-000000000004",
+    "name": "viewer",
+    "display_name": "Viewer",
+    "description": "Read-only access.",
+    "scope": "organization",
+    "level": 40,
+    "is_built_in": true,
+    "organization_id": null,
+    "permissions": [],
+    "member_count": 0
+  },
+  {
+    "id": "a0000000-0000-0000-0000-000000000005",
+    "name": "none",
+    "display_name": "None",
+    "description": "No access.",
+    "scope": "organization",
+    "level": 0,
+    "is_built_in": true,
+    "organization_id": null,
+    "permissions": [],
+    "member_count": 0
+  },
+  {
+    "id": "a0000000-0000-0000-0000-0000000000a1",
+    "name": "auditor",
+    "display_name": "Auditor",
+    "description": "Read-only access for compliance review.",
+    "scope": "organization",
+    "level": 30,
+    "is_built_in": false,
+    "organization_id": "e2e00000-0000-0000-0000-000000000002",
+    "permissions": [
+      {
+        "id": "b0000000-0000-0000-0000-000000000001",
+        "name": "test_set:read",
+        "display_name": "View test sets",
+        "resource_type": "test_set",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      }
+    ],
+    "member_count": 0
+  }
+]
