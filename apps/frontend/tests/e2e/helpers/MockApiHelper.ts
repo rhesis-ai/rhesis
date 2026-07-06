@@ -50,16 +50,24 @@ export class MockApiHelper {
 
   /**
    * Build a regex that matches only list-level requests for a given API path.
-   * The pattern matches the path followed by end-of-path or a query string,
-   * but NOT additional path segments (which would indicate a detail request).
+   * The pattern matches the path followed by an optional trailing slash and
+   * end-of-path or a query string, but NOT additional path segments (which
+   * would indicate a detail request).
    *
-   * e.g. /api/v1/tests  or  /api/v1/tests?limit=100  → matched
-   *      /api/v1/tests/some-uuid                      → NOT matched
+   * The trailing slash is required, not cosmetic: `BaseApiClient.fetchPaginated`
+   * (used by every paginated list() method) always appends one — e.g.
+   * `ProjectsClient.getProjects()` requests `/api/v1/projects/?skip=0&...`, not
+   * `/api/v1/projects?skip=0&...`. Without it here, list-page tests silently
+   * fall through to the real network and its 500/CORS failure gets rendered
+   * as an error state instead of the mocked empty/populated one.
+   *
+   * e.g. /api/v1/tests  or  /api/v1/tests/  or  /api/v1/tests/?limit=100  → matched
+   *      /api/v1/tests/some-uuid                                          → NOT matched
    */
   private listRoutePattern(apiPath: string): RegExp {
     const escaped = apiPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Optional /api/v1 prefix for mock-backend; live backend uses bare paths.
-    return new RegExp(`(/api/v1)?${escaped}(\\?|$)`);
+    return new RegExp(`(/api/v1)?${escaped}/?(\\?|$)`);
   }
 
   private jsonListResponse(
