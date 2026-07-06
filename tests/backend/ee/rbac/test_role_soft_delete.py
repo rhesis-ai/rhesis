@@ -11,7 +11,7 @@ in use. It now:
 - frees the role name for reuse (the ``ix_role_name_org`` unique index is partial:
   ``WHERE deleted_at IS NULL``).
 
-Reuses the DB helpers from ``test_sp8_access_control`` rather than redefining them.
+Reuses the shared DB helpers from ``_rbac_helpers`` rather than redefining them.
 
 Run with:
     cd apps/backend
@@ -28,7 +28,7 @@ from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 from rhesis.backend.ee.rbac.router import create_role, delete_role
 from rhesis.backend.ee.rbac.schemas import RoleCreate
-from tests.backend.ee.rbac.test_sp8_access_control import (
+from tests.backend.ee.rbac._rbac_helpers import (
     _add_project_member,
     _assign_org_role,
     _authorized,
