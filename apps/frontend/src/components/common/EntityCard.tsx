@@ -63,9 +63,7 @@ function getStatusChipStyles(
   }
 
   return {
-    bg: isDark
-      ? theme.palette.grey[900]
-      : theme.palette.greyscale.surface2,
+    bg: isDark ? theme.palette.grey[900] : theme.palette.greyscale.surface2,
     color: isDark ? theme.palette.grey[300] : theme.palette.greyscale.body,
   };
 }
