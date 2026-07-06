@@ -17,6 +17,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Link from 'next/link';
 import { formatDate } from '@/utils/date';
 import StatusChip from '@/components/common/StatusChip';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import { TestExecutionHistoryRow } from './test-execution-history';
 
 interface TestExecutionHistoryTableProps {
@@ -36,9 +37,10 @@ export default function TestExecutionHistoryTable({
     <Box
       sx={{
         bgcolor: 'background.paper',
-        borderRadius: '12px',
-        border: '1px solid #cdd2da',
-        boxShadow: '0px 2px 4px rgba(84,90,101,0.25)',
+        borderRadius: BORDER_RADIUS.md,
+        border: 1,
+        borderColor: 'divider',
+        boxShadow: ELEVATION.xs,
         overflow: 'hidden',
       }}
     >
@@ -46,34 +48,35 @@ export default function TestExecutionHistoryTable({
         <Table
           sx={{
             '& .MuiTableCell-root': {
-              borderBottom: '1px solid #cdd2da',
+              borderBottom: 1,
+              borderColor: 'divider',
               fontSize: 14,
               lineHeight: '22px',
               py: '13px',
               px: '12px',
-              backgroundColor: '#ffffff',
+              bgcolor: 'background.paper',
             },
             '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root':
               {
                 borderBottom: 'none',
               },
             '& .MuiTableRow-root:hover .MuiTableCell-root': {
-              backgroundColor: '#f9fafb',
+              bgcolor: 'action.hover',
             },
           }}
         >
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
+              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Status
               </TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
+              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Test Run
               </TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
+              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Metrics
               </TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
+              <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
                 Executed At
               </TableCell>
             </TableRow>
@@ -87,11 +90,6 @@ export default function TestExecutionHistoryTable({
                     label={item.passed ? 'Pass' : 'Fail'}
                     size="small"
                     variant="outlined"
-                    sx={{
-                      borderColor: item.passed ? '#38ad87' : '#de3355',
-                      color: item.passed ? '#38ad87' : '#de3355',
-                      '& .MuiChip-icon': { color: 'inherit' },
-                    }}
                   />
                 </TableCell>
                 <TableCell>
@@ -120,7 +118,7 @@ export default function TestExecutionHistoryTable({
                               fontSize: 14,
                               lineHeight: '22px',
                               transition: 'color 0.2s',
-                              color: '#2a2e36',
+                              color: 'text.primary',
                               fontWeight:
                                 item.testRunId === highlightTestRunId
                                   ? 600
@@ -139,7 +137,7 @@ export default function TestExecutionHistoryTable({
                         sx={{
                           fontSize: 14,
                           lineHeight: '22px',
-                          color: '#2a2e36',
+                          color: 'text.primary',
                         }}
                       >
                         {item.testRunName}
@@ -152,15 +150,15 @@ export default function TestExecutionHistoryTable({
                           size="small"
                           variant="outlined"
                           sx={{
-                            borderColor: '#cdd2da',
-                            color: '#2a2e36',
+                            borderColor: 'divider',
+                            color: 'text.primary',
                             fontSize: 12,
                           }}
                         />
                       )}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ color: '#2a2e36' }}>
+                <TableCell sx={{ color: 'text.primary' }}>
                   {item.passedMetrics}/{item.totalMetrics} passed
                 </TableCell>
                 <TableCell sx={{ color: 'text.secondary' }}>

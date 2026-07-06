@@ -1,16 +1,26 @@
 'use client';
 
-import React from 'react';
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
+import React, { useMemo } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestExecutionHistoryTable from '@/components/tests/TestExecutionHistoryTable';
 import { useTestExecutionHistory } from '@/components/tests/useTestExecutionHistory';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface TestDetailHistoryTabProps {
   test: TestResultDetail;
   testRunId: string;
   sessionToken: string;
 }
+
+type StatColor = 'primary' | 'success' | 'error';
 
 export default function TestDetailHistoryTab({
   test,
@@ -21,6 +31,35 @@ export default function TestDetailHistoryTab({
     testId: test.test_id,
     sessionToken,
   });
+
+  const stats = useMemo(() => {
+    const passedCount = rows.filter(h => h.passed).length;
+    const passRate =
+      rows.length > 0 ? (passedCount / rows.length) * 100 : 0;
+
+    return [
+      {
+        label: 'Total Executions',
+        value: rows.length,
+        color: 'primary' as StatColor,
+      },
+      {
+        label: 'Pass Rate',
+        value: `${passRate.toFixed(1)}%`,
+        color: (passRate >= 80 ? 'success' : 'error') as StatColor,
+      },
+      {
+        label: 'Passed',
+        value: passedCount,
+        color: 'success' as StatColor,
+      },
+      {
+        label: 'Failed',
+        value: rows.filter(h => !h.passed).length,
+        color: 'error' as StatColor,
+      },
+    ];
+  }, [rows]);
 
   if (loading) {
     return (
@@ -48,66 +87,46 @@ export default function TestDetailHistoryTab({
   return (
     <Box sx={{ p: 3 }}>
       {rows.length > 0 && (
-        <Box sx={{ display: 'flex', gap: '26px', mb: 3 }}>
-          {[
-            {
-              label: 'Total Executions',
-              value: rows.length,
-              color: '#1a1c20',
-            },
-            {
-              label: 'Pass Rate',
-              value: `${((rows.filter(h => h.passed).length / rows.length) * 100).toFixed(1)}%`,
-              color:
-                rows.filter(h => h.passed).length / rows.length >= 0.8
-                  ? '#38ad87'
-                  : '#de3355',
-            },
-            {
-              label: 'Passed',
-              value: rows.filter(h => h.passed).length,
-              color: '#38ad87',
-            },
-            {
-              label: 'Failed',
-              value: rows.filter(h => !h.passed).length,
-              color: '#de3355',
-            },
-          ].map(stat => (
-            <Box
+        <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+          {stats.map(stat => (
+            <Card
               key={stat.label}
               sx={{
                 flex: 1,
-                bgcolor: '#f3f4f6',
-                borderRadius: '10px',
-                boxShadow: '0px 3px 5px rgba(0,0,0,0.09)',
-                p: '30px',
-                height: '140px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
+                bgcolor: 'grey.100',
+                borderRadius: BORDER_RADIUS.sm,
+                boxShadow: ELEVATION.xs,
               }}
             >
-              <Typography
+              <CardContent
                 sx={{
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  color: '#1a1c20',
+                  p: 3,
+                  height: 140,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  '&:last-child': { pb: 3 },
                 }}
               >
-                {stat.label}
-              </Typography>
-              <Typography
-                sx={{
-                  fontSize: 36,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  color: stat.color,
-                }}
-              >
-                {stat.value}
-              </Typography>
-            </Box>
+                <Typography variant="caption" color="text.primary">
+                  {stat.label}
+                </Typography>
+                <Typography
+                  variant="h3"
+                  sx={{
+                    fontWeight: 700,
+                    color:
+                      stat.color === 'success'
+                        ? 'success.main'
+                        : stat.color === 'error'
+                          ? 'error.main'
+                          : 'text.primary',
+                  }}
+                >
+                  {stat.value}
+                </Typography>
+              </CardContent>
+            </Card>
           ))}
         </Box>
       )}
@@ -116,9 +135,10 @@ export default function TestDetailHistoryTab({
         <Box
           sx={{
             bgcolor: 'background.paper',
-            borderRadius: '12px',
-            border: '1px solid #cdd2da',
-            boxShadow: '0px 2px 4px rgba(84,90,101,0.25)',
+            borderRadius: BORDER_RADIUS.md,
+            border: 1,
+            borderColor: 'divider',
+            boxShadow: ELEVATION.xs,
             p: 3,
             textAlign: 'center',
           }}
