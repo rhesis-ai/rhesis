@@ -326,7 +326,7 @@ export default function RoleEditorDrawer({
             role.member_count > 0
               ? `${role.member_count} member${role.member_count === 1 ? '' : 's'} currently ${
                   role.member_count === 1 ? 'holds' : 'hold'
-                } this role. Deleting it will require reassigning them first.`
+                } this role. Deleting it removes the role from them — organization-level holders lose its access, and project-level holders revert to their inherited organization role.`
               : undefined
           }
         />

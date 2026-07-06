@@ -333,10 +333,12 @@ export default function RolesTab() {
                     <TableCell align="right">
                       <Button
                         size="small"
-                        onClick={() => openDrawer('edit', role)}
+                        onClick={() =>
+                          openDrawer(canManageRoles ? 'edit' : 'view', role)
+                        }
                         sx={{ textTransform: 'none' }}
                       >
-                        Edit
+                        {canManageRoles ? 'Edit' : 'View'}
                       </Button>
                     </TableCell>
                   </TableRow>
