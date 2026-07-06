@@ -103,6 +103,14 @@ describe('applyFlexColumnSizing', () => {
 
     expect(applyFlexColumnSizing(columns)[0]).toEqual(columns[0]);
   });
+
+  it('preserves columns with maxWidth as fixed-width', () => {
+    const columns: GridColDef[] = [
+      { field: 'name', headerName: 'Name', width: 200, maxWidth: 200 },
+    ];
+
+    expect(applyFlexColumnSizing(columns)[0]).toEqual(columns[0]);
+  });
 });
 
 describe('BaseDataGrid', () => {

@@ -116,10 +116,10 @@ describe('EntityCard', () => {
   it('top-aligns card content in stretched grid layouts', () => {
     render(<EntityCard {...defaultProps} />);
 
-    expect(screen.getByText('My Entity').closest('.MuiButtonBase-root')).toHaveStyle(
-      {
-        justifyContent: 'flex-start',
-      }
-    );
+    expect(
+      screen.getByText('My Entity').closest('.MuiButtonBase-root')
+    ).toHaveStyle({
+      justifyContent: 'flex-start',
+    });
   });
 });

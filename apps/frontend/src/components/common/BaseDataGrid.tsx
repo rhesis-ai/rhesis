@@ -266,7 +266,11 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
     const normalized =
       field === 'actions' ? { ...col, hideable: false } : { ...col };
 
-    if (isFixedWidthColumn(normalized) || normalized.flex != null) {
+    if (
+      isFixedWidthColumn(normalized) ||
+      normalized.flex != null ||
+      normalized.maxWidth != null
+    ) {
       return normalized;
     }
 

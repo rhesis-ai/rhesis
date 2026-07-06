@@ -123,10 +123,9 @@ export default function PolyphemusAccessModal({
       <Alert severity="warning">
         <Typography variant="body2" gutterBottom>
           <strong>Important Notice:</strong> Polyphemus is an adversarial model
-          designed to generate potentially harmful content for testing
-          purposes. Access is restricted to verified users belonging to
-          organizations to ensure responsible use. Your request will be reviewed
-          by our team.
+          designed to generate potentially harmful content for testing purposes.
+          Access is restricted to verified users belonging to organizations to
+          ensure responsible use. Your request will be reviewed by our team.
         </Typography>
       </Alert>
 

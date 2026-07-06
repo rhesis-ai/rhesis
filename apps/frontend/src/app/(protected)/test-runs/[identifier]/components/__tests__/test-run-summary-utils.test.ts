@@ -54,7 +54,7 @@ describe('aggregateMetricStats', () => {
   it('uses metric override marker without counting test-level adjustment twice', () => {
     const result = makeResult({
       last_review: undefined,
-      status: { id: 's2', name: 'Fail' },
+      status: { id: '00000000-0000-0000-0000-000000000002', name: 'Fail' },
       metrics: {
         'Goal Achievement': {
           is_successful: true,
@@ -64,9 +64,13 @@ describe('aggregateMetricStats', () => {
     });
 
     expect(
-      getEffectiveMetricSuccess(result, result.test_metrics!.metrics![
-        'Goal Achievement'
-      ] as { is_successful: boolean; override?: { original_value: boolean } })
+      getEffectiveMetricSuccess(
+        result,
+        result.test_metrics!.metrics!['Goal Achievement'] as {
+          is_successful: boolean;
+          override?: { original_value: boolean };
+        }
+      )
     ).toBe(true);
 
     const stats = aggregateMetricStats([result]);

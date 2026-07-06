@@ -53,7 +53,19 @@ export default function EndpointSelectField({
         id={selectId}
         value={value ?? ''}
         label={label}
+        displayEmpty
         onChange={handleChange}
+        renderValue={selected => {
+          if (!selected) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                {placeholder}
+              </Typography>
+            );
+          }
+          const option = options.find(o => o.endpointId === selected);
+          return option ? formatEndpointLabel(option) : selected;
+        }}
       >
         <MenuItem value="">
           <Typography variant="body2" color="text.secondary">

@@ -315,27 +315,31 @@ export default function TestRunFilterBar({
           </Box>
         )}
 
-        {showHeaderActions && (
-          <Tooltip
-            title={
-              canCompare
-                ? ''
-                : 'No other test runs on this test set to compare against'
-            }
-          >
-            <span>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<CompareArrowsIcon />}
-                onClick={onCompare}
-                disabled={!canCompare}
-              >
-                Compare
-              </Button>
-            </span>
-          </Tooltip>
-        )}
+        {showHeaderActions &&
+          (canCompare ? (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CompareArrowsIcon />}
+              onClick={onCompare}
+            >
+              Compare
+            </Button>
+          ) : (
+            <Tooltip title="No other test runs on this test set to compare against">
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<CompareArrowsIcon />}
+                  onClick={onCompare}
+                  disabled
+                >
+                  Compare
+                </Button>
+              </span>
+            </Tooltip>
+          ))}
         {showHeaderActions && (
           <Button
             size="small"
@@ -347,26 +351,40 @@ export default function TestRunFilterBar({
             {isDownloading ? 'Downloading...' : 'Download'}
           </Button>
         )}
-        {showHeaderActions && onRerun && (
-          <Tooltip
-            title={
-              canRerun && !isRerunning ? '' : (rerunDisabledReason ?? '')
-            }
-          >
-            <span>
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                startIcon={<ReplayIcon />}
-                onClick={onRerun}
-                disabled={isRerunning || !canRerun}
-              >
-                Re-run
-              </Button>
-            </span>
-          </Tooltip>
-        )}
+        {showHeaderActions &&
+          onRerun &&
+          (canRerun && !isRerunning ? (
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<ReplayIcon />}
+              onClick={onRerun}
+            >
+              Re-run
+            </Button>
+          ) : (
+            <Tooltip
+              title={
+                isRerunning
+                  ? 'Re-run in progress'
+                  : (rerunDisabledReason ?? 'Re-run is unavailable')
+              }
+            >
+              <span>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<ReplayIcon />}
+                  onClick={onRerun}
+                  disabled
+                >
+                  Re-run
+                </Button>
+              </span>
+            </Tooltip>
+          ))}
       </Box>
 
       {advancedFilterDrawer}

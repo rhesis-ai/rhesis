@@ -36,7 +36,6 @@ import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
 import {
   BehaviorStat,
-  aggregateMetricStats,
   getReviewBand,
   MetricStat,
 } from './test-run-summary-utils';
@@ -631,9 +630,6 @@ export default function TestRunStatsTab({
   }, [stats]);
 
   const metricStats = useMemo((): MetricStat[] => {
-    if (testResults.length > 0) {
-      return aggregateMetricStats(testResults);
-    }
     if (!stats?.metric_pass_rates) return [];
     return Object.entries(stats.metric_pass_rates).map(([name, s]) => ({
       name,
@@ -645,7 +641,7 @@ export default function TestRunStatsTab({
       automatedFailed: s.automated_failed,
       humanReviewCount: s.human_review_count,
     }));
-  }, [stats, testResults]);
+  }, [stats]);
 
   const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
 

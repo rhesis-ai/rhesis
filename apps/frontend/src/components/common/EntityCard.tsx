@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
@@ -42,26 +42,31 @@ export interface EntityCardProps {
   footer?: React.ReactNode;
 }
 
-// Status chip colours — Figma Chip with semantic green/red tint
-const STATUS_CHIP_STYLES: Record<string, { bg: string; color: string }> = {
-  active: { bg: 'rgba(56, 173, 135, 0.14)', color: '#38ad87' },
-  inactive: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' },
-};
-
-/** Figma greyscale/surface/default — matches linked-entity chips */
-const CHIP_SURFACE_DEFAULT = '#f3f4f6';
-
 function getStatusChipStyles(
   status: string,
-  isDark: boolean
+  theme: Theme
 ): { bg: string; color: string } {
-  const preset = STATUS_CHIP_STYLES[status.toLowerCase()];
-  if (preset) {
-    return preset;
+  const isDark = theme.palette.mode === 'dark';
+  const lower = status.toLowerCase();
+
+  if (lower === 'active') {
+    return {
+      bg: alpha(theme.palette.success.main, 0.14),
+      color: theme.palette.success.main,
+    };
   }
+  if (lower === 'inactive') {
+    return {
+      bg: alpha(theme.palette.error.main, 0.12),
+      color: theme.palette.error.main,
+    };
+  }
+
   return {
-    bg: isDark ? '#0d1117' : CHIP_SURFACE_DEFAULT,
-    color: isDark ? '#c9d1d9' : '#2a2e36',
+    bg: isDark
+      ? theme.palette.grey[900]
+      : theme.palette.greyscale.surface2,
+    color: isDark ? theme.palette.grey[300] : theme.palette.greyscale.body,
   };
 }
 
@@ -73,8 +78,7 @@ const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
 /** Status badge on entity cards — pill shape; semantic tint for active/inactive. */
 export function EntityCardStatusBadge({ status }: { status: string }) {
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const { bg, color } = getStatusChipStyles(status, isDark);
+  const { bg, color } = getStatusChipStyles(status, theme);
   const statusLabel =
     status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 

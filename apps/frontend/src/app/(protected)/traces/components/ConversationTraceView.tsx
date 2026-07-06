@@ -74,9 +74,7 @@ function getPerTurnOverrides(
   return result;
 }
 
-function deletedTestResultFallback(
-  testResultId: string
-): DeletedEntityData {
+function deletedTestResultFallback(testResultId: string): DeletedEntityData {
   return {
     model_name: 'TestResult',
     model_name_display: 'Test Result',
@@ -207,22 +205,18 @@ export default function ConversationTraceView({
     );
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error" variant="body2">
-          {error}
-        </Typography>
-      </Box>
-    );
-  }
-
   const deletedTestWarning = deletedTestResult ? (
     <Box sx={{ p: 2, flexShrink: 0 }}>
       <DeletedEntityAlert
         entityData={deletedTestResult}
         sessionToken={sessionToken}
       />
+    </Box>
+  ) : null;
+
+  const fetchErrorWarning = error ? (
+    <Box sx={{ p: 2, flexShrink: 0 }}>
+      <Alert severity="error">{error}</Alert>
     </Box>
   ) : null;
 
@@ -275,10 +269,11 @@ export default function ConversationTraceView({
   if (turns.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
-        {deletedTestWarning ?? (
-          <Alert severity="warning">
-            The test for this trace no longer exists. No conversation data is
-            available from the trace spans.
+        {deletedTestWarning}
+        {fetchErrorWarning}
+        {!deletedTestWarning && !fetchErrorWarning && (
+          <Alert severity="info">
+            No conversation data is available from this trace.
           </Alert>
         )}
       </Box>
@@ -295,6 +290,7 @@ export default function ConversationTraceView({
       }}
     >
       {deletedTestWarning}
+      {fetchErrorWarning}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <ConversationHistory
           conversationSummary={turns}
