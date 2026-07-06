@@ -1,10 +1,6 @@
-export interface EndpointOption {
-  endpointId: string;
-  endpointName: string;
-  projectId: string;
-  projectName: string;
-  environment: string;
-}
+import type { EndpointOption } from '@/hooks/useEndpoints';
+
+export type { EndpointOption };
 
 export function formatEnvironment(env: string): string {
   return env.charAt(0).toUpperCase() + env.slice(1);

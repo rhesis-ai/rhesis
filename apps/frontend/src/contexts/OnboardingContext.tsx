@@ -9,6 +9,7 @@ import React, {
   useRef,
 } from 'react';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { driver, type Driver, type DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { OnboardingContextValue, OnboardingProgress } from '@/types/onboarding';
@@ -34,6 +35,8 @@ interface OnboardingProviderProps {
 
 export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
   // Initialize with localStorage data immediately to avoid flash
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
     // Load synchronously during initialization to prevent flash
@@ -56,14 +59,23 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
     const loadInitialProgress = async () => {
       try {
-        const dbProgress = await loadProgressFromDatabase(token);
+        const dbProgress = await loadProgressFromDatabase(
+          queryClient,
+          token,
+          userScope
+        );
 
         setProgress(currentProgress => {
           const mergedProgress = mergeProgress(currentProgress, dbProgress);
           saveProgress(mergedProgress);
 
           if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
-            syncProgressToDatabase(token, mergedProgress).catch(error => {
+            syncProgressToDatabase(
+              queryClient,
+              token,
+              userScope,
+              mergedProgress
+            ).catch(error => {
               console.error('Error syncing progress to database:', error);
             });
           }
@@ -79,7 +91,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     };
 
     loadInitialProgress();
-  }, [session?.session_token]);
+  }, [session?.session_token, queryClient, userScope]);
 
   // Persist user-initiated progress changes: save to localStorage
   // immediately and debounce-sync to the database. Skips until the
@@ -97,7 +109,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     }
 
     syncTimeoutRef.current = setTimeout(() => {
-      syncProgressToDatabase(sessionToken, progress).catch(error => {
+      syncProgressToDatabase(
+        queryClient,
+        sessionToken,
+        userScope,
+        progress
+      ).catch(error => {
         console.error('Error syncing progress to database:', error);
       });
     }, 5000);
@@ -107,7 +124,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [progress, session?.session_token]);
+  }, [progress, session?.session_token, queryClient, userScope]);
 
   // Initialize driver.js instance
   useEffect(() => {
@@ -325,12 +342,17 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     if (session?.session_token) {
       const sessionToken = session.session_token;
       try {
-        await syncProgressToDatabase(sessionToken, progress);
+        await syncProgressToDatabase(
+          queryClient,
+          sessionToken,
+          userScope,
+          progress
+        );
       } catch (error) {
         console.error('Error forcing sync to database:', error);
       }
     }
-  }, [session?.session_token, progress]);
+  }, [session?.session_token, progress, queryClient, userScope]);
 
   const isComplete = isOnboardingComplete(progress);
   const completionPercentage = calculateCompletionPercentage(progress);

@@ -238,7 +238,8 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
   const {
     data: testRunsData,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: [
       ...testRunKeys.list(
@@ -250,6 +251,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
       ),
       runKindFilter,
     ],
+    errorFallbackMessage: 'Failed to load test runs',
     queryFn: () => {
       const client = new ApiClientFactory(sessionToken).getTestRunsClient();
       return client.getTestRuns({
@@ -267,7 +269,6 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
 
   const testRuns = testRunsData?.data ?? [];
   const totalCount = testRunsData?.pagination.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load test runs' : null;
 
   // ── Side effect: notify parent of total count ─────────────────────────────
 
@@ -721,7 +722,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
       }}
     >
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

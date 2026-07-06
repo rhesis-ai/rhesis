@@ -54,6 +54,7 @@ import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-te
 import { TEST_TYPES, TYPE_NAMES } from '@/constants/test-types';
 import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { EntityType } from '@/types/entity-type';
+import { useTypeLookups } from '@/hooks/useLookups';
 
 type TestType = 'single_turn' | 'multi_turn';
 
@@ -176,6 +177,18 @@ export default function ManualTestWriter() {
 
   // Test set type ID resolved from testType
   const [testSetTypeId, setTestSetTypeId] = useState<UUID | undefined>();
+  const testTypeValue =
+    testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
+  const { data: resolvedTestSetTypes } = useTypeLookups(
+    session?.session_token ?? '',
+    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`,
+    !!session?.session_token
+  );
+  useEffect(() => {
+    if (resolvedTestSetTypes && resolvedTestSetTypes.length > 0) {
+      setTestSetTypeId(resolvedTestSetTypes[0].id as UUID);
+    }
+  }, [resolvedTestSetTypes]);
 
   // Dialogs
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -221,19 +234,6 @@ export default function ManualTestWriter() {
           sort_order: 'asc',
         });
         setCategories(categoriesData);
-
-        // Fetch test set type ID based on selected test type
-        const typeLookupClient = apiFactory.getTypeLookupClient();
-        const typeValue =
-          testType === 'single_turn'
-            ? TEST_TYPES.SINGLE_TURN
-            : TEST_TYPES.MULTI_TURN;
-        const testSetTypes = await typeLookupClient.getTypeLookups({
-          $filter: `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${typeValue}'`,
-        });
-        if (testSetTypes.length > 0) {
-          setTestSetTypeId(testSetTypes[0].id as UUID);
-        }
       } catch (_error) {
         notifications.show('Failed to load test dimensions', {
           severity: 'error',

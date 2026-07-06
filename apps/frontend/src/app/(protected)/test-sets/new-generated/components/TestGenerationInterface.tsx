@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -45,6 +45,11 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import EndpointSelector from './shared/EndpointSelector';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  useEndpoint,
+  useProject,
+  useInvokeEndpoint,
+} from '@/hooks/useEndpoints';
 import { TEST_TYPES } from '@/constants/test-types';
 
 function extractResponseText(response: unknown): string {
@@ -115,12 +120,6 @@ export default function TestGenerationInterface({
   onSamplesUpdate,
 }: TestGenerationInterfaceProps) {
   const [inputMessage, setInputMessage] = useState('');
-  const [endpointInfo, setEndpointInfo] = useState<{
-    name: string;
-    projectName: string;
-    environment: string;
-    projectIcon?: string;
-  } | null>(null);
   const [localTestSamples, setLocalTestSamples] =
     useState<AnyTestSample[]>(testSamples);
   const [isFetchingResponses, setIsFetchingResponses] = useState(false);
@@ -130,6 +129,19 @@ export default function TestGenerationInterface({
   const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showEndpointModal, setShowEndpointModal] = useState(false);
   const { data: session } = useSession();
+  const invokeEndpointMutation = useInvokeEndpoint(
+    session?.session_token ?? ''
+  );
+  const { data: selectedEndpoint } = useEndpoint(
+    session?.session_token ?? '',
+    selectedEndpointId ?? '',
+    !!selectedEndpointId
+  );
+  const { data: selectedEndpointProject } = useProject(
+    session?.session_token ?? '',
+    selectedEndpoint?.project_id ?? '',
+    !!selectedEndpoint?.project_id
+  );
 
   // Sync local samples with prop changes - merge new samples while preserving existing responses
   useEffect(() => {
@@ -217,50 +229,19 @@ export default function TestGenerationInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localTestSamples]);
 
-  // Load endpoint information when selectedEndpointId changes
-  useEffect(() => {
-    const loadEndpointInfo = async () => {
-      if (!selectedEndpointId || !session?.session_token) {
-        setEndpointInfo(null);
-        return;
-      }
-
-      try {
-        // Create API clients
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const projectsClient = apiFactory.getProjectsClient();
-
-        const endpoint = await endpointsClient.getEndpoint(selectedEndpointId);
-
-        // Fetch project name and icon if available
-        let projectName = 'Unknown Project';
-        let projectIcon: string | undefined;
-        if (endpoint.project_id) {
-          try {
-            const project = await projectsClient.getProject(
-              endpoint.project_id
-            );
-            projectName = project.name;
-            projectIcon = project.icon;
-          } catch (_err) {}
-        }
-
-        setEndpointInfo({
-          name: endpoint.name,
-          projectName,
-          environment: endpoint.environment,
-          projectIcon,
-        });
-      } catch (_error) {
-        setEndpointInfo(null);
-      }
+  const endpointInfo = useMemo(() => {
+    if (!selectedEndpoint) return null;
+    return {
+      name: selectedEndpoint.name,
+      projectName: selectedEndpointProject?.name ?? 'Unknown Project',
+      environment: selectedEndpoint.environment,
+      projectIcon: selectedEndpointProject?.icon,
     };
+  }, [selectedEndpoint, selectedEndpointProject]);
 
-    // Reset processed IDs and clear responses when endpoint changes
+  // Reset processed IDs and clear responses when the endpoint changes
+  useEffect(() => {
     setProcessedSampleIds(new Set());
-
-    // Clear existing responses from samples whenever endpoint changes (including when set to null)
     setLocalTestSamples(prev =>
       prev.map(sample => {
         const newSample = { ...sample };
@@ -270,9 +251,7 @@ export default function TestGenerationInterface({
         return newSample;
       })
     );
-
-    loadEndpointInfo();
-  }, [selectedEndpointId, session]);
+  }, [selectedEndpointId]);
 
   // Fetch responses from endpoint for all unprocessed samples (in parallel).
   // Only triggered explicitly via fetchTrigger (e.g. "Generate Responses" button).
@@ -303,7 +282,6 @@ export default function TestGenerationInterface({
       setIsFetchingResponses(true);
 
       const apiFactory = new ApiClientFactory(session.session_token);
-      const endpointsClient = apiFactory.getEndpointsClient();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark all samples as loading
@@ -329,10 +307,10 @@ export default function TestGenerationInterface({
       const promises = samplesToFetch.map(async sample => {
         try {
           if (sample.testType === 'single_turn') {
-            const response = await endpointsClient.invokeEndpoint(
-              selectedEndpointId,
-              { input: sample.prompt }
-            );
+            const response = await invokeEndpointMutation.mutateAsync({
+              id: selectedEndpointId,
+              inputData: { input: sample.prompt },
+            });
 
             const responseText = extractResponseText(response);
 
@@ -496,7 +474,6 @@ export default function TestGenerationInterface({
         return;
 
       const apiFactory = new ApiClientFactory(session.session_token);
-      const endpointsClient = apiFactory.getEndpointsClient();
       const testsClient = apiFactory.getTestsClient();
 
       // Mark sample as loading
@@ -523,10 +500,10 @@ export default function TestGenerationInterface({
 
       try {
         if (sample.testType === 'single_turn') {
-          const response = await endpointsClient.invokeEndpoint(
-            selectedEndpointId,
-            { input: sample.prompt }
-          );
+          const response = await invokeEndpointMutation.mutateAsync({
+            id: selectedEndpointId,
+            inputData: { input: sample.prompt },
+          });
           const responseText = extractResponseText(response);
 
           setLocalTestSamples(prev =>
@@ -616,6 +593,7 @@ export default function TestGenerationInterface({
       session?.session_token,
       localTestSamples,
       processedSampleIds,
+      invokeEndpointMutation,
     ]
   );
 
@@ -1250,6 +1228,7 @@ export default function TestGenerationInterface({
           <EndpointSelector
             selectedEndpointId={selectedEndpointId}
             onEndpointChange={onEndpointChange}
+            enabled={showEndpointModal}
           />
         </Box>
       </BaseDrawer>

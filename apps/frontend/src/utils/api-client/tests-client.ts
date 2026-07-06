@@ -143,7 +143,7 @@ export class TestsClient extends BaseApiClient {
       delete apiTest.priorityLevel;
     }
 
-    return this.fetch<Test>(API_ENDPOINTS.tests, {
+    return this.fetch<Test>(`${API_ENDPOINTS.tests}/`, {
       method: 'POST',
       body: JSON.stringify(apiTest),
     });

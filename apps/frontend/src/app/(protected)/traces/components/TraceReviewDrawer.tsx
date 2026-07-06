@@ -167,7 +167,7 @@ export default function TraceReviewDrawer({
 
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!sessionToken || statuses.length > 0) return;
+      if (!open || !sessionToken || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
@@ -183,7 +183,7 @@ export default function TraceReviewDrawer({
       }
     };
     fetchStatuses();
-  }, [sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length]);
 
   useEffect(() => {
     if (open && selectedSpan) {

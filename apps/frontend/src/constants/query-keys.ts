@@ -14,9 +14,16 @@ export const endpointKeys = createEntityKeys('endpoints');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
 export const experimentKeys = createEntityKeys('experiments');
+export const modelKeys = createEntityKeys('models');
 export const behaviorKeys = createEntityKeys('behaviors');
 export const projectKeys = createEntityKeys('projects');
 export const explorerKeys = createEntityKeys('explorer');
+
+export const traceKeys = {
+  all: () => ['traces'] as const,
+  list: (params: Record<string, unknown>) =>
+    ['traces', 'list', params] as const,
+};
 
 export const commentKeys = {
   list: (entityType: string, entityId: string) =>
@@ -31,8 +38,26 @@ export const categoryKeys = {
   list: (entityType = '') => ['categories', 'list', entityType] as const,
 };
 
+export const statusKeys = {
+  list: (entityType = '') => ['statuses', 'list', entityType] as const,
+};
+
+export const tagKeys = {
+  list: () => ['tags', 'list'] as const,
+};
+
+export const userKeys = {
+  list: (filter = '') => ['users', 'list', filter] as const,
+};
+
+export const typeLookupKeys = {
+  list: (filter = '') => ['type-lookups', 'list', filter] as const,
+};
+
 export const fileKeys = {
   all: ['files'] as const,
+  list: (entityType: string, entityId: string) =>
+    ['files', 'list', entityType, entityId] as const,
   metadata: (fileId: string) => ['files', 'metadata', fileId] as const,
   thumbnail: (fileId: string, size: number) =>
     ['files', 'thumbnail', fileId, size] as const,
@@ -50,4 +75,8 @@ export const featureKeys = {
 export const permissionKeys = {
   all: (userScope: string, projectId: string) =>
     ['permissions', userScope, projectId] as const,
+};
+
+export const userSettingsKeys = {
+  all: (userScope: string) => ['user-settings', userScope] as const,
 };

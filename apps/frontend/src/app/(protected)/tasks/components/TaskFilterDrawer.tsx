@@ -11,10 +11,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { TaskStatus } from '@/types/tasks';
-import { getPriorities } from '@/utils/task-lookup';
-import type { Priority } from '@/utils/api-client/interfaces/task';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { User } from '@/utils/api-client/interfaces/user';
+import { usePriorities, useUsers } from '@/hooks/useLookups';
 
 export interface TaskFilters {
   status: string;
@@ -72,38 +69,20 @@ export default function TaskFilterDrawer({
     onApply,
     onClose
   );
-  const [priorities, setPriorities] = React.useState<Priority[]>([]);
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [loadingOptions, setLoadingOptions] = React.useState(false);
-
-  React.useEffect(() => {
-    const sessionToken = session?.session_token;
-    if (!open || !sessionToken) return;
-
-    const loadOptions = async () => {
-      setLoadingOptions(true);
-      try {
-        const [fetchedPriorities, fetchedUsers] = await Promise.all([
-          getPriorities(sessionToken),
-          (async () => {
-            const clientFactory = new ApiClientFactory(sessionToken);
-            const usersClient = clientFactory.getUsersClient();
-            const response = await usersClient.getUsers();
-            return response.data.filter(user => user.id && user.name);
-          })(),
-        ]);
-        setPriorities(fetchedPriorities);
-        setUsers(fetchedUsers);
-      } catch {
-        setPriorities([]);
-        setUsers([]);
-      } finally {
-        setLoadingOptions(false);
-      }
-    };
-
-    loadOptions();
-  }, [open, session?.session_token]);
+  const sessionToken = session?.session_token ?? '';
+  const { data: priorities = [], isLoading: loadingPriorities } = usePriorities(
+    sessionToken,
+    open
+  );
+  const { data: rawUsers, isLoading: loadingUsers } = useUsers(
+    sessionToken,
+    open
+  );
+  const users = React.useMemo(
+    () => (rawUsers ?? []).filter(user => user.id && user.name),
+    [rawUsers]
+  );
+  const loadingOptions = loadingPriorities || loadingUsers;
 
   return (
     <FilterDrawerShell

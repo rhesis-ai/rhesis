@@ -14,8 +14,8 @@ import {
   MenuItem,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UUID } from 'crypto';
+import { useTypeLookups } from '@/hooks/useLookups';
 
 interface TestSetDrawerProps {
   open: boolean;
@@ -38,7 +38,6 @@ export default function TestSetDrawer({
   const [description, setDescription] = React.useState(
     testSet?.description || ''
   );
-  const [testSetTypes, setTestSetTypes] = React.useState<TypeLookup[]>([]);
   const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
     string | undefined
   >(testSet?.test_set_type_id);
@@ -60,41 +59,29 @@ export default function TestSetDrawer({
     }
   }, [open, testSet]);
 
+  const { data: rawTestSetTypes } = useTypeLookups(
+    sessionToken,
+    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}'`,
+    open
+  );
+
+  const testSetTypes = React.useMemo(
+    () =>
+      (rawTestSetTypes ?? []).filter(
+        t => t.type_value?.toLowerCase() !== 'mixed'
+      ),
+    [rawTestSetTypes]
+  );
+
   React.useEffect(() => {
-    const fetchTestSetTypes = async () => {
-      if (!sessionToken) return;
-
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const typeLookupClient = clientFactory.getTypeLookupClient();
-
-        const types = await typeLookupClient.getTypeLookups({
-          $filter: `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}'`,
-          sort_by: 'type_value',
-          sort_order: 'asc',
-        });
-
-        const selectableTypes = types.filter(
-          t => t.type_value?.toLowerCase() !== 'mixed'
-        );
-
-        setTestSetTypes(selectableTypes);
-
-        if (!testSet && selectableTypes.length > 0) {
-          const singleTurnType = selectableTypes.find(
-            t => t.type_value === TEST_TYPES.SINGLE_TURN
-          );
-          setSelectedTestSetTypeId(
-            singleTurnType ? singleTurnType.id : selectableTypes[0].id
-          );
-        }
-      } catch (_err) {
-        // Silently fail — user can still select a type manually
-      }
-    };
-
-    fetchTestSetTypes();
-  }, [sessionToken, testSet]);
+    if (!open || testSet || testSetTypes.length === 0) return;
+    const singleTurnType = testSetTypes.find(
+      t => t.type_value === TEST_TYPES.SINGLE_TURN
+    );
+    setSelectedTestSetTypeId(
+      singleTurnType ? singleTurnType.id : testSetTypes[0].id
+    );
+  }, [open, testSet, testSetTypes]);
 
   const handleSave = async () => {
     if (!sessionToken) return;

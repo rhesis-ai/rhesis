@@ -11,6 +11,8 @@ import GridToolbar, {
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchUserSettings } from '@/hooks/useUserSettings';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { Organization } from '@/utils/api-client/interfaces/organization';
@@ -40,6 +42,8 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.READ
   );
@@ -89,7 +93,6 @@ export default function ModelsPage() {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
-        const usersClient = apiFactory.getUsersClient();
 
         const organizationsClient = apiFactory.getOrganizationsClient();
 
@@ -99,7 +102,11 @@ export default function ModelsPage() {
               $filter: "type_name eq 'ProviderType'",
               limit: 100,
             }),
-            usersClient.getUserSettings().catch(() => null),
+            fetchUserSettings(
+              queryClient,
+              session.session_token,
+              userScope
+            ).catch(() => null),
             session.user?.organization_id
               ? organizationsClient
                   .getOrganization(session.user.organization_id)
@@ -134,7 +141,7 @@ export default function ModelsPage() {
     }
 
     loadData();
-  }, [session]);
+  }, [session, queryClient, userScope]);
 
   const handleFabClick = (event: React.MouseEvent<HTMLElement>) => {
     setFabAnchorEl(event.currentTarget);
@@ -161,9 +168,11 @@ export default function ModelsPage() {
   const refreshUserSettings = async () => {
     if (!session?.session_token) return;
     try {
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const usersClient = apiFactory.getUsersClient();
-      const settings = await usersClient.getUserSettings();
+      const settings = await fetchUserSettings(
+        queryClient,
+        session.session_token,
+        userScope
+      );
       setUserSettings(settings);
     } catch (error) {
       console.error('Failed to refresh user settings:', error);

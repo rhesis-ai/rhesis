@@ -8,7 +8,7 @@ export class TokensClient extends BaseApiClient {
     name: string,
     expiresInDays: number | null
   ): Promise<TokenResponse> {
-    return this.fetch<TokenResponse>(API_ENDPOINTS.tokens, {
+    return this.fetch<TokenResponse>(`${API_ENDPOINTS.tokens}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

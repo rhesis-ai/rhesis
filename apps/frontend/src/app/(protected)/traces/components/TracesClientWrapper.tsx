@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Paper } from '@mui/material';
 import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -15,6 +16,7 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { traceKeys } from '@/constants/query-keys';
 
 interface TracesClientWrapperProps {
   sessionToken: string;
@@ -35,14 +37,14 @@ export default function TracesClientWrapper({
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Telemetry.READ
   );
-  const [refreshKey, setRefreshKey] = useState(0);
+  const queryClient = useQueryClient();
   const [showEmptyHint, setShowEmptyHint] = useState(false);
 
   useDocumentTitle('Traces');
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
+    queryClient.invalidateQueries({ queryKey: traceKeys.all() });
+  }, [queryClient]);
 
   const handleUnfilteredEmpty = useCallback((empty: boolean) => {
     setShowEmptyHint(empty);
@@ -122,8 +124,6 @@ export default function TracesClientWrapper({
               currentUserPicture={currentUserPicture}
               initialTraceId={initialTraceId}
               initialProjectId={initialProjectId}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
               onUnfilteredEmpty={handleUnfilteredEmpty}
             />
           </Paper>

@@ -250,7 +250,8 @@ export default function TestSetsGrid({
   const {
     data: testSetsData,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: testSetKeys.list(
       filterString,
@@ -259,6 +260,7 @@ export default function TestSetsGrid({
       sort_by,
       sort_order
     ),
+    errorFallbackMessage: 'Failed to load test sets',
     queryFn: () => {
       const client = new ApiClientFactory(sessionToken).getTestSetsClient();
       return client.getTestSets({
@@ -273,7 +275,6 @@ export default function TestSetsGrid({
   });
   const testSets = testSetsData?.data ?? [];
   const totalCount = testSetsData?.pagination.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load test sets' : null;
 
   // ── onTotalCountChange side effect ───────────────────────────────────────────
   useEffect(() => {
@@ -642,7 +643,7 @@ export default function TestSetsGrid({
       }}
     >
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

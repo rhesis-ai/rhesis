@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import {
   Box,
   FormControl,
@@ -13,21 +13,13 @@ import {
   Alert,
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { Project } from '@/utils/api-client/interfaces/project';
-
-interface EndpointOption {
-  endpointId: string;
-  endpointName: string;
-  projectId: string;
-  projectName: string;
-  environment: string;
-}
+import { useEndpointOptions } from '@/hooks/useEndpoints';
 
 interface EndpointSelectorProps {
   selectedEndpointId: string | null;
   onEndpointChange: (endpointId: string | null) => void;
+  /** Skip fetching until true — for instances mounted inside a `keepMounted` drawer/dialog that isn't open yet. */
+  enabled?: boolean;
 }
 
 /**
@@ -38,79 +30,17 @@ interface EndpointSelectorProps {
 export default function EndpointSelector({
   selectedEndpointId,
   onEndpointChange,
+  enabled = true,
 }: EndpointSelectorProps) {
-  const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
-
-  const loadEndpoints = useCallback(async () => {
-    if (!session?.session_token) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Create API clients
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const projectsClient = apiFactory.getProjectsClient();
-      const endpointsClient = apiFactory.getEndpointsClient();
-
-      // Fetch all projects and endpoints
-      const [projectsResponse, endpointsResponse] = await Promise.all([
-        projectsClient.getProjects({ limit: 100 }),
-        endpointsClient.getEndpoints({ limit: 100 }),
-      ]);
-
-      // Handle both array and paginated response formats
-      const projects = Array.isArray(projectsResponse)
-        ? projectsResponse
-        : projectsResponse?.data || [];
-
-      const endpoints = Array.isArray(endpointsResponse)
-        ? endpointsResponse
-        : endpointsResponse?.data || [];
-
-      // Create a map of project IDs to project names
-      const projectMap = new Map<string, string>();
-      projects.forEach((project: Project) => {
-        projectMap.set(project.id.toString(), project.name);
-      });
-
-      // Build endpoint options with project information
-      const options: EndpointOption[] = endpoints
-        .filter(
-          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
-            !!endpoint.project_id
-        ) // Only include endpoints with projects
-        .map(endpoint => ({
-          endpointId: endpoint.id,
-          endpointName: endpoint.name,
-          projectId: endpoint.project_id,
-          projectName: projectMap.get(endpoint.project_id) || 'Unknown Project',
-          environment: endpoint.environment,
-        }))
-        .sort((a, b) => {
-          // Sort by project name, then endpoint name
-          const projectCompare = a.projectName.localeCompare(b.projectName);
-          if (projectCompare !== 0) return projectCompare;
-          return a.endpointName.localeCompare(b.endpointName);
-        });
-
-      setEndpointOptions(options);
-    } catch (_err) {
-      setError('Failed to load endpoints. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    loadEndpoints();
-  }, [loadEndpoints]);
+  const {
+    options: endpointOptions,
+    isLoading,
+    error: optionsError,
+  } = useEndpointOptions(session?.session_token ?? '', enabled);
+  const error = optionsError
+    ? 'Failed to load endpoints. Please try again.'
+    : null;
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;

@@ -75,7 +75,6 @@ import {
 
 interface TestsTableProps {
   sessionToken: string;
-  onRefresh?: () => void;
   onNewTest?: () => void;
   disableAddButton?: boolean;
   insightsFailedFilter?: InsightsFailedTestsFilter | null;
@@ -150,7 +149,6 @@ function TestsUnifiedToolbar() {
 
 export default function TestsTable({
   sessionToken,
-  onRefresh,
   onNewTest: _onNewTest,
   disableAddButton: _disableAddButton = false,
   insightsFailedFilter = null,
@@ -223,7 +221,8 @@ export default function TestsTable({
   const {
     data: testsData,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: testKeys.list(
       filterString,
@@ -232,6 +231,7 @@ export default function TestsTable({
       sort_by,
       sort_order
     ),
+    errorFallbackMessage: 'Failed to load tests',
     queryFn: () => {
       const testsClient = new ApiClientFactory(sessionToken).getTestsClient();
       return testsClient.getTests({
@@ -247,7 +247,6 @@ export default function TestsTable({
 
   const tests = testsData?.data ?? [];
   const totalCount = testsData?.pagination.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load tests' : null;
 
   // Compute whether selected tests have mixed types
   const selectedTestTypes = useMemo(() => {
@@ -666,7 +665,6 @@ export default function TestsTable({
       setPendingDeleteId(null);
       setSelectedRows([]);
       queryClient.invalidateQueries({ queryKey: testKeys.all() });
-      onRefresh?.();
     } catch (_error) {
       notifications.show('Failed to delete tests', {
         severity: 'error',
@@ -676,14 +674,7 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [
-    pendingDeleteId,
-    selectedRows,
-    sessionToken,
-    notifications,
-    queryClient,
-    onRefresh,
-  ]);
+  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -705,8 +696,7 @@ export default function TestsTable({
     if (paginationModel.page > 0) {
       setPaginationModel(prev => ({ ...prev, page: 0 }));
     }
-    onRefresh?.();
-  }, [queryClient, paginationModel.page, onRefresh]);
+  }, [queryClient, paginationModel.page]);
 
   // Get action buttons based on selection (Add Tests removed — FAB in page header handles it)
   const getActionButtons = useCallback(() => {
@@ -748,7 +738,7 @@ export default function TestsTable({
       }}
     >
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

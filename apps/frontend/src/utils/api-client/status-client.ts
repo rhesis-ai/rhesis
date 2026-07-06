@@ -30,7 +30,7 @@ export class StatusClient extends BaseApiClient {
       queryParams.append('$filter', $filter);
     }
 
-    const url = `${API_ENDPOINTS.statuses}?${queryParams.toString()}`;
+    const url = `${API_ENDPOINTS.statuses}/?${queryParams.toString()}`;
 
     return this.fetch<Status[]>(url, {
       cache: 'no-store',

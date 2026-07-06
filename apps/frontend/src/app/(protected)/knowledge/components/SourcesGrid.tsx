@@ -168,7 +168,7 @@ export default function SourcesGrid({
   const {
     data: sourcesData,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
   } = useGridQuery({
     queryKey: sourceKeys.list(
       filterString,
@@ -177,6 +177,7 @@ export default function SourcesGrid({
       sortField,
       sortOrder
     ),
+    errorFallbackMessage: 'Failed to load knowledge sources',
     queryFn: () => {
       const client = new ApiClientFactory(sessionToken).getSourcesClient();
       return client.getSources({
@@ -192,7 +193,6 @@ export default function SourcesGrid({
 
   const sources = sourcesData?.data ?? [];
   const totalCount = sourcesData?.pagination.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load knowledge sources' : null;
 
   useEffect(() => {
     if (!sourcesData) return;

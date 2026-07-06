@@ -25,7 +25,7 @@ export class TasksClient extends BaseApiClient {
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params.$filter) queryParams.append('$filter', params.$filter);
 
-    const path = `${API_ENDPOINTS.tasks}?${queryParams.toString()}`;
+    const path = `${API_ENDPOINTS.tasks}/?${queryParams.toString()}`;
     const url = this.baseUrl + path;
     const headers = this.getHeaders();
 
@@ -50,7 +50,7 @@ export class TasksClient extends BaseApiClient {
   }
 
   async createTask(taskData: TaskCreate): Promise<Task> {
-    const response = await this.fetch<Task>(API_ENDPOINTS.tasks, {
+    const response = await this.fetch<Task>(`${API_ENDPOINTS.tasks}/`, {
       method: 'POST',
       body: JSON.stringify(taskData),
     });

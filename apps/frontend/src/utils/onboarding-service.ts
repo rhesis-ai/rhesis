@@ -1,6 +1,11 @@
+import { QueryClient } from '@tanstack/react-query';
 import { OnboardingProgress } from '@/types/onboarding';
 import { ApiClientFactory } from './api-client/client-factory';
 import { OnboardingProgress as BackendOnboardingProgress } from './api-client/interfaces/user';
+import {
+  fetchUserSettings,
+  writeUserSettingsCache,
+} from '@/hooks/useUserSettings';
 
 const STORAGE_KEY = 'rhesis_onboarding_progress';
 
@@ -135,14 +140,21 @@ function toFrontendFormat(
 }
 
 /**
- * Load onboarding progress from the database
+ * Load onboarding progress from the database. Joins the shared
+ * `useUserSettings` cache so this doesn't duplicate a fetch already
+ * in flight or already warm from another consumer.
  */
 export async function loadProgressFromDatabase(
-  sessionToken: string
+  queryClient: QueryClient,
+  sessionToken: string,
+  userScope: string
 ): Promise<OnboardingProgress> {
   try {
-    const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
-    const settings = await usersClient.getUserSettings();
+    const settings = await fetchUserSettings(
+      queryClient,
+      sessionToken,
+      userScope
+    );
 
     if (settings.onboarding) {
       return toFrontendFormat(settings.onboarding);
@@ -156,17 +168,21 @@ export async function loadProgressFromDatabase(
 }
 
 /**
- * Save onboarding progress to the database
+ * Save onboarding progress to the database and write the result back into
+ * the shared `useUserSettings` cache so other consumers see it immediately.
  */
 export async function syncProgressToDatabase(
+  queryClient: QueryClient,
   sessionToken: string,
+  userScope: string,
   progress: OnboardingProgress
 ): Promise<boolean> {
   try {
     const usersClient = new ApiClientFactory(sessionToken).getUsersClient();
-    await usersClient.updateUserSettings({
+    const updated = await usersClient.updateUserSettings({
       onboarding: toBackendFormat(progress),
     });
+    writeUserSettingsCache(queryClient, userScope, updated);
     return true;
   } catch (error) {
     console.error('Error syncing onboarding progress to database:', error);

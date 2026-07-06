@@ -11,6 +11,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TYPE_NAMES } from '@/constants/test-types';
+import { useTypeLookups } from '@/hooks/useLookups';
 
 interface TestSetSelectionDialogProps {
   open: boolean;
@@ -34,40 +35,19 @@ export default function TestSetSelectionDialog({
   );
   const [inputValue, setInputValue] = React.useState<string>('');
   const [isSearching, setIsSearching] = React.useState(false);
-  const [resolvedTestSetTypeId, setResolvedTestSetTypeId] = React.useState<
-    string | undefined
-  >(undefined);
   const notifications = useNotifications();
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Resolve the test set type ID from the test type value name
-  React.useEffect(() => {
-    if (!testTypeValue || !sessionToken) {
-      setResolvedTestSetTypeId(undefined);
-      return;
-    }
-
-    const resolve = async () => {
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const typeLookupClient = clientFactory.getTypeLookupClient();
-        const escaped = testTypeValue.replace(/'/g, "''");
-        const types = await typeLookupClient.getTypeLookups({
-          $filter:
-            `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and ` +
-            `type_value eq '${escaped}'`,
-          limit: 1,
-        });
-        setResolvedTestSetTypeId(
-          types.length > 0 ? (types[0].id as string) : undefined
-        );
-      } catch {
-        setResolvedTestSetTypeId(undefined);
-      }
-    };
-
-    resolve();
-  }, [testTypeValue, sessionToken]);
+  const escapedTestTypeValue = testTypeValue?.replace(/'/g, "''");
+  const { data: resolvedTypes } = useTypeLookups(
+    sessionToken,
+    escapedTestTypeValue
+      ? `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${escapedTestTypeValue}'`
+      : '',
+    !!escapedTestTypeValue
+  );
+  const resolvedTestSetTypeId = resolvedTypes?.[0]?.id as string | undefined;
 
   // Create OData filter for search
   const createSearchFilter = React.useCallback(

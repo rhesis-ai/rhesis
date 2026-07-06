@@ -8,9 +8,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  fetchUserSettings,
+  writeUserSettingsCache,
+} from '@/hooks/useUserSettings';
 import {
   clearActiveProjectId,
   readActiveProjectId,
@@ -51,6 +56,8 @@ export function ActiveProjectProvider({
   initialActiveProject?: Project | null;
 }) {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
@@ -111,7 +118,11 @@ export function ActiveProjectProvider({
         // 2. Fall back to the user's configured default project.
         let defaultId: string | null = null;
         try {
-          const settings = await factory.getUsersClient().getUserSettings();
+          const settings = await fetchUserSettings(
+            queryClient,
+            session.session_token,
+            userScope
+          );
           defaultId = settings?.default_project?.project_id
             ? String(settings.default_project.project_id)
             : null;
@@ -139,7 +150,7 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.session_token]
+    [session?.session_token, queryClient, userScope]
   );
 
   useEffect(() => {
@@ -159,12 +170,13 @@ export function ActiveProjectProvider({
         if (token) {
           try {
             const factory = new ApiClientFactory(token);
-            await factory.getUsersClient().updateUserSettings({
+            const updated = await factory.getUsersClient().updateUserSettings({
               default_project: {
                 project_id: project.id as UUID,
                 name: project.name,
               },
             });
+            writeUserSettingsCache(queryClient, userScope, updated);
           } catch {
             // Cookie still scopes the current session; ignore persistence failure.
           }
@@ -182,7 +194,7 @@ export function ActiveProjectProvider({
         window.location.reload();
       }
     },
-    [session?.session_token]
+    [session?.session_token, queryClient, userScope]
   );
 
   const refresh = useCallback(

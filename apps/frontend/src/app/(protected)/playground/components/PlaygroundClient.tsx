@@ -18,13 +18,11 @@ import PlaygroundIcon from '@/components/PlaygroundIcon';
 import EndpointsIcon from '@/components/EndpointsIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { Project } from '@/utils/api-client/interfaces/project';
+import { useEndpointOptions } from '@/hooks/useEndpoints';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
 import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
-import { EndpointOption, formatEndpointLabel } from './playgroundEndpointUtils';
+import { formatEndpointLabel } from './playgroundEndpointUtils';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -128,15 +126,20 @@ export default function PlaygroundClient() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
 
-  const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
+  const {
+    options: endpointOptions,
+    isLoading,
+    error: optionsError,
+  } = useEndpointOptions(session?.session_token ?? '');
+  const error = optionsError
+    ? 'Failed to load endpoints. Please try again.'
+    : null;
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
   );
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
   const [endpointDrawerOpen, setEndpointDrawerOpen] = useState(false);
@@ -164,76 +167,6 @@ export default function PlaygroundClient() {
       setInitialEndpointApplied(true);
     }
   }, [endpointOptions, searchParams, initialEndpointApplied]);
-
-  const loadEndpoints = useCallback(async () => {
-    if (!session?.session_token) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const projectsClient = apiFactory.getProjectsClient();
-      const endpointsClient = apiFactory.getEndpointsClient();
-
-      const [projectsResponse, endpointsResponse] = await Promise.all([
-        projectsClient.getProjects({ limit: 100 }),
-        endpointsClient.getEndpoints({ limit: 100 }),
-      ]);
-
-      // Handle both array and paginated response formats
-      const projects = Array.isArray(projectsResponse)
-        ? projectsResponse
-        : projectsResponse?.data || [];
-
-      const endpoints = Array.isArray(endpointsResponse)
-        ? endpointsResponse
-        : endpointsResponse?.data || [];
-
-      // Create a map of project IDs to project data
-      const projectMap = new Map<string, Project>();
-      projects.forEach((project: Project) => {
-        projectMap.set(project.id.toString(), project);
-      });
-
-      // Build endpoint options with project information
-      const options: EndpointOption[] = endpoints
-        .filter(
-          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
-            !!endpoint.project_id
-        )
-        .map(endpoint => {
-          const project = projectMap.get(endpoint.project_id);
-          return {
-            endpointId: endpoint.id,
-            endpointName: endpoint.name,
-            projectId: endpoint.project_id,
-            projectName: project?.name || 'Unknown Project',
-            environment: endpoint.environment,
-          };
-        })
-        .sort((a, b) => {
-          const projectCompare = a.projectName.localeCompare(b.projectName);
-          if (projectCompare !== 0) return projectCompare;
-          return a.endpointName.localeCompare(b.endpointName);
-        });
-
-      setEndpointOptions(options);
-    } catch (err) {
-      setError('Failed to load endpoints. Please try again.');
-      console.error('Failed to load endpoints:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [session]);
-
-  // Load endpoints on mount
-  useEffect(() => {
-    loadEndpoints();
-  }, [loadEndpoints]);
 
   const handleReset = useCallback(() => {
     setSelectedEndpointId(null);

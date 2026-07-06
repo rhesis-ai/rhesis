@@ -19,8 +19,8 @@ import {
   Tool,
   ToolCreate,
   ToolUpdate,
-  TypeLookup,
 } from '@/utils/api-client/interfaces/tool';
+import { useTypeLookups } from '@/hooks/useLookups';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
 import {
@@ -44,7 +44,11 @@ export default function ToolsPage() {
   const canCreateTool = useCan(Capability.Tool.CREATE);
   useDocumentTitle('Tools');
   const [tools, setTools] = useState<Tool[]>([]);
-  const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
+  const { data: providerTypes = [] } = useTypeLookups(
+    session?.session_token ?? '',
+    "type_name eq 'ToolProviderType'",
+    !!session?.session_token
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,17 +72,11 @@ export default function ToolsPage() {
         setLoading(true);
         const apiFactory = new ApiClientFactory(session.session_token);
         const toolsClient = apiFactory.getToolsClient();
-        const typeLookupClient = apiFactory.getTypeLookupClient();
 
-        const [providerTypesData, toolsResponse] = await Promise.all([
-          typeLookupClient.getTypeLookups({
-            $filter: "type_name eq 'ToolProviderType'",
-            limit: 100,
-          }),
-          toolsClient.getTools({ limit: 100 }).catch(() => ({ data: [] })),
-        ]);
+        const toolsResponse = await toolsClient
+          .getTools({ limit: 100 })
+          .catch(() => ({ data: [] }));
 
-        setProviderTypes(providerTypesData);
         setTools(toolsResponse.data || []);
       } catch (err) {
         setError(
