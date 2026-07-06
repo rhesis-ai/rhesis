@@ -69,6 +69,7 @@ config:
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
+  nextPublicOnboardingVideoUrl: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""

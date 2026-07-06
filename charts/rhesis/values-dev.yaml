@@ -32,6 +32,7 @@ config:
   nextPublicAuth0ClientId: ""
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
   nextPublicSupportEmail: "hello@rhesis.ai"
+  nextPublicOnboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend
   rhesisBaseUrl: "https://dev-api.rhesis.ai"
   frontendUrl: "https://dev-app.rhesis.ai"
