@@ -104,8 +104,7 @@ jobs:
             "${SET_FLAGS[@]}" \
             --server "$ARGOCD_SERVER" \
             --auth-token "$ARGOCD_AUTH_TOKEN" \
-            --grpc-web \
-            --insecure
+            --grpc-web
 
       - name: Resolve Resource Flag
         env:
@@ -147,7 +146,6 @@ jobs:
               --server "$ARGOCD_SERVER" \
               --auth-token "$ARGOCD_AUTH_TOKEN" \
               --grpc-web \
-              --insecure \
               --timeout 300 \
               ${RESOURCE_FLAG:+"$RESOURCE_FLAG"} 2>&1) || EXIT_CODE=$?
             echo "$OUTPUT"
@@ -174,7 +172,6 @@ jobs:
             --server "$ARGOCD_SERVER" \
             --auth-token "$ARGOCD_AUTH_TOKEN" \
             --grpc-web \
-            --insecure \
             --health \
             --timeout 1200 \
             ${RESOURCE_FLAG:+"$RESOURCE_FLAG"}
