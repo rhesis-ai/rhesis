@@ -190,6 +190,7 @@ CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 BACKEND_ENV=local
 DEV_MODE=true
 LOG_LEVEL=DEBUG
+OTEL_RHESIS_TELEMETRY_ENABLED=false
 
 # URLs
 API_BASE_URL=http://localhost:8080
