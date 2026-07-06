@@ -59,6 +59,9 @@ describe('ActiveProjectProvider.syncProject', () => {
     expect(screen.getByTestId('active-name')).toHaveTextContent(
       'Original Name'
     );
+    expect(screen.getByTestId('project-list')).toHaveTextContent(
+      'Original Name'
+    );
 
     act(() => {
       screen.getByRole('button', { name: 'sync' }).click();
@@ -67,5 +70,47 @@ describe('ActiveProjectProvider.syncProject', () => {
     expect(screen.getByTestId('active-name')).toHaveTextContent(
       'Renamed Project'
     );
+    expect(screen.getByTestId('project-list')).toHaveTextContent(
+      'Renamed Project'
+    );
+  });
+
+  it('upserts into the project list when the project was not cached', () => {
+    function UpsertProbe() {
+      const { projects, syncProject } = useActiveProject();
+
+      return (
+        <div>
+          <span data-testid="project-list">
+            {projects.map(p => p.name).join(',')}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              syncProject({
+                id: 'proj-2',
+                name: 'New Name',
+              } as Project)
+            }
+          >
+            sync
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <ActiveProjectProvider>
+        <UpsertProbe />
+      </ActiveProjectProvider>
+    );
+
+    expect(screen.getByTestId('project-list')).toHaveTextContent('');
+
+    act(() => {
+      screen.getByRole('button', { name: 'sync' }).click();
+    });
+
+    expect(screen.getByTestId('project-list')).toHaveTextContent('New Name');
   });
 });

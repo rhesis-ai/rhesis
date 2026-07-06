@@ -54,7 +54,9 @@ export function ActiveProjectProvider({
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(
+    initialActiveProject ? [initialActiveProject] : []
+  );
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
   );
@@ -191,9 +193,11 @@ export function ActiveProjectProvider({
 
   const syncProject = useCallback((project: Project) => {
     const id = String(project.id);
-    setProjects(prev =>
-      prev.map(p => (String(p.id) === id ? { ...p, ...project } : p))
-    );
+    setProjects(prev => {
+      const exists = prev.some(p => String(p.id) === id);
+      if (!exists) return [...prev, project];
+      return prev.map(p => (String(p.id) === id ? { ...p, ...project } : p));
+    });
     setActiveProjectState(prev =>
       prev && String(prev.id) === id ? { ...prev, ...project } : prev
     );
