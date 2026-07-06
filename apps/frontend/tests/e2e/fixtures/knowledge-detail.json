@@ -1,6 +1,6 @@
 {
   "id": "c2d3e4f5-0009-0009-0009-000000000001",
-  "name": "Product FAQ",
+  "title": "Product FAQ",
   "description": "Frequently asked questions about the product used as knowledge context.",
   "source_type": "document",
   "file_size": 12345,
