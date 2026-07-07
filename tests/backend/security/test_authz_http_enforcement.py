@@ -33,6 +33,7 @@ Run with:
 from __future__ import annotations
 
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 
 import pytest
@@ -144,3 +145,113 @@ class TestHttpAuthzEnforcement:
             f"Non-owner member wrongly denied behavior:read: {resp.status_code} {resp.text}"
         )
         assert resp.status_code == 200, resp.text
+
+
+def _assign_role(test_db, organization_id, user_id, role_name: str) -> None:
+    """Assign an arbitrary built-in org role (EE only; no-op in community)."""
+    try:
+        from tests.backend.ee.rbac._rbac_helpers import _assign_org_role
+    except ImportError:
+        return
+    _assign_org_role(test_db, organization_id, user_id, role_name)
+    test_db.commit()
+
+
+@contextmanager
+def _ee_active():
+    """Activate the EE PDP provider for the duration of a real HTTP request."""
+    from tests.backend.ee.rbac._rbac_helpers import _ee_provider_active
+
+    with _ee_provider_active():
+        yield
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+@pytest.mark.security
+class TestHttpAuthzEnforcementByRole:
+    """EE: prove the require_permission backstop enforces per built-in role over HTTP.
+
+    Not a full HTTP matrix (that's the PDP-level exhaustive backstop in
+    ``test_role_capability_matrix.py``) — just proof that the wiring (route →
+    capability → ``require_permission`` → ``authorize()``) holds per role.
+    Org-scoped capabilities only, to keep this a wiring check rather than a
+    duplicate of the PDP matrix's project-enrollment semantics.
+    """
+
+    def _context(self, test_db, role_name: str):
+        org, user, token = _make_context(test_db, owner=(role_name == "Owner"))
+        if role_name != "Owner":
+            _assign_role(test_db, org.id, user.id, role_name)
+        return org, user, token
+
+    def test_owner_allowed_on_role_manage_route(self, client, test_db):
+        """Owner-exclusive EE capability: only Owner may create custom roles."""
+        _org, _user, token = self._context(test_db, "Owner")
+        with _ee_active():
+            resp = client.post(
+                "/rbac/roles",
+                json={"name": f"role-{uuid.uuid4().hex[:8]}"},
+                headers=_auth(token),
+            )
+        assert resp.status_code != 403, resp.text
+
+    def test_admin_allowed_on_organization_update(self, client, test_db):
+        """Unlike the community fallback, EE Admin holds organization:update."""
+        org, _user, token = self._context(test_db, "Admin")
+        with _ee_active():
+            resp = client.put(
+                f"/organizations/{org.id}",
+                json={"name": f"Renamed {uuid.uuid4().hex[:6]}"},
+                headers=_auth(token),
+            )
+        assert resp.status_code != 403, resp.text
+
+    def test_admin_denied_on_role_manage_route(self, client, test_db):
+        """Admin excludes role:manage even though it holds most other caps."""
+        _org, _user, token = self._context(test_db, "Admin")
+        with _ee_active():
+            resp = client.post(
+                "/rbac/roles",
+                json={"name": f"role-{uuid.uuid4().hex[:8]}"},
+                headers=_auth(token),
+            )
+        assert resp.status_code == 403, resp.text
+        assert resp.headers.get("X-Accepted-Permissions") == "role:manage"
+
+    def test_member_allowed_on_ordinary_read(self, client, test_db):
+        org, _user, token = self._context(test_db, "Member")
+        with _ee_active():
+            resp = client.get(f"/organizations/{org.id}", headers=_auth(token))
+        assert resp.status_code == 200, resp.text
+
+    def test_member_denied_on_organization_update(self, client, test_db):
+        org, _user, token = self._context(test_db, "Member")
+        with _ee_active():
+            resp = client.put(
+                f"/organizations/{org.id}", json={"name": "nope"}, headers=_auth(token)
+            )
+        assert resp.status_code == 403, resp.text
+        assert resp.headers.get("X-Accepted-Permissions") == "organization:update"
+
+    def test_viewer_allowed_on_ordinary_read(self, client, test_db):
+        org, _user, token = self._context(test_db, "Viewer")
+        with _ee_active():
+            resp = client.get(f"/organizations/{org.id}", headers=_auth(token))
+        assert resp.status_code == 200, resp.text
+
+    def test_viewer_denied_on_organization_update(self, client, test_db):
+        org, _user, token = self._context(test_db, "Viewer")
+        with _ee_active():
+            resp = client.put(
+                f"/organizations/{org.id}", json={"name": "nope"}, headers=_auth(token)
+            )
+        assert resp.status_code == 403, resp.text
+        assert resp.headers.get("X-Accepted-Permissions") == "organization:update"
+
+    def test_none_role_denied_on_ordinary_read(self, client, test_db):
+        org, _user, token = self._context(test_db, "None")
+        with _ee_active():
+            resp = client.get(f"/organizations/{org.id}", headers=_auth(token))
+        assert resp.status_code == 403, resp.text
+        assert resp.headers.get("X-Accepted-Permissions") == "organization:read"

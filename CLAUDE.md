@@ -495,6 +495,7 @@ Tests that render components using any affordance primitive must mock the module
 ```ts
 jest.mock('@/components/common/Can', () => ({
   useCan: () => true,
+  useCanWithStatus: () => ({ allowed: true, loading: false }),
   Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   can: () => true,
 }));

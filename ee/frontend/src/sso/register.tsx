@@ -26,12 +26,13 @@ import { FeatureName } from '@/constants/features';
 import { FeatureGate } from '@/contexts/FeaturesContext';
 import { registerOrgSettingsTab } from '@/lib/extension-registries';
 import { SectionCard } from '@/components/common/SectionCard';
+import SSOEmptyState from './components/SSOEmptyState';
 
 const SSOConfigForm = React.lazy(() => import('./components/SSOConfigForm'));
 
 function SSOSection() {
   return (
-    <FeatureGate feature={FeatureName.SSO}>
+    <FeatureGate feature={FeatureName.SSO} fallback={<SSOEmptyState />}>
       <React.Suspense
         fallback={
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>

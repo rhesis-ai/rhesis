@@ -25,7 +25,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.ee.rbac.router import list_project_members
-from tests.backend.ee.rbac.test_sp8_access_control import (
+from tests.backend.ee.rbac._rbac_helpers import (
     _add_project_member,
     _assign_org_role,
     _create_org,

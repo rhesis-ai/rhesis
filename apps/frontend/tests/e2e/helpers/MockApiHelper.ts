@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test';
+import { type Page, type Route, expect } from '@playwright/test';
 import projectsFixture from '../fixtures/projects.json';
 
 /**
@@ -16,22 +16,58 @@ import projectsFixture from '../fixtures/projects.json';
  * (last registered = first matched). When both mockList() and mockDetail()
  * are used for the same resource, always call mockDetail() AFTER mockList()
  * so the more specific detail route takes priority.
+ *
+ * Patterns here match on bare resource paths (`/tokens`, `/behaviors`, …)
+ * with no origin/host restriction, because the frontend's `API_BASE_URL`
+ * varies across configurations (mock-backend, live backend, prod). A page
+ * whose route happens to share its name with its own API resource (e.g. the
+ * `/tokens` page and the `/tokens` list endpoint) would otherwise also match
+ * the *page navigation* request itself — hijacking the page load and
+ * replacing it with the mocked JSON body. All route registrations below go
+ * through `routeApi()`, which excludes `resourceType() === 'document'`
+ * requests (top-level navigations) so only actual API calls are mocked.
  */
 export class MockApiHelper {
   constructor(private readonly page: Page) {}
 
   /**
+   * Register a route, but only handle it for genuine API calls — never for
+   * the top-level page navigation (`resourceType() === 'document'`), which
+   * can otherwise collide with a bare resource path like `/tokens` or
+   * `/behaviors` and hijack the page load itself. See class docstring.
+   */
+  private async routeApi(
+    pattern: string | RegExp,
+    handler: (route: Route) => unknown
+  ) {
+    await this.page.route(pattern, route => {
+      if (route.request().resourceType() === 'document') {
+        return route.fallback();
+      }
+      return handler(route);
+    });
+  }
+
+  /**
    * Build a regex that matches only list-level requests for a given API path.
-   * The pattern matches the path followed by end-of-path or a query string,
-   * but NOT additional path segments (which would indicate a detail request).
+   * The pattern matches the path followed by an optional trailing slash and
+   * end-of-path or a query string, but NOT additional path segments (which
+   * would indicate a detail request).
    *
-   * e.g. /api/v1/tests  or  /api/v1/tests?limit=100  → matched
-   *      /api/v1/tests/some-uuid                      → NOT matched
+   * The trailing slash is required, not cosmetic: `BaseApiClient.fetchPaginated`
+   * (used by every paginated list() method) always appends one — e.g.
+   * `ProjectsClient.getProjects()` requests `/api/v1/projects/?skip=0&...`, not
+   * `/api/v1/projects?skip=0&...`. Without it here, list-page tests silently
+   * fall through to the real network and its 500/CORS failure gets rendered
+   * as an error state instead of the mocked empty/populated one.
+   *
+   * e.g. /api/v1/tests  or  /api/v1/tests/  or  /api/v1/tests/?limit=100  → matched
+   *      /api/v1/tests/some-uuid                                          → NOT matched
    */
   private listRoutePattern(apiPath: string): RegExp {
     const escaped = apiPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Optional /api/v1 prefix for mock-backend; live backend uses bare paths.
-    return new RegExp(`(/api/v1)?${escaped}(\\?|$)`);
+    return new RegExp(`(/api/v1)?${escaped}/?(\\?|$)`);
   }
 
   private jsonListResponse(
@@ -59,14 +95,14 @@ export class MockApiHelper {
       unknown
     >[]
   ) {
-    await this.page.route('**/projects/mine**', route =>
+    await this.routeApi('**/projects/mine**', route =>
       route.fulfill(this.jsonListResponse(data))
     );
   }
 
   /** Mock user settings fetch used when resolving the active project. */
   async mockUserSettings() {
-    await this.page.route('**/users/settings**', route =>
+    await this.routeApi('**/users/settings**', route =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -108,7 +144,7 @@ export class MockApiHelper {
     data: Record<string, unknown>[],
     totalCount?: number
   ) {
-    await this.page.route(this.listRoutePattern(apiPath), route =>
+    await this.routeApi(this.listRoutePattern(apiPath), route =>
       route.fulfill(this.jsonListResponse(data, totalCount))
     );
   }
@@ -119,7 +155,7 @@ export class MockApiHelper {
    * Uses the same regex as mockList() to avoid matching detail sub-paths.
    */
   async mockError(apiPath: string, status: 401 | 404 | 500) {
-    await this.page.route(this.listRoutePattern(apiPath), route =>
+    await this.routeApi(this.listRoutePattern(apiPath), route =>
       route.fulfill({
         status,
         contentType: 'application/json',
@@ -134,7 +170,7 @@ export class MockApiHelper {
    */
   async mockDetail(apiPath: string, id: string, data: Record<string, unknown>) {
     const escaped = apiPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    await this.page.route(
+    await this.routeApi(
       new RegExp(`(/api/v1)?${escaped}/${id}(\\?|$)`),
       route =>
         route.fulfill({

@@ -32,7 +32,12 @@ test.describe('Projects — mocked states @mocked', () => {
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/no project yet/i)).toBeVisible();
+    // Client-side pagination (ProjectsClientWrapper.getAllProjects) takes
+    // longer than the default 5s expect timeout to settle in this dev
+    // environment — bump it rather than rely on networkidle alone.
+    await expect(page.getByText(/no project yet/i)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('populated state shows project cards', async ({ page }) => {
@@ -42,7 +47,12 @@ test.describe('Projects — mocked states @mocked', () => {
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('E2E Test Project Alpha')).toBeVisible();
+    // Scoped to <main>: the nav's active-project switcher also renders the
+    // first fixture project's name, so an unscoped getByText() ambiguously
+    // matches both it and the project card.
+    await expect(
+      page.locator('main').getByText('E2E Test Project Alpha')
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('error state does not crash the page', async ({ page }) => {
@@ -144,7 +154,11 @@ test.describe('Behaviors — mocked states @mocked', () => {
     await page.goto('/behaviors');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/no behavior yet/i)).toBeVisible();
+    // See the Projects empty-state comment above for why this needs more
+    // than the default 5s expect timeout in this dev environment.
+    await expect(page.getByText(/no behavior yet/i)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('populated state shows behavior cards', async ({ page }) => {
@@ -154,7 +168,9 @@ test.describe('Behaviors — mocked states @mocked', () => {
     await page.goto('/behaviors');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(behaviorsFixture[0].name)).toBeVisible();
+    await expect(page.getByText(behaviorsFixture[0].name)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('error state does not crash the page', async ({ page }) => {
@@ -229,8 +245,10 @@ test.describe('API Tokens — mocked states @mocked', () => {
     await page.goto('/tokens');
     await page.waitForLoadState('networkidle');
 
+    // See the Projects empty-state comment above for why this needs more
+    // than the default 5s expect timeout in this dev environment.
     const createBtn = page.getByRole('button', { name: /create api token/i });
-    await expect(createBtn.first()).toBeVisible();
+    await expect(createBtn.first()).toBeVisible({ timeout: 15_000 });
   });
 
   test('populated state shows data grid with rows', async ({ page }) => {

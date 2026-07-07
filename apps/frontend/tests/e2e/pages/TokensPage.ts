@@ -10,12 +10,15 @@ import {
 export class TokensPage {
   readonly dataGrid: Locator;
   readonly createTokenButton: Locator;
+  /** RBAC (EE) scope section in the create-token drawer — see TokenScopeField. */
+  readonly scopeField: Locator;
 
   constructor(private readonly page: Page) {
     this.dataGrid = page.locator('[role="grid"]');
     this.createTokenButton = page
       .getByRole('button', { name: /create api token/i })
       .first();
+    this.scopeField = page.getByText(/token permissions/i);
   }
 
   async goto() {

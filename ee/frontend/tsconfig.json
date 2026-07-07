@@ -11,7 +11,10 @@
       "@mui/icons-material": ["../../apps/frontend/node_modules/@mui/icons-material"],
       "@mui/icons-material/*": ["../../apps/frontend/node_modules/@mui/icons-material/*"],
       "next-auth": ["../../apps/frontend/node_modules/next-auth"],
-      "next-auth/*": ["../../apps/frontend/node_modules/next-auth/*"]
+      "next-auth/*": ["../../apps/frontend/node_modules/next-auth/*"],
+      "@testing-library/react": ["../../apps/frontend/node_modules/@testing-library/react"],
+      "@testing-library/user-event": ["../../apps/frontend/node_modules/@testing-library/user-event"],
+      "@testing-library/jest-dom": ["../../apps/frontend/node_modules/@testing-library/jest-dom"]
     }
   },
   "include": [
