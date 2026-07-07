@@ -7,7 +7,7 @@ SignedTokenLicenseProvider; core stores it as an opaque value.
 Modeled on a3b4c5d6e7f8_add_sso_config_to_organization.py.
 
 Revision ID: b4b371a45639
-Revises: c0d1e2f3a4b5
+Revises: a7c3e9f10b24
 Create Date: 2026-06-06
 
 """
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b4b371a45639"
-down_revision: Union[str, None] = "c0d1e2f3a4b5"
+down_revision: Union[str, None] = "a7c3e9f10b24"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
