@@ -10,8 +10,8 @@ import {
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { TEST_TYPES } from '@/constants/test-types';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { useStatuses, useUsers, useTags } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
   EMPTY_ACTIVITY_PRESENCE_FILTERS,
@@ -85,58 +85,41 @@ export default function TestSetFilterDrawer({
   onApply,
 }: TestSetFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestSetFilters>(filters);
-  const [statusOptions, setStatusOptions] = React.useState<string[]>([]);
-  const [creatorOptions, setCreatorOptions] = React.useState<string[]>([]);
-  const [tagOptions, setTagOptions] = React.useState<string[]>([]);
-  const [loadingOptions, setLoadingOptions] = React.useState(false);
+  const token = sessionToken ?? '';
+
+  const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
+    token,
+    ENTITY_TYPES.testSet,
+    open
+  );
+  const { data: rawUsers, isLoading: loadingUsers } = useUsers(token, open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(token, open);
+  const loadingOptions = loadingStatuses || loadingUsers || loadingTags;
+
+  const statusOptions = React.useMemo(
+    () => filterUniqueValidOptions(rawStatuses ?? []).map(s => s.name),
+    [rawStatuses]
+  );
+  const creatorOptions = React.useMemo(
+    () =>
+      (rawUsers ?? [])
+        .map(
+          user =>
+            user.name ||
+            `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
+            user.email
+        )
+        .filter(Boolean),
+    [rawUsers]
+  );
+  const tagOptions = React.useMemo(
+    () => (rawTags ?? []).map(tag => tag.name).filter(Boolean),
+    [rawTags]
+  );
 
   React.useEffect(() => {
     if (open) setDraft(filters);
   }, [open, filters]);
-
-  React.useEffect(() => {
-    if (!open || !sessionToken) return;
-
-    const loadOptions = async () => {
-      setLoadingOptions(true);
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const [statusesData, usersData, tagsData] = await Promise.all([
-          apiFactory.getStatusClient().getStatuses({
-            sort_by: 'name',
-            sort_order: 'asc',
-            entity_type: ENTITY_TYPES.testSet,
-          }),
-          apiFactory.getUsersClient().getUsers(),
-          apiFactory.getTagsClient().getTags({
-            sort_by: 'name',
-            sort_order: 'asc',
-          }),
-        ]);
-
-        setStatusOptions(
-          filterUniqueValidOptions(statusesData).map(s => s.name)
-        );
-        setCreatorOptions(
-          usersData.data
-            .map(
-              user =>
-                user.name ||
-                `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
-                user.email
-            )
-            .filter(Boolean)
-        );
-        setTagOptions(tagsData.map(tag => tag.name).filter(Boolean));
-      } catch {
-        // Keep empty options on failure
-      } finally {
-        setLoadingOptions(false);
-      }
-    };
-
-    loadOptions();
-  }, [open, sessionToken]);
 
   const handleReset = () => setDraft(EMPTY_TEST_SET_FILTERS);
 

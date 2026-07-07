@@ -39,11 +39,7 @@ export function TasksAndCommentsWrapper({
   >();
   const [isCreating, setIsCreating] = useState(false);
 
-  const { createTask, deleteTask } = useTasks({
-    entityType,
-    entityId,
-    autoFetch: false,
-  });
+  const { createTask, deleteTask } = useTasks();
 
   const handleCreateTask = useCallback(
     async (taskData: Record<string, unknown>) => {

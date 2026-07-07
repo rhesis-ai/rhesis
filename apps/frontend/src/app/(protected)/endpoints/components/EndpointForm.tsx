@@ -14,6 +14,7 @@ import DetailTabPanel from '@/components/common/DetailTabPanel';
 import ActionBar from '@/components/common/ActionBar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useTestEndpoint } from '@/hooks/useEndpoints';
 import {
   AutoConfigureResult,
   Endpoint,
@@ -133,6 +134,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const { data: session } = useSession();
     const notifications = useNotifications();
     const { markStepComplete } = useOnboarding();
+    const testEndpointMutation = useTestEndpoint(session?.session_token ?? '');
 
     const [formData, setFormData] = useState<FormData>({
       name: '',
@@ -268,10 +270,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           throw new Error('Invalid JSON in request headers');
         }
 
-        const client = new ApiClientFactory(
-          session.session_token
-        ).getEndpointsClient();
-        const result = await client.testEndpoint({
+        const result = await testEndpointMutation.mutateAsync({
           connection_type: 'REST',
           url: formData.url,
           method: formData.method,

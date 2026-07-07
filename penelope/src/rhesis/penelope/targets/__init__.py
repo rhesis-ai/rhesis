@@ -6,6 +6,7 @@ Targets represent what Penelope tests. Currently supports:
 - LangChainTarget: LangChain chains, agents, and runnables
 - LangGraphTarget: LangGraph compiled graphs and agents
 - MAFTarget: MAF (Microsoft Agent Framework) agents
+- PydanticAITarget: Pydantic AI agents
 
 Future targets may include:
 - AgentTarget: Other AI agents
@@ -17,6 +18,7 @@ from rhesis.penelope.targets.endpoint import EndpointTarget
 from rhesis.penelope.targets.langchain import LangChainTarget
 from rhesis.penelope.targets.langgraph import LangGraphTarget
 from rhesis.penelope.targets.maf import MAFTarget
+from rhesis.penelope.targets.pydantic_ai import PydanticAITarget
 from rhesis.sdk.targets import Target, TargetResponse
 
 __all__ = [
@@ -26,6 +28,7 @@ __all__ = [
     "LangChainTarget",
     "LangGraphTarget",
     "MAFTarget",
+    "PydanticAITarget",
 ]
 
 # Deprecated alias: MicrosoftAgentFrameworkTarget was renamed to MAFTarget.

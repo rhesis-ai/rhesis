@@ -33,7 +33,7 @@ export class TopicClient extends BaseApiClient {
       queryParams.append('entity_type', entity_type);
     }
 
-    const url = `${API_ENDPOINTS.topics}?${queryParams.toString()}`;
+    const url = `${API_ENDPOINTS.topics}/?${queryParams.toString()}`;
 
     return this.fetch<Topic[]>(url, {
       cache: 'no-store',
@@ -45,7 +45,7 @@ export class TopicClient extends BaseApiClient {
   }
 
   async createTopic(topic: TopicCreate): Promise<Topic> {
-    return this.fetch<Topic>(API_ENDPOINTS.topics, {
+    return this.fetch<Topic>(`${API_ENDPOINTS.topics}/`, {
       method: 'POST',
       body: JSON.stringify(topic),
     });

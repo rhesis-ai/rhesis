@@ -13,6 +13,10 @@ NC='\033[0m' # No Color
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+CELERY_WORKER_CONCURRENCY="${CELERY_WORKER_CONCURRENCY:-4}"
+CELERY_WORKER_PREFETCH_MULTIPLIER="${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
+FLOWER_PORT="${FLOWER_PORT:-5555}"
+
 # Function to display help
 show_help() {
     echo -e "${CYAN}"
@@ -190,6 +194,7 @@ CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 BACKEND_ENV=local
 DEV_MODE=true
 LOG_LEVEL=DEBUG
+OTEL_RHESIS_TELEMETRY_ENABLED=false
 
 # URLs
 API_BASE_URL=http://localhost:8080
@@ -1141,7 +1146,6 @@ start_worker() {
     }
 
     LOG_FILE="$SCRIPT_DIR/celery.log"
-    FLOWER_PORT="${FLOWER_PORT:-5555}"
 
     echo -e "${GREEN}Starting new Celery worker...${NC}"
     echo -e "${BLUE}Logs will be written to: ${LOG_FILE}${NC}"
@@ -1188,8 +1192,8 @@ start_worker() {
         --pool threads \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry,architect \
-        --concurrency=${CELERY_WORKER_CONCURRENCY:-4} \
-        --prefetch-multiplier=4 \
+        --concurrency=${CELERY_WORKER_CONCURRENCY} \
+        --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER} \
         --optimization=fair \
         -E &
     WORKER_PID=$!

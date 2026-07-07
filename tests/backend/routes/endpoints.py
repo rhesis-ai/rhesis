@@ -242,7 +242,6 @@ class CommentEndpoints(BaseEntityEndpoints):
 class AuthEndpoints:
     """Authentication API endpoints"""
 
-    login: str = "/auth/login"
     callback: str = "/auth/callback"
     logout: str = "/auth/logout"
     verify: str = "/auth/verify"

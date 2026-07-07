@@ -5,6 +5,10 @@ from typing import Any, Dict
 # Import semantic layer constants from schemas (single source of truth)
 from rhesis.telemetry.schemas import FORBIDDEN_SPAN_DOMAINS
 
+# Max characters of prompt/completion content recorded on a span event.
+# Framework-agnostic: shared by all integrations.
+MAX_CONTENT_LENGTH = 8000
+
 
 class AIAttributes:
     """
@@ -95,6 +99,7 @@ class AIAttributes:
     PROMPT_ROLE = "ai.prompt.role"
     PROMPT_CONTENT = "ai.prompt.content"
     COMPLETION_CONTENT = "ai.completion.content"
+    COMPLETION_OUTPUT_TYPE = "ai.completion.output_type"
     TOOL_INPUT_CONTENT = "ai.tool.input"
     TOOL_OUTPUT_CONTENT = "ai.tool.output"
 

@@ -30,7 +30,7 @@ export class ToolsClient extends BaseApiClient {
 
   async createTool(tool: ToolCreate): Promise<Tool> {
     try {
-      return await this.fetch<Tool>(API_ENDPOINTS.tools, {
+      return await this.fetch<Tool>(`${API_ENDPOINTS.tools}/`, {
         method: 'POST',
         body: JSON.stringify(tool),
       });

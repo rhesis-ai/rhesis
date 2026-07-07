@@ -10,8 +10,7 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Status } from '@/utils/api-client/interfaces/status';
+import { useStatuses } from '@/hooks/useLookups';
 
 export interface EndpointFilters {
   connectionType: string;
@@ -76,36 +75,18 @@ export default function EndpointFilterDrawer({
     onApply,
     onClose
   );
-  const [statuses, setStatuses] = React.useState<Status[]>([]);
-  const [loadingOptions, setLoadingOptions] = React.useState(false);
-
-  React.useEffect(() => {
-    const sessionToken = session?.session_token;
-    if (!open || !sessionToken) return;
-
-    const loadOptions = async () => {
-      setLoadingOptions(true);
-      try {
-        const factory = new ApiClientFactory(sessionToken);
-        const statusesResponse = await factory.getStatusClient().getStatuses({
-          entity_type: 'General',
-          sort_by: 'name',
-          sort_order: 'asc',
-        });
-
-        const uniqueStatuses = statusesResponse.filter(
-          (s, i, arr) => s?.name && arr.findIndex(x => x.name === s.name) === i
-        );
-        setStatuses(uniqueStatuses);
-      } catch {
-        setStatuses([]);
-      } finally {
-        setLoadingOptions(false);
-      }
-    };
-
-    loadOptions();
-  }, [open, session?.session_token]);
+  const { data: rawStatuses, isLoading: loadingOptions } = useStatuses(
+    session?.session_token ?? '',
+    'General',
+    open
+  );
+  const statuses = React.useMemo(
+    () =>
+      (rawStatuses ?? []).filter(
+        (s, i, arr) => s?.name && arr.findIndex(x => x.name === s.name) === i
+      ),
+    [rawStatuses]
+  );
 
   return (
     <FilterDrawerShell

@@ -95,7 +95,7 @@ export class TestRunsClient extends BaseApiClient {
   }
 
   async createTestRun(testRun: TestRunCreate): Promise<TestRun> {
-    return this.fetch<TestRun>(API_ENDPOINTS.testRuns, {
+    return this.fetch<TestRun>(`${API_ENDPOINTS.testRuns}/`, {
       method: 'POST',
       body: JSON.stringify(testRun),
     });

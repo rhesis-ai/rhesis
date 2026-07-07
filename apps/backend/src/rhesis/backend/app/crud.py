@@ -1576,11 +1576,6 @@ def delete_user(
     return db_user
 
 
-def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
-    """Get a user by their Auth0 ID"""
-    return db.query(models.User).filter(models.User.auth0_id == auth0_id).first()
-
-
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
     from sqlalchemy import func
 
@@ -2234,12 +2229,54 @@ def create_test(
 def update_test(
     db: Session,
     test_id: uuid.UUID,
-    test: schemas.TestUpdate,
+    test: Dict[str, Any],
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Test]:
-    """Update test."""
-    return update_item(db, models.Test, test_id, test, organization_id, user_id)
+    """Update test and refresh parent test set attributes when metadata changes.
+
+    ``test`` must be the resolved update payload (e.g. from
+    ``resolve_test_entity_names``), not the raw API schema.
+    """
+    from rhesis.backend.app.services.test_set import update_test_set_attributes
+
+    metadata_fields = {
+        "behavior",
+        "behavior_id",
+        "topic",
+        "topic_id",
+        "category",
+        "category_id",
+        "test_type",
+        "test_type_id",
+    }
+    should_refresh_attributes = bool(metadata_fields & set(test.keys()))
+
+    db_test = update_item(db, models.Test, test_id, test, organization_id, user_id)
+    if db_test is None:
+        return None
+
+    if should_refresh_attributes:
+        affected_test_set_ids = (
+            db.execute(
+                select(test_test_set_association.c.test_set_id).where(
+                    test_test_set_association.c.test_id == test_id,
+                    test_test_set_association.c.organization_id == organization_id,
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        for test_set_id in affected_test_set_ids:
+            update_test_set_attributes(
+                db=db,
+                test_set_id=str(test_set_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+    return db_test
 
 
 def delete_test(

@@ -186,7 +186,8 @@ export default function TasksGrid({
   const {
     data: tasksData,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: taskKeys.list(
       filterString,
@@ -195,6 +196,7 @@ export default function TasksGrid({
       'created_at',
       'desc'
     ),
+    errorFallbackMessage: 'Failed to load tasks',
     queryFn: () => {
       const client = new ApiClientFactory(sessionToken).getTasksClient();
       return client.getTasks({
@@ -209,7 +211,6 @@ export default function TasksGrid({
   });
   const tasks: Task[] = tasksData?.data ?? [];
   const totalCount = tasksData?.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load tasks' : null;
 
   useEffect(() => {
     if (!tasksData) return;
@@ -367,7 +368,7 @@ export default function TasksGrid({
     >
       <Box sx={{ position: 'relative' }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
             {error}
           </Alert>
         )}

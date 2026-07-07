@@ -17,6 +17,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectDetailTabs from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
@@ -44,6 +45,7 @@ export default function ClientWrapper({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const notifications = useNotifications();
+  const { syncProject } = useActiveProject();
 
   const title = currentProject.name || `Project ${params.identifier}`;
   const breadcrumbs: BreadcrumbItem[] = [
@@ -86,6 +88,7 @@ export default function ClientWrapper({
         };
 
         setCurrentProject(updatedProjectWithOwner);
+        syncProject(updatedProjectWithOwner);
         notifications.show('Project updated successfully', {
           severity: 'success',
         });
@@ -100,7 +103,7 @@ export default function ClientWrapper({
         setIsUpdating(false);
       }
     },
-    [projectId, sessionToken, notifications, currentProject]
+    [projectId, sessionToken, notifications, currentProject, syncProject]
   );
 
   const handleDeleteConfirm = async () => {

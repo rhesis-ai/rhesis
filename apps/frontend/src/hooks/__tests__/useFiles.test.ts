@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 import { useFiles } from '../useFiles';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';
 import { EntityType } from '@/types/entity-type';
@@ -15,6 +17,22 @@ jest.mock('../../components/common/NotificationContext', () => ({
 const mockApiClientFactory = ApiClientFactory as jest.MockedClass<
   typeof ApiClientFactory
 >;
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return function wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
 
 describe('useFiles', () => {
   const mockProps = {
@@ -49,7 +67,9 @@ describe('useFiles', () => {
   describe('initialization', () => {
     it('starts with initial state', () => {
       mockFilesClient.getTestFiles.mockResolvedValue([]);
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.files).toEqual([]);
       expect(result.current.isLoading).toBe(true);
@@ -74,7 +94,9 @@ describe('useFiles', () => {
 
       mockFilesClient.getTestFiles.mockResolvedValue(mockFiles);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -111,7 +133,9 @@ describe('useFiles', () => {
 
       mockFilesClient.getTestFiles.mockResolvedValue(mockFiles);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -126,7 +150,9 @@ describe('useFiles', () => {
       const error = new Error('Failed to fetch');
       mockFilesClient.getTestFiles.mockRejectedValue(error);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -137,8 +163,9 @@ describe('useFiles', () => {
     });
 
     it('handles missing session token', async () => {
-      const { result } = renderHook(() =>
-        useFiles({ ...mockProps, sessionToken: '' })
+      const { result } = renderHook(
+        () => useFiles({ ...mockProps, sessionToken: '' }),
+        { wrapper: createWrapper() }
       );
 
       await waitFor(() => {
@@ -149,8 +176,9 @@ describe('useFiles', () => {
     });
 
     it('handles missing entityId', async () => {
-      const { result } = renderHook(() =>
-        useFiles({ ...mockProps, entityId: '' })
+      const { result } = renderHook(
+        () => useFiles({ ...mockProps, entityId: '' }),
+        { wrapper: createWrapper() }
       );
 
       await waitFor(() => {
@@ -178,7 +206,9 @@ describe('useFiles', () => {
       ];
       mockFilesClient.uploadFiles.mockResolvedValue(uploadedFiles);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -232,7 +262,9 @@ describe('useFiles', () => {
       ];
       mockFilesClient.uploadFiles.mockResolvedValue(newUploadedFiles);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.files).toHaveLength(1);
@@ -256,7 +288,9 @@ describe('useFiles', () => {
       error.data = { detail: 'File too large' };
       mockFilesClient.uploadFiles.mockRejectedValue(error);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -273,8 +307,9 @@ describe('useFiles', () => {
     });
 
     it('handles missing session token for upload', async () => {
-      const { result } = renderHook(() =>
-        useFiles({ ...mockProps, sessionToken: '' })
+      const { result } = renderHook(
+        () => useFiles({ ...mockProps, sessionToken: '' }),
+        { wrapper: createWrapper() }
       );
 
       await expect(
@@ -311,7 +346,9 @@ describe('useFiles', () => {
       mockFilesClient.getTestFiles.mockResolvedValue(existingFiles);
       mockFilesClient.deleteFile.mockResolvedValue(existingFiles[0]);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.files).toHaveLength(2);
@@ -334,7 +371,9 @@ describe('useFiles', () => {
       const error = new Error('Failed to delete');
       mockFilesClient.deleteFile.mockRejectedValue(error);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -351,8 +390,9 @@ describe('useFiles', () => {
     });
 
     it('handles missing session token for delete', async () => {
-      const { result } = renderHook(() =>
-        useFiles({ ...mockProps, sessionToken: '' })
+      const { result } = renderHook(
+        () => useFiles({ ...mockProps, sessionToken: '' }),
+        { wrapper: createWrapper() }
       );
 
       await expect(result.current.deleteFile('file-1')).rejects.toThrow(
@@ -365,7 +405,9 @@ describe('useFiles', () => {
     it('refetches files when refetch is called', async () => {
       mockFilesClient.getTestFiles.mockResolvedValue([]);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -407,7 +449,9 @@ describe('useFiles', () => {
 
       mockFilesClient.getTestFiles.mockResolvedValue(files);
 
-      const { result } = renderHook(() => useFiles(mockProps));
+      const { result } = renderHook(() => useFiles(mockProps), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);

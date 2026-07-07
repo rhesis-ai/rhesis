@@ -130,18 +130,6 @@ class User(Base):
     tools = relationship("Tool", foreign_keys="[Tool.user_id]", back_populates="user")
 
     @classmethod
-    def from_auth0(cls, userinfo: dict) -> "User":
-        """Create a User instance from Auth0 userinfo (legacy, kept for migration)"""
-        return cls(
-            auth0_id=userinfo["sub"],
-            email=userinfo["email"],
-            name=userinfo.get("name"),
-            picture=userinfo.get("picture"),
-            given_name=userinfo.get("given_name"),
-            family_name=userinfo.get("family_name"),
-        )
-
-    @classmethod
     def from_auth_user(cls, auth_user: "AuthUser") -> "User":
         """
         Create a User instance from an AuthUser (provider-agnostic).

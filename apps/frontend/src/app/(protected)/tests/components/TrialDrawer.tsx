@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import {
@@ -21,6 +21,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useEndpoints } from '@/hooks/useEndpoints';
 import { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
 import { isMultiTurnTest } from '@/constants/test-types';
@@ -62,7 +63,35 @@ export default function TrialDrawer({
   const [loading, setLoading] = useState(false);
   const [testData, setTestData] = useState<TestDetail | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
+  const {
+    data: rawEndpoints,
+    isLoading: endpointsLoading,
+    isError: endpointsError,
+  } = useEndpoints(
+    sessionToken,
+    { sort_by: 'name', sort_order: 'asc', limit: 100 },
+    open
+  );
+  const endpoints = useMemo<EndpointOption[]>(
+    () =>
+      (rawEndpoints ?? [])
+        .filter(e => e.id && e.name && e.name.trim() !== '')
+        .map(e => ({
+          id: e.id as UUID,
+          name: e.name,
+          environment: e.environment,
+          project_id: e.project_id,
+        })),
+    [rawEndpoints]
+  );
+  useEffect(() => {
+    if (endpointsError) {
+      notifications.show('Failed to load endpoints. Please refresh the page.', {
+        severity: 'error',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpointsError]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
@@ -189,37 +218,6 @@ export default function TrialDrawer({
           setProjects([]);
           notifications.show(
             'Failed to load projects. Please refresh the page.',
-            { severity: 'error' }
-          );
-        }
-
-        // Fetch all endpoints
-        try {
-          const endpointsClient = clientFactory.getEndpointsClient();
-          const endpointsResponse = await endpointsClient.getEndpoints({
-            sort_by: 'name',
-            sort_order: 'asc',
-            limit: 100,
-          });
-
-          if (endpointsResponse && Array.isArray(endpointsResponse.data)) {
-            const processedEndpoints = endpointsResponse.data
-              .filter(e => e.id && e.name && e.name.trim() !== '')
-              .map(e => ({
-                id: e.id as UUID,
-                name: e.name,
-                environment: e.environment,
-                project_id: e.project_id,
-              }));
-
-            setEndpoints(processedEndpoints);
-          } else {
-            setEndpoints([]);
-          }
-        } catch (_endpointsError) {
-          setEndpoints([]);
-          notifications.show(
-            'Failed to load endpoints. Please refresh the page.',
             { severity: 'error' }
           );
         }
@@ -387,7 +385,7 @@ export default function TrialDrawer({
       open={open}
       onClose={onClose}
       title="Run Test"
-      loading={loading || trialInProgress}
+      loading={loading || endpointsLoading || trialInProgress}
       error={error}
       onSave={trialResponse ? onClose : handleSave}
       saveButtonText={
@@ -514,11 +512,14 @@ export default function TrialDrawer({
             }}
             isOptionEqualToValue={(option, value) => option.id === value.id}
           />
-          {filteredEndpoints.length === 0 && selectedProject && !loading && (
-            <FormHelperText>
-              No endpoints available for this project
-            </FormHelperText>
-          )}
+          {filteredEndpoints.length === 0 &&
+            selectedProject &&
+            !loading &&
+            !endpointsLoading && (
+              <FormHelperText>
+                No endpoints available for this project
+              </FormHelperText>
+            )}
         </FormControl>
 
         {/* Test Content - Single-Turn */}

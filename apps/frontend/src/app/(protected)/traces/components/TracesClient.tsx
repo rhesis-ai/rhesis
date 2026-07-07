@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Box, Typography } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceDrawer from './TraceDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import {
-  TraceSummary,
-  TraceQueryParams,
-} from '@/utils/api-client/interfaces/telemetry';
-import { useNotifications } from '@/components/common/NotificationContext';
+import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
+import { useGridQuery } from '@/hooks/useGridQuery';
+import { traceKeys } from '@/constants/query-keys';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import {
@@ -35,8 +34,6 @@ interface TracesClientProps {
   initialTraceId?: string | null;
   initialProjectId?: string | null;
   fixedTestRunId?: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
   onUnfilteredEmpty?: (empty: boolean) => void;
 }
 
@@ -48,22 +45,15 @@ export default function TracesClient({
   initialTraceId = null,
   initialProjectId = null,
   fixedTestRunId,
-  refreshKey: externalRefreshKey = 0,
-  onRefresh,
   onUnfilteredEmpty,
 }: TracesClientProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const notifications = useNotifications();
+  const queryClient = useQueryClient();
   const { activeProject, loading: projectLoading } = useActiveProject();
   const scopedProjectId = activeProject?.id
     ? String(activeProject.id)
     : readActiveProjectId();
-  const [traces, setTraces] = useState<TraceSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
 
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(
     initialTraceId
@@ -112,73 +102,26 @@ export default function TracesClient({
     [drawerFilters, searchQuery, typeFilter, pageSize, offset, scopedProjectId]
   );
 
-  const listLoading = loading || projectLoading;
+  const {
+    data,
+    isFetching,
+    errorMessage: error,
+    dismissError,
+  } = useGridQuery({
+    queryKey: traceKeys.list({ ...queryParams, scopedProjectId }),
+    errorFallbackMessage: 'Failed to fetch traces',
+    queryFn: () => {
+      if (!scopedProjectId)
+        return Promise.reject(new Error('No active project'));
+      const clientFactory = new ApiClientFactory(sessionToken, scopedProjectId);
+      return clientFactory.getTelemetryClient().listTraces(queryParams);
+    },
+    enabled: !!sessionToken && !projectLoading && !!scopedProjectId,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchTraces = async () => {
-      if (!sessionToken || projectLoading) return;
-
-      // Traces are project-scoped (fail-closed RLS). Wait for active project
-      // resolution before fetching — the cookie may not exist on first paint.
-      if (!scopedProjectId) {
-        setTraces([]);
-        setTotalCount(0);
-        setHasFetchedOnce(false);
-        setLoading(false);
-        return;
-      }
-
-      setHasFetchedOnce(false);
-      setLoading(true);
-      setError(null);
-
-      try {
-        const clientFactory = new ApiClientFactory(
-          sessionToken,
-          scopedProjectId
-        );
-        const client = clientFactory.getTelemetryClient();
-        const response = await client.listTraces(queryParams);
-        if (cancelled) return;
-        setTraces(response.traces);
-        setTotalCount(response.total);
-        setError(null);
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const errorMsg =
-          err instanceof Error ? err.message : 'Failed to fetch traces';
-        setError(errorMsg);
-        notifications.show(errorMsg, { severity: 'error' });
-        setTraces([]);
-        setTotalCount(0);
-      } finally {
-        if (!cancelled) {
-          setHasFetchedOnce(true);
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchTraces();
-
-    return () => {
-      cancelled = true;
-    };
-    // notifications intentionally omitted — unstable reference can retrigger fetch
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    sessionToken,
-    projectLoading,
-    scopedProjectId,
-    externalRefreshKey,
-    drawerFilters,
-    searchQuery,
-    typeFilter,
-    pageSize,
-    offset,
-  ]);
+  const traces = data?.traces ?? [];
+  const totalCount = data?.total ?? 0;
+  const listLoading = isFetching || projectLoading;
 
   useEffect(() => {
     const unfiltered =
@@ -189,14 +132,9 @@ export default function TracesClient({
         excludeTestRunId: Boolean(fixedTestRunId),
       });
     onUnfilteredEmpty?.(
-      hasFetchedOnce &&
-        !listLoading &&
-        !!scopedProjectId &&
-        totalCount === 0 &&
-        unfiltered
+      !listLoading && !!scopedProjectId && totalCount === 0 && unfiltered
     );
   }, [
-    hasFetchedOnce,
     listLoading,
     scopedProjectId,
     totalCount,
@@ -248,9 +186,9 @@ export default function TracesClient({
     [fixedTestRunId]
   );
 
-  const handleRefresh = () => {
-    onRefresh?.();
-  };
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: traceKeys.all() });
+  }, [queryClient]);
 
   const showFilteredEmpty =
     !listLoading && traces.length === 0 && totalCount === 0;
@@ -258,7 +196,7 @@ export default function TracesClient({
   return (
     <>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

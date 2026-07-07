@@ -70,7 +70,6 @@ interface MetricsDirectoryTabProps {
   filterOptions: FilterOptions;
   isLoading: boolean;
   error: string | null;
-  onRefresh: () => void;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
   setBehaviorMetrics: React.Dispatch<React.SetStateAction<BehaviorMetrics>>;
@@ -101,7 +100,6 @@ export default function MetricsDirectoryTab({
   filterOptions,
   isLoading,
   error,
-  onRefresh: _onRefresh,
   setFilters,
   setMetrics,
   setBehaviorMetrics,

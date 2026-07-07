@@ -33,7 +33,7 @@ export class CommentsClient extends BaseApiClient {
   }
 
   async createComment(data: CreateCommentRequest): Promise<Comment> {
-    const response = await this.fetch<Comment>(API_ENDPOINTS.comments, {
+    const response = await this.fetch<Comment>(`${API_ENDPOINTS.comments}/`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

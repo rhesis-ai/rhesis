@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Box, useTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { NavigationProvider } from '../navigation/NavigationProvider';
@@ -43,6 +44,18 @@ export function LayoutContent({
 }: Omit<LayoutProps, 'theme'>) {
   const theme = useTheme();
   const pathname = usePathname();
+  const [queryClient] = React.useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60_000,
+            gcTime: 30 * 60_000,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
   const protectedSegments = React.useMemo(
     () => getAllSegments(navigation),
     [navigation]
@@ -115,29 +128,31 @@ export function LayoutContent({
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
         <CssBaseline />
-        <ActiveProjectProvider initialActiveProject={initialActiveProject}>
-          <OrganizationProvider initialOrganization={initialOrganization}>
-            <NotificationProvider>
-              <OnboardingProvider>
-                <Box sx={boxSx}>
-                  <Box sx={{ flex: 1 }}>
-                    <NavigationProvider
-                      navigation={navigation}
-                      branding={branding}
-                      session={session}
-                      authentication={authentication}
-                      theme={theme}
-                    >
-                      {children}
-                    </NavigationProvider>
+        <QueryClientProvider client={queryClient}>
+          <ActiveProjectProvider initialActiveProject={initialActiveProject}>
+            <OrganizationProvider initialOrganization={initialOrganization}>
+              <NotificationProvider>
+                <OnboardingProvider>
+                  <Box sx={boxSx}>
+                    <Box sx={{ flex: 1 }}>
+                      <NavigationProvider
+                        navigation={navigation}
+                        branding={branding}
+                        session={session}
+                        authentication={authentication}
+                        theme={theme}
+                      >
+                        {children}
+                      </NavigationProvider>
+                    </Box>
                   </Box>
-                </Box>
-                {/* Show onboarding checklist for authenticated users */}
-                {session && isProtectedRoute && <OnboardingChecklist />}
-              </OnboardingProvider>
-            </NotificationProvider>
-          </OrganizationProvider>
-        </ActiveProjectProvider>
+                  {/* Show onboarding checklist for authenticated users */}
+                  {session && isProtectedRoute && <OnboardingChecklist />}
+                </OnboardingProvider>
+              </NotificationProvider>
+            </OrganizationProvider>
+          </ActiveProjectProvider>
+        </QueryClientProvider>
       </AppRouterCacheProvider>
     </SessionProvider>
   );

@@ -15,7 +15,7 @@ async def home(request: Request, current_user: Optional[User] = Depends(get_curr
     if current_user:
         return {"message": f"Welcome, {current_user.display_name}!"}
 
-    return {"message": "Welcome! Please log in.", "login_url": f"{base_url}/auth/login"}
+    return {"message": "Welcome! Please log in.", "login_url": f"{base_url}/auth/providers"}
 
 
 @router.get("/protected")

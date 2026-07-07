@@ -29,7 +29,7 @@ export class OrganizationsClient extends BaseApiClient {
     organization: OrganizationCreate
   ): Promise<Organization> {
     try {
-      return await this.fetch<Organization>(API_ENDPOINTS.organizations, {
+      return await this.fetch<Organization>(`${API_ENDPOINTS.organizations}/`, {
         method: 'POST',
         body: JSON.stringify(organization),
       });

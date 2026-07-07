@@ -186,7 +186,8 @@ export default function EndpointsGrid({
   const {
     data: endpointsData,
     isLoading: loading,
-    error: fetchError,
+    errorMessage: error,
+    dismissError,
   } = useGridQuery({
     queryKey: endpointKeys.list(
       filterString,
@@ -195,6 +196,7 @@ export default function EndpointsGrid({
       sort_by,
       sort_order
     ),
+    errorFallbackMessage: 'Failed to load endpoints',
     queryFn: () => {
       const client = new ApiClientFactory(sessionToken).getEndpointsClient();
       return client.getEndpoints({
@@ -210,7 +212,6 @@ export default function EndpointsGrid({
 
   const endpoints = endpointsData?.data ?? [];
   const totalCount = endpointsData?.pagination.totalCount ?? 0;
-  const error = fetchError ? 'Failed to load endpoints' : null;
 
   useEffect(() => {
     if (!endpointsData) return;
@@ -384,7 +385,7 @@ export default function EndpointsGrid({
   return (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

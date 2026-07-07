@@ -17,6 +17,7 @@ import {
   Switch,
   Autocomplete,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -26,6 +27,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { writeUserSettingsCache } from '@/hooks/useUserSettings';
 import {
   Model,
   ModelCreate,
@@ -82,6 +85,7 @@ export const ConnectionForm = forwardRef<
   },
   ref
 ) {
+  const theme = useTheme();
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
@@ -234,6 +238,8 @@ export const ConnectionForm = forwardRef<
   }, [modelName, apiKey, endpoint, isEditMode]);
 
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
 
   // Fetch available models for the provider
   useEffect(() => {
@@ -307,7 +313,8 @@ export const ConnectionForm = forwardRef<
       }
 
       if (Object.keys(updates.models).length > 0) {
-        await usersClient.updateUserSettings(updates);
+        const updated = await usersClient.updateUserSettings(updates);
+        writeUserSettingsCache(queryClient, userScope, updated);
         if (onUserSettingsUpdate) {
           await onUserSettingsUpdate();
         }
@@ -724,8 +731,12 @@ export const ConnectionForm = forwardRef<
                   px: '30px',
                   py: '12px',
                   borderRadius: '4px',
-                  backgroundColor: testResult.success ? '#d0f5ec' : '#fadbde',
-                  color: testResult.success ? '#0080af' : '#de3355',
+                  backgroundColor: testResult.success
+                    ? alpha(theme.palette.success.main, 0.12)
+                    : alpha(theme.palette.error.main, 0.12),
+                  color: testResult.success
+                    ? theme.palette.success.main
+                    : theme.palette.error.main,
                 }}
               >
                 {testResult.success ? (

@@ -36,7 +36,7 @@ class TestHomePublicEndpoint:
         assert "message" in data
         assert "Welcome! Please log in." in data["message"]
         assert "login_url" in data
-        assert data["login_url"].endswith("/auth/login")
+        assert data["login_url"].endswith("/auth/providers")
 
     def test_home_authenticated_user(self, client: TestClient, sample_user: dict):
         """
@@ -87,7 +87,7 @@ class TestHomePublicEndpoint:
         assert "//" not in login_url.replace("http://", "").replace("https://", "")
 
         # Should end with the auth login path
-        assert login_url.endswith("/auth/login")
+        assert login_url.endswith("/auth/providers")
 
     def test_home_user_with_null_name(self, client: TestClient):
         """

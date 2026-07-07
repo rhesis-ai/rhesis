@@ -236,7 +236,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Task.READ
   );
-  const { updateTask } = useTasks({ autoFetch: false });
+  const { updateTask } = useTasks();
   const { show } = useNotifications();
 
   const [isLoading, setIsLoading] = useState(false);

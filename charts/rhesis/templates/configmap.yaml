@@ -30,16 +30,15 @@ data:
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
 
   # -------------------------------------------------------------------------
-  # Frontend / Auth0
+  # Frontend
   # -------------------------------------------------------------------------
   API_BASE_URL: {{ .Values.config.apiBaseUrl | quote }}
   NEXT_PUBLIC_APP_URL: {{ .Values.config.nextPublicAppUrl | quote }}
   NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
   NEXTAUTH_URL: {{ .Values.config.nextauthUrl | quote }}
-  NEXT_PUBLIC_AUTH0_CLIENT_ID: {{ .Values.config.nextPublicAuth0ClientId | quote }}
-  NEXT_PUBLIC_AUTH0_DOMAIN: {{ .Values.config.nextPublicAuth0Domain | quote }}
   NEXT_PUBLIC_QUICK_START: {{ .Values.config.nextPublicQuickStart | quote }}
   NEXT_PUBLIC_SUPPORT_EMAIL: {{ .Values.config.nextPublicSupportEmail | quote }}
+  NEXT_PUBLIC_ONBOARDING_VIDEO_URL: {{ .Values.config.nextPublicOnboardingVideoUrl | quote }}
 
   # -------------------------------------------------------------------------
   # Backend

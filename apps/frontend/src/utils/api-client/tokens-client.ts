@@ -16,7 +16,7 @@ export class TokensClient extends BaseApiClient {
     if (scopes != null) {
       payload.scopes = scopes;
     }
-    return this.fetch<TokenResponse>(API_ENDPOINTS.tokens, {
+    return this.fetch<TokenResponse>(`${API_ENDPOINTS.tokens}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
