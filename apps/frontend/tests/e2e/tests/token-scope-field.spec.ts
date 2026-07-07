@@ -63,14 +63,17 @@ test.describe('API Tokens — scoped token creation @mocked', () => {
 
     await tokensPage.openCreateTokenModal();
     const drawer = openDrawer(page);
-    await drawer.getByRole('textbox', { name: /token name/i }).fill(UNIQUE_NAME);
+    await drawer
+      .getByRole('textbox', { name: /token name/i })
+      .fill(UNIQUE_NAME);
 
     await expect(tokensPage.scopeField).toBeVisible({ timeout: 10_000 });
     await drawer.getByRole('radio', { name: /restricted/i }).click();
     const found = await selectDrawerOption(page, 'Auditor', 1);
-    expect(found, 'Role template select did not offer an "Auditor" option').toBe(
-      true
-    );
+    expect(
+      found,
+      'Role template select did not offer an "Auditor" option'
+    ).toBe(true);
 
     // Auditor holds the full View-level read set for the test-resources area
     // — the permission-summary chip proves the scope-preview UI derived the

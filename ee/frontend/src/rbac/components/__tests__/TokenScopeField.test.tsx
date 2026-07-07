@@ -11,7 +11,12 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { rbacClientMock, rbacClientInstanceMock, resetRbacMocks, makeRole } from '../../__mocks__/_mocks';
+import {
+  rbacClientMock,
+  rbacClientInstanceMock,
+  resetRbacMocks,
+  makeRole,
+} from '../../__mocks__/_mocks';
 
 jest.mock('../../api/rbac-client', () => rbacClientMock);
 
@@ -40,9 +45,8 @@ function permissionsFor(names: readonly string[]): PermissionRead[] {
   }));
 }
 
-const TEST_RESOURCES_VIEW = requireArea('test-resources').levels[
-  CapabilityLevel.VIEW
-];
+const TEST_RESOURCES_VIEW =
+  requireArea('test-resources').levels[CapabilityLevel.VIEW];
 
 const AUDITOR_ROLE = makeRole({
   id: 'role-auditor',
@@ -62,12 +66,18 @@ beforeEach(() => {
 describe('TokenScopeField', () => {
   it('renders nothing while roles are loading, then the full/restricted toggle', async () => {
     render(
-      <TokenScopeField sessionToken={SESSION_TOKEN} value={null} onChange={jest.fn()} />
+      <TokenScopeField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={jest.fn()}
+      />
     );
 
     expect(await screen.findByText('Token permissions')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /full access/i })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /restricted/i })).not.toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: /restricted/i })
+    ).not.toBeChecked();
   });
 
   it('switching to restricted with no role selected clears the scope', async () => {
@@ -75,7 +85,11 @@ describe('TokenScopeField', () => {
     const user = userEvent.setup();
 
     render(
-      <TokenScopeField sessionToken={SESSION_TOKEN} value={null} onChange={onChange} />
+      <TokenScopeField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={onChange}
+      />
     );
 
     await screen.findByText('Token permissions');
@@ -89,7 +103,11 @@ describe('TokenScopeField', () => {
     const user = userEvent.setup();
 
     render(
-      <TokenScopeField sessionToken={SESSION_TOKEN} value={[]} onChange={onChange} />
+      <TokenScopeField
+        sessionToken={SESSION_TOKEN}
+        value={[]}
+        onChange={onChange}
+      />
     );
 
     await user.click(await screen.findByRole('combobox'));
@@ -109,7 +127,11 @@ describe('TokenScopeField', () => {
     rbacClientInstanceMock.getRoles.mockResolvedValue([]);
 
     const { container } = render(
-      <TokenScopeField sessionToken={SESSION_TOKEN} value={null} onChange={jest.fn()} />
+      <TokenScopeField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={jest.fn()}
+      />
     );
 
     await waitFor(() => {

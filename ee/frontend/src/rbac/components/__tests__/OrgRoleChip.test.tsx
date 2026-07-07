@@ -83,9 +83,7 @@ describe('OrgRoleChip', () => {
   });
 
   it('renders a read-only chip for the caller’s own row', async () => {
-    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([
-      member(),
-    ]);
+    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([member()]);
 
     render(
       <OrgRoleChip
@@ -101,9 +99,7 @@ describe('OrgRoleChip', () => {
 
   it('shows an error toast when a role change is rejected', async () => {
     const user = userEvent.setup();
-    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([
-      member(),
-    ]);
+    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([member()]);
     rbacClientInstanceMock.assignOrgRole.mockRejectedValue(
       new Error('Cannot demote the last Owner of an organization')
     );

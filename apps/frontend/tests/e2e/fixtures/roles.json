@@ -69,15 +69,87 @@
     "is_built_in": false,
     "organization_id": "e2e00000-0000-0000-0000-000000000002",
     "permissions": [
-      { "id": "b0000000-0000-0000-0000-000000000001", "name": "test_set:read", "display_name": "View test sets", "resource_type": "test_set", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000002", "name": "test:read", "display_name": "View tests", "resource_type": "test", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000003", "name": "test_configuration:read", "display_name": "View test configurations", "resource_type": "test_configuration", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000004", "name": "test_run:read", "display_name": "View test runs", "resource_type": "test_run", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000005", "name": "test_result:read", "display_name": "View test results", "resource_type": "test_result", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000006", "name": "experiment:read", "display_name": "View experiments", "resource_type": "experiment", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000007", "name": "endpoint:read", "display_name": "View endpoints", "resource_type": "endpoint", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000008", "name": "comment:read", "display_name": "View comments", "resource_type": "comment", "action": "read", "scope": "project", "is_retired": false },
-      { "id": "b0000000-0000-0000-0000-000000000009", "name": "task:read", "display_name": "View tasks", "resource_type": "task", "action": "read", "scope": "project", "is_retired": false }
+      {
+        "id": "b0000000-0000-0000-0000-000000000001",
+        "name": "test_set:read",
+        "display_name": "View test sets",
+        "resource_type": "test_set",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000002",
+        "name": "test:read",
+        "display_name": "View tests",
+        "resource_type": "test",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000003",
+        "name": "test_configuration:read",
+        "display_name": "View test configurations",
+        "resource_type": "test_configuration",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000004",
+        "name": "test_run:read",
+        "display_name": "View test runs",
+        "resource_type": "test_run",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000005",
+        "name": "test_result:read",
+        "display_name": "View test results",
+        "resource_type": "test_result",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000006",
+        "name": "experiment:read",
+        "display_name": "View experiments",
+        "resource_type": "experiment",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000007",
+        "name": "endpoint:read",
+        "display_name": "View endpoints",
+        "resource_type": "endpoint",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000008",
+        "name": "comment:read",
+        "display_name": "View comments",
+        "resource_type": "comment",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      },
+      {
+        "id": "b0000000-0000-0000-0000-000000000009",
+        "name": "task:read",
+        "display_name": "View tasks",
+        "resource_type": "task",
+        "action": "read",
+        "scope": "project",
+        "is_retired": false
+      }
     ],
     "member_count": 0
   }

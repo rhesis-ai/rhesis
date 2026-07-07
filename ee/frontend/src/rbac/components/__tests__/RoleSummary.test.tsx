@@ -20,7 +20,9 @@ describe('RoleSummary', () => {
     render(<RoleSummary permissions={new Set()} />);
 
     expect(
-      screen.getByText('No permissions yet. Set access levels above to build the role.')
+      screen.getByText(
+        'No permissions yet. Set access levels above to build the role.'
+      )
     ).toBeInTheDocument();
   });
 

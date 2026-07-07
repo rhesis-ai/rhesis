@@ -12,7 +12,12 @@
 
 import { BaseApiClient } from '@/utils/api-client/base-client';
 import { RbacClient } from '../rbac-client';
-import type { RoleCreate, RoleUpdate, OrgRoleAssign, ProjectMemberRoleAssign } from '../../types';
+import type {
+  RoleCreate,
+  RoleUpdate,
+  OrgRoleAssign,
+  ProjectMemberRoleAssign,
+} from '../../types';
 
 const FAKE_TOKEN = 'test-session-token';
 const ROLE_ID = '11111111-1111-1111-1111-111111111111';
@@ -52,7 +57,10 @@ describe('RbacClient', () => {
   });
 
   it('createRole POSTs to /rbac/roles', async () => {
-    const body: RoleCreate = { name: 'data-reader', permission_names: ['test_set:read'] };
+    const body: RoleCreate = {
+      name: 'data-reader',
+      permission_names: ['test_set:read'],
+    };
     await client.createRole(body);
     expect(fetchSpy).toHaveBeenCalledWith(
       '/rbac/roles',
@@ -61,7 +69,9 @@ describe('RbacClient', () => {
   });
 
   it('updateRole PUTs to /rbac/roles/<id>', async () => {
-    const body: RoleUpdate = { permission_names: ['test_set:read', 'test_set:update'] };
+    const body: RoleUpdate = {
+      permission_names: ['test_set:read', 'test_set:update'],
+    };
     await client.updateRole(ROLE_ID, body);
     expect(fetchSpy).toHaveBeenCalledWith(
       `/rbac/roles/${ROLE_ID}`,
@@ -101,7 +111,9 @@ describe('RbacClient', () => {
 
   it('getProjectMembers hits GET /rbac/projects/<projectId>/members', async () => {
     await client.getProjectMembers(PROJECT_ID);
-    expect(fetchSpy).toHaveBeenCalledWith(`/rbac/projects/${PROJECT_ID}/members`);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `/rbac/projects/${PROJECT_ID}/members`
+    );
   });
 
   it('assignProjectRole PUTs to /rbac/projects/<projectId>/members/<userId>/role', async () => {

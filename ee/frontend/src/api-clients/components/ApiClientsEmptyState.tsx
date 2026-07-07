@@ -12,7 +12,11 @@ export default function ApiClientsEmptyState() {
       description="Issue scoped OAuth client credentials for machine-to-machine access to your organization's data."
       actionLabel="Learn about Enterprise"
       onAction={() =>
-        window.open('https://rhesis.ai/pricing', '_blank', 'noopener,noreferrer')
+        window.open(
+          'https://rhesis.ai/pricing',
+          '_blank',
+          'noopener,noreferrer'
+        )
       }
     />
   );

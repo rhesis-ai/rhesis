@@ -67,7 +67,12 @@ describe('RoleEditorDrawer', () => {
     rbacClientInstanceMock.createRole.mockResolvedValue(CUSTOM_ROLE);
 
     render(
-      <RoleEditorDrawer open mode="create" onClose={jest.fn()} onSaved={jest.fn()} />
+      <RoleEditorDrawer
+        open
+        mode="create"
+        onClose={jest.fn()}
+        onSaved={jest.fn()}
+      />
     );
 
     await user.type(screen.getByLabelText(/role name/i), 'Data Reader Team');
@@ -86,7 +91,12 @@ describe('RoleEditorDrawer', () => {
     rbacClientInstanceMock.createRole.mockRejectedValue(conflict);
 
     render(
-      <RoleEditorDrawer open mode="create" onClose={jest.fn()} onSaved={jest.fn()} />
+      <RoleEditorDrawer
+        open
+        mode="create"
+        onClose={jest.fn()}
+        onSaved={jest.fn()}
+      />
     );
 
     await user.type(screen.getByLabelText(/role name/i), 'Auditor');
@@ -127,7 +137,9 @@ describe('RoleEditorDrawer', () => {
   });
 
   it('passes levelForArea(actorPermissions, area) as maxLevel to the permission grid', () => {
-    const testResourcesArea = RESOURCE_AREAS.find(a => a.id === 'test-resources');
+    const testResourcesArea = RESOURCE_AREAS.find(
+      a => a.id === 'test-resources'
+    );
     if (!testResourcesArea) throw new Error('test-resources area not found');
     const viewOnlyCaps = testResourcesArea.levels[CapabilityLevel.VIEW];
     actorAuthorityMock.useActorAuthority.mockReturnValue({
@@ -136,7 +148,12 @@ describe('RoleEditorDrawer', () => {
     });
 
     render(
-      <RoleEditorDrawer open mode="create" onClose={jest.fn()} onSaved={jest.fn()} />
+      <RoleEditorDrawer
+        open
+        mode="create"
+        onClose={jest.fn()}
+        onSaved={jest.fn()}
+      />
     );
 
     expect(screen.getByTestId('area-test-resources')).toHaveAttribute(

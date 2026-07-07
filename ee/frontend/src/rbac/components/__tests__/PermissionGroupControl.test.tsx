@@ -7,7 +7,11 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import PermissionGroupControl from '../PermissionGroupControl';
-import { RESOURCE_AREAS, CapabilityLevel, type ResourceArea } from '../../capability-groups';
+import {
+  RESOURCE_AREAS,
+  CapabilityLevel,
+  type ResourceArea,
+} from '../../capability-groups';
 
 function requireArea(id: string): ResourceArea {
   const area = RESOURCE_AREAS.find(a => a.id === id);

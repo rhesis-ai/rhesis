@@ -63,9 +63,7 @@ test.describe('RBAC Team — org role assignment @mocked', () => {
     await rbac.mockRolesCrud();
   });
 
-  test('assigns a new org role to a member via the chip', async ({
-    page,
-  }) => {
+  test('assigns a new org role to a member via the chip', async ({ page }) => {
     const orgTeam = new OrgTeamPage(page);
     await orgTeam.goto();
     await orgTeam.expectLoaded();

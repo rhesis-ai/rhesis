@@ -97,7 +97,9 @@ describe('ProjectRoleChip', () => {
     const user = userEvent.setup();
     rbacClientInstanceMock.getProjectMembers
       .mockResolvedValueOnce([member()])
-      .mockResolvedValueOnce([member({ role_id: ADMIN_ROLE.id, role: ADMIN_ROLE })]);
+      .mockResolvedValueOnce([
+        member({ role_id: ADMIN_ROLE.id, role: ADMIN_ROLE }),
+      ]);
     rbacClientInstanceMock.assignProjectRole.mockResolvedValue(undefined);
     const show = jest.fn();
     notificationsMock.useNotifications.mockReturnValue({ show });

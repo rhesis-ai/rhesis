@@ -65,7 +65,11 @@ describe('RoleSelectField', () => {
     );
 
     render(
-      <RoleSelectField sessionToken={SESSION_TOKEN} value={null} onChange={jest.fn()} />
+      <RoleSelectField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={jest.fn()}
+      />
     );
 
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -82,20 +86,33 @@ describe('RoleSelectField', () => {
 
     const user = userEvent.setup();
     render(
-      <RoleSelectField sessionToken={SESSION_TOKEN} value={null} onChange={jest.fn()} />
+      <RoleSelectField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={jest.fn()}
+      />
     );
 
     await user.click(await screen.findByRole('combobox'));
     expect(screen.getAllByRole('option')).toHaveLength(1);
-    expect(screen.getByRole('option', { name: /default \(member\)/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: /default \(member\)/i })
+    ).toBeInTheDocument();
   });
 
   it('defaults to the Member placeholder option when value is null', async () => {
-    rbacClientInstanceMock.getRoles.mockResolvedValue([VIEWER_ROLE, MEMBER_ROLE]);
+    rbacClientInstanceMock.getRoles.mockResolvedValue([
+      VIEWER_ROLE,
+      MEMBER_ROLE,
+    ]);
     const user = userEvent.setup();
 
     render(
-      <RoleSelectField sessionToken={SESSION_TOKEN} value={null} onChange={jest.fn()} />
+      <RoleSelectField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={jest.fn()}
+      />
     );
 
     await user.click(await screen.findByRole('combobox'));
@@ -105,12 +122,19 @@ describe('RoleSelectField', () => {
   });
 
   it('calls onChange with the selected role id', async () => {
-    rbacClientInstanceMock.getRoles.mockResolvedValue([VIEWER_ROLE, MEMBER_ROLE]);
+    rbacClientInstanceMock.getRoles.mockResolvedValue([
+      VIEWER_ROLE,
+      MEMBER_ROLE,
+    ]);
     const onChange = jest.fn();
     const user = userEvent.setup();
 
     render(
-      <RoleSelectField sessionToken={SESSION_TOKEN} value={null} onChange={onChange} />
+      <RoleSelectField
+        sessionToken={SESSION_TOKEN}
+        value={null}
+        onChange={onChange}
+      />
     );
 
     await user.click(await screen.findByRole('combobox'));

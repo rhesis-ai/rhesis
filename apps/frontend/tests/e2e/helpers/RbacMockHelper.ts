@@ -197,9 +197,7 @@ export class RbacMockHelper {
           });
         }
         const body = route.request().postDataJSON() as JsonRecord;
-        const permissionNames = body.permission_names as
-          | string[]
-          | undefined;
+        const permissionNames = body.permission_names as string[] | undefined;
         roles[index] = {
           ...roles[index],
           ...body,
@@ -215,7 +213,11 @@ export class RbacMockHelper {
       }
       if (method === 'DELETE') {
         if (index >= 0) roles.splice(index, 1);
-        return route.fulfill({ status: 204, contentType: 'application/json', body: '' });
+        return route.fulfill({
+          status: 204,
+          contentType: 'application/json',
+          body: '',
+        });
       }
       return route.fallback();
     });

@@ -46,12 +46,18 @@ const CUSTOM_ROLE = makeRole({
 beforeEach(() => {
   resetRbacMocks();
   invalidateRoles();
-  rbacClientInstanceMock.getRoles.mockResolvedValue([BUILT_IN_ROLE, CUSTOM_ROLE]);
+  rbacClientInstanceMock.getRoles.mockResolvedValue([
+    BUILT_IN_ROLE,
+    CUSTOM_ROLE,
+  ]);
 });
 
 describe('RolesTab', () => {
   it('renders AccessDenied when the caller lacks role:read', async () => {
-    canMock.useCanWithStatus.mockReturnValue({ allowed: false, loading: false });
+    canMock.useCanWithStatus.mockReturnValue({
+      allowed: false,
+      loading: false,
+    });
 
     render(<RolesTab />);
 
