@@ -345,9 +345,24 @@ class PydanticAITranslatingExporter(SpanExporter):
             if not _is_pydantic_ai_span(span):
                 translated.append(span)
                 continue
-            try:
-                translated.append(translate_span(span))
 
+            try:
+                translated_span = translate_span(span)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Failed to translate Pydantic AI span %r; falling back to "
+                    "function.pydantic_ai.* name so the backend still accepts it",
+                    getattr(span, "name", "?"),
+                    exc_info=True,
+                )
+                translated.append(_safe_fallback_span(span))
+                continue
+            translated.append(translated_span)
+
+            # Handoff synthesis is best-effort and kept out of the try above:
+            # a failure here must not fall back to re-translating the span,
+            # which would duplicate the entry already appended above.
+            try:
                 raw_attrs = span.attributes or {}
                 if raw_attrs.get(mapping.GEN_AI_OPERATION_NAME) == mapping.OP_INVOKE_AGENT:
                     to_agent = raw_attrs.get(mapping.GEN_AI_AGENT_NAME)
@@ -367,12 +382,10 @@ class PydanticAITranslatingExporter(SpanExporter):
                                 translated.append(handoff)
             except Exception:  # noqa: BLE001
                 logger.warning(
-                    "Failed to translate Pydantic AI span %r; falling back to "
-                    "function.pydantic_ai.* name so the backend still accepts it",
+                    "Failed to synthesize handoff span for Pydantic AI span %r",
                     getattr(span, "name", "?"),
                     exc_info=True,
                 )
-                translated.append(_safe_fallback_span(span))
         return self._wrapped.export(translated)
 
     def shutdown(self) -> None:

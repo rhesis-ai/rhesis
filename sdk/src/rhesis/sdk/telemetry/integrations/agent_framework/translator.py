@@ -656,63 +656,78 @@ class MAFTranslatingExporter(SpanExporter):
 
         translated: list[ReadableSpan] = []
         for span in spans:
-            if _is_maf_span(span):
-                # Drop low-value workflow infrastructure spans (edge-group /
-                # message-send) unless the caller opted into verbose output.
-                if not self._verbose_workflow_spans and mapping.is_low_value_workflow_span(
-                    getattr(span, "name", None)
-                ):
-                    continue
-                try:
-                    raw_attrs = span.attributes or {}
-                    if mapping.is_handoff_tool_span(raw_attrs):
-                        # Prefer the persistent registry (populated at span
-                        # start, so it survives parent/child landing in
-                        # different export batches); fall back to the
-                        # batch-local parent walk.
-                        from_agent = _handoff_ancestry.find_ancestor_agent(span)
-                        if from_agent is None:
-                            from_agent = _find_ancestor_agent_in_batch(
-                                span,
-                                agent_by_span_id=agent_by_span_id,
-                                span_by_id=span_by_id,
-                                agent_by_parent_span_id=agent_by_parent_span_id,
-                            )
-                        translated.append(translate_handoff_span(span, from_agent))
-                    else:
-                        # Stamp Rhesis conversation turn-root attributes when
-                        # this is a root ``workflow.run`` span (the in-process /
-                        # pure-auto_instrument path). Returns None otherwise, so
-                        # workflow runs nested under a Rhesis @endpoint/@observe
-                        # span are left to that span's own turn-root handling.
-                        conv_attrs = conversation_root_attributes(span)
-                        translated.append(translate_span(span, extra_attributes=conv_attrs))
-                        # Synthesize ai.agent.handoff spans from handoff tool
-                        # calls recorded in this chat span's output messages.
-                        # This is the primary handoff path for current MAF,
-                        # where HandoffBuilder short-circuits the tool and no
-                        # execute_tool span is emitted.
-                        targets = mapping.extract_handoff_targets_from_messages(raw_attrs)
-                        if targets:
-                            from_agent = _handoff_ancestry.find_ancestor_agent(span)
-                            if from_agent is None:
-                                from_agent = _find_ancestor_agent_in_batch(
-                                    span,
-                                    agent_by_span_id=agent_by_span_id,
-                                    span_by_id=span_by_id,
-                                    agent_by_parent_span_id=agent_by_parent_span_id,
-                                )
-                            translated.extend(synthesize_handoff_spans(span, from_agent, targets))
-                except Exception:  # noqa: BLE001
-                    logger.warning(
-                        "Failed to translate MAF span %r; falling back to "
-                        "function.maf.* name so the backend still accepts it",
-                        getattr(span, "name", "?"),
-                        exc_info=True,
-                    )
-                    translated.append(_safe_fallback_span(span))
-            else:
+            if not _is_maf_span(span):
                 translated.append(span)
+                continue
+
+            # Drop low-value workflow infrastructure spans (edge-group /
+            # message-send) unless the caller opted into verbose output.
+            if not self._verbose_workflow_spans and mapping.is_low_value_workflow_span(
+                getattr(span, "name", None)
+            ):
+                continue
+
+            raw_attrs = span.attributes or {}
+            try:
+                if mapping.is_handoff_tool_span(raw_attrs):
+                    # Prefer the persistent registry (populated at span
+                    # start, so it survives parent/child landing in
+                    # different export batches); fall back to the
+                    # batch-local parent walk.
+                    from_agent = _handoff_ancestry.find_ancestor_agent(span)
+                    if from_agent is None:
+                        from_agent = _find_ancestor_agent_in_batch(
+                            span,
+                            agent_by_span_id=agent_by_span_id,
+                            span_by_id=span_by_id,
+                            agent_by_parent_span_id=agent_by_parent_span_id,
+                        )
+                    translated.append(translate_handoff_span(span, from_agent))
+                    continue
+
+                # Stamp Rhesis conversation turn-root attributes when this is
+                # a root ``workflow.run`` span (the in-process /
+                # pure-auto_instrument path). Returns None otherwise, so
+                # workflow runs nested under a Rhesis @endpoint/@observe span
+                # are left to that span's own turn-root handling.
+                conv_attrs = conversation_root_attributes(span)
+                translated_span = translate_span(span, extra_attributes=conv_attrs)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Failed to translate MAF span %r; falling back to "
+                    "function.maf.* name so the backend still accepts it",
+                    getattr(span, "name", "?"),
+                    exc_info=True,
+                )
+                translated.append(_safe_fallback_span(span))
+                continue
+            translated.append(translated_span)
+
+            # Synthesize ai.agent.handoff spans from handoff tool calls
+            # recorded in this chat span's output messages. This is the
+            # primary handoff path for current MAF, where HandoffBuilder
+            # short-circuits the tool and no execute_tool span is emitted.
+            # Kept out of the try above: a failure here must not fall back to
+            # re-translating the span, which would duplicate the entry
+            # already appended above.
+            try:
+                targets = mapping.extract_handoff_targets_from_messages(raw_attrs)
+                if targets:
+                    from_agent = _handoff_ancestry.find_ancestor_agent(span)
+                    if from_agent is None:
+                        from_agent = _find_ancestor_agent_in_batch(
+                            span,
+                            agent_by_span_id=agent_by_span_id,
+                            span_by_id=span_by_id,
+                            agent_by_parent_span_id=agent_by_parent_span_id,
+                        )
+                    translated.extend(synthesize_handoff_spans(span, from_agent, targets))
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Failed to synthesize handoff spans for MAF span %r",
+                    getattr(span, "name", "?"),
+                    exc_info=True,
+                )
         return self._wrapped.export(translated)
 
     def shutdown(self) -> None:
