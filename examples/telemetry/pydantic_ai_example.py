@@ -2,16 +2,15 @@
 Pydantic AI Auto-Instrumentation Example
 
 This example demonstrates zero-config observability for Pydantic AI agents.
-After calling auto_instrument(), every Agent.run() / run_sync() call is traced
-automatically as an ai.agent.invoke span - no @observe wrappers required:
-  - Agent name, model name, and provider attributes
-  - Prompt and completion events (structured outputs recorded as JSON)
-  - Token usage (input / output / total)
+After calling auto_instrument(), Pydantic AI's native OpenTelemetry
+instrumentation is enabled and every span is translated into the Rhesis
+ai.* schema - no @observe wrappers required:
+  - Agent runs (ai.agent.invoke) via run(), run_sync(), and run_stream()
+  - Per-model-call LLM spans (ai.llm.invoke) with token usage and messages
+  - Tool executions (ai.tool.invoke) with input/output events
+  - Multi-agent delegation (ai.agent.handoff) - see
+    pydantic_ai_multi_agent_example.py
   - Errors with status and stack traces
-
-Tool invocation spans still use @observe below; native tool and handoff spans
-for Pydantic AI are tracked as a follow-up to
-https://github.com/rhesis-ai/rhesis/pull/2057.
 
 Prerequisites:
     1. Start the backend: docker compose up -d  (or ./rh dev up + ./rh dev backend)
@@ -31,11 +30,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from rhesis.telemetry.schemas import AIOperationType
 
-from rhesis.sdk import RhesisClient, observe
+from rhesis.sdk import RhesisClient
 from rhesis.sdk.telemetry import auto_instrument
-from rhesis.sdk.telemetry.attributes import create_tool_attributes
 
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():
@@ -44,7 +41,7 @@ if env_path.exists():
 RhesisClient.from_environment()
 
 # Enable auto-instrumentation for Pydantic AI
-# Every Agent.run() / run_sync() call is traced automatically from here on!
+# Every agent run, model call, and tool execution is traced from here on!
 print("\n🔧 Enabling Pydantic AI auto-instrumentation...")
 instrumented_frameworks = auto_instrument()
 print(f"✅ Auto-instrumented frameworks: {instrumented_frameworks}\n")
@@ -96,31 +93,25 @@ def build_agent(model: str) -> Agent[None, ObservabilityBrief]:
     )
 
 
-@observe(
-    span_name=AIOperationType.TOOL_INVOKE,
-    **create_tool_attributes(
-        tool_name="lookup_observability_snippet",
-        tool_type="function",
-    ),
-)
-def _lookup_observability_snippet(topic: str) -> str:
-    """Return a canned observability fact (simulates a retrieval/tool backend)."""
-    snippets = {
-        "latency": "P95 latency per agent step helps isolate slow handoffs in multi-agent flows.",
-        "cost": "Token and cost attributes per model call make regressions visible before release.",
-        "debugging": "Trace hierarchies show which agent or tool produced an unexpected answer.",
-    }
-    key = next((k for k in snippets if k in topic.lower()), "debugging")
-    return snippets[key]
-
-
 def register_tools(agent: Agent[None, ObservabilityBrief]) -> None:
-    """Register tools on the agent; implementations use @observe for tool spans."""
+    """Register tools on the agent - each call is traced automatically."""
 
     @agent.tool
     def lookup_observability_snippet(ctx: RunContext[None], topic: str) -> str:
         """Fetch a short observability fact for the given topic."""
-        return _lookup_observability_snippet(topic)
+        snippets = {
+            "latency": (
+                "P95 latency per agent step helps isolate slow handoffs in multi-agent flows."
+            ),
+            "cost": (
+                "Token and cost attributes per model call make regressions visible before release."
+            ),
+            "debugging": (
+                "Trace hierarchies show which agent or tool produced an unexpected answer."
+            ),
+        }
+        key = next((k for k in snippets if k in topic.lower()), "debugging")
+        return snippets[key]
 
 
 def main() -> None:
@@ -128,7 +119,7 @@ def main() -> None:
     print("🚀 Rhesis Telemetry - Pydantic AI Auto-Instrumentation")
     print("=" * 70)
     print("\nThis example demonstrates ZERO-CONFIG observability for Pydantic AI.")
-    print("Agent runs are traced automatically - no @observe wrappers needed.")
+    print("Agent runs, model calls, and tool executions are traced automatically.")
     model_name = os.getenv("PYDANTIC_AI_MODEL", "openai:gpt-4o-mini")
     print(f"\nModel: {model_name}")
     print("=" * 70 + "\n")
@@ -144,7 +135,7 @@ def main() -> None:
         "Use the lookup_observability_snippet tool once, then return structured output."
     )
 
-    # This call is traced automatically as ai.agent.invoke - no wrapper needed!
+    # This call is traced automatically - agent span, model calls, tool calls!
     result = agent.run_sync(prompt)
     brief = result.output
 
@@ -158,13 +149,14 @@ def main() -> None:
     print(f"\nTool snippet used: {brief.tool_snippet_used}")
     print("\n📊 View traces: http://localhost:3000/traces")
     print("\nWhat was automatically traced:")
-    print("  ✓ Agent run (ai.agent.invoke with agent name, model, provider)")
-    print("  ✓ Prompt and completion events (structured output as JSON)")
-    print("  ✓ Token usage (input / output / total)")
+    print("  ✓ Agent run (ai.agent.invoke with agent name, aggregated tokens)")
+    print("  ✓ Each model call (ai.llm.invoke with tokens, prompts, completions)")
+    print("  ✓ Each tool call (ai.tool.invoke with input/output events)")
+    print("  ✓ Structured output recorded as JSON")
     print("\n💡 Key Benefits:")
     print("   • Zero code changes needed (just call auto_instrument())")
-    print("   • Works with both run() and run_sync()")
-    print("   • Structured outputs keep their shape (model_dump_json)")
+    print("   • Works with run(), run_sync(), and run_stream()")
+    print("   • Built on Pydantic AI's native OpenTelemetry instrumentation")
     print("=" * 70 + "\n")
 
 
