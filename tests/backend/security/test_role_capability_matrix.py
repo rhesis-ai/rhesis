@@ -47,10 +47,27 @@ from tests.backend.ee.rbac._rbac_helpers import (
 
 
 def _all_capabilities() -> list[str]:
+    """Return the live capability catalog, self-registering if empty.
+
+    Under the normal ``tests/backend`` suite, ``tests/backend/conftest.py``
+    imports ``tests/backend/fixtures/client.py`` at module load, which
+    imports ``rhesis.backend.app.main`` — whose own module-level code calls
+    ``register_capabilities(app)`` — well before this file's
+    ``pytest_generate_tests`` hook runs. A fully standalone invocation of
+    just this file could theoretically reach collection without that chain
+    having fired, so fall back to calling it directly: it is documented as
+    idempotent, so doing this redundantly (the common case) is harmless.
+    """
     capabilities = sorted(get_all_capabilities())
+    if not capabilities:
+        from rhesis.backend.app.auth.capabilities import register_capabilities
+        from rhesis.backend.app.main import app
+
+        register_capabilities(app)
+        capabilities = sorted(get_all_capabilities())
     assert capabilities, (
-        "Capability catalog is empty — register_capabilities() must run before "
-        "collection (see tests/backend/conftest.py::_ensure_ee_features_registered)."
+        "Capability catalog is still empty after calling register_capabilities(app) "
+        "— capability derivation itself must be broken, not just its ordering."
     )
     return capabilities
 
