@@ -28,8 +28,10 @@ import {
   type TeamFilters,
 } from '@/utils/odata-filter';
 import TeamFilterDrawer from './TeamFilterDrawer';
+import MemberAccessDrawer from './MemberAccessDrawer';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 interface TeamToolbarState {
   searchQuery: string;
@@ -116,6 +118,8 @@ export default function TeamMembersGrid({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [accessDrawerOpen, setAccessDrawerOpen] = useState(false);
+  const [accessDrawerUser, setAccessDrawerUser] = useState<User | null>(null);
 
   const fetchUsers = useCallback(
     async (skip = 0, limit = 25) => {
@@ -217,8 +221,16 @@ export default function TeamMembersGrid({
     setUserToDelete(null);
   };
 
-  const columns: GridColDef[] = useMemo(
-    () => [
+  const handleRowClick = useCallback((params: { row: User }) => {
+    setAccessDrawerUser(params.row);
+    setAccessDrawerOpen(true);
+  }, []);
+
+  const { OrgRoleCell } = getMemberRoleExtensions();
+  const sessionToken = session?.session_token ?? '';
+
+  const columns: GridColDef[] = useMemo(() => {
+    const cols: GridColDef[] = [
       {
         field: 'name',
         headerName: 'Name',
@@ -277,6 +289,40 @@ export default function TeamMembersGrid({
           </Typography>
         ),
       },
+    ];
+
+    if (OrgRoleCell) {
+      const CellComponent = OrgRoleCell;
+      cols.push({
+        field: 'orgRole',
+        headerName: 'Role',
+        width: 150,
+        sortable: false,
+        filterable: false,
+        renderCell: params => (
+          // Stop clicks on the interactive role Select from bubbling to the
+          // DataGrid row (onRowClick opens MemberAccessDrawer / steals focus).
+          <Box
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              width: '100%',
+              height: '100%',
+            }}
+          >
+            <CellComponent
+              userId={(params.row as User).id}
+              sessionToken={sessionToken}
+              currentUserId={session?.user?.id}
+            />
+          </Box>
+        ),
+      });
+    }
+
+    cols.push(
       {
         field: 'status',
         headerName: 'Status',
@@ -300,12 +346,10 @@ export default function TeamMembersGrid({
           const user = params.row as User;
           const currentUserId = session?.user?.id;
 
-          // Never show delete for the current user (self-remove prevention).
           if (user.id === currentUserId) {
             return null;
           }
 
-          // Role-level gate: only render the button if the caller can delete members.
           if (!canDeleteMember) {
             return null;
           }
@@ -323,10 +367,17 @@ export default function TeamMembersGrid({
             </IconButton>
           );
         },
-      },
-    ],
-    [session?.user?.id, handleDeleteUser, canDeleteMember]
-  );
+      }
+    );
+
+    return cols;
+  }, [
+    session?.user?.id,
+    handleDeleteUser,
+    canDeleteMember,
+    OrgRoleCell,
+    sessionToken,
+  ]);
 
   return (
     <TeamToolbarContext.Provider
@@ -360,6 +411,8 @@ export default function TeamMembersGrid({
         toolbarSlot={TeamUnifiedToolbar}
         persistState
         storageKey="team-members-grid"
+        onRowClick={handleRowClick}
+        sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
       />
 
       <TeamFilterDrawer
@@ -370,6 +423,12 @@ export default function TeamMembersGrid({
           setDrawerFilters(f);
           setFilterDrawerOpen(false);
         }}
+      />
+
+      <MemberAccessDrawer
+        open={accessDrawerOpen}
+        onClose={() => setAccessDrawerOpen(false)}
+        user={accessDrawerUser}
       />
 
       <DeleteModal

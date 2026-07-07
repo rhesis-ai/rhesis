@@ -24,7 +24,8 @@ import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
 import { FeatureGate } from '@/contexts/FeaturesContext';
-import { registerOrgSettingsSection } from '@/lib/extension-registries';
+import { registerOrgSettingsTab } from '@/lib/extension-registries';
+import { SectionCard } from '@/components/common/SectionCard';
 
 const SSOConfigForm = React.lazy(() => import('./components/SSOConfigForm'));
 
@@ -38,17 +39,19 @@ function SSOSection() {
           </Box>
         }
       >
-        <SSOConfigForm />
+        <SectionCard title="Single Sign-On (SSO)">
+          <SSOConfigForm />
+        </SectionCard>
       </React.Suspense>
     </FeatureGate>
   );
 }
 
 export function registerSSO(): void {
-  registerOrgSettingsSection({
+  registerOrgSettingsTab({
     id: 'sso',
-    title: 'Single Sign-On (SSO)',
-    order: 100,
+    title: 'SSO',
+    order: 50,
     component: SSOSection,
   });
 }

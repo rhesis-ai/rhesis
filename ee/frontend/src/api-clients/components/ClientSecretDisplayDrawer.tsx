@@ -128,9 +128,9 @@ export default function ClientSecretDisplayDrawer({
       >
         <Stack spacing={2}>
           <Alert severity="warning">
-            This is the only time you will see this secret. Store it in
-            your secrets manager now -- if you lose it, you will need
-            to rotate the client to issue a new one.
+            This is the only time you will see this secret. Store it in your
+            secrets manager now -- if you lose it, you will need to rotate the
+            client to issue a new one.
           </Alert>
 
           <Box>

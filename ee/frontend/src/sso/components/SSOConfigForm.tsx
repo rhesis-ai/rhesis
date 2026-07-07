@@ -93,14 +93,15 @@ export default function SSOConfigForm() {
     loadSSOConfig();
   }, [loadSSOConfig]);
 
-  const handleChange = (field: keyof SSOConfig) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange =
+    (field: keyof SSOConfig) => (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormData({ ...formData, [field]: e.target.value });
       setError(null);
       setTestResult(null);
     };
 
-  const handleToggle = (field: 'enabled' | 'auto_provision_users' | 'allow_insecure_tls') =>
+  const handleToggle =
+    (field: 'enabled' | 'auto_provision_users' | 'allow_insecure_tls') =>
     (_: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
       setFormData({ ...formData, [field]: checked });
       setError(null);
@@ -155,7 +156,10 @@ export default function SSOConfigForm() {
       delete configToSave.login_url;
 
       await client.updateSSOConfig(organization.id, configToSave as SSOConfig);
-      notifications.show('SSO configuration saved', { severity: 'success', autoHideDuration: 3000 });
+      notifications.show('SSO configuration saved', {
+        severity: 'success',
+        autoHideDuration: 3000,
+      });
 
       const loaded: SSOConfig = {
         ...formData,
@@ -166,9 +170,13 @@ export default function SSOConfigForm() {
       setHasExistingConfig(true);
       onUpdate();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to save SSO configuration';
+      const message =
+        err instanceof Error ? err.message : 'Failed to save SSO configuration';
       setError(message);
-      notifications.show(message, { severity: 'error', autoHideDuration: 3000 });
+      notifications.show(message, {
+        severity: 'error',
+        autoHideDuration: 3000,
+      });
     } finally {
       setSaving(false);
     }
@@ -196,16 +204,25 @@ export default function SSOConfigForm() {
     try {
       const client = new SSOClient(sessionToken);
       await client.deleteSSOConfig(organization.id);
-      notifications.show('SSO configuration removed', { severity: 'success', autoHideDuration: 3000 });
+      notifications.show('SSO configuration removed', {
+        severity: 'success',
+        autoHideDuration: 3000,
+      });
       setFormData(DEFAULT_SSO_CONFIG);
       setInitialData(JSON.stringify(DEFAULT_SSO_CONFIG));
       setHasExistingConfig(false);
       setTestResult(null);
       onUpdate();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to remove SSO configuration';
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Failed to remove SSO configuration';
       setError(message);
-      notifications.show(message, { severity: 'error', autoHideDuration: 3000 });
+      notifications.show(message, {
+        severity: 'error',
+        autoHideDuration: 3000,
+      });
     } finally {
       setDeleting(false);
     }
@@ -252,7 +269,10 @@ export default function SSOConfigForm() {
                 onChange={handleChange('slug')}
                 helperText="Used in the SSO login URL. Lowercase letters, numbers, and hyphens (3-50 chars)."
                 slotProps={{
-                  htmlInput: { pattern: '[a-z0-9][a-z0-9-]*[a-z0-9]', maxLength: 50 },
+                  htmlInput: {
+                    pattern: '[a-z0-9][a-z0-9-]*[a-z0-9]',
+                    maxLength: 50,
+                  },
                 }}
               />
             </Grid>
@@ -269,12 +289,20 @@ export default function SSOConfigForm() {
                     borderRadius: theme => `${theme.shape.borderRadius}px`,
                   }}
                 >
-                  <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ flexShrink: 0 }}
+                  >
                     SSO Login URL:
                   </Typography>
                   <Typography
                     variant="body2"
-                    sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flexGrow: 1 }}
+                    sx={{
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
+                      flexGrow: 1,
+                    }}
                   >
                     {`${ssoDisplayBaseUrl}/auth/sso/${formData.slug}`}
                   </Typography>
@@ -284,7 +312,10 @@ export default function SSOConfigForm() {
                       onClick={() => {
                         const url = `${ssoDisplayBaseUrl}/auth/sso/${formData.slug}`;
                         navigator.clipboard.writeText(url);
-                        notifications.show('URL copied to clipboard', { severity: 'success', autoHideDuration: 3000 });
+                        notifications.show('URL copied to clipboard', {
+                          severity: 'success',
+                          autoHideDuration: 3000,
+                        });
                       }}
                     >
                       <CopyIcon fontSize="small" />
@@ -386,7 +417,8 @@ export default function SSOConfigForm() {
                 Allowed Email Domains
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                If set, only users with email addresses from these domains can sign in via SSO.
+                If set, only users with email addresses from these domains can
+                sign in via SSO.
               </Typography>
             </Grid>
 
@@ -423,7 +455,9 @@ export default function SSOConfigForm() {
             {hasExistingConfig && (
               <Grid size={12}>
                 <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}
+                >
                   <Button
                     variant="outlined"
                     startIcon={
@@ -435,7 +469,9 @@ export default function SSOConfigForm() {
                     Test Connection
                   </Button>
                   {testResult && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
                       {testResult.success ? (
                         <SuccessIcon color="success" fontSize="small" />
                       ) : (
@@ -443,7 +479,9 @@ export default function SSOConfigForm() {
                       )}
                       <Typography
                         variant="body2"
-                        color={testResult.success ? 'success.main' : 'error.main'}
+                        color={
+                          testResult.success ? 'success.main' : 'error.main'
+                        }
                       >
                         {testResult.message}
                       </Typography>
@@ -457,7 +495,9 @@ export default function SSOConfigForm() {
 
         <Grid size={12}>
           <Divider sx={{ my: 2 }} />
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between' }}>
+          <Box
+            sx={{ display: 'flex', gap: 2, justifyContent: 'space-between' }}
+          >
             <Box>
               {hasExistingConfig && (
                 <Tooltip title="Remove SSO configuration entirely">
@@ -478,9 +518,7 @@ export default function SSOConfigForm() {
             <Button
               type="submit"
               variant="contained"
-              startIcon={
-                saving ? <CircularProgress size={16} /> : <SaveIcon />
-              }
+              startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
               disabled={saving || !hasChanges}
             >
               Save

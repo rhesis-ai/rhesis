@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.token_utils import create_session_token
+from tests.backend.fixtures.test_setup import temporarily_set_org_role
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -158,26 +159,23 @@ class TestUserUpdateAuthorization:
         # 200 OK or wrapped JSON response for self-update
         assert response.status_code == status.HTTP_200_OK
 
-    def test_non_owner_cannot_update_other_user(self, authenticated_client, test_db, test_org_id):
-        """A non-owner (org.owner_id is NOT the caller) gets 403 on another user's profile."""
-        # Ensure the test org has NO owner (or a different owner) so the
-        # authenticated user is definitely not the org Owner.
-        org = test_db.query(models.Organization).filter_by(id=test_org_id).first()
-        original_owner_id = org.owner_id
-        org.owner_id = None  # caller is not the owner
-        test_db.flush()
+    def test_non_owner_cannot_update_other_user(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """A caller without member:manage gets 403 on another user's profile.
 
+        Under RBAC, authorization is by the caller's org role, not
+        organization.owner_id — so demote the caller to the "None" role (no
+        permissions) to represent a non-privileged member.
+        """
         other_user = _unique_user(test_db, test_org_id)
 
-        response = authenticated_client.put(
-            f"/users/{other_user.id}",
-            json={"name": "should not be set"},
-        )
+        with temporarily_set_org_role(test_db, test_org_id, authenticated_user_id, "None"):
+            response = authenticated_client.put(
+                f"/users/{other_user.id}",
+                json={"name": "should not be set"},
+            )
         assert response.status_code == status.HTTP_403_FORBIDDEN
-
-        # Restore owner_id so subsequent tests are unaffected
-        org.owner_id = original_owner_id
-        test_db.flush()
 
     def test_org_owner_can_update_other_user(
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
@@ -206,28 +204,23 @@ class TestUserUpdateAuthorization:
     ):
         """is_superuser=True on the caller's row must NOT grant update rights over other users.
 
-        This is the core SP3 regression guard: the boolean column no longer drives authz.
+        This is the core SP3 regression guard: the boolean column no longer drives
+        authz. SP3 removed is_superuser from the User model and the session JWT
+        entirely, so authorization is decided solely by the caller's org role.
+        A caller with the "None" role (no permissions) is therefore denied,
+        confirming there is no superuser bypass left in the update path.
         """
-        # Make sure the caller is NOT the org owner.
-        org = test_db.query(models.Organization).filter_by(id=test_org_id).first()
-        original_owner_id = org.owner_id
-        org.owner_id = None
-        test_db.flush()
-
         other_user = _unique_user(test_db, test_org_id)
 
-        response = authenticated_client.put(
-            f"/users/{other_user.id}",
-            json={"name": "superuser bypass attempt"},
-        )
+        with temporarily_set_org_role(test_db, test_org_id, authenticated_user_id, "None"):
+            response = authenticated_client.put(
+                f"/users/{other_user.id}",
+                json={"name": "superuser bypass attempt"},
+            )
         assert response.status_code == status.HTTP_403_FORBIDDEN, (
-            "Non-owner must NOT be allowed to update another user's profile — "
-            "only org Owner (member:manage) may do so"
+            "A caller without member:manage must NOT update another user's profile — "
+            "no is_superuser bypass exists after SP3"
         )
-
-        # Restore
-        org.owner_id = original_owner_id
-        test_db.flush()
 
 
 # ---------------------------------------------------------------------------

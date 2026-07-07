@@ -34,10 +34,7 @@ export class SSOClient extends BaseApiClient {
     }
   }
 
-  async updateSSOConfig(
-    orgId: string,
-    config: SSOConfig
-  ): Promise<SSOConfig> {
+  async updateSSOConfig(orgId: string, config: SSOConfig): Promise<SSOConfig> {
     return this.fetch<SSOConfig>(
       `${API_ENDPOINTS.organizations}/${orgId}/sso`,
       {

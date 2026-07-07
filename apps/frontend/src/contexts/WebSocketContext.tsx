@@ -16,6 +16,7 @@ import {
   EventHandler,
 } from '@/utils/websocket';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { WebSocketTokenClient } from '@/utils/api-client/websocket-token-client';
 
 /**
  * Context value interface for WebSocket functionality.
@@ -57,6 +58,21 @@ function getWebSocketUrl(): string {
 }
 
 /**
+ * Returns a `tokenProvider` function bound to the given session token.
+ *
+ * Each call to the provider fetches a fresh short-lived WS token from
+ * `POST /ws/token`, so every connection attempt (including auto-reconnects)
+ * uses a valid single-use credential instead of the long-lived session JWT.
+ */
+function makeWsTokenProvider(sessionToken: string): () => Promise<string> {
+  return async () => {
+    const client = new WebSocketTokenClient(sessionToken);
+    const { token } = await client.getWebSocketToken();
+    return token;
+  };
+}
+
+/**
  * WebSocket provider component.
  *
  * This provider manages a WebSocket connection to the backend and
@@ -91,10 +107,14 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
     const wsUrl = getWebSocketUrl();
 
-    // Create WebSocket client
+    // Create WebSocket client. The tokenProvider fetches a fresh short-lived
+    // WS token before each connection attempt (including auto-reconnects),
+    // keeping the long-lived session JWT out of the WebSocket URL.
+    // The static token acts as a fallback if the provider call fails.
     const client = new WebSocketClient({
       url: wsUrl,
       token: session.session_token,
+      tokenProvider: makeWsTokenProvider(session.session_token),
       onConnectionChange: connected => {
         setIsConnected(connected);
         if (!connected) {

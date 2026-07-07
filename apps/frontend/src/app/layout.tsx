@@ -42,6 +42,7 @@ import {
   type AuthenticationProps,
 } from '../types/navigation';
 import { type Project } from '../utils/api-client/interfaces/project';
+import { type Organization } from '../utils/api-client/interfaces/organization';
 import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 import { Capability } from '../constants/capabilities';
@@ -50,32 +51,28 @@ import { Capability } from '../constants/capabilities';
 export const dynamic = 'force-dynamic';
 
 // This function will be used to get navigation items with dynamic data
-async function getNavigationItems(
-  session: Session | null
-): Promise<{ items: NavigationItem[]; organizationName: string }> {
+async function getNavigationItems(session: Session | null): Promise<{
+  items: NavigationItem[];
+  organizationName: string;
+  organization: Organization | null;
+}> {
   'use server';
 
-  // Default organization name if no org found
   let organizationName = 'Rhesis AI';
+  let organization: Organization | null = null;
 
-  // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
     try {
       const clientFactory = await createServerApiFactory(session.session_token);
-      const organizationsClient = clientFactory.getOrganizationsClient();
-      const organization = await organizationsClient.getOrganization(
-        session.user.organization_id
-      );
+      organization = await clientFactory
+        .getOrganizationsClient()
+        .getOrganization(session.user.organization_id);
       if (organization?.name) {
         organizationName = organization.name;
       }
     } catch (error) {
-      // If this is an Unauthorized error (expired JWT), the session is invalid
-      // Log it but continue with default navigation to allow the client-side
-      // session handling to take over
       if (error instanceof Error && error.message.includes('Unauthorized')) {
       }
-      // Continue with default organization name
     }
   }
 
@@ -227,7 +224,11 @@ async function getNavigationItems(
     },
   ];
 
-  return { items: navItems as NavigationItem[], organizationName };
+  return {
+    items: navItems as NavigationItem[],
+    organizationName,
+    organization,
+  };
 }
 
 export const metadata: Metadata = {
@@ -252,8 +253,11 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   const initialThemeMode = themeCookie === 'dark' ? 'dark' : 'light';
 
   // Get navigation with dynamic organization name
-  const { items: navigation, organizationName } =
-    await getNavigationItems(session);
+  const {
+    items: navigation,
+    organizationName,
+    organization,
+  } = await getNavigationItems(session);
 
   const branding: BrandingProps = {
     title: organizationName,
@@ -299,6 +303,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             branding={branding}
             authentication={AUTHENTICATION}
             initialActiveProject={initialActiveProject}
+            initialOrganization={organization}
           >
             {props.children}
           </LayoutContent>

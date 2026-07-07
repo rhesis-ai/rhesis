@@ -47,10 +47,12 @@ ORDINARY_READ_ROUTE = "/behaviors/"
 def _make_context(test_db, *, owner: bool):
     """Create a fresh org + user + API token; return (org, user, token).
 
-    ``create_test_organization_and_user`` makes the user the org owner. When
-    ``owner=False`` we blank ``owner_id`` so the user is a plain org member
-    (still authenticated, but not the ceiling role).  Commit so the auth path —
-    which resolves the token on its own ``get_db()`` connection — sees the rows.
+    ``create_test_organization_and_user`` gives the user the Owner role. Under
+    RBAC, authorization is decided by that role, not ``organization.owner_id``,
+    so for ``owner=False`` we demote the user to the built-in **Member** role
+    (a plain org member — lacks org-admin caps like organization:update, but
+    keeps ordinary reads). Commit so the auth path — which resolves the token
+    on its own ``get_db()`` connection — sees the rows.
     """
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     suffix = uuid.uuid4().hex[:8]
@@ -63,8 +65,32 @@ def _make_context(test_db, *, owner: bool):
     if not owner:
         org.owner_id = None  # plain member, not the org owner
         test_db.flush()
+        _demote_to_member(test_db, org.id, user.id)
     test_db.commit()
     return org, user, token
+
+
+def _demote_to_member(test_db, organization_id, user_id) -> None:
+    """Set the user's org-member role to the built-in Member role (no-op in community)."""
+    try:
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+    except ImportError:
+        return
+    with bypass_tenant_filter():
+        member_role = (
+            test_db.query(Role)
+            .filter_by(name="Member", is_built_in=True, organization_id=None)
+            .first()
+        )
+        member = (
+            test_db.query(OrganizationMember)
+            .filter_by(organization_id=organization_id, user_id=user_id)
+            .first()
+        )
+    if member_role is not None and member is not None:
+        member.role_id = member_role.id
+        test_db.flush()
 
 
 def _auth(token) -> dict:
@@ -90,8 +116,7 @@ class TestHttpAuthzEnforcement:
             headers=_auth(token),
         )
         assert resp.status_code != 403, (
-            f"Org owner was wrongly denied organization:update: "
-            f"{resp.status_code} {resp.text}"
+            f"Org owner was wrongly denied organization:update: {resp.status_code} {resp.text}"
         )
 
     def test_non_owner_denied_on_owner_only_route(self, client, test_db):
@@ -106,8 +131,7 @@ class TestHttpAuthzEnforcement:
             headers=_auth(token),
         )
         assert resp.status_code == 403, (
-            f"Expected 403 for non-owner organization:update, got "
-            f"{resp.status_code}: {resp.text}"
+            f"Expected 403 for non-owner organization:update, got {resp.status_code}: {resp.text}"
         )
         # GitHub-style header naming the missing capability (SP12).
         assert resp.headers.get("X-Accepted-Permissions") == OWNER_ONLY_ROUTE_CAP
@@ -117,7 +141,6 @@ class TestHttpAuthzEnforcement:
         _org, _user, token = _make_context(test_db, owner=False)
         resp = client.get(ORDINARY_READ_ROUTE, headers=_auth(token))
         assert resp.status_code != 403, (
-            f"Non-owner member wrongly denied behavior:read: "
-            f"{resp.status_code} {resp.text}"
+            f"Non-owner member wrongly denied behavior:read: {resp.status_code} {resp.text}"
         )
         assert resp.status_code == 200, resp.text

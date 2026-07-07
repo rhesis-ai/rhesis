@@ -5,13 +5,25 @@ for orgs with the RBAC feature enabled.  Installed via
 :func:`~rhesis.backend.app.auth.rbac.set_authorization_provider` in
 :func:`~rhesis.backend.ee.__init__.bootstrap`.
 
-Resolution order (locked, plan §2.3):
+Resolution order:
 1. If RBAC is not available for the org → delegate to the community provider.
 2. If a ``project_id`` is given and the user has a ``project_membership`` row
    with a non-NULL ``role_id`` → the project role governs (overrides org role,
    not a union).
-3. Otherwise the user's ``organization_member.role_id`` governs.
-4. No membership row at either tier → deny.
+3. No explicit project role set — behaviour depends on the org role level:
+   a. Org Admin or Owner (level >= 80): implicit access to all projects.
+      Their org role applies as the effective project role.  They do not need
+      to be individually enrolled in every project.
+   b. Org Member or Viewer (level < 80): explicit project enrollment is
+      required.  If a ``project_membership`` row exists (even with
+      ``role_id = NULL``), their org role applies to that project.  If no
+      membership row exists, access is denied for that project.
+4. No org role → deny everywhere.
+
+The rationale for the Admin/Owner implicit-access rule mirrors tools like
+GitHub, Linear, and Notion: org-level administrators see and can manage all
+workspaces/projects without being individually added to each one.  Contributors
+(Member/Viewer) are scoped to projects they have been explicitly invited to.
 
 The ``Role`` model has ``organization_id`` which triggers the ORM
 ``auto_filter`` event.  Built-in roles (``organization_id IS NULL``) would be
@@ -84,12 +96,6 @@ class PermissionAuthorizationProvider:
 
         role_allows = self._role_has_permission(effective_role, perm_str, db)
         if not role_allows:
-            logger.debug(
-                "authorize(ee): principal %s role %r permission %r → deny (role)",
-                principal.user_id,
-                effective_role.name,
-                perm_str,
-            )
             return False
 
         # SP9: token scope intersection.  If the authenticating token carries an
@@ -98,19 +104,8 @@ class PermissionAuthorizationProvider:
         # This auto-narrows on owner downgrade: if the role check above failed,
         # we already returned False; stale wide scopes never help.
         if principal.scopes is not None and perm_str not in principal.scopes:
-            logger.debug(
-                "authorize(ee): principal %s permission %r → deny (out of token scopes)",
-                principal.user_id,
-                perm_str,
-            )
             return False
 
-        logger.debug(
-            "authorize(ee): principal %s role %r permission %r → allow",
-            principal.user_id,
-            effective_role.name,
-            perm_str,
-        )
         return True
 
     # ------------------------------------------------------------------
@@ -129,25 +124,51 @@ class PermissionAuthorizationProvider:
             return False
         return FeatureRegistry.is_available(FeatureName.RBAC, org)
 
+    #: Minimum role level that grants implicit access to all projects without
+    #: requiring an explicit project_membership row.  Corresponds to Admin (80).
+    _IMPLICIT_PROJECT_ACCESS_LEVEL = 80
+
     def _resolve_role(self, principal: "Principal", project_id: Optional[UUID], db: "Session"):
         """Return the effective :class:`~rhesis.backend.ee.rbac.models.Role` or None.
 
-        Project role beats org role when both are present (override, not union).
+        When a project context is present the resolution follows three steps:
+
+        1. Explicit project role (``project_membership.role_id`` set) → use it.
+        2. Org role level >= Admin (80) → implicit access; org role is the
+           effective project role.
+        3. Org role level < Admin → explicit enrollment required; the user must
+           have a ``project_membership`` row (even with ``role_id = NULL``) to
+           receive their org role for this project.  No row → deny.
         """
-        if project_id is not None:
-            role = self._get_project_role(principal, project_id, db)
-            if role is not None:
-                return role
+        if project_id is None:
+            return self._get_org_role(principal, db)
 
-        return self._get_org_role(principal, db)
+        membership = self._get_project_membership(principal, project_id, db)
 
-    def _get_project_role(self, principal: "Principal", project_id: UUID, db: "Session"):
-        """Return the project-scoped role for the principal, or None."""
+        # Step 1 — explicit project role overrides everything.
+        if membership is not None and membership.role_id is not None:
+            return self._load_role(membership.role_id, db)
+
+        # Steps 2 & 3 — fall back to org role, gated by enrollment for lower levels.
+        org_role = self._get_org_role(principal, db)
+        if org_role is None:
+            return None
+
+        if org_role.level >= self._IMPLICIT_PROJECT_ACCESS_LEVEL:
+            # Admin / Owner: implicit access to all projects.
+            return org_role
+
+        # Member / Viewer: only get fallback if explicitly enrolled.
+        if membership is not None:
+            return org_role
+
+        return None
+
+    def _get_project_membership(self, principal: "Principal", project_id: UUID, db: "Session"):
+        """Return the raw ``ProjectMembership`` row for this principal, or None."""
         from rhesis.backend.app.models.project_membership import ProjectMembership
-        from rhesis.backend.app.scope import bypass_tenant_filter
-        from rhesis.backend.ee.rbac.models import Role
 
-        membership = (
+        return (
             db.query(ProjectMembership)
             .filter_by(
                 project_id=project_id,
@@ -156,16 +177,18 @@ class PermissionAuthorizationProvider:
             )
             .first()
         )
-        if membership is None or membership.role_id is None:
-            return None
+
+    def _load_role(self, role_id, db: "Session"):
+        """Return the :class:`~rhesis.backend.ee.rbac.models.Role` for *role_id*."""
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
 
         with bypass_tenant_filter():
-            return db.query(Role).filter_by(id=membership.role_id).first()
+            return db.query(Role).filter_by(id=role_id).first()
 
     def _get_org_role(self, principal: "Principal", db: "Session"):
         """Return the org-level role for the principal, or None."""
-        from rhesis.backend.app.scope import bypass_tenant_filter
-        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+        from rhesis.backend.ee.rbac.models import OrganizationMember
 
         member = (
             db.query(OrganizationMember)
@@ -178,8 +201,7 @@ class PermissionAuthorizationProvider:
         if member is None or member.role_id is None:
             return None
 
-        with bypass_tenant_filter():
-            return db.query(Role).filter_by(id=member.role_id).first()
+        return self._load_role(member.role_id, db)
 
     def _role_has_permission(self, role, perm_str: str, db: "Session") -> bool:
         """Return True when *role* carries *perm_str*.

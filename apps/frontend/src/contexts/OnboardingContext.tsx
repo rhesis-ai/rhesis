@@ -29,6 +29,22 @@ const OnboardingContext = createContext<OnboardingContextValue | undefined>(
   undefined
 );
 
+/**
+ * Stable identity of the meaningful progress fields, excluding the
+ * `lastUpdated` timestamp. Used to detect whether progress has genuinely
+ * changed versus what the database already holds, so we don't PATCH
+ * `/users/settings` for no-op timestamp differences.
+ */
+function progressKey(progress: OnboardingProgress): string {
+  return JSON.stringify([
+    progress.projectCreated,
+    progress.endpointSetup,
+    progress.usersInvited,
+    progress.testCasesCreated,
+    progress.dismissed,
+  ]);
+}
+
 interface OnboardingProviderProps {
   children: React.ReactNode;
 }
@@ -50,12 +66,23 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const activeTourRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dbLoadedRef = useRef(false);
+  // Set synchronously the moment the initial load begins so a concurrent
+  // invocation (React Strict Mode double-invokes effects in development) is
+  // blocked before its first await, rather than racing into a second load +
+  // duplicate PATCH. Distinct from `dbLoadedRef`, which flips only once the
+  // load *completes* and gates the debounced writer below.
+  const loadStartedRef = useRef(false);
+  // Comparable key of the progress last persisted to the database. The
+  // debounced writer compares against this so it only PATCHes when progress
+  // genuinely differs from what the server already holds.
+  const lastSyncedRef = useRef<string | null>(null);
 
   // Load from database once when session becomes available, merge with
   // localStorage, and sync differences back in a single round-trip.
   useEffect(() => {
     const token = session?.session_token;
-    if (!token || dbLoadedRef.current) return;
+    if (!token || loadStartedRef.current) return;
+    loadStartedRef.current = true;
 
     const loadInitialProgress = async () => {
       try {
@@ -69,7 +96,14 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           const mergedProgress = mergeProgress(currentProgress, dbProgress);
           saveProgress(mergedProgress);
 
-          if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
+          const mergedKey = progressKey(mergedProgress);
+          // Record the state the database will hold once this reconciliation
+          // completes. Setting it optimistically (rather than after the PATCH
+          // resolves) keeps the debounced writer from firing a duplicate PATCH
+          // for the merged state on the next render.
+          lastSyncedRef.current = mergedKey;
+
+          if (mergedKey !== progressKey(dbProgress)) {
             syncProgressToDatabase(
               queryClient,
               token,
@@ -82,10 +116,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
           return mergedProgress;
         });
-
-        dbLoadedRef.current = true;
       } catch (error) {
         console.error('Error loading progress from database:', error);
+      } finally {
+        // Gate the debounced writer only after the load completes, so it never
+        // fires against pre-merge local state mid-load.
         dbLoadedRef.current = true;
       }
     };
@@ -103,12 +138,19 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
     if (!dbLoadedRef.current || !session?.session_token) return;
 
+    // Skip the write when progress already matches what the database holds.
+    // This suppresses the redundant PATCH the initial load's merge would
+    // otherwise trigger, and any re-render that doesn't change progress.
+    const key = progressKey(progress);
+    if (key === lastSyncedRef.current) return;
+
     const sessionToken = session.session_token;
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
 
     syncTimeoutRef.current = setTimeout(() => {
+      lastSyncedRef.current = key;
       syncProgressToDatabase(
         queryClient,
         sessionToken,

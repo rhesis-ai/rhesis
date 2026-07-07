@@ -32,3 +32,32 @@ export {
   resetAdminNavItems,
 } from './admin-nav';
 export type { AdminNavItem } from './admin-nav';
+
+export {
+  registerOrgSettingsTab,
+  getOrgSettingsTabs,
+  resetOrgSettingsTabs,
+} from './organization-settings-tabs';
+export type { OrgSettingsTab } from './organization-settings-tabs';
+
+export {
+  registerMemberRoleExtensions,
+  getMemberRoleExtensions,
+  resetMemberRoleExtensions,
+} from './member-role-extensions';
+export type {
+  MemberRoleExtensions,
+  OrgRoleCellProps,
+  ProjectRoleCellProps,
+  AddMemberRoleFieldProps,
+} from './member-role-extensions';
+
+export {
+  registerTokenScopeExtensions,
+  getTokenScopeExtensions,
+  resetTokenScopeExtensions,
+} from './token-scope-extensions';
+export type {
+  TokenScopeExtensions,
+  TokenScopeFieldProps,
+} from './token-scope-extensions';

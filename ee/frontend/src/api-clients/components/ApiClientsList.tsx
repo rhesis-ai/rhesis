@@ -204,9 +204,7 @@ export default function ApiClientsList({
                     <span>
                       <IconButton
                         size="small"
-                        onClick={() =>
-                          setConfirm({ client, action: 'rotate' })
-                        }
+                        onClick={() => setConfirm({ client, action: 'rotate' })}
                         aria-label={`Rotate secret for ${client.client_id}`}
                       >
                         <RotateIcon fontSize="small" />

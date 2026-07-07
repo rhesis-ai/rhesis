@@ -24,7 +24,7 @@ import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
 import { FeatureGate } from '@/contexts/FeaturesContext';
-import { registerOrgSettingsSection } from '@/lib/extension-registries';
+import { registerOrgSettingsTab } from '@/lib/extension-registries';
 
 const ApiClientsSection = React.lazy(
   () => import('./components/ApiClientsSection')
@@ -47,10 +47,10 @@ function ApiClientsSectionGate() {
 }
 
 export function registerApiClients(): void {
-  registerOrgSettingsSection({
-    id: 'api-clients',
-    title: 'API Clients',
-    order: 110,
+  registerOrgSettingsTab({
+    id: 'api',
+    title: 'API',
+    order: 60,
     component: ApiClientsSectionGate,
   });
 }

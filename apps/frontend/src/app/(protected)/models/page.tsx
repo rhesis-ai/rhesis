@@ -14,8 +14,8 @@ import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchUserSettings } from '@/hooks/useUserSettings';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
-import { Organization } from '@/utils/api-client/interfaces/organization';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -66,7 +66,7 @@ export default function ModelsPage() {
     'language' | 'embedding'
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
-  const [organization, setOrganization] = useState<Organization | undefined>();
+  const { organization } = useOrganization();
 
   // Toolbar state
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,38 +94,29 @@ export default function ModelsPage() {
         const modelsClient = apiFactory.getModelsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
 
-        const organizationsClient = apiFactory.getOrganizationsClient();
-
-        const [types, settings, org, modelsResponse, statuses] =
-          await Promise.all([
-            typeLookupClient.getTypeLookups({
-              $filter: "type_name eq 'ProviderType'",
-              limit: 100,
-            }),
-            fetchUserSettings(
-              queryClient,
-              session.session_token,
-              userScope
-            ).catch(() => null),
-            session.user?.organization_id
-              ? organizationsClient
-                  .getOrganization(session.user.organization_id)
-                  .catch(() => null)
-              : Promise.resolve(null),
-            modelsClient.getModels().catch(() => null),
-            apiFactory
-              .getStatusClient()
-              .getStatuses({
-                sort_by: 'name',
-                sort_order: 'asc',
-                entity_type: 'Model',
-              })
-              .catch(() => null),
-          ]);
+        const [types, settings, modelsResponse, statuses] = await Promise.all([
+          typeLookupClient.getTypeLookups({
+            $filter: "type_name eq 'ProviderType'",
+            limit: 100,
+          }),
+          fetchUserSettings(
+            queryClient,
+            session.session_token,
+            userScope
+          ).catch(() => null),
+          modelsClient.getModels().catch(() => null),
+          apiFactory
+            .getStatusClient()
+            .getStatuses({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: 'Model',
+            })
+            .catch(() => null),
+        ]);
 
         setProviderTypes(types);
         if (settings) setUserSettings(settings);
-        if (org) setOrganization(org);
         if (modelsResponse) setConnectedModels(modelsResponse.data);
         if (statuses)
           setStatusOptions(
@@ -514,7 +505,7 @@ export default function ModelsPage() {
         onClose={() => setPolyphemusModalOpen(false)}
         onSuccess={handlePolyphemusAccessSuccess}
         userEmail={session?.user?.email || ''}
-        organization={organization}
+        organization={organization ?? undefined}
       />
     </PageLayout>
   );

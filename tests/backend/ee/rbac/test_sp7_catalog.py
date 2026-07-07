@@ -365,7 +365,9 @@ class TestPermissionsForBuiltInRole:
 
         result = permissions_for_built_in_role("Admin", self._CAPS)
         assert "role:manage" not in result
-        assert "role:read" not in result
+        # role:read IS granted to Admin so they can see the role catalog when
+        # assigning roles via member:manage; only role:manage stays Owner-only.
+        assert "role:read" in result
         assert "sso:manage" not in result
         assert "api_clients:manage" not in result
         assert "organization:update" in result
@@ -475,12 +477,17 @@ class TestPermissionsForBuiltInRole:
         assert result == set()
 
     def test_admin_excludes_ee_management_against_live_catalog(self):
-        """Admin must never hold EE-management caps regardless of catalog changes."""
+        """Admin must never hold EE-management caps regardless of catalog changes.
+
+        role:read is intentionally NOT excluded — Admin can view the role
+        catalog (to assign roles via member:manage); only role:manage,
+        sso:manage, and api_clients:manage stay Owner-only.
+        """
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
         admin = permissions_for_built_in_role("Admin", get_all_capabilities())
-        excluded = {"role:manage", "role:read", "sso:manage", "api_clients:manage"}
+        excluded = {"role:manage", "sso:manage", "api_clients:manage"}
         assert not admin & excluded, (
             f"Admin role holds EE-only management permissions: {admin & excluded}"
         )

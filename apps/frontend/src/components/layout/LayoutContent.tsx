@@ -13,6 +13,7 @@ import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
+import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { fetchQuickStartEnabled } from '@/utils/quick_start';
 // Side-effect import: pulls ee_bootstrap into the *client* bundle so
 // EE feature registrations land in the client-side registry as well as
@@ -39,6 +40,7 @@ export function LayoutContent({
   branding,
   authentication,
   initialActiveProject = null,
+  initialOrganization = null,
 }: Omit<LayoutProps, 'theme'>) {
   const theme = useTheme();
   const pathname = usePathname();
@@ -128,25 +130,27 @@ export function LayoutContent({
         <CssBaseline />
         <QueryClientProvider client={queryClient}>
           <ActiveProjectProvider initialActiveProject={initialActiveProject}>
-            <NotificationProvider>
-              <OnboardingProvider>
-                <Box sx={boxSx}>
-                  <Box sx={{ flex: 1 }}>
-                    <NavigationProvider
-                      navigation={navigation}
-                      branding={branding}
-                      session={session}
-                      authentication={authentication}
-                      theme={theme}
-                    >
-                      {children}
-                    </NavigationProvider>
+            <OrganizationProvider initialOrganization={initialOrganization}>
+              <NotificationProvider>
+                <OnboardingProvider>
+                  <Box sx={boxSx}>
+                    <Box sx={{ flex: 1 }}>
+                      <NavigationProvider
+                        navigation={navigation}
+                        branding={branding}
+                        session={session}
+                        authentication={authentication}
+                        theme={theme}
+                      >
+                        {children}
+                      </NavigationProvider>
+                    </Box>
                   </Box>
-                </Box>
-                {/* Show onboarding checklist for authenticated users */}
-                {session && isProtectedRoute && <OnboardingChecklist />}
-              </OnboardingProvider>
-            </NotificationProvider>
+                  {/* Show onboarding checklist for authenticated users */}
+                  {session && isProtectedRoute && <OnboardingChecklist />}
+                </OnboardingProvider>
+              </NotificationProvider>
+            </OrganizationProvider>
           </ActiveProjectProvider>
         </QueryClientProvider>
       </AppRouterCacheProvider>

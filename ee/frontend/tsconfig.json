@@ -9,7 +9,9 @@
       "@mui/material": ["../../apps/frontend/node_modules/@mui/material"],
       "@mui/material/*": ["../../apps/frontend/node_modules/@mui/material/*"],
       "@mui/icons-material": ["../../apps/frontend/node_modules/@mui/icons-material"],
-      "@mui/icons-material/*": ["../../apps/frontend/node_modules/@mui/icons-material/*"]
+      "@mui/icons-material/*": ["../../apps/frontend/node_modules/@mui/icons-material/*"],
+      "next-auth": ["../../apps/frontend/node_modules/next-auth"],
+      "next-auth/*": ["../../apps/frontend/node_modules/next-auth/*"]
     }
   },
   "include": [

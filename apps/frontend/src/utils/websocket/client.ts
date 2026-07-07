@@ -58,7 +58,8 @@ const DEFAULTS = {
  */
 export class WebSocketClient {
   private ws: WebSocket | null = null;
-  private options: Required<WebSocketClientOptions>;
+  private options: Required<Omit<WebSocketClientOptions, 'tokenProvider'>> &
+    Pick<WebSocketClientOptions, 'tokenProvider'>;
   private state: WebSocketState = {
     isConnected: false,
     reconnectAttempts: 0,
@@ -75,6 +76,10 @@ export class WebSocketClient {
 
   /** Flag to track intentional disconnects */
   private intentionalDisconnect = false;
+
+  /** In-flight connect() promise, so concurrent calls dedupe rather than
+   * opening a second socket while a token fetch is still pending. */
+  private connectPromise: Promise<void> | null = null;
 
   /**
    * Create a new WebSocket client.
@@ -99,15 +104,53 @@ export class WebSocketClient {
   /**
    * Connect to the WebSocket server.
    *
-   * Authentication is performed via query parameter.
+   * When a `tokenProvider` is configured, a fresh token is fetched before
+   * opening the socket. This ensures every connection attempt (including
+   * auto-reconnects) uses a valid short-lived token rather than a stale
+   * long-lived session JWT. The static `token` is used as a fallback if the
+   * provider throws or if no provider is configured.
    */
-  connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.warn('WebSocket already connected');
-      return;
+  connect(): Promise<void> {
+    if (
+      this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING
+    ) {
+      console.warn('WebSocket already connected or connecting');
+      return Promise.resolve();
     }
 
+    // A connect() is already in flight (e.g. still awaiting the token fetch).
+    // Return the same promise so callers dedupe instead of opening a 2nd socket.
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    // Cancel any pending reconnect so it doesn't race this fresh attempt.
+    this.clearReconnectTimer();
+
+    this.connectPromise = this.doConnect().finally(() => {
+      this.connectPromise = null;
+    });
+    return this.connectPromise;
+  }
+
+  private async doConnect(): Promise<void> {
     this.intentionalDisconnect = false;
+
+    // Fetch a fresh token from the provider when available.
+    if (this.options.tokenProvider) {
+      try {
+        const freshToken = await this.options.tokenProvider();
+        // Abort if disconnect() was called while the token was being fetched.
+        if (this.intentionalDisconnect) return;
+        this.options.token = freshToken;
+      } catch (error) {
+        console.warn(
+          'WebSocket token provider failed, falling back to static token:',
+          error
+        );
+      }
+    }
 
     // Build URL with token
     const url = `${this.options.url}?token=${encodeURIComponent(this.options.token)}`;

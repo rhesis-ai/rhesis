@@ -8,6 +8,10 @@ on:
       - 'apps/frontend/src/**/*.tsx'
       - 'apps/frontend/src/**/*.js'
       - 'apps/frontend/src/**/*.jsx'
+      - 'ee/frontend/src/**/*.ts'
+      - 'ee/frontend/src/**/*.tsx'
+      - 'ee/frontend/src/**/*.js'
+      - 'ee/frontend/src/**/*.jsx'
   workflow_dispatch:
     inputs:
       target_directory:

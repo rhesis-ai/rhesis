@@ -3,11 +3,12 @@
 Covers:
 1. RBAC feature off → delegate to community provider (DefaultAuthorizationProvider).
 2. Project role overrides org role (not a union).
-3. Org role used when no project role is present.
-4. No membership at either tier → deny.
-5. Permission in role → allow; permission not in role → deny.
-6. Retired permission → deny even if RolePermission row exists.
-7. Missing org context → deny.
+3. Admin/Owner → implicit access to all projects (no project_membership row needed).
+4. Member/Viewer → explicit enrollment required; no row → deny.
+5. Member/Viewer with a membership row (role_id=NULL) → org role applied.
+6. No membership at either tier → deny.
+7. Permission in role → allow; permission not in role → deny.
+8. Missing org context → deny.
 
 Run with:
     cd apps/backend
@@ -112,71 +113,59 @@ class TestNoOrgContext:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_role(name: str, level: int, is_built_in: bool = True) -> MagicMock:
+    role = MagicMock()
+    role.name = name
+    role.level = level
+    role.is_built_in = is_built_in
+    return role
+
+
+def _make_membership(role_id=None) -> MagicMock:
+    m = MagicMock()
+    m.role_id = role_id
+    return m
+
+
+# ---------------------------------------------------------------------------
 # Role resolution precedence
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.ee
 class TestRoleResolutionPrecedence:
-    def test_project_role_overrides_org_role(self, provider):
-        """Project role must be used even when org role is present (not union)."""
-        principal = _make_principal()
-        db = MagicMock()
-
-        fake_project_role = MagicMock()
-        fake_project_role.name = "Viewer"
-        fake_org_role = MagicMock()
-        fake_org_role.name = "Admin"
-
-        with (
-            patch.object(provider, "_rbac_available", return_value=True),
-            patch.object(provider, "_get_project_role", return_value=fake_project_role),
-            patch.object(provider, "_get_org_role", return_value=fake_org_role),
-            patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
-        ):
-            provider.is_authorized(principal, "test_set:read", project_id=uuid.uuid4(), db=db)
-
-        # The check must use the project role, not the org role.
-        mock_check.assert_called_once_with(fake_project_role, "test_set:read", db)
-
-    def test_falls_through_to_org_role_when_no_project_role(self, provider):
+    def test_explicit_project_role_overrides_org_role(self, provider):
+        """Explicit project role must be used even when org role is present (not union)."""
         principal = _make_principal()
         db = MagicMock()
         project_id = uuid.uuid4()
-        fake_org_role = MagicMock()
-        fake_org_role.name = "Member"
+
+        fake_project_role_id = uuid.uuid4()
+        fake_membership = _make_membership(role_id=fake_project_role_id)
+        fake_project_role = _make_role("Viewer", level=40)
+        fake_org_role = _make_role("Admin", level=80)
 
         with (
             patch.object(provider, "_rbac_available", return_value=True),
-            patch.object(provider, "_get_project_role", return_value=None),
+            patch.object(provider, "_get_project_membership", return_value=fake_membership),
+            patch.object(provider, "_load_role", return_value=fake_project_role),
             patch.object(provider, "_get_org_role", return_value=fake_org_role),
             patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
         ):
             provider.is_authorized(principal, "test_set:read", project_id=project_id, db=db)
 
-        mock_check.assert_called_once_with(fake_org_role, "test_set:read", db)
-
-    def test_deny_when_no_role_at_either_tier(self, provider):
-        principal = _make_principal()
-        db = MagicMock()
-
-        with (
-            patch.object(provider, "_rbac_available", return_value=True),
-            patch.object(provider, "_get_project_role", return_value=None),
-            patch.object(provider, "_get_org_role", return_value=None),
-        ):
-            result = provider.is_authorized(
-                principal, "test_set:read", project_id=uuid.uuid4(), db=db
-            )
-
-        assert result is False
+        # Must use the project role, not the org role.
+        mock_check.assert_called_once_with(fake_project_role, "test_set:read", db)
 
     def test_org_role_used_when_no_project_id(self, provider):
         """When no project_id, the org role must be used directly."""
         principal = _make_principal()
         db = MagicMock()
-        fake_org_role = MagicMock()
-        fake_org_role.name = "Admin"
+        fake_org_role = _make_role("Admin", level=80)
 
         with (
             patch.object(provider, "_rbac_available", return_value=True),
@@ -186,6 +175,154 @@ class TestRoleResolutionPrecedence:
             provider.is_authorized(principal, "organization:update", project_id=None, db=db)
 
         mock_check.assert_called_once_with(fake_org_role, "organization:update", db)
+
+    def test_deny_when_no_org_role_and_no_membership(self, provider):
+        principal = _make_principal()
+        db = MagicMock()
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=None),
+            patch.object(provider, "_get_org_role", return_value=None),
+        ):
+            result = provider.is_authorized(
+                principal, "test_set:read", project_id=uuid.uuid4(), db=db
+            )
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Admin / Owner implicit project access (no enrollment needed)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestImplicitProjectAccess:
+    """Admin and Owner get access to every project without a project_membership row."""
+
+    @pytest.mark.parametrize("role_name,level", [("Owner", 100), ("Admin", 80)])
+    def test_admin_owner_access_without_membership_row(self, provider, role_name, level):
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+        org_role = _make_role(role_name, level=level)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=None),
+            patch.object(provider, "_get_org_role", return_value=org_role),
+            patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
+        ):
+            result = provider.is_authorized(
+                principal, "test_set:read", project_id=project_id, db=db
+            )
+
+        assert result is True
+        mock_check.assert_called_once_with(org_role, "test_set:read", db)
+
+    @pytest.mark.parametrize("role_name,level", [("Owner", 100), ("Admin", 80)])
+    def test_admin_owner_access_with_membership_row_no_role(self, provider, role_name, level):
+        """Membership row with NULL role_id still uses org role for Admin/Owner."""
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+        org_role = _make_role(role_name, level=level)
+        membership = _make_membership(role_id=None)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=membership),
+            patch.object(provider, "_get_org_role", return_value=org_role),
+            patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
+        ):
+            result = provider.is_authorized(
+                principal, "test_set:read", project_id=project_id, db=db
+            )
+
+        assert result is True
+        mock_check.assert_called_once_with(org_role, "test_set:read", db)
+
+
+# ---------------------------------------------------------------------------
+# Member / Viewer explicit enrollment required
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+class TestExplicitEnrollmentRequired:
+    """Member and Viewer need an explicit project_membership row to access a project."""
+
+    @pytest.mark.parametrize("role_name,level", [("Member", 60), ("Viewer", 40)])
+    def test_member_viewer_denied_without_membership_row(self, provider, role_name, level):
+        """No project_membership row → deny for Member and Viewer."""
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+        org_role = _make_role(role_name, level=level)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=None),
+            patch.object(provider, "_get_org_role", return_value=org_role),
+        ):
+            result = provider.is_authorized(
+                principal, "test_set:read", project_id=project_id, db=db
+            )
+
+        assert result is False
+
+    @pytest.mark.parametrize("role_name,level", [("Member", 60), ("Viewer", 40)])
+    def test_member_viewer_allowed_with_membership_row_no_explicit_role(
+        self, provider, role_name, level
+    ):
+        """Membership row with role_id=NULL → org role applies for Member/Viewer."""
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+        org_role = _make_role(role_name, level=level)
+        membership = _make_membership(role_id=None)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=membership),
+            patch.object(provider, "_get_org_role", return_value=org_role),
+            patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
+        ):
+            result = provider.is_authorized(
+                principal, "test_set:read", project_id=project_id, db=db
+            )
+
+        assert result is True
+        mock_check.assert_called_once_with(org_role, "test_set:read", db)
+
+    @pytest.mark.parametrize("role_name,level", [("Member", 60), ("Viewer", 40)])
+    def test_explicit_project_role_overrides_for_member_viewer(
+        self, provider, role_name, level
+    ):
+        """Explicit project role overrides org role even for Member/Viewer."""
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+        project_role_id = uuid.uuid4()
+        membership = _make_membership(role_id=project_role_id)
+        # e.g. org Viewer given project-level Admin
+        project_role = _make_role("Admin", level=80)
+        org_role = _make_role(role_name, level=level)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=membership),
+            patch.object(provider, "_load_role", return_value=project_role),
+            patch.object(provider, "_get_org_role", return_value=org_role),
+            patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
+        ):
+            result = provider.is_authorized(
+                principal, "member:manage", project_id=project_id, db=db
+            )
+
+        assert result is True
+        mock_check.assert_called_once_with(project_role, "member:manage", db)
 
 
 # ---------------------------------------------------------------------------

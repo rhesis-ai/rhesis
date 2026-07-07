@@ -157,4 +157,8 @@ export interface ProjectMember {
 export interface ProjectMemberCreate {
   user_id: string;
   role?: string;
+  /** RBAC role to assign atomically with membership creation (EE). Requires a
+   *  registered escalation-guard validator server-side; rejected with 422 when
+   *  none is registered (RBAC unlicensed). */
+  role_id?: string;
 }

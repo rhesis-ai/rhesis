@@ -1201,6 +1201,21 @@ async def logout(
                 revoke_all_for_user(db, user_id)
                 db.commit()
 
+                # Bust the permission cache so a re-login always gets fresh
+                # permissions (role changes take effect immediately after next login).
+                org_id = user_info.get("organization_id")
+                if org_id:
+                    from uuid import UUID as _UUID
+
+                    from rhesis.backend.app.services.permission_cache import (
+                        get_permission_cache,
+                    )
+
+                    try:
+                        get_permission_cache().bust_user(_UUID(user_id), _UUID(org_id))
+                    except Exception as cache_err:
+                        logger.warning("Failed to bust permission cache on logout: %s", cache_err)
+
                 # Track logout activity
                 if is_telemetry_enabled():
                     org_id = user_info.get("organization_id")
