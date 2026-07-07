@@ -4,14 +4,9 @@ from rhesis.backend.app.constants import OverallTestResult
 from rhesis.backend.app.services.stats.test_result import _metric_stats
 
 
-class _Row:
-    def __init__(self, test_metrics, result):
-        self.test_metrics = test_metrics
-        self.result = result
-
-
 class _QueryStub:
     def __init__(self, rows):
+        # rows: list of (test_metrics, result) tuples matching SQLAlchemy .all()
         self._rows = rows
 
     def with_entities(self, *_args):
@@ -24,7 +19,7 @@ class _QueryStub:
 class TestMetricStatsAggregation:
     def test_metric_override_uses_original_value_for_automated_counts(self):
         rows = [
-            _Row(
+            (
                 {
                     "metrics": {
                         "Accuracy": {
@@ -51,7 +46,7 @@ class TestMetricStatsAggregation:
 
     def test_test_level_review_without_metric_override(self):
         rows = [
-            _Row(
+            (
                 {"metrics": {"Accuracy": {"is_successful": False}}},
                 OverallTestResult.PASSED,
             )
