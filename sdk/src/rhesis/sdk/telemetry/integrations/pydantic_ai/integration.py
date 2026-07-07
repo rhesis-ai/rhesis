@@ -180,6 +180,14 @@ class PydanticAIIntegration(BaseIntegration):
             )
             return False
 
+        # Wrap the exporters *before* turning on instrumentation: if no
+        # exporter can be wrapped, raw GenAI span names like ``chat gpt-4o``
+        # would fail backend span-name validation and be silently dropped, so
+        # enabling instrumentation without translation would only produce
+        # broken traces. Failing closed keeps auto_instrument() honest.
+        if not self._wrap_existing_exporters(provider):
+            return False
+
         capture_content = content_capture_enabled()
         try:
             Agent.instrument_all(
@@ -192,9 +200,17 @@ class PydanticAIIntegration(BaseIntegration):
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to enable Pydantic AI instrumentation: %s", exc)
+            # Revert the exporter wrapping installed above so a failed enable
+            # leaves the provider exactly as it found it.
+            for processor, original_exporter in self._patched_processors:
+                try:
+                    set_processor_exporter(processor, original_exporter)
+                except Exception:  # noqa: BLE001
+                    logger.debug(
+                        "Failed to revert exporter on processor %r", processor, exc_info=True
+                    )
+            self._patched_processors.clear()
             return False
-
-        self._wrap_existing_exporters(provider)
 
         self._dedup_processor = self._create_callback()
         if not self._dedup_registered:
@@ -247,7 +263,7 @@ class PydanticAIIntegration(BaseIntegration):
         self._enabled = False
         logger.info("✗ Stopped observing pydantic_ai")
 
-    def _wrap_existing_exporters(self, provider: TracerProvider) -> None:
+    def _wrap_existing_exporters(self, provider: TracerProvider) -> bool:
         """Find every wrappable span processor on the provider and wrap its exporter.
 
         Walks the provider's ``_active_span_processor`` (a multi-processor
@@ -256,13 +272,19 @@ class PydanticAIIntegration(BaseIntegration):
         :class:`PydanticAITranslatingExporter`. Already-translating exporters
         are skipped so :meth:`enable` is idempotent. Other processor types
         (custom, multi-processor composites, etc.) are left untouched.
+
+        Returns:
+            ``True`` when at least one exporter is wrapped (or was already
+            wrapped), ``False`` when translation could not be installed —
+            in which case :meth:`enable` fails closed rather than emitting
+            untranslated spans the backend would reject.
         """
         try:
             multi = getattr(provider, "_active_span_processor", None)
             children = getattr(multi, "_span_processors", ()) if multi is not None else ()
         except Exception:  # noqa: BLE001
-            logger.debug("Could not introspect provider span processors", exc_info=True)
-            return
+            logger.warning("Could not introspect provider span processors", exc_info=True)
+            return False
 
         wrapped_count = 0
         already_wrapped_count = 0
@@ -289,17 +311,18 @@ class PydanticAIIntegration(BaseIntegration):
 
         if wrapped_count == 0 and already_wrapped_count == 0:
             # No batch / simple span processor with a wrappable exporter
-            # (e.g. only a custom processor, or no processors at all).
-            # Pydantic AI spans will pass through untranslated and raw GenAI
-            # span names like ``chat gpt-4o`` will fail backend span-name
-            # validation. Log loudly so the surprise is debuggable.
+            # (e.g. only a custom processor, or no processors at all). Raw
+            # GenAI span names like ``chat gpt-4o`` would fail backend
+            # span-name validation, so enable() fails closed on this result.
             logger.warning(
                 "pydantic_ai: no batch/simple span processor with a "
                 "wrappable exporter found on the active TracerProvider; "
-                "Pydantic AI spans will be emitted but not translated into "
-                "the Rhesis ai.* schema. Ensure RhesisClient is created "
-                "before auto_instrument()."
+                "refusing to enable instrumentation whose spans could not "
+                "be translated into the Rhesis ai.* schema. Ensure "
+                "RhesisClient is created before auto_instrument()."
             )
+            return False
+        return True
 
 
 _pydantic_ai_integration = PydanticAIIntegration()

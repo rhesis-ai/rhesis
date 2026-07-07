@@ -456,6 +456,22 @@ class TestLifecycle:
         for proc, original in patched:
             assert get_processor_exporter(proc) is original
 
+    def test_enable_fails_without_wrappable_exporter(self, monkeypatch):
+        """Regression: enable() fails closed when translation cannot be
+        installed, instead of emitting untranslated spans the backend would
+        reject."""
+        import importlib
+
+        integ_mod = importlib.import_module(
+            "rhesis.sdk.telemetry.integrations.pydantic_ai.integration"
+        )
+        bare_provider = TracerProvider()  # no span processors attached
+        monkeypatch.setattr(integ_mod.trace, "get_tracer_provider", lambda: bare_provider)
+
+        integ = PydanticAIIntegration()
+        assert integ.enable() is False
+        assert integ._patched_processors == []
+
     def test_callback_is_dedup_processor(self, integration):
         assert isinstance(integration.callback(), PydanticAILLMDedupSpanProcessor)
 
@@ -569,4 +585,22 @@ class TestDedupProcessor:
         tracer = provider.get_tracer("pydantic-ai")
         span = tracer.start_span("invoke_agent my-agent")
         proc.on_start(span)
+        assert is_llm_observation_active() is False
+
+    def test_flag_restored_even_without_operation_attribute(
+        self, session_provider, reset_llm_observation_flag
+    ):
+        """Regression: on_end restores based on what on_start recorded, so a
+        chat-named span missing gen_ai.operation.name cannot leave the flag
+        stuck True."""
+        provider, _captured = session_provider
+        proc = PydanticAILLMDedupSpanProcessor()
+        proc.activate()
+
+        tracer = provider.get_tracer("pydantic-ai")
+        span = tracer.start_span("chat test")  # no operation attribute set
+        proc.on_start(span)
+        assert is_llm_observation_active() is True
+        span.end()
+        proc.on_end(span)
         assert is_llm_observation_active() is False

@@ -451,12 +451,6 @@ class PydanticAILLMDedupSpanProcessor(SpanProcessor):
                 pass
         self._prev_flags[span_id] = prev
 
-    def _retrieve_prev_flag(self, span) -> bool:
-        span_id = self._span_id(span)
-        if span_id is None:
-            return False
-        return bool(self._prev_flags.pop(span_id, False))
-
     def on_start(self, span, parent_context=None) -> None:  # noqa: D401
         if not self._active:
             return
@@ -486,10 +480,17 @@ class PydanticAILLMDedupSpanProcessor(SpanProcessor):
         try:
             if not _is_pydantic_ai_span(span):
                 return
-            attrs = span.attributes or {}
-            if attrs.get(mapping.GEN_AI_OPERATION_NAME) != mapping.OP_CHAT:
+            # Restore based on what on_start actually recorded rather than
+            # re-deriving "is this a chat span" from attributes: if the
+            # gen_ai.operation.name attribute were ever missing or renamed,
+            # an attribute-gated restore would return early and leave the
+            # flag stuck True for the rest of the context. _prev_flags only
+            # contains entries for spans whose start hook toggled the flag,
+            # so membership is the exact restore condition.
+            span_id = self._span_id(span)
+            if span_id is None or span_id not in self._prev_flags:
                 return
-            prev = self._retrieve_prev_flag(span)
+            prev = bool(self._prev_flags.pop(span_id, False))
             if not prev:
                 set_llm_observation_active(False)
         except Exception:  # noqa: BLE001 - on_end must never raise
