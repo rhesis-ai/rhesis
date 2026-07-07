@@ -8,11 +8,11 @@ Precedence (first match wins):
    equal the org's UUID (string comparison, case-insensitive).
 3. Deny — no valid token found for this org.
 
-Dev fallback (permissive): when ``settings.is_development`` is ``True``
-**or** ``RHESIS_LICENSE_ALLOW_UNLICENSED=1`` is set, the provider allows
-all registered features even without a valid token.  This keeps local
-development friction-free without requiring a license key.  The fallback
-is fail-open only in dev; production is always fail-closed.
+Dev fallback (permissive): only when ``RHESIS_LICENSE_ALLOW_UNLICENSED=1`` is
+explicitly set does the provider allow all registered features without a
+valid token. This is an explicit opt-in for local development — every other
+environment, including ``development`` and ``staging`` ``BACKEND_ENV``
+values, is fail-closed and requires a real license.
 
 Fail-closed on missing keys: if no public keys are loaded, the provider
 denies all features and logs a one-time warning.
@@ -101,15 +101,15 @@ class SignedTokenLicenseProvider:
         return {"edition": edition.value, "licensed": False}
 
     def _is_dev_fallback(self) -> bool:
-        """Return ``True`` if the dev/unlicensed permissive mode is active."""
-        if os.environ.get(ENV_ALLOW_UNLICENSED, "").strip() == "1":
-            return True
-        try:
-            from rhesis.backend.app.config.settings import get_application_settings
+        """Return ``True`` if the unlicensed permissive mode is active.
 
-            return get_application_settings().is_development
-        except Exception:
-            return False
+        Explicit opt-in only, via
+        :data:`~rhesis.backend.ee.licensing.entitlements.ENV_ALLOW_UNLICENSED`.
+        Deliberately does **not** key off ``settings.is_development`` —
+        ``BACKEND_ENV`` values other than ``production`` (e.g. ``staging``)
+        must still require a real license.
+        """
+        return os.environ.get(ENV_ALLOW_UNLICENSED, "").strip() == "1"
 
     def _resolve_entitlements(self, org: Organization) -> Optional[Entitlements]:
         """Resolve entitlements for *org* using the declared precedence.

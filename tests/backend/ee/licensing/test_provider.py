@@ -24,9 +24,8 @@ _ORG_ID = UUID(_ORG_UUID)
 
 _SSO_FEATURE = Feature(name=FeatureName.SSO, display_name="SSO")
 
-# The test environment always has BACKEND_ENV=test, which makes is_development=True
-# (any env that is not "production" is treated as development). We need to suppress
-# the dev fallback for production-scenario tests and enable it only for dev tests.
+# _is_dev_fallback() only reads RHESIS_LICENSE_ALLOW_UNLICENSED; mock it directly
+# so licensed/unlicensed scenarios don't depend on ambient env vars during tests.
 _NO_DEV_FALLBACK = patch(
     "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
     return_value=False,
@@ -192,6 +191,23 @@ class TestDevFallback:
         assert info["edition"] == "dev"
         assert info["licensed"] is False
 
+    @pytest.mark.parametrize("backend_env", ["development", "staging", "local"])
+    def test_non_production_backend_env_does_not_bypass_licensing(self, provider, backend_env):
+        """Only RHESIS_LICENSE_ALLOW_UNLICENSED=1 may bypass licensing.
+
+        BACKEND_ENV values other than "production" (development, staging,
+        local) must still require a real license — the dev fallback is an
+        explicit opt-in, not an artifact of settings.is_development.
+        """
+        org = _make_org()
+        env = {
+            "RHESIS_LICENSE": "",
+            "RHESIS_LICENSE_ALLOW_UNLICENSED": "",
+            "BACKEND_ENV": backend_env,
+        }
+        with patch.dict("os.environ", env):
+            assert provider.allows_feature(_SSO_FEATURE, org) is False
+
 
 class TestMissingKeys:
     def test_no_keys_denies_feature(self, provider, mint_token):
@@ -201,9 +217,7 @@ class TestMissingKeys:
         token = mint_token(sub="*")
         org = _make_org()
         with _NO_DEV_FALLBACK, patch.dict("os.environ", {"RHESIS_LICENSE": token}):
-            with patch(
-                "rhesis.backend.ee.licensing.verify.get_public_keys", return_value={}
-            ):
+            with patch("rhesis.backend.ee.licensing.verify.get_public_keys", return_value={}):
                 result = provider.allows_feature(_SSO_FEATURE, org)
         _parse_token.cache_clear()
         assert result is False

@@ -58,6 +58,20 @@ class TestVerifyTokenValid:
         assert result is not None
         assert result.limits == {"seats": 50}
 
+    def test_limits_is_read_only(self, mint_token):
+        """Cached Entitlements must not allow in-place mutation of ``limits``.
+
+        ``verify_token`` shares one ``Entitlements`` instance across every
+        call for the same token (LRU-cached). A mutable ``limits`` dict would
+        let one caller's mutation silently corrupt state seen by every other
+        caller of that same token.
+        """
+        token = mint_token(limits={"seats": 50})
+        result = verify_token(token)
+        assert result is not None
+        with pytest.raises(TypeError):
+            result.limits["seats"] = 999
+
     def test_expires_at_is_set(self, mint_token):
         future_exp = int(time.time()) + 7200
         token = mint_token(exp=future_exp)
@@ -101,9 +115,7 @@ class TestVerifyTokenTampered:
         padded = parts[1] + "=" * (-len(parts[1]) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded))
         payload["sub"] = "attacker-org"
-        new_payload = (
-            base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
-        )
+        new_payload = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
         tampered = f"{parts[0]}.{new_payload}.{parts[2]}"
         assert verify_token(tampered) is None
 
@@ -144,9 +156,7 @@ class TestVerifyTokenClaimMismatch:
     def test_empty_string_returns_none(self):
         assert verify_token("") is None
 
-    @pytest.mark.parametrize(
-        "missing", [CLAIM_ISSUER, CLAIM_AUDIENCE, CLAIM_SUBJECT, CLAIM_EXPIRY]
-    )
+    @pytest.mark.parametrize("missing", [CLAIM_ISSUER, CLAIM_AUDIENCE, CLAIM_SUBJECT, CLAIM_EXPIRY])
     def test_missing_required_claim_returns_none(self, ed25519_keypair, missing):
         """A token missing a required claim must fail closed (return None),
         not raise. PyJWT raises MissingRequiredClaimError here, which is an

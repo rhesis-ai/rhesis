@@ -16,7 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 
 class LicenseEdition(str, Enum):
@@ -154,11 +155,27 @@ class Entitlements:
     expires_at: Optional[datetime]
     """UTC expiry derived from the ``exp`` JWT claim; ``None`` if absent."""
 
-    limits: dict[str, Any] = field(default_factory=dict)
-    """Arbitrary limit map (e.g. ``{"seats": 50}``)."""
+    limits: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    """Arbitrary limit map (e.g. ``{"seats": 50}``). Always a read-only mapping —
+    see :meth:`__post_init__`."""
 
     jti: Optional[str] = None
     """JWT ID for audit logging and future revocation support."""
+
+    def __post_init__(self) -> None:
+        """Coerce ``limits`` to a read-only mapping.
+
+        ``Entitlements`` is frozen, but that only blocks attribute
+        *reassignment* — it does nothing to stop in-place mutation of a
+        plain ``dict``. Instances are cached and shared across requests by
+        :func:`~rhesis.backend.ee.licensing.verify.verify_token`
+        (``@lru_cache``), so an accidental ``entitlements.limits[...] = ...``
+        elsewhere would silently corrupt state for every subsequent request
+        using the same token. Wrapping in ``MappingProxyType`` makes that a
+        ``TypeError`` instead of a silent cross-request leak.
+        """
+        if not isinstance(self.limits, MappingProxyType):
+            object.__setattr__(self, "limits", MappingProxyType(dict(self.limits)))
 
     def is_expired(self) -> bool:
         """Return ``True`` if the license has passed its expiry window.
