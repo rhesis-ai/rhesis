@@ -41,7 +41,6 @@ _TEST_ENV_VARS = {
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
     "SSO_ENCRYPTION_KEY": "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw=",
     "OTEL_RHESIS_TELEMETRY_ENABLED": "false",
-    "AUTH0_DOMAIN": "test.auth0.com",
 }
 
 

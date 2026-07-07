@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import List, Optional
 from urllib.parse import urlparse
 
@@ -45,7 +44,6 @@ from rhesis.backend.app.auth.used_token_store import (
 )
 from rhesis.backend.app.auth.user_utils import (
     _send_welcome_email,
-    find_or_create_user,
     find_or_create_user_from_auth,
 )
 from rhesis.backend.app.config.settings import (
@@ -247,12 +245,6 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     return callback_url
 
 
-def _is_legacy_auth0_enabled() -> bool:
-    """Check if legacy Auth0 authentication is enabled for rollback."""
-    enabled = os.getenv("AUTH_LEGACY_AUTH0_ENABLED", "false").lower()
-    return enabled in ("true", "1", "yes")
-
-
 def _get_frontend_url() -> str:
     """Get the frontend URL for building email links."""
     return get_frontend_settings().url
@@ -411,12 +403,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
     # Determine which provider initiated this callback
     provider_name = request.session.get("auth_provider")
 
-    # If no provider in session, try to detect from state or fall back to legacy
     if not provider_name:
-        # Check if legacy Auth0 is enabled for backward compatibility
-        if _is_legacy_auth0_enabled():
-            return await _legacy_auth0_callback(request, db)
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No authentication provider found in session",
@@ -1023,116 +1010,6 @@ async def verify_magic_link(
 
 
 # =============================================================================
-# Legacy Auth0 Support (for migration period)
-# =============================================================================
-
-
-async def _legacy_auth0_callback(request: Request, db: Session):
-    """
-    Handle legacy Auth0 callback during migration period.
-
-    This function is only called when AUTH_LEGACY_AUTH0_ENABLED=true
-    and no native provider was found in session.
-    """
-    from rhesis.backend.app.auth.oauth import (
-        extract_user_data,
-        get_auth0_user_info,
-    )
-
-    try:
-        # Step 1: Get token and user info from Auth0
-        token, userinfo = await get_auth0_user_info(request)
-
-        # Step 2: Extract and normalize user data
-        auth0_id, email, user_profile = extract_user_data(userinfo)
-
-        # Step 3: Find or create user (legacy method)
-        user = find_or_create_user(db, auth0_id, email, user_profile)
-
-        # Step 4: Set up session and create tokens
-        request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))
-        session_token = create_session_token(user)
-        refresh_tok = create_refresh_token(db, str(user.id))
-        db.commit()
-
-        # Step 5: Track login activity
-        if is_telemetry_enabled():
-            set_telemetry_enabled(
-                enabled=True,
-                user_id=str(user.id),
-                org_id=(str(user.organization_id) if user.organization_id else None),
-            )
-            track_user_activity(
-                event_type="login",
-                session_id=request.session.get("_id"),
-                login_method="oauth",
-                auth_provider="auth0",
-            )
-
-        # Step 6: Determine redirect URL
-        redirect_url = build_redirect_url(request, session_token, refresh_tok)
-        return RedirectResponse(url=redirect_url)
-
-    except Exception as e:
-        logger.error(f"Legacy Auth0 callback error: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Authentication failed: {str(e)}",
-        )
-
-
-@router.get("/login")
-async def login(request: Request, connection: str = None, return_to: str = "/home"):
-    """
-    Legacy Auth0 login endpoint (kept for backward compatibility).
-
-    During migration, this endpoint redirects to Auth0 if AUTH_LEGACY_AUTH0_ENABLED=true.
-    Otherwise, it returns an error directing users to use the new provider-specific endpoints.
-    """
-    if not _is_legacy_auth0_enabled():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Legacy Auth0 login is disabled. "
-                "Use GET /auth/login/{provider} for OAuth "
-                "or POST /auth/login/email for email login."
-            ),
-        )
-
-    from rhesis.backend.app.auth.oauth import oauth
-
-    # Store the origin in session for callback
-    origin = request.headers.get("origin") or request.headers.get("referer")
-    if origin:
-        request.session["original_frontend"] = origin
-
-    callback_url = get_callback_url(request)
-
-    # Store return_to in session
-    request.session["return_to"] = return_to
-
-    if not os.getenv("AUTH0_DOMAIN"):
-        raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
-
-    try:
-        # Add connection parameter if provided
-        auth_params = {
-            "redirect_uri": callback_url,
-            "audience": f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/",
-            "prompt": "login",
-        }
-        if connection:
-            auth_params["connection"] = connection
-
-        return await oauth.auth0.authorize_redirect(request, **auth_params)
-
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# =============================================================================
 # Auth Code Exchange Endpoint
 # =============================================================================
 
@@ -1429,47 +1306,6 @@ async def verify_auth(
 # =============================================================================
 # Demo and Quick Start Endpoints
 # =============================================================================
-
-
-@router.get("/demo")
-async def demo_redirect(request: Request):
-    """Redirect to Auth0 login with demo user pre-filled (legacy)"""
-    if not _is_legacy_auth0_enabled():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Demo login via Auth0 is disabled. Use Quick Start mode instead.",
-        )
-
-    from rhesis.backend.app.auth.oauth import oauth
-
-    try:
-        logger.info("Demo redirect requested")
-        DEMO_EMAIL = os.getenv("DEMO_USER_EMAIL", "demo@rhesis.ai")
-
-        origin = request.headers.get("origin") or request.headers.get("referer")
-        if origin:
-            request.session["original_frontend"] = origin
-
-        callback_url = get_callback_url(request)
-        request.session["return_to"] = "/architect"
-
-        if not os.getenv("AUTH0_DOMAIN"):
-            raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
-
-        auth_params = {
-            "redirect_uri": callback_url,
-            "audience": f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/",
-            "login_hint": DEMO_EMAIL,
-            "prompt": "login",
-        }
-
-        response = await oauth.auth0.authorize_redirect(request, **auth_params)
-        logger.info(f"Demo redirect created with login_hint: {DEMO_EMAIL}")
-        return response
-
-    except Exception as e:
-        logger.error(f"Demo redirect error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Demo redirect failed: {str(e)}")
 
 
 @router.post("/local-login")

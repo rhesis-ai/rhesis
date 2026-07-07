@@ -1,9 +1,6 @@
 # Production environment overrides — merged on top of values.yaml by ArgoCD.
 # GCP project: rhesis-prd (Artifact Registry and Vertex AI below).
 #
-# Production Auth0: set nextPublicAuth0ClientId and nextPublicAuth0Domain to the
-# production Auth0 application.
-#
 # REQUIRED FOR PROD: set global.imageTag to an immutable release tag (git SHA from CI).
 # Helm render fails if imageTag is empty or "latest" (see _helpers.tpl rhesis.image).
 
@@ -41,8 +38,6 @@ config:
   apiBaseUrl: "https://api.rhesis.ai"
   nextPublicAppUrl: "https://app.rhesis.ai"
   nextauthUrl: "https://app.rhesis.ai"
-  nextPublicAuth0ClientId: ""
-  nextPublicAuth0Domain: "rhesis.eu.auth0.com"
   nextPublicSupportEmail: "hello@rhesis.ai"
   nextPublicOnboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend

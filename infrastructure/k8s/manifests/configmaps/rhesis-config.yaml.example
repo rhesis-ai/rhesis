@@ -24,11 +24,6 @@ data:
   # These variables MUST be set for the application to run properly
   #####################################################################################
 
-  # =============================================================================
-  # 🔐 AUTHENTICATION & AUTHORIZATION
-  # =============================================================================
-  # Legacy Auth0 (optional): configure AUTH0_* in rhesis-secrets, not public build vars.
-
   #####################################################################################
   # ⚙️ OPTIONAL CONFIGURATION (RECOMMENDED)
   # These variables enhance functionality but are not required for basic operation
