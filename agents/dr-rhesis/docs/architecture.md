@@ -101,13 +101,14 @@ sequenceDiagram
 
 ## Rhesis Integration
 
-Rhesis imports (`RhesisClient`, `@endpoint`, `auto_instrument`) live only in `app.py` and `examples/serve_playground.py`. Haystack SDK auto-instrumentation is marked pending until the integration lands on main.
+Rhesis imports (`RhesisClient`, `@endpoint`) live only in `app.py`. Haystack tracing uses `RhesisConnector` in the pipeline when `RHESIS_API_KEY` and `RHESIS_PROJECT_ID` are set. The FastAPI dev server (`python -m dr_rhesis`) registers the SDK endpoint and opens the WebSocket connector via uvicorn's event loop, so the Rhesis Playground can invoke `dr_rhesis_chat` without a separate serve script.
 
-## Trace Surface (future)
+## Trace Surface
 
 | Span | Source |
 |---|---|
 | `ai.endpoint.invoke` | Rhesis `@endpoint` on `/chat` |
-| Haystack component spans | Pending `auto_instrument("haystack")` |
+| `function.haystack.pipeline.run` | `RhesisConnector` + Haystack pipeline |
+| Haystack component spans | `router`, `gathering`, `summary`, `critic`, etc. |
 
-Multi-turn grouping will use `session.run_chat_turn` + conversation id context once Haystack instrumentation is available.
+Multi-turn grouping uses `session_id` passed to `RhesisConnector` via `run_chat_turn`.
