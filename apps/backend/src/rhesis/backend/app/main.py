@@ -27,6 +27,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
+from rhesis.backend.app import (
+    debug_sql_timing,  # noqa: F401  # TEMP: SQL timing probe, remove after diagnosis
+)
 from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
 from rhesis.backend.app.auth.user_utils import (
     require_current_user,
