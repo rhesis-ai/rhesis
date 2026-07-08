@@ -152,32 +152,81 @@ class QueryBuilder:
             self._maybe_warn_load_count()
         return self
 
-    # One-to-many mixin relationships backing a schema-visible derived field
-    # (CountsMixin.counts reads comments/tasks/files; TagsMixin.tags reads
-    # _tags_relationship). with_optimized_loads always skips one-to-many, so
-    # without eager-loading these they'd lazy-load once per row during
-    # serialization. Keep in sync with schema_factory.py's "counts" note.
-    _DEFAULT_DERIVED_FIELD_CHAINS: tuple = (
-        ("comments",),
-        ("tasks",),
-        ("files",),
-        ("_tags_relationship", "tag"),
-    )
-
     def with_default_derived_field_loads(self, extra_chains: list | None = None) -> "QueryBuilder":
-        """Selectin-load comments/tasks/files/tags for any model that has them.
+        """Selectin-load comments/tasks/files/tags for this model, and for any
+        many-to-one/one-to-one relationship whose target model also has them.
 
-        Safe to call unconditionally -- skips relationships the model doesn't
-        have. Merges in any caller-supplied ``extra_chains`` too (same format
-        as ``with_selectin_chain``), deduped by root relationship name.
+        schema_factory.py nests a related model's own derived fields into the
+        response too (e.g. Test.prompt -> the nested PromptReference schema
+        also gets a "counts"/"tags" field, since Prompt has the same mixins),
+        so those need eager-loading as well -- not just this model's own. This
+        is what makes Test.prompt (near-1:1 with Test, so effectively N
+        distinct prompts per page) safe: without this, each row's prompt
+        lazy-loads its own comments/tasks/tags individually.
+
+        Checks the actual mixin class, not just attribute presence -- some
+        models (e.g. User.comments, "comments authored by this user") have an
+        unrelated attribute with the same name as a mixin's, which a plain
+        ``hasattr`` would wrongly match.
+
+        Safe to call unconditionally -- skips models/relationships that don't
+        have these mixins. Merges in any caller-supplied ``extra_chains`` too
+        (same format as ``with_selectin_chain``), deduped by full chain.
         """
+        from rhesis.backend.app.models.mixins import (
+            CommentsMixin,
+            FilesMixin,
+            TagsMixin,
+            TasksMixin,
+        )
+
+        derived_field_chains = (
+            (CommentsMixin, ("comments",)),
+            (TasksMixin, ("tasks",)),
+            (FilesMixin, ("files",)),
+            (TagsMixin, ("_tags_relationship", "tag")),
+        )
+
         chains = list(extra_chains or [])
-        existing_roots = {chain[0] for chain in chains}
-        for chain in self._DEFAULT_DERIVED_FIELD_CHAINS:
-            if hasattr(self.model, chain[0]) and chain[0] not in existing_roots:
+        seen = {tuple(chain) for chain in chains}
+
+        def _add(chain: list) -> None:
+            key = tuple(chain)
+            if key not in seen:
+                seen.add(key)
                 chains.append(list(chain))
+
+        for mixin, chain in derived_field_chains:
+            if issubclass(self.model, mixin):
+                _add(list(chain))
         for chain in chains:
             self.with_selectin_chain(*chain)
+
+        # Cascade one level into joined-in single-object relations (the ones
+        # with_optimized_loads/with_joined eager-load via joinedload) whose
+        # target model also carries these mixins. These relationships are
+        # already strategy=joinedload (by convention, whether set by this
+        # call or by the caller) -- selectinload-ing the same attribute
+        # independently raises a loader-strategy conflict, so the nested load
+        # is chained off the existing joinedload instead of starting fresh.
+        seen_nested = set()
+        for rel_name, rel_prop in get_model_relationships(
+            self.model, skip_many_to_many=True, skip_one_to_many=True
+        ).items():
+            target_model = rel_prop.mapper.class_
+            for mixin, chain in derived_field_chains:
+                key = (rel_name, *chain)
+                if key in seen_nested or not issubclass(target_model, mixin):
+                    continue
+                seen_nested.add(key)
+                load = joinedload(getattr(self.model, rel_name))
+                nested_model = target_model
+                for nested_name in chain:
+                    load = load.selectinload(getattr(nested_model, nested_name))
+                    nested_rel_prop = inspect(nested_model).relationships.get(nested_name)
+                    if nested_rel_prop is not None:
+                        nested_model = nested_rel_prop.mapper.class_
+                self.query = self.query.options(load)
         return self
 
     def _maybe_warn_load_count(self) -> None:
