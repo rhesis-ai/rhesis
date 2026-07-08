@@ -273,7 +273,7 @@ def _metric_stats(base_q):
                 bucket["automated_passed"] += 1
             else:
                 bucket["automated_failed"] += 1
-            if has_metric_override or effective != automated:
+            if has_metric_override:
                 bucket["human_review_count"] += 1
 
     normalized = {

@@ -62,6 +62,36 @@ export function metricWasCorrected(stat: MetricStat): boolean {
   );
 }
 
+/** True only when a human review (test-level or metric-level) changed this metric. */
+export function metricHasHumanCorrection(
+  metricName: string,
+  testResults: TestResultDetail[]
+): boolean {
+  for (const result of testResults) {
+    const metric = result.test_metrics?.metrics?.[metricName];
+    if (!metric) continue;
+
+    if (
+      metric.override &&
+      metric.override.original_value !== metric.is_successful
+    ) {
+      return true;
+    }
+
+    if (!result.last_review) continue;
+
+    const automated =
+      metric.override?.original_value !== undefined
+        ? metric.override.original_value
+        : metric.is_successful;
+    const effective = getEffectiveMetricSuccess(result, metric);
+    if (automated !== effective) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function computeReviewSummary(
   testResults: TestResultDetail[]
 ): ReviewSummary {
@@ -189,7 +219,13 @@ export function aggregateMetricStats(
       const effective = getEffectiveMetricSuccess(result, m);
       if (automated) entry.automatedPassed += 1;
       if (effective) entry.passed += 1;
-      if (m.override || automated !== effective) entry.humanReviewCount += 1;
+      const hasMetricOverride =
+        m.override && m.override.original_value !== m.is_successful;
+      const hasTestReviewCorrection =
+        !!result.last_review && automated !== effective;
+      if (hasMetricOverride || hasTestReviewCorrection) {
+        entry.humanReviewCount += 1;
+      }
       map.set(name, entry);
     }
   }

@@ -38,7 +38,7 @@ import {
   BehaviorStat,
   computeReviewSummary,
   getReviewBand,
-  metricWasCorrected,
+  metricHasHumanCorrection,
   MetricStat,
 } from './test-run-summary-utils';
 
@@ -255,9 +255,11 @@ type MetricSortField = 'name' | 'total' | 'failRate';
 
 function MetricTable({
   stats,
+  testResults,
   onViewMetric,
 }: {
   stats: MetricStat[];
+  testResults: TestResultDetail[];
   onViewMetric?: (metricName: string) => void;
 }) {
   const [sortField, setSortField] = useState<MetricSortField>('failRate');
@@ -350,7 +352,7 @@ function MetricTable({
                         {stat.name}
                       </Typography>
                     </Tooltip>
-                    {metricWasCorrected(stat) && (
+                    {metricHasHumanCorrection(stat.name, testResults) && (
                       <Tooltip
                         title={`Automated: ${stat.automatedPassed ?? 0} passed, ${stat.automatedFailed ?? 0} failed. After human review: ${stat.passed} passed, ${stat.failed} failed.`}
                         placement="top"
@@ -421,14 +423,20 @@ function MetricTable({
 
 function MetricPerformanceSection({
   stats,
+  testResults,
   onViewMetric,
 }: {
   stats: MetricStat[];
+  testResults: TestResultDetail[];
   onViewMetric?: (metricName: string) => void;
 }) {
   return (
     <SectionCard title="Metric Performance">
-      <MetricTable stats={stats} onViewMetric={onViewMetric} />
+      <MetricTable
+        stats={stats}
+        testResults={testResults}
+        onViewMetric={onViewMetric}
+      />
     </SectionCard>
   );
 }
@@ -686,6 +694,7 @@ export default function TestRunStatsTab({
             {metricStats.length > 0 && (
               <MetricPerformanceSection
                 stats={metricStats}
+                testResults={testResults}
                 onViewMetric={onViewMetric}
               />
             )}

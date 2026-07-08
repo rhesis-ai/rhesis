@@ -2,6 +2,7 @@ import {
   aggregateMetricStats,
   computeReviewSummary,
   getEffectiveMetricSuccess,
+  metricHasHumanCorrection,
 } from '../test-run-summary-utils';
 import type { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 
@@ -121,5 +122,35 @@ describe('computeReviewSummary', () => {
     expect(summary.subtitle).toContain('1 test');
     expect(summary.subtitle).toContain('1 metric');
     expect(summary.subtitle).not.toContain('confirmed');
+  });
+});
+
+describe('metricHasHumanCorrection', () => {
+  it('returns false when overall status disagrees with metrics but no review exists', () => {
+    const results = [
+      makeResult({
+        last_review: undefined,
+        status: { id: 's1', name: 'Fail' },
+        metrics: { 'LMRC Risk': { is_successful: true } },
+      }),
+    ];
+
+    expect(metricHasHumanCorrection('LMRC Risk', results)).toBe(false);
+  });
+
+  it('returns true when a metric override changed the outcome', () => {
+    const results = [
+      makeResult({
+        last_review: undefined,
+        metrics: {
+          'LMRC Risk': {
+            is_successful: true,
+            override: { original_value: false },
+          },
+        },
+      }),
+    ];
+
+    expect(metricHasHumanCorrection('LMRC Risk', results)).toBe(true);
   });
 });

@@ -44,7 +44,7 @@ class TestMetricStatsAggregation:
             "human_review_count": 1,
         }
 
-    def test_test_level_review_without_metric_override(self):
+    def test_status_metric_mismatch_without_override_is_not_a_review(self):
         rows = [
             (
                 {"metrics": {"Accuracy": {"is_successful": False}}},
@@ -56,4 +56,4 @@ class TestMetricStatsAggregation:
 
         assert stats["Accuracy"]["passed"] == 1
         assert stats["Accuracy"]["automated_passed"] == 0
-        assert stats["Accuracy"]["human_review_count"] == 1
+        assert stats["Accuracy"]["human_review_count"] == 0
