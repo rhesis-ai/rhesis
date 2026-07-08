@@ -427,7 +427,10 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
       }
     };
 
-    const handleOrgRoleChange = (invite: InviteItem, orgRoleId: string | null) => {
+    const handleOrgRoleChange = (
+      invite: InviteItem,
+      orgRoleId: string | null
+    ) => {
       setFormData(prev => ({
         invites: prev.invites.map(i =>
           i.id === invite.id ? { ...i, orgRoleId } : i

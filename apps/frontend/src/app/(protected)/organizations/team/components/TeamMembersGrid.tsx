@@ -17,6 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import PersonIcon from '@mui/icons-material/Person';
 import GridToolbar, {
   linkedGridToolbarSx,
@@ -219,11 +220,13 @@ export default function TeamMembersGrid({
       />
 
       <TableContainer
-        sx={[
-          sectionOverviewTableSx,
-          sectionCardGridTableInsetSx,
-          sectionCardGridTableEdgeCellResetSx,
-        ]}
+        sx={
+          [
+            sectionOverviewTableSx,
+            sectionCardGridTableInsetSx,
+            sectionCardGridTableEdgeCellResetSx,
+          ] as SxProps<Theme>
+        }
       >
         <Table>
           <TableHead>

@@ -16,6 +16,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -381,11 +382,13 @@ export default function RolesTab() {
         ) : (
           <Box sx={sectionCardGridBleedSx}>
             <TableContainer
-              sx={[
-                sectionOverviewTableSx,
-                sectionCardGridTableInsetSx,
-                sectionCardGridTableEdgeCellResetSx,
-              ]}
+              sx={
+                [
+                  sectionOverviewTableSx,
+                  sectionCardGridTableInsetSx,
+                  sectionCardGridTableEdgeCellResetSx,
+                ] as SxProps<Theme>
+              }
             >
               <Table>
                 <TableHead>
