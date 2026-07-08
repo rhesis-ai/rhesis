@@ -9,7 +9,7 @@ import {
   Skeleton,
   Typography,
 } from '@mui/material';
-import { useCan } from '@/components/common/Can';
+import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useFeature } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
@@ -39,11 +39,6 @@ interface ProjectRoleChipProps {
   projectId: string;
   sessionToken: string;
   onRoleChanged?: () => void;
-  /** The signed-in viewer's user id. When it matches `userId`, the cell
-   *  should render read-only — changing your own project role is high-risk
-   *  and gets no confirmation loop, so it is disabled rather than merely
-   *  discouraged. */
-  currentUserId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +50,6 @@ export default function ProjectRoleChip({
   projectId,
   sessionToken,
   onRoleChanged,
-  currentUserId,
 }: ProjectRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.ProjectMember.MANAGE);
@@ -157,9 +151,14 @@ export default function ProjectRoleChip({
     return <Skeleton variant="rounded" width={110} height={32} />;
   }
 
-  // Changing your own project role is high-risk and gets no confirmation
-  // step, so it is read-only here rather than merely discouraged.
-  if (currentUserId && userId === currentUserId) {
+  // `memberEntry.permitted_actions` is server-resolved and already encodes
+  // every reason this member can't be modified — self-change or outranking
+  // the actor. The frontend must not re-derive any of that; it only checks
+  // membership. Uses `Capability.Member.MANAGE` (not `ProjectMember.MANAGE`)
+  // because `assign_project_role`/`list_project_members` are gated by the
+  // same `member:manage` capability as the org-level endpoints, evaluated
+  // at project scope.
+  if (!can(memberEntry, Capability.Member.MANAGE)) {
     if (!memberEntry?.role) {
       return (
         <Typography variant="body2" color="text.disabled">
@@ -180,7 +179,7 @@ export default function ProjectRoleChip({
     <Select
       value={memberEntry?.role_id ?? ''}
       onChange={handleChange}
-      disabled={!canManage || assigning}
+      disabled={assigning}
       size="small"
       displayEmpty
       renderValue={selected => {

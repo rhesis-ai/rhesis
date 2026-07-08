@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
-import { useSession } from 'next-auth/react';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -45,7 +44,6 @@ export default function ProjectMembers({
   ownerId,
   onMembersLoaded,
 }: ProjectMembersProps) {
-  const { data: session } = useSession();
   const notifications = useNotifications();
   const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
   const queryClient = useQueryClient();
@@ -139,7 +137,6 @@ export default function ProjectMembers({
               userId={(params.row as ProjectMember).user_id}
               projectId={projectId}
               sessionToken={sessionToken}
-              currentUserId={session?.user?.id}
             />
           ),
         }
@@ -237,7 +234,6 @@ export default function ProjectMembers({
     ownerId,
     canManageMembers,
     handleRemoveClick,
-    session?.user?.id,
   ]);
 
   return (

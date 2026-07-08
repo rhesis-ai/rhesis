@@ -99,6 +99,12 @@ class OrgMemberRead(BaseModel):
     role_id: UUID
     role: Optional[RoleRead] = None
     user: Optional[UserSummary] = None
+    #: Capability strings the caller may exercise on THIS member (e.g.
+    #: "member:manage", "member:delete"), server-resolved by the router.
+    #: Encodes the privilege-escalation guard (self-change and outranking
+    #: are both denied) so the frontend never re-derives it. See
+    #: `_member_permitted_actions` in router.py.
+    permitted_actions: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -127,6 +133,12 @@ class ProjectMemberRoleRead(BaseModel):
     user_id: UUID
     role_id: Optional[UUID] = None
     role: Optional[RoleRead] = None
+    #: Capability strings the caller may exercise on THIS member (e.g.
+    #: "member:manage"), server-resolved by the router. Encodes the
+    #: privilege-escalation guard (self-change and outranking are both
+    #: denied) so the frontend never re-derives it. See
+    #: `_member_permitted_actions` in router.py.
+    permitted_actions: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 

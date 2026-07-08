@@ -64,6 +64,11 @@ export interface OrgMemberRead {
   role_id: string;
   role?: RoleRead;
   user?: UserSummary | null;
+  /** Capability strings the caller may exercise on THIS member (e.g.
+   *  "member:manage", "member:delete"), server-resolved. Encodes the
+   *  privilege-escalation guard (self-change and outranking are both
+   *  denied) — check with `can()`, never re-derive it client-side. */
+  permitted_actions?: string[];
 }
 
 export interface OrgRoleAssign {
@@ -75,6 +80,11 @@ export interface ProjectMemberRoleRead {
   user_id: string;
   role_id: string | null;
   role?: RoleRead | null;
+  /** Capability strings the caller may exercise on THIS member (e.g.
+   *  "member:manage"), server-resolved. Encodes the privilege-escalation
+   *  guard (self-change and outranking are both denied) — check with
+   *  `can()`, never re-derive it client-side. */
+  permitted_actions?: string[];
 }
 
 export interface ProjectMemberRoleAssign {

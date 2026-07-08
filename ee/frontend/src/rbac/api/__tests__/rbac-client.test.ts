@@ -109,6 +109,13 @@ describe('RbacClient', () => {
     );
   });
 
+  it('getUserProjectMemberships hits GET /rbac/organization-members/<userId>/project-memberships', async () => {
+    await client.getUserProjectMemberships(USER_ID);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `/rbac/organization-members/${USER_ID}/project-memberships`
+    );
+  });
+
   it('getProjectMembers hits GET /rbac/projects/<projectId>/members', async () => {
     await client.getProjectMembers(PROJECT_ID);
     expect(fetchSpy).toHaveBeenCalledWith(

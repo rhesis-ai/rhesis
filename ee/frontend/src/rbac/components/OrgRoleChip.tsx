@@ -9,7 +9,7 @@ import {
   Skeleton,
   Typography,
 } from '@mui/material';
-import { useCan } from '@/components/common/Can';
+import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useFeature } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
@@ -37,7 +37,6 @@ interface OrgRoleChipProps {
   userId: string;
   sessionToken: string;
   onRoleChanged?: () => void;
-  currentUserId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +47,6 @@ export default function OrgRoleChip({
   userId,
   sessionToken,
   onRoleChanged,
-  currentUserId,
 }: OrgRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.Member.MANAGE);
@@ -145,10 +143,11 @@ export default function OrgRoleChip({
     return <Skeleton variant="rounded" width={110} height={32} />;
   }
 
-  // Changing your own org role is high-risk (self-demotion, including the
-  // last-Owner case) and gets no confirmation step, so it is read-only here
-  // rather than merely discouraged.
-  if (currentUserId && userId === currentUserId) {
+  // `member.permitted_actions` is server-resolved and already encodes every
+  // reason this member can't be modified — self-change, last-Owner, or
+  // outranking the actor (e.g. a project Admin viewing an org Owner). The
+  // frontend must not re-derive any of that; it only checks membership.
+  if (!can(member, Capability.Member.MANAGE)) {
     if (!member?.role) {
       return (
         <Typography variant="body2" color="text.disabled">
@@ -169,7 +168,7 @@ export default function OrgRoleChip({
     <Select
       value={member?.role_id ?? ''}
       onChange={handleChange}
-      disabled={!canManage || assigning}
+      disabled={assigning}
       size="small"
       displayEmpty
       renderValue={selected => {

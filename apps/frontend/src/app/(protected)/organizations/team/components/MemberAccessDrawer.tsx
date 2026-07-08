@@ -188,11 +188,7 @@ export default function MemberAccessDrawer({
                 <Typography variant="overline" color="text.secondary">
                   Org Role
                 </Typography>
-                <OrgRoleCell
-                  userId={user.id}
-                  sessionToken={sessionToken}
-                  currentUserId={session?.user?.id}
-                />
+                <OrgRoleCell userId={user.id} sessionToken={sessionToken} />
               </Box>
             )}
           </Box>
@@ -259,7 +255,6 @@ export default function MemberAccessDrawer({
                             userId={user.id}
                             projectId={projectId}
                             sessionToken={sessionToken}
-                            currentUserId={session?.user?.id}
                           />
                         </Box>
                       ) : (

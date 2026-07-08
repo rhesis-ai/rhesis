@@ -2,9 +2,13 @@
  * ProjectRoleChip — project-level role selector in the project members grid.
  *
  * Mirrors OrgRoleChip.test.tsx's shape (loading/404-exits-skeleton/assign
- * flow), minus the own-row read-only branch: ProjectRoleChip has no self-row
- * exclusion, so every row (including the caller's own) is an assignable
- * Select.
+ * flow), including the read-only branch: it's gated by
+ * `can(memberEntry, Capability.Member.MANAGE)`, a pure membership check
+ * against `memberEntry.permitted_actions` — the backend
+ * (`_member_permitted_actions` in router.py) is the single source of truth
+ * for self-change/outranking/ambient-permission logic, not this component.
+ * Tests that exercise that branch override `canMock.can` with a real
+ * membership check so the mock doesn't mask a component regression.
  */
 
 import React from 'react';
@@ -62,8 +66,22 @@ function member(
     user_id: USER_ID,
     role_id: null,
     role: null,
+    permitted_actions: ['member:manage'],
     ...overrides,
   };
+}
+
+/** Mirrors the real `can()` in `@/utils/affordances`: pure membership check
+ *  against `subject.permitted_actions`. Tests that care about the
+ *  read-only/editable branch install this so the mock doesn't just return
+ *  `true` unconditionally and mask a regression in that branch. */
+function useRealCanImplementation() {
+  canMock.can.mockImplementation(
+    (
+      subject: { permitted_actions?: string[] } | null | undefined,
+      capability: string
+    ) => subject?.permitted_actions?.includes(capability) ?? false
+  );
 }
 
 beforeEach(() => {
@@ -91,6 +109,44 @@ describe('ProjectRoleChip', () => {
 
     // Falls through to the assignable Select instead of hanging forever.
     expect(await screen.findByText('Assign role')).toBeInTheDocument();
+  });
+
+  it('renders a read-only chip when permitted_actions excludes member:manage', async () => {
+    // The backend returns an empty permitted_actions for the caller's own
+    // row or an outranked member (e.g. a project Admin viewing a project
+    // Owner) — the component treats both identically via `can()`.
+    useRealCanImplementation();
+    rbacClientInstanceMock.getProjectMembers.mockResolvedValue([
+      member({ role_id: ADMIN_ROLE.id, role: ADMIN_ROLE, permitted_actions: [] }),
+    ]);
+
+    render(
+      <ProjectRoleChip
+        userId={USER_ID}
+        projectId={PROJECT_ID}
+        sessionToken={SESSION_TOKEN}
+      />
+    );
+
+    expect(await screen.findByText('Admin')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('renders an editable select when permitted_actions includes member:manage', async () => {
+    useRealCanImplementation();
+    rbacClientInstanceMock.getProjectMembers.mockResolvedValue([
+      member({ permitted_actions: ['member:manage'] }),
+    ]);
+
+    render(
+      <ProjectRoleChip
+        userId={USER_ID}
+        projectId={PROJECT_ID}
+        sessionToken={SESSION_TOKEN}
+      />
+    );
+
+    expect(await screen.findByRole('combobox')).toBeInTheDocument();
   });
 
   it('assigns a role and shows the updated value', async () => {

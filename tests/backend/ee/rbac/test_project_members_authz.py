@@ -28,6 +28,7 @@ from rhesis.backend.ee.rbac.router import list_project_members
 from tests.backend.ee.rbac._rbac_helpers import (
     _add_project_member,
     _assign_org_role,
+    _builtin_role,
     _create_org,
     _create_project,
     _create_user,
@@ -88,3 +89,70 @@ class TestProjectMembersListingAuthz:
         with _rbac_enabled():
             result = self._list(owner)
         assert self.enrolled_id in {m.user_id for m in result}
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestProjectMemberPermittedActions:
+    """`permitted_actions` on ProjectMemberRoleRead must reflect the same
+    escalation gates as list_org_members (see `_member_permitted_actions`),
+    minus `member:delete` — project membership removal goes through the
+    community `remove_project_member` endpoint, which this guard does not
+    reach, so the affordance is never asserted for project rows.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session):
+        self.db = test_db
+        self.org_id = _create_org(test_db)
+        self.project_id = _create_project(test_db, self.org_id)
+
+    def _list(self, actor_id):
+        with _rbac_enabled():
+            return list_project_members(
+                project_id=self.project_id,
+                request=_request(),
+                db=self.db,
+                current_user=_user(actor_id, self.org_id),
+                _org=None,
+            )
+
+    def _row(self, results, user_id):
+        return next(r for r in results if r.user_id == user_id)
+
+    def test_own_row_has_no_permitted_actions(self):
+        admin_id = _create_user(self.db, self.org_id)
+        _add_project_member(
+            self.db, self.org_id, self.project_id, admin_id, _builtin_role(self.db, "Admin").id
+        )
+
+        results = self._list(admin_id)
+        assert self._row(results, admin_id).permitted_actions == []
+
+    def test_admin_sees_manage_but_not_delete_on_ordinary_member(self):
+        admin_id = _create_user(self.db, self.org_id)
+        member_id = _create_user(self.db, self.org_id)
+        _add_project_member(
+            self.db, self.org_id, self.project_id, admin_id, _builtin_role(self.db, "Admin").id
+        )
+        _add_project_member(
+            self.db, self.org_id, self.project_id, member_id, _builtin_role(self.db, "Member").id
+        )
+
+        results = self._list(admin_id)
+        assert self._row(results, member_id).permitted_actions == ["member:manage"]
+
+    def test_admin_sees_no_permitted_actions_on_project_owner_row(self):
+        """Regression test surfaced on the read side: a project Admin
+        viewing a project Owner's row must not see member:manage."""
+        admin_id = _create_user(self.db, self.org_id)
+        owner_id = _create_user(self.db, self.org_id)
+        _add_project_member(
+            self.db, self.org_id, self.project_id, admin_id, _builtin_role(self.db, "Admin").id
+        )
+        _add_project_member(
+            self.db, self.org_id, self.project_id, owner_id, _builtin_role(self.db, "Owner").id
+        )
+
+        results = self._list(admin_id)
+        assert self._row(results, owner_id).permitted_actions == []
