@@ -536,6 +536,17 @@ class QueryBuilder:
 
         return self.query.filter(self.model.id == id).first()
 
+    def ids(self) -> List:
+        """Execute the built query, returning only matching IDs, in sort order.
+
+        First phase of a two-query pagination split: filter/sort/paginate on a
+        query with no eager-load joins, so Postgres only has to materialize
+        and sort the bare id column before applying LIMIT/OFFSET -- not every
+        joined column of every matching row. Pair with a second query that
+        eager-loads relationships scoped to ``model.id.in_(these_ids)``.
+        """
+        return [row[0] for row in self.build().with_entities(self.model.id).all()]
+
 
 def has_organization_id(model: Type[T]) -> bool:
     """Check if model has organization_id column"""
