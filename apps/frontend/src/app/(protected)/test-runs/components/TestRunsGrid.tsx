@@ -260,6 +260,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         sort_order
       ),
       runKindFilter,
+      drawerFilters.reviews,
     ],
     errorFallbackMessage: 'Failed to load test runs',
     queryFn: () => {
@@ -272,6 +273,8 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         ...(filterString && { filter: filterString }),
         ...(runKindFilter === 'experiments' && { has_experiment: true }),
         ...(runKindFilter === 'tests' && { has_experiment: false }),
+        ...(drawerFilters.reviews === 'with' && { has_reviews: true }),
+        ...(drawerFilters.reviews === 'without' && { has_reviews: false }),
       });
     },
     enabled: !!sessionToken,

@@ -9,7 +9,6 @@ import {
 } from '@/components/common/FilterDrawer';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
-  EMPTY_ACTIVITY_PRESENCE_FILTERS,
   countActivePresenceFilters,
   hasActivePresenceFilters,
   type ActivityPresenceFilters,
@@ -23,6 +22,7 @@ export interface TestRunFilters {
   /** tags contains */
   tag: string;
   tags: ActivityPresenceFilters['tags'];
+  reviews: PresenceFilterValue;
   comments: ActivityPresenceFilters['comments'];
   tasks: ActivityPresenceFilters['tasks'];
 }
@@ -31,7 +31,10 @@ export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
   testSet: '',
   executor: '',
   tag: '',
-  ...EMPTY_ACTIVITY_PRESENCE_FILTERS,
+  tags: 'all',
+  reviews: 'all',
+  comments: 'all',
+  tasks: 'all',
 };
 
 export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
@@ -122,8 +125,10 @@ export default function TestRunFilterDrawer({
       </FilterSection>
 
       <ActivityPresenceFiltersSection
+        showReviews
         values={{
           tags: draft.tags,
+          reviews: draft.reviews,
           comments: draft.comments,
           tasks: draft.tasks,
         }}
@@ -131,6 +136,7 @@ export default function TestRunFilterDrawer({
           setDraft(prev => ({
             ...prev,
             tags: next.tags,
+            reviews: next.reviews ?? 'all',
             comments: next.comments,
             tasks: next.tasks,
           }))

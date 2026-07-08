@@ -104,6 +104,12 @@ def read_test_runs(
         description="Filter by experiment association: true = only runs with an experiment, "
         "false = only runs without, omit = all runs",
     ),
+    has_reviews: bool | None = Query(
+        None,
+        description="Filter by human review activity on child test results: "
+        "true = runs with at least one reviewed test, "
+        "false = runs with no reviewed tests, omit = all runs",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -117,6 +123,7 @@ def read_test_runs(
         sort_order=sort_order,
         filter=filter,
         has_experiment=has_experiment,
+        has_reviews=has_reviews,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )

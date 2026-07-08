@@ -171,6 +171,56 @@ class TestGetReviewStatisticsForRuns:
             "corrected_tests": 0,
         }
 
+    def test_get_test_runs_has_reviews_filter(
+        self,
+        test_db: Session,
+        db_test_run,
+        db_test_configuration,
+        db_user,
+        test_organization,
+        review_status_ids,
+    ):
+        from rhesis.backend.app import crud
+
+        reviewed = models.TestResult(
+            id=uuid4(),
+            test_run_id=db_test_run.id,
+            test_configuration_id=db_test_configuration.id,
+            user_id=db_user.id,
+            organization_id=test_organization.id,
+            status_id=review_status_ids["pass"],
+            test_reviews={
+                "reviews": [
+                    {
+                        "review_id": "r1",
+                        "target": {"type": "test_result"},
+                        "status": {
+                            "status_id": str(review_status_ids["pass"]),
+                            "name": "Pass",
+                        },
+                        "updated_at": "2025-01-01T00:00:00",
+                    }
+                ]
+            },
+        )
+        test_db.add(reviewed)
+        test_db.commit()
+
+        org_id = str(test_organization.id)
+        with_reviews = crud.get_test_runs(
+            test_db,
+            organization_id=org_id,
+            has_reviews=True,
+        )
+        without_reviews = crud.get_test_runs(
+            test_db,
+            organization_id=org_id,
+            has_reviews=False,
+        )
+
+        assert db_test_run.id in [run.id for run in with_reviews]
+        assert db_test_run.id not in [run.id for run in without_reviews]
+
 
 class TestInjectReviewCountsIntoSerializedRuns:
     def test_merges_into_existing_counts(self):
