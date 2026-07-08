@@ -2114,6 +2114,7 @@ def get_projects(
         builder = (
             QueryBuilder(db, models.Project)
             .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
             .with_visibility_filter(user_id)
             .with_odata_filter(filter)
@@ -2430,6 +2431,7 @@ def get_test_run(
             skip_one_to_many=True,
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
+        .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
@@ -2472,6 +2474,7 @@ def get_test_runs(
             skip_one_to_many=True,
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
+        .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
