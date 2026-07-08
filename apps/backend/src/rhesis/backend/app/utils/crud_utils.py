@@ -459,17 +459,6 @@ def get_items(
     )
 
 
-# Eager-loads CountsMixin/TagsMixin's one-to-many relationships, which
-# with_optimized_loads always skips. Keep in sync with the "counts" note
-# in schema_factory.py -- the two lists aren't linked.
-_DEFAULT_SELECTIN_CHAINS: tuple = (
-    ("comments",),
-    ("tasks",),
-    ("files",),
-    ("_tags_relationship", "tag"),
-)
-
-
 def get_items_detail(
     db: Session,
     model: Type[T],
@@ -489,8 +478,8 @@ def get_items_detail(
     Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
 
     Uses selectinload for many-to-many and joinedload for other relationships.
-    Also always selectin-loads _DEFAULT_SELECTIN_CHAINS for any model that has
-    them -- see that constant's comment for why.
+    Also always selectin-loads comments/tasks/files/tags for any model that has
+    them -- see QueryBuilder.with_default_derived_field_loads for why.
 
     Args:
         nested_relationships: Dict specifying nested relationships to load.
@@ -503,13 +492,7 @@ def get_items_detail(
         skip_one_to_many=True,
         nested_relationships=nested_relationships,
     )
-    chains = list(selectin_chains or [])
-    existing_roots = {chain[0] for chain in chains}
-    for chain in _DEFAULT_SELECTIN_CHAINS:
-        if hasattr(model, chain[0]) and chain[0] not in existing_roots:
-            chains.append(list(chain))
-    for chain in chains:
-        builder = builder.with_selectin_chain(*chain)
+    builder = builder.with_default_derived_field_loads(selectin_chains)
     return (
         builder.with_organization_filter(organization_id)
         .with_visibility_filter(user_id)

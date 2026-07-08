@@ -152,6 +152,34 @@ class QueryBuilder:
             self._maybe_warn_load_count()
         return self
 
+    # One-to-many mixin relationships backing a schema-visible derived field
+    # (CountsMixin.counts reads comments/tasks/files; TagsMixin.tags reads
+    # _tags_relationship). with_optimized_loads always skips one-to-many, so
+    # without eager-loading these they'd lazy-load once per row during
+    # serialization. Keep in sync with schema_factory.py's "counts" note.
+    _DEFAULT_DERIVED_FIELD_CHAINS: tuple = (
+        ("comments",),
+        ("tasks",),
+        ("files",),
+        ("_tags_relationship", "tag"),
+    )
+
+    def with_default_derived_field_loads(self, extra_chains: list | None = None) -> "QueryBuilder":
+        """Selectin-load comments/tasks/files/tags for any model that has them.
+
+        Safe to call unconditionally -- skips relationships the model doesn't
+        have. Merges in any caller-supplied ``extra_chains`` too (same format
+        as ``with_selectin_chain``), deduped by root relationship name.
+        """
+        chains = list(extra_chains or [])
+        existing_roots = {chain[0] for chain in chains}
+        for chain in self._DEFAULT_DERIVED_FIELD_CHAINS:
+            if hasattr(self.model, chain[0]) and chain[0] not in existing_roots:
+                chains.append(list(chain))
+        for chain in chains:
+            self.with_selectin_chain(*chain)
+        return self
+
     def _maybe_warn_load_count(self) -> None:
         total = self._joined_count + self._selectin_count
         if total >= _MAX_EAGER_LOADS_WARN:
