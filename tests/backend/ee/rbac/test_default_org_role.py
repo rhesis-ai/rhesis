@@ -253,6 +253,91 @@ class TestUpdateUserSeedsOwnerRoleOnFirstOrgAssignment:
 
 
 # ---------------------------------------------------------------------------
+# Full onboarding HTTP sequence under RBAC (SP4-style backstop proof): a fresh,
+# orgless user must be able to attach their org, invite a teammate, and load
+# initial data — the exact sequence the frontend onboarding wizard drives —
+# without ever hitting a 403 from the capability gate.
+# ---------------------------------------------------------------------------
+
+
+def _auth(token) -> dict:
+    return {"Authorization": f"Bearer {token.token}"}
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestOnboardingHttpSequenceUnderRbac:
+    def test_creator_completes_onboarding_without_403(self, client, test_db: Session):
+        from tests.backend.fixtures.test_setup import (
+            create_test_api_token,
+            create_test_organization,
+            create_test_user,
+        )
+
+        from ._rbac_helpers import _ee_provider_active
+
+        # Fresh org creator, mid-signup: no organization yet — mirrors the
+        # real onboarding state before PUT /users/{user_id} attaches the org.
+        org = create_test_organization(test_db, f"Onboarding Org {uuid.uuid4().hex[:8]}")
+        user = create_test_user(
+            test_db,
+            organization_id=None,
+            email=f"creator-{uuid.uuid4().hex[:8]}@rhesis-test.com",
+            name="Org Creator",
+        )
+        org.owner_id = user.id
+        token = create_test_api_token(test_db, user)
+        test_db.commit()
+
+        with (
+            _ee_provider_active(),
+            patch(
+                "rhesis.backend.app.routers.user.validate_and_normalize_email",
+                side_effect=lambda email, **_: email,
+            ),
+        ):
+            # Step 1: attach the newly created org to its creator (seeds Owner).
+            attach_resp = client.put(
+                f"/users/{user.id}",
+                json={"organization_id": str(org.id)},
+                headers=_auth(token),
+            )
+            assert attach_resp.status_code == 200, attach_resp.text
+            # Auth resolves the bearer token on its own connection; the update
+            # above must be committed before the next request or it looks
+            # orgless there too.
+            test_db.commit()
+
+            # Step 2: invite a teammate — would 403 pre-fix, Owner role not
+            # seeded until the (now unreachable) load-initial-data call.
+            invite_resp = client.post(
+                "/users/",
+                json={
+                    "email": f"invitee-{uuid.uuid4().hex[:8]}@rhesis-test.com",
+                    "organization_id": str(org.id),
+                    "is_active": True,
+                    "send_invite": False,
+                },
+                headers=_auth(token),
+            )
+            assert invite_resp.status_code != 403, (
+                f"Inviting a teammate during onboarding was wrongly denied: "
+                f"{invite_resp.status_code} {invite_resp.text}"
+            )
+            test_db.commit()
+
+            # Step 3: load initial data — the call that originally reported
+            # "Unauthorized" in production.
+            load_resp = client.post(
+                f"/organizations/{org.id}/load-initial-data",
+                headers=_auth(token),
+            )
+            assert load_resp.status_code != 403, (
+                f"load-initial-data was wrongly denied: {load_resp.status_code} {load_resp.text}"
+            )
+
+
+# ---------------------------------------------------------------------------
 # RBAC off / idempotency
 # ---------------------------------------------------------------------------
 
