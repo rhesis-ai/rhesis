@@ -11,9 +11,10 @@
 4. Caches the result (signature + structural validation is expensive; expiry
    is cheap and must be evaluated live on every call).
 
-The cached result is keyed by the raw token string.  The provider calls
-:meth:`~rhesis.backend.ee.licensing.entitlements.Entitlements.is_expired`
-after every cache hit to enforce live expiry without re-doing crypto.
+The cached result is keyed by the raw token string. :func:`verify_token`
+calls :meth:`~rhesis.backend.ee.licensing.entitlements.Entitlements.is_expired`
+on every call (cache hit or miss) to enforce live expiry without re-doing
+the signature/claims parsing.
 
 Returns ``None`` on any verification or parsing failure; callers fail closed.
 """
