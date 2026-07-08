@@ -6,19 +6,27 @@ Nothing else under ``dr_rhesis`` imports from ``rhesis.sdk``.
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Any
 
+import anyio
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
-from dr_rhesis.session import default_store, run_chat_turn
-from dr_rhesis.state import Phase
+
+# Must be set before any `haystack` import (pulled in transitively by
+# dr_rhesis.session) so span input/output content is captured, not dropped.
+# None of the imports above pull in haystack, so this is early enough.
+os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
+
+from dr_rhesis.session import default_store, run_chat_turn  # noqa: E402
+from dr_rhesis.state import Phase  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +65,15 @@ async def lifespan(app: FastAPI):
     )
     yield
     _startup_validated = False
+    # Flush any pending Haystack/Rhesis spans before the process exits.
+    try:
+        from haystack.tracing import tracer as haystack_tracer
+
+        actual = getattr(haystack_tracer, "actual_tracer", None)
+        if actual is not None and hasattr(actual, "flush"):
+            actual.flush()
+    except Exception:  # pragma: no cover - best-effort shutdown flush
+        logger.debug("No Haystack tracer to flush on shutdown", exc_info=True)
 
 
 app = FastAPI(
@@ -135,7 +152,13 @@ async def chat_endpoint_traced(
     conversation_id: str | None = None,
 ) -> ChatResponse:
     logger.info("Dr-Rhesis chat turn (conversation=%s)", conversation_id)
-    result = run_chat_turn(message, conversation_id=conversation_id)
+    # run_chat_turn drives the Haystack pipeline + Gemini calls synchronously
+    # (blocking I/O). Offload to a worker thread so this async handler does not
+    # block the event loop. anyio copies the current contextvars into the worker,
+    # preserving the active trace/span context for the SDK @endpoint span.
+    result = await anyio.to_thread.run_sync(
+        functools.partial(run_chat_turn, message, conversation_id=conversation_id)
+    )
     return _chat_response_from_result(result)
 
 

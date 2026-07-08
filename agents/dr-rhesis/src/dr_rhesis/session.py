@@ -111,16 +111,21 @@ def run_chat_turn(
     with active_store.conversation_lock(conv_id):
         state = active_store.get(conv_id)
 
-        # Future: set_conversation_id(conv_id) when Haystack SDK integration lands.
+        # ``conv_id`` is passed as the trace ``session_id`` so the RhesisConnector
+        # groups every span for this conversation under one thread in Rhesis.
         # Reuse the cached pipeline unless the caller supplies explicit components
         # (e.g. tests injecting a mock generator), which need their own pipeline.
         if components is not None:
             pipeline = build_intent_pipeline(components)
-            result = run_turn(message, state, pipeline=pipeline, components=components)
+            result = run_turn(
+                message, state, pipeline=pipeline, components=components, session_id=conv_id
+            )
         else:
             pipeline = get_default_pipeline()
             with _pipeline_run_lock:
-                result = run_turn(message, state, pipeline=pipeline, components=components)
+                result = run_turn(
+                    message, state, pipeline=pipeline, components=components, session_id=conv_id
+                )
         active_store.set(conv_id, result["state"])
 
     result["conversation_id"] = conv_id

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -192,11 +193,28 @@ def _build_intent_conditional_router() -> ConditionalRouter:
     return ConditionalRouter(routes=routes, unsafe=True)
 
 
-def build_intent_pipeline(components: TurnComponents | None = None) -> Pipeline:
-    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching."""
+def build_intent_pipeline(
+    components: TurnComponents | None = None,
+    *,
+    enable_tracing: bool | None = None,
+) -> Pipeline:
+    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching.
+
+    When ``enable_tracing`` is ``None`` (the default) the :class:`RhesisConnector`
+    tracer is added only if ``RHESIS_API_KEY`` is set, so unit tests without
+    credentials build a plain pipeline while real runs ship spans to Rhesis. The
+    connector is standalone — it needs no connections to other components.
+    """
     parts = components or build_turn_components()
 
+    if enable_tracing is None:
+        enable_tracing = bool(os.getenv("RHESIS_API_KEY"))
+
     pipe = Pipeline()
+    if enable_tracing:
+        from haystack_integrations.components.connectors.rhesis import RhesisConnector
+
+        pipe.add_component("tracer", RhesisConnector("Dr-Rhesis"))
     pipe.add_component("prepare", PrepareTurn())
     pipe.add_component("router", parts.router)
     pipe.add_component("intent_router", _build_intent_conditional_router())
@@ -233,12 +251,31 @@ def run_turn(
     *,
     pipeline: Pipeline | None = None,
     components: TurnComponents | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
-    """Run one conversation turn and return reply plus updated state."""
+    """Run one conversation turn and return reply plus updated state.
+
+    When the pipeline includes the ``tracer`` component and ``session_id`` is
+    provided, it is passed as the trace ``invocation_context`` so all spans for
+    the turn are grouped under the same conversation in Rhesis. If tracing is
+    active, ``trace_url`` and ``trace_id`` are included in the returned dict.
+    """
     current_state = state or DrRhesisState()
     pipe = pipeline or build_intent_pipeline(components)
 
-    result = pipe.run(data={"prepare": {"message": message, "state": current_state}})
+    run_data: dict[str, Any] = {"prepare": {"message": message, "state": current_state}}
+    tracing_enabled = pipe.graph.has_node("tracer")
+    if tracing_enabled and session_id:
+        run_data["tracer"] = {"invocation_context": {"session_id": session_id}}
+
+    result = pipe.run(data=run_data)
+
+    trace_meta: dict[str, Any] = {}
+    if tracing_enabled and "tracer" in result:
+        trace_meta = {
+            "trace_url": result["tracer"].get("trace_url"),
+            "trace_id": result["tracer"].get("trace_id"),
+        }
 
     for branch in ("health", "emergency", "greet", "redirect"):
         if branch in result and "reply" in result[branch]:
@@ -246,6 +283,7 @@ def run_turn(
                 "response": result[branch]["reply"],
                 "state": result[branch]["state"],
                 "intent": result[branch].get("intent") or _branch_intent(branch),
+                **trace_meta,
             }
 
     raise RuntimeError(f"Pipeline completed without a terminal reply: {list(result.keys())}")
