@@ -1,5 +1,10 @@
 import os
 import tempfile
+import time
+
+import jwt
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 # =============================================================================
 # Environment Setup - MUST be done BEFORE any backend imports
@@ -11,6 +16,43 @@ import tempfile
 # Port constants (must match tests/docker-compose.test.yml --profile backend)
 DATABASE_PORT = 12001
 REDIS_PORT = 12002
+
+# EE bootstrap installs SignedTokenLicenseProvider unconditionally (see
+# ee/backend/.../ee/__init__.py:bootstrap()), which enforces a real signed
+# license with no environment-based bypass. RBAC/SSO tests elsewhere in the
+# suite exercise licensed behavior (e.g. RBAC permission enforcement), so the
+# suite needs a real license, the same way a deployment enabling those
+# features would. This mints one against a throwaway keypair generated for
+# this test process only — it never touches the baked-in prod/nonprod keys.
+# Licensing-specific tests (tests/backend/ee/licensing/) explicitly override
+# RHESIS_LICENSE (and patch get_public_keys) to exercise unlicensed/expired
+# paths; patch.dict restores this default afterwards.
+_license_private_key = Ed25519PrivateKey.generate()
+_LICENSE_TEST_PUBLIC_KEY_PEM = (
+    _license_private_key.public_key()
+    .public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
+    .decode()
+)
+_LICENSE_TEST_TOKEN = jwt.encode(
+    {
+        "iss": "rhesis-license-issuer",
+        "aud": "rhesis",
+        "sub": "*",
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 10 * 365 * 24 * 3600,
+        "jti": "backend-test-suite-blanket-license",
+        "lic": {
+            "edition": "enterprise",
+            "status": "active",
+            "all_features": True,
+            "features": [],
+            "limits": {},
+        },
+    },
+    _license_private_key,
+    algorithm="EdDSA",
+    headers={"kid": "backend-test-suite-v1"},
+)
 
 _TEST_DB_USER = "rhesis-user"
 _TEST_DB_PASS = "your-secured-password"  # trufflehog:ignore
@@ -41,6 +83,8 @@ _TEST_ENV_VARS = {
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
     "SSO_ENCRYPTION_KEY": "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw=",
     "OTEL_RHESIS_TELEMETRY_ENABLED": "false",
+    "RHESIS_LICENSE_PUBLIC_KEY": _LICENSE_TEST_PUBLIC_KEY_PEM,
+    "RHESIS_LICENSE": _LICENSE_TEST_TOKEN,
 }
 
 
