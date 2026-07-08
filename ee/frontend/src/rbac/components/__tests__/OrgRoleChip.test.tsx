@@ -2,8 +2,16 @@
  * OrgRoleChip — org-level role chip/selector in the team members grid.
  *
  * Covers the reviewer-flagged regression (unlicensed fetch no longer hangs in
- * the loading skeleton — OrgRoleChip.tsx:73-79), the read-only own-row branch
- * (144-159), and the error toast on a failed role change (122-129).
+ * the loading skeleton — OrgRoleChip.tsx:73-79), the read-only branch driven
+ * by the server-resolved `permitted_actions` (144-159), and the error toast
+ * on a failed role change (122-129).
+ *
+ * The read-only branch is gated by `can(member, Capability.Member.MANAGE)`,
+ * which is a pure membership check against `member.permitted_actions` — the
+ * backend (`_member_permitted_actions` in router.py) is the single source of
+ * truth for self-change/outranking/ambient-permission logic, not this
+ * component. Tests that exercise that branch override `canMock.can` with a
+ * real membership check so the mock doesn't mask a component regression.
  */
 
 import React from 'react';
@@ -59,8 +67,22 @@ function member(overrides: Partial<OrgMemberRead> = {}): OrgMemberRead {
     user_id: USER_ID,
     role_id: VIEWER_ROLE.id,
     role: VIEWER_ROLE,
+    permitted_actions: ['member:manage', 'member:delete'],
     ...overrides,
   };
+}
+
+/** Mirrors the real `can()` in `@/utils/affordances`: pure membership check
+ *  against `subject.permitted_actions`. Tests that care about the
+ *  read-only/editable branch install this so the mock doesn't just return
+ *  `true` unconditionally and mask a regression in that branch. */
+function useRealCanImplementation() {
+  canMock.can.mockImplementation(
+    (
+      subject: { permitted_actions?: string[] } | null | undefined,
+      capability: string
+    ) => subject?.permitted_actions?.includes(capability) ?? false
+  );
 }
 
 beforeEach(() => {
@@ -82,19 +104,30 @@ describe('OrgRoleChip', () => {
     expect(await screen.findByText('Assign role')).toBeInTheDocument();
   });
 
-  it('renders a read-only chip for the caller’s own row', async () => {
-    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([member()]);
+  it('renders a read-only chip when permitted_actions excludes member:manage', async () => {
+    // The backend returns an empty permitted_actions for the caller's own
+    // row, an outranked member, or an ambient-permission miss — the
+    // component treats all of these identically via `can()`.
+    useRealCanImplementation();
+    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([
+      member({ permitted_actions: [] }),
+    ]);
 
-    render(
-      <OrgRoleChip
-        userId={USER_ID}
-        sessionToken={SESSION_TOKEN}
-        currentUserId={USER_ID}
-      />
-    );
+    render(<OrgRoleChip userId={USER_ID} sessionToken={SESSION_TOKEN} />);
 
     expect(await screen.findByText('Viewer')).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('renders an editable select when permitted_actions includes member:manage', async () => {
+    useRealCanImplementation();
+    rbacClientInstanceMock.getOrganizationMembers.mockResolvedValue([
+      member({ permitted_actions: ['member:manage'] }),
+    ]);
+
+    render(<OrgRoleChip userId={USER_ID} sessionToken={SESSION_TOKEN} />);
+
+    expect(await screen.findByRole('combobox')).toBeInTheDocument();
   });
 
   it('shows an error toast when a role change is rejected', async () => {

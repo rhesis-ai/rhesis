@@ -9,7 +9,7 @@ import {
   Skeleton,
   Typography,
 } from '@mui/material';
-import { useCan } from '@/components/common/Can';
+import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useFeature } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
@@ -37,7 +37,6 @@ interface OrgRoleChipProps {
   userId: string;
   sessionToken: string;
   onRoleChanged?: () => void;
-  currentUserId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +47,6 @@ export default function OrgRoleChip({
   userId,
   sessionToken,
   onRoleChanged,
-  currentUserId,
 }: OrgRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.Member.MANAGE);
@@ -105,6 +103,13 @@ export default function OrgRoleChip({
       isAssignableOrgRole(r) &&
       isWithinActorAuthority(r, myLevel, myPermissions)
   );
+  // The member's current role (e.g. Owner, or a role above the viewer's
+  // authority) may not be in `assignableRoles`. MUI's Select warns
+  // ("out-of-range value") when the controlled value has no matching
+  // MenuItem, so always render it — disabled — if it's missing.
+  const currentRoleInList = assignableRoles.some(r => r.id === member?.role_id);
+  const extraCurrentRole =
+    !currentRoleInList && member?.role ? member.role : null;
 
   const handleChange = useCallback(
     async (e: SelectChangeEvent<string>) => {
@@ -138,10 +143,11 @@ export default function OrgRoleChip({
     return <Skeleton variant="rounded" width={110} height={32} />;
   }
 
-  // Changing your own org role is high-risk (self-demotion, including the
-  // last-Owner case) and gets no confirmation step, so it is read-only here
-  // rather than merely discouraged.
-  if (currentUserId && userId === currentUserId) {
+  // `member.permitted_actions` is server-resolved and already encodes every
+  // reason this member can't be modified — self-change, last-Owner, or
+  // outranking the actor (e.g. a project Admin viewing an org Owner). The
+  // frontend must not re-derive any of that; it only checks membership.
+  if (!can(member, Capability.Member.MANAGE)) {
     if (!member?.role) {
       return (
         <Typography variant="body2" color="text.disabled">
@@ -162,7 +168,7 @@ export default function OrgRoleChip({
     <Select
       value={member?.role_id ?? ''}
       onChange={handleChange}
-      disabled={!canManage || assigning}
+      disabled={assigning}
       size="small"
       displayEmpty
       renderValue={selected => {
@@ -173,13 +179,27 @@ export default function OrgRoleChip({
             </Typography>
           );
         }
-        // Use the full roles list so non-assignable roles (e.g. Owner) still
-        // display their name rather than falling back to the raw UUID.
-        const role = roles.find(r => r.id === selected);
-        return role?.display_name ?? selected;
+        // `member.role` is already resolved by the backend and arrives with
+        // the members fetch that gates the loading skeleton, so prefer it
+        // over the separate (slower, permission-gated) roles catalog fetch —
+        // otherwise the raw UUID flashes until that catalog resolves. Fall
+        // back to the catalog only for the unexpected case where it's stale.
+        const label =
+          member?.role?.display_name ??
+          roles.find(r => r.id === selected)?.display_name;
+        return label ?? selected;
       }}
       sx={{ minWidth: 120, fontSize: 13 }}
     >
+      {extraCurrentRole && (
+        <MenuItem
+          key={extraCurrentRole.id}
+          value={extraCurrentRole.id}
+          disabled
+        >
+          {extraCurrentRole.display_name}
+        </MenuItem>
+      )}
       {assignableRoles.map(role => (
         <MenuItem key={role.id} value={role.id}>
           {role.display_name}

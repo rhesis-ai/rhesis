@@ -18,6 +18,7 @@ import type {
   OrgRoleAssign,
   ProjectMemberRoleRead,
   ProjectMemberRoleAssign,
+  UserProjectMembershipRead,
 } from '../types';
 
 const BASE = '/rbac';
@@ -84,6 +85,14 @@ export class RbacClient extends BaseApiClient {
   async getProjectMembers(projectId: string): Promise<ProjectMemberRoleRead[]> {
     return this.fetch<ProjectMemberRoleRead[]>(
       `${BASE}/projects/${projectId}/members`
+    );
+  }
+
+  async getUserProjectMemberships(
+    userId: string
+  ): Promise<UserProjectMembershipRead[]> {
+    return this.fetch<UserProjectMembershipRead[]>(
+      `${BASE}/organization-members/${userId}/project-memberships`
     );
   }
 

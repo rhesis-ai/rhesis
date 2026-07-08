@@ -50,6 +50,7 @@ from rhesis.backend.ee.rbac.router import (
     delete_role,
     list_org_members,
     list_roles,
+    list_user_project_memberships,
     remove_org_member,
     update_role,
 )
@@ -425,13 +426,20 @@ class TestMultiUserScenarios:
         assert result.role_id == _builtin_role(self.db, "Admin").id
 
     def test_sole_owner_cannot_be_demoted(self):
+        """A self-assign is blocked by the (more general) self-change guard
+        before the last-owner check is ever reached — same outcome (denied),
+        different reason than the historical "last Owner" message. See
+        ``test_self_role_change_denied`` for that guard in isolation and
+        ``test_sole_owner_cannot_be_removed`` for the last-owner check, which
+        stays reachable via self-*removal* (``remove_org_member`` allows it).
+        """
         owner_id = _create_user(self.db, self.org_id)
         _assign_org_role(self.db, self.org_id, owner_id, "Owner")
 
         with pytest.raises(HTTPException) as exc:
             self._assign(owner_id, owner_id, _builtin_role(self.db, "Admin"))
         assert exc.value.status_code == 400
-        assert "last Owner" in exc.value.detail
+        assert "own organization role" in exc.value.detail
 
     def test_sole_owner_cannot_be_removed(self):
         owner_id = _create_user(self.db, self.org_id)
@@ -445,6 +453,50 @@ class TestMultiUserScenarios:
                 _org=None,
             )
         assert exc.value.status_code == 400
+
+    def test_self_role_change_denied(self):
+        """Self-role-change guard applies to any actor, not just Owners."""
+        admin_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, admin_id, "Admin")
+
+        with pytest.raises(HTTPException) as exc:
+            self._assign(admin_id, admin_id, _builtin_role(self.db, "Viewer"))
+        assert exc.value.status_code == 400
+        assert "own organization role" in exc.value.detail
+
+    def test_admin_cannot_demote_second_owner(self):
+        """Regression test for the reported bug: an Admin could freely
+        downgrade an Owner's role because the escalation guard only checked
+        the *requested* role's level (e.g. Viewer, well within an Admin's
+        authority) and never the target's *current* level. An Admin must not
+        be able to modify a member who currently outranks them at all,
+        regardless of what role is being requested."""
+        admin_id = _create_user(self.db, self.org_id)
+        owner_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, admin_id, "Admin")
+        _assign_org_role(self.db, self.org_id, owner_id, "Owner")
+
+        with pytest.raises(HTTPException) as exc:
+            self._assign(admin_id, owner_id, _builtin_role(self.db, "Viewer"))
+        assert exc.value.status_code == 403
+        assert "exceeds your own" in exc.value.detail
+
+    def test_admin_cannot_remove_second_owner(self):
+        """Same outranking guard applies to removal, not just role changes."""
+        admin_id = _create_user(self.db, self.org_id)
+        owner_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, admin_id, "Admin")
+        _assign_org_role(self.db, self.org_id, owner_id, "Owner")
+
+        with pytest.raises(HTTPException) as exc, _rbac_enabled():
+            remove_org_member(
+                user_id=owner_id,
+                db=self.db,
+                current_user=_user(admin_id, self.org_id),
+                _org=None,
+            )
+        assert exc.value.status_code == 403
+        assert "exceeds your own" in exc.value.detail
 
     def test_assign_rejects_foreign_user(self):
         """User from a different org → 404."""
@@ -591,6 +643,94 @@ class TestEscalationGuards:
 
 
 # ---------------------------------------------------------------------------
+# 4c. Custom-role equal-level escalation guard — _member_permitted_actions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestCustomRoleEscalationGuard:
+    """Every custom role is created at a hardcoded level (50, see
+    ``create_role``), decoupled from its permission content — two custom
+    roles routinely share a level while holding very different permission
+    sets. The level check alone (``current_role_level > actor_level``) is
+    not sufficient to authorize modifying/removing such a member:
+    ``_member_permitted_actions`` also requires the target's *current*
+    custom role's permission set to be a subset of the actor's.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session):
+        self.db = test_db
+        self.org_id = _create_org(test_db)
+
+    def _assign(self, actor_id: uuid.UUID, target_id: uuid.UUID, role: Role):
+        with _rbac_enabled():
+            return assign_org_role(
+                user_id=target_id,
+                body=OrgRoleAssign(role_id=role.id),
+                db=self.db,
+                current_user=_user(actor_id, self.org_id),
+                _org=None,
+            )
+
+    def test_narrow_custom_role_cannot_modify_broader_equal_level_role(self):
+        """Actor holds a narrow custom role; target holds an unrelated
+        custom role at the *same* level with strictly more permissions.
+        The requested new role (None) is well within the actor's authority,
+        so only the custom-role subset check can be denying this."""
+        narrow_role = _custom_role(self.db, self.org_id, name="Narrow", scope=SCOPE_ORGANIZATION)
+        broad_role = _custom_role(self.db, self.org_id, name="Broad", scope=SCOPE_ORGANIZATION)
+        _grant_permission(self.db, narrow_role.id, "member:manage")
+        _grant_permission(self.db, broad_role.id, "member:manage")
+        _grant_permission(self.db, broad_role.id, "role:manage")
+        _grant_permission(self.db, broad_role.id, "token:manage")
+        assert narrow_role.level == broad_role.level, "both custom roles default to level 50"
+
+        actor_id = _create_user(self.db, self.org_id)
+        target_id = _create_user(self.db, self.org_id)
+        self.db.add(
+            OrganizationMember(
+                organization_id=self.org_id, user_id=actor_id, role_id=narrow_role.id
+            )
+        )
+        self.db.add(
+            OrganizationMember(organization_id=self.org_id, user_id=target_id, role_id=broad_role.id)
+        )
+        self.db.flush()
+
+        with pytest.raises(HTTPException) as exc:
+            self._assign(actor_id, target_id, _builtin_role(self.db, "None"))
+        assert exc.value.status_code == 403
+        assert "exceeds your own" in exc.value.detail
+
+    def test_broad_custom_role_can_modify_narrower_equal_level_role(self):
+        """Mirror case: the actor's custom role permissions are a superset
+        of the target's — same level, but the modification is allowed."""
+        narrow_role = _custom_role(self.db, self.org_id, name="Narrow2", scope=SCOPE_ORGANIZATION)
+        broad_role = _custom_role(self.db, self.org_id, name="Broad2", scope=SCOPE_ORGANIZATION)
+        _grant_permission(self.db, narrow_role.id, "member:manage")
+        _grant_permission(self.db, broad_role.id, "member:manage")
+        _grant_permission(self.db, broad_role.id, "role:manage")
+
+        actor_id = _create_user(self.db, self.org_id)
+        target_id = _create_user(self.db, self.org_id)
+        self.db.add(
+            OrganizationMember(organization_id=self.org_id, user_id=actor_id, role_id=broad_role.id)
+        )
+        self.db.add(
+            OrganizationMember(
+                organization_id=self.org_id, user_id=target_id, role_id=narrow_role.id
+            )
+        )
+        self.db.flush()
+
+        none_role = _builtin_role(self.db, "None")
+        result = self._assign(actor_id, target_id, none_role)
+        assert result.role_id == none_role.id
+
+
+# ---------------------------------------------------------------------------
 # 5. Project-level assignment API
 # ---------------------------------------------------------------------------
 
@@ -679,6 +819,51 @@ class TestProjectMemberAPI:
             self._assign(self.project_id, non_member_id, role)
         assert exc.value.status_code == 404
 
+    def test_self_project_role_change_denied(self):
+        """Self-role-change guard applies at the project tier too."""
+        user_id = _create_user(self.db, self.org_id)
+
+        with pytest.raises(HTTPException) as exc, _rbac_enabled():
+            assign_project_role(
+                project_id=self.project_id,
+                user_id=user_id,
+                body=ProjectMemberRoleAssign(role_id=_builtin_role(self.db, "Viewer").id),
+                db=self.db,
+                current_user=_user(user_id, self.org_id),
+                _org=None,
+            )
+        assert exc.value.status_code == 400
+        assert "own project role" in exc.value.detail
+
+    def test_project_admin_cannot_change_role_of_project_owner(self):
+        """Regression test for the reported bug (screenshot scenario): a
+        project Admin could downgrade a project Owner's role, since the
+        escalation guard only validated the *requested* role's level (e.g.
+        Admin, well within the actor's own authority) and never the
+        target's *current* level. A project Admin must not be able to
+        modify a member who currently outranks them at the project tier,
+        regardless of what role is being requested."""
+        admin_id = _create_user(self.db, self.org_id)
+        owner_member_id = _create_user(self.db, self.org_id)
+        admin_role = _builtin_role(self.db, "Admin")
+        owner_role = _builtin_role(self.db, "Owner")
+        _add_project_member(self.db, self.org_id, self.project_id, admin_id, admin_role.id)
+        _add_project_member(
+            self.db, self.org_id, self.project_id, owner_member_id, owner_role.id
+        )
+
+        with pytest.raises(HTTPException) as exc, _rbac_enabled():
+            assign_project_role(
+                project_id=self.project_id,
+                user_id=owner_member_id,
+                body=ProjectMemberRoleAssign(role_id=admin_role.id),
+                db=self.db,
+                current_user=_user(admin_id, self.org_id),
+                _org=None,
+            )
+        assert exc.value.status_code == 403
+        assert "exceeds your own" in exc.value.detail
+
 
 # ---------------------------------------------------------------------------
 # 6. Org-member listing
@@ -714,6 +899,153 @@ class TestOrgMemberListing:
 
         results = list_org_members(db=self.db, current_user=_user(u_mine, self.org_id), _org=None)
         assert u_other not in {r.user_id for r in results}
+
+
+# ---------------------------------------------------------------------------
+# 6b. permitted_actions field — list_org_members
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestOrgMemberPermittedActions:
+    """`permitted_actions` on OrgMemberRead must reflect every escalation
+    gate server-side (see `_member_permitted_actions`), so the frontend
+    never re-derives self-change / outranking / ambient-permission logic.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session):
+        self.db = test_db
+        self.org_id = _create_org(test_db)
+
+    def _list(self, actor_id: uuid.UUID):
+        with _rbac_enabled():
+            return list_org_members(
+                db=self.db, current_user=_user(actor_id, self.org_id), _org=None
+            )
+
+    def _row(self, results, user_id: uuid.UUID):
+        return next(r for r in results if r.user_id == user_id)
+
+    def test_own_row_has_no_permitted_actions(self):
+        owner_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, owner_id, "Owner")
+
+        results = self._list(owner_id)
+        assert self._row(results, owner_id).permitted_actions == []
+
+    def test_admin_sees_manage_and_delete_on_ordinary_member(self):
+        admin_id = _create_user(self.db, self.org_id)
+        member_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, admin_id, "Admin")
+        _assign_org_role(self.db, self.org_id, member_id, "Member")
+
+        results = self._list(admin_id)
+        actions = self._row(results, member_id).permitted_actions
+        assert "member:manage" in actions
+        assert "member:delete" in actions
+
+    def test_admin_sees_no_permitted_actions_on_owner_row(self):
+        """The core regression, surfaced on the read side too: an Admin
+        viewing an Owner's row must not see member:manage, even though
+        _check_escalation on the write path would happily let them grant a
+        low role — the fix is symmetric across list and write paths."""
+        admin_id = _create_user(self.db, self.org_id)
+        owner_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, admin_id, "Admin")
+        _assign_org_role(self.db, self.org_id, owner_id, "Owner")
+
+        results = self._list(admin_id)
+        assert self._row(results, owner_id).permitted_actions == []
+
+    def test_actor_without_manage_permission_sees_no_actions(self):
+        """Ambient-permission gate: even when level and permission-subset
+        checks would pass, an actor who doesn't hold member:manage at all
+        must not see it in permitted_actions on any row."""
+        readonly_role = _custom_role(self.db, self.org_id, name="ReadOnlyA", scope=SCOPE_ORGANIZATION)
+        target_role = _custom_role(self.db, self.org_id, name="ReadOnlyB", scope=SCOPE_ORGANIZATION)
+        _grant_permission(self.db, readonly_role.id, "member:read")
+        _grant_permission(self.db, target_role.id, "member:read")
+
+        actor_id = _create_user(self.db, self.org_id)
+        target_id = _create_user(self.db, self.org_id)
+        self.db.add(
+            OrganizationMember(
+                organization_id=self.org_id, user_id=actor_id, role_id=readonly_role.id
+            )
+        )
+        self.db.add(
+            OrganizationMember(
+                organization_id=self.org_id, user_id=target_id, role_id=target_role.id
+            )
+        )
+        self.db.flush()
+
+        results = self._list(actor_id)
+        assert self._row(results, target_id).permitted_actions == []
+
+
+# ---------------------------------------------------------------------------
+# 6c. Bulk user-project-memberships endpoint (Member Access drawer)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestListUserProjectMemberships:
+    """list_user_project_memberships — single-call replacement for the N
+    per-project ``GET /projects/{id}/members`` waterfall the Member Access
+    drawer previously required."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session):
+        self.db = test_db
+        self.org_id = _create_org(test_db)
+
+    def _list(self, target_user_id: uuid.UUID):
+        with _rbac_enabled():
+            return list_user_project_memberships(
+                user_id=target_user_id,
+                db=self.db,
+                current_user=_user(target_user_id, self.org_id),
+                _org=None,
+            )
+
+    def test_returns_project_and_role_for_each_membership(self):
+        user_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, user_id, "Owner")
+        project1 = _create_project(self.db, self.org_id)
+        project2 = _create_project(self.db, self.org_id)
+        _assign_project_role(self.db, self.org_id, project1, user_id, "Admin")
+        _assign_project_role(self.db, self.org_id, project2, user_id, "Viewer")
+
+        results = self._list(user_id)
+        by_project = {r.project_id: r for r in results}
+        assert by_project[project1].role.name == "Admin"
+        assert by_project[project2].role.name == "Viewer"
+        assert by_project[project1].project.id == project1
+
+    def test_excludes_other_users_memberships(self):
+        user_id = _create_user(self.db, self.org_id)
+        other_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, user_id, "Owner")
+        project = _create_project(self.db, self.org_id)
+        _assign_project_role(self.db, self.org_id, project, user_id, "Admin")
+        _assign_project_role(self.db, self.org_id, project, other_id, "Viewer")
+
+        results = self._list(user_id)
+        assert {r.user_id for r in results} == {user_id}
+
+    def test_membership_without_role_returns_none_role(self):
+        user_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, user_id, "Owner")
+        project = _create_project(self.db, self.org_id)
+        _add_project_member(self.db, self.org_id, project, user_id)
+
+        results = self._list(user_id)
+        assert results[0].role_id is None
+        assert results[0].role is None
 
 
 # ---------------------------------------------------------------------------

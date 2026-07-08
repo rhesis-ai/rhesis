@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-06-18T18:21:04.545382Z"
+exclude-newer = "2026-07-01T07:58:38.904485Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6773,19 +6773,22 @@ requires-dist = [
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.2.0" },
     { name = "notebook", specifier = ">=7.5.6" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydantic-ai", marker = "extra == 'all'", specifier = ">=0.0.49" },
+    { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.0.49" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rhesis-sdk", editable = "../../sdk" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
 ]
-provides-extras = ["langchain", "langgraph", "microsoft-agent-framework", "all"]
+provides-extras = ["langchain", "langgraph", "pydantic-ai", "microsoft-agent-framework", "all"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "pre-commit", specifier = ">=4.3.0" },
+    { name = "pydantic-ai", specifier = ">=0.0.49" },
     { name = "pyright", specifier = ">=1.1.406" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
@@ -6822,6 +6825,7 @@ dependencies = [
     { name = "nest-asyncio" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pdfminer-six" },
     { name = "pillow" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -6892,11 +6896,15 @@ requires-dist = [
     { name = "nest-asyncio" },
     { name = "numpy" },
     { name = "pandas", specifier = ">=2.2.2" },
+    { name = "pdfminer-six", specifier = ">=20231228" },
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "pyautogen", marker = "extra == 'all'", specifier = ">=0.2.0" },
     { name = "pyautogen", marker = "extra == 'all-integrations'", specifier = ">=0.2.0" },
     { name = "pyautogen", marker = "extra == 'autogen'", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydantic-ai", marker = "extra == 'all'", specifier = ">=0.0.49" },
+    { name = "pydantic-ai", marker = "extra == 'all-integrations'", specifier = ">=0.0.49" },
+    { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.0.49" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", specifier = ">=0.3.7,<0.4" },
@@ -6913,7 +6921,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0" },
     { name = "websockets", specifier = ">=12.0" },
 ]
-provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "agent-framework", "all-integrations", "all"]
+provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "pydantic-ai", "agent-framework", "all-integrations", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -6927,6 +6935,7 @@ dev = [
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psycopg2-binary", specifier = "==2.9.9" },
+    { name = "pydantic-ai", specifier = ">=0.0.49" },
     { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-cov", specifier = ">=7.0.0" },

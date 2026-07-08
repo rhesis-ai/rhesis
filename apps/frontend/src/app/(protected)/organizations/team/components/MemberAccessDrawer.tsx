@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -18,7 +18,10 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
 import { Project, ProjectMember } from '@/utils/api-client/interfaces/project';
-import { getMemberRoleExtensions } from '@/lib/extension-registries';
+import {
+  getMemberRoleExtensions,
+  type UserProjectMembership,
+} from '@/lib/extension-registries';
 import {
   memberAvatarSx,
   orgRoleContainerSx,
@@ -30,8 +33,8 @@ import {
 } from './memberCardSx';
 
 interface ProjectAccess {
-  project: Project;
-  member: ProjectMember;
+  project: Pick<Project, 'id' | 'name' | 'description' | 'icon'>;
+  member: Pick<ProjectMember, 'role'>;
 }
 
 function getDisplayName(user: User): string {
@@ -45,6 +48,18 @@ function getDisplayName(user: User): string {
 function formatRole(role: string | null | undefined): string {
   if (!role) return 'Member';
   return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function toBulkProjectAccess(m: UserProjectMembership): ProjectAccess {
+  return {
+    project: {
+      id: m.project.id,
+      name: m.project.name,
+      description: m.project.description ?? undefined,
+      icon: m.project.icon ?? undefined,
+    },
+    member: { role: m.role?.display_name ?? null },
+  };
 }
 
 export interface MemberAccessDrawerProps {
@@ -61,13 +76,28 @@ export default function MemberAccessDrawer({
   const { data: session } = useSession();
   const [projectAccess, setProjectAccess] = useState<ProjectAccess[]>([]);
   const [loading, setLoading] = useState(false);
-  const { OrgRoleCell, ProjectRoleCell } = getMemberRoleExtensions();
+  const { OrgRoleCell, ProjectRoleCell, fetchUserProjectMemberships } =
+    getMemberRoleExtensions();
 
   useEffect(() => {
     if (!open || !user || !session?.session_token) return;
 
     setLoading(true);
     setProjectAccess([]);
+
+    if (fetchUserProjectMemberships) {
+      fetchUserProjectMemberships(session.session_token, user.id)
+        .then(memberships => {
+          setProjectAccess(
+            memberships
+              .map(toBulkProjectAccess)
+              .sort((a, b) => a.project.name.localeCompare(b.project.name))
+          );
+        })
+        .catch(() => setProjectAccess([]))
+        .finally(() => setLoading(false));
+      return;
+    }
 
     const factory = new ApiClientFactory(session.session_token);
     const projectsClient = factory.getProjectsClient();
@@ -82,7 +112,7 @@ export default function MemberAccessDrawer({
                 project.id as string
               );
               const row = members.find(m => m.user_id === user.id);
-              return row ? { project, member: row } : null;
+              return row ? ({ project, member: row } as ProjectAccess) : null;
             } catch {
               return null;
             }
@@ -95,7 +125,7 @@ export default function MemberAccessDrawer({
         );
       })
       .finally(() => setLoading(false));
-  }, [open, user?.id, session?.session_token]);
+  }, [open, user?.id, session?.session_token, fetchUserProjectMemberships]);
 
   const displayName = user ? getDisplayName(user) : '';
   const sessionToken = session?.session_token ?? '';

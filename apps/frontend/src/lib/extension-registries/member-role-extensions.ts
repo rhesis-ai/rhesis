@@ -20,11 +20,6 @@ export interface OrgRoleCellProps {
   userId: string;
   sessionToken: string;
   onRoleChanged?: () => void;
-  /** The signed-in viewer's user id. When it matches `userId`, the cell
-   *  should render read-only — changing your own org role is high-risk
-   *  (self-demotion) and gets no confirmation loop, so it is disabled
-   *  rather than merely discouraged. */
-  currentUserId?: string;
 }
 
 export interface ProjectRoleCellProps {
@@ -41,6 +36,23 @@ export interface AddMemberRoleFieldProps {
   /** 'small' renders a compact inline Select without a label, suitable for
    *  use inside list items. Defaults to 'medium' (full FormControl). */
   size?: 'small' | 'medium';
+}
+
+/** Minimal project fields returned by the bulk project-memberships endpoint. */
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+}
+
+/** A user's membership in a single project, returned by the bulk endpoint. */
+export interface UserProjectMembership {
+  project_id: string;
+  user_id: string;
+  role_id: string | null;
+  role?: { display_name: string } | null;
+  project: ProjectSummary;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +73,35 @@ export interface MemberRoleExtensions {
     userId: string,
     roleId: string
   ) => Promise<void>;
+  /** Fetches all project memberships for a user in a single call (EE bulk endpoint). */
+  fetchUserProjectMemberships?: (
+    sessionToken: string,
+    userId: string
+  ) => Promise<UserProjectMembership[]>;
+  /**
+   * Pre-warm RBAC caches so chips render immediately instead of each row
+   * triggering its own fetch. Org members are always fetched (every role
+   * chip needs them). Roles are gated on `canManageRoles` — `GET /rbac/roles`
+   * requires `Permission.Role.READ`, which viewers without member-management
+   * rights don't hold, so fetching it unconditionally would fire a doomed
+   * 403 for every non-admin page load.
+   */
+  prewarmCaches?: (
+    sessionToken: string,
+    opts?: { canManageRoles?: boolean }
+  ) => void;
+  /**
+   * Pre-warm RBAC caches for a single project's members grid, so
+   * `ProjectRoleCell` renders immediately instead of each row triggering its
+   * own fetch after the community members query resolves. Same
+   * `canManageRoles` gate as `prewarmCaches` — `GET /rbac/roles` requires
+   * `Permission.Role.READ`.
+   */
+  prewarmProjectCaches?: (
+    sessionToken: string,
+    projectId: string,
+    opts?: { canManageRoles?: boolean }
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
