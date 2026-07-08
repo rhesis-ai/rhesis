@@ -15,14 +15,12 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import PlaygroundIcon from '@/components/PlaygroundIcon';
-import EndpointsIcon from '@/components/EndpointsIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
-import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
-import { formatEndpointLabel } from './playgroundEndpointUtils';
+import PlaygroundEndpointSelect from './PlaygroundEndpointSelect';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -142,7 +140,6 @@ export default function PlaygroundClient() {
   );
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
-  const [endpointDrawerOpen, setEndpointDrawerOpen] = useState(false);
 
   const selectedOption = useMemo(
     () =>
@@ -175,8 +172,12 @@ export default function PlaygroundClient() {
   }, []);
 
   const handleEndpointSelect = useCallback(
-    (endpointId: string) => {
+    (endpointId: string | null) => {
       setSelectedEndpointId(endpointId);
+      if (!endpointId) {
+        setSelectedProjectId(null);
+        return;
+      }
       const selected = endpointOptions.find(
         opt => opt.endpointId === endpointId
       );
@@ -185,15 +186,7 @@ export default function PlaygroundClient() {
     [endpointOptions]
   );
 
-  const openEndpointDrawer = useCallback(() => {
-    setEndpointDrawerOpen(true);
-  }, []);
-
   const hasActiveSession = !!(selectedEndpointId || isSplit);
-
-  const endpointFabTooltip = selectedOption
-    ? formatEndpointLabel(selectedOption)
-    : 'Select endpoint';
 
   return (
     <PageLayout
@@ -202,13 +195,6 @@ export default function PlaygroundClient() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<EndpointsIcon />}
-            tooltip={endpointFabTooltip}
-            aria-label="Select endpoint"
-            onClick={openEndpointDrawer}
-            loading={isLoading && endpointDrawerOpen}
-          />
           <Fab
             icon={<RestartAltIcon />}
             tooltip="Reset playground"
@@ -219,6 +205,14 @@ export default function PlaygroundClient() {
         </FabGroup>
       }
     >
+      <PlaygroundEndpointSelect
+        endpointOptions={endpointOptions}
+        selectedEndpointId={selectedEndpointId}
+        isLoading={isLoading}
+        error={error}
+        onSelect={handleEndpointSelect}
+      />
+
       {/* Chat Area */}
       <Box
         sx={{
@@ -241,7 +235,6 @@ export default function PlaygroundClient() {
             label={isSplit ? 'Chat 1' : undefined}
             onClose={isSplit ? () => setIsSplit(false) : undefined}
             onSplit={!isSplit ? () => setIsSplit(true) : undefined}
-            onChangeEndpoint={openEndpointDrawer}
           />
         ) : (
           <ChatPlaceholder
@@ -263,22 +256,11 @@ export default function PlaygroundClient() {
               environment={selectedOption.environment}
               label="Chat 2"
               onClose={() => setIsSplit(false)}
-              onChangeEndpoint={openEndpointDrawer}
             />
           ) : (
             <ChatPlaceholder label="Chat 2" onClose={() => setIsSplit(false)} />
           ))}
       </Box>
-
-      <PlaygroundEndpointDrawer
-        open={endpointDrawerOpen}
-        onClose={() => setEndpointDrawerOpen(false)}
-        endpointOptions={endpointOptions}
-        selectedEndpointId={selectedEndpointId}
-        isLoading={isLoading}
-        error={error}
-        onSelect={handleEndpointSelect}
-      />
     </PageLayout>
   );
 }

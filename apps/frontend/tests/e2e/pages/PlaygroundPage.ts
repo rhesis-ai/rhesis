@@ -28,7 +28,7 @@ export class PlaygroundPage extends BasePage {
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
 
-    const endpointFab = this.page.getByRole('button', {
+    const combobox = this.page.getByRole('combobox', {
       name: /select endpoint/i,
     });
     const noEndpointsMsg = this.page.getByText(/no endpoints available/i);
@@ -37,13 +37,13 @@ export class PlaygroundPage extends BasePage {
     );
     const chatArea = this.page.locator('main, [role="main"]').first();
 
-    const hasEndpointFab = await endpointFab.isVisible().catch(() => false);
+    const hasCombobox = await combobox.isVisible().catch(() => false);
     const hasNoEndpoints = await noEndpointsMsg.isVisible().catch(() => false);
     const hasEmptyState = await emptyState.isVisible().catch(() => false);
     const hasMain = await chatArea.isVisible().catch(() => false);
 
     expect(
-      hasEndpointFab || hasNoEndpoints || hasEmptyState || hasMain
+      hasCombobox || hasNoEndpoints || hasEmptyState || hasMain
     ).toBeTruthy();
   }
 }

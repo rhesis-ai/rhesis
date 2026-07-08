@@ -1,14 +1,10 @@
 'use client';
 
-import { Box, TextField, Typography, IconButton } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { Box, TextField, Typography, IconButton, Alert } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CelebrationIcon from '@mui/icons-material/Celebration';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { TokenResponse } from '@/utils/api-client/interfaces/token';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { formatDate } from '@/utils/date';
 
 interface TokenDisplayProps {
@@ -46,7 +42,6 @@ export default function TokenDisplay({
       open={open}
       onClose={onClose}
       title={title}
-      titleIcon={<CelebrationIcon color="primary" />}
       closeButtonText="Close"
     >
       {token && (
@@ -67,36 +62,6 @@ export default function TokenDisplay({
             <Typography variant="body1">
               {token.expires_at ? formatDate(token.expires_at) : 'Never'}
             </Typography>
-          </Box>
-
-          {/* Figma Info Alert — node 1299:16000 (blue variant) */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              bgcolor: theme => alpha(theme.palette.primary.main, 0.1),
-              borderRadius: BORDER_RADIUS.xs,
-              px: '30px',
-              py: '12px',
-              overflow: 'hidden',
-            }}
-          >
-            <Box sx={{ flexShrink: 0, pt: '7px', pr: '12px' }}>
-              <InfoOutlinedIcon sx={{ fontSize: 22, color: 'primary.main' }} />
-            </Box>
-            <Box sx={{ flex: 1, py: '8px' }}>
-              <Typography
-                sx={{
-                  fontSize: 16,
-                  fontWeight: 400,
-                  lineHeight: '24px',
-                  color: 'primary.main',
-                }}
-              >
-                Store this token securely — it won&apos;t be shown again. If you
-                lose it, you&apos;ll need to generate a new one.
-              </Typography>
-            </Box>
           </Box>
 
           <Box>
@@ -122,6 +87,11 @@ export default function TokenDisplay({
               </IconButton>
             </Box>
           </Box>
+
+          <Alert severity="info">
+            Store this token securely — it won&apos;t be shown again. If you
+            lose it, you&apos;ll need to generate a new one.
+          </Alert>
         </Box>
       )}
     </BaseDrawer>

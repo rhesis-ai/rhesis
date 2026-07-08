@@ -17,6 +17,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
@@ -34,11 +35,63 @@ import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { experimentHref } from '@/utils/experiment-links';
 import { BiotechIcon } from '@/components/icons';
+import { ReviewSummary } from './test-run-summary-utils';
+
+function getRunExpectedTestCount(testRun: TestRunDetail): number | undefined {
+  const fromRun = testRun.attributes?.total_tests;
+  if (typeof fromRun === 'number' && fromRun > 0) {
+    return fromRun;
+  }
+
+  const fromTestSet =
+    testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
+  if (typeof fromTestSet === 'number' && fromTestSet > 0) {
+    return fromTestSet;
+  }
+
+  return undefined;
+}
+
+function formatTestsExecutedDisplay(
+  executed: number,
+  expected: number | undefined,
+  isInProgress: boolean
+): string {
+  if (
+    expected != null &&
+    expected > 0 &&
+    (isInProgress || executed < expected)
+  ) {
+    return `${executed}/${expected}`;
+  }
+
+  return `${executed}`;
+}
+
+function resolveTurnCount(result: TestResultDetail): number {
+  const fromOutput =
+    result.test_output?.turns_used ??
+    result.test_output?.stats?.total_turns ??
+    result.test_output?.conversation_summary?.length;
+
+  if (typeof fromOutput === 'number' && fromOutput > 0) {
+    return fromOutput;
+  }
+
+  return 1;
+}
+
+function formatAvgTurnSubtitle(avgTurnDepth: string): string {
+  const turns = Number(avgTurnDepth);
+  const label = turns === 1 ? 'turn' : 'turns';
+  return `Avg. ${avgTurnDepth} ${label}`;
+}
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
   testResults: TestResultDetail[];
   overallStats?: PassFailStats;
+  reviewSummary?: ReviewSummary;
   loading?: boolean;
   onRefresh?: () => void;
 }
@@ -145,16 +198,11 @@ export default function TestRunHeader({
   testRun,
   testResults,
   overallStats,
+  reviewSummary,
   loading: _loading = false,
   onRefresh,
 }: TestRunHeaderProps) {
   const theme = useTheme();
-
-  // Determine if this is a multi-turn test set
-  const isMultiTurn =
-    testRun.test_configuration?.test_set?.test_set_type?.type_value
-      ?.toLowerCase()
-      .includes('multi-turn') || false;
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -185,17 +233,17 @@ export default function TestRunHeader({
         } else if (status === 'Fail') {
           failed++;
         }
-
-        if (isMultiTurn && result.test_output) {
-          const turns =
-            result.test_output.turns_used ||
-            result.test_output.stats?.total_turns;
-          if (turns) {
-            totalTurns += turns;
-            testsWithTurnData++;
-          }
-        }
       });
+    }
+
+    if (testResults.length > 0) {
+      testResults.forEach(result => {
+        totalTurns += resolveTurnCount(result);
+        testsWithTurnData++;
+      });
+    } else if (total > 0) {
+      totalTurns = total;
+      testsWithTurnData = total;
     }
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
@@ -302,12 +350,45 @@ export default function TestRunHeader({
       statusColor,
       statusLabel,
     };
-  }, [testResults, testRun, isMultiTurn, overallStats]);
+  }, [testResults, testRun, overallStats]);
 
-  const totalExpected =
-    testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
+  const totalExpected = getRunExpectedTestCount(testRun);
 
   const isInProgress = stats.status === 'in_progress';
+
+  const runStatusChip = (
+    <Chip
+      label={stats.statusLabel}
+      color={stats.statusColor}
+      icon={
+        stats.status === 'cancelled' ? (
+          <BlockIcon />
+        ) : stats.status === 'queued' ? (
+          <HourglassEmptyIcon />
+        ) : stats.status === 'in_progress' ? (
+          <PlayCircleOutlineIcon />
+        ) : stats.status === 'partial' ? (
+          <WarningAmberOutlinedIcon />
+        ) : stats.status === 'failed' ? (
+          <CancelOutlinedIcon />
+        ) : (
+          <CheckCircleOutlineIcon />
+        )
+      }
+      size="small"
+      sx={{ fontWeight: 600, mt: 1 }}
+    />
+  );
+
+  const reviews = reviewSummary ?? {
+    testReviewCount: 0,
+    metricReviewCount: 0,
+    testCorrectionCount: 0,
+    metricCorrectionCount: 0,
+    correctionCount: 0,
+    headline: '0',
+    subtitle: 'No reviews yet',
+  };
 
   return (
     <Box sx={{ mb: 4 }}>
@@ -394,17 +475,15 @@ export default function TestRunHeader({
               </Box>
 
               <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
-                {totalExpected
-                  ? `${stats.total}/${totalExpected}`
-                  : stats.total}
+                {formatTestsExecutedDisplay(
+                  stats.total,
+                  totalExpected,
+                  isInProgress
+                )}
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                {isMultiTurn
-                  ? `Avg ${stats.avgTurnDepth} turns`
-                  : stats.executionErrors > 0
-                    ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
-                    : `${stats.passed} passed, ${stats.failed} failed`}
+                {formatAvgTurnSubtitle(stats.avgTurnDepth)}
               </Typography>
 
               {testRun.experiment_id && (
@@ -472,28 +551,6 @@ export default function TestRunHeader({
           </Card>
         </Grid>
 
-        {/* Duration Card */}
-        <Grid
-          size={{
-            xs: 12,
-            sm: 6,
-            md: 3,
-          }}
-        >
-          <SummaryCard
-            title="Duration"
-            value={stats.duration}
-            subtitle={
-              testRun.attributes?.started_at &&
-              typeof testRun.attributes.started_at === 'string'
-                ? formatDate(testRun.attributes.started_at)
-                : 'N/A'
-            }
-            icon={<TimerOutlinedIcon />}
-            color="info"
-          />
-        </Grid>
-
         {/* Status Card */}
         <Grid
           size={{
@@ -513,8 +570,9 @@ export default function TestRunHeader({
               <Box
                 sx={{
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
                   justifyContent: 'space-between',
+                  mb: 2,
                 }}
               >
                 <Typography
@@ -524,28 +582,82 @@ export default function TestRunHeader({
                 >
                   Status
                 </Typography>
-                <Chip
-                  label={stats.statusLabel}
-                  color={stats.statusColor}
-                  icon={
-                    stats.status === 'cancelled' ? (
-                      <BlockIcon />
-                    ) : stats.status === 'queued' ? (
-                      <HourglassEmptyIcon />
-                    ) : stats.status === 'in_progress' ? (
-                      <PlayCircleOutlineIcon />
-                    ) : stats.status === 'partial' ? (
-                      <WarningAmberOutlinedIcon />
-                    ) : stats.status === 'failed' ? (
-                      <CancelOutlinedIcon />
-                    ) : (
-                      <CheckCircleOutlineIcon />
-                    )
-                  }
-                  size="medium"
-                  sx={{ fontWeight: 600 }}
-                />
+                <Box
+                  sx={{
+                    color: theme.palette.info.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <TimerOutlinedIcon />
+                </Box>
               </Box>
+
+              <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+                {stats.duration}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {testRun.attributes?.started_at &&
+                typeof testRun.attributes.started_at === 'string'
+                  ? formatDate(testRun.attributes.started_at)
+                  : 'N/A'}
+              </Typography>
+
+              {runStatusChip}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Reviews Card */}
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
+          <Card
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  fontWeight={500}
+                >
+                  Reviews
+                </Typography>
+                <Box
+                  sx={{
+                    color: theme.palette.primary.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <PersonOutlineIcon />
+                </Box>
+              </Box>
+
+              <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+                {reviews.headline}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {reviews.subtitle}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>

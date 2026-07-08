@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import TestsTable from '../TestsGrid';
+import TestsTable, { TestsBulkActionsState } from '../TestsGrid';
 
 // ---- Navigation + Auth ----
 
@@ -53,6 +53,16 @@ jest.mock('@/utils/api-client/test-sets-client', () => ({
   })),
 }));
 
+jest.mock('@mui/x-data-grid', () => {
+  const actual = jest.requireActual('@mui/x-data-grid');
+  return {
+    ...actual,
+    GridToolbarColumnsButton: () => null,
+    GridToolbarDensitySelector: () => null,
+    GridToolbarExport: () => null,
+  };
+});
+
 // ---- BaseDataGrid stub ----
 // Renders action buttons and rows so we can test container behaviour without
 // the full MUI DataGrid virtualized canvas.
@@ -72,6 +82,7 @@ jest.mock('@/components/common/BaseDataGrid', () => {
     checkboxSelection,
     onRowSelectionModelChange,
     rowSelectionModel,
+    toolbarSlot: ToolbarSlot,
   }: {
     rows: Array<Record<string, unknown>>;
     loading?: boolean;
@@ -80,12 +91,14 @@ jest.mock('@/components/common/BaseDataGrid', () => {
     checkboxSelection?: boolean;
     onRowSelectionModelChange?: (sel: unknown[]) => void;
     rowSelectionModel?: unknown[];
+    toolbarSlot?: React.ComponentType;
   }) {
     if (loading) return <div data-testid="grid-loading">Loading…</div>;
     const enableSelection =
       checkboxSelection ?? Boolean(onRowSelectionModelChange);
     return (
       <div data-testid="base-data-grid">
+        {ToolbarSlot ? <ToolbarSlot /> : null}
         {actionButtons?.map(btn => (
           <button
             key={btn.label}
@@ -135,10 +148,10 @@ jest.mock('../TestDrawer', () => ({
     open ? <div data-testid="test-drawer" /> : null,
 }));
 
-jest.mock('../TestSetSelectionDialog', () => ({
+jest.mock('../TestSetSelectionDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="test-set-dialog" /> : null,
+    open ? <div data-testid="test-set-drawer" /> : null,
 }));
 
 jest.mock('@/components/common/DeleteModal', () => ({
@@ -189,6 +202,55 @@ const makePaginatedResponse = <T,>(data: T[], total?: number) => ({
   },
 });
 
+// ---- Helpers ----
+
+async function enableSelectionMode() {
+  await userEvent.click(screen.getByRole('switch', { name: /select tests/i }));
+}
+
+function TestsTableHarness(props: React.ComponentProps<typeof TestsTable>) {
+  const bulkRef = React.useRef<TestsBulkActionsState>({
+    visible: false,
+    assignDisabled: false,
+    onAssign: () => {},
+    onDelete: () => {},
+  });
+  const [, setTick] = React.useState(0);
+
+  return (
+    <>
+      {bulkRef.current.visible && (
+        <>
+          <button
+            type="button"
+            data-testid="bulk-assign"
+            aria-label="Assign to Test Set"
+            disabled={bulkRef.current.assignDisabled}
+            onClick={() => bulkRef.current.onAssign()}
+          >
+            Assign to Test Set
+          </button>
+          <button
+            type="button"
+            data-testid="bulk-delete"
+            aria-label="Delete Tests"
+            onClick={() => bulkRef.current.onDelete()}
+          >
+            Delete Tests
+          </button>
+        </>
+      )}
+      <TestsTable
+        {...props}
+        onBulkActionsChange={actions => {
+          bulkRef.current = actions;
+          setTick(t => t + 1);
+        }}
+      />
+    </>
+  );
+}
+
 // ---- Tests ----
 
 describe('TestsTable', () => {
@@ -199,12 +261,12 @@ describe('TestsTable', () => {
 
   it('shows loading state while fetching', () => {
     mockGetTests.mockReturnValue(new Promise(() => {}));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
   });
 
   it('renders no action buttons when no rows are selected', async () => {
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
     );
@@ -215,7 +277,7 @@ describe('TestsTable', () => {
     mockGetTests.mockResolvedValue(
       makePaginatedResponse([makeTest('t-1'), makeTest('t-2')])
     );
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
     );
@@ -224,14 +286,14 @@ describe('TestsTable', () => {
 
   it('shows error alert when fetch fails', async () => {
     mockGetTests.mockRejectedValue(new Error('Network error'));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByText(/network error/i)).toBeInTheDocument();
   });
 
   it('dismisses the error alert on close', async () => {
     mockGetTests.mockRejectedValue(new Error('Network error'));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     const alert = await screen.findByRole('alert');
     await userEvent.click(within(alert).getByLabelText(/close/i));
     await waitFor(() =>
@@ -241,7 +303,7 @@ describe('TestsTable', () => {
 
   it('navigates to test detail on row click', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-42')]));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-42')).toBeInTheDocument()
     );
@@ -249,30 +311,43 @@ describe('TestsTable', () => {
     expect(mockPush).toHaveBeenCalledWith('/tests/t-42');
   });
 
-  it('shows "Delete Tests" button when rows are selected', async () => {
+  it('does not show row checkboxes until selection mode is enabled', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
     );
-
-    await userEvent.click(screen.getByLabelText('select-t-1'));
-    await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Tests')).toBeInTheDocument()
-    );
+    expect(screen.queryByLabelText('select-t-1')).not.toBeInTheDocument();
   });
 
-  it('shows "Assign to Test Set" button when rows are selected', async () => {
+  it('shows "Delete Tests" FAB when rows are selected in selection mode', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
     );
 
+    await enableSelectionMode();
     await userEvent.click(screen.getByLabelText('select-t-1'));
     await waitFor(() =>
       expect(
-        screen.getByTestId('action-Assign to Test Set')
+        screen.getByRole('button', { name: /delete tests/i })
+      ).toBeInTheDocument()
+    );
+  });
+
+  it('shows "Assign to Test Set" FAB when rows are selected in selection mode', async () => {
+    mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
+    render(<TestsTableHarness sessionToken="tok" />);
+    await waitFor(() =>
+      expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
+    );
+
+    await enableSelectionMode();
+    await userEvent.click(screen.getByLabelText('select-t-1'));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /assign to test set/i })
       ).toBeInTheDocument()
     );
   });
@@ -280,16 +355,21 @@ describe('TestsTable', () => {
   it('opens delete modal and confirms deletion', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
     mockDeleteTest.mockResolvedValue(undefined);
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
     );
 
+    await enableSelectionMode();
     await userEvent.click(screen.getByLabelText('select-t-1'));
     await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Tests')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /delete tests/i })
+      ).toBeInTheDocument()
     );
-    await userEvent.click(screen.getByTestId('action-Delete Tests'));
+    await userEvent.click(
+      screen.getByRole('button', { name: /delete tests/i })
+    );
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
 
     await userEvent.click(
@@ -306,16 +386,21 @@ describe('TestsTable', () => {
 
   it('cancels deletion without calling API', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
     );
 
+    await enableSelectionMode();
     await userEvent.click(screen.getByLabelText('select-t-1'));
     await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Tests')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /delete tests/i })
+      ).toBeInTheDocument()
     );
-    await userEvent.click(screen.getByTestId('action-Delete Tests'));
+    await userEvent.click(
+      screen.getByRole('button', { name: /delete tests/i })
+    );
 
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(mockDeleteTest).not.toHaveBeenCalled();
@@ -324,16 +409,21 @@ describe('TestsTable', () => {
   it('shows error notification when delete fails', async () => {
     mockGetTests.mockResolvedValue(makePaginatedResponse([makeTest('t-1')]));
     mockDeleteTest.mockRejectedValue(new Error('Server error'));
-    render(<TestsTable sessionToken="tok" />);
+    render(<TestsTableHarness sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-t-1')).toBeInTheDocument()
     );
 
+    await enableSelectionMode();
     await userEvent.click(screen.getByLabelText('select-t-1'));
     await waitFor(() =>
-      expect(screen.getByTestId('action-Delete Tests')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /delete tests/i })
+      ).toBeInTheDocument()
     );
-    await userEvent.click(screen.getByTestId('action-Delete Tests'));
+    await userEvent.click(
+      screen.getByRole('button', { name: /delete tests/i })
+    );
     await userEvent.click(
       screen.getByRole('button', { name: /confirm delete/i })
     );

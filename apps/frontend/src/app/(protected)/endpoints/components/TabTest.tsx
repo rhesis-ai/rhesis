@@ -145,7 +145,7 @@ export default function TabTest({
           loadingPosition="start"
           startIcon={<PlayArrowIcon />}
         >
-          Run test
+          Check connection
         </LoadingButton>
       }
     >

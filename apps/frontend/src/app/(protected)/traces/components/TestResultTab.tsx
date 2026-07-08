@@ -26,6 +26,14 @@ import { TraceDetailResponse } from '@/utils/api-client/interfaces/telemetry';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  DeletedEntityAlert,
+  type DeletedEntityData,
+} from '@/components/common/DeletedEntityAlert';
+import {
+  getDeletedEntityData,
+  isDeletedEntityError,
+} from '@/utils/entity-error-handler';
+import {
   getTestResultStatusWithReview,
   getTestResultLabelWithReview,
 } from '@/utils/test-result-status';
@@ -44,12 +52,16 @@ export default function TestResultTab({
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletedTestResult, setDeletedTestResult] =
+    useState<DeletedEntityData | null>(null);
 
   const fetchTestResult = useCallback(async () => {
     if (!trace.test_result?.id) return;
 
     setLoading(true);
     setError(null);
+    setDeletedTestResult(null);
+    setTestResult(null);
 
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
@@ -59,12 +71,25 @@ export default function TestResultTab({
       );
       setTestResult(result);
     } catch (err: unknown) {
-      const errorMsg =
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch test result details';
-      setError(errorMsg);
-      console.error('Failed to fetch test result:', err);
+      if (isDeletedEntityError(err)) {
+        setDeletedTestResult(
+          getDeletedEntityData(err) ?? {
+            model_name: 'TestResult',
+            model_name_display: 'Test Result',
+            item_id: trace.test_result.id,
+            table_name: 'test_result',
+            restore_url: `/recycle/test_result/${trace.test_result.id}/restore`,
+            message: 'The test for this trace no longer exists.',
+          }
+        );
+      } else {
+        const errorMsg =
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch test result details';
+        setError(errorMsg);
+        console.error('Failed to fetch test result:', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -105,6 +130,17 @@ export default function TestResultTab({
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  if (deletedTestResult) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <DeletedEntityAlert
+          entityData={deletedTestResult}
+          sessionToken={sessionToken}
+        />
       </Box>
     );
   }

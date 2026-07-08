@@ -244,6 +244,53 @@ function reconcileOrderedFields(
   return result;
 }
 
+/** Fields that stay at a fixed width while other columns grow to fill the grid. */
+const FIXED_WIDTH_COLUMN_FIELDS = new Set(['actions']);
+
+function isFixedWidthColumn(col: GridColDef): boolean {
+  const field = String(col.field);
+  return (
+    FIXED_WIDTH_COLUMN_FIELDS.has(field) ||
+    field.startsWith('__') ||
+    col.flex === 0
+  );
+}
+
+/**
+ * Normalize column sizing for BaseDataGrid.
+ * - Explicit `flex` columns grow proportionally.
+ * - `width` without `flex` is treated as a fixed cap (`maxWidth`).
+ * - Unsized columns receive `flex: 1` to absorb remaining grid width.
+ */
+export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
+  return columns.map(col => {
+    const field = String(col.field);
+    const normalized =
+      field === 'actions' ? { ...col, hideable: false } : { ...col };
+
+    if (isFixedWidthColumn(normalized) || normalized.flex != null) {
+      return normalized;
+    }
+
+    if (normalized.maxWidth != null) {
+      return normalized;
+    }
+
+    if (normalized.width != null) {
+      return {
+        ...normalized,
+        maxWidth: normalized.width,
+      };
+    }
+
+    return {
+      ...normalized,
+      flex: 1,
+      minWidth: normalized.minWidth ?? 50,
+    };
+  });
+}
+
 // Create a styled version of DataGrid with Figma-aligned borders and headers
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   border: 'none',
@@ -302,6 +349,13 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '&& .MuiDataGrid-cell:last-of-type': {
     paddingRight: theme.spacing(3.75),
   },
+  // Hide the trailing filler column once flex columns consume the full width.
+  '& .MuiDataGrid-filler': {
+    maxWidth: 0,
+    minWidth: 0,
+    padding: 0,
+    border: 'none',
+  },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
   },
@@ -313,6 +367,12 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   // Faint row separator above the footer
   '& .MuiDataGrid-footerContainer': {
     borderTop: `1px solid ${theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider}`,
+  },
+  '& .MuiDataGrid-checkboxInput': {
+    color: theme.palette.primary.main,
+    '&.Mui-checked, &.MuiCheckbox-indeterminate': {
+      color: theme.palette.primary.main,
+    },
   },
 }));
 
@@ -538,10 +598,7 @@ export default function BaseDataGrid({
   const apiRef = useGridApiRef();
 
   const gridColumns = React.useMemo(
-    () =>
-      columns.map(col =>
-        col.field === 'actions' ? { ...col, hideable: false } : col
-      ),
+    () => applyFlexColumnSizing(columns),
     [columns]
   );
 
@@ -1263,6 +1320,11 @@ export default function BaseDataGrid({
                 onPaginationModelChange={onPaginationModelChange}
                 pageSizeOptions={pageSizeOptions}
                 checkboxSelection={checkboxSelection}
+                {...(checkboxSelection && {
+                  slotProps: {
+                    baseCheckbox: { color: 'primary' as const },
+                  },
+                })}
                 disableVirtualization={false}
                 loading={loading}
                 slots={resolvedSlots}
@@ -1335,6 +1397,11 @@ export default function BaseDataGrid({
                   onPaginationModelChange={onPaginationModelChange}
                   pageSizeOptions={pageSizeOptions}
                   checkboxSelection={checkboxSelection}
+                  {...(checkboxSelection && {
+                    slotProps: {
+                      baseCheckbox: { color: 'primary' as const },
+                    },
+                  })}
                   disableVirtualization={false}
                   loading={loading}
                   slots={resolvedSlots}

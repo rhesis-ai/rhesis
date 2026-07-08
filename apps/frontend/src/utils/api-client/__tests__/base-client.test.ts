@@ -225,6 +225,29 @@ describe('BaseApiClient', () => {
         })
       );
     });
+
+    it('parses structured detail object with message (400)', async () => {
+      const structuredError = {
+        detail: {
+          message:
+            'No new tests were associated. All 2 tests were already associated.',
+          metadata: { new_associations: 0 },
+        },
+      };
+      fetchMock.mockResolvedValue(
+        makeFetchResponse(structuredError, 400, {
+          'content-type': 'application/json',
+        })
+      );
+
+      await expect(
+        client.fetchPublic('/test_sets/abc/associate', { method: 'POST' })
+      ).rejects.toThrow(
+        expect.objectContaining({
+          message: expect.stringContaining('already associated'),
+        })
+      );
+    });
   });
 
   describe('fetchPaginated', () => {

@@ -146,6 +146,19 @@ export function getEffectiveTestResultStatus(
 }
 
 /**
+ * Whether a stored metric value reflects the pre-review automated outcome.
+ */
+export function getAutomatedMetricPass(metric: {
+  is_successful: boolean;
+  override?: { original_value: boolean };
+}): boolean {
+  if (metric.override?.original_value !== undefined) {
+    return metric.override.original_value;
+  }
+  return metric.is_successful;
+}
+
+/**
  * Determines the test result status from a test result object
  * This function considers AUTOMATED metrics only. Use getTestResultStatusWithReview
  * to include human review overrides.
@@ -163,9 +176,9 @@ export function getTestResultStatus(test: TestResultDetail): TestResultStatus {
     return 'Error';
   }
 
-  // Count passed metrics
-  const passedMetrics = Object.values(metrics).filter(
-    metric => metric.is_successful
+  // Count automated passes (ignore post-review metric overrides)
+  const passedMetrics = Object.values(metrics).filter(metric =>
+    getAutomatedMetricPass(metric)
   ).length;
 
   // All metrics passed = Pass, otherwise Fail

@@ -312,7 +312,7 @@ export default function MappingEditor({
             startIcon={<PlayArrowIcon />}
             sx={{ ...sectionContainedButtonSx, flexShrink: 0, mt: 0.5 }}
           >
-            Run test
+            Check connection
           </LoadingButton>
         </Box>
         <RequestBodyEditor

@@ -1,6 +1,7 @@
 'use client';
 import { createTheme, PaletteMode } from '@mui/material/styles';
 import React from 'react';
+import type {} from '@mui/x-data-grid/themeAugmentation';
 
 // Import design tokens from the server-safe constants file.
 // Re-export so that existing imports from '@/styles/theme' continue to work.
@@ -303,6 +304,17 @@ const getDesignTokens = (mode: PaletteMode) => {
               {
                 color: 'inherit',
               },
+            // Drawer sets all icons to body color; keep grid/checkbox selection primary.
+            '& .MuiCheckbox-root, & .MuiDataGrid-checkboxInput': {
+              color: mode === 'light' ? '#0080AF' : '#33A6CB',
+              '&.Mui-checked, &.MuiCheckbox-indeterminate': {
+                color: mode === 'light' ? '#0080AF' : '#33A6CB',
+              },
+            },
+            '& .MuiCheckbox-root .MuiSvgIcon-root, & .MuiDataGrid-checkboxInput .MuiSvgIcon-root':
+              {
+                color: 'inherit',
+              },
             '& .MuiListItemButton-root.Mui-selected': {
               backgroundColor: '#0080AF',
               '& .MuiSvgIcon-root': { color: '#FFFFFF' },
@@ -311,6 +323,16 @@ const getDesignTokens = (mode: PaletteMode) => {
             '& .MuiDivider-root': {
               margin: '16px 0',
               borderColor: mode === 'light' ? gs.border : '#2C2C2C',
+            },
+          },
+        },
+      },
+      MuiDataGrid: {
+        styleOverrides: {
+          checkboxInput: {
+            color: mode === 'light' ? '#0080AF' : '#33A6CB',
+            '&.Mui-checked, &.MuiCheckbox-indeterminate': {
+              color: mode === 'light' ? '#0080AF' : '#33A6CB',
             },
           },
         },

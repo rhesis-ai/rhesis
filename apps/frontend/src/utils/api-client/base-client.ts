@@ -5,9 +5,15 @@ import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';
 import { readActiveProjectId } from '../active-project';
 
+/** Structured FastAPI detail payload (e.g. bulk associate failures) */
+export interface StructuredApiErrorDetail {
+  message?: string;
+  metadata?: Record<string, unknown>;
+}
+
 /** API error response structure from backend */
 export interface ApiErrorData {
-  detail?: string | ValidationErrorDetail[];
+  detail?: string | ValidationErrorDetail[] | StructuredApiErrorDetail;
   message?: string;
   table_name?: string;
   item_id?: string;
@@ -20,6 +26,50 @@ export interface ValidationErrorDetail {
   loc?: (string | number)[];
   msg?: string;
   [key: string]: unknown;
+}
+
+/** Normalize FastAPI `detail` into a human-readable string. */
+export function formatApiErrorDetail(detail: unknown): string {
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map(
+        (err: ValidationErrorDetail) =>
+          `${err.loc?.join('.') || 'field'}: ${err.msg ?? ''}`
+      )
+      .join(', ');
+  }
+
+  if (detail && typeof detail === 'object' && 'message' in detail) {
+    const message = (detail as StructuredApiErrorDetail).message;
+    if (typeof message === 'string') {
+      return message;
+    }
+  }
+
+  if (detail !== undefined && detail !== null) {
+    return JSON.stringify(detail);
+  }
+
+  return '';
+}
+
+function parseApiErrorResponse(errorData: ApiErrorData): string {
+  if (errorData.detail) {
+    const formatted = formatApiErrorDetail(errorData.detail);
+    if (formatted) {
+      return formatted;
+    }
+  }
+
+  if (errorData.message) {
+    return errorData.message;
+  }
+
+  return JSON.stringify(errorData, null, 2);
 }
 
 interface RetryConfig {
@@ -256,20 +306,7 @@ export class BaseApiClient {
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
               errorData = (await response.json()) as ApiErrorData;
-              if (errorData.detail) {
-                errorMessage = Array.isArray(errorData.detail)
-                  ? errorData.detail
-                      .map(
-                        (err: ValidationErrorDetail) =>
-                          `${err.loc?.join('.') || 'field'}: ${err.msg ?? ''}`
-                      )
-                      .join(', ')
-                  : errorData.detail;
-              } else if (errorData.message) {
-                errorMessage = errorData.message;
-              } else {
-                errorMessage = JSON.stringify(errorData, null, 2);
-              }
+              errorMessage = parseApiErrorResponse(errorData);
             } else {
               errorMessage = await response.text();
             }
@@ -465,10 +502,7 @@ export class BaseApiClient {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = (await response.json()) as ApiErrorData;
-          errorMessage =
-            (typeof errorData.detail === 'string' ? errorData.detail : null) ??
-            errorData.message ??
-            JSON.stringify(errorData);
+          errorMessage = parseApiErrorResponse(errorData);
         } else {
           errorMessage = await response.text();
         }
