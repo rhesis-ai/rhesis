@@ -67,8 +67,8 @@ def create_detailed_schema(
         ("family_name", Optional[str], None),
         ("given_name", Optional[str], None),
         ("picture", Optional[str], None),
-        # counts/tags are eager-loaded via crud_utils._DEFAULT_SELECTIN_CHAINS --
-        # keep both in sync.
+        # counts/tags are eager-loaded via
+        # QueryBuilder.with_default_derived_field_loads -- keep both in sync.
         ("counts", Optional[Dict[str, Any]], None),
         # Model-specific fields
         ("model_name", Optional[str], None),
