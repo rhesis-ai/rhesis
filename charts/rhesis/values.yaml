@@ -94,7 +94,7 @@ config:
   celeryWorkerLogLevel: "INFO"
 
   # GCP / Vertex AI
-  vertexAiLocation: "europe-west4"
+  vertexAiLocation: "eu"
   vertexAiProject: ""
 
   # Chatbot
