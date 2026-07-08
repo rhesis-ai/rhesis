@@ -36,7 +36,9 @@ import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
 import {
   BehaviorStat,
+  computeReviewSummary,
   getReviewBand,
+  metricWasCorrected,
   MetricStat,
 } from './test-run-summary-utils';
 
@@ -348,7 +350,7 @@ function MetricTable({
                         {stat.name}
                       </Typography>
                     </Tooltip>
-                    {(stat.humanReviewCount ?? 0) > 0 && (
+                    {metricWasCorrected(stat) && (
                       <Tooltip
                         title={`Automated: ${stat.automatedPassed ?? 0} passed, ${stat.automatedFailed ?? 0} failed. After human review: ${stat.passed} passed, ${stat.failed} failed.`}
                         placement="top"
@@ -361,7 +363,7 @@ function MetricTable({
                           icon={
                             <RateReviewIcon sx={{ '&&': { fontSize: 16 } }} />
                           }
-                          label={`${stat.humanReviewCount} reviewed`}
+                          label="corrected"
                           sx={{ flexShrink: 0 }}
                         />
                       </Tooltip>
@@ -643,6 +645,11 @@ export default function TestRunStatsTab({
     }));
   }, [stats]);
 
+  const reviewSummary = useMemo(
+    () => computeReviewSummary(testResults),
+    [testResults]
+  );
+
   const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
 
   return (
@@ -651,6 +658,7 @@ export default function TestRunStatsTab({
         testRun={testRun}
         testResults={testResults}
         overallStats={stats?.overall_pass_rates}
+        reviewSummary={reviewSummary}
         loading={statsLoading}
         onRefresh={onRefresh}
       />

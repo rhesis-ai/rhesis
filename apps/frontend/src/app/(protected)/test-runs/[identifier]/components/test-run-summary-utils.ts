@@ -1,5 +1,9 @@
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
-import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import {
+  getEffectiveTestResultStatus,
+  getTestResultStatus,
+  isPassedStatusName,
+} from '@/utils/test-result-status';
 
 export type ReviewBand = 'ok' | 'watch' | 'review';
 
@@ -38,6 +42,95 @@ export interface MetricStat {
   automatedFailed?: number;
   /** Tests where effective outcome differs from automated metric result */
   humanReviewCount?: number;
+}
+
+export interface ReviewSummary {
+  testReviewCount: number;
+  metricReviewCount: number;
+  correctionCount: number;
+  headline: string;
+  subtitle: string;
+}
+
+/** True when reviewed passed/failed counts differ from automated counts. */
+export function metricWasCorrected(stat: MetricStat): boolean {
+  if (stat.automatedPassed === undefined) return false;
+  const automatedFailed =
+    stat.automatedFailed ?? stat.total - stat.automatedPassed;
+  return (
+    stat.passed !== stat.automatedPassed || stat.failed !== automatedFailed
+  );
+}
+
+export function computeReviewSummary(
+  testResults: TestResultDetail[]
+): ReviewSummary {
+  let testReviewCount = 0;
+  let testCorrectionCount = 0;
+
+  for (const result of testResults) {
+    if (!result.last_review) continue;
+    testReviewCount++;
+    const reviewedPass = isPassedStatusName(
+      result.last_review.status?.name ?? ''
+    );
+    const automatedPass = getTestResultStatus(result) === 'Pass';
+    if (reviewedPass !== automatedPass) {
+      testCorrectionCount++;
+    }
+  }
+
+  let metricReviewCount = 0;
+  let metricCorrectionCount = 0;
+
+  for (const result of testResults) {
+    for (const metric of Object.values(result.test_metrics?.metrics ?? {})) {
+      if (!metric.override) continue;
+      metricReviewCount++;
+      if (metric.override.original_value !== metric.is_successful) {
+        metricCorrectionCount++;
+      }
+    }
+  }
+
+  const correctionCount = testCorrectionCount + metricCorrectionCount;
+  const totalReviews = testReviewCount + metricReviewCount;
+
+  let headline: string;
+  if (correctionCount > 0) {
+    headline = `${correctionCount} corrected`;
+  } else if (totalReviews > 0) {
+    headline = `${totalReviews} reviewed`;
+  } else {
+    headline = '0';
+  }
+
+  let subtitle: string;
+  if (totalReviews === 0) {
+    subtitle = 'No reviews yet';
+  } else {
+    const parts: string[] = [];
+    if (testReviewCount > 0) {
+      parts.push(`${testReviewCount} test${testReviewCount === 1 ? '' : 's'}`);
+    }
+    if (metricReviewCount > 0) {
+      parts.push(
+        `${metricReviewCount} metric${metricReviewCount === 1 ? '' : 's'}`
+      );
+    }
+    subtitle = parts.join(' · ');
+    if (correctionCount === 0) {
+      subtitle += ' · confirmed';
+    }
+  }
+
+  return {
+    testReviewCount,
+    metricReviewCount,
+    correctionCount,
+    headline,
+    subtitle,
+  };
 }
 
 export function aggregateBehaviorStats(

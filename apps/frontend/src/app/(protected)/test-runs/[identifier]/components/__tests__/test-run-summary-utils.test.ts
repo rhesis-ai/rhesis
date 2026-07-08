@@ -1,5 +1,6 @@
 import {
   aggregateMetricStats,
+  computeReviewSummary,
   getEffectiveMetricSuccess,
 } from '../test-run-summary-utils';
 import type { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -82,5 +83,43 @@ describe('aggregateMetricStats', () => {
         humanReviewCount: 1,
       })
     );
+  });
+});
+
+describe('computeReviewSummary', () => {
+  it('returns empty state when no reviews exist', () => {
+    const summary = computeReviewSummary([
+      makeResult({ last_review: undefined, metrics: {} }),
+    ]);
+    expect(summary).toEqual(
+      expect.objectContaining({
+        headline: '0',
+        subtitle: 'No reviews yet',
+      })
+    );
+  });
+
+  it('counts test and metric corrections separately in subtitle', () => {
+    const results = [
+      makeResult({
+        last_review: {
+          id: 'review-1',
+          status: { id: 's1', name: 'Pass' },
+        },
+        metrics: {
+          'Goal Achievement': { is_successful: false },
+          Accuracy: {
+            is_successful: true,
+            override: { original_value: false },
+          },
+        },
+      }),
+    ];
+
+    const summary = computeReviewSummary(results);
+    expect(summary.headline).toBe('2 corrected');
+    expect(summary.subtitle).toContain('1 test');
+    expect(summary.subtitle).toContain('1 metric');
+    expect(summary.subtitle).not.toContain('confirmed');
   });
 });

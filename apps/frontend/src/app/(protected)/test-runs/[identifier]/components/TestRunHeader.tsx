@@ -17,6 +17,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
@@ -34,11 +35,13 @@ import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { experimentHref } from '@/utils/experiment-links';
 import { BiotechIcon } from '@/components/icons';
+import { ReviewSummary } from './test-run-summary-utils';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
   testResults: TestResultDetail[];
   overallStats?: PassFailStats;
+  reviewSummary?: ReviewSummary;
   loading?: boolean;
   onRefresh?: () => void;
 }
@@ -145,6 +148,7 @@ export default function TestRunHeader({
   testRun,
   testResults,
   overallStats,
+  reviewSummary,
   loading: _loading = false,
   onRefresh,
 }: TestRunHeaderProps) {
@@ -308,6 +312,38 @@ export default function TestRunHeader({
     testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
 
   const isInProgress = stats.status === 'in_progress';
+
+  const runStatusChip = (
+    <Chip
+      label={stats.statusLabel}
+      color={stats.statusColor}
+      icon={
+        stats.status === 'cancelled' ? (
+          <BlockIcon />
+        ) : stats.status === 'queued' ? (
+          <HourglassEmptyIcon />
+        ) : stats.status === 'in_progress' ? (
+          <PlayCircleOutlineIcon />
+        ) : stats.status === 'partial' ? (
+          <WarningAmberOutlinedIcon />
+        ) : stats.status === 'failed' ? (
+          <CancelOutlinedIcon />
+        ) : (
+          <CheckCircleOutlineIcon />
+        )
+      }
+      size="small"
+      sx={{ fontWeight: 600, mt: 1 }}
+    />
+  );
+
+  const reviews = reviewSummary ?? {
+    testReviewCount: 0,
+    metricReviewCount: 0,
+    correctionCount: 0,
+    headline: '0',
+    subtitle: 'No reviews yet',
+  };
 
   return (
     <Box sx={{ mb: 4 }}>
@@ -480,21 +516,57 @@ export default function TestRunHeader({
             md: 3,
           }}
         >
-          <SummaryCard
-            title="Duration"
-            value={stats.duration}
-            subtitle={
-              testRun.attributes?.started_at &&
-              typeof testRun.attributes.started_at === 'string'
-                ? formatDate(testRun.attributes.started_at)
-                : 'N/A'
-            }
-            icon={<TimerOutlinedIcon />}
-            color="info"
-          />
+          <Card
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  fontWeight={500}
+                >
+                  Duration
+                </Typography>
+                <Box
+                  sx={{
+                    color: theme.palette.info.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <TimerOutlinedIcon />
+                </Box>
+              </Box>
+
+              <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+                {stats.duration}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {testRun.attributes?.started_at &&
+                typeof testRun.attributes.started_at === 'string'
+                  ? formatDate(testRun.attributes.started_at)
+                  : 'N/A'}
+              </Typography>
+
+              {runStatusChip}
+            </CardContent>
+          </Card>
         </Grid>
 
-        {/* Status Card */}
+        {/* Reviews Card */}
         <Grid
           size={{
             xs: 12,
@@ -513,8 +585,9 @@ export default function TestRunHeader({
               <Box
                 sx={{
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
                   justifyContent: 'space-between',
+                  mb: 2,
                 }}
               >
                 <Typography
@@ -522,30 +595,26 @@ export default function TestRunHeader({
                   color="text.secondary"
                   fontWeight={500}
                 >
-                  Status
+                  Reviews
                 </Typography>
-                <Chip
-                  label={stats.statusLabel}
-                  color={stats.statusColor}
-                  icon={
-                    stats.status === 'cancelled' ? (
-                      <BlockIcon />
-                    ) : stats.status === 'queued' ? (
-                      <HourglassEmptyIcon />
-                    ) : stats.status === 'in_progress' ? (
-                      <PlayCircleOutlineIcon />
-                    ) : stats.status === 'partial' ? (
-                      <WarningAmberOutlinedIcon />
-                    ) : stats.status === 'failed' ? (
-                      <CancelOutlinedIcon />
-                    ) : (
-                      <CheckCircleOutlineIcon />
-                    )
-                  }
-                  size="medium"
-                  sx={{ fontWeight: 600 }}
-                />
+                <Box
+                  sx={{
+                    color: theme.palette.primary.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <PersonOutlineIcon />
+                </Box>
               </Box>
+
+              <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+                {reviews.headline}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {reviews.subtitle}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>

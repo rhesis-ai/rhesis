@@ -162,7 +162,7 @@ describe('TestRunHeader', () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders Completed status chip from backend status', () => {
+  it('renders Completed status below duration date', () => {
     const testRun = makeTestRun({
       status: { id: u(20), name: 'Completed' },
     });
@@ -170,25 +170,46 @@ describe('TestRunHeader', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 
-  it('renders In Progress status chip from backend "progress" status', () => {
+  it('renders In Progress status below duration date', () => {
     const testRun = makeTestRun({
       status: { id: u(20), name: 'progress' },
       attributes: { started_at: '2024-01-01T10:00:00Z' },
     });
     render(<TestRunHeader testRun={testRun} testResults={[]} />);
-    // 'In Progress' appears in both the Chip and the duration value — at least one should be present
     const matches = screen.getAllByText('In Progress');
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders Failed status chip from backend status', () => {
+  it('renders Failed status below duration date', () => {
     const testRun = makeTestRun({ status: { id: u(20), name: 'failed' } });
     render(<TestRunHeader testRun={testRun} testResults={[]} />);
     expect(screen.getByText('Failed')).toBeInTheDocument();
   });
 
-  it('renders Status card label', () => {
+  it('renders Reviews card with default empty state', () => {
     render(<TestRunHeader testRun={makeTestRun()} testResults={[]} />);
-    expect(screen.getByText('Status')).toBeInTheDocument();
+    expect(screen.getByText('Reviews')).toBeInTheDocument();
+    expect(screen.getByText('No reviews yet')).toBeInTheDocument();
+  });
+
+  it('renders Reviews card with review summary', () => {
+    render(
+      <TestRunHeader
+        testRun={makeTestRun()}
+        testResults={[]}
+        reviewSummary={{
+          testReviewCount: 2,
+          metricReviewCount: 1,
+          correctionCount: 0,
+          headline: '3 reviewed',
+          subtitle: '2 tests · 1 metric · confirmed',
+        }}
+      />
+    );
+    expect(screen.getByText('Reviews')).toBeInTheDocument();
+    expect(screen.getByText('3 reviewed')).toBeInTheDocument();
+    expect(
+      screen.getByText('2 tests · 1 metric · confirmed')
+    ).toBeInTheDocument();
   });
 });
