@@ -28,10 +28,10 @@ const defaultProps = {
 };
 
 describe('TabTest', () => {
-  it('renders the Run test button', () => {
+  it('renders the Check connection button', () => {
     render(<TabTest {...defaultProps} />);
     expect(
-      screen.getByRole('button', { name: /run test/i })
+      screen.getByRole('button', { name: /check connection/i })
     ).toBeInTheDocument();
   });
 
@@ -54,10 +54,10 @@ describe('TabTest', () => {
     ).toBeInTheDocument();
   });
 
-  it('calls onRunTest when Run test is clicked', () => {
+  it('calls onRunTest when Check connection is clicked', () => {
     const onRunTest = jest.fn();
     render(<TabTest {...defaultProps} onRunTest={onRunTest} />);
-    fireEvent.click(screen.getByRole('button', { name: /run test/i }));
+    fireEvent.click(screen.getByRole('button', { name: /check connection/i }));
     expect(onRunTest).toHaveBeenCalledTimes(1);
   });
 

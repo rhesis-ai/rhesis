@@ -281,7 +281,7 @@ export default function ExperimentVersionsGrid({
           drawerVersion ? `Version ${shortVersion(drawerVersion.version)}` : ''
         }
         showHeader
-        width={600}
+        width="60%"
         saveButtonText=""
         closeButtonText="Close"
       >

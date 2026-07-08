@@ -362,6 +362,9 @@ export interface PassFailStats {
   passed: number;
   failed: number;
   pass_rate: number;
+  automated_passed?: number;
+  automated_failed?: number;
+  human_review_count?: number;
 }
 
 export interface MetricPassRates {

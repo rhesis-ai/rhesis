@@ -31,7 +31,6 @@ import {
   Alert,
   FormControlLabel,
   Checkbox,
-  Stack,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
@@ -80,6 +79,9 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 import { METRIC_SCOPES } from '@/constants/metric-scopes';
+
+const GENERATE_PROGRESS_NOTIFICATION_KEY = 'explorer-generate-progress';
+const EVALUATE_PROGRESS_NOTIFICATION_KEY = 'explorer-evaluate-progress';
 
 // ============================================================================
 // Types
@@ -1918,7 +1920,6 @@ export default function ExplorerDetail({
   const { options: endpointOptions, isLoading: endpointsLoading } =
     useEndpointOptions(sessionToken);
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateOutputsTopic, setGenerateOutputsTopic] = useState<
     string | null
   >(null);
@@ -1928,7 +1929,6 @@ export default function ExplorerDetail({
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [evaluateDialogOpen, setEvaluateDialogOpen] = useState(false);
   const [evaluateSubmitting, setEvaluateSubmitting] = useState(false);
-  const [evaluateError, setEvaluateError] = useState<string | null>(null);
   const [evaluateTopic, setEvaluateTopic] = useState<string | null>(null);
   const [evaluateIncludeSubtopics, setEvaluateIncludeSubtopics] =
     useState(true);
@@ -2102,7 +2102,6 @@ export default function ExplorerDetail({
   const handleGenerateOutputsClose = () => {
     if (!generateSubmitting) {
       setGenerateOutputsDialogOpen(false);
-      setGenerateError(null);
     }
   };
 
@@ -2112,7 +2111,11 @@ export default function ExplorerDetail({
     closeDialog?: boolean;
   }) => {
     setGenerateSubmitting(true);
-    setGenerateError(null);
+    notifications.show('Getting outputs…', {
+      key: GENERATE_PROGRESS_NOTIFICATION_KEY,
+      severity: 'info',
+      autoHideDuration: 300000,
+    });
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getExplorerClient();
     const effectiveTopic = options?.topic ?? generateOutputsTopic;
@@ -2146,10 +2149,12 @@ export default function ExplorerDetail({
         );
       }
     } catch (err) {
-      setGenerateError(
-        err instanceof Error ? err.message : 'Failed to get outputs.'
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to get outputs.',
+        { severity: 'error' }
       );
     } finally {
+      notifications.close(GENERATE_PROGRESS_NOTIFICATION_KEY);
       setGenerateSubmitting(false);
     }
   };
@@ -2169,7 +2174,6 @@ export default function ExplorerDetail({
   const handleEvaluateClose = () => {
     if (!evaluateSubmitting) {
       setEvaluateDialogOpen(false);
-      setEvaluateError(null);
     }
   };
 
@@ -2179,7 +2183,11 @@ export default function ExplorerDetail({
     closeDialog?: boolean;
   }) => {
     setEvaluateSubmitting(true);
-    setEvaluateError(null);
+    notifications.show('Evaluating…', {
+      key: EVALUATE_PROGRESS_NOTIFICATION_KEY,
+      severity: 'info',
+      autoHideDuration: 300000,
+    });
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getExplorerClient();
     const effectiveTopic = options?.topic ?? evaluateTopic;
@@ -2213,10 +2221,12 @@ export default function ExplorerDetail({
         );
       }
     } catch (err) {
-      setEvaluateError(
-        err instanceof Error ? err.message : 'Failed to evaluate tests.'
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to evaluate tests.',
+        { severity: 'error' }
       );
     } finally {
+      notifications.close(EVALUATE_PROGRESS_NOTIFICATION_KEY);
       setEvaluateSubmitting(false);
     }
   };
@@ -3120,45 +3130,6 @@ export default function ExplorerDetail({
                   {filteredTests.length === 1 ? 'test' : 'tests'})
                 </Typography>
               </Box>
-              {(generateSubmitting ||
-                evaluateSubmitting ||
-                generateError ||
-                evaluateError) && (
-                <Stack sx={{ mb: 1 }} spacing={1}>
-                  {generateSubmitting && (
-                    <Alert
-                      severity="info"
-                      onClose={() => setGenerateError(null)}
-                    >
-                      Getting outputs…
-                    </Alert>
-                  )}
-                  {evaluateSubmitting && (
-                    <Alert
-                      severity="info"
-                      onClose={() => setEvaluateError(null)}
-                    >
-                      Evaluating…
-                    </Alert>
-                  )}
-                  {generateError && (
-                    <Alert
-                      severity="error"
-                      onClose={() => setGenerateError(null)}
-                    >
-                      {generateError}
-                    </Alert>
-                  )}
-                  {evaluateError && (
-                    <Alert
-                      severity="error"
-                      onClose={() => setEvaluateError(null)}
-                    >
-                      {evaluateError}
-                    </Alert>
-                  )}
-                </Stack>
-              )}
               {/* Inline add-test row lives above the card so the card only has the grid */}
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
@@ -3226,39 +3197,6 @@ export default function ExplorerDetail({
         {/* List View - All tests in a flat table */}
         {activeTab === 1 && (
           <Box>
-            {(generateSubmitting ||
-              evaluateSubmitting ||
-              generateError ||
-              evaluateError) && (
-              <Stack sx={{ mb: 1 }} spacing={1}>
-                {generateSubmitting && (
-                  <Alert severity="info" onClose={() => setGenerateError(null)}>
-                    Getting outputs…
-                  </Alert>
-                )}
-                {evaluateSubmitting && (
-                  <Alert severity="info" onClose={() => setEvaluateError(null)}>
-                    Evaluating…
-                  </Alert>
-                )}
-                {generateError && (
-                  <Alert
-                    severity="error"
-                    onClose={() => setGenerateError(null)}
-                  >
-                    {generateError}
-                  </Alert>
-                )}
-                {evaluateError && (
-                  <Alert
-                    severity="error"
-                    onClose={() => setEvaluateError(null)}
-                  >
-                    {evaluateError}
-                  </Alert>
-                )}
-              </Stack>
-            )}
             {/* Inline add-test row lives above the card */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <TextField
@@ -3512,15 +3450,6 @@ export default function ExplorerDetail({
               Invoke the selected endpoint for each test input and store the
               response as the test output.
             </Typography>
-            {generateError && (
-              <Alert
-                severity="error"
-                sx={{ mb: 2 }}
-                onClose={() => setGenerateError(null)}
-              >
-                {generateError}
-              </Alert>
-            )}
             <Autocomplete
               options={[allTestsTopicOption, ...topics]}
               getOptionLabel={option =>
@@ -3608,15 +3537,6 @@ export default function ExplorerDetail({
               test&apos;s stored input and output, and persist the evaluation
               results in test metadata.
             </Typography>
-            {evaluateError && (
-              <Alert
-                severity="error"
-                sx={{ mb: 2 }}
-                onClose={() => setEvaluateError(null)}
-              >
-                {evaluateError}
-              </Alert>
-            )}
             <Autocomplete
               options={[allTestsTopicOption, ...topics]}
               getOptionLabel={option =>

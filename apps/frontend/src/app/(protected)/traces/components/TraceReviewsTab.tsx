@@ -26,6 +26,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import { BORDER_RADIUS } from '@/styles/theme';
 import {
   SpanNode,
   TraceDetailResponse,
@@ -343,9 +344,12 @@ export default function TraceReviewsTab({
                             }
                             label="Conflict"
                             size="small"
-                            color="warning"
-                            variant="filled"
-                            sx={{ ml: 1 }}
+                            color="error"
+                            variant="outlined"
+                            sx={{
+                              borderRadius: BORDER_RADIUS.pill,
+                              '& .MuiChip-icon': { color: 'error.main' },
+                            }}
                           />
                         )}
                       </>

@@ -8,12 +8,13 @@ import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import { ScienceIcon } from '@/components/icons';
-import TestsGrid from './components/TestsGrid';
+import { CategoryIcon, ScienceIcon } from '@/components/icons';
+import TestsGrid, { type TestsBulkActionsState } from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -29,6 +30,29 @@ export default function TestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [testCount, setTestCount] = React.useState<number | null>(null);
+  const [bulkActions, setBulkActions] = React.useState<
+    Pick<TestsBulkActionsState, 'visible' | 'assignDisabled'>
+  >({ visible: false, assignDisabled: false });
+  const bulkHandlersRef = React.useRef<
+    Pick<TestsBulkActionsState, 'onAssign' | 'onDelete'>
+  >({
+    onAssign: () => {},
+    onDelete: () => {},
+  });
+
+  const handleBulkActionsChange = React.useCallback(
+    (actions: TestsBulkActionsState) => {
+      setBulkActions({
+        visible: actions.visible,
+        assignDisabled: actions.assignDisabled,
+      });
+      bulkHandlersRef.current = {
+        onAssign: actions.onAssign,
+        onDelete: actions.onDelete,
+      };
+    },
+    []
+  );
   const { activeTour, startTour } = useOnboarding();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Test.READ
@@ -118,6 +142,31 @@ export default function TestsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
+          {bulkActions.visible && (
+            <>
+              <Fab
+                icon={<CategoryIcon sx={{ fontSize: 28 }} />}
+                tooltip={
+                  bulkActions.assignDisabled
+                    ? 'Select tests with the same test type'
+                    : 'Assign to Test Set'
+                }
+                aria-label="Assign to Test Set"
+                onClick={() => bulkHandlersRef.current.onAssign()}
+                disabled={bulkActions.assignDisabled}
+              />
+              <Fab
+                icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                tooltip="Delete Tests"
+                aria-label="Delete Tests"
+                onClick={() => bulkHandlersRef.current.onDelete()}
+                sx={{
+                  bgcolor: 'error.main',
+                  '&:hover': { bgcolor: 'error.dark' },
+                }}
+              />
+            </>
+          )}
           <Fab
             icon={<DownloadOutlinedIcon />}
             tooltip="Import tests"
@@ -136,37 +185,47 @@ export default function TestsPage() {
       }
     >
       <Box sx={{ mt: 2, mb: 2 }}>
-        {testCount === 0 ? (
-          <EntityEmptyState
-            card
-            icon={ScienceIcon}
-            title="No test yet"
-            description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
-            actionLabel={canCreate ? 'Create test' : undefined}
-            onAction={canCreate ? handleCreateManual : undefined}
-            actionDisabled={shouldDisableAddButton}
-            enrichment={getEntityEmptyStateEnrichment('tests')}
+        <Paper
+          sx={{
+            width: '100%',
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: ELEVATION.xs,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
+          <TestsGrid
+            sessionToken={session.session_token}
+            onNewTest={handleCreateManual}
+            disableAddButton={shouldDisableAddButton}
+            insightsFailedFilter={insightsFailedFilter}
+            insightsEndpointName={insightsEndpointName}
+            onTotalCountChange={setTestCount}
+            onBulkActionsChange={handleBulkActionsChange}
           />
-        ) : (
-          <Paper
-            sx={{
-              width: '100%',
-              borderRadius: BORDER_RADIUS.md,
-              boxShadow: ELEVATION.xs,
-              border: theme => `1px solid ${theme.palette.greyscale.border}`,
-              overflow: 'hidden',
-            }}
-          >
-            <TestsGrid
-              sessionToken={session.session_token}
-              onNewTest={handleCreateManual}
-              disableAddButton={shouldDisableAddButton}
-              insightsFailedFilter={insightsFailedFilter}
-              insightsEndpointName={insightsEndpointName}
-              onTotalCountChange={setTestCount}
-            />
-          </Paper>
-        )}
+          {testCount === 0 && (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 1,
+                bgcolor: 'background.paper',
+              }}
+            >
+              <EntityEmptyState
+                card
+                icon={ScienceIcon}
+                title="No test yet"
+                description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
+                actionLabel={canCreate ? 'Create test' : undefined}
+                onAction={canCreate ? handleCreateManual : undefined}
+                actionDisabled={shouldDisableAddButton}
+                enrichment={getEntityEmptyStateEnrichment('tests')}
+              />
+            </Box>
+          )}
+        </Paper>
       </Box>
     </PageLayout>
   );

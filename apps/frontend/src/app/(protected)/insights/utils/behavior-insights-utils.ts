@@ -49,15 +49,13 @@ export function sortByPassRateAsc<
   });
 }
 
+/** Sort behavior insight columns alphabetically by name (A–Z). */
 export function sortBehaviorColumns(
   columns: BehaviorInsightColumn[]
 ): BehaviorInsightColumn[] {
-  return [...columns].sort((a, b) => {
-    const aEmpty = a.overall.total === 0;
-    const bEmpty = b.overall.total === 0;
-    if (aEmpty !== bEmpty) return aEmpty ? 1 : -1;
-    return a.overall.pass_rate - b.overall.pass_rate;
-  });
+  return [...columns].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  );
 }
 
 export function passRatesToItems(

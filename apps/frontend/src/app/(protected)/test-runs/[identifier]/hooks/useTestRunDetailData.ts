@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
@@ -23,6 +23,7 @@ interface UseTestRunDetailDataReturn {
   availableMetrics: string[];
   loading: boolean;
   error: string | null;
+  refetch: () => Promise<void>;
 }
 
 async function fetchAllTestResults(
@@ -139,6 +140,11 @@ export function useTestRunDetailData({
   const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const refetch = useCallback(async () => {
+    setReloadToken(token => token + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled || !sessionToken || !testRunId) {
@@ -184,7 +190,7 @@ export function useTestRunDetailData({
     return () => {
       cancelled = true;
     };
-  }, [testRunId, sessionToken, enabled]);
+  }, [testRunId, sessionToken, enabled, reloadToken]);
 
   return {
     testResults,
@@ -193,5 +199,6 @@ export function useTestRunDetailData({
     availableMetrics,
     loading,
     error,
+    refetch,
   };
 }

@@ -30,6 +30,11 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import {
+  getResultReviews,
+  getLatestMetricReviewForResult,
+  isExplicitTestLevelReview,
+} from './test-run-summary-utils';
+import {
   MentionOption,
   renderMentionText,
 } from '@/components/common/MentionTextInput';
@@ -147,13 +152,42 @@ export default function TestDetailReviewsTab({
 
   const lastReview = test.last_review;
 
-  // Conflict: human review disagrees with automated
-  const hasConflict = useMemo(() => {
-    if (!lastReview?.status?.name) return false;
-    return (
-      isPassedStatusName(lastReview.status.name) !== automatedStatus.passed
+  const testLevelReviews = useMemo(
+    () =>
+      getResultReviews(test).filter(review =>
+        isExplicitTestLevelReview(test, review)
+      ),
+    [test]
+  );
+
+  const latestTestLevelReview = useMemo(() => {
+    if (lastReview && isExplicitTestLevelReview(test, lastReview)) {
+      return lastReview;
+    }
+    const sorted = [...testLevelReviews].sort(
+      (a, b) =>
+        new Date((b as Review).updated_at).getTime() -
+        new Date((a as Review).updated_at).getTime()
     );
-  }, [lastReview, automatedStatus]);
+    return (sorted[0] as Review | undefined) ?? null;
+  }, [lastReview, test, testLevelReviews]);
+
+  const latestMetricReview = useMemo(
+    () => getLatestMetricReviewForResult(test) as Review | undefined,
+    [test]
+  );
+
+  const hasMetricReviewOnly =
+    !latestTestLevelReview && latestMetricReview !== undefined;
+
+  // Conflict: human test-level review disagrees with automated
+  const hasConflict = useMemo(() => {
+    if (!latestTestLevelReview?.status?.name) return false;
+    return (
+      isPassedStatusName(latestTestLevelReview.status.name) !==
+      automatedStatus.passed
+    );
+  }, [latestTestLevelReview, automatedStatus]);
 
   const getReviewStatusDisplay = (
     statusName: string
@@ -230,10 +264,12 @@ export default function TestDetailReviewsTab({
           <Typography variant="body2" color="text.primary">
             Human Review:
           </Typography>
-          {lastReview ? (
+          {latestTestLevelReview ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {(() => {
-                const display = getReviewStatusDisplay(lastReview.status.name);
+                const display = getReviewStatusDisplay(
+                  latestTestLevelReview.status.name
+                );
                 return (
                   <>
                     <StatusChip
@@ -246,25 +282,36 @@ export default function TestDetailReviewsTab({
                       <Chip
                         icon={
                           <WarningAmberIcon
-                            sx={{
-                              fontSize: '14px !important',
-                              color: theme =>
-                                `${theme.palette.error.main} !important`,
-                            }}
+                            sx={{ fontSize: '14px !important' }}
                           />
                         }
                         label="Conflict"
                         size="small"
+                        color="error"
+                        variant="outlined"
                         sx={{
                           borderRadius: BORDER_RADIUS.pill,
-                          bgcolor: 'error.light',
-                          color: 'error.main',
-                          border: 'none',
-                          '& .MuiChip-label': { color: 'error.main' },
+                          '& .MuiChip-icon': { color: 'error.main' },
                         }}
                       />
                     )}
                   </>
+                );
+              })()}
+            </Box>
+          ) : hasMetricReviewOnly && latestMetricReview ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {(() => {
+                const display = getReviewStatusDisplay(
+                  latestMetricReview.status.name
+                );
+                return (
+                  <StatusChip
+                    passed={display.passed}
+                    label={`${display.label} (metric)`}
+                    size="small"
+                    variant="outlined"
+                  />
                 );
               })()}
             </Box>

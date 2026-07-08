@@ -27,7 +27,7 @@ import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {
   formatEnvironment,
   getEnvironmentColor,
-} from './playgroundEndpointUtils';
+} from '@/utils/endpoint-options';
 import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
@@ -52,8 +52,6 @@ interface PlaygroundChatProps {
   onClose?: () => void;
   /** Callback to add a split pane (renders a "+" button in the top-right) */
   onSplit?: () => void;
-  /** Opens the endpoint selection drawer */
-  onChangeEndpoint?: () => void;
 }
 
 /**
@@ -71,7 +69,6 @@ export default function PlaygroundChat({
   label,
   onClose,
   onSplit,
-  onChangeEndpoint,
 }: PlaygroundChatProps) {
   const { data: session } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -292,64 +289,37 @@ export default function PlaygroundChat({
                 ·
               </Typography>
             )}
-            <Tooltip
-              title="Change endpoint"
-              disableHoverListener={!onChangeEndpoint}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                minWidth: 0,
+              }}
             >
-              <Box
-                component={onChangeEndpoint ? 'button' : 'div'}
-                type={onChangeEndpoint ? 'button' : undefined}
-                aria-label={onChangeEndpoint ? 'Change endpoint' : undefined}
-                onClick={onChangeEndpoint}
+              <Typography
+                variant="captionBold"
+                noWrap
+                sx={{ color: theme => theme.palette.greyscale.body }}
+              >
+                {`${projectName} › ${endpointName}`}
+              </Typography>
+              <Typography
+                component="span"
+                variant="caption"
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  minWidth: 0,
-                  border: 'none',
-                  background: 'none',
-                  p: 0,
-                  m: 0,
-                  textAlign: 'left',
-                  cursor: onChangeEndpoint ? 'pointer' : 'default',
-                  ...(onChangeEndpoint && {
-                    '&:hover .endpoint-label': {
-                      color: 'primary.main',
-                    },
-                  }),
+                  flexShrink: 0,
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: BORDER_RADIUS.pill,
+                  bgcolor: theme => theme.palette.greyscale.surface2,
+                  color: getEnvironmentColor(environment),
+                  fontWeight: 600,
                 }}
               >
-                <Typography
-                  className="endpoint-label"
-                  variant="captionBold"
-                  noWrap
-                  sx={{
-                    color: theme => theme.palette.greyscale.body,
-                    transition: theme =>
-                      theme.transitions.create('color', {
-                        duration: theme.transitions.duration.short,
-                      }),
-                  }}
-                >
-                  {`${projectName} › ${endpointName}`}
-                </Typography>
-                <Typography
-                  component="span"
-                  variant="caption"
-                  sx={{
-                    flexShrink: 0,
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: BORDER_RADIUS.pill,
-                    bgcolor: theme => theme.palette.greyscale.surface2,
-                    color: getEnvironmentColor(environment),
-                    fontWeight: 600,
-                  }}
-                >
-                  {formatEnvironment(environment)}
-                </Typography>
-              </Box>
-            </Tooltip>
+                {formatEnvironment(environment)}
+              </Typography>
+            </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {/* Create Multi-Turn Test Button */}

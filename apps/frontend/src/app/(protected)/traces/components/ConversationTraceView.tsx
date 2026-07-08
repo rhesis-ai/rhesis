@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import {
   TraceDetailResponse,
   SpanNode,
@@ -18,6 +18,14 @@ import { reconstructConversationFromSpans } from '@/utils/conversation-from-span
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
+import {
+  DeletedEntityAlert,
+  type DeletedEntityData,
+} from '@/components/common/DeletedEntityAlert';
+import {
+  getDeletedEntityData,
+  isDeletedEntityError,
+} from '@/utils/entity-error-handler';
 
 interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
@@ -66,6 +74,17 @@ function getPerTurnOverrides(
   return result;
 }
 
+function deletedTestResultFallback(testResultId: string): DeletedEntityData {
+  return {
+    model_name: 'TestResult',
+    model_name_display: 'Test Result',
+    item_id: testResultId,
+    table_name: 'test_result',
+    restore_url: `/recycle/test_result/${testResultId}/restore`,
+    message: 'The test for this trace no longer exists.',
+  };
+}
+
 export default function ConversationTraceView({
   trace,
   sessionToken,
@@ -76,58 +95,65 @@ export default function ConversationTraceView({
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletedTestResult, setDeletedTestResult] =
+    useState<DeletedEntityData | null>(null);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
+    setDeletedTestResult(null);
     setSpanFiles([]);
     setTestResult(null);
 
     const load = async () => {
       const clientFactory = new ApiClientFactory(sessionToken);
+      let result: TestResultDetail | null = null;
+      let deleted: DeletedEntityData | null = null;
+      let fetchError: string | null = null;
 
-      const testResultPromise = trace.test_result?.id
-        ? clientFactory
+      if (trace.test_result?.id) {
+        try {
+          result = await clientFactory
             .getTestResultsClient()
-            .getTestResult(trace.test_result.id)
-        : Promise.resolve(null);
-
-      const filesPromise = rootSpans
-        ? Promise.all(
-            rootSpans.map(async span => {
-              if (!span.id) return [] as FileResponse[];
-              try {
-                return await clientFactory
-                  .getFilesClient()
-                  .getSpanFiles(span.id);
-              } catch {
-                return [] as FileResponse[];
-              }
-            })
-          )
-        : Promise.resolve([] as FileResponse[][]);
-
-      try {
-        const [result, files] = await Promise.all([
-          testResultPromise,
-          filesPromise,
-        ]);
-        setTestResult(result);
-        setSpanFiles(files);
-      } catch (err: unknown) {
-        const errorMsg =
-          err instanceof Error
-            ? err.message
-            : 'Failed to fetch test result details';
-        setError(errorMsg);
-        console.error('Failed to fetch trace data:', err);
-      } finally {
-        setLoading(false);
+            .getTestResult(trace.test_result.id);
+        } catch (err: unknown) {
+          if (isDeletedEntityError(err)) {
+            deleted =
+              getDeletedEntityData(err) ??
+              deletedTestResultFallback(trace.test_result.id);
+          } else {
+            fetchError =
+              err instanceof Error
+                ? err.message
+                : 'Failed to fetch test result details';
+            console.error('Failed to fetch test result:', err);
+          }
+        }
       }
+
+      let files: FileResponse[][] = [];
+      if (rootSpans) {
+        files = await Promise.all(
+          rootSpans.map(async span => {
+            if (!span.id) return [] as FileResponse[];
+            try {
+              return await clientFactory.getFilesClient().getSpanFiles(span.id);
+            } catch {
+              return [] as FileResponse[];
+            }
+          })
+        );
+      }
+
+      setTestResult(result);
+      setDeletedTestResult(deleted);
+      setError(fetchError);
+      setSpanFiles(files);
+      setLoading(false);
     };
 
-    load();
+    void load();
     // rootSpans is intentionally omitted from deps. The parent derives it
     // directly from trace.root_spans, so it can only carry new spans when
     // trace.trace_id changes — which is already a dep. Adding rootSpans would
@@ -179,15 +205,20 @@ export default function ConversationTraceView({
     );
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error" variant="body2">
-          {error}
-        </Typography>
-      </Box>
-    );
-  }
+  const deletedTestWarning = deletedTestResult ? (
+    <Box sx={{ p: 2, flexShrink: 0 }}>
+      <DeletedEntityAlert
+        entityData={deletedTestResult}
+        sessionToken={sessionToken}
+      />
+    </Box>
+  ) : null;
+
+  const fetchErrorWarning = error ? (
+    <Box sx={{ p: 2, flexShrink: 0 }}>
+      <Alert severity="error">{error}</Alert>
+    </Box>
+  ) : null;
 
   // Path A: test-result-based conversation (with goal evaluation)
   const conversationSummary: ConversationTurn[] =
@@ -237,28 +268,45 @@ export default function ConversationTraceView({
 
   if (turns.length === 0) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary" variant="body2">
-          No conversation data available for this trace
-        </Typography>
+      <Box sx={{ p: 3 }}>
+        {deletedTestWarning}
+        {fetchErrorWarning}
+        {!deletedTestWarning && !fetchErrorWarning && (
+          <Alert severity="info">
+            No conversation data is available from this trace.
+          </Alert>
+        )}
       </Box>
     );
   }
 
   return (
-    <ConversationHistory
-      conversationSummary={turns}
-      goalEvaluation={
-        conversationSummary.length > 0 ? goalEvaluation : undefined
-      }
-      project={trace.project}
-      onResponseClick={
-        onSpanSelect && rootSpans ? handleResponseClick : undefined
-      }
-      onReviewTurn={onReviewTurn}
-      maxHeight="100%"
-      sessionToken={sessionToken}
-      turnReviewMap={turnReviewMap}
-    />
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+      }}
+    >
+      {deletedTestWarning}
+      {fetchErrorWarning}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <ConversationHistory
+          conversationSummary={turns}
+          goalEvaluation={
+            conversationSummary.length > 0 ? goalEvaluation : undefined
+          }
+          project={trace.project}
+          onResponseClick={
+            onSpanSelect && rootSpans ? handleResponseClick : undefined
+          }
+          onReviewTurn={onReviewTurn}
+          maxHeight="100%"
+          sessionToken={sessionToken}
+          turnReviewMap={turnReviewMap}
+        />
+      </Box>
+    </Box>
   );
 }

@@ -37,23 +37,26 @@ describe('behavior-insights-utils', () => {
   });
 
   describe('sortBehaviorColumns', () => {
-    it('puts behaviors with no tests at the bottom', () => {
-      const empty = {
-        id: '1',
-        name: 'Empty',
-        overall: { total: 0, passed: 0, failed: 0, pass_rate: 0 },
-        metrics: [],
-        topics: [],
-      };
-      const tested = {
-        id: '2',
-        name: 'Tested',
+    it('sorts behaviors alphabetically by name', () => {
+      const mk = (name: string) => ({
+        id: name,
+        name,
         overall: { total: 10, passed: 5, failed: 5, pass_rate: 50 },
         metrics: [],
         topics: [],
-      };
-      const sorted = sortBehaviorColumns([empty, tested]);
-      expect(sorted.map(c => c.name)).toEqual(['Tested', 'Empty']);
+      });
+      const sorted = sortBehaviorColumns([
+        mk('Robustness'),
+        mk('Compliance'),
+        mk('Garak'),
+        mk('Reliability'),
+      ]);
+      expect(sorted.map(c => c.name)).toEqual([
+        'Compliance',
+        'Garak',
+        'Reliability',
+        'Robustness',
+      ]);
     });
   });
 

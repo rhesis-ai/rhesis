@@ -29,6 +29,15 @@ import { findStatusByCategory } from '@/utils/test-result-status';
 import { MentionOption } from '@/components/common/MentionTextInput';
 import { EntityType } from '@/types/entity-type';
 
+export const TEST_RESULT_DRAWER_TAB = {
+  overview: 0,
+  conversation: 1,
+  metrics: 2,
+  reviews: 3,
+  history: 4,
+  tasks: 5,
+} as const;
+
 interface TestResultDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -153,14 +162,7 @@ export default function TestResultDrawer({
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
 
-  const TAB = {
-    overview: 0,
-    conversation: 1,
-    metrics: 2,
-    reviews: 3,
-    history: 4,
-    tasks: 5,
-  } as const;
+  const TAB = TEST_RESULT_DRAWER_TAB;
 
   // Update active tab when initialTab changes (when drawer opens with specific tab)
   React.useEffect(() => {

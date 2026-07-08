@@ -1219,7 +1219,7 @@ export default function TestGenerationInterface({
           isLoadingSamples
         }
         closeButtonText="Cancel"
-        width={480}
+        width={640}
       >
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
