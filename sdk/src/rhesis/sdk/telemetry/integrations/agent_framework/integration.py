@@ -145,14 +145,17 @@ class MAFIntegration(BaseIntegration):
         Steps:
 
         1. Verify MAF is installed.
-        2. Call ``enable_instrumentation(enable_sensitive_data=...)`` to flip
+        2. Wrap each existing OTLP exporter on the global ``TracerProvider``
+           with :class:`MAFTranslatingExporter` so MAF spans are rewritten to
+           the Rhesis ``ai.*`` schema before export. Done *before* turning on
+           MAF instrumentation: MAF exposes no off switch, so instrumentation
+           whose spans could never be translated (raw GenAI names fail
+           backend span-name validation) must not be enabled at all.
+        3. Call ``enable_instrumentation(enable_sensitive_data=...)`` to flip
            MAF's internal switch. Content capture (prompts, completions, tool
            I/O) defaults to on so the trace UI shows messages; set the
            ``RHESIS_DISABLE_CONTENT_CAPTURE`` env var to a truthy value to opt
            out for privacy-sensitive deployments.
-        3. Wrap each existing OTLP exporter on the global ``TracerProvider``
-           with :class:`MAFTranslatingExporter` so MAF spans are rewritten to
-           the Rhesis ``ai.*`` schema before export.
         4. Register :class:`MAFLLMDedupSpanProcessor` to toggle the LLM
            observation context flag during MAF ``chat`` spans so flag-checking
            auto-instrumentation (e.g. LangChain callbacks) skips duplicate
@@ -160,7 +163,8 @@ class MAFIntegration(BaseIntegration):
 
         Returns:
             ``True`` if successfully enabled, ``False`` if MAF is not
-            installed or instrumentation could not be turned on.
+            installed, no exporter could be wrapped for translation, or
+            instrumentation could not be turned on.
         """
         if self._enabled:
             logger.debug("agent_framework observation already enabled")
@@ -176,18 +180,6 @@ class MAFIntegration(BaseIntegration):
             logger.warning("agent_framework.observability is not importable: %s", exc)
             return False
 
-        capture_content = _content_capture_enabled()
-        try:
-            # ``enable_sensitive_data`` gates MAF's capture of prompts,
-            # completions, and tool arguments/results into spans (see
-            # ``agent_framework.observability.OBSERVABILITY_SETTINGS``). Without
-            # it the spans reach the backend empty and the trace UI shows no
-            # messages. Default to on; honor the opt-out env var.
-            enable_instrumentation(enable_sensitive_data=capture_content)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to enable MAF instrumentation: %s", exc)
-            return False
-
         provider = trace.get_tracer_provider()
         if not isinstance(provider, TracerProvider):
             logger.warning(
@@ -199,7 +191,35 @@ class MAFIntegration(BaseIntegration):
             )
             return False
 
-        self._wrap_existing_exporters(provider)
+        # Wrap the exporters *before* turning on instrumentation: MAF has no
+        # public off switch, so once enabled it keeps emitting spans, and raw
+        # GenAI span names like ``chat gpt-4`` would fail backend span-name
+        # validation and be silently dropped. Failing closed keeps
+        # auto_instrument() honest.
+        if not self._wrap_existing_exporters(provider):
+            return False
+
+        capture_content = _content_capture_enabled()
+        try:
+            # ``enable_sensitive_data`` gates MAF's capture of prompts,
+            # completions, and tool arguments/results into spans (see
+            # ``agent_framework.observability.OBSERVABILITY_SETTINGS``). Without
+            # it the spans reach the backend empty and the trace UI shows no
+            # messages. Default to on; honor the opt-out env var.
+            enable_instrumentation(enable_sensitive_data=capture_content)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to enable MAF instrumentation: %s", exc)
+            # Revert the exporter wrapping installed above so a failed enable
+            # leaves the provider exactly as it found it.
+            for processor, original_exporter in self._patched_processors:
+                try:
+                    _set_processor_exporter(processor, original_exporter)
+                except Exception:  # noqa: BLE001
+                    logger.debug(
+                        "Failed to revert exporter on processor %r", processor, exc_info=True
+                    )
+            self._patched_processors.clear()
+            return False
 
         self._dedup_processor = self._create_callback()
         if not self._dedup_registered:
@@ -246,7 +266,7 @@ class MAFIntegration(BaseIntegration):
         self._enabled = False
         logger.info("✗ Stopped observing agent_framework")
 
-    def _wrap_existing_exporters(self, provider: TracerProvider) -> None:
+    def _wrap_existing_exporters(self, provider: TracerProvider) -> bool:
         """Find every wrappable span processor on the provider and wrap its exporter.
 
         Walks the provider's ``_active_span_processor`` (a multi-processor
@@ -260,13 +280,19 @@ class MAFIntegration(BaseIntegration):
         ``_batch_processor._exporter`` (newer Batch). :func:`_set_processor_exporter`
         handles both layouts. Other processor types (custom, multi-processor
         composites, etc.) are left untouched.
+
+        Returns:
+            ``True`` when at least one exporter is wrapped (or was already
+            wrapped), ``False`` when translation could not be installed —
+            in which case :meth:`enable` fails closed rather than turning on
+            instrumentation whose spans the backend would reject.
         """
         try:
             multi = getattr(provider, "_active_span_processor", None)
             children = getattr(multi, "_span_processors", ()) if multi is not None else ()
         except Exception:  # noqa: BLE001
-            logger.debug("Could not introspect provider span processors", exc_info=True)
-            return
+            logger.warning("Could not introspect provider span processors", exc_info=True)
+            return False
 
         verbose_workflow_spans = _verbose_workflow_spans_enabled()
 
@@ -298,17 +324,18 @@ class MAFIntegration(BaseIntegration):
 
         if wrapped_count == 0 and already_wrapped_count == 0:
             # No batch / simple span processor with a wrappable exporter
-            # (e.g. only a custom processor, or no processors at all). MAF
-            # spans will pass through untranslated and raw GenAI span names
-            # like ``chat gpt-4`` will fail backend span-name validation.
-            # Log loudly so the surprise is debuggable.
+            # (e.g. only a custom processor, or no processors at all). Raw
+            # GenAI span names like ``chat gpt-4`` would fail backend
+            # span-name validation, so enable() fails closed on this result.
             logger.warning(
                 "agent_framework: no batch/simple span processor with a "
                 "wrappable exporter found on the active TracerProvider; "
-                "MAF spans will be emitted but not translated into the "
-                "Rhesis ai.* schema. Ensure RhesisClient is created before "
-                "auto_instrument()."
+                "refusing to enable instrumentation whose spans could not "
+                "be translated into the Rhesis ai.* schema. Ensure "
+                "RhesisClient is created before auto_instrument()."
             )
+            return False
+        return True
 
 
 _maf_integration = MAFIntegration()

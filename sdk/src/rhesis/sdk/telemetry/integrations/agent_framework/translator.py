@@ -38,6 +38,7 @@ from rhesis.sdk.telemetry.integrations.agent_framework import mapping
 
 # Shared with other native-GenAI integrations (see genai.py); imported under
 # the historical private names so existing references keep working.
+from rhesis.sdk.telemetry.integrations.genai import AncestryRegistry
 from rhesis.sdk.telemetry.integrations.genai import (
     TranslatedSpan as _TranslatedSpan,
 )
@@ -307,111 +308,22 @@ def _find_ancestor_agent_in_batch(
 _INVOKE_AGENT_NAME_PREFIX = "invoke_agent "
 
 
-class _HandoffAncestryRegistry:
-    """Persistent (process-lifetime) span ancestry index for handoff edges.
+class _HandoffAncestryRegistry(AncestryRegistry):
+    """MAF ancestry registry (see :class:`~...integrations.genai.AncestryRegistry`).
 
-    The batch-local lookup in :func:`_find_ancestor_agent_in_batch` fails when
-    a handoff tool span and its enclosing ``invoke_agent`` span are exported in
-    different batches. That is the common case under ``BatchSpanProcessor``:
-    a child span ends (and is enqueued) *before* its parent, so on long runs
-    the agent ancestor lands in a later batch than the tool span that needs it.
-
-    This registry sidesteps batching entirely by recording ancestry at span
-    *start* time (a parent always starts before its children, and MAF embeds
-    the agent name in the ``invoke_agent <name>`` span name from the start).
-    The exporter then resolves ``from_agent`` against this index regardless of
-    which batch each span exports in.
-
-    Both dicts are bounded; the oldest entries are evicted once the cap is hit.
+    Sibling tracking is on because MAF's ``HandoffBuilder`` workflow path does
+    not always nest the chat span under the ``invoke_agent`` span: in those
+    runs the ``invoke_agent`` span and the ``chat`` span are SIBLINGS sharing
+    the same ``executor.process`` parent, so the plain parent-chain walk alone
+    can't see the agent.
     """
 
     def __init__(self, max_entries: int = 8192) -> None:
-        self._parent_by_span_id: dict[int, int] = {}
-        self._agent_by_span_id: dict[int, str] = {}
-        # Agent name indexed by its *parent* span id. MAF's workflow path does
-        # not always nest the chat span under the ``invoke_agent`` span: in
-        # ``HandoffBuilder`` runs the ``invoke_agent`` span and the ``chat``
-        # span are SIBLINGS sharing the same ``executor.process`` parent. The
-        # parent-chain walk alone can't see the agent in that layout, so we also
-        # remember "this parent owns agent X" to resolve handoffs from sibling
-        # chat spans.
-        self._agent_by_parent_span_id: dict[int, str] = {}
-        self._max_entries = max_entries
-
-    @staticmethod
-    def _span_id(span: Any) -> int | None:
-        ctx = getattr(span, "context", None)
-        if ctx is None:
-            try:
-                ctx = span.get_span_context()
-            except Exception:  # noqa: BLE001
-                return None
-        return getattr(ctx, "span_id", None)
-
-    def _evict_if_needed(self, store: dict[int, Any]) -> None:
-        if len(store) < self._max_entries:
-            return
-        try:
-            first = next(iter(store))
-            store.pop(first, None)
-        except StopIteration:  # pragma: no cover - racy but harmless
-            pass
-
-    def record(self, span: Any) -> None:
-        """Index a MAF span's parent link and (if an agent span) its name.
-
-        Safe to call from a span processor's ``on_start``; never raises.
-        """
-        try:
-            span_id = self._span_id(span)
-            if span_id is None:
-                return
-            parent_ctx = getattr(span, "parent", None)
-            parent_sid = getattr(parent_ctx, "span_id", None)
-            if parent_sid is not None:
-                self._evict_if_needed(self._parent_by_span_id)
-                self._parent_by_span_id[span_id] = parent_sid
-            name = getattr(span, "name", "") or ""
-            if name.startswith(_INVOKE_AGENT_NAME_PREFIX):
-                agent_name = name[len(_INVOKE_AGENT_NAME_PREFIX) :].strip()
-                if agent_name:
-                    self._evict_if_needed(self._agent_by_span_id)
-                    self._agent_by_span_id[span_id] = agent_name
-                    if parent_sid is not None:
-                        self._evict_if_needed(self._agent_by_parent_span_id)
-                        self._agent_by_parent_span_id[parent_sid] = agent_name
-        except Exception:  # noqa: BLE001 - recording must never break tracing
-            logger.debug("Failed to record span ancestry", exc_info=True)
-
-    def find_ancestor_agent(self, span: ReadableSpan) -> str | None:
-        """Resolve the calling agent for a handoff/chat span.
-
-        Walks the persistent parent chain and, at each hop, checks two ways the
-        agent name may be reachable:
-
-        1. an ancestor ``invoke_agent`` span (the classic nested layout, e.g.
-           tool -> chat -> invoke_agent), and
-        2. a *sibling* ``invoke_agent`` span sharing the current parent (MAF's
-           ``HandoffBuilder`` layout, where chat and invoke_agent are both
-           children of the same ``executor.process`` span).
-        """
-        cur_sid = self._span_id(span)
-        # Bound the walk defensively against malformed parent cycles.
-        for _ in range(64):
-            if cur_sid is None:
-                return None
-            parent_sid = self._parent_by_span_id.get(cur_sid)
-            if parent_sid is None:
-                return None
-            agent = self._agent_by_span_id.get(parent_sid)
-            if agent is not None:
-                return agent
-            # Sibling layout: an invoke_agent span shares this parent.
-            sibling_agent = self._agent_by_parent_span_id.get(parent_sid)
-            if sibling_agent is not None:
-                return sibling_agent
-            cur_sid = parent_sid
-        return None
+        super().__init__(
+            agent_name_prefix=_INVOKE_AGENT_NAME_PREFIX,
+            track_siblings=True,
+            max_entries=max_entries,
+        )
 
 
 # Shared singleton: the dedup processor populates it at span start, the
@@ -827,19 +739,6 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
                 pass
         self._prev_flags[span_id] = prev
 
-    def _retrieve_prev_flag(self, span) -> bool:
-        """Read back the flag value stashed by :meth:`_store_prev_flag`.
-
-        Pops the entry to keep the dict bounded across long-running runs.
-        ``False`` is returned when the span_id was never stashed (e.g.
-        because the on_start hook saw the span before our chat-name check
-        recognized it).
-        """
-        span_id = self._span_id(span)
-        if span_id is None:
-            return False
-        return bool(self._prev_flags.pop(span_id, False))
-
     def on_start(self, span, parent_context=None) -> None:  # noqa: D401
         if not self._active:
             return
@@ -888,20 +787,29 @@ class MAFLLMDedupSpanProcessor(SpanProcessor):
             if not _is_maf_span(span):
                 return
             attrs = span.attributes or {}
-            if attrs.get(mapping.GEN_AI_OPERATION_NAME) != mapping.OP_CHAT:
+            if attrs.get(mapping.GEN_AI_OPERATION_NAME) == mapping.OP_CHAT:
+                # Record this chat span's user input / assistant output so the
+                # exporter can stamp conversation turn-root attributes on the
+                # enclosing root ``workflow.run`` span (which itself carries no
+                # input/output). Keyed by trace id; safe and bounded.
+                ctx = getattr(span, "context", None)
+                trace_id = getattr(ctx, "trace_id", None)
+                _conversation_content.record_chat(
+                    trace_id,
+                    input_text=mapping.extract_conversation_input(attrs),
+                    output_text=mapping.extract_conversation_output(attrs),
+                )
+            # Restore the flag based on what on_start actually recorded rather
+            # than re-deriving chat-ness from attributes: if the
+            # gen_ai.operation.name attribute were ever missing or renamed, an
+            # attribute-gated restore would return early and leave the flag
+            # stuck True for the rest of the context. _prev_flags only contains
+            # entries for spans whose start hook toggled the flag, so
+            # membership is the exact restore condition.
+            span_id = self._span_id(span)
+            if span_id is None or span_id not in self._prev_flags:
                 return
-            # Record this chat span's user input / assistant output so the
-            # exporter can stamp conversation turn-root attributes on the
-            # enclosing root ``workflow.run`` span (which itself carries no
-            # input/output). Keyed by trace id; safe and bounded.
-            ctx = getattr(span, "context", None)
-            trace_id = getattr(ctx, "trace_id", None)
-            _conversation_content.record_chat(
-                trace_id,
-                input_text=mapping.extract_conversation_input(attrs),
-                output_text=mapping.extract_conversation_output(attrs),
-            )
-            prev = self._retrieve_prev_flag(span)
+            prev = bool(self._prev_flags.pop(span_id, False))
             if not prev:
                 set_llm_observation_active(False)
         except Exception:  # noqa: BLE001 - on_end must never raise
