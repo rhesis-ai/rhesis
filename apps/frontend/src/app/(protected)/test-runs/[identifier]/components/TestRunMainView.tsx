@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -109,13 +109,16 @@ export default function TestRunMainView({
     preferLinkedEntities && !searchParams.get('tab')
   );
 
-  // Only fetch raw test results once the Test Cases tab is opened.
-  // A ref ensures the fetch starts and stays enabled after the first visit.
-  const testCasesVisited = React.useRef(
-    activeTab === TAB_KEYS.indexOf('linked_entities')
+  // Fetch test results for Summary (reviews/corrections) and Test Cases tabs.
+  const needsTestResults = React.useRef(
+    activeTab === TAB_KEYS.indexOf('linked_entities') ||
+      activeTab === TAB_KEYS.indexOf('summary')
   );
-  if (activeTab === TAB_KEYS.indexOf('linked_entities')) {
-    testCasesVisited.current = true;
+  if (
+    activeTab === TAB_KEYS.indexOf('linked_entities') ||
+    activeTab === TAB_KEYS.indexOf('summary')
+  ) {
+    needsTestResults.current = true;
   }
 
   const {
@@ -125,10 +128,11 @@ export default function TestRunMainView({
     availableMetrics,
     loading,
     error: loadError,
+    refetch: refetchTestResults,
   } = useTestRunDetailData({
     testRunId,
     sessionToken,
-    enabled: testCasesVisited.current,
+    enabled: needsTestResults.current,
   });
 
   const handleTabChange = useCallback(
@@ -148,6 +152,7 @@ export default function TestRunMainView({
   // Whether another test run exists on the same test set to compare against.
   const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
   const [testSetExists, setTestSetExists] = useState<boolean | null>(null);
+  const [testSetCheckError, setTestSetCheckError] = useState(false);
 
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
@@ -306,9 +311,23 @@ export default function TestRunMainView({
         newMap.set(updatedTest.id, updatedTest);
         return newMap;
       });
+      void refetchTestResults();
     },
-    []
+    [refetchTestResults]
   );
+
+  const previousTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    const summaryTabIndex = TAB_KEYS.indexOf('summary');
+    const switchedToSummary =
+      activeTab === summaryTabIndex && previousTabRef.current !== summaryTabIndex;
+    previousTabRef.current = activeTab;
+
+    if (switchedToSummary) {
+      void refetchTestResults();
+    }
+  }, [activeTab, refetchTestResults]);
 
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
@@ -363,17 +382,30 @@ export default function TestRunMainView({
   useEffect(() => {
     if (!testSetId) {
       setTestSetExists(false);
+      setTestSetCheckError(false);
       return;
     }
     let cancelled = false;
+    setTestSetCheckError(false);
     (async () => {
       try {
         await new ApiClientFactory(sessionToken)
           .getTestSetsClient()
           .getTestSet(testSetId);
-        if (!cancelled) setTestSetExists(true);
-      } catch {
-        if (!cancelled) setTestSetExists(false);
+        if (!cancelled) {
+          setTestSetExists(true);
+          setTestSetCheckError(false);
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const status = (err as { status?: number })?.status;
+        if (status === 404 || status === 410) {
+          setTestSetExists(false);
+          setTestSetCheckError(false);
+        } else {
+          setTestSetExists(null);
+          setTestSetCheckError(true);
+        }
       }
     })();
     return () => {
@@ -483,7 +515,7 @@ export default function TestRunMainView({
   const canRerun =
     Boolean(testRun.test_configuration_id) &&
     canCreateRerun &&
-    testSetExists === true;
+    testSetExists !== false;
 
   const rerunTooltip =
     testSetExists === false
@@ -492,9 +524,11 @@ export default function TestRunMainView({
         ? 'You do not have permission to re-run tests'
         : !testRun.test_configuration_id
           ? 'Cannot re-run: No test configuration found'
-          : testSetExists === null
-            ? 'Checking test set…'
-            : 'Re-run test';
+          : testSetCheckError
+            ? "Couldn't verify test set availability"
+            : testSetExists === null
+              ? 'Checking test set…'
+              : 'Re-run test';
 
   return (
     <Box>

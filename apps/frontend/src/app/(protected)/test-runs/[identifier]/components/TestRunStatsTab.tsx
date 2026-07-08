@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -36,9 +36,13 @@ import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
 import {
   BehaviorStat,
+  buildBehaviorCorrectionTooltip,
   computeReviewSummary,
+  countBehaviorHumanCorrections,
+  getResultReviews,
   getReviewBand,
-  metricHasHumanCorrection,
+  metricHasHumanReview,
+  metricShowsHumanCorrection,
   MetricStat,
 } from './test-run-summary-utils';
 
@@ -84,6 +88,33 @@ function BandChip({ passRate }: { passRate: number }) {
       color={band.colorKey}
       sx={{ fontWeight: 500 }}
     />
+  );
+}
+
+function CorrectedChip({
+  title,
+  label = 'corrected',
+}: {
+  title: string;
+  label?: 'corrected' | 'reviewed';
+}) {
+  return (
+    <Tooltip title={title} placement="top" arrow>
+      <Chip
+        size="small"
+        variant="outlined"
+        icon={<RateReviewIcon sx={{ '&&': { fontSize: 16 } }} />}
+        label={label}
+        sx={{
+          flexShrink: 0,
+          borderColor: theme => theme.palette.primary.dark,
+          color: theme => theme.palette.primary.dark,
+          '& .MuiChip-icon': {
+            color: theme => theme.palette.primary.dark,
+          },
+        }}
+      />
+    </Tooltip>
   );
 }
 
@@ -172,15 +203,32 @@ function BehaviorTable({
                 }
               >
                 <TableCell sx={{ maxWidth: 300 }}>
-                  <Tooltip title={stat.name} placement="top" arrow>
-                    <Typography
-                      variant="body2"
-                      noWrap
-                      sx={{ maxWidth: 280, display: 'block' }}
-                    >
-                      {stat.name}
-                    </Typography>
-                  </Tooltip>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <Tooltip title={stat.name} placement="top" arrow>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ maxWidth: 200, display: 'block' }}
+                      >
+                        {stat.name}
+                      </Typography>
+                    </Tooltip>
+                    {stat.hasHumanCorrection && (
+                      <CorrectedChip
+                        title={
+                          stat.humanCorrectionTooltip ??
+                          `${stat.humanCorrectionCount ?? 1} corrected by human review`
+                        }
+                      />
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell align="right">{stat.total}</TableCell>
                 <TableCell
@@ -255,11 +303,9 @@ type MetricSortField = 'name' | 'total' | 'failRate';
 
 function MetricTable({
   stats,
-  testResults,
   onViewMetric,
 }: {
   stats: MetricStat[];
-  testResults: TestResultDetail[];
   onViewMetric?: (metricName: string) => void;
 }) {
   const [sortField, setSortField] = useState<MetricSortField>('failRate');
@@ -352,23 +398,16 @@ function MetricTable({
                         {stat.name}
                       </Typography>
                     </Tooltip>
-                    {metricHasHumanCorrection(stat.name, testResults) && (
-                      <Tooltip
+                    {stat.hasHumanCorrection && (
+                      <CorrectedChip
                         title={`Automated: ${stat.automatedPassed ?? 0} passed, ${stat.automatedFailed ?? 0} failed. After human review: ${stat.passed} passed, ${stat.failed} failed.`}
-                        placement="top"
-                        arrow
-                      >
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          color="info"
-                          icon={
-                            <RateReviewIcon sx={{ '&&': { fontSize: 16 } }} />
-                          }
-                          label="corrected"
-                          sx={{ flexShrink: 0 }}
-                        />
-                      </Tooltip>
+                      />
+                    )}
+                    {!stat.hasHumanCorrection && stat.hasMetricReview && (
+                      <CorrectedChip
+                        label="reviewed"
+                        title="This metric has a human review that confirmed the automated result."
+                      />
                     )}
                   </Box>
                 </TableCell>
@@ -423,20 +462,14 @@ function MetricTable({
 
 function MetricPerformanceSection({
   stats,
-  testResults,
   onViewMetric,
 }: {
   stats: MetricStat[];
-  testResults: TestResultDetail[];
   onViewMetric?: (metricName: string) => void;
 }) {
   return (
     <SectionCard title="Metric Performance">
-      <MetricTable
-        stats={stats}
-        testResults={testResults}
-        onViewMetric={onViewMetric}
-      />
+      <MetricTable stats={stats} onViewMetric={onViewMetric} />
     </SectionCard>
   );
 }
@@ -597,50 +630,80 @@ export default function TestRunStatsTab({
   const [stats, setStats] = useState<TestResultsStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
+  const reviewRevision = useMemo(
+    () =>
+      testResults.reduce(
+        (count, result) => count + getResultReviews(result).length,
+        0
+      ),
+    [testResults]
+  );
+
+  const fetchStats = useCallback(async () => {
+    if (!sessionToken) {
+      setStatsLoading(false);
+      return;
+    }
+    try {
+      setStatsLoading(true);
+      const client = new ApiClientFactory(sessionToken).getTestResultsClient();
+      const result = await client.getComprehensiveTestResultsStats({
+        test_run_ids: [testRunId],
+        mode: 'all',
+      });
+      if (isMounted.current) {
+        setStats(result);
+        setStatsLoading(false);
+      }
+    } catch {
+      if (isMounted.current) {
+        setStatsLoading(false);
+      }
+    }
+  }, [sessionToken, testRunId]);
+
   useEffect(() => {
     isMounted.current = true;
-
-    const fetchStats = async () => {
-      if (!sessionToken) return setStatsLoading(false);
-      try {
-        setStatsLoading(true);
-        const client = new ApiClientFactory(
-          sessionToken
-        ).getTestResultsClient();
-        const result = await client.getComprehensiveTestResultsStats({
-          test_run_ids: [testRunId],
-          mode: 'all',
-        });
-        if (isMounted.current) {
-          setStats(result);
-          setStatsLoading(false);
-        }
-      } catch {
-        if (isMounted.current) {
-          setStatsLoading(false);
-        }
-      }
-    };
-
     void fetchStats();
     return () => {
       isMounted.current = false;
     };
-  }, [testRunId, sessionToken]);
+  }, [fetchStats]);
+
+  const lastReviewRevision = useRef(reviewRevision);
+  useEffect(() => {
+    if (lastReviewRevision.current === reviewRevision) return;
+    lastReviewRevision.current = reviewRevision;
+    void fetchStats();
+  }, [fetchStats, reviewRevision]);
+
+  const isDataLoading = statsLoading || loading;
 
   const behaviorStats = useMemo((): BehaviorStat[] => {
-    if (!stats?.behavior_pass_rates) return [];
-    return Object.entries(stats.behavior_pass_rates).map(([name, s]) => ({
-      name,
-      total: s.total,
-      passed: s.passed,
-      failed: s.failed,
-      passRate: s.pass_rate,
-    }));
-  }, [stats]);
+    if (!stats?.behavior_pass_rates || loading) return [];
+    return Object.entries(stats.behavior_pass_rates).map(([name, s]) => {
+      const humanCorrectionCount = countBehaviorHumanCorrections(
+        name,
+        testResults
+      );
+      return {
+        name,
+        total: s.total,
+        passed: s.passed,
+        failed: s.failed,
+        passRate: s.pass_rate,
+        hasHumanCorrection: humanCorrectionCount > 0,
+        humanCorrectionCount,
+        humanCorrectionTooltip: buildBehaviorCorrectionTooltip(
+          name,
+          testResults
+        ),
+      };
+    });
+  }, [stats, testResults, loading]);
 
   const metricStats = useMemo((): MetricStat[] => {
-    if (!stats?.metric_pass_rates) return [];
+    if (!stats?.metric_pass_rates || loading) return [];
     return Object.entries(stats.metric_pass_rates).map(([name, s]) => ({
       name,
       total: s.total,
@@ -650,12 +713,18 @@ export default function TestRunStatsTab({
       automatedPassed: s.automated_passed,
       automatedFailed: s.automated_failed,
       humanReviewCount: s.human_review_count,
+      hasHumanCorrection: metricShowsHumanCorrection(
+        name,
+        testResults,
+        stats?.metric_pass_rates
+      ),
+      hasMetricReview: metricHasHumanReview(name, testResults),
     }));
-  }, [stats]);
+  }, [stats, testResults, loading]);
 
   const reviewSummary = useMemo(
-    () => computeReviewSummary(testResults),
-    [testResults]
+    () => (loading ? undefined : computeReviewSummary(testResults)),
+    [testResults, loading]
   );
 
   const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
@@ -667,12 +736,12 @@ export default function TestRunStatsTab({
         testResults={testResults}
         overallStats={stats?.overall_pass_rates}
         reviewSummary={reviewSummary}
-        loading={statsLoading}
+        loading={isDataLoading}
         onRefresh={onRefresh}
       />
 
       <Stack spacing={3} sx={{ mt: 3 }}>
-        {statsLoading ? (
+        {isDataLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>
@@ -694,14 +763,13 @@ export default function TestRunStatsTab({
             {metricStats.length > 0 && (
               <MetricPerformanceSection
                 stats={metricStats}
-                testResults={testResults}
                 onViewMetric={onViewMetric}
               />
             )}
             <MoreBreakdownsSection
               categoryPassRates={stats?.category_pass_rates}
               topicPassRates={stats?.topic_pass_rates}
-              isLoading={statsLoading}
+              isLoading={isDataLoading}
             />
           </>
         )}

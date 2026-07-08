@@ -127,12 +127,106 @@ describe('TestRunHeader', () => {
       makeResult('fail'),
       makeResult('pass'),
     ];
-    render(<TestRunHeader testRun={makeTestRun()} testResults={results} />);
+    render(
+      <TestRunHeader
+        testRun={makeTestRun({
+          attributes: {
+            started_at: '2024-01-01T10:00:00Z',
+            completed_at: '2024-01-01T10:05:30Z',
+            total_tests: 3,
+          },
+        })}
+        testResults={results}
+      />
+    );
     expect(screen.getByText('Tests Executed')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('Avg. 1 turn')).toBeInTheDocument();
   });
 
-  it('renders Duration card', () => {
+  it('prefers run total_tests over stale test set metadata when complete', () => {
+    const base = makeTestRun();
+    const testRun = makeTestRun({
+      attributes: {
+        started_at: '2024-01-01T10:00:00Z',
+        completed_at: '2024-01-01T10:05:30Z',
+        total_tests: 5,
+      },
+      test_configuration: {
+        ...base.test_configuration!,
+        test_set: {
+          ...base.test_configuration!.test_set!,
+          attributes: { metadata: { total_tests: 7 } },
+        },
+      },
+    });
+    const results = [
+      makeResult('pass'),
+      makeResult('fail'),
+      makeResult('fail'),
+      makeResult('fail'),
+      makeResult('fail'),
+    ];
+
+    render(
+      <TestRunHeader
+        testRun={testRun}
+        testResults={results}
+        overallStats={{ total: 5, passed: 1, failed: 4, pass_rate: 20 }}
+      />
+    );
+
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.queryByText('5/7')).not.toBeInTheDocument();
+  });
+
+  it('shows executed over expected while a run is in progress', () => {
+    const testRun = makeTestRun({
+      status: { id: u(20), name: 'progress' },
+      attributes: {
+        started_at: '2024-01-01T10:00:00Z',
+        total_tests: 5,
+      },
+    });
+
+    render(
+      <TestRunHeader
+        testRun={testRun}
+        testResults={[makeResult('pass'), makeResult('fail')]}
+        overallStats={{ total: 2, passed: 1, failed: 1, pass_rate: 50 }}
+      />
+    );
+
+    expect(screen.getByText('2/5')).toBeInTheDocument();
+  });
+
+  it('averages turn depth from test output for multi-turn results', () => {
+    const multiTurnResult = (turns: number): TestResultDetail =>
+      ({
+        ...makeResult('pass'),
+        test_output: {
+          turns_used: turns,
+          output: '',
+          context: [],
+          session_id: 'session-1',
+        },
+      }) as unknown as TestResultDetail;
+
+    render(
+      <TestRunHeader
+        testRun={makeTestRun()}
+        testResults={[
+          multiTurnResult(2),
+          multiTurnResult(4),
+          multiTurnResult(6),
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Avg. 4 turns')).toBeInTheDocument();
+  });
+
+  it('renders Status card with duration', () => {
     const testRun = makeTestRun({
       attributes: {
         started_at: '2024-01-01T10:00:00Z',
@@ -140,7 +234,7 @@ describe('TestRunHeader', () => {
       },
     });
     render(<TestRunHeader testRun={testRun} testResults={[]} />);
-    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Status')).toBeInTheDocument();
     expect(screen.getByText('5m 30s')).toBeInTheDocument();
   });
 
@@ -162,7 +256,7 @@ describe('TestRunHeader', () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders Completed status below duration date', () => {
+  it('renders Completed status chip on Status card', () => {
     const testRun = makeTestRun({
       status: { id: u(20), name: 'Completed' },
     });
@@ -200,16 +294,16 @@ describe('TestRunHeader', () => {
         reviewSummary={{
           testReviewCount: 2,
           metricReviewCount: 1,
+          testCorrectionCount: 0,
+          metricCorrectionCount: 0,
           correctionCount: 0,
-          headline: '3 reviewed',
-          subtitle: '2 tests · 1 metric · confirmed',
+          headline: '2 tests',
+          subtitle: '1 metric · confirmed',
         }}
       />
     );
     expect(screen.getByText('Reviews')).toBeInTheDocument();
-    expect(screen.getByText('3 reviewed')).toBeInTheDocument();
-    expect(
-      screen.getByText('2 tests · 1 metric · confirmed')
-    ).toBeInTheDocument();
+    expect(screen.getByText('2 tests')).toBeInTheDocument();
+    expect(screen.getByText('1 metric · confirmed')).toBeInTheDocument();
   });
 });

@@ -37,6 +37,56 @@ import { experimentHref } from '@/utils/experiment-links';
 import { BiotechIcon } from '@/components/icons';
 import { ReviewSummary } from './test-run-summary-utils';
 
+function getRunExpectedTestCount(testRun: TestRunDetail): number | undefined {
+  const fromRun = testRun.attributes?.total_tests;
+  if (typeof fromRun === 'number' && fromRun > 0) {
+    return fromRun;
+  }
+
+  const fromTestSet =
+    testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
+  if (typeof fromTestSet === 'number' && fromTestSet > 0) {
+    return fromTestSet;
+  }
+
+  return undefined;
+}
+
+function formatTestsExecutedDisplay(
+  executed: number,
+  expected: number | undefined,
+  isInProgress: boolean
+): string {
+  if (
+    expected != null &&
+    expected > 0 &&
+    (isInProgress || executed < expected)
+  ) {
+    return `${executed}/${expected}`;
+  }
+
+  return `${executed}`;
+}
+
+function resolveTurnCount(result: TestResultDetail): number {
+  const fromOutput =
+    result.test_output?.turns_used ??
+    result.test_output?.stats?.total_turns ??
+    result.test_output?.conversation_summary?.length;
+
+  if (typeof fromOutput === 'number' && fromOutput > 0) {
+    return fromOutput;
+  }
+
+  return 1;
+}
+
+function formatAvgTurnSubtitle(avgTurnDepth: string): string {
+  const turns = Number(avgTurnDepth);
+  const label = turns === 1 ? 'turn' : 'turns';
+  return `Avg. ${avgTurnDepth} ${label}`;
+}
+
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
   testResults: TestResultDetail[];
@@ -154,12 +204,6 @@ export default function TestRunHeader({
 }: TestRunHeaderProps) {
   const theme = useTheme();
 
-  // Determine if this is a multi-turn test set
-  const isMultiTurn =
-    testRun.test_configuration?.test_set?.test_set_type?.type_value
-      ?.toLowerCase()
-      .includes('multi-turn') || false;
-
   // Calculate statistics
   const stats = useMemo(() => {
     let total: number;
@@ -189,17 +233,17 @@ export default function TestRunHeader({
         } else if (status === 'Fail') {
           failed++;
         }
-
-        if (isMultiTurn && result.test_output) {
-          const turns =
-            result.test_output.turns_used ||
-            result.test_output.stats?.total_turns;
-          if (turns) {
-            totalTurns += turns;
-            testsWithTurnData++;
-          }
-        }
       });
+    }
+
+    if (testResults.length > 0) {
+      testResults.forEach(result => {
+        totalTurns += resolveTurnCount(result);
+        testsWithTurnData++;
+      });
+    } else if (total > 0) {
+      totalTurns = total;
+      testsWithTurnData = total;
     }
 
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0';
@@ -306,10 +350,9 @@ export default function TestRunHeader({
       statusColor,
       statusLabel,
     };
-  }, [testResults, testRun, isMultiTurn, overallStats]);
+  }, [testResults, testRun, overallStats]);
 
-  const totalExpected =
-    testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
+  const totalExpected = getRunExpectedTestCount(testRun);
 
   const isInProgress = stats.status === 'in_progress';
 
@@ -340,6 +383,8 @@ export default function TestRunHeader({
   const reviews = reviewSummary ?? {
     testReviewCount: 0,
     metricReviewCount: 0,
+    testCorrectionCount: 0,
+    metricCorrectionCount: 0,
     correctionCount: 0,
     headline: '0',
     subtitle: 'No reviews yet',
@@ -430,17 +475,15 @@ export default function TestRunHeader({
               </Box>
 
               <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
-                {totalExpected
-                  ? `${stats.total}/${totalExpected}`
-                  : stats.total}
+                {formatTestsExecutedDisplay(
+                  stats.total,
+                  totalExpected,
+                  isInProgress
+                )}
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                {isMultiTurn
-                  ? `Avg ${stats.avgTurnDepth} turns`
-                  : stats.executionErrors > 0
-                    ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
-                    : `${stats.passed} passed, ${stats.failed} failed`}
+                {formatAvgTurnSubtitle(stats.avgTurnDepth)}
               </Typography>
 
               {testRun.experiment_id && (
@@ -508,7 +551,7 @@ export default function TestRunHeader({
           </Card>
         </Grid>
 
-        {/* Duration Card */}
+        {/* Status Card */}
         <Grid
           size={{
             xs: 12,
@@ -537,7 +580,7 @@ export default function TestRunHeader({
                   color="text.secondary"
                   fontWeight={500}
                 >
-                  Duration
+                  Status
                 </Typography>
                 <Box
                   sx={{
