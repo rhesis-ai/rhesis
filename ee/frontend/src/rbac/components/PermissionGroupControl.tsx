@@ -103,7 +103,10 @@ function PermissionCheckbox({
         />
       }
       label={
-        <Typography variant={compact ? 'caption' : 'body2'} sx={{ fontSize: 12 }}>
+        <Typography
+          variant={compact ? 'caption' : 'body2'}
+          sx={{ fontSize: 12 }}
+        >
           {label}
         </Typography>
       }
@@ -247,11 +250,15 @@ export default function PermissionGroupControl({
             sx={{
               ...permissionGridRowSx,
               pb: 1,
-              borderBottom: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+              borderBottom: (t: Theme) =>
+                `1px solid ${t.palette.greyscale.border}`,
               mb: 0.5,
             }}
           >
-            <Typography variant="caption" sx={{ fontWeight: 700, color: 'greyscale.body' }}>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, color: 'greyscale.body' }}
+            >
               Resource
             </Typography>
             {PERMISSION_COLUMNS.map(col => (
@@ -269,7 +276,10 @@ export default function PermissionGroupControl({
                 {col.label}
               </Typography>
             ))}
-            <Typography variant="caption" sx={{ fontWeight: 700, color: 'greyscale.body' }}>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, color: 'greyscale.body' }}
+            >
               Other
             </Typography>
           </Box>
@@ -280,11 +290,15 @@ export default function PermissionGroupControl({
               sx={{
                 ...permissionGridRowSx,
                 py: 0.75,
-                borderBottom: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+                borderBottom: (t: Theme) =>
+                  `1px solid ${t.palette.greyscale.border}`,
                 '&:last-child': { borderBottom: 'none' },
               }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 600, fontSize: 13 }}
+              >
                 {row.label}
               </Typography>
 
@@ -299,7 +313,9 @@ export default function PermissionGroupControl({
                         onChange={() => onToggleCapability(cap)}
                         disabled={readOnly}
                         sx={permissionCheckboxSx}
-                        inputProps={{ 'aria-label': `${row.label} ${col.label}` }}
+                        inputProps={{
+                          'aria-label': `${row.label} ${col.label}`,
+                        }}
                       />
                     ) : null}
                   </Box>

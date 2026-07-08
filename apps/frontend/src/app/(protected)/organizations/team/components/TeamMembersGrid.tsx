@@ -24,9 +24,7 @@ import GridToolbar, {
   sectionCardGridTableEdgeCellResetSx,
   sectionCardGridTableInsetSx,
 } from '@/components/common/GridToolbar';
-import {
-  ROW_ACTIONS_CLASS,
-} from '@/components/common/createRowActionsColumn';
+import { ROW_ACTIONS_CLASS } from '@/components/common/createRowActionsColumn';
 import {
   SectionOverviewHeaderCell,
   SectionOverviewPagination,
@@ -252,7 +250,15 @@ export default function TeamMembersGrid({
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={showRoleColumn ? (canDeleteMember ? 5 : 4) : canDeleteMember ? 4 : 3}
+                  colSpan={
+                    showRoleColumn
+                      ? canDeleteMember
+                        ? 5
+                        : 4
+                      : canDeleteMember
+                        ? 4
+                        : 3
+                  }
                   sx={{ ...sectionOverviewBodyCellSx, borderTop: 'none' }}
                 >
                   <Box
@@ -269,7 +275,15 @@ export default function TeamMembersGrid({
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={showRoleColumn ? (canDeleteMember ? 5 : 4) : canDeleteMember ? 4 : 3}
+                  colSpan={
+                    showRoleColumn
+                      ? canDeleteMember
+                        ? 5
+                        : 4
+                      : canDeleteMember
+                        ? 4
+                        : 3
+                  }
                   sx={{ ...sectionOverviewBodyCellSx, borderTop: 'none' }}
                 >
                   <Typography variant="body2" color="text.secondary">

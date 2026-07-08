@@ -71,7 +71,9 @@ export default function RoleSelectField({
     () =>
       roles.filter(
         r =>
-          (scope === 'org' ? isAssignableOrgRole(r) : isAssignableProjectRole(r)) &&
+          (scope === 'org'
+            ? isAssignableOrgRole(r)
+            : isAssignableProjectRole(r)) &&
           isWithinActorAuthority(r, myLevel, myPermissions)
       ),
     [roles, scope, myLevel, myPermissions]

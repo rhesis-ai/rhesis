@@ -4,7 +4,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Link, Stack, TextField, Typography } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { drawerOutlinedFieldSx, ROLE_EDITOR_DRAWER_WIDTH } from '@/components/common/drawerFormFieldSx';
+import {
+  drawerOutlinedFieldSx,
+  ROLE_EDITOR_DRAWER_WIDTH,
+} from '@/components/common/drawerFormFieldSx';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { RbacClient } from '../api/rbac-client';

@@ -94,7 +94,9 @@ describe('RolesTab', () => {
     render(<RolesTab />);
 
     await screen.findByText('No custom roles yet');
-    expect(screen.getAllByRole('button', { name: /new role/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /new role/i })).toHaveLength(
+      1
+    );
   });
 
   it('shows the header "New role" action when custom roles exist', async () => {

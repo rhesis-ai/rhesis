@@ -488,7 +488,11 @@ function capsInArea(area: ResourceArea): string[] {
   return [...new Set(Object.values(area.levels).flatMap(caps => [...caps]))];
 }
 
-function standardCap(caps: string[], resourceId: string, action: string): string | undefined {
+function standardCap(
+  caps: string[],
+  resourceId: string,
+  action: string
+): string | undefined {
   const target = `${resourceId}:${action}`;
   return caps.find(cap => cap === target);
 }

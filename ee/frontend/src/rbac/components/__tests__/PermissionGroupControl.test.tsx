@@ -89,7 +89,9 @@ describe('PermissionGroupControl', () => {
         area={AREA}
         currentLevel={CapabilityLevel.NONE}
         onLevelChange={jest.fn()}
-        permissions={new Set([Capability.TestSet.READ, Capability.Endpoint.READ])}
+        permissions={
+          new Set([Capability.TestSet.READ, Capability.Endpoint.READ])
+        }
         onToggleCapability={jest.fn()}
         maxLevel={CapabilityLevel.MANAGE}
       />
