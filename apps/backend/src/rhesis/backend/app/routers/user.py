@@ -402,8 +402,25 @@ def update_user(
         if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
             raise HTTPException(status_code=403, detail="Not authorized to update this user")
 
+    had_no_organization = db_user.organization_id is None
+
     # Update the user
     updated_user = crud.update_user(db, user_id=user_id, user=user)
+
+    # Joining an org for the first time (e.g. the creator attaching to their own
+    # org during onboarding) — seed the default RBAC role now, not later. Every
+    # subsequent onboarding call (invite teammates, load-initial-data, the
+    # frontend's org-context fetch) is capability-gated on this role existing;
+    # deferring assignment locks the creator out of their own onboarding flow
+    # once RBAC is enabled. This route runs on a plain (non-tenant) session, so
+    # session variables must be set explicitly — organization_member RLS
+    # requires app.current_organization for the INSERT to succeed.
+    if had_no_organization and updated_user.organization_id is not None:
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+        from rhesis.backend.app.database import set_session_variables
+
+        set_session_variables(db, str(updated_user.organization_id), str(updated_user.id))
+        on_user_org_assigned(db, updated_user.id, updated_user.organization_id)
 
     # If this is the current user being updated, refresh their session token
     if str(updated_user.id) == str(current_user.id):

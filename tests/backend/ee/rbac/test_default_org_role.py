@@ -102,9 +102,7 @@ def _set_owner(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
 def _member_row(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> OrganizationMember | None:
     with bypass_tenant_filter():
         return (
-            db.query(OrganizationMember)
-            .filter_by(organization_id=org_id, user_id=user_id)
-            .first()
+            db.query(OrganizationMember).filter_by(organization_id=org_id, user_id=user_id).first()
         )
 
 
@@ -190,6 +188,68 @@ class TestCreatorGetsOwner:
         with _rbac_on():
             assign_default_org_role(test_db, user_id, org_id)
             assert _authorized(test_db, user_id, org_id, "member:manage", project_id=None)
+
+
+# ---------------------------------------------------------------------------
+# PUT /users/{user_id} seeds the Owner role immediately (regression: the org
+# creator must not be locked out of later onboarding calls — invite teammates,
+# load-initial-data — that are capability-gated on this same role).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestUpdateUserSeedsOwnerRoleOnFirstOrgAssignment:
+    def test_owner_row_written_when_organization_id_first_set(self, test_db: Session):
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.models.user import User
+        from rhesis.backend.app.routers.user import update_user
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        _set_owner(test_db, org_id, user_id)
+
+        # Simulate the user's state *before* they are attached to the org: no
+        # organization_id yet, matching the onboarding creator flow.
+        current_user = test_db.query(User).filter_by(id=user_id).first()
+        current_user.organization_id = None
+        test_db.flush()
+
+        assert _member_row(test_db, org_id, user_id) is None
+
+        with _rbac_on():
+            update_user(
+                user_id=user_id,
+                user=schemas.UserUpdate(organization_id=org_id),
+                request=None,
+                db=test_db,
+                current_user=current_user,
+            )
+
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Owner"
+
+    def test_no_op_when_user_already_has_an_organization(self, test_db: Session):
+        """Ordinary profile updates (already in an org) must not re-trigger seeding."""
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.models.user import User
+        from rhesis.backend.app.routers.user import update_user
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        current_user = test_db.query(User).filter_by(id=user_id).first()
+
+        with _rbac_on():
+            update_user(
+                user_id=user_id,
+                user=schemas.UserUpdate(name="New Name"),
+                request=None,
+                db=test_db,
+                current_user=current_user,
+            )
+
+        assert _member_row(test_db, org_id, user_id) is None
 
 
 # ---------------------------------------------------------------------------
