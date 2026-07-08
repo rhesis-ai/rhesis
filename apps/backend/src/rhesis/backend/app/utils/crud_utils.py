@@ -487,26 +487,48 @@ def get_items_detail(
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
         selectin_chains: Extra relationship-name chains to load with nested selectinload,
                         beyond the defaults above. Format: [["rel", "nested_rel"], ...]
+
+    Runs as two queries rather than one: a joinless query picks the page's IDs
+    (filter + sort + LIMIT/OFFSET), then a second query eager-loads
+    relationships scoped to just those IDs. Without this split, Postgres has
+    to build every eager-loaded join for every matching row across the whole
+    org before it can sort and cut down to `limit` -- for a model joined
+    against a dozen tables, that cost scales with total matching rows, not
+    with the page size actually returned.
     """
-    builder = QueryBuilder(db, model).with_optimized_loads(
-        skip_many_to_many=False,
-        skip_one_to_many=True,
-        nested_relationships=nested_relationships,
-    )
-    builder = builder.with_default_derived_field_loads(selectin_chains)
-    return (
-        builder.with_organization_filter(organization_id)
+    ordered_ids = (
+        QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
-        .with_pagination(skip, limit)
         .with_sorting(
             sort_by,
             sort_order,
             secondary_sort_by=secondary_sort_by,
             secondary_sort_order=secondary_sort_order,
         )
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    builder = QueryBuilder(db, model).with_optimized_loads(
+        skip_many_to_many=False,
+        skip_one_to_many=True,
+        nested_relationships=nested_relationships,
+    )
+    builder = builder.with_default_derived_field_loads(selectin_chains)
+    items = (
+        builder.with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .query.filter(model.id.in_(ordered_ids))
         .all()
     )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def create_item(
