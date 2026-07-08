@@ -193,88 +193,97 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         const clientFactory = new ApiClientFactory(sessionToken);
         const usersClient = clientFactory.getUsersClient();
 
-        const invitationResults: Array<{
-          email: string;
-          success: boolean;
-          error?: string;
-        }> = [];
-
-        const createUserPromises = validInvites.map(async invite => {
-          const email = invite.email.trim();
-          const userData = {
-            email: email,
-            organization_id: session.user?.organization_id as UUID,
-            is_active: true,
-            send_invite: true,
+        type InviteResult = {
+          user: Awaited<ReturnType<typeof usersClient.createUser>> | null;
+          invitation: {
+            email: string;
+            success: boolean;
+            error?: string;
           };
+        };
 
-          try {
-            const user = await usersClient.createUser(userData);
-            if (user && invite.orgRoleId && assignOrgMemberRole) {
-              try {
-                await assignOrgMemberRole(
-                  sessionToken,
-                  String(user.id),
-                  invite.orgRoleId
-                );
-              } catch {
-                // org-role assignment failure is non-fatal — user is still invited
+        const createUserResults = await Promise.all(
+          validInvites.map(async invite => {
+            const email = invite.email.trim();
+            const userData = {
+              email: email,
+              organization_id: session.user?.organization_id as UUID,
+              is_active: true,
+              send_invite: true,
+            };
+
+            try {
+              const user = await usersClient.createUser(userData);
+              if (user && invite.orgRoleId && assignOrgMemberRole) {
+                try {
+                  await assignOrgMemberRole(
+                    sessionToken,
+                    String(user.id),
+                    invite.orgRoleId
+                  );
+                } catch {
+                  // org-role assignment failure is non-fatal — user is still invited
+                }
               }
-            }
-            invitationResults.push({ email, success: true });
-            return user;
-          } catch (error: unknown) {
-            let errorMessage = 'Unknown error';
-            let isExpectedError = false;
+              return {
+                user,
+                invitation: { email, success: true },
+              } satisfies InviteResult;
+            } catch (error: unknown) {
+              let errorMessage = 'Unknown error';
+              let isExpectedError = false;
 
-            if (error instanceof Error) {
-              if (error.message.includes('API error:')) {
-                const statusMatch = error.message.match(/API error: (\d+)/);
-                const statusCode = statusMatch
-                  ? parseInt(statusMatch[1])
-                  : null;
-                isExpectedError = statusCode
-                  ? [400, 409, 422, 429].includes(statusCode)
-                  : false;
+              if (error instanceof Error) {
+                if (error.message.includes('API error:')) {
+                  const statusMatch = error.message.match(/API error: (\d+)/);
+                  const statusCode = statusMatch
+                    ? parseInt(statusMatch[1])
+                    : null;
+                  isExpectedError = statusCode
+                    ? [400, 409, 422, 429].includes(statusCode)
+                    : false;
 
-                const match = error.message.match(/API error: \d+ - (.+)/);
-                if (match && match[1]) {
-                  try {
-                    const parsed = JSON.parse(match[1]);
-                    errorMessage = parsed.detail || parsed.message || match[1];
-                  } catch {
-                    errorMessage = match[1];
+                  const match = error.message.match(/API error: \d+ - (.+)/);
+                  if (match && match[1]) {
+                    try {
+                      const parsed = JSON.parse(match[1]);
+                      errorMessage =
+                        parsed.detail || parsed.message || match[1];
+                    } catch {
+                      errorMessage = match[1];
+                    }
+                  } else {
+                    errorMessage = error.message;
                   }
                 } else {
                   errorMessage = error.message;
                 }
-              } else {
-                errorMessage = error.message;
+              } else if (
+                typeof error === 'object' &&
+                error !== null &&
+                'detail' in error
+              ) {
+                errorMessage = String((error as { detail: unknown }).detail);
+              } else if (typeof error === 'string') {
+                errorMessage = error;
               }
-            } else if (
-              typeof error === 'object' &&
-              error !== null &&
-              'detail' in error
-            ) {
-              errorMessage = String((error as { detail: unknown }).detail);
-            } else if (typeof error === 'string') {
-              errorMessage = error;
+
+              if (!isExpectedError) {
+                // unexpected errors logged by API client
+              }
+
+              return {
+                user: null,
+                invitation: { email, success: false, error: errorMessage },
+              } satisfies InviteResult;
             }
+          })
+        );
 
-            if (!isExpectedError) {
-              // unexpected errors logged by API client
-            }
-
-            invitationResults.push({
-              email,
-              success: false,
-              error: errorMessage,
-            });
-            return null;
-          }
-        });
-
-        const createdUsers = await Promise.all(createUserPromises);
+        const createdUsers = createUserResults.map(result => result.user);
+        const invitationResults = createUserResults.map(
+          result => result.invitation
+        );
 
         // Enroll successfully created users into the selected projects.
         const selectedProjectIds = Object.keys(projectRoles);

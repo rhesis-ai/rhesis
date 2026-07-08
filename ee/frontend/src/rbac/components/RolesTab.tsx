@@ -73,6 +73,7 @@ function CustomRoleRowActions({
       <Tooltip title={canManageRoles ? 'Edit' : 'View'}>
         <IconButton
           size="small"
+          aria-label={canManageRoles ? 'Edit role' : 'View role'}
           onClick={onEdit}
           sx={{
             ...rowActionIconButtonSx,
@@ -89,6 +90,7 @@ function CustomRoleRowActions({
         <Tooltip title="Delete">
           <IconButton
             size="small"
+            aria-label="Delete role"
             onClick={onDelete}
             sx={{
               ...rowActionIconButtonSx,
