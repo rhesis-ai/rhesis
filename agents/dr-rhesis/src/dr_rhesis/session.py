@@ -6,7 +6,9 @@ import uuid
 from threading import Lock
 from typing import Any
 
-from dr_rhesis.pipeline import TurnComponents, build_intent_pipeline, build_turn_components, run_turn
+from haystack import Pipeline
+
+from dr_rhesis.pipeline import TurnComponents, build_intent_pipeline, run_turn
 from dr_rhesis.state import DrRhesisState
 
 
@@ -50,6 +52,24 @@ class StateStore:
 
 default_store = StateStore()
 
+# The per-turn pipeline and its shared Gemini generator are expensive to build
+# (the generator initialises an API client), so build them once and reuse across
+# turns instead of rebuilding on every request. The custom components are
+# stateless — they deep-copy state and hold no per-request data on ``self`` — and
+# the generator is safe to share, so a single cached pipeline serves all turns.
+_default_pipeline: Pipeline | None = None
+_pipeline_lock = Lock()
+
+
+def get_default_pipeline() -> Pipeline:
+    """Return the process-wide per-turn pipeline, building it once on first use."""
+    global _default_pipeline
+    if _default_pipeline is None:
+        with _pipeline_lock:
+            if _default_pipeline is None:
+                _default_pipeline = build_intent_pipeline()
+    return _default_pipeline
+
 
 def run_chat_turn(
     message: str,
@@ -64,7 +84,12 @@ def run_chat_turn(
     state = active_store.get(conv_id)
 
     # Future: set_conversation_id(conv_id) when Haystack SDK integration lands.
-    pipeline = build_intent_pipeline(components or build_turn_components())
+    # Reuse the cached pipeline unless the caller supplies explicit components
+    # (e.g. tests injecting a mock generator), which need their own pipeline.
+    if components is not None:
+        pipeline = build_intent_pipeline(components)
+    else:
+        pipeline = get_default_pipeline()
     result = run_turn(message, state, pipeline=pipeline, components=components)
     active_store.set(conv_id, result["state"])
     result["conversation_id"] = conv_id
@@ -74,5 +99,6 @@ def run_chat_turn(
 __all__ = [
     "StateStore",
     "default_store",
+    "get_default_pipeline",
     "run_chat_turn",
 ]

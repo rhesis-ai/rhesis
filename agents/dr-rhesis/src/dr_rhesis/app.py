@@ -47,9 +47,10 @@ _startup_validated: bool = False
 async def lifespan(app: FastAPI):
     global _startup_validated
     logger.info("Initialising Dr-Rhesis Haystack pipeline...")
-    from dr_rhesis.pipeline import build_turn_components
+    from dr_rhesis.session import get_default_pipeline
 
-    build_turn_components()
+    # Build the shared pipeline + generator once so per-turn requests reuse it.
+    get_default_pipeline()
     _startup_validated = True
     logger.info(
         "Dr-Rhesis ready: intent_router + gathering_brain + summary_writer + safety_critic"

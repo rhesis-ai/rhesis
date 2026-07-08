@@ -9,9 +9,12 @@ from __future__ import annotations
 import os
 from typing import Final
 
+from haystack.utils import Secret
 from haystack_integrations.components.generators.google_genai import GoogleGenAIChatGenerator
 
 DEFAULT_MODEL: Final[str] = "gemini-3.1-flash-lite"
+
+API_KEY_ENV_VARS: Final[tuple[str, str]] = ("GOOGLE_API_KEY", "GEMINI_API_KEY")
 
 
 def build_chat_generator() -> GoogleGenAIChatGenerator:
@@ -23,14 +26,18 @@ def build_chat_generator() -> GoogleGenAIChatGenerator:
     Raises:
         RuntimeError: if no Gemini API key is set.
     """
-    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
+    if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
         raise RuntimeError(
             "GOOGLE_API_KEY (or GEMINI_API_KEY) is required to run Dr-Rhesis. "
             "Set one in your environment or .env file."
         )
     model = os.environ.get("DR_RHESIS_MODEL", DEFAULT_MODEL)
-    return GoogleGenAIChatGenerator(model=model)
+    # Pass the key source explicitly rather than relying on the component's
+    # default env lookup, so the resolved credential is unambiguous.
+    return GoogleGenAIChatGenerator(
+        api_key=Secret.from_env_var(list(API_KEY_ENV_VARS), strict=False),
+        model=model,
+    )
 
 
-__all__ = ["DEFAULT_MODEL", "build_chat_generator"]
+__all__ = ["API_KEY_ENV_VARS", "DEFAULT_MODEL", "build_chat_generator"]

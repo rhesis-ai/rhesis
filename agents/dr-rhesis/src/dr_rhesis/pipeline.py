@@ -152,10 +152,17 @@ def _finish(
     return summary, updated
 
 
-def build_intent_pipeline(components: TurnComponents | None = None) -> Pipeline:
-    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching."""
-    parts = components or build_turn_components()
+def _build_intent_conditional_router() -> ConditionalRouter:
+    """Build the four-way intent :class:`ConditionalRouter`.
 
+    ``unsafe=True`` is required to pass the custom ``DrRhesisState`` object
+    through the router. For the health-concern branch the user message is emitted
+    via ``{{ message | tojson }}``: this produces an escaped JSON string literal
+    so native evaluation yields a real ``str`` without breaking on apostrophes,
+    quotes, or newlines, and without coercing numeric text like "9" to an int.
+    Manual single-quoting ("'{{ message }}'") was fragile — "I'm in pain" would
+    render to an invalid literal and crash the pipeline.
+    """
     routes = [
         {
             "condition": "{{ intent == 'emergency' }}",
@@ -177,16 +184,22 @@ def build_intent_pipeline(components: TurnComponents | None = None) -> Pipeline:
         },
         {
             "condition": "{{ intent == 'health_concern' }}",
-            "output": ["'{{ message }}'", "{{ state }}"],
+            "output": ["{{ message | tojson }}", "{{ state }}"],
             "output_name": ["health_message", "health_state"],
             "output_type": [str, DrRhesisState],
         },
     ]
+    return ConditionalRouter(routes=routes, unsafe=True)
+
+
+def build_intent_pipeline(components: TurnComponents | None = None) -> Pipeline:
+    """Build the per-turn Haystack pipeline with ConditionalRouter intent branching."""
+    parts = components or build_turn_components()
 
     pipe = Pipeline()
     pipe.add_component("prepare", PrepareTurn())
     pipe.add_component("router", parts.router)
-    pipe.add_component("intent_router", ConditionalRouter(routes=routes, unsafe=True))
+    pipe.add_component("intent_router", _build_intent_conditional_router())
     pipe.add_component("emergency", EmergencyTerminal())
     pipe.add_component("greet", GreetTerminal())
     pipe.add_component("redirect", RedirectTerminal())
@@ -255,6 +268,7 @@ __all__ = [
     "PrepareTurn",
     "RedirectTerminal",
     "TurnComponents",
+    "_build_intent_conditional_router",
     "build_intent_pipeline",
     "build_turn_components",
     "run_turn",
