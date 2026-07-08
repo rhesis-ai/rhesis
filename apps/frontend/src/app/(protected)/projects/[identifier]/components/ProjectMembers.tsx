@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Avatar, Box, IconButton, Typography } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import PersonIcon from '@mui/icons-material/Person';
@@ -112,7 +112,15 @@ export default function ProjectMembers({
     }
   };
 
-  const { ProjectRoleCell } = getMemberRoleExtensions();
+  const { ProjectRoleCell, prewarmProjectCaches } = getMemberRoleExtensions();
+
+  useEffect(() => {
+    if (sessionToken && projectId) {
+      prewarmProjectCaches?.(sessionToken, projectId, {
+        canManageRoles: canManageMembers,
+      });
+    }
+  }, [sessionToken, projectId, prewarmProjectCaches, canManageMembers]);
 
   const columns: GridColDef[] = React.useMemo(() => {
     const RoleCell = ProjectRoleCell;

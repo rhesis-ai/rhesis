@@ -26,6 +26,9 @@ import ProjectRoleChip from './components/ProjectRoleChip';
 import RoleSelectField from './components/RoleSelectField';
 import TokenScopeField from './components/TokenScopeField';
 import { RbacClient } from './api/rbac-client';
+import { fetchOrgMembers } from './api/org-members-cache';
+import { fetchProjectMembers } from './api/project-members-cache';
+import { fetchRoles } from './api/role-cache';
 
 const RolesTab = React.lazy(() => import('./components/RolesTab'));
 
@@ -67,6 +70,25 @@ export function registerRBAC(): void {
       await client.assignProjectRole(projectId, userId, {
         role_id: roleId,
       });
+    },
+    fetchUserProjectMemberships: async (
+      sessionToken: string,
+      userId: string
+    ) => {
+      const client = new RbacClient(sessionToken);
+      return client.getUserProjectMemberships(userId);
+    },
+    prewarmCaches: (sessionToken, opts) => {
+      fetchOrgMembers(sessionToken);
+      if (opts?.canManageRoles) {
+        fetchRoles(sessionToken);
+      }
+    },
+    prewarmProjectCaches: (sessionToken, projectId, opts) => {
+      fetchProjectMembers(sessionToken, projectId);
+      if (opts?.canManageRoles) {
+        fetchRoles(sessionToken);
+      }
     },
   });
 

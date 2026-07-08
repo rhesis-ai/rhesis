@@ -14,6 +14,7 @@ Role catalog:
 
 Org-level role assignment:
   GET    /organization-members         — list org-level role assignments
+  GET    /organization-members/{user_id}/project-memberships — user's projects + roles
   PUT    /organization-members/{user_id}/role   — assign org role
   DELETE /organization-members/{user_id}        — remove org membership row
 
@@ -47,9 +48,11 @@ from rhesis.backend.ee.rbac.schemas import (
     OrgRoleAssign,
     ProjectMemberRoleAssign,
     ProjectMemberRoleRead,
+    ProjectSummary,
     RoleCreate,
     RoleRead,
     RoleUpdate,
+    UserProjectMembershipRead,
 )
 
 logger = logging.getLogger(__name__)
@@ -613,13 +616,100 @@ def list_org_members(
     current_user: User = Depends(require_current_user_or_token),
     _org=_RBAC_DEP,
 ):
-    """List all org-level role assignments for the current organization."""
+    """List all org-level role assignments with user details for the current org.
+
+    Returns user summary alongside each membership so the team grid can be
+    built from this single call instead of ``GET /users`` + ``GET /rbac/
+    organization-members``.
+
+    Batch-loads unique roles to avoid N+1 lazy-load queries (built-in roles
+    have ``organization_id IS NULL`` and are filtered out by the tenant
+    listener, so the ORM relationship always returns None).
+    """
+    from rhesis.backend.app.models.user import User as UserModel
     from rhesis.backend.ee.rbac.models import OrganizationMember
+    from rhesis.backend.ee.rbac.schemas import UserSummary
 
     members = (
         db.query(OrganizationMember).filter_by(organization_id=current_user.organization_id).all()
     )
-    return [OrgMemberRead.model_validate(m) for m in members]
+
+    unique_role_ids = {m.role_id for m in members}
+    roles_by_id = {}
+    for role_id in unique_role_ids:
+        role = _load_role(role_id, db)
+        if role is not None:
+            roles_by_id[role_id] = _role_to_read(role, db)
+
+    user_ids = [m.user_id for m in members]
+    users = db.query(UserModel).filter(UserModel.id.in_(user_ids)).all() if user_ids else []
+    users_by_id = {u.id: u for u in users}
+
+    return [
+        OrgMemberRead(
+            id=m.id,
+            organization_id=m.organization_id,
+            user_id=m.user_id,
+            role_id=m.role_id,
+            role=roles_by_id.get(m.role_id),
+            user=UserSummary.model_validate(users_by_id[m.user_id])
+            if m.user_id in users_by_id
+            else None,
+        )
+        for m in members
+    ]
+
+
+@router.get(
+    "/organization-members/{user_id}/project-memberships",
+    response_model=list[UserProjectMembershipRead],
+    **capability(Permission.Member.READ),
+)
+def list_user_project_memberships(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+    _org=_RBAC_DEP,
+):
+    """Return every project membership for *user_id* in a single call.
+
+    Replaces the N per-project ``GET /projects/{id}/members`` waterfall
+    that the Member Access drawer previously required.
+
+    Batch-loads unique roles and eager-loads ``project`` to avoid N+1
+    lazy-load queries, mirroring ``list_org_members``.
+    """
+    from sqlalchemy.orm import joinedload
+
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    memberships = (
+        db.query(ProjectMembership)
+        .filter_by(
+            user_id=user_id,
+            organization_id=current_user.organization_id,
+        )
+        .options(joinedload(ProjectMembership.project))
+        .all()
+    )
+
+    unique_role_ids = {m.role_id for m in memberships if m.role_id is not None}
+    roles_by_id = {}
+    for role_id in unique_role_ids:
+        role = _load_role(role_id, db)
+        if role is not None:
+            roles_by_id[role_id] = _role_to_read(role, db)
+
+    return [
+        UserProjectMembershipRead(
+            project_id=m.project_id,
+            user_id=m.user_id,
+            role_id=m.role_id,
+            role=roles_by_id.get(m.role_id),
+            project=ProjectSummary.model_validate(m.project),
+        )
+        for m in memberships
+    ]
 
 
 @router.put(
@@ -645,6 +735,12 @@ def assign_org_role(
     principal = resolve_principal(current_user)
     actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
     actor_level = _get_actor_level(principal, project_id=None, db=db)
+
+    if str(user_id) == str(current_user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change your own organization role",
+        )
 
     target_role = _get_role_or_404(body.role_id, db)
 
@@ -766,6 +862,9 @@ def list_project_members(
     explicitly: the caller must be enrolled in the project or hold an org-level
     ``member:manage`` role (Admin/Owner). Otherwise a plain org Viewer could
     enumerate any project's members.
+
+    Batch-loads unique roles to avoid N+1 lazy-load queries, mirroring
+    ``list_org_members``.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
@@ -780,18 +879,22 @@ def list_project_members(
         .all()
     )
 
-    result = []
-    for m in memberships:
-        role = _load_role(m.role_id, db) if m.role_id is not None else None
-        result.append(
-            ProjectMemberRoleRead(
-                project_id=project_id,
-                user_id=m.user_id,
-                role_id=m.role_id,
-                role=_role_to_read(role, db) if role is not None else None,
-            )
+    unique_role_ids = {m.role_id for m in memberships if m.role_id is not None}
+    roles_by_id = {}
+    for role_id in unique_role_ids:
+        role = _load_role(role_id, db)
+        if role is not None:
+            roles_by_id[role_id] = _role_to_read(role, db)
+
+    return [
+        ProjectMemberRoleRead(
+            project_id=project_id,
+            user_id=m.user_id,
+            role_id=m.role_id,
+            role=roles_by_id.get(m.role_id),
         )
-    return result
+        for m in memberships
+    ]
 
 
 @router.put(

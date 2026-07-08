@@ -102,6 +102,7 @@ export default function TeamMembersGrid({
 }: TeamMembersGridProps) {
   const { data: session } = useSession();
   const canDeleteMember = useCan(Capability.Member.DELETE);
+  const canManageMembers = useCan(Capability.Member.MANAGE);
   const notifications = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,8 +227,14 @@ export default function TeamMembersGrid({
     setAccessDrawerOpen(true);
   }, []);
 
-  const { OrgRoleCell } = getMemberRoleExtensions();
+  const { OrgRoleCell, prewarmCaches } = getMemberRoleExtensions();
   const sessionToken = session?.session_token ?? '';
+
+  useEffect(() => {
+    if (sessionToken) {
+      prewarmCaches?.(sessionToken, { canManageRoles: canManageMembers });
+    }
+  }, [sessionToken, prewarmCaches, canManageMembers]);
 
   const columns: GridColDef[] = useMemo(() => {
     const cols: GridColDef[] = [

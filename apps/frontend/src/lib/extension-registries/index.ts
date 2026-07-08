@@ -50,6 +50,7 @@ export type {
   OrgRoleCellProps,
   ProjectRoleCellProps,
   AddMemberRoleFieldProps,
+  UserProjectMembership,
 } from './member-role-extensions';
 
 export {

@@ -69,6 +69,25 @@ class RoleUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# User summary (for enriched org-member responses)
+# ---------------------------------------------------------------------------
+
+
+class UserSummary(BaseModel):
+    """Minimal user fields for the team members grid."""
+
+    id: UUID
+    name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
+    email: str
+    picture: Optional[str] = None
+    auth0_id: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
 # Organization member role assignment
 # ---------------------------------------------------------------------------
 
@@ -79,6 +98,7 @@ class OrgMemberRead(BaseModel):
     user_id: UUID
     role_id: UUID
     role: Optional[RoleRead] = None
+    user: Optional[UserSummary] = None
 
     model_config = {"from_attributes": True}
 
@@ -111,13 +131,44 @@ class ProjectMemberRoleRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ---------------------------------------------------------------------------
+# Bulk user-project membership (single-call alternative to N per-project fetches)
+# ---------------------------------------------------------------------------
+
+
+class ProjectSummary(BaseModel):
+    """Minimal project fields needed by the Member Access drawer."""
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class UserProjectMembershipRead(BaseModel):
+    """A user's membership in a single project, including project summary and role."""
+
+    project_id: UUID
+    user_id: UUID
+    role_id: Optional[UUID] = None
+    role: Optional[RoleRead] = None
+    project: ProjectSummary
+
+    model_config = {"from_attributes": True}
+
+
 __all__ = [
     "OrgMemberRead",
     "OrgRoleAssign",
     "PermissionRead",
+    "UserSummary",
     "ProjectMemberRoleAssign",
     "ProjectMemberRoleRead",
+    "ProjectSummary",
     "RoleCreate",
     "RoleRead",
     "RoleUpdate",
+    "UserProjectMembershipRead",
 ]
