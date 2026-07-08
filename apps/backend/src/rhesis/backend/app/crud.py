@@ -530,9 +530,10 @@ def get_test_sets(
     query_builder = (
         QueryBuilder(db, models.TestSet)
         # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
-        # Excludes collection relationships (prompts, tests, metrics, test_configurations,
-        # comments, tags) because those produce cartesian-product joins or lazy fan-out
-        # and the list endpoint does not serialize them.
+        # Excludes collection relationships (prompts, tests, metrics, test_configurations)
+        # because those produce cartesian-product joins or lazy fan-out and the list
+        # endpoint does not serialize them. comments/tasks/files/tags ARE serialized
+        # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
         .with_joined(
             "status",
             "license_type",
@@ -542,6 +543,7 @@ def get_test_sets(
             "assignee",
             "organization",
         )
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
@@ -2205,6 +2207,7 @@ def get_tests(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Test]:
+    # NOTE: No secondary_sort_by: Test.content sorting is a slow correlated subquery
     return get_items_detail(
         db,
         models.Test,
@@ -2215,7 +2218,6 @@ def get_tests(
         filter,
         organization_id=organization_id,
         user_id=user_id,
-        secondary_sort_by="content",
     )
 
 
@@ -2929,6 +2931,7 @@ def get_metric(
         QueryBuilder(db, models.Metric)
         .with_joined(*_METRIC_M2O_RELATIONSHIPS)
         .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
@@ -2951,6 +2954,7 @@ def get_metrics(
         QueryBuilder(db, models.Metric)
         .with_joined(*_METRIC_M2O_RELATIONSHIPS)
         .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
         .with_odata_filter(filter)
