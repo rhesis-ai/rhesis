@@ -521,6 +521,7 @@ def get_items_detail(
     builder = builder.with_default_derived_field_loads(selectin_chains)
     items = (
         builder.with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
         .query.filter(model.id.in_(ordered_ids))
         .all()
     )
