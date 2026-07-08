@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react';
 import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -321,7 +327,8 @@ export default function TestRunMainView({
   useEffect(() => {
     const summaryTabIndex = TAB_KEYS.indexOf('summary');
     const switchedToSummary =
-      activeTab === summaryTabIndex && previousTabRef.current !== summaryTabIndex;
+      activeTab === summaryTabIndex &&
+      previousTabRef.current !== summaryTabIndex;
     previousTabRef.current = activeTab;
 
     if (switchedToSummary) {

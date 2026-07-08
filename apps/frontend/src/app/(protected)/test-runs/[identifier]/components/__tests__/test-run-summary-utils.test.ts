@@ -4,16 +4,50 @@ import {
   computeReviewSummary,
   findMetricKey,
   getEffectiveMetricSuccess,
+  getLatestMetricReviewForResult,
   isMetricCorrected,
   metricHasHumanCorrection,
   metricHasReviewCorrectionFromStats,
   metricNameMatches,
   metricShowsHumanCorrection,
-  testHasHumanCorrection,
-  getLatestMetricReviewForResult,
   resultHasAnyHumanReview,
+  testHasHumanCorrection,
 } from '../test-run-summary-utils';
-import type { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import type {
+  Review,
+  TestResultDetail,
+  TestReviews,
+} from '@/utils/api-client/interfaces/test-results';
+import type { UUID } from 'crypto';
+
+const u = (n: number): UUID =>
+  `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
+
+let resultCounter = 0;
+let reviewCounter = 0;
+
+function makeReviewMetadata(totalReviews: number): TestReviews['metadata'] {
+  return {
+    last_updated_at: '2026-01-01T00:00:00Z',
+    last_updated_by: { user_id: u(9), name: 'Reviewer' },
+    total_reviews: totalReviews,
+    latest_status: { status_id: u(10), name: 'Pass' },
+  };
+}
+
+function makeReview(overrides: Partial<Review> = {}): Review {
+  reviewCounter += 1;
+  return {
+    review_id: u(100 + reviewCounter),
+    status: { status_id: u(200 + reviewCounter), name: 'Pass' },
+    user: { user_id: u(9), name: 'Reviewer' },
+    comments: '',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    target: { type: 'test_result', reference: null },
+    ...overrides,
+  };
+}
 
 function makeResult(
   overrides: Partial<TestResultDetail> & {
@@ -21,19 +55,20 @@ function makeResult(
       string,
       { is_successful: boolean; override?: { original_value: boolean } }
     >;
-  }
+  } = {}
 ): TestResultDetail {
+  resultCounter += 1;
   const { metrics = {}, ...rest } = overrides;
   return {
-    id: 'result-1',
+    id: u(resultCounter),
+    test_configuration_id: u(11),
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
     test_metrics: { metrics, execution_time: 1 },
-    status: { id: 's1', name: 'Pass' },
-    last_review: {
-      id: 'review-1',
-      status: { id: 's1', name: 'Pass' },
-    },
+    status: { id: u(2), name: 'Pass' },
+    last_review: makeReview(),
     ...rest,
-  } as TestResultDetail;
+  } as unknown as TestResultDetail;
 }
 
 describe('aggregateMetricStats', () => {
@@ -65,7 +100,7 @@ describe('aggregateMetricStats', () => {
   it('uses metric override for automated counts and human review', () => {
     const result = makeResult({
       last_review: undefined,
-      status: { id: '00000000-0000-0000-0000-000000000002', name: 'Fail' },
+      status: { id: u(12), name: 'Fail' },
       metrics: {
         'Goal Achievement': {
           is_successful: true,
@@ -112,10 +147,7 @@ describe('computeReviewSummary', () => {
   it('counts test and metric corrections separately in subtitle', () => {
     const results = [
       makeResult({
-        last_review: {
-          id: 'review-1',
-          status: { id: 's1', name: 'Pass' },
-        },
+        last_review: makeReview({ status: { status_id: u(20), name: 'Pass' } }),
         metrics: {
           'Goal Achievement': { is_successful: false },
           Accuracy: {
@@ -139,7 +171,7 @@ describe('metricHasHumanCorrection', () => {
     const results = [
       makeResult({
         last_review: undefined,
-        status: { id: 's1', name: 'Fail' },
+        status: { id: u(21), name: 'Fail' },
         metrics: { 'LMRC Risk': { is_successful: true } },
       }),
     ];
@@ -166,11 +198,10 @@ describe('metricHasHumanCorrection', () => {
   it('returns false when only a test-level review changed the overall outcome', () => {
     const results = [
       makeResult({
-        status: { id: 's1', name: 'Fail' },
-        last_review: {
-          id: 'review-1',
-          status: { id: 's2', name: 'Pass' },
-        },
+        status: { id: u(22), name: 'Fail' },
+        last_review: makeReview({
+          status: { status_id: u(23), name: 'Pass' },
+        }),
         metrics: {
           'Goal Achievement': { is_successful: false },
           Accuracy: { is_successful: true },
@@ -207,17 +238,14 @@ describe('metricHasHumanCorrection', () => {
           'Bias Detection': { is_successful: false },
         },
         test_reviews: {
-          metadata: { total_reviews: 1 },
+          metadata: makeReviewMetadata(1),
           reviews: [
-            {
-              review_id: 'review-1',
-              status: { status_id: 's2', name: 'Pass' },
-              user: { user_id: 'u1', name: 'Reviewer' },
-              comments: '@[Bias Detection](metric:bias-detection) is incorrect.',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
+            makeReview({
+              status: { status_id: u(24), name: 'Pass' },
+              comments:
+                '@[Bias Detection](metric:bias-detection) is incorrect.',
               target: { type: 'metric', reference: 'Bias Detection' },
-            },
+            }),
           ],
         },
       }),
@@ -238,13 +266,13 @@ describe('metricHasHumanCorrection', () => {
           'metric:Bias Detection': {
             target_type: 'metric',
             reference: 'Bias Detection',
-            status: { status_id: 's2', name: 'Pass' },
-            user: { user_id: 'u1', name: 'Reviewer' },
+            status: { status_id: u(25), name: 'Pass' },
+            user: { user_id: u(9), name: 'Reviewer' },
             updated_at: '2026-01-01T00:00:00Z',
-            review_id: 'review-1',
+            review_id: u(101),
           },
         },
-      } as TestResultDetail),
+      }),
     ];
 
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
@@ -264,13 +292,13 @@ describe('metricHasHumanCorrection', () => {
           'metric:bias-detection': {
             target_type: 'metric',
             reference: 'bias-detection',
-            status: { status_id: 's2', name: 'Pass' },
-            user: { user_id: 'u1', name: 'Reviewer' },
+            status: { status_id: u(26), name: 'Pass' },
+            user: { user_id: u(9), name: 'Reviewer' },
             updated_at: '2026-01-01T00:00:00Z',
-            review_id: 'review-1',
+            review_id: u(102),
           },
         },
-      } as TestResultDetail),
+      }),
     ];
 
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
@@ -279,27 +307,22 @@ describe('metricHasHumanCorrection', () => {
   it('detects @metric mentions in comments even when review target is test_result', () => {
     const results = [
       makeResult({
-        last_review: {
-          id: 'review-1',
-          status: { id: 's2', name: 'Pass' },
-        },
-        status: { id: 's1', name: 'Fail' },
+        last_review: makeReview({
+          status: { status_id: u(27), name: 'Pass' },
+        }),
+        status: { id: u(28), name: 'Fail' },
         metrics: {
           'Bias Detection': { is_successful: false },
         },
         test_reviews: {
-          metadata: { total_reviews: 1 },
+          metadata: makeReviewMetadata(1),
           reviews: [
-            {
-              review_id: 'review-1',
-              status: { status_id: 's2', name: 'Pass' },
-              user: { user_id: 'u1', name: 'Reviewer' },
+            makeReview({
+              status: { status_id: u(27), name: 'Pass' },
               comments:
                 '@[Bias Detection](metric:bias-detection) should pass after manual review.',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
               target: { type: 'test_result', reference: null },
-            },
+            }),
           ],
         },
       }),
@@ -319,73 +342,58 @@ describe('metricHasHumanCorrection', () => {
           'Bias Detection': { is_successful: false },
         },
         test_reviews: {
-          metadata: { total_reviews: 1 },
+          metadata: makeReviewMetadata(1),
           reviews: [
-            {
-              review_id: 'review-1',
-              status: { status_id: 's2', name: 'Pass' },
-              user: { user_id: 'u1', name: 'Reviewer' },
+            makeReview({
+              status: { status_id: u(29), name: 'Pass' },
               comments: '@Bias Detection is incorrect.',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
               target: { type: 'test_result', reference: null },
-            },
+            }),
           ],
         },
       }),
     ];
 
     expect(metricHasHumanCorrection('Bias Detection', results)).toBe(true);
-    expect(
-      computeReviewSummary(results).subtitle
-    ).toBe('1 corrected (metric)');
+    expect(computeReviewSummary(results).subtitle).toBe('1 corrected (metric)');
   });
 
   it('detects metric correction alongside a separate test-level review', () => {
     const results = [
       makeResult({
         test: { behavior: { name: 'Compliance' } } as TestResultDetail['test'],
-        status: { id: 's1', name: 'Fail' },
-        last_review: {
-          id: 'review-2',
-          status: { id: 's2', name: 'Pass' },
-        },
+        status: { id: u(30), name: 'Fail' },
+        last_review: makeReview({
+          status: { status_id: u(31), name: 'Pass' },
+        }),
         metrics: {
           'Bias Detection': { is_successful: false },
           'LMRC Risk': { is_successful: true },
           'XSS Detection': { is_successful: true },
         },
         test_reviews: {
-          metadata: { total_reviews: 2 },
+          metadata: makeReviewMetadata(2),
           reviews: [
-            {
-              review_id: 'review-1',
-              status: { status_id: 's2', name: 'Pass' },
-              user: { user_id: 'u1', name: 'Reviewer' },
+            makeReview({
+              status: { status_id: u(32), name: 'Pass' },
               comments: '@Bias Detection is incorrect.',
-              created_at: '2026-01-01T00:00:00Z',
               updated_at: '2026-01-01T00:00:01Z',
               target: { type: 'metric', reference: 'Bias Detection' },
-            },
-            {
-              review_id: 'review-2',
-              status: { status_id: 's2', name: 'Pass' },
-              user: { user_id: 'u1', name: 'Reviewer' },
+            }),
+            makeReview({
+              status: { status_id: u(33), name: 'Pass' },
               comments: 'passed overall.',
-              created_at: '2026-01-01T00:00:02Z',
               updated_at: '2026-01-01T00:00:02Z',
               target: { type: 'test_result', reference: null },
-            },
+            }),
           ],
         },
       }),
       makeResult({
-        id: 'result-2',
-        last_review: {
-          id: 'review-3',
-          status: { id: 's1', name: 'Fail' },
-        },
-        status: { id: 's1', name: 'Fail' },
+        last_review: makeReview({
+          status: { status_id: u(34), name: 'Fail' },
+        }),
+        status: { id: u(35), name: 'Fail' },
         metrics: {
           'Bias Detection': { is_successful: false },
         },
@@ -426,11 +434,10 @@ describe('behaviorHasHumanCorrection', () => {
     const results = [
       makeResult({
         test: { behavior: { name: 'Safety' } } as TestResultDetail['test'],
-        status: { id: 's1', name: 'Fail' },
-        last_review: {
-          id: 'review-1',
-          status: { id: 's2', name: 'Pass' },
-        },
+        status: { id: u(36), name: 'Fail' },
+        last_review: makeReview({
+          status: { status_id: u(37), name: 'Pass' },
+        }),
         metrics: {},
       }),
     ];
@@ -444,11 +451,10 @@ describe('behaviorHasHumanCorrection', () => {
     const results = [
       makeResult({
         test: { behavior: { name: 'Safety' } } as TestResultDetail['test'],
-        status: { id: 's1', name: 'Pass' },
-        last_review: {
-          id: 'review-1',
-          status: { id: 's1', name: 'Pass' },
-        },
+        status: { id: u(38), name: 'Pass' },
+        last_review: makeReview({
+          status: { status_id: u(39), name: 'Pass' },
+        }),
         metrics: { Accuracy: { is_successful: true } },
       }),
     ];
@@ -484,17 +490,13 @@ describe('confirmed metric reviews', () => {
           'API Key Detection': { is_successful: true },
         },
         test_reviews: {
-          metadata: { total_reviews: 1 },
+          metadata: makeReviewMetadata(1),
           reviews: [
-            {
-              review_id: 'review-1',
-              status: { status_id: 's1', name: 'Pass' },
-              user: { user_id: 'u1', name: 'Reviewer' },
+            makeReview({
+              status: { status_id: u(40), name: 'Pass' },
               comments: '@API Key Detection is correct',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
               target: { type: 'metric', reference: 'API Key Detection' },
-            },
+            }),
           ],
         },
       }),
@@ -514,17 +516,13 @@ describe('confirmed metric reviews', () => {
         'API Key Detection': { is_successful: true },
       },
       test_reviews: {
-        metadata: { total_reviews: 1 },
+        metadata: makeReviewMetadata(1),
         reviews: [
-          {
-            review_id: 'review-1',
-            status: { status_id: 's1', name: 'Pass' },
-            user: { user_id: 'u1', name: 'Reviewer' },
+          makeReview({
+            status: { status_id: u(41), name: 'Pass' },
             comments: '@API Key Detection is correct',
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z',
             target: { type: 'metric', reference: 'API Key Detection' },
-          },
+          }),
         ],
       },
     });

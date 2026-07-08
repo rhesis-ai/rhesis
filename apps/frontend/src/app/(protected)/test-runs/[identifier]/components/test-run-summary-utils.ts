@@ -169,9 +169,7 @@ export function getLatestMetricReviewForResult(
   let latestTime = -1;
 
   const consider = (review: ResultReview & { updated_at?: string }) => {
-    const time = review.updated_at
-      ? new Date(review.updated_at).getTime()
-      : 0;
+    const time = review.updated_at ? new Date(review.updated_at).getTime() : 0;
     if (!latest || time >= latestTime) {
       latest = review;
       latestTime = time;
@@ -179,9 +177,7 @@ export function getLatestMetricReviewForResult(
   };
 
   for (const review of result.test_reviews?.reviews ?? []) {
-    const isMetricTarget =
-      review.target?.type === REVIEW_TARGET_TYPES.METRIC ||
-      review.target?.type === 'metric';
+    const isMetricTarget = review.target?.type === REVIEW_TARGET_TYPES.METRIC;
     const mentionsMetric = commentMentionsAnyMetric(
       result,
       review.comments ?? ''
@@ -257,17 +253,13 @@ export function getResultReviews(result: TestResultDetail): ResultReview[] {
   return merged;
 }
 
-const METRIC_MARKUP_MENTION_REGEX =
-  /@\[([^\]]+)\]\(metric:([^)]+)\)/gi;
+const METRIC_MARKUP_MENTION_REGEX = /@\[([^\]]+)\]\(metric:([^)]+)\)/gi;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function commentMentionsMetric(
-  comments: string,
-  metricName: string
-): boolean {
+function commentMentionsMetric(comments: string, metricName: string): boolean {
   METRIC_MARKUP_MENTION_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = METRIC_MARKUP_MENTION_REGEX.exec(comments)) !== null) {
@@ -488,7 +480,9 @@ export function metricHasHumanReview(
   metricName: string,
   testResults: TestResultDetail[]
 ): boolean {
-  return testResults.some(result => hasMetricTargetedReview(result, metricName));
+  return testResults.some(result =>
+    hasMetricTargetedReview(result, metricName)
+  );
 }
 
 /** True when backend stats or test payloads show a metric-level correction. */
@@ -572,7 +566,10 @@ export function computeReviewSummary(
 
   const correctionCount = testCorrectionCount + metricCorrectionCount;
   const totalReviews = testReviewCount + metricReviewCount;
-  const metricReviewedCount = Math.max(0, metricReviewCount - metricCorrectionCount);
+  const metricReviewedCount = Math.max(
+    0,
+    metricReviewCount - metricCorrectionCount
+  );
   const reviewedTestCount = testResults.filter(
     result =>
       resultHasTestLevelReview(result) ||
@@ -604,7 +601,11 @@ export function computeReviewSummary(
     }
     if (parts.length === 0) {
       subtitle = 'confirmed';
-    } else if (metricReviewCount > 0 && testReviewCount > 0 && parts.length === 1) {
+    } else if (
+      metricReviewCount > 0 &&
+      testReviewCount > 0 &&
+      parts.length === 1
+    ) {
       subtitle = `${parts.join(' · ')} · ${metricReviewCount} metric${metricReviewCount === 1 ? '' : 's'}`;
     } else {
       subtitle = parts.join(' · ');
