@@ -72,7 +72,12 @@ export function ActiveProjectProvider({
   const fetchProjects = useCallback(
     async (options?: { listOnly?: boolean }) => {
       if (!session?.session_token) return;
-      if (pathnameRef.current.startsWith('/onboarding')) {
+      if (
+        pathnameRef.current.startsWith('/onboarding') ||
+        !session?.user?.organization_id
+      ) {
+        // No org yet (mid-onboarding, or the session hasn't caught up with a
+        // just-completed onboarding) — /projects/mine would 403.
         setLoading(false);
         return;
       }
@@ -150,7 +155,12 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.session_token, queryClient, userScope]
+    [
+      session?.session_token,
+      session?.user?.organization_id,
+      queryClient,
+      userScope,
+    ]
   );
 
   useEffect(() => {

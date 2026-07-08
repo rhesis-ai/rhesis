@@ -217,6 +217,18 @@ function TestsTableHarness(props: React.ComponentProps<typeof TestsTable>) {
   });
   const [, setTick] = React.useState(0);
 
+  // Stable identity: TestsGrid's onBulkActionsChange effect depends on this
+  // callback by reference. An inline arrow here would get a new identity on
+  // every render, and since it unconditionally calls setTick, that becomes an
+  // infinite effect -> setTick -> re-render -> new reference -> effect loop.
+  const handleBulkActionsChange = React.useCallback(
+    (actions: TestsBulkActionsState) => {
+      bulkRef.current = actions;
+      setTick(t => t + 1);
+    },
+    []
+  );
+
   return (
     <>
       {bulkRef.current.visible && (
@@ -240,13 +252,7 @@ function TestsTableHarness(props: React.ComponentProps<typeof TestsTable>) {
           </button>
         </>
       )}
-      <TestsTable
-        {...props}
-        onBulkActionsChange={actions => {
-          bulkRef.current = actions;
-          setTick(t => t + 1);
-        }}
-      />
+      <TestsTable {...props} onBulkActionsChange={handleBulkActionsChange} />
     </>
   );
 }

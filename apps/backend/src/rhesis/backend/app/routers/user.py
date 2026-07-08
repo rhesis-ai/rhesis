@@ -402,8 +402,49 @@ def update_user(
         if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
             raise HTTPException(status_code=403, detail="Not authorized to update this user")
 
+    had_no_organization = db_user.organization_id is None
+
+    # SECURITY: this endpoint accepts a client-supplied organization_id (needed
+    # so a fresh onboarding user can attach the org they just created). Without
+    # this check, any orgless user could self-assign an arbitrary organization_id
+    # here, and — since a self-update returns a freshly minted session token —
+    # get immediate ambient tenant-scope access to that organization's data. The
+    # only legitimate case is the org creator attaching to the org they own;
+    # everything else (joining someone else's org, reassigning an existing org,
+    # doing this on another user's behalf) is rejected. Leaving an org has its
+    # own dedicated endpoint and goes through crud.update_user unaffected since
+    # it sets organization_id to None, not a new value.
+    requested_org_id = getattr(user, "organization_id", None)
+    if requested_org_id is not None and str(requested_org_id) != str(db_user.organization_id):
+        if str(db_user.id) != str(current_user.id) or not had_no_organization:
+            raise HTTPException(
+                status_code=403, detail="Cannot assign an organization via this endpoint"
+            )
+        organization = (
+            db.query(models.Organization).filter(models.Organization.id == requested_org_id).first()
+        )
+        if organization is None or str(organization.owner_id) != str(db_user.id):
+            raise HTTPException(
+                status_code=403, detail="You may only join an organization you created"
+            )
+
     # Update the user
     updated_user = crud.update_user(db, user_id=user_id, user=user)
+
+    # Joining an org for the first time (e.g. the creator attaching to their own
+    # org during onboarding) — seed the default RBAC role now, not later. Every
+    # subsequent onboarding call (invite teammates, load-initial-data, the
+    # frontend's org-context fetch) is capability-gated on this role existing;
+    # deferring assignment locks the creator out of their own onboarding flow
+    # once RBAC is enabled. This route runs on a plain (non-tenant) session, so
+    # session variables must be set explicitly — organization_member RLS
+    # requires app.current_organization for the INSERT to succeed.
+    if had_no_organization and updated_user.organization_id is not None:
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+        from rhesis.backend.app.database import set_session_variables
+
+        set_session_variables(db, str(updated_user.organization_id), str(updated_user.id))
+        on_user_org_assigned(db, updated_user.id, updated_user.organization_id)
 
     # If this is the current user being updated, refresh their session token
     if str(updated_user.id) == str(current_user.id):
