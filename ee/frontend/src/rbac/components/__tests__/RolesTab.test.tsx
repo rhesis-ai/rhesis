@@ -87,7 +87,17 @@ describe('RolesTab', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows the "New role" action when the caller holds role:manage', async () => {
+  it('shows only the empty-state "New role" action when there are no custom roles', async () => {
+    rbacClientInstanceMock.getRoles.mockResolvedValue([BUILT_IN_ROLE]);
+    canMock.useCan.mockReturnValue(true);
+
+    render(<RolesTab />);
+
+    await screen.findByText('No custom roles yet');
+    expect(screen.getAllByRole('button', { name: /new role/i })).toHaveLength(1);
+  });
+
+  it('shows the header "New role" action when custom roles exist', async () => {
     canMock.useCan.mockReturnValue(true);
 
     render(<RolesTab />);

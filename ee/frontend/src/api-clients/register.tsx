@@ -13,11 +13,8 @@
  *
  * Section ordering
  * ----------------
- * `order: 110` puts API Clients immediately after SSO (which uses
- * 100). Keeping them adjacent is intentional -- the API Clients
- * section's empty state tells the operator to configure SSO first,
- * and surrounding the two sections groups them in the page's
- * reading order.
+ * `order: 40` places API after SSO (30). SSO and API stay adjacent so
+ * the API section's empty state ("configure SSO first") reads naturally.
  */
 
 import * as React from 'react';
@@ -54,7 +51,7 @@ export function registerApiClients(): void {
   registerOrgSettingsTab({
     id: 'api',
     title: 'API',
-    order: 60,
+    order: 40,
     component: ApiClientsSectionGate,
   });
 }

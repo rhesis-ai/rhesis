@@ -6,27 +6,191 @@ import {
   Button,
   Chip,
   CircularProgress,
+  IconButton,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AccessDenied from '@/components/common/AccessDenied';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { SectionCard } from '@/components/common/SectionCard';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { ROW_ACTIONS_CLASS } from '@/components/common/createRowActionsColumn';
+import { EditIcon, DeleteIcon } from '@/components/icons';
+import { SectionCard, overviewTableInnerSx } from '@/components/common/SectionCard';
+import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
+import {
+  sectionCardGridBleedSx,
+  sectionCardGridTableInsetSx,
+  sectionCardGridTableEdgeCellResetSx,
+} from '@/components/common/GridToolbar';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { RbacClient } from '../api/rbac-client';
 import { fetchRoles } from '../api/role-cache';
 import { getRoleChipSx } from '../role-display';
 import type { RoleRead } from '../types';
 import RoleEditorDrawer, { type DrawerMode } from './RoleEditorDrawer';
+
+// Figma Frontend node 1640:23151 — overview table inside section cards
+const customRolesTableSx = {
+  ...overviewTableInnerSx,
+  [`& .${ROW_ACTIONS_CLASS}`]: {
+    opacity: 0,
+    pointerEvents: 'none',
+    transition: 'opacity 0.15s ease',
+  },
+  [`& .MuiTableRow-root:hover .${ROW_ACTIONS_CLASS}, & .MuiTableRow-root:focus-within .${ROW_ACTIONS_CLASS}`]:
+    {
+      opacity: 1,
+      pointerEvents: 'auto',
+    },
+} as const;
+
+const customRolesHeaderCellSx = {
+  fontWeight: 700,
+  fontSize: 14,
+  lineHeight: '22px',
+  color: 'greyscale.body',
+  height: 48,
+  p: 0,
+  bgcolor: 'background.paper',
+  borderBottom: 'none',
+  verticalAlign: 'middle',
+} as const;
+
+const customRolesBodyCellSx = {
+  fontSize: 14,
+  lineHeight: '22px',
+  color: 'greyscale.body',
+  py: '12px',
+  px: '12px',
+  borderTop: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+  borderBottom: 'none',
+  height: 48,
+  bgcolor: 'background.paper',
+  verticalAlign: 'middle',
+} as const;
+
+function CustomRolesHeaderCell({
+  children,
+  showDivider = false,
+  width,
+}: {
+  children?: React.ReactNode;
+  showDivider?: boolean;
+  width?: number | string;
+}) {
+  return (
+    <TableCell sx={{ ...customRolesHeaderCellSx, width }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          height: 48,
+          pl: 0,
+          pr: '12px',
+        }}
+      >
+        {showDivider && (
+          <Box
+            sx={{
+              width: '1px',
+              height: 23,
+              bgcolor: 'greyscale.border',
+              mx: '12px',
+              flexShrink: 0,
+            }}
+          />
+        )}
+        {children && (
+          <Typography
+            component="span"
+            sx={{
+              fontWeight: 700,
+              fontSize: 14,
+              lineHeight: '22px',
+              color: 'greyscale.body',
+            }}
+          >
+            {children}
+          </Typography>
+        )}
+      </Box>
+    </TableCell>
+  );
+}
+
+const rowActionIconButtonSx = {
+  p: 0.5,
+  color: 'text.secondary',
+} as const;
+
+function CustomRoleRowActions({
+  canManageRoles,
+  onEdit,
+  onDelete,
+}: {
+  canManageRoles: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Box
+      className={ROW_ACTIONS_CLASS}
+      sx={{
+        display: 'flex',
+        gap: '4px',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
+      <Tooltip title={canManageRoles ? 'Edit' : 'View'}>
+        <IconButton
+          size="small"
+          onClick={onEdit}
+          sx={{
+            ...rowActionIconButtonSx,
+            '&:hover': {
+              color: 'primary.main',
+              bgcolor: 'action.hover',
+            },
+          }}
+        >
+          <EditIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Tooltip>
+      {canManageRoles && (
+        <Tooltip title="Delete">
+          <IconButton
+            size="small"
+            onClick={onDelete}
+            sx={{
+              ...rowActionIconButtonSx,
+              '&:hover': {
+                color: 'error.main',
+                bgcolor: 'action.hover',
+              },
+            }}
+          >
+            <DeleteIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -135,6 +299,7 @@ function PrivilegeRail() {
 
 export default function RolesTab() {
   const { sessionToken } = useOrgSettings();
+  const notifications = useNotifications();
   const { allowed: canReadRoles, loading: permsLoading } = useCanWithStatus(
     Capability.Role.READ
   );
@@ -147,6 +312,8 @@ export default function RolesTab() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>('view');
   const [selectedRole, setSelectedRole] = useState<RoleRead | undefined>();
+  const [roleToDelete, setRoleToDelete] = useState<RoleRead | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadRoles = useCallback(() => {
     fetchRoles(sessionToken)
@@ -186,6 +353,25 @@ export default function RolesTab() {
   const handleDeleted = useCallback((roleId: string) => {
     setRoles(prev => prev.filter(r => r.id !== roleId));
   }, []);
+
+  const handleDeleteConfirmed = useCallback(async () => {
+    if (!roleToDelete) return;
+    setDeleting(true);
+    try {
+      const client = new RbacClient(sessionToken);
+      await client.deleteRole(roleToDelete.id);
+      handleDeleted(roleToDelete.id);
+      setRoleToDelete(null);
+      notifications.show('Role deleted', { severity: 'success' });
+    } catch (err) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to delete role',
+        { severity: 'error' }
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }, [roleToDelete, sessionToken, handleDeleted, notifications]);
 
   if (permsLoading) {
     return (
@@ -254,17 +440,19 @@ export default function RolesTab() {
         title="Custom Roles"
         subtitle="Named roles for separation of duties. Common in regulated teams where built-in roles are not granular enough."
         actions={
-          <Can capability={Capability.Role.MANAGE}>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => openDrawer('create')}
-              sx={{ textTransform: 'none' }}
-            >
-              New role
-            </Button>
-          </Can>
+          customRoles.length > 0 ? (
+            <Can capability={Capability.Role.MANAGE}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+                onClick={() => openDrawer('create')}
+                sx={sectionEditButtonSx}
+              >
+                New role
+              </Button>
+            </Can>
+          ) : undefined
         }
       >
         {customRoles.length === 0 ? (
@@ -274,78 +462,64 @@ export default function RolesTab() {
             description="Create a custom role to define permissions that built-in roles do not cover."
             actionLabel={canManageRoles ? 'New role' : undefined}
             onAction={canManageRoles ? () => openDrawer('create') : undefined}
-            card
+            embedded
           />
         ) : (
-          <TableContainer
-            sx={{
-              border: t => `1px solid ${t.palette.greyscale.border}`,
-              borderRadius: BORDER_RADIUS.md,
-              overflow: 'hidden',
-            }}
-          >
-            <Table size="small">
-              <TableHead>
-                <TableRow
-                  sx={{
-                    bgcolor: 'action.hover',
-                    '& th': {
-                      fontWeight: 600,
-                      fontSize: 14,
-                      color: 'text.primary',
-                      borderBottom: t =>
-                        `1px solid ${t.palette.greyscale.border}`,
-                    },
-                  }}
-                >
-                  <TableCell>Role</TableCell>
-                  <TableCell>Purpose</TableCell>
-                  <TableCell>Members</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {customRoles.map(role => (
-                  <TableRow
-                    key={role.id}
-                    sx={{
-                      '&:hover': { bgcolor: 'action.hover' },
-                      '&:last-child td': { borderBottom: 'none' },
-                    }}
-                  >
-                    <TableCell>
-                      <Chip
-                        label={role.display_name}
-                        size="small"
-                        sx={{ ...getRoleChipSx(role), fontSize: 12 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {role.permissions.length} permissions
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {role.member_count}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        onClick={() =>
-                          openDrawer(canManageRoles ? 'edit' : 'view', role)
-                        }
-                        sx={{ textTransform: 'none' }}
-                      >
-                        {canManageRoles ? 'Edit' : 'View'}
-                      </Button>
-                    </TableCell>
+          <Box sx={sectionCardGridBleedSx}>
+            <TableContainer
+              sx={[
+                customRolesTableSx,
+                sectionCardGridTableInsetSx,
+                sectionCardGridTableEdgeCellResetSx,
+              ]}
+            >
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <CustomRolesHeaderCell>Role</CustomRolesHeaderCell>
+                    <CustomRolesHeaderCell showDivider width="34%">
+                      Purpose
+                    </CustomRolesHeaderCell>
+                    <CustomRolesHeaderCell showDivider width={120}>
+                      Members
+                    </CustomRolesHeaderCell>
+                    <CustomRolesHeaderCell showDivider width={88} />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {customRoles.map(role => (
+                    <TableRow key={role.id} sx={{ height: 48 }}>
+                      <TableCell sx={customRolesBodyCellSx}>
+                        <Chip
+                          label={role.display_name}
+                          size="small"
+                          sx={{ ...getRoleChipSx(role), fontSize: 12 }}
+                        />
+                      </TableCell>
+                      <TableCell sx={customRolesBodyCellSx}>
+                        {role.permissions.length} permissions
+                      </TableCell>
+                      <TableCell sx={customRolesBodyCellSx}>
+                        {role.member_count}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ ...customRolesBodyCellSx, width: 88 }}
+                      >
+                        <CustomRoleRowActions
+                          canManageRoles={canManageRoles}
+                          onEdit={() =>
+                            openDrawer(canManageRoles ? 'edit' : 'view', role)
+                          }
+                          onDelete={() => setRoleToDelete(role)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         )}
       </SectionCard>
 
@@ -359,6 +533,25 @@ export default function RolesTab() {
         onSaved={handleSaved}
         onDeleted={handleDeleted}
       />
+
+      {roleToDelete && (
+        <DeleteModal
+          open
+          onClose={() => setRoleToDelete(null)}
+          onConfirm={handleDeleteConfirmed}
+          isLoading={deleting}
+          title="Delete role"
+          itemName={roleToDelete.display_name}
+          itemType="role"
+          warningMessage={
+            roleToDelete.member_count > 0
+              ? `${roleToDelete.member_count} member${roleToDelete.member_count === 1 ? '' : 's'} currently ${
+                  roleToDelete.member_count === 1 ? 'holds' : 'hold'
+                } this role. Deleting it removes the role from them — organization-level holders lose its access, and project-level holders revert to their inherited organization role.`
+              : undefined
+          }
+        />
+      )}
     </Box>
   );
 }

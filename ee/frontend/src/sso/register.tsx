@@ -52,7 +52,7 @@ export function registerSSO(): void {
   registerOrgSettingsTab({
     id: 'sso',
     title: 'SSO',
-    order: 50,
+    order: 30,
     component: SSOSection,
   });
 }

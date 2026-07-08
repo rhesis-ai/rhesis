@@ -10,6 +10,7 @@ import '../styles/fonts.css';
 // pulled into the client bundle via consumers like the organization
 // settings page, so registry state is populated wherever it is read.
 import '../ee_bootstrap';
+import '../lib/org-settings-tabs-bootstrap';
 import {
   ScienceIcon,
   BiotechIcon,

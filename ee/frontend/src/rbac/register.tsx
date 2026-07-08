@@ -52,7 +52,7 @@ export function registerRBAC(): void {
   registerOrgSettingsTab({
     id: 'roles',
     title: 'Roles',
-    order: 150,
+    order: 20,
     component: RolesTabSection,
   });
 
@@ -60,6 +60,13 @@ export function registerRBAC(): void {
     OrgRoleCell: OrgRoleChip,
     ProjectRoleCell: ProjectRoleChip,
     AddMemberRoleField: RoleSelectField,
+    InviteOrgRoleField: props => (
+      <RoleSelectField {...props} scope="org" size="small" />
+    ),
+    assignOrgMemberRole: async (sessionToken, userId, roleId) => {
+      const client = new RbacClient(sessionToken);
+      await client.assignOrgRole(userId, { role_id: roleId });
+    },
     assignProjectMemberRole: async (
       sessionToken: string,
       projectId: string,

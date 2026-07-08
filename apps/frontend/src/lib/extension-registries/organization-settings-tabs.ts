@@ -14,7 +14,7 @@
  * registerOrgSettingsTab({
  *   id: 'roles',
  *   title: 'Roles',
- *   order: 150,
+ *   order: 20,
  *   component: RolesTabGated,
  * });
  * ```
@@ -35,8 +35,8 @@ export interface OrgSettingsTab {
   component: ComponentType;
   /**
    * Sort order relative to other tabs. Built-in orders:
-   * Information=0, Danger zone=999. Current EE tabs:
-   * SSO=50, API=60, Roles=150.
+   * Information=0, Danger zone=999. Current tabs:
+   * Team=10, Roles=20, SSO=30, API=40.
    */
   order: number;
 }

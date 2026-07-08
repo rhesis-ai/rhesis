@@ -27,12 +27,18 @@ export interface EntityEmptyStateProps {
   /**
    * When true renders a Figma-aligned Paper card around the empty state
    * (white bg, border, shadow). Used for linked-entity tabs and section
-   * cards on detail pages.
+   * empty areas that do not already sit inside an elevated container.
    * Defaults to false for backward compatibility.
    *
    * Figma: Frontend node 1435:49277 (linked data / section empty state).
    */
   card?: boolean;
+  /**
+   * Compact section-empty visuals without an extra Paper shell. Use inside
+   * `SectionCard` and other already-elevated containers to avoid double
+   * borders/shadows.
+   */
+  embedded?: boolean;
   /**
    * Icon size in px. Defaults to 64 (standalone) or 32 (card variant).
    * Pass an explicit value to override.
@@ -53,6 +59,8 @@ export interface EntityEmptyStateProps {
  * - **Default** (`card=false`): large icon, centered text, optional CTA button.
  * - **Card** (`card=true`): bordered Paper card for section / linked-entity tabs
  *   (Figma node 1435:49277).
+ * - **Embedded** (`embedded=true`): same compact card styling without the
+ *   extra Paper shell — for use inside `SectionCard`.
  * - **Enriched** (cloud env vars): v2 layout with media and help sections
  *   (Figma node 1858:51148).
  */
@@ -64,14 +72,16 @@ export default function EntityEmptyState({
   onAction,
   actionDisabled = false,
   card = false,
+  embedded = false,
   iconSize,
   showAddIcon,
   enrichment,
 }: EntityEmptyStateProps) {
   const isEnriched = hasEnrichmentContent(enrichment);
-  const useCardShell = card || isEnriched;
-  const resolvedIconSize = iconSize ?? (useCardShell ? 32 : 64);
-  const resolvedShowAddIcon = showAddIcon ?? useCardShell;
+  const useCompactLayout = card || isEnriched || embedded;
+  const wrapInCardShell = (card || isEnriched) && !embedded;
+  const resolvedIconSize = iconSize ?? (useCompactLayout ? 32 : 64);
+  const resolvedShowAddIcon = showAddIcon ?? useCompactLayout;
 
   const headerBlock = (
     <Box
@@ -79,24 +89,24 @@ export default function EntityEmptyState({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: useCardShell ? '10px' : 0,
+        gap: useCompactLayout ? '10px' : 0,
       }}
     >
       <Icon
         sx={{
           fontSize: resolvedIconSize,
           color: 'primary.main',
-          opacity: useCardShell ? 1 : 0.6,
+          opacity: useCompactLayout ? 1 : 0.6,
         }}
       />
 
       <Typography
         variant="h6"
         sx={{
-          fontWeight: useCardShell ? 600 : 700,
-          fontSize: useCardShell ? 20 : undefined,
-          lineHeight: useCardShell ? '24px' : undefined,
-          color: useCardShell ? 'primary.main' : 'text.primary',
+          fontWeight: useCompactLayout ? 600 : 700,
+          fontSize: useCompactLayout ? 20 : undefined,
+          lineHeight: useCompactLayout ? '24px' : undefined,
+          color: useCompactLayout ? 'primary.main' : 'text.primary',
         }}
       >
         {title}
@@ -110,7 +120,7 @@ export default function EntityEmptyState({
       sx={{
         color: 'text.secondary',
         maxWidth: isEnriched ? 734 : 480,
-        lineHeight: useCardShell ? '22px' : undefined,
+        lineHeight: useCompactLayout ? '22px' : undefined,
       }}
     >
       {description}
@@ -120,12 +130,12 @@ export default function EntityEmptyState({
   const basicAction =
     actionLabel && onAction ? (
       <Button
-        variant={useCardShell ? 'outlined' : 'contained'}
+        variant={useCompactLayout ? 'outlined' : 'contained'}
         startIcon={resolvedShowAddIcon ? <AddIcon /> : undefined}
         onClick={onAction}
         disabled={actionDisabled}
         sx={
-          useCardShell
+          useCompactLayout
             ? {
                 fontWeight: 700,
                 fontSize: 18,
@@ -214,9 +224,9 @@ export default function EntityEmptyState({
         alignItems: 'center',
         justifyContent: 'center',
         textAlign: 'center',
-        py: useCardShell ? 0 : 10,
-        px: useCardShell ? { xs: 2, md: '200px' } : 4,
-        gap: isEnriched ? '50px' : useCardShell ? '20px' : 2,
+        py: useCompactLayout ? 0 : 10,
+        px: useCompactLayout ? { xs: 2, md: '200px' } : 4,
+        gap: isEnriched ? '50px' : useCompactLayout ? '20px' : 2,
       }}
     >
       <Box
@@ -224,7 +234,7 @@ export default function EntityEmptyState({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: isEnriched ? '30px' : useCardShell ? '20px' : 0,
+          gap: isEnriched ? '30px' : useCompactLayout ? '20px' : 0,
           width: isEnriched ? '100%' : undefined,
           maxWidth: isEnriched ? 734 : undefined,
         }}
@@ -259,13 +269,17 @@ export default function EntityEmptyState({
     </Box>
   );
 
-  if (!useCardShell) {
+  if (!useCompactLayout) {
     return standaloneContent;
   }
 
   return (
     <Box sx={{ width: '100%' }}>
-      <EntityEmptyStateCardShell>{cardContent}</EntityEmptyStateCardShell>
+      {wrapInCardShell ? (
+        <EntityEmptyStateCardShell>{cardContent}</EntityEmptyStateCardShell>
+      ) : (
+        cardContent
+      )}
       {isEnriched && enrichment && (
         <EntityEmptyStateEnrichmentSections enrichment={enrichment} />
       )}

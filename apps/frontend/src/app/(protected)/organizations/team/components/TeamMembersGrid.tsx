@@ -11,7 +11,9 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import GridToolbar from '@/components/common/GridToolbar';
+import GridToolbar, {
+  sectionCardGridDataGridInsetSx,
+} from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -80,6 +82,8 @@ function TeamUnifiedToolbar() {
 interface TeamMembersGridProps {
   refreshTrigger?: number;
   onTotalCountChange?: (count: number) => void;
+  /** Applies 30px column inset when rendered inside a bleeded SectionCard. */
+  embeddedInSectionCard?: boolean;
 }
 
 function getUserStatus(user: User): 'active' | 'invited' {
@@ -99,6 +103,7 @@ function getDisplayName(user: User): string {
 export default function TeamMembersGrid({
   refreshTrigger,
   onTotalCountChange,
+  embeddedInSectionCard = false,
 }: TeamMembersGridProps) {
   const { data: session } = useSession();
   const canDeleteMember = useCan(Capability.Member.DELETE);
@@ -418,7 +423,10 @@ export default function TeamMembersGrid({
         persistState
         storageKey="team-members-grid"
         onRowClick={handleRowClick}
-        sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+        sx={[
+          embeddedInSectionCard ? sectionCardGridDataGridInsetSx : null,
+          { '& .MuiDataGrid-row': { cursor: 'pointer' } },
+        ]}
       />
 
       <TeamFilterDrawer

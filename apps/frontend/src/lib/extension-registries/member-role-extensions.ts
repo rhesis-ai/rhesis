@@ -38,6 +38,12 @@ export interface AddMemberRoleFieldProps {
   size?: 'small' | 'medium';
 }
 
+export interface InviteOrgRoleFieldProps {
+  sessionToken: string;
+  value: string | null;
+  onChange: (roleId: string | null) => void;
+}
+
 /** Minimal project fields returned by the bulk project-memberships endpoint. */
 export interface ProjectSummary {
   id: string;
@@ -66,6 +72,14 @@ export interface MemberRoleExtensions {
   ProjectRoleCell?: ComponentType<ProjectRoleCellProps>;
   /** Renders a role picker in the add-member drawer. */
   AddMemberRoleField?: ComponentType<AddMemberRoleFieldProps>;
+  /** Renders an org-role picker beside each email on the team invite form. */
+  InviteOrgRoleField?: ComponentType<InviteOrgRoleFieldProps>;
+  /** Assigns an org role after a user is invited. */
+  assignOrgMemberRole?: (
+    sessionToken: string,
+    userId: string,
+    roleId: string
+  ) => Promise<void>;
   /** Assigns a project role after a member is added via the community endpoint. */
   assignProjectMemberRole?: (
     sessionToken: string,

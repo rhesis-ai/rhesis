@@ -42,6 +42,7 @@ import { UUID } from 'crypto';
 interface InviteItem {
   id: string;
   email: string;
+  orgRoleId: string | null;
 }
 
 interface FormData {
@@ -57,7 +58,7 @@ interface TeamInviteFormProps {
 }
 
 function createInvite(email = ''): InviteItem {
-  return { id: crypto.randomUUID(), email };
+  return { id: crypto.randomUUID(), email, orgRoleId: null };
 }
 
 const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
@@ -73,7 +74,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const { data: session } = useSession();
     const notifications = useNotifications();
     const { projects: availableProjects } = useActiveProject();
-    const { AddMemberRoleField } = getMemberRoleExtensions();
+    const { AddMemberRoleField, InviteOrgRoleField, assignOrgMemberRole } =
+      getMemberRoleExtensions();
 
     const [formData, setFormData] = useState<FormData>({
       invites: [createInvite()],
@@ -169,21 +171,23 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         return;
       }
 
+      const sessionToken = session.session_token;
+
       try {
         setIsSubmitting(true);
 
-        const validEmails = formData.invites
-          .map(invite => invite.email.trim())
-          .filter(email => email);
+        const validInvites = formData.invites.filter(invite =>
+          invite.email.trim()
+        );
 
-        if (validEmails.length === 0) {
+        if (validInvites.length === 0) {
           notifications.show('Please enter at least one email address', {
             severity: 'error',
           });
           return;
         }
 
-        const clientFactory = new ApiClientFactory(session.session_token);
+        const clientFactory = new ApiClientFactory(sessionToken);
         const usersClient = clientFactory.getUsersClient();
 
         const invitationResults: Array<{
@@ -192,7 +196,8 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
           error?: string;
         }> = [];
 
-        const createUserPromises = validEmails.map(async email => {
+        const createUserPromises = validInvites.map(async invite => {
+          const email = invite.email.trim();
           const userData = {
             email: email,
             organization_id: session.user?.organization_id as UUID,
@@ -202,6 +207,17 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
 
           try {
             const user = await usersClient.createUser(userData);
+            if (user && invite.orgRoleId && assignOrgMemberRole) {
+              try {
+                await assignOrgMemberRole(
+                  sessionToken,
+                  String(user.id),
+                  invite.orgRoleId
+                );
+              } catch {
+                // org-role assignment failure is non-fatal — user is still invited
+              }
+            }
             invitationResults.push({ email, success: true });
             return user;
           } catch (error: unknown) {
@@ -287,7 +303,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         const successCount = invitationResults.filter(
           result => result.success
         ).length;
-        const failedCount = validEmails.length - successCount;
+        const failedCount = validInvites.length - successCount;
 
         if (successCount > 0 && failedCount === 0) {
           notifications.show(
@@ -408,6 +424,14 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
       }
     };
 
+    const handleOrgRoleChange = (invite: InviteItem, orgRoleId: string | null) => {
+      setFormData(prev => ({
+        invites: prev.invites.map(i =>
+          i.id === invite.id ? { ...i, orgRoleId } : i
+        ),
+      }));
+    };
+
     const addEmailField = () => {
       if (formData.invites.length >= MAX_TEAM_MEMBERS) {
         notifications.show(
@@ -465,9 +489,21 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   helperText={errors[invite.id]?.message || ''}
                   placeholder="colleague@company.com"
                   variant="outlined"
-                  sx={drawerOutlinedFieldSx}
+                  sx={{
+                    ...drawerOutlinedFieldSx,
+                    flex: InviteOrgRoleField ? 1.4 : 1,
+                  }}
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
+                {InviteOrgRoleField && session?.session_token && (
+                  <Box sx={{ flex: 1, minWidth: 0, mt: 1 }}>
+                    <InviteOrgRoleField
+                      sessionToken={session.session_token}
+                      value={invite.orgRoleId}
+                      onChange={roleId => handleOrgRoleChange(invite, roleId)}
+                    />
+                  </Box>
+                )}
                 {formData.invites.length > 1 && (
                   <IconButton
                     onClick={() => removeEmailField(invite)}
