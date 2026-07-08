@@ -60,7 +60,7 @@ def list_features(
             detail="Organization not found",
         )
     enabled = [f.name.value for f in FeatureRegistry.enabled_features(org)]
-    info = FeatureRegistry.license_info()
+    info = FeatureRegistry.license_info(org=org)
     return FeaturesResponse(
         license=LicenseInfo(
             edition=str(info.get("edition", "community")),
