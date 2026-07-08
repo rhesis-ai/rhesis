@@ -22,7 +22,7 @@ export interface TestRunFilters {
   /** tags contains */
   tag: string;
   tags: ActivityPresenceFilters['tags'];
-  reviews: PresenceFilterValue;
+  reviews: ActivityPresenceFilters['reviews'];
   comments: ActivityPresenceFilters['comments'];
   tasks: ActivityPresenceFilters['tasks'];
 }

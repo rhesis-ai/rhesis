@@ -2470,6 +2470,7 @@ def get_test_runs(
             exists_filters = [
                 models.TestResult.test_run_id == models.TestRun.id,
                 models.TestResult.test_reviews.isnot(None),
+                func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
                 func.coalesce(
                     func.jsonb_array_length(models.TestResult.test_reviews["reviews"]),
                     0,
@@ -2479,9 +2480,7 @@ def get_test_runs(
             if organization_id:
                 exists_filters.append(models.TestResult.organization_id == UUID(organization_id))
 
-            reviewed_result_exists = (
-                db.query(models.TestResult.id).filter(*exists_filters).exists()
-            )
+            reviewed_result_exists = db.query(models.TestResult.id).filter(*exists_filters).exists()
             q = q.filter(reviewed_result_exists if has_reviews else ~reviewed_result_exists)
         return q
 
