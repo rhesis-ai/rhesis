@@ -459,6 +459,17 @@ def get_items(
     )
 
 
+# Eager-loads CountsMixin/TagsMixin's one-to-many relationships, which
+# with_optimized_loads always skips. Keep in sync with the "counts" note
+# in schema_factory.py -- the two lists aren't linked.
+_DEFAULT_SELECTIN_CHAINS: tuple = (
+    ("comments",),
+    ("tasks",),
+    ("files",),
+    ("_tags_relationship", "tag"),
+)
+
+
 def get_items_detail(
     db: Session,
     model: Type[T],
@@ -478,21 +489,26 @@ def get_items_detail(
     Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
 
     Uses selectinload for many-to-many and joinedload for other relationships.
+    Also always selectin-loads _DEFAULT_SELECTIN_CHAINS for any model that has
+    them -- see that constant's comment for why.
 
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
-        selectin_chains: List of relationship-name chains to load with nested selectinload.
-                        Use for polymorphic one-to-many collections (e.g. TagsMixin) that
-                        are skipped by with_optimized_loads.
-                        Format: [["_tags_relationship", "tag"], ...]
+        selectin_chains: Extra relationship-name chains to load with nested selectinload,
+                        beyond the defaults above. Format: [["rel", "nested_rel"], ...]
     """
     builder = QueryBuilder(db, model).with_optimized_loads(
         skip_many_to_many=False,
         skip_one_to_many=True,
         nested_relationships=nested_relationships,
     )
-    for chain in selectin_chains or []:
+    chains = list(selectin_chains or [])
+    existing_roots = {chain[0] for chain in chains}
+    for chain in _DEFAULT_SELECTIN_CHAINS:
+        if hasattr(model, chain[0]) and chain[0] not in existing_roots:
+            chains.append(list(chain))
+    for chain in chains:
         builder = builder.with_selectin_chain(*chain)
     return (
         builder.with_organization_filter(organization_id)

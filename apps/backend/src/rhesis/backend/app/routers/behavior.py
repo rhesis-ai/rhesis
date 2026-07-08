@@ -89,7 +89,6 @@ def read_behaviors(
         sort_order=sort_order,
         filter=filter,
         nested_relationships={"metrics": ["metric_type", "backend_type"]},
-        selectin_chains=[["_tags_relationship", "tag"]],
         organization_id=organization_id,
         user_id=user_id,
     )

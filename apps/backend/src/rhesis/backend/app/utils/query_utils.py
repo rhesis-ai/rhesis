@@ -125,9 +125,7 @@ class QueryBuilder:
 
         Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
         ``with_optimized_loads`` skips because they have no ``secondary`` table.
-        Each element resolves against the target model of the previous step, so
-        the full chain is batched into exactly two SELECT IN queries instead of
-        N + N*M lazy loads.
+        Each element resolves against the target model of the previous step.
 
         Example::
 
@@ -139,19 +137,14 @@ class QueryBuilder:
         current_model: type = self.model
         load = None
         for rel_name in chain:
-            attr = getattr(current_model, rel_name, None)
-            if attr is None:
+            rel_prop = inspect(current_model).relationships.get(rel_name)
+            if rel_prop is None:
                 raise ValueError(
                     f"with_selectin_chain: {current_model.__name__!r} has no "
                     f"relationship named {rel_name!r}"
                 )
+            attr = getattr(current_model, rel_name)
             load = selectinload(attr) if load is None else load.selectinload(attr)
-            rel_prop = inspect(current_model).relationships.get(rel_name)
-            if rel_prop is None:
-                raise ValueError(
-                    f"with_selectin_chain: {current_model.__name__!r}.{rel_name!r} "
-                    f"is not a relationship"
-                )
             current_model = rel_prop.mapper.class_
         if load is not None:
             self.query = self.query.options(load)
