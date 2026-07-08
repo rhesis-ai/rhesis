@@ -413,8 +413,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
           if (reviewed === 0) return null;
 
           const corrected = params.row.counts?.corrected_tests || 0;
-          const iconColor =
-            corrected > 0 ? 'primary.dark' : 'text.secondary';
+          const iconColor = corrected > 0 ? 'primary.dark' : 'text.secondary';
 
           return (
             <Tooltip title={formatReviewTooltip(reviewed, corrected)}>
