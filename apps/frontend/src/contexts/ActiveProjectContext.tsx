@@ -155,7 +155,12 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.session_token, session?.user?.organization_id, queryClient, userScope]
+    [
+      session?.session_token,
+      session?.user?.organization_id,
+      queryClient,
+      userScope,
+    ]
   );
 
   useEffect(() => {

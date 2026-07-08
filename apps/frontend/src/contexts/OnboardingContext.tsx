@@ -130,7 +130,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     };
 
     loadInitialProgress();
-  }, [session?.session_token, session?.user?.organization_id, queryClient, userScope]);
+  }, [
+    session?.session_token,
+    session?.user?.organization_id,
+    queryClient,
+    userScope,
+  ]);
 
   // Persist user-initiated progress changes: save to localStorage
   // immediately and debounce-sync to the database. Skips until the
