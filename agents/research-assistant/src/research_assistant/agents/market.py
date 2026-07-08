@@ -64,6 +64,6 @@ TOOLS = [
 ]
 
 
-def create_node(model_name: str = "gemini-2.0-flash", temperature: float = 0.3):
+def create_node(model_name: str = "gemini-3.1-flash-lite", temperature: float = 0.3):
     """Create the market specialist agent node."""
     return create_agent_node("market_specialist", PROMPT, TOOLS, model_name, temperature)

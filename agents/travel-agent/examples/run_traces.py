@@ -19,7 +19,7 @@ Required env vars:
 
 Optional env vars:
 
-    TRAVEL_AGENT_MODEL  - Gemini model id (default: gemini-2.0-flash)
+    TRAVEL_AGENT_MODEL  - Gemini model id (default: gemini-3.1-flash-lite)
     RHESIS_API_KEY      - Set both to ship spans to the Rhesis backend
     RHESIS_PROJECT_ID
 

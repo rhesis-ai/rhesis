@@ -14,7 +14,7 @@ from research_assistant.transfers import TRANSFER_TOOL_TO_AGENT
 
 def create_llm_with_tools(
     tools: list,
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-3.1-flash-lite",
     temperature: float = 0.3,
 ):
     """Create an LLM with the specified tools bound."""
@@ -26,7 +26,7 @@ def create_agent_node(
     agent_name: str,
     system_prompt: str,
     tools: list,
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-3.1-flash-lite",
     temperature: float = 0.3,
 ):
     """

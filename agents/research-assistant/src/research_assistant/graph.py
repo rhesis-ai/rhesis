@@ -80,7 +80,7 @@ def route_after_tools(state: MultiAgentState) -> str:
 
 
 def create_multi_agent_coscientist(
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-3.1-flash-lite",
     temperature: float = 0.3,
 ):
     """

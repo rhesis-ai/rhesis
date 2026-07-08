@@ -23,7 +23,7 @@ from agent_framework.openai import OpenAIChatCompletionClient
 from agent_framework_openai._chat_completion_client import OpenAIChatCompletionOptions
 
 GEMINI_OPENAI_BASE_URL: Final[str] = "https://generativelanguage.googleapis.com/v1beta/openai/"
-DEFAULT_MODEL: Final[str] = "gemini-2.0-flash"
+DEFAULT_MODEL: Final[str] = "gemini-3.1-flash-lite"
 
 
 def build_chat_client() -> OpenAIChatCompletionClient:

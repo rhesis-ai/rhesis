@@ -182,7 +182,7 @@ curl -X DELETE http://localhost:8890/conversations/{conversation_id}
 | Variable | Description | Default |
 |---|---|---|
 | `GOOGLE_API_KEY` | Gemini API key (also accepts `GEMINI_API_KEY`) | Required |
-| `TRAVEL_AGENT_MODEL` | Gemini model id | `gemini-2.0-flash` |
+| `TRAVEL_AGENT_MODEL` | Gemini model id | `gemini-3.1-flash-lite` |
 | `RHESIS_API_KEY` | Rhesis API key for tracing | See note |
 | `RHESIS_PROJECT_ID` | Rhesis project ID | See note |
 
