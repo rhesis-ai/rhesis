@@ -62,6 +62,10 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useGridStateStorage } from '@/hooks/useGridStateStorage';
+import {
+  RowActionsHoverProvider,
+  useRowActionsGridRootProps,
+} from '@/components/common/createRowActionsColumn';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface FilterOption {
@@ -265,7 +269,46 @@ function reconcileOrderedFields(
     }
   }
 
+  // Actions must stay trailing — hover styles and column virtualization assume it.
+  if (columnFields.includes('actions')) {
+    result = result.filter(field => field !== 'actions');
+    result.push('actions');
+  }
+
   return result;
+}
+
+function RowActionsHoverGrid({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: (rowActionsRootProps?: {
+    onMouseMove: (event: React.MouseEvent) => void;
+    onMouseLeave: () => void;
+  }) => React.ReactNode;
+}) {
+  if (!enabled) {
+    return <>{children(undefined)}</>;
+  }
+
+  return (
+    <RowActionsHoverProvider>
+      <RowActionsHoverGridInner>{children}</RowActionsHoverGridInner>
+    </RowActionsHoverProvider>
+  );
+}
+
+function RowActionsHoverGridInner({
+  children,
+}: {
+  children: (rowActionsRootProps: {
+    onMouseMove: (event: React.MouseEvent) => void;
+    onMouseLeave: () => void;
+  }) => React.ReactNode;
+}) {
+  const rowActionsRootProps = useRowActionsGridRootProps();
+  return <>{children(rowActionsRootProps)}</>;
 }
 
 // Create a styled version of DataGrid with Figma-aligned borders and headers
@@ -1266,70 +1309,76 @@ export default function BaseDataGrid({
         </Box>
       )}
 
-      <Box
-        onContextMenu={hasRowUrl ? handleContainerContextMenu : undefined}
-        onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
-      >
+      <RowActionsHoverGrid enabled={hasActionsColumn}>
+        {rowActionsRootProps => (
+          <Box
+            onContextMenu={hasRowUrl ? handleContainerContextMenu : undefined}
+            onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
+            {...rowActionsRootProps}
+          >
         {disablePaperWrapper ? (
           <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
             <PaginationSizeContext.Provider value={pageSizeOptions}>
-              <StyledDataGrid
-                apiRef={apiRef}
-                rows={serverSidePagination ? rows : filteredRows}
-                columns={gridColumns}
-                getRowId={getRowId}
-                {...(autoHeight && { autoHeight: true })}
-                pagination
-                hideFooter={hideFooter}
-                paginationMode={serverSidePagination ? 'server' : 'client'}
-                rowCount={serverSidePagination ? totalRows : undefined}
-                paginationModel={paginationModel}
-                onPaginationModelChange={onPaginationModelChange}
-                pageSizeOptions={pageSizeOptions}
-                checkboxSelection={checkboxSelection}
-                disableVirtualization={false}
-                loading={loading}
-                slots={resolvedSlots}
-                sx={dataGridSx}
-                onRowClick={
-                  enableEditing
-                    ? undefined
-                    : hasRowUrl || onRowClick
-                      ? handleRowClickWithLink
-                      : undefined
-                }
-                disableMultipleRowSelection={disableMultipleRowSelection}
-                {...(density && { density })}
-                {...(mergedInitialState && {
-                  initialState: mergedInitialState,
-                })}
-                {...(serverSideFiltering && {
-                  filterMode: 'server',
-                  filterModel,
-                  onFilterModelChange,
-                })}
-                {...(sortingMode === 'server' && {
-                  sortingMode: 'server',
-                  sortModel,
-                  onSortModelChange,
-                })}
-                {...(enableEditing && {
-                  editMode,
-                  processRowUpdate,
-                  onProcessRowUpdateError,
-                  isCellEditable,
-                })}
-                {...(onRowSelectionModelChange && {
-                  onRowSelectionModelChange,
-                })}
-                {...(rowSelectionModel !== undefined && {
-                  rowSelectionModel,
-                })}
-                {...(isRowSelectable && { isRowSelectable })}
-                {...(disableRowSelectionOnClick && {
-                  disableRowSelectionOnClick,
-                })}
-              />
+                  <StyledDataGrid
+                    apiRef={apiRef}
+                    rows={serverSidePagination ? rows : filteredRows}
+                    columns={gridColumns}
+                    getRowId={getRowId}
+                    {...(autoHeight && { autoHeight: true })}
+                    pagination
+                    hideFooter={hideFooter}
+                    paginationMode={
+                      serverSidePagination ? 'server' : 'client'
+                    }
+                    rowCount={serverSidePagination ? totalRows : undefined}
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={onPaginationModelChange}
+                    pageSizeOptions={pageSizeOptions}
+                    checkboxSelection={checkboxSelection}
+                    disableVirtualization={false}
+                    {...(hasActionsColumn && { columnBufferPx: 500 })}
+                    loading={loading}
+                    slots={resolvedSlots}
+                    sx={dataGridSx}
+                    onRowClick={
+                      enableEditing
+                        ? undefined
+                        : hasRowUrl || onRowClick
+                          ? handleRowClickWithLink
+                          : undefined
+                    }
+                    disableMultipleRowSelection={disableMultipleRowSelection}
+                    {...(density && { density })}
+                    {...(mergedInitialState && {
+                      initialState: mergedInitialState,
+                    })}
+                    {...(serverSideFiltering && {
+                      filterMode: 'server',
+                      filterModel,
+                      onFilterModelChange,
+                    })}
+                    {...(sortingMode === 'server' && {
+                      sortingMode: 'server',
+                      sortModel,
+                      onSortModelChange,
+                    })}
+                    {...(enableEditing && {
+                      editMode,
+                      processRowUpdate,
+                      onProcessRowUpdateError,
+                      isCellEditable,
+                    })}
+                    {...(onRowSelectionModelChange && {
+                      onRowSelectionModelChange,
+                    })}
+                    {...(rowSelectionModel !== undefined && {
+                      rowSelectionModel,
+                    })}
+                    {...(isRowSelectable && { isRowSelectable })}
+                    {...(disableRowSelectionOnClick && {
+                      disableRowSelectionOnClick,
+                    })}
+                  />
             </PaginationSizeContext.Provider>
           </HideRowsPerPageBelowContext.Provider>
         ) : (
@@ -1360,6 +1409,7 @@ export default function BaseDataGrid({
                   pageSizeOptions={pageSizeOptions}
                   checkboxSelection={checkboxSelection}
                   disableVirtualization={false}
+                  {...(hasActionsColumn && { columnBufferPx: 500 })}
                   loading={loading}
                   slots={resolvedSlots}
                   sx={dataGridSx}
@@ -1406,7 +1456,9 @@ export default function BaseDataGrid({
             </HideRowsPerPageBelowContext.Provider>
           </Paper>
         )}
-      </Box>
+          </Box>
+        )}
+      </RowActionsHoverGrid>
 
       <Menu
         open={contextMenu !== null}

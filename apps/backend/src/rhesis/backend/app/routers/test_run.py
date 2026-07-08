@@ -145,12 +145,14 @@ def read_test_runs(
     organization_id = str(current_user.organization_id)
     run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
     review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
-    serialized = jsonable_encoder(results)
-    for item in serialized:
+    serialized = []
+    for run in results:
+        item = TestRunDetailSchema.model_validate(run).model_dump(mode="json")
         item["stats"] = run_stats.get(
             str(item.get("id")),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
+        serialized.append(item)
     inject_review_counts_into_serialized_runs(serialized, review_stats)
     return JSONResponse(content=serialized)
 
