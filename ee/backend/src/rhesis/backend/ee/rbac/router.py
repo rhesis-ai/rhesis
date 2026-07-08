@@ -919,6 +919,12 @@ def assign_project_role(
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleRead
 
+    if str(user_id) == str(current_user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change your own project role",
+        )
+
     target_role = check_project_role_assignment(db, current_user, body.role_id, project_id)
 
     membership = (

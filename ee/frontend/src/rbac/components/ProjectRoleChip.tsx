@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Chip,
   MenuItem,
   Select,
   SelectChangeEvent,
@@ -22,6 +23,7 @@ import {
   getCachedProjectMembers,
 } from '../api/project-members-cache';
 import {
+  getRoleChipSx,
   isAssignableProjectRole,
   isWithinActorAuthority,
 } from '../role-display';
@@ -37,6 +39,11 @@ interface ProjectRoleChipProps {
   projectId: string;
   sessionToken: string;
   onRoleChanged?: () => void;
+  /** The signed-in viewer's user id. When it matches `userId`, the cell
+   *  should render read-only — changing your own project role is high-risk
+   *  and gets no confirmation loop, so it is disabled rather than merely
+   *  discouraged. */
+  currentUserId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,6 +55,7 @@ export default function ProjectRoleChip({
   projectId,
   sessionToken,
   onRoleChanged,
+  currentUserId,
 }: ProjectRoleChipProps) {
   const rbacEnabled = useFeature(FeatureName.RBAC);
   const canManage = useCan(Capability.ProjectMember.MANAGE);
@@ -103,6 +111,15 @@ export default function ProjectRoleChip({
       isAssignableProjectRole(r) &&
       isWithinActorAuthority(r, myLevel, myPermissions)
   );
+  // The member's current role (e.g. Owner, or a role above the viewer's
+  // authority) may not be in `assignableRoles`. MUI's Select warns
+  // ("out-of-range value") when the controlled value has no matching
+  // MenuItem, so always render it — disabled — if it's missing.
+  const currentRoleInList = assignableRoles.some(
+    r => r.id === memberEntry?.role_id
+  );
+  const extraCurrentRole =
+    !currentRoleInList && memberEntry?.role ? memberEntry.role : null;
 
   const handleChange = useCallback(
     async (e: SelectChangeEvent<string>) => {
@@ -140,6 +157,25 @@ export default function ProjectRoleChip({
     return <Skeleton variant="rounded" width={110} height={32} />;
   }
 
+  // Changing your own project role is high-risk and gets no confirmation
+  // step, so it is read-only here rather than merely discouraged.
+  if (currentUserId && userId === currentUserId) {
+    if (!memberEntry?.role) {
+      return (
+        <Typography variant="body2" color="text.disabled">
+          —
+        </Typography>
+      );
+    }
+    return (
+      <Chip
+        label={memberEntry.role.display_name}
+        size="small"
+        sx={getRoleChipSx(memberEntry.role)}
+      />
+    );
+  }
+
   return (
     <Select
       value={memberEntry?.role_id ?? ''}
@@ -155,13 +191,24 @@ export default function ProjectRoleChip({
             </Typography>
           );
         }
-        // Use the full roles list so non-assignable roles (e.g. Owner) still
-        // display their name rather than falling back to the raw UUID.
-        const role = roles.find(r => r.id === selected);
-        return role?.display_name ?? selected;
+        // `memberEntry.role` is already resolved by the backend and arrives
+        // with the members fetch that gates the loading skeleton, so prefer
+        // it over the separate (slower, permission-gated) roles catalog
+        // fetch — otherwise the raw UUID flashes until that catalog
+        // resolves. Fall back to the catalog only for the unexpected case
+        // where it's stale.
+        const label =
+          memberEntry?.role?.display_name ??
+          roles.find(r => r.id === selected)?.display_name;
+        return label ?? selected;
       }}
       sx={{ minWidth: 120, fontSize: 13 }}
     >
+      {extraCurrentRole && (
+        <MenuItem key={extraCurrentRole.id} value={extraCurrentRole.id} disabled>
+          {extraCurrentRole.display_name}
+        </MenuItem>
+      )}
       {assignableRoles.map(role => (
         <MenuItem key={role.id} value={role.id}>
           {role.display_name}

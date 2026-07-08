@@ -259,6 +259,7 @@ export default function MemberAccessDrawer({
                             userId={user.id}
                             projectId={projectId}
                             sessionToken={sessionToken}
+                            currentUserId={session?.user?.id}
                           />
                         </Box>
                       ) : (

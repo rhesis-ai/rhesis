@@ -105,6 +105,13 @@ export default function OrgRoleChip({
       isAssignableOrgRole(r) &&
       isWithinActorAuthority(r, myLevel, myPermissions)
   );
+  // The member's current role (e.g. Owner, or a role above the viewer's
+  // authority) may not be in `assignableRoles`. MUI's Select warns
+  // ("out-of-range value") when the controlled value has no matching
+  // MenuItem, so always render it — disabled — if it's missing.
+  const currentRoleInList = assignableRoles.some(r => r.id === member?.role_id);
+  const extraCurrentRole =
+    !currentRoleInList && member?.role ? member.role : null;
 
   const handleChange = useCallback(
     async (e: SelectChangeEvent<string>) => {
@@ -173,13 +180,23 @@ export default function OrgRoleChip({
             </Typography>
           );
         }
-        // Use the full roles list so non-assignable roles (e.g. Owner) still
-        // display their name rather than falling back to the raw UUID.
-        const role = roles.find(r => r.id === selected);
-        return role?.display_name ?? selected;
+        // `member.role` is already resolved by the backend and arrives with
+        // the members fetch that gates the loading skeleton, so prefer it
+        // over the separate (slower, permission-gated) roles catalog fetch —
+        // otherwise the raw UUID flashes until that catalog resolves. Fall
+        // back to the catalog only for the unexpected case where it's stale.
+        const label =
+          member?.role?.display_name ??
+          roles.find(r => r.id === selected)?.display_name;
+        return label ?? selected;
       }}
       sx={{ minWidth: 120, fontSize: 13 }}
     >
+      {extraCurrentRole && (
+        <MenuItem key={extraCurrentRole.id} value={extraCurrentRole.id} disabled>
+          {extraCurrentRole.display_name}
+        </MenuItem>
+      )}
       {assignableRoles.map(role => (
         <MenuItem key={role.id} value={role.id}>
           {role.display_name}
