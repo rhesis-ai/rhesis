@@ -41,7 +41,11 @@ from rhesis.sdk.telemetry.context import (
     is_llm_observation_active,
     set_llm_observation_active,
 )
-from rhesis.sdk.telemetry.integrations.genai import TranslatedSpan, translate_events
+from rhesis.sdk.telemetry.integrations.genai import (
+    AncestryRegistry,
+    TranslatedSpan,
+    translate_events,
+)
 from rhesis.sdk.telemetry.integrations.pydantic_ai import mapping
 
 logger = logging.getLogger(__name__)
@@ -175,98 +179,15 @@ def _safe_fallback_span(span: ReadableSpan) -> ReadableSpan:
         return span
 
 
-class _AncestryRegistry:
-    """Persistent (process-lifetime) span ancestry index for handoff edges.
-
-    A batch-local parent walk fails when a delegated ``invoke_agent`` span and
-    its enclosing spans are exported in different batches. That is the common
-    case under ``BatchSpanProcessor``: a child span ends (and is enqueued)
-    *before* its parent, so on long runs the delegating agent's spans land in
-    a later batch than the child run that needs them.
-
-    This registry sidesteps batching entirely by recording ancestry at span
-    *start* time (a parent always starts before its children, and Pydantic AI
-    embeds the agent name in the ``invoke_agent <name>`` span name from the
-    start). The exporter then resolves the delegating agent against this index
-    regardless of which batch each span exports in.
-
-    Both dicts are bounded; the oldest entries are evicted once the cap is hit.
-    """
-
-    def __init__(self, max_entries: int = 8192) -> None:
-        self._parent_by_span_id: dict[int, int] = {}
-        self._agent_by_span_id: dict[int, str] = {}
-        self._max_entries = max_entries
-
-    @staticmethod
-    def _span_id(span: Any) -> int | None:
-        ctx = getattr(span, "context", None)
-        if ctx is None:
-            try:
-                ctx = span.get_span_context()
-            except Exception:  # noqa: BLE001
-                return None
-        return getattr(ctx, "span_id", None)
-
-    def _evict_if_needed(self, store: dict[int, Any]) -> None:
-        if len(store) < self._max_entries:
-            return
-        try:
-            first = next(iter(store))
-            store.pop(first, None)
-        except StopIteration:  # pragma: no cover - racy but harmless
-            pass
-
-    def record(self, span: Any) -> None:
-        """Index a Pydantic AI span's parent link and (if an agent span) its name.
-
-        Safe to call from a span processor's ``on_start``; never raises.
-        """
-        try:
-            span_id = self._span_id(span)
-            if span_id is None:
-                return
-            parent_ctx = getattr(span, "parent", None)
-            parent_sid = getattr(parent_ctx, "span_id", None)
-            if parent_sid is not None:
-                self._evict_if_needed(self._parent_by_span_id)
-                self._parent_by_span_id[span_id] = parent_sid
-            name = getattr(span, "name", "") or ""
-            if name.startswith(_INVOKE_AGENT_NAME_PREFIX):
-                agent_name = name[len(_INVOKE_AGENT_NAME_PREFIX) :].strip()
-                if agent_name:
-                    self._evict_if_needed(self._agent_by_span_id)
-                    self._agent_by_span_id[span_id] = agent_name
-        except Exception:  # noqa: BLE001 - recording must never break tracing
-            logger.debug("Failed to record span ancestry", exc_info=True)
-
-    def find_ancestor_agent(self, span: ReadableSpan) -> str | None:
-        """Resolve the nearest enclosing agent for a delegated span.
-
-        Walks the persistent parent chain looking for an ``invoke_agent``
-        ancestor. In Pydantic AI's delegation layout the chain is
-        ``invoke_agent (child) -> execute_tool -> invoke_agent (parent)``, so
-        the walk typically terminates in two hops.
-        """
-        cur_sid = self._span_id(span)
-        # Bound the walk defensively against malformed parent cycles.
-        for _ in range(64):
-            if cur_sid is None:
-                return None
-            parent_sid = self._parent_by_span_id.get(cur_sid)
-            if parent_sid is None:
-                return None
-            agent = self._agent_by_span_id.get(parent_sid)
-            if agent is not None:
-                return agent
-            cur_sid = parent_sid
-        return None
-
-
 # Shared singleton: the dedup processor populates it at span start, the
 # translating exporter reads it at export time. Both live in this module so a
 # module-level instance is the simplest correct wiring.
-_ancestry = _AncestryRegistry()
+#
+# Sibling tracking stays OFF: Pydantic AI's delegation nests properly
+# (``invoke_agent (child) -> execute_tool -> invoke_agent (parent)``), and
+# with siblings on a delegated agent span would resolve *itself* through its
+# own parent entry and report its own name as the calling agent.
+_ancestry = AncestryRegistry(agent_name_prefix=_INVOKE_AGENT_NAME_PREFIX)
 
 
 def _build_batch_lookups(
@@ -397,7 +318,8 @@ class PydanticAILLMDedupSpanProcessor(SpanProcessor):
 
     1. Records every Pydantic AI span's parent link (and agent names from
        ``invoke_agent <name>`` span names) into the module-level
-       :class:`_AncestryRegistry`, so the exporter can resolve handoff
+       shared :class:`~rhesis.sdk.telemetry.integrations.genai.AncestryRegistry`,
+       so the exporter can resolve handoff
        ``from`` agents across export batches.
     2. Toggles :func:`~rhesis.sdk.telemetry.context.is_llm_observation_active`
        for the duration of Pydantic AI ``chat`` spans so that any flag-checking
