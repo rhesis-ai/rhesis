@@ -51,10 +51,9 @@ config:
   vertexAiProject: "playground-437609"
 
   # AI / Vertex
-  geminiModelName: "gemini-2.5-flash-001"
-  defaultGenerationModel: "vertex_ai/gemini-2.5-flash"
-  defaultEvaluationModel: "vertex_ai/gemini-2.5-flash"
-  defaultExecutionModel: "vertex_ai/gemini-2.5-flash"
+  defaultGenerationModel: "vertex_ai/gemini-3.1-flash-lite"
+  defaultEvaluationModel: "vertex_ai/gemini-3.1-flash-lite"
+  defaultExecutionModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEmbeddingModel: "vertex_ai/text-embedding-005"
   vertexAiLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
