@@ -64,3 +64,28 @@ def test_shared_pipeline_serializes_concurrent_turns(shared_mock_pipeline):
 
     assert not errors
     assert shared_mock_pipeline.max_active == 1
+
+
+def test_same_conversation_turns_do_not_lose_updates(shared_mock_pipeline):
+    """Concurrent turns on one conversation must serialize read-modify-write."""
+    store = StateStore()
+    conv_id = "shared-conversation"
+    turns = 5
+    errors: list[BaseException] = []
+
+    def worker() -> None:
+        try:
+            run_chat_turn("hello", conversation_id=conv_id, store=store)
+        except BaseException as exc:  # pragma: no cover - surfaced via errors
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(turns)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors
+    # Without per-conversation locking, overlapping reads of the same prior
+    # state would clobber each other and the final turn count would be < turns.
+    assert store.get(conv_id).turn == turns
