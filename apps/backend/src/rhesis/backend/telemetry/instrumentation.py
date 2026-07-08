@@ -12,7 +12,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from rhesis.backend.app.config.settings import get_telemetry_settings
 
@@ -56,7 +56,7 @@ _telemetry_org_id: ContextVar[Optional[str]] = ContextVar("telemetry_org_id", de
 class ConditionalSpanProcessor(BatchSpanProcessor):
     """
     Span processor that only exports spans if telemetry is enabled for the current context.
-    Uses BatchSpanProcessor for async processing (production).
+    Uses BatchSpanProcessor for async export in a background thread.
     """
 
     def on_end(self, span):
@@ -72,26 +72,6 @@ class ConditionalSpanProcessor(BatchSpanProcessor):
         except Exception as e:
             logger.error(f"Error checking telemetry_enabled attribute: {e}")
             telemetry_enabled = True  # Default to enabled if we can't check
-
-        if telemetry_enabled:
-            super().on_end(span)
-        else:
-            logger.debug(f"Skipping span: {span.name} (telemetry disabled)")
-
-
-class ConditionalSimpleSpanProcessor(SimpleSpanProcessor):
-    """
-    Span processor that only exports spans if telemetry is enabled.
-    Uses SimpleSpanProcessor for synchronous processing (local development).
-    """
-
-    def on_end(self, span):
-        """Only process spans if telemetry is enabled (can check context variable)"""
-        # SimpleSpanProcessor runs synchronously in the same thread,
-        # so we can check context variable
-        telemetry_enabled = _telemetry_enabled.get(False) or span.attributes.get(
-            "_rhesis.telemetry_enabled", False
-        )
 
         if telemetry_enabled:
             super().on_end(span)
@@ -232,23 +212,17 @@ def initialize_telemetry():
             timeout=30,  # 30 second timeout - increased to handle slow SSL connections
         )
 
-        # Use SimpleSpanProcessor for local development (synchronous, respects context)
-        # Use BatchSpanProcessor for production (asynchronous, better performance)
-        is_local = deployment_type in ["local", "self-hosted", "unknown"]
-        if is_local:
-            logger.info("Using ConditionalSimpleSpanProcessor for local development")
-            processor = ConditionalSimpleSpanProcessor(exporter)
-        else:
-            logger.info("Using ConditionalBatchSpanProcessor for production")
-            # BatchSpanProcessor is already asynchronous (runs in background thread)
-            # Configure with appropriate timeouts and queue management to prevent blocking
-            processor = ConditionalSpanProcessor(
-                exporter,
-                max_queue_size=2048,  # Max spans queued before dropping (prevents memory issues)
-                export_timeout_millis=30000,  # 30s export timeout (matches exporter timeout)
-                schedule_delay_millis=5000,  # 5s delay between batch exports
-                max_export_batch_size=512,  # Max spans per batch
-            )
+        # BatchSpanProcessor exports in a background thread so slow/unreachable
+        # collectors never block request handling (SimpleSpanProcessor blocked
+        # the server for up to exporter timeout per span on self-hosted).
+        logger.info("Using ConditionalBatchSpanProcessor for async export")
+        processor = ConditionalSpanProcessor(
+            exporter,
+            max_queue_size=2048,  # Max spans queued before dropping (prevents memory issues)
+            export_timeout_millis=30000,  # 30s export timeout (matches exporter timeout)
+            schedule_delay_millis=5000,  # 5s delay between batch exports
+            max_export_batch_size=512,  # Max spans per batch
+        )
 
         provider.add_span_processor(processor)
 
