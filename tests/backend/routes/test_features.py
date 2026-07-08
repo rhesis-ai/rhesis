@@ -177,9 +177,7 @@ class TestFeaturesEndpointWithSignedProvider:
         from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
 
         FeatureRegistry.reset()
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
         # Build a TestClient here, after mock_current_user has applied its overrides.
         self._tc = TestClient(app)
@@ -187,35 +185,14 @@ class TestFeaturesEndpointWithSignedProvider:
         FeatureRegistry.reset()
 
     def test_unlicensed_returns_community_and_no_features(self):
-        """Production with no license token → community, no features."""
+        """No license token, in any environment → community, no features."""
         import os
         from unittest.mock import patch
 
-        # Patch is_development directly since get_application_settings() is
-        # cached and BACKEND_ENV changes after initial load have no effect.
         with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
-            with patch(
-                "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
-                return_value=False,
-            ):
-                response = self._tc.get("/features")
+            response = self._tc.get("/features")
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         assert body["license"]["edition"] == "community"
         assert body["license"]["licensed"] is False
         assert body["enabled"] == []
-
-    def test_dev_fallback_returns_feature_without_token(self):
-        """Dev fallback permissive — features available without a license token."""
-        import os
-        from unittest.mock import patch
-
-        with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
-            with patch(
-                "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
-                return_value=True,
-            ):
-                response = self._tc.get("/features")
-        assert response.status_code == status.HTTP_200_OK
-        body = response.json()
-        assert body["enabled"] == ["sso"]

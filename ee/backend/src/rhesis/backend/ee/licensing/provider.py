@@ -3,16 +3,16 @@
 Precedence (first match wins):
 
 1. ``RHESIS_LICENSE`` env var — a blanket ``sub:"*"`` token covering all
-   orgs; used for simple single-tenant deployments or dev overrides.
+   orgs; used for simple single-tenant deployments.
 2. ``organization.license`` column — a per-org token where ``sub`` must
    equal the org's UUID (string comparison, case-insensitive).
 3. Deny — no valid token found for this org.
 
-Dev fallback (permissive): only when ``RHESIS_LICENSE_ALLOW_UNLICENSED=1`` is
-explicitly set does the provider allow all registered features without a
-valid token. This is an explicit opt-in for local development — every other
-environment, including ``development`` and ``staging`` ``BACKEND_ENV``
-values, is fail-closed and requires a real license.
+No environment-based bypass exists. A missing, invalid, or expired license
+results in the ``community`` edition, identically in every environment —
+local, development, staging, production, and self-hosted. There is no
+special "dev" posture: community is always the safe, always-available
+default, the same way the rest of the open-core model already works.
 
 Fail-closed on missing keys: if no public keys are loaded, the provider
 denies all features and logs a one-time warning.
@@ -28,7 +28,6 @@ from rhesis.backend.app.features import Feature
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.ee.licensing.entitlements import (
     BLANKET_SUBJECT,
-    ENV_ALLOW_UNLICENSED,
     ENV_LICENSE,
     Entitlements,
     LicenseEdition,
@@ -54,9 +53,6 @@ class SignedTokenLicenseProvider:
 
     def allows_feature(self, feature: Feature, org: Organization) -> bool:
         """Return ``True`` iff *org* holds a valid license covering *feature*."""
-        if self._is_dev_fallback():
-            return True
-
         entitlements = self._resolve_entitlements(org)
         if entitlements is None:
             return False
@@ -70,9 +66,6 @@ class SignedTokenLicenseProvider:
 
     def info(self, org: Optional[Organization] = None) -> dict:
         """Return opaque license metadata for the ``GET /features`` response."""
-        if self._is_dev_fallback():
-            return self._unlicensed_info(LicenseEdition.DEV)
-
         if org is None:
             return self._unlicensed_info(LicenseEdition.COMMUNITY)
 
@@ -99,17 +92,6 @@ class SignedTokenLicenseProvider:
         never leaks an ``Enum`` repr through core's ``str(...)`` coercion.
         """
         return {"edition": edition.value, "licensed": False}
-
-    def _is_dev_fallback(self) -> bool:
-        """Return ``True`` if the unlicensed permissive mode is active.
-
-        Explicit opt-in only, via
-        :data:`~rhesis.backend.ee.licensing.entitlements.ENV_ALLOW_UNLICENSED`.
-        Deliberately does **not** key off ``settings.is_development`` —
-        ``BACKEND_ENV`` values other than ``production`` (e.g. ``staging``)
-        must still require a real license.
-        """
-        return os.environ.get(ENV_ALLOW_UNLICENSED, "").strip() == "1"
 
     def _resolve_entitlements(self, org: Organization) -> Optional[Entitlements]:
         """Resolve entitlements for *org* using the declared precedence.

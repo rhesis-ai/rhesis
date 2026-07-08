@@ -31,12 +31,11 @@ class LicenseEdition(str, Enum):
     Adding a sellable tier is a two-step change: add a member here, then add
     its entitlement spec to
     :data:`~rhesis.backend.ee.licensing.tiers.EDITION_ENTITLEMENTS`.
-    ``COMMUNITY``, ``DEV`` and ``UNKNOWN`` are non-sellable sentinels and are
+    ``COMMUNITY`` and ``UNKNOWN`` are non-sellable sentinels and are
     intentionally absent from that catalog.
     """
 
     COMMUNITY = "community"
-    DEV = "dev"
     # --- Sellable tiers (see tiers.EDITION_ENTITLEMENTS) ---
     STARTER = "starter"
     PREMIUM = "premium"
@@ -112,7 +111,6 @@ ENV_LICENSE_PUBLIC_KEY = "RHESIS_LICENSE_PUBLIC_KEY"
 # Secret Manager via --set-secrets; locally it can be exported for dev minting.
 ENV_LICENSE_PRIVATE_KEY = "RHESIS_LICENSE_PRIVATE_KEY"
 ENV_LICENSE_KID = "RHESIS_LICENSE_KID"
-ENV_ALLOW_UNLICENSED = "RHESIS_LICENSE_ALLOW_UNLICENSED"
 
 # Grace period applied when checking expiry live (seconds).  Prevents
 # spurious denials during clock skew or brief cert-rotation windows.
@@ -217,7 +215,6 @@ __all__ = [
     "CLAIM_SUBJECT",
     "Entitlements",
     "EXPIRY_LEEWAY_SECONDS",
-    "ENV_ALLOW_UNLICENSED",
     "ENV_LICENSE",
     "ENV_LICENSE_KID",
     "ENV_LICENSE_PRIVATE_KEY",

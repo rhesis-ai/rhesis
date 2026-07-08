@@ -48,7 +48,6 @@ class TestCatalogShape:
     def test_non_sellable_editions_absent(self):
         for edition in (
             LicenseEdition.COMMUNITY,
-            LicenseEdition.DEV,
             LicenseEdition.UNKNOWN,
         ):
             assert not is_sellable(edition)

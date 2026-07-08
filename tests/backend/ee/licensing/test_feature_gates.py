@@ -3,8 +3,8 @@ and :func:`~rhesis.backend.app.auth.feature_gates.has_feature` under
 the :class:`~rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider`.
 
 Ensures that a route gated with ``require_feature`` returns 404 when the
-org holds no valid license (non-enumeration guarantee), and that the dev
-fallback restores access in development.
+org holds no valid license (non-enumeration guarantee). There is no
+environment-based bypass: missing a license always denies, everywhere.
 """
 
 from __future__ import annotations
@@ -83,42 +83,17 @@ def gated_client():
     FeatureRegistry.reset()
 
 
-_NO_DEV_FALLBACK = patch(
-    "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
-    return_value=False,
-)
-_YES_DEV_FALLBACK = patch(
-    "rhesis.backend.ee.licensing.provider.SignedTokenLicenseProvider._is_dev_fallback",
-    return_value=True,
-)
-
-
 class TestRequireFeatureGate:
     def test_unlicensed_returns_404(self, gated_client):
         """require_feature raises 404 (not 403) when license is absent."""
-        with _NO_DEV_FALLBACK, patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
+        with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
             response = gated_client.get("/gated")
         assert response.status_code == 404
-
-    def test_dev_fallback_allows_unlicensed(self, gated_client):
-        """Dev fallback permissive — features available without a token."""
-        with _YES_DEV_FALLBACK, patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
-            response = gated_client.get("/gated")
-        assert response.status_code == 200
-
-    def test_allow_unlicensed_env_allows_unlicensed(self, gated_client):
-        """RHESIS_LICENSE_ALLOW_UNLICENSED=1 activates fallback regardless of env."""
-        with patch.dict(
-            os.environ,
-            {"RHESIS_LICENSE": "", "RHESIS_LICENSE_ALLOW_UNLICENSED": "1"},
-        ):
-            response = gated_client.get("/gated")
-        assert response.status_code == 200
 
     def test_unregistered_feature_returns_404(self, gated_client):
         """Unregistered feature is indistinguishable from an unlicensed one."""
         FeatureRegistry.reset()  # wipe SSO registration
-        with _NO_DEV_FALLBACK, patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
+        with patch.dict(os.environ, {"RHESIS_LICENSE": ""}):
             response = gated_client.get("/gated")
         # Re-register so other tests see a clean state via the autouse fixture
         FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
