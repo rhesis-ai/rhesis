@@ -400,41 +400,6 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         },
       },
       {
-        field: 'counts.reviewed_tests',
-        headerName: 'Reviews',
-        width: 100,
-        minWidth: 80,
-        resizable: true,
-        sortable: false,
-        filterable: false,
-        valueGetter: (_, row) => row.counts?.reviewed_tests ?? 0,
-        renderCell: params => {
-          const reviewed = params.row.counts?.reviewed_tests || 0;
-          if (reviewed === 0) return null;
-
-          const corrected = params.row.counts?.corrected_tests || 0;
-          const iconColor = corrected > 0 ? 'primary.dark' : 'text.secondary';
-
-          return (
-            <Tooltip title={formatReviewTooltip(reviewed, corrected)}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  width: '100%',
-                }}
-              >
-                <RateReviewOutlinedIcon
-                  sx={{ fontSize: 16, color: iconColor }}
-                />
-                <Typography variant="body2">{reviewed}</Typography>
-              </Box>
-            </Tooltip>
-          );
-        },
-      },
-      {
         field: 'status',
         headerName: 'Status',
         width: 120,
@@ -553,6 +518,41 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
               </Avatar>
               <Typography variant="body2">{displayName}</Typography>
             </Box>
+          );
+        },
+      },
+      {
+        field: 'counts.reviewed_tests',
+        headerName: 'Reviews',
+        width: 100,
+        minWidth: 80,
+        resizable: true,
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => row.counts?.reviewed_tests ?? 0,
+        renderCell: params => {
+          const reviewed = params.row.counts?.reviewed_tests || 0;
+          if (reviewed === 0) return null;
+
+          const corrected = params.row.counts?.corrected_tests || 0;
+          const iconColor = corrected > 0 ? 'primary.dark' : 'text.secondary';
+
+          return (
+            <Tooltip title={formatReviewTooltip(reviewed, corrected)}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  width: '100%',
+                }}
+              >
+                <RateReviewOutlinedIcon
+                  sx={{ fontSize: 16, color: iconColor }}
+                />
+                <Typography variant="body2">{reviewed}</Typography>
+              </Box>
+            </Tooltip>
           );
         },
       },
