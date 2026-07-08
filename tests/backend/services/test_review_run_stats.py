@@ -72,21 +72,15 @@ class TestClassifyTestResultReviewCounts:
 
 class TestGetReviewStatisticsForRuns:
     @pytest.fixture
-    def review_status_ids(self, test_db: Session, test_organization, db_user):
-        def _create_status(name: str):
-            status = models.Status(
-                name=name,
-                organization_id=test_organization.id,
-                user_id=db_user.id,
-            )
-            test_db.add(status)
-            test_db.flush()
-            return status.id
-
-        return {
-            "pass": _create_status("Pass"),
-            "fail": _create_status("Fail"),
-        }
+    def review_status_ids(self, test_db: Session, test_organization, db_user, db_status):
+        fail_status = models.Status(
+            name="Fail",
+            organization_id=test_organization.id,
+            user_id=db_user.id,
+        )
+        test_db.add(fail_status)
+        test_db.flush()
+        return {"pass": db_status.id, "fail": fail_status.id}
 
     def test_aggregates_reviewed_and_corrected_per_run(
         self,
