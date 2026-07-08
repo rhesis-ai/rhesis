@@ -22,8 +22,6 @@ import time
 from contextvars import ContextVar
 
 from sqlalchemy import event
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 
 from rhesis.backend.app.database import engine
 
@@ -52,31 +50,45 @@ def _after_cursor_execute(conn, cursor, statement, parameters, context, executem
         durations.append(elapsed_ms)
 
 
-class RequestTimingMiddleware(BaseHTTPMiddleware):
+class RequestTimingMiddleware:
     """Logs total/db/other wall-clock time for each request.
+
+    Plain ASGI middleware rather than BaseHTTPMiddleware -- the latter runs
+    the downstream app in a background task via call_next(), and if the
+    server-side connection gets cancelled (e.g. a reverse proxy recycling its
+    upstream keep-alive connection right after relaying the response to the
+    real client), call_next() can raise instead of returning, silently
+    skipping any code written after it. Logging inside this middleware's own
+    try/finally around the direct app call cannot be skipped that way.
 
     Registered as the outermost middleware so `total` covers every other
     middleware, dependency (auth, tenant scoping), and the route handler --
     not just the route body.
     """
 
-    async def dispatch(self, request: Request, call_next):
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         token = _query_durations_ms.set([])
         start = time.perf_counter()
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send)
         finally:
             durations = _query_durations_ms.get() or []
             _query_durations_ms.reset(token)
-        total_ms = (time.perf_counter() - start) * 1000
-        db_ms = sum(durations)
-        logger.info(
-            "%s %s total=%.1fms db=%.1fms(%dq) other=%.1fms",
-            request.method,
-            request.url.path,
-            total_ms,
-            db_ms,
-            len(durations),
-            total_ms - db_ms,
-        )
-        return response
+            total_ms = (time.perf_counter() - start) * 1000
+            db_ms = sum(durations)
+            logger.info(
+                "%s %s total=%.1fms db=%.1fms(%dq) other=%.1fms",
+                scope["method"],
+                scope["path"],
+                total_ms,
+                db_ms,
+                len(durations),
+                total_ms - db_ms,
+            )
