@@ -42,23 +42,6 @@ describe('ServicesClient', () => {
     );
   });
 
-  it('posts to /services/openai/json with prompt in body', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ result: 'json response' }));
-    await client.getOpenAIJson('Summarize this');
-    const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/services/openai/json');
-    expect(opts.method).toBe('POST');
-    expect(JSON.parse(opts.body)).toMatchObject({ prompt: 'Summarize this' });
-  });
-
-  it('generates text with POST to /services/generate/text', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ text: 'generated text' }));
-    await client.generateText('Write a test');
-    const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/services/generate/text');
-    expect(opts.method).toBe('POST');
-  });
-
   it('extracts a tool item with POST to /tools/{id}/extract', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({ sources: [{ content: 'page body', title: 'Page' }] })

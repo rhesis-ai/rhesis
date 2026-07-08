@@ -287,7 +287,6 @@ jobs:
             --from-literal=BATCH_CONCURRENCY="${{ secrets.BATCH_CONCURRENCY || '10' }}" \
             --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
-            --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
             --from-literal=DEFAULT_GENERATION_MODEL="${{ secrets.DEFAULT_GENERATION_MODEL }}" \
             --from-literal=DEFAULT_EVALUATION_MODEL="${{ secrets.DEFAULT_EVALUATION_MODEL }}" \
             --from-literal=DEFAULT_EXECUTION_MODEL="${{ secrets.DEFAULT_EXECUTION_MODEL }}" \

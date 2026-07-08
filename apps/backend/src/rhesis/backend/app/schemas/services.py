@@ -22,26 +22,6 @@ class GenerationConfig(BaseModel):
     additional_context: Optional[str] = None  # Additional context (JSON string)
 
 
-class PromptRequest(BaseModel):
-    prompt: str
-    stream: bool = False
-
-
-class TextResponse(BaseModel):
-    text: str
-
-
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class ChatRequest(BaseModel):
-    messages: List[Message]
-    response_format: Optional[str] = None
-    stream: bool = False
-
-
 class SourceData(BaseModel):
     """
     Source data for test generation.

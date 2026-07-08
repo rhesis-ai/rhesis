@@ -1,7 +1,6 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from rhesis.backend.app.routers.base import RhesisRouter
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -9,29 +8,22 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
-    ChatRequest,
     GenerateContentRequest,
     GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
     GenerateTestsResponse,
-    PromptRequest,
     QueryMCPRequest,
     QueryMCPResponse,
     RecentActivitiesResponse,
     TestConfigRequest,
     TestConfigResponse,
     TestPipelineRequest,
-    TextResponse,
 )
 from rhesis.backend.app.services.activities import RecentActivitiesService
-from rhesis.backend.app.services.gemini_client import (
-    create_chat_completion,
-    get_chat_response,
-    get_json_response,
-)
 from rhesis.backend.app.services.generation import (
     generate_multiturn_tests,
     generate_tests,
@@ -98,92 +90,6 @@ async def get_github_contents(repo_url: str):
         logger.error(f"Failed to get GitHub contents for {repo_url}: {error_msg}", exc_info=True)
         raise HTTPException(
             status_code=400, detail=f"Failed to retrieve repository contents: {error_msg}"
-        )
-
-
-@router.post("/openai/json")
-async def get_ai_json_response(prompt_request: PromptRequest):
-    """
-    Get a JSON response from OpenAI API.
-
-    Args:
-        prompt_request: The request containing the prompt to send to OpenAI
-
-    Returns:
-        dict: The JSON response from OpenAI
-    """
-    try:
-        if prompt_request.stream:
-
-            async def generate():
-                async for chunk in get_json_response(prompt_request.prompt, stream=True):
-                    yield f"data: {chunk}\n\n"
-
-            return StreamingResponse(generate(), media_type="text/event-stream")
-
-        return get_json_response(prompt_request.prompt)
-    except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to get JSON response: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to get AI response: {error_msg}")
-
-
-@router.post("/openai/chat")
-async def get_ai_chat_response(chat_request: ChatRequest):
-    """
-    Get a response from OpenAI API using a chat messages array.
-
-    Args:
-        chat_request: The request containing the messages array and response format
-
-    Returns:
-        dict: The response from OpenAI (JSON or text based on response_format)
-    """
-    try:
-        if chat_request.stream:
-            return StreamingResponse(
-                get_chat_response(
-                    messages=[msg.model_dump() for msg in chat_request.messages],
-                    response_format=chat_request.response_format,
-                    stream=True,
-                ),
-                media_type="text/event-stream",
-            )
-
-        return get_chat_response(
-            messages=[msg.model_dump() for msg in chat_request.messages],
-            response_format=chat_request.response_format,
-        )
-    except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to get chat response: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to get chat response: {error_msg}")
-
-
-@router.post("/chat/completions")
-async def create_chat_completion_endpoint(request: dict):
-    """
-    OpenAI-compatible chat completions endpoint.
-    Accepts requests in the standard OpenAI chat completion format.
-
-    Args:
-        request: The complete chat completion request body matching OpenAI's format
-
-    Returns:
-        dict: The unmodified OpenAI API response
-    """
-    try:
-        response = create_chat_completion(request)
-
-        if request.get("stream", False):
-            return StreamingResponse(response, media_type="text/event-stream")
-
-        return response
-    except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to create chat completion: {error_msg}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail=f"Failed to create chat completion: {error_msg}"
         )
 
 
@@ -404,50 +310,6 @@ async def generate_multiturn_tests_endpoint(
         raise
     except Exception as e:
         _handle_generation_error(e)
-
-
-@router.post("/generate/text", response_model=TextResponse)
-async def generate_text(prompt_request: PromptRequest):
-    """
-    Generate raw text from an arbitrary prompt.
-
-    Args:
-        prompt_request: The request containing the prompt and stream flag
-
-    Returns:
-        TextResponse: The raw text response from the model
-    """
-    try:
-        # Create a simple message array with the prompt
-        messages = [{"role": "user", "content": prompt_request.prompt}]
-
-        if prompt_request.stream:
-            # Handle streaming response
-            async def generate():
-                response_stream = get_chat_response(
-                    messages=messages,
-                    response_format="text",  # Explicitly request text format
-                    stream=True,
-                )
-
-                async for chunk in response_stream:
-                    if chunk["choices"][0]["delta"]["content"]:
-                        yield f"data: {chunk['choices'][0]['delta']['content']}\n\n"
-
-            return StreamingResponse(generate(), media_type="text/event-stream")
-
-        # Non-streaming response
-        response = get_chat_response(
-            messages=messages,
-            response_format="text",  # Explicitly request text format
-            stream=False,
-        )
-
-        return TextResponse(text=response)
-    except Exception as e:
-        error_msg = str(e) if str(e) else "Unknown error"
-        logger.error(f"Failed to generate text: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to generate text: {error_msg}")
 
 
 @router.post("/generate/test_pipeline")
