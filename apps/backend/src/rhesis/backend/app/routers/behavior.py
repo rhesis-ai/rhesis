@@ -2,8 +2,7 @@ import logging
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import create_model
@@ -16,6 +15,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.metric import MetricDetail as MetricDetailSchema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -89,7 +89,6 @@ def read_behaviors(
         sort_order=sort_order,
         filter=filter,
         nested_relationships={"metrics": ["metric_type", "backend_type"]},
-        selectin_chains=[["_tags_relationship", "tag"]],
         organization_id=organization_id,
         user_id=user_id,
     )

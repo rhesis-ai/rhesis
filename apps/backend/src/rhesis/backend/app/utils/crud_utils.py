@@ -372,6 +372,7 @@ def get_item_detail(
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_optimized_loads(skip_one_to_many=True)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
         .with_visibility_filter(user_id)
@@ -478,22 +479,21 @@ def get_items_detail(
     Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
 
     Uses selectinload for many-to-many and joinedload for other relationships.
+    Also always selectin-loads comments/tasks/files/tags for any model that has
+    them -- see QueryBuilder.with_default_derived_field_loads for why.
 
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
-        selectin_chains: List of relationship-name chains to load with nested selectinload.
-                        Use for polymorphic one-to-many collections (e.g. TagsMixin) that
-                        are skipped by with_optimized_loads.
-                        Format: [["_tags_relationship", "tag"], ...]
+        selectin_chains: Extra relationship-name chains to load with nested selectinload,
+                        beyond the defaults above. Format: [["rel", "nested_rel"], ...]
     """
     builder = QueryBuilder(db, model).with_optimized_loads(
         skip_many_to_many=False,
         skip_one_to_many=True,
         nested_relationships=nested_relationships,
     )
-    for chain in selectin_chains or []:
-        builder = builder.with_selectin_chain(*chain)
+    builder = builder.with_default_derived_field_loads(selectin_chains)
     return (
         builder.with_organization_filter(organization_id)
         .with_visibility_filter(user_id)
