@@ -798,6 +798,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         showToolbar={true}
         toolbarSlot={TestRunsUnifiedToolbar}
         persistState
+        storageKey="test-runs-grid"
         sx={rowActionsHoverSx}
       />
 

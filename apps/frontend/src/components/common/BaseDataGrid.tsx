@@ -204,19 +204,23 @@ interface BaseDataGridProps {
  * Without this, a column added to `columns` after a user already has a
  * persisted `orderedFields` is appended at the end by MUI (it isn't in the
  * saved order). This keeps the user's relative ordering for known fields while
- * slotting any brand-new field next to the neighbour it's defined after.
+ * slotting any brand-new field next to the neighbour it's defined after, and
+ * moving columns whose code-defined position changed since the layout was saved.
  */
 function reconcileOrderedFields(
   persistedOrder: string[],
   columnFields: string[]
 ): string[] {
-  const result = [...persistedOrder];
-  const present = new Set(persistedOrder);
+  const columnFieldSet = new Set(columnFields);
+  const present = new Set(
+    persistedOrder.filter(field => columnFieldSet.has(field))
+  );
+  let result = persistedOrder.filter(field => columnFieldSet.has(field));
 
+  // Insert columns that are not in the persisted order yet.
   columnFields.forEach((field, idx) => {
     if (present.has(field)) return;
 
-    // Find the nearest preceding defined column that's already in the order.
     let insertAfter: string | null = null;
     for (let i = idx - 1; i >= 0; i--) {
       if (present.has(columnFields[i])) {
@@ -229,8 +233,6 @@ function reconcileOrderedFields(
     if (insertAfter !== null) {
       insertIndex = result.indexOf(insertAfter) + 1;
     } else {
-      // No preceding defined column yet — insert before the first one present
-      // (keeps it after special leading fields like the selection checkbox).
       const firstPresentColField = columnFields.find(f => present.has(f));
       insertIndex = firstPresentColField
         ? result.indexOf(firstPresentColField)
@@ -240,6 +242,28 @@ function reconcileOrderedFields(
     result.splice(insertIndex, 0, field);
     present.add(field);
   });
+
+  // Enforce code-defined order for columns that moved since the layout was saved.
+  for (let i = 1; i < columnFields.length; i++) {
+    const later = columnFields[i];
+    if (!present.has(later)) continue;
+
+    let earlier: string | null = null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (present.has(columnFields[j])) {
+        earlier = columnFields[j];
+        break;
+      }
+    }
+    if (!earlier) continue;
+
+    const earlierIdx = result.indexOf(earlier);
+    const laterIdx = result.indexOf(later);
+    if (laterIdx !== -1 && earlierIdx !== -1 && laterIdx < earlierIdx) {
+      result.splice(laterIdx, 1);
+      result.splice(result.indexOf(earlier) + 1, 0, later);
+    }
+  }
 
   return result;
 }
