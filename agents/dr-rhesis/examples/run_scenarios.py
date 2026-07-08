@@ -7,9 +7,10 @@ import sys
 import uuid
 
 from dotenv import load_dotenv
+from haystack import Pipeline
 
 from dr_rhesis.pipeline import TurnComponents, build_intent_pipeline, run_turn
-from dr_rhesis.state import Phase, DrRhesisState
+from dr_rhesis.state import DrRhesisState, Phase
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("dr_rhesis.examples.run_scenarios")
@@ -42,15 +43,23 @@ def run_scenario(
     name: str,
     messages: list[str],
     *,
+    pipeline: Pipeline,
     components: TurnComponents | None = None,
 ) -> DrRhesisState:
-    pipeline = build_intent_pipeline(components)
     state = DrRhesisState()
+    # A fresh conversation id per scenario keeps each scenario's turns grouped
+    # together in Rhesis while staying separate from other scenarios.
     conv_id = str(uuid.uuid4())
     logger.info("=== Scenario: %s (%s) ===", name, conv_id)
 
     for message in messages:
-        result = run_turn(message, state, pipeline=pipeline, components=components)
+        result = run_turn(
+            message,
+            state,
+            pipeline=pipeline,
+            components=components,
+            session_id=conv_id,
+        )
         state = result["state"]
         logger.info("User: %s", message)
         logger.info("Intent: %s", result.get("intent"))
@@ -71,8 +80,16 @@ def main() -> int:
         logger.error("%s", exc)
         return 1
 
+    # Build the pipeline once and reuse it across scenarios: Haystack forbids
+    # sharing the same component instances across multiple pipelines, and the
+    # generator is expensive to construct. Conversations stay isolated via a
+    # per-scenario session_id, not via separate pipelines.
+    pipeline = build_intent_pipeline(components)
+
     for name, messages in SCENARIOS.items():
-        final_state = run_scenario(name, messages, components=components)
+        final_state = run_scenario(
+            name, messages, pipeline=pipeline, components=components
+        )
         if name == "emergency" and final_state.phase != Phase.ESCALATED:
             logger.error("Expected ESCALATED for emergency scenario")
             return 1
