@@ -65,6 +65,56 @@ def resolve_review_owner_uuid(review: dict) -> Optional[UUID]:
         return None
 
 
+ENTITY_REVIEW_TARGET_TYPES = ("test_result", "test")
+
+
+def classify_test_result_review_counts(
+    test_reviews,
+    status_id,
+) -> tuple[bool, bool]:
+    """Classify a test result's review state for run-level aggregation.
+
+    Returns ``(is_reviewed, is_corrected)`` where:
+
+    - *is_reviewed* is ``True`` when the result has any human review entry
+      (entity-level or metric-level).
+    - *is_corrected* is ``True`` when the latest entity-level review verdict
+      differs from the automated ``status_id`` (``matches_review`` is false).
+    """
+    if not test_reviews or not isinstance(test_reviews, dict):
+        return False, False
+
+    reviews = test_reviews.get("reviews")
+    if not reviews or not isinstance(reviews, list):
+        return False, False
+
+    is_reviewed = len(reviews) > 0
+
+    entity_level = []
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        target = review.get("target") or {}
+        raw_type = target.get("type", "test_result")
+        if raw_type in ENTITY_REVIEW_TARGET_TYPES:
+            entity_level.append(review)
+
+    if not entity_level:
+        return is_reviewed, False
+
+    last_review = max(
+        entity_level,
+        key=lambda r: r.get("updated_at") or r.get("created_at") or "",
+    )
+    review_status = last_review.get("status") or {}
+    review_status_id = review_status.get("status_id")
+    if not review_status_id or not status_id:
+        return is_reviewed, False
+
+    is_corrected = str(review_status_id) != str(status_id)
+    return is_reviewed, is_corrected
+
+
 def authorize_review_action(
     principal: object,
     review: dict,

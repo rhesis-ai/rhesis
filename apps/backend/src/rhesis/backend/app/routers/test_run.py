@@ -128,19 +128,23 @@ def read_test_runs(
     # runs grid pass-rate column) don't rely on the stale
     # ``attributes.completed_tests`` / ``failed_tests`` counters. Aggregated in
     # a single query to avoid the N+1 cost of one stats query per run.
-    from rhesis.backend.tasks.execution.result_processor import get_test_statistics_for_runs
-
-    run_stats = get_test_statistics_for_runs(
-        db,
-        [run.id for run in results],
-        organization_id=str(current_user.organization_id),
+    from rhesis.backend.tasks.execution.result_processor import (
+        get_review_statistics_for_runs,
+        get_test_statistics_for_runs,
+        inject_review_counts_into_serialized_runs,
     )
+
+    run_ids = [run.id for run in results]
+    organization_id = str(current_user.organization_id)
+    run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
     serialized = jsonable_encoder(results)
     for item in serialized:
         item["stats"] = run_stats.get(
             str(item.get("id")),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
+    inject_review_counts_into_serialized_runs(serialized, review_stats)
     return JSONResponse(content=serialized)
 
 

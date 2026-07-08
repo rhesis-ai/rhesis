@@ -161,6 +161,77 @@ def get_test_statistics_for_runs(
     return stats
 
 
+def get_review_statistics_for_runs(
+    db,
+    test_run_ids,
+    organization_id: Optional[str] = None,
+) -> Dict[str, Dict[str, int]]:
+    """Aggregate per-run human review counts in a single query.
+
+    Counts test results with any human review (entity- or metric-level) and
+    how many of those have an entity-level correction (review verdict differs
+    from the automated status). Mirrors ``ReviewsMixin`` semantics used on the
+    test run detail page.
+    """
+    from rhesis.backend.app import models
+    from rhesis.backend.app.services.review import classify_test_result_review_counts
+
+    run_id_strs = [str(rid) for rid in test_run_ids]
+    stats: Dict[str, Dict[str, int]] = {
+        rid: {"reviewed_tests": 0, "corrected_tests": 0} for rid in run_id_strs
+    }
+    if not run_id_strs:
+        return stats
+
+    filters = [models.TestResult.test_run_id.in_(run_id_strs)]
+    if organization_id:
+        filters.append(models.TestResult.organization_id == organization_id)
+
+    rows = (
+        db.query(
+            models.TestResult.test_run_id,
+            models.TestResult.status_id,
+            models.TestResult.test_reviews,
+        )
+        .filter(*filters)
+        .all()
+    )
+
+    for run_id, status_id, test_reviews in rows:
+        is_reviewed, is_corrected = classify_test_result_review_counts(
+            test_reviews,
+            status_id,
+        )
+        if not is_reviewed:
+            continue
+        bucket = stats.setdefault(
+            str(run_id),
+            {"reviewed_tests": 0, "corrected_tests": 0},
+        )
+        bucket["reviewed_tests"] += 1
+        if is_corrected:
+            bucket["corrected_tests"] += 1
+
+    return stats
+
+
+def inject_review_counts_into_serialized_runs(
+    serialized_runs: list[dict],
+    review_stats: Dict[str, Dict[str, int]],
+) -> None:
+    """Merge per-run review aggregates into each run's ``counts`` dict."""
+    for item in serialized_runs:
+        run_id = str(item.get("id"))
+        review_bucket = review_stats.get(
+            run_id,
+            {"reviewed_tests": 0, "corrected_tests": 0},
+        )
+        counts = item.get("counts") or {}
+        counts["reviewed_tests"] = review_bucket["reviewed_tests"]
+        counts["corrected_tests"] = review_bucket["corrected_tests"]
+        item["counts"] = counts
+
+
 def determine_overall_status(
     tests_passed: int, tests_failed: int, execution_errors: int, total_tests: int, logger_func
 ) -> Tuple[str, str, str]:

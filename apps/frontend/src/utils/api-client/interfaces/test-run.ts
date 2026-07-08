@@ -49,6 +49,8 @@ export interface TestRunDetail extends TestRun {
   counts?: {
     comments: number;
     tasks: number;
+    reviewed_tests?: number;
+    corrected_tests?: number;
   };
   stats?: {
     total: number;
