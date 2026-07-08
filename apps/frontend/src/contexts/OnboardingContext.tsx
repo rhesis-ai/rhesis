@@ -81,7 +81,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   // localStorage, and sync differences back in a single round-trip.
   useEffect(() => {
     const token = session?.session_token;
-    if (!token || loadStartedRef.current) return;
+    // /users/settings requires an organization; a user mid-onboarding (before
+    // the org-attach step) has none yet, and the fetch would 403.
+    if (!token || !session?.user?.organization_id || loadStartedRef.current) {
+      return;
+    }
     loadStartedRef.current = true;
 
     const loadInitialProgress = async () => {
@@ -126,7 +130,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     };
 
     loadInitialProgress();
-  }, [session?.session_token, queryClient, userScope]);
+  }, [session?.session_token, session?.user?.organization_id, queryClient, userScope]);
 
   // Persist user-initiated progress changes: save to localStorage
   // immediately and debounce-sync to the database. Skips until the
@@ -381,7 +385,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   }, [driverInstance]);
 
   const forceSyncToDatabase = useCallback(async () => {
-    if (session?.session_token) {
+    if (session?.session_token && session?.user?.organization_id) {
       const sessionToken = session.session_token;
       try {
         await syncProgressToDatabase(
@@ -394,7 +398,13 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         console.error('Error forcing sync to database:', error);
       }
     }
-  }, [session?.session_token, progress, queryClient, userScope]);
+  }, [
+    session?.session_token,
+    session?.user?.organization_id,
+    progress,
+    queryClient,
+    userScope,
+  ]);
 
   const isComplete = isOnboardingComplete(progress);
   const completionPercentage = calculateCompletionPercentage(progress);
