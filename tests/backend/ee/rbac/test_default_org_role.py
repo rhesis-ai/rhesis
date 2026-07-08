@@ -253,6 +253,72 @@ class TestUpdateUserSeedsOwnerRoleOnFirstOrgAssignment:
 
 
 # ---------------------------------------------------------------------------
+# Security: PUT /users/{user_id} accepts a client-supplied organization_id so
+# a fresh onboarding user can attach the org they just created. Without these
+# checks, any orgless user could self-assign an arbitrary organization_id and
+# — since a self-update returns a freshly minted session token — get
+# immediate ambient tenant-scope access to that organization's data. Only the
+# org creator attaching to the org they own is legitimate.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestUpdateUserRejectsIllegitimateOrgAssignment:
+    def test_rejects_self_join_to_unowned_organization(self, test_db: Session):
+        from fastapi import HTTPException
+
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.models.user import User
+        from rhesis.backend.app.routers.user import update_user
+
+        other_org_id = _create_org(test_db)  # owned by someone else (owner_id left NULL)
+        user_id = _create_user(test_db, _create_org(test_db))
+        current_user = test_db.query(User).filter_by(id=user_id).first()
+        current_user.organization_id = None
+        test_db.flush()
+
+        with _rbac_on(), pytest.raises(HTTPException) as exc_info:
+            update_user(
+                user_id=user_id,
+                user=schemas.UserUpdate(organization_id=other_org_id),
+                request=None,
+                db=test_db,
+                current_user=current_user,
+            )
+
+        assert exc_info.value.status_code == 403
+        assert _member_row(test_db, other_org_id, user_id) is None
+
+    def test_rejects_reassignment_when_already_in_an_organization(self, test_db: Session):
+        """A user already in an org cannot switch orgs via this endpoint —
+        even to one they legitimately own."""
+        from fastapi import HTTPException
+
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.models.user import User
+        from rhesis.backend.app.routers.user import update_user
+
+        current_org_id = _create_org(test_db)
+        owned_org_id = _create_org(test_db)
+        user_id = _create_user(test_db, current_org_id)
+        _set_owner(test_db, owned_org_id, user_id)
+        current_user = test_db.query(User).filter_by(id=user_id).first()
+
+        with _rbac_on(), pytest.raises(HTTPException) as exc_info:
+            update_user(
+                user_id=user_id,
+                user=schemas.UserUpdate(organization_id=owned_org_id),
+                request=None,
+                db=test_db,
+                current_user=current_user,
+            )
+
+        assert exc_info.value.status_code == 403
+        assert _member_row(test_db, owned_org_id, user_id) is None
+
+
+# ---------------------------------------------------------------------------
 # Full onboarding HTTP sequence under RBAC (SP4-style backstop proof): a fresh,
 # orgless user must be able to attach their org, invite a teammate, and load
 # initial data — the exact sequence the frontend onboarding wizard drives —
@@ -320,7 +386,7 @@ class TestOnboardingHttpSequenceUnderRbac:
                 },
                 headers=_auth(token),
             )
-            assert invite_resp.status_code != 403, (
+            assert invite_resp.status_code == 200, (
                 f"Inviting a teammate during onboarding was wrongly denied: "
                 f"{invite_resp.status_code} {invite_resp.text}"
             )
@@ -332,9 +398,10 @@ class TestOnboardingHttpSequenceUnderRbac:
                 f"/organizations/{org.id}/load-initial-data",
                 headers=_auth(token),
             )
-            assert load_resp.status_code != 403, (
+            assert load_resp.status_code == 200, (
                 f"load-initial-data was wrongly denied: {load_resp.status_code} {load_resp.text}"
             )
+            assert load_resp.json().get("status") == "success", load_resp.text
 
 
 # ---------------------------------------------------------------------------

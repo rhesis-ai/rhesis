@@ -404,6 +404,30 @@ def update_user(
 
     had_no_organization = db_user.organization_id is None
 
+    # SECURITY: this endpoint accepts a client-supplied organization_id (needed
+    # so a fresh onboarding user can attach the org they just created). Without
+    # this check, any orgless user could self-assign an arbitrary organization_id
+    # here, and — since a self-update returns a freshly minted session token —
+    # get immediate ambient tenant-scope access to that organization's data. The
+    # only legitimate case is the org creator attaching to the org they own;
+    # everything else (joining someone else's org, reassigning an existing org,
+    # doing this on another user's behalf) is rejected. Leaving an org has its
+    # own dedicated endpoint and goes through crud.update_user unaffected since
+    # it sets organization_id to None, not a new value.
+    requested_org_id = getattr(user, "organization_id", None)
+    if requested_org_id is not None and str(requested_org_id) != str(db_user.organization_id):
+        if str(db_user.id) != str(current_user.id) or not had_no_organization:
+            raise HTTPException(
+                status_code=403, detail="Cannot assign an organization via this endpoint"
+            )
+        organization = (
+            db.query(models.Organization).filter(models.Organization.id == requested_org_id).first()
+        )
+        if organization is None or str(organization.owner_id) != str(db_user.id):
+            raise HTTPException(
+                status_code=403, detail="You may only join an organization you created"
+            )
+
     # Update the user
     updated_user = crud.update_user(db, user_id=user_id, user=user)
 
