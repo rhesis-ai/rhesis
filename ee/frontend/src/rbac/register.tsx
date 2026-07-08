@@ -61,7 +61,7 @@ export function registerRBAC(): void {
     ProjectRoleCell: ProjectRoleChip,
     AddMemberRoleField: RoleSelectField,
     InviteOrgRoleField: props => (
-      <RoleSelectField {...props} scope="org" size="small" />
+      <RoleSelectField {...props} scope="org" />
     ),
     assignOrgMemberRole: async (sessionToken, userId, roleId) => {
       const client = new RbacClient(sessionToken);

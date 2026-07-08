@@ -16,7 +16,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -27,8 +26,14 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ROW_ACTIONS_CLASS } from '@/components/common/createRowActionsColumn';
 import { EditIcon, DeleteIcon } from '@/components/icons';
-import { SectionCard, overviewTableInnerSx } from '@/components/common/SectionCard';
+import { SectionCard } from '@/components/common/SectionCard';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
+import {
+  SectionOverviewHeaderCell,
+  sectionOverviewBodyCellSx,
+  sectionOverviewRowActionIconButtonSx,
+  sectionOverviewTableSx,
+} from '@/components/common/SectionOverviewTable';
 import {
   sectionCardGridBleedSx,
   sectionCardGridTableInsetSx,
@@ -37,104 +42,12 @@ import {
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { RbacClient } from '../api/rbac-client';
-import { fetchRoles } from '../api/role-cache';
+import { fetchRoles, invalidateRoles } from '../api/role-cache';
 import { getRoleChipSx } from '../role-display';
 import type { RoleRead } from '../types';
 import RoleEditorDrawer, { type DrawerMode } from './RoleEditorDrawer';
 
-// Figma Frontend node 1640:23151 — overview table inside section cards
-const customRolesTableSx = {
-  ...overviewTableInnerSx,
-  [`& .${ROW_ACTIONS_CLASS}`]: {
-    opacity: 0,
-    pointerEvents: 'none',
-    transition: 'opacity 0.15s ease',
-  },
-  [`& .MuiTableRow-root:hover .${ROW_ACTIONS_CLASS}, & .MuiTableRow-root:focus-within .${ROW_ACTIONS_CLASS}`]:
-    {
-      opacity: 1,
-      pointerEvents: 'auto',
-    },
-} as const;
-
-const customRolesHeaderCellSx = {
-  fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
-  color: 'greyscale.body',
-  height: 48,
-  p: 0,
-  bgcolor: 'background.paper',
-  borderBottom: 'none',
-  verticalAlign: 'middle',
-} as const;
-
-const customRolesBodyCellSx = {
-  fontSize: 14,
-  lineHeight: '22px',
-  color: 'greyscale.body',
-  py: '12px',
-  px: '12px',
-  borderTop: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
-  borderBottom: 'none',
-  height: 48,
-  bgcolor: 'background.paper',
-  verticalAlign: 'middle',
-} as const;
-
-function CustomRolesHeaderCell({
-  children,
-  showDivider = false,
-  width,
-}: {
-  children?: React.ReactNode;
-  showDivider?: boolean;
-  width?: number | string;
-}) {
-  return (
-    <TableCell sx={{ ...customRolesHeaderCellSx, width }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          height: 48,
-          pl: 0,
-          pr: '12px',
-        }}
-      >
-        {showDivider && (
-          <Box
-            sx={{
-              width: '1px',
-              height: 23,
-              bgcolor: 'greyscale.border',
-              mx: '12px',
-              flexShrink: 0,
-            }}
-          />
-        )}
-        {children && (
-          <Typography
-            component="span"
-            sx={{
-              fontWeight: 700,
-              fontSize: 14,
-              lineHeight: '22px',
-              color: 'greyscale.body',
-            }}
-          >
-            {children}
-          </Typography>
-        )}
-      </Box>
-    </TableCell>
-  );
-}
-
-const rowActionIconButtonSx = {
-  p: 0.5,
-  color: 'text.secondary',
-} as const;
+const rowActionIconButtonSx = sectionOverviewRowActionIconButtonSx;
 
 function CustomRoleRowActions({
   canManageRoles,
@@ -360,6 +273,7 @@ export default function RolesTab() {
     try {
       const client = new RbacClient(sessionToken);
       await client.deleteRole(roleToDelete.id);
+      invalidateRoles();
       handleDeleted(roleToDelete.id);
       setRoleToDelete(null);
       notifications.show('Role deleted', { severity: 'success' });
@@ -468,7 +382,7 @@ export default function RolesTab() {
           <Box sx={sectionCardGridBleedSx}>
             <TableContainer
               sx={[
-                customRolesTableSx,
+                sectionOverviewTableSx,
                 sectionCardGridTableInsetSx,
                 sectionCardGridTableEdgeCellResetSx,
               ]}
@@ -476,35 +390,35 @@ export default function RolesTab() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <CustomRolesHeaderCell>Role</CustomRolesHeaderCell>
-                    <CustomRolesHeaderCell showDivider width="34%">
+                    <SectionOverviewHeaderCell>Role</SectionOverviewHeaderCell>
+                    <SectionOverviewHeaderCell showDivider width="34%">
                       Purpose
-                    </CustomRolesHeaderCell>
-                    <CustomRolesHeaderCell showDivider width={120}>
+                    </SectionOverviewHeaderCell>
+                    <SectionOverviewHeaderCell showDivider width={120}>
                       Members
-                    </CustomRolesHeaderCell>
-                    <CustomRolesHeaderCell showDivider width={88} />
+                    </SectionOverviewHeaderCell>
+                    <SectionOverviewHeaderCell showDivider width={88} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {customRoles.map(role => (
                     <TableRow key={role.id} sx={{ height: 48 }}>
-                      <TableCell sx={customRolesBodyCellSx}>
+                      <TableCell sx={sectionOverviewBodyCellSx}>
                         <Chip
                           label={role.display_name}
                           size="small"
                           sx={{ ...getRoleChipSx(role), fontSize: 12 }}
                         />
                       </TableCell>
-                      <TableCell sx={customRolesBodyCellSx}>
+                      <TableCell sx={sectionOverviewBodyCellSx}>
                         {role.permissions.length} permissions
                       </TableCell>
-                      <TableCell sx={customRolesBodyCellSx}>
+                      <TableCell sx={sectionOverviewBodyCellSx}>
                         {role.member_count}
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ ...customRolesBodyCellSx, width: 88 }}
+                        sx={{ ...sectionOverviewBodyCellSx, width: 88 }}
                       >
                         <CustomRoleRowActions
                           canManageRoles={canManageRoles}

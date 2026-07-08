@@ -399,3 +399,171 @@ export function summarizePermissions(permissions: ReadonlySet<string>): {
 export function capabilityLabel(cap: string): string {
   return CAPABILITY_LABELS[cap] ?? cap;
 }
+
+// ---------------------------------------------------------------------------
+// Per-resource permission rows (role editor detail view)
+// ---------------------------------------------------------------------------
+
+export interface ResourcePermissionRow {
+  resourceId: string;
+  label: string;
+  view?: string;
+  create?: string;
+  editOwn?: string;
+  editAll?: string;
+  deleteOwn?: string;
+  deleteAll?: string;
+  /** Non-column capabilities (generate, execute, manage, assigned, …). */
+  extras: { cap: string; label: string }[];
+}
+
+const RESOURCE_DISPLAY_NAMES: Record<string, string> = {
+  test_set: 'Test Set',
+  test: 'Test',
+  test_configuration: 'Test Configuration',
+  test_run: 'Test Run',
+  test_result: 'Test Result',
+  experiment: 'Experiment',
+  endpoint: 'Endpoint',
+  comment: 'Comment',
+  task: 'Task',
+  preflight: 'Preflight',
+  telemetry: 'Traces',
+  explorer: 'Explorer',
+  model: 'Model',
+  metric: 'Metric',
+  source: 'Knowledge Source',
+  behavior: 'Behavior',
+  tool: 'Tool',
+  architect: 'Architect',
+  file: 'File',
+  organization: 'Organization',
+  member: 'Member',
+  project: 'Project',
+  project_member: 'Project Members',
+  role: 'Role',
+  token: 'API Tokens',
+  recycle: 'Recycle Bin',
+  sso: 'SSO',
+  api_clients: 'API Clients',
+};
+
+const RESOURCE_ORDER_BY_AREA: Record<string, readonly string[]> = {
+  'test-resources': [
+    'test_set',
+    'test',
+    'test_configuration',
+    'test_run',
+    'test_result',
+    'experiment',
+    'endpoint',
+    'comment',
+    'task',
+    'preflight',
+  ],
+  observability: ['telemetry', 'explorer'],
+  infrastructure: [
+    'model',
+    'metric',
+    'source',
+    'behavior',
+    'tool',
+    'architect',
+    'file',
+  ],
+  administration: [
+    'organization',
+    'member',
+    'project',
+    'project_member',
+    'role',
+    'token',
+    'recycle',
+    'sso',
+    'api_clients',
+  ],
+};
+
+function capsInArea(area: ResourceArea): string[] {
+  return [...new Set(Object.values(area.levels).flatMap(caps => [...caps]))];
+}
+
+function standardCap(caps: string[], resourceId: string, action: string): string | undefined {
+  const target = `${resourceId}:${action}`;
+  return caps.find(cap => cap === target);
+}
+
+function scopedCap(
+  caps: string[],
+  resourceId: string,
+  action: string,
+  scope: string
+): string | undefined {
+  const target = `${resourceId}:${action}:${scope}`;
+  return caps.find(cap => cap === target);
+}
+
+function extraCapabilityLabel(cap: string): string {
+  return capabilityLabel(cap);
+}
+
+/**
+ * Group an area's capabilities into per-resource rows with View/Create and
+ * scoped Edit/Delete columns plus any additional permission checkboxes.
+ */
+export function groupAreaCapabilitiesByResource(
+  area: ResourceArea
+): ResourcePermissionRow[] {
+  const allCaps = capsInArea(area);
+  const byResource = new Map<string, string[]>();
+
+  for (const cap of allCaps) {
+    const resourceId = cap.split(':')[0] ?? cap;
+    const list = byResource.get(resourceId) ?? [];
+    list.push(cap);
+    byResource.set(resourceId, list);
+  }
+
+  const order = RESOURCE_ORDER_BY_AREA[area.id] ?? [];
+  const resourceIds = [
+    ...order.filter(id => byResource.has(id)),
+    ...[...byResource.keys()]
+      .filter(id => !order.includes(id))
+      .sort((a, b) => a.localeCompare(b)),
+  ];
+
+  return resourceIds.map(resourceId => {
+    const caps = byResource.get(resourceId) ?? [];
+    const label = RESOURCE_DISPLAY_NAMES[resourceId] ?? resourceId;
+    const view = standardCap(caps, resourceId, 'read');
+    const create = standardCap(caps, resourceId, 'create');
+    const editOwn = scopedCap(caps, resourceId, 'update', 'own');
+    const editAll = standardCap(caps, resourceId, 'update');
+    const deleteOwn = scopedCap(caps, resourceId, 'delete', 'own');
+    const deleteAll = standardCap(caps, resourceId, 'delete');
+    const columnCaps = new Set(
+      [view, create, editOwn, editAll, deleteOwn, deleteAll].filter(
+        (cap): cap is string => Boolean(cap)
+      )
+    );
+    const extras = caps
+      .filter(cap => !columnCaps.has(cap))
+      .map(cap => ({
+        cap,
+        label: extraCapabilityLabel(cap),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    return {
+      resourceId,
+      label,
+      view,
+      create,
+      editOwn,
+      editAll,
+      deleteOwn,
+      deleteAll,
+      extras,
+    };
+  });
+}

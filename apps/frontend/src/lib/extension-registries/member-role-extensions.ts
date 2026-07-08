@@ -36,12 +36,16 @@ export interface AddMemberRoleFieldProps {
   /** 'small' renders a compact inline Select without a label, suitable for
    *  use inside list items. Defaults to 'medium' (full FormControl). */
   size?: 'small' | 'medium';
+  /** When true, bypass the role catalog cache (e.g. each time a host drawer opens). */
+  active?: boolean;
 }
 
 export interface InviteOrgRoleFieldProps {
   sessionToken: string;
   value: string | null;
   onChange: (roleId: string | null) => void;
+  /** When true, bypass the role catalog cache (e.g. each time a host drawer opens). */
+  active?: boolean;
 }
 
 /** Minimal project fields returned by the bulk project-memberships endpoint. */

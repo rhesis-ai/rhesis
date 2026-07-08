@@ -75,7 +75,6 @@ export default function TeamTab() {
           <TeamMembersGrid
             refreshTrigger={refreshTrigger}
             onTotalCountChange={handleTotalCountChange}
-            embeddedInSectionCard
           />
         </Box>
       </SectionCard>

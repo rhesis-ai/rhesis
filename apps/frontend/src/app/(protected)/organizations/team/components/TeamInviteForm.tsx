@@ -55,6 +55,8 @@ interface TeamInviteFormProps {
   /** When true, submit is triggered by the parent drawer (no footer button). */
   embedded?: boolean;
   onSubmittingChange?: (submitting: boolean) => void;
+  /** Passed from the parent drawer so role pickers refetch when it opens. */
+  drawerOpen?: boolean;
 }
 
 function createInvite(email = ''): InviteItem {
@@ -68,6 +70,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
       disableDuringTour = false,
       embedded = false,
       onSubmittingChange,
+      drawerOpen = false,
     },
     ref
   ) {
@@ -496,11 +499,12 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
                 {InviteOrgRoleField && session?.session_token && (
-                  <Box sx={{ flex: 1, minWidth: 0, mt: 1 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
                     <InviteOrgRoleField
                       sessionToken={session.session_token}
                       value={invite.orgRoleId}
                       onChange={roleId => handleOrgRoleChange(invite, roleId)}
+                      active={drawerOpen}
                     />
                   </Box>
                 )}
@@ -623,6 +627,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                                     }))
                                   }
                                   size="small"
+                                  active={drawerOpen}
                                 />
                               </Box>
                             )}

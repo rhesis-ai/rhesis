@@ -17,8 +17,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {
   CapabilityLevel,
+  groupAreaCapabilitiesByResource,
   LEVEL_LABELS,
-  capabilityLabel,
   type ResourceArea,
 } from '../capability-groups';
 
@@ -39,6 +39,79 @@ const LEVELS = [
   CapabilityLevel.MANAGE,
 ] as const;
 
+const PERMISSION_COLUMNS = [
+  { key: 'view' as const, label: 'View' },
+  { key: 'create' as const, label: 'Create' },
+  { key: 'editOwn' as const, label: 'Edit (own)' },
+  { key: 'editAll' as const, label: 'Edit (all)' },
+  { key: 'deleteOwn' as const, label: 'Delete (own)' },
+  { key: 'deleteAll' as const, label: 'Delete (all)' },
+] as const;
+
+const PERMISSION_GRID_COLUMNS =
+  'minmax(120px, max-content) repeat(6, 54px) minmax(200px, 1fr)';
+
+const permissionGridRowSx = {
+  display: 'grid',
+  gridTemplateColumns: PERMISSION_GRID_COLUMNS,
+  columnGap: 0.5,
+  alignItems: 'center',
+} as const;
+
+const crudHeaderCellSx = {
+  display: 'flex',
+  justifyContent: 'center',
+  textAlign: 'center',
+  px: 0.25,
+} as const;
+
+const crudCheckboxCellSx = {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  minHeight: 36,
+} as const;
+
+const permissionCheckboxSx = {
+  p: 0.5,
+  m: 0,
+} as const;
+
+function PermissionCheckbox({
+  cap,
+  label,
+  checked,
+  onToggle,
+  readOnly,
+  compact = false,
+}: {
+  cap: string;
+  label: string;
+  checked: boolean;
+  onToggle: (cap: string) => void;
+  readOnly?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <FormControlLabel
+      control={
+        <Checkbox
+          size="small"
+          checked={checked}
+          onChange={() => onToggle(cap)}
+          disabled={readOnly}
+        />
+      }
+      label={
+        <Typography variant={compact ? 'caption' : 'body2'} sx={{ fontSize: 12 }}>
+          {label}
+        </Typography>
+      }
+      sx={{ mr: compact ? 1 : 2, ml: 0 }}
+    />
+  );
+}
+
 export default function PermissionGroupControl({
   area,
   currentLevel,
@@ -49,6 +122,7 @@ export default function PermissionGroupControl({
   readOnly = false,
 }: PermissionGroupControlProps) {
   const [expanded, setExpanded] = useState(false);
+  const resourceRows = groupAreaCapabilitiesByResource(area);
 
   const allCaps = new Set(
     Object.values(area.levels).flatMap(caps => [...caps])
@@ -83,7 +157,6 @@ export default function PermissionGroupControl({
           </Typography>
         </Box>
 
-        {/* Segmented level selector */}
         <ToggleButtonGroup
           value={currentLevel}
           exclusive
@@ -146,10 +219,11 @@ export default function PermissionGroupControl({
           })}
         </ToggleButtonGroup>
 
-        {/* Expand chevron */}
         <IconButton
           size="small"
           onClick={() => setExpanded(v => !v)}
+          aria-label={expanded ? 'Collapse permissions' : 'Expand permissions'}
+          aria-expanded={expanded}
           sx={{
             flexShrink: 0,
             transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -160,7 +234,6 @@ export default function PermissionGroupControl({
         </IconButton>
       </Box>
 
-      {/* Expandable detail — individual capability checkboxes */}
       <Collapse in={expanded}>
         <Box
           sx={{
@@ -168,29 +241,85 @@ export default function PermissionGroupControl({
             py: 1.5,
             borderTop: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
             bgcolor: (t: Theme) => alpha(t.palette.greyscale.surface1, 0.5),
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 0,
           }}
         >
-          {[...allCaps].map(cap => (
-            <FormControlLabel
-              key={cap}
-              control={
-                <Checkbox
-                  size="small"
-                  checked={permissions.has(cap)}
-                  onChange={() => onToggleCapability(cap)}
-                  disabled={readOnly}
-                />
-              }
-              label={
-                <Typography variant="caption">
-                  {capabilityLabel(cap)}
-                </Typography>
-              }
-              sx={{ mr: 0 }}
-            />
+          <Box
+            sx={{
+              ...permissionGridRowSx,
+              pb: 1,
+              borderBottom: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+              mb: 0.5,
+            }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'greyscale.body' }}>
+              Resource
+            </Typography>
+            {PERMISSION_COLUMNS.map(col => (
+              <Typography
+                key={col.key}
+                variant="caption"
+                sx={{
+                  fontWeight: 700,
+                  color: 'greyscale.body',
+                  fontSize: 10,
+                  lineHeight: 1.2,
+                  ...crudHeaderCellSx,
+                }}
+              >
+                {col.label}
+              </Typography>
+            ))}
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'greyscale.body' }}>
+              Other
+            </Typography>
+          </Box>
+
+          {resourceRows.map(row => (
+            <Box
+              key={row.resourceId}
+              sx={{
+                ...permissionGridRowSx,
+                py: 0.75,
+                borderBottom: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+                '&:last-child': { borderBottom: 'none' },
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }}>
+                {row.label}
+              </Typography>
+
+              {PERMISSION_COLUMNS.map(col => {
+                const cap = row[col.key];
+                return (
+                  <Box key={col.key} sx={crudCheckboxCellSx}>
+                    {cap ? (
+                      <Checkbox
+                        size="small"
+                        checked={permissions.has(cap)}
+                        onChange={() => onToggleCapability(cap)}
+                        disabled={readOnly}
+                        sx={permissionCheckboxSx}
+                        inputProps={{ 'aria-label': `${row.label} ${col.label}` }}
+                      />
+                    ) : null}
+                  </Box>
+                );
+              })}
+
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {row.extras.map(extra => (
+                  <PermissionCheckbox
+                    key={extra.cap}
+                    cap={extra.cap}
+                    label={extra.label}
+                    checked={permissions.has(extra.cap)}
+                    onToggle={onToggleCapability}
+                    readOnly={readOnly}
+                    compact
+                  />
+                ))}
+              </Box>
+            </Box>
           ))}
         </Box>
       </Collapse>
