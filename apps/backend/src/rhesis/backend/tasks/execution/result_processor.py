@@ -183,7 +183,11 @@ def get_review_statistics_for_runs(
     if not run_id_strs:
         return stats
 
-    filters = [models.TestResult.test_run_id.in_(run_id_strs)]
+    filters = [
+        models.TestResult.test_run_id.in_(run_id_strs),
+        # Skip rows with no review payload so we don't load JSONB blobs.
+        models.TestResult.test_reviews.isnot(None),
+    ]
     if organization_id:
         filters.append(models.TestResult.organization_id == organization_id)
 

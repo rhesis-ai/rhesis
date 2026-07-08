@@ -80,6 +80,9 @@ def classify_test_result_review_counts(
       (entity-level or metric-level).
     - *is_corrected* is ``True`` when the latest entity-level review verdict
       differs from the automated ``status_id`` (``matches_review`` is false).
+
+    "Latest" entity-level review uses ``updated_at`` then ``created_at``, matching
+    ``ReviewsMixin._compute_review_state``.
     """
     if not test_reviews or not isinstance(test_reviews, dict):
         return False, False
