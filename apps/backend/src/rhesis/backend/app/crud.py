@@ -234,7 +234,7 @@ def get_prompts(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Prompt]:
-    return get_items(
+    return get_items_detail(
         db,
         models.Prompt,
         skip,
@@ -290,7 +290,7 @@ def get_prompt_templates(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.PromptTemplate]:
-    return get_items(
+    return get_items_detail(
         db,
         models.PromptTemplate,
         skip,
@@ -349,7 +349,7 @@ def get_categories(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Category]:
-    return get_items(
+    return get_items_detail(
         db,
         models.Category,
         skip,
