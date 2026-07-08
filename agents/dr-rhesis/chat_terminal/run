@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Launch the Dr-Rhesis terminal chat from this folder.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+exec uv run python chat_terminal/chat.py "$@"
