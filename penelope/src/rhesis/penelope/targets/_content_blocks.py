@@ -33,14 +33,18 @@ async def afiles_to_content_blocks(
     """Async sibling of :func:`files_to_content_blocks`.
 
     Uses ``FileReference.aread_bytes()`` to materialize object-storage
-    attachments so building the blocks doesn't block the event loop.
+    attachments so building the blocks doesn't block the event loop; the
+    attachments are fetched concurrently (order preserved).
     """
     if not files:
         return message
 
+    import asyncio
+
     from langchain_core.messages.content import create_text_block
 
-    return [create_text_block(message), *[await _afile_to_block(f) for f in files]]
+    blocks = await asyncio.gather(*(_afile_to_block(f) for f in files))
+    return [create_text_block(message), *blocks]
 
 
 def _extracted_text_block(file: Any, extracted_text: str) -> Any:

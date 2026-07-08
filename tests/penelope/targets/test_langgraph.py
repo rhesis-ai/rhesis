@@ -98,3 +98,21 @@ def test_a_send_message_with_files_builds_content_blocks(echo_graph):
     assert isinstance(stored.content, list)
     assert stored.content[0]["type"] == "text"
     assert stored.content[1]["type"] == "image"
+
+
+def test_a_send_message_falls_back_without_ainvoke():
+    """Regression: validate_configuration only requires invoke(), so a
+    duck-typed graph without ainvoke() must fall back to the thread-pool
+    path instead of raising AttributeError."""
+    import asyncio
+
+    class _SyncOnlyGraph:
+        def invoke(self, state):
+            return {"messages": [*state["messages"], AIMessage(content="sync ok")]}
+
+    target = LangGraphTarget(_SyncOnlyGraph(), "test-target")
+
+    response = asyncio.run(target.a_send_message("hello"))
+
+    assert response.success is True
+    assert response.content == "sync ok"

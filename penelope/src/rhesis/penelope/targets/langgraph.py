@@ -151,7 +151,14 @@ class LangGraphTarget(Target):
         LangGraph CompiledGraphs expose ``ainvoke()``, so this avoids the base
         class thread-pool fallback. File attachments are materialized with
         ``aread_bytes()`` so object-storage fetches don't block the event loop.
+
+        Duck-typed graphs without ``ainvoke()`` (validate_configuration only
+        requires ``invoke()``) fall back to the base class thread-pool path
+        instead of raising.
         """
+        if not hasattr(self.graph, "ainvoke"):
+            return await super().a_send_message(message, conversation_id, files, **kwargs)
+
         if not message.strip():
             return TargetResponse(success=False, content="", error="Empty message")
 

@@ -155,7 +155,14 @@ class LangChainTarget(Target):
         attachments are materialized with ``aread_bytes()`` so object-storage
         fetches don't block the event loop. The files/kwargs semantics match
         send_message (see its docstring).
+
+        Duck-typed runnables without ``ainvoke()`` (validate_configuration
+        only requires ``invoke()``) fall back to the base class thread-pool
+        path instead of raising.
         """
+        if not hasattr(self.runnable, "ainvoke"):
+            return await super().a_send_message(message, conversation_id, files, **kwargs)
+
         if not message.strip():
             return TargetResponse(success=False, content="", error="Empty message")
 

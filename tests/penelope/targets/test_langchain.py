@@ -126,6 +126,30 @@ def test_a_send_message_with_file_reference_uses_aread_bytes():
     assert file_ref.aread_called is True
 
 
+def test_a_send_message_falls_back_without_ainvoke():
+    """Regression: validate_configuration only requires invoke(), so a
+    duck-typed runnable without ainvoke() must fall back to the thread-pool
+    path instead of raising AttributeError."""
+    import asyncio
+
+    class _SyncOnlyRunnable:
+        def __init__(self):
+            self.received = {}
+
+        def invoke(self, x, config=None):
+            self.received["input"] = x
+            return "sync ok"
+
+    runnable = _SyncOnlyRunnable()
+    target = LangChainTarget(runnable, "test-target")
+
+    response = asyncio.run(target.a_send_message("hello"))
+
+    assert response.success is True
+    assert response.content == "sync ok"
+    assert runnable.received["input"] == {"input": "hello"}
+
+
 def test_a_send_message_error_is_captured():
     import asyncio
 

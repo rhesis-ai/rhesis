@@ -283,7 +283,12 @@ class PydanticAIIntegration(BaseIntegration):
             multi = getattr(provider, "_active_span_processor", None)
             children = getattr(multi, "_span_processors", ()) if multi is not None else ()
         except Exception:  # noqa: BLE001
-            logger.warning("Could not introspect provider span processors", exc_info=True)
+            logger.warning(
+                "Could not introspect provider span processors; refusing to "
+                "enable Pydantic AI instrumentation since translation of its "
+                "spans cannot be guaranteed",
+                exc_info=True,
+            )
             return False
 
         wrapped_count = 0
