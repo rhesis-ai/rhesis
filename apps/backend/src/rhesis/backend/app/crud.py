@@ -2447,6 +2447,7 @@ def get_test_runs(
     experiment_id: str | None = None,
     parameter_version: str | None = None,
     has_experiment: bool | None = None,
+    has_reviews: bool | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
@@ -2461,6 +2462,26 @@ def get_test_runs(
             q = q.filter(models.TestRun.experiment_id.isnot(None))
         elif has_experiment is False:
             q = q.filter(models.TestRun.experiment_id.is_(None))
+        if has_reviews is not None:
+            from uuid import UUID
+
+            from sqlalchemy import func
+
+            exists_filters = [
+                models.TestResult.test_run_id == models.TestRun.id,
+                models.TestResult.test_reviews.isnot(None),
+                func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
+                func.coalesce(
+                    func.jsonb_array_length(models.TestResult.test_reviews["reviews"]),
+                    0,
+                )
+                > 0,
+            ]
+            if organization_id:
+                exists_filters.append(models.TestResult.organization_id == UUID(organization_id))
+
+            reviewed_result_exists = db.query(models.TestResult.id).filter(*exists_filters).exists()
+            q = q.filter(reviewed_result_exists if has_reviews else ~reviewed_result_exists)
         return q
 
     return (

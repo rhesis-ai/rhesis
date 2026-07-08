@@ -33,6 +33,7 @@ import {
   Chip,
   Button,
   ButtonGroup,
+  Tooltip,
 } from '@mui/material';
 import {
   ChatIcon,
@@ -42,6 +43,7 @@ import {
 } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRun, TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { can } from '@/utils/affordances';
@@ -66,6 +68,14 @@ import {
 } from '@/components/common/createRowActionsColumn';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
+
+function formatReviewTooltip(reviewed: number, corrected: number): string {
+  const reviewedLabel = `${reviewed} test${reviewed === 1 ? '' : 's'} reviewed`;
+  if (corrected > 0) {
+    return `${reviewedLabel} · ${corrected} corrected`;
+  }
+  return reviewedLabel;
+}
 
 // ── Status pill tabs ─────────────────────────────────────────────────────────
 
@@ -250,6 +260,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         sort_order
       ),
       runKindFilter,
+      drawerFilters.reviews,
     ],
     errorFallbackMessage: 'Failed to load test runs',
     queryFn: () => {
@@ -262,6 +273,8 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         ...(filterString && { filter: filterString }),
         ...(runKindFilter === 'experiments' && { has_experiment: true }),
         ...(runKindFilter === 'tests' && { has_experiment: false }),
+        ...(drawerFilters.reviews === 'with' && { has_reviews: true }),
+        ...(drawerFilters.reviews === 'without' && { has_reviews: false }),
       });
     },
     enabled: !!sessionToken,
@@ -512,6 +525,41 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         },
       },
       {
+        field: 'counts.reviewed_tests',
+        headerName: 'Reviews',
+        width: 100,
+        minWidth: 80,
+        resizable: true,
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => row.counts?.reviewed_tests ?? 0,
+        renderCell: params => {
+          const reviewed = params.row.counts?.reviewed_tests || 0;
+          if (reviewed === 0) return null;
+
+          const corrected = params.row.counts?.corrected_tests || 0;
+          const iconColor = corrected > 0 ? 'primary.dark' : 'text.secondary';
+
+          return (
+            <Tooltip title={formatReviewTooltip(reviewed, corrected)}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  width: '100%',
+                }}
+              >
+                <RateReviewOutlinedIcon
+                  sx={{ fontSize: 16, color: iconColor }}
+                />
+                <Typography variant="body2">{reviewed}</Typography>
+              </Box>
+            </Tooltip>
+          );
+        },
+      },
+      {
         field: 'counts.comments',
         headerName: 'Comments',
         width: 100,
@@ -750,6 +798,7 @@ function TestRunsGrid({ sessionToken, onTotalCountChange }: TestRunsGridProps) {
         showToolbar={true}
         toolbarSlot={TestRunsUnifiedToolbar}
         persistState
+        storageKey="test-runs-grid-v2"
         sx={rowActionsHoverSx}
       />
 

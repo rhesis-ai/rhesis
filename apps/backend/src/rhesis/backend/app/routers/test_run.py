@@ -104,6 +104,12 @@ def read_test_runs(
         description="Filter by experiment association: true = only runs with an experiment, "
         "false = only runs without, omit = all runs",
     ),
+    has_reviews: bool | None = Query(
+        None,
+        description="Filter by human review activity on child test results: "
+        "true = runs with at least one reviewed test, "
+        "false = runs with no reviewed tests, omit = all runs",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -117,6 +123,7 @@ def read_test_runs(
         sort_order=sort_order,
         filter=filter,
         has_experiment=has_experiment,
+        has_reviews=has_reviews,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )
@@ -128,19 +135,25 @@ def read_test_runs(
     # runs grid pass-rate column) don't rely on the stale
     # ``attributes.completed_tests`` / ``failed_tests`` counters. Aggregated in
     # a single query to avoid the N+1 cost of one stats query per run.
-    from rhesis.backend.tasks.execution.result_processor import get_test_statistics_for_runs
-
-    run_stats = get_test_statistics_for_runs(
-        db,
-        [run.id for run in results],
-        organization_id=str(current_user.organization_id),
+    from rhesis.backend.tasks.execution.result_processor import (
+        get_review_statistics_for_runs,
+        get_test_statistics_for_runs,
+        inject_review_counts_into_serialized_runs,
     )
-    serialized = jsonable_encoder(results)
-    for item in serialized:
+
+    run_ids = [run.id for run in results]
+    organization_id = str(current_user.organization_id)
+    run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    serialized = []
+    for run in results:
+        item = TestRunDetailSchema.model_validate(run).model_dump(mode="json")
         item["stats"] = run_stats.get(
             str(item.get("id")),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
+        serialized.append(item)
+    inject_review_counts_into_serialized_runs(serialized, review_stats)
     return JSONResponse(content=serialized)
 
 

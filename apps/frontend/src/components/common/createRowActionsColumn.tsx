@@ -1,32 +1,135 @@
 'use client';
 
-import React from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { GridColDef } from '@mui/x-data-grid';
+import { gridClasses, type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { EditIcon, DeleteIcon } from '@/components/icons';
 
 export const ROW_ACTIONS_CLASS = 'row-actions';
 
+interface RowActionsHoverContextValue {
+  hoveredRowId: GridRowId | null;
+  setHoveredRowId: React.Dispatch<React.SetStateAction<GridRowId | null>>;
+}
+
+const RowActionsHoverContext =
+  createContext<RowActionsHoverContextValue | null>(null);
+
+/** Wrap a DataGrid that uses `createRowActionsColumn` (done automatically in BaseDataGrid). */
+export function RowActionsHoverProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [hoveredRowId, setHoveredRowId] = useState<GridRowId | null>(null);
+  const value = useMemo(
+    () => ({ hoveredRowId, setHoveredRowId }),
+    [hoveredRowId]
+  );
+  return (
+    <RowActionsHoverContext.Provider value={value}>
+      {children}
+    </RowActionsHoverContext.Provider>
+  );
+}
+
+function useRowActionsHovered(rowId: GridRowId): boolean {
+  const ctx = useContext(RowActionsHoverContext);
+  // Outside a provider (unit-test mocks, legacy grids): keep actions visible.
+  if (!ctx) return true;
+  return String(ctx.hoveredRowId) === String(rowId);
+}
+
+/** Pointer handlers for the DataGrid root — tracks which row is hovered. */
+export function useRowActionsGridRootProps(): {
+  onMouseMove: (event: React.MouseEvent) => void;
+  onMouseLeave: () => void;
+} {
+  const ctx = useContext(RowActionsHoverContext);
+  const setHoveredRowId = ctx?.setHoveredRowId;
+
+  const onMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (!setHoveredRowId) return;
+      const rowEl = (event.target as HTMLElement).closest(
+        `.${gridClasses.row}`
+      );
+      const nextId = rowEl?.getAttribute('data-id') ?? null;
+      setHoveredRowId(prev => (String(prev) === nextId ? prev : nextId));
+    },
+    [setHoveredRowId]
+  );
+
+  const onMouseLeave = useCallback(() => {
+    setHoveredRowId?.(null);
+  }, [setHoveredRowId]);
+
+  return useMemo(
+    () => ({ onMouseMove, onMouseLeave }),
+    [onMouseMove, onMouseLeave]
+  );
+}
+
+const rowActionsRevealSelectors = [
+  `& .${gridClasses.row}:hover`,
+  `& .${gridClasses.row}.Mui-hovered`,
+  `& .${gridClasses.row}:focus-within`,
+  `& .${gridClasses.cell}[data-field="actions"]:hover`,
+].join(', ');
+
 /**
- * Merge this sx onto your BaseDataGrid to hide the actions column by default
- * and reveal it on row hover.
+ * CSS fallback for grids that render `ROW_ACTIONS_CLASS` manually. Grids using
+ * `createRowActionsColumn` inside BaseDataGrid get JS row-hover tracking
+ * automatically and do not need to pass this sx.
  */
 export const rowActionsHoverSx: SxProps<Theme> = {
   [`& .${ROW_ACTIONS_CLASS}`]: {
     opacity: 0,
-    visibility: 'hidden',
     pointerEvents: 'none',
-    transition: 'opacity 0.15s ease, visibility 0.15s ease',
+    transition: 'opacity 0.15s ease',
   },
-  [`& .MuiDataGrid-row:hover .${ROW_ACTIONS_CLASS}`]: {
+  [`${rowActionsRevealSelectors} .${ROW_ACTIONS_CLASS}`]: {
     opacity: 1,
-    visibility: 'visible',
     pointerEvents: 'auto',
   },
 };
+
+interface RowActionsCellProps {
+  rowId: GridRowId;
+  children: React.ReactNode;
+}
+
+function RowActionsCell({ rowId, children }: RowActionsCellProps) {
+  const visible = useRowActionsHovered(rowId);
+  return (
+    <Box
+      className={ROW_ACTIONS_CLASS}
+      style={{
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
+      sx={{
+        display: 'flex',
+        gap: '4px',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+        transition: 'opacity 0.15s ease',
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
 
 interface RowActionsColumnOptions {
   onEdit?: (id: string, row: Record<string, unknown>) => void;
@@ -79,16 +182,7 @@ export function createRowActionsColumn({
       const showDelete = onDelete && (!canDelete || canDelete(row));
 
       return (
-        <Box
-          className={ROW_ACTIONS_CLASS}
-          sx={{
-            display: 'flex',
-            gap: '4px',
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
+        <RowActionsCell rowId={params.id}>
           {showEdit && (
             <Tooltip title={editTooltip}>
               <IconButton
@@ -152,7 +246,7 @@ export function createRowActionsColumn({
               </IconButton>
             </Tooltip>
           )}
-        </Box>
+        </RowActionsCell>
       );
     },
   };

@@ -393,14 +393,14 @@ def get_experiment_results(
     # counters that get written during execution and don't reflect later
     # metric- or turn-override recalculations.
     from rhesis.backend.tasks.execution.result_processor import (
+        get_review_statistics_for_runs,
         get_test_statistics_for_runs,
+        inject_review_counts_into_serialized_runs,
     )
 
-    run_stats = get_test_statistics_for_runs(
-        db,
-        [run.id for run in runs],
-        organization_id=organization_id,
-    )
+    run_ids = [run.id for run in runs]
+    run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
+    review_stats = get_review_statistics_for_runs(db, run_ids, organization_id=organization_id)
 
     def _with_stats(run) -> dict:
         encoded = jsonable_encoder(run)
@@ -408,6 +408,7 @@ def get_experiment_results(
             str(run.id),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},
         )
+        inject_review_counts_into_serialized_runs([encoded], review_stats)
         return encoded
 
     if group_by == "run":
