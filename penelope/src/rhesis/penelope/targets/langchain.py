@@ -7,7 +7,10 @@ testable with Penelope's autonomous testing agent.
 
 from typing import Any, List, Optional
 
-from rhesis.penelope.targets._content_blocks import files_to_content_blocks
+from rhesis.penelope.targets._content_blocks import (
+    afiles_to_content_blocks,
+    files_to_content_blocks,
+)
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -129,28 +132,7 @@ class LangChainTarget(Target):
             else:
                 response = self.runnable.invoke(input_data)
 
-            # Extract content from response
-            if hasattr(response, "content"):
-                # LangChain message object (AIMessage, etc.)
-                content = response.content
-                raw_response = {"content": content, "type": type(response).__name__}
-            elif isinstance(response, str):
-                content = response
-                raw_response = response
-            else:
-                content = str(response)
-                raw_response = str(response)
-
-            return TargetResponse(
-                success=True,
-                content=content,
-                conversation_id=conversation_id or "default",
-                metadata={
-                    "input_sent": message,
-                    "raw_response": raw_response,
-                    "runnable_type": type(self.runnable).__name__,
-                },
-            )
+            return self._success_response(response, message, conversation_id)
 
         except Exception as e:
             return TargetResponse(
@@ -158,6 +140,73 @@ class LangChainTarget(Target):
                 content="",
                 error=f"LangChain error: {str(e)}",
             )
+
+    async def a_send_message(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        files: Optional[List] = None,
+        **kwargs: Any,
+    ) -> TargetResponse:
+        """Async version of send_message, using the runnable's native ainvoke().
+
+        Every LangChain Runnable exposes ``ainvoke()`` (the Runnable interface
+        provides it), so this avoids the base class thread-pool fallback. File
+        attachments are materialized with ``aread_bytes()`` so object-storage
+        fetches don't block the event loop. The files/kwargs semantics match
+        send_message (see its docstring).
+        """
+        if not message.strip():
+            return TargetResponse(success=False, content="", error="Empty message")
+
+        try:
+            if files:
+                from langchain_core.messages import HumanMessage
+
+                input_data = HumanMessage(content=await afiles_to_content_blocks(message, files))
+            else:
+                input_data = {self.input_key: message, **kwargs}
+
+            if hasattr(self.runnable, "get_session_history"):
+                config = {"configurable": {"session_id": conversation_id or "default"}}
+                response = await self.runnable.ainvoke(input_data, config=config)
+            else:
+                response = await self.runnable.ainvoke(input_data)
+
+            return self._success_response(response, message, conversation_id)
+
+        except Exception as e:
+            return TargetResponse(
+                success=False,
+                content="",
+                error=f"LangChain error: {str(e)}",
+            )
+
+    def _success_response(
+        self, response: Any, message: str, conversation_id: Optional[str]
+    ) -> TargetResponse:
+        """Build the TargetResponse for a successful invocation."""
+        if hasattr(response, "content"):
+            # LangChain message object (AIMessage, etc.)
+            content = response.content
+            raw_response = {"content": content, "type": type(response).__name__}
+        elif isinstance(response, str):
+            content = response
+            raw_response = response
+        else:
+            content = str(response)
+            raw_response = str(response)
+
+        return TargetResponse(
+            success=True,
+            content=content,
+            conversation_id=conversation_id or "default",
+            metadata={
+                "input_sent": message,
+                "raw_response": raw_response,
+                "runnable_type": type(self.runnable).__name__,
+            },
+        )
 
     def get_tool_documentation(self) -> str:
         """Get documentation for Penelope."""

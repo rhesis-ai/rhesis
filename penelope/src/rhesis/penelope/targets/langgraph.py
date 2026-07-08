@@ -7,7 +7,10 @@ with Penelope's autonomous testing agent.
 
 from typing import Any, Dict, List, Optional
 
-from rhesis.penelope.targets._content_blocks import files_to_content_blocks
+from rhesis.penelope.targets._content_blocks import (
+    afiles_to_content_blocks,
+    files_to_content_blocks,
+)
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -127,39 +130,7 @@ class LangGraphTarget(Target):
             # Invoke the graph
             response = self.graph.invoke(state)
 
-            # Extract the latest message from response
-            if isinstance(response, dict) and self.state_key in response:
-                messages = response[self.state_key]
-                if messages:
-                    latest_message = messages[-1]
-                    # Update session state with all messages from response
-                    self._session_states[session_key] = messages
-
-                    # Extract content
-                    if hasattr(latest_message, "content"):
-                        content = latest_message.content
-                        raw_response = {"content": content, "type": type(latest_message).__name__}
-                    else:
-                        content = str(latest_message)
-                        raw_response = str(latest_message)
-                else:
-                    content = "No response generated"
-                    raw_response = response
-            else:
-                content = str(response)
-                raw_response = response
-
-            return TargetResponse(
-                success=True,
-                content=content,
-                conversation_id=session_key,
-                metadata={
-                    "input_sent": message,
-                    "raw_response": raw_response,
-                    "graph_type": type(self.graph).__name__,
-                    "session_messages_count": len(self._session_states[session_key]),
-                },
-            )
+            return self._success_response(response, message, session_key)
 
         except Exception as e:
             return TargetResponse(
@@ -167,6 +138,82 @@ class LangGraphTarget(Target):
                 content="",
                 error=f"LangGraph error: {str(e)}",
             )
+
+    async def a_send_message(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        files: Optional[List] = None,
+        **kwargs: Any,
+    ) -> TargetResponse:
+        """Async version of send_message, using the graph's native ainvoke().
+
+        LangGraph CompiledGraphs expose ``ainvoke()``, so this avoids the base
+        class thread-pool fallback. File attachments are materialized with
+        ``aread_bytes()`` so object-storage fetches don't block the event loop.
+        """
+        if not message.strip():
+            return TargetResponse(success=False, content="", error="Empty message")
+
+        try:
+            session_key = conversation_id or "default"
+            if session_key not in self._session_states:
+                self._session_states[session_key] = []
+
+            from langchain_core.messages import HumanMessage
+
+            content = await afiles_to_content_blocks(message, files)
+            user_message = HumanMessage(content=content)
+            self._session_states[session_key].append(user_message)
+
+            state = {self.state_key: self._session_states[session_key], **kwargs}
+
+            response = await self.graph.ainvoke(state)
+
+            return self._success_response(response, message, session_key)
+
+        except Exception as e:
+            return TargetResponse(
+                success=False,
+                content="",
+                error=f"LangGraph error: {str(e)}",
+            )
+
+    def _success_response(self, response: Any, message: str, session_key: str) -> TargetResponse:
+        """Build the TargetResponse for a successful invocation, updating session state."""
+        # Extract the latest message from response
+        if isinstance(response, dict) and self.state_key in response:
+            messages = response[self.state_key]
+            if messages:
+                latest_message = messages[-1]
+                # Update session state with all messages from response
+                self._session_states[session_key] = messages
+
+                # Extract content
+                if hasattr(latest_message, "content"):
+                    content = latest_message.content
+                    raw_response = {"content": content, "type": type(latest_message).__name__}
+                else:
+                    content = str(latest_message)
+                    raw_response = str(latest_message)
+            else:
+                content = "No response generated"
+                raw_response = response
+        else:
+            content = str(response)
+            raw_response = response
+
+        return TargetResponse(
+            success=True,
+            content=content,
+            conversation_id=session_key,
+            metadata={
+                "input_sent": message,
+                "raw_response": raw_response,
+                "graph_type": type(self.graph).__name__,
+                "session_messages_count": len(self._session_states[session_key]),
+            },
+        )
 
     def get_tool_documentation(self) -> str:
         """Get documentation for Penelope."""
