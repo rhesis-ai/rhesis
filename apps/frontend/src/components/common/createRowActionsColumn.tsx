@@ -22,9 +22,8 @@ interface RowActionsHoverContextValue {
   setHoveredRowId: React.Dispatch<React.SetStateAction<GridRowId | null>>;
 }
 
-const RowActionsHoverContext = createContext<RowActionsHoverContextValue | null>(
-  null
-);
+const RowActionsHoverContext =
+  createContext<RowActionsHoverContextValue | null>(null);
 
 /** Wrap a DataGrid that uses `createRowActionsColumn` (done automatically in BaseDataGrid). */
 export function RowActionsHoverProvider({

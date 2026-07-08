@@ -335,7 +335,6 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
   });
 }
 
-
 // Create a styled version of DataGrid with Figma-aligned borders and headers
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   border: 'none',
@@ -1351,154 +1350,161 @@ export default function BaseDataGrid({
             onAuxClick={hasRowUrl ? handleContainerAuxClick : undefined}
             {...rowActionsRootProps}
           >
-        {disablePaperWrapper ? (
-          <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
-            <PaginationSizeContext.Provider value={pageSizeOptions}>
-              <StyledDataGrid
-                apiRef={apiRef}
-                rows={serverSidePagination ? rows : filteredRows}
-                columns={gridColumns}
-                getRowId={getRowId}
-                {...(autoHeight && { autoHeight: true })}
-                pagination
-                hideFooter={hideFooter}
-                paginationMode={serverSidePagination ? 'server' : 'client'}
-                rowCount={serverSidePagination ? totalRows : undefined}
-                paginationModel={paginationModel}
-                onPaginationModelChange={onPaginationModelChange}
-                pageSizeOptions={pageSizeOptions}
-                checkboxSelection={checkboxSelection}
-                {...(checkboxSelection && {
-                  slotProps: {
-                    baseCheckbox: { color: 'primary' as const },
-                  },
-                })}
-                disableVirtualization={false}
-                {...(hasActionsColumn && { columnBufferPx: 500 })}
-                loading={loading}
-                slots={resolvedSlots}
-                sx={dataGridSx}
-                onRowClick={
-                  enableEditing
-                    ? undefined
-                    : hasRowUrl || onRowClick
-                      ? handleRowClickWithLink
-                      : undefined
-                }
-                disableMultipleRowSelection={disableMultipleRowSelection}
-                {...(density && { density })}
-                {...(mergedInitialState && {
-                  initialState: mergedInitialState,
-                })}
-                {...(serverSideFiltering && {
-                  filterMode: 'server',
-                  filterModel,
-                  onFilterModelChange,
-                })}
-                {...(sortingMode === 'server' && {
-                  sortingMode: 'server',
-                  sortModel,
-                  onSortModelChange,
-                })}
-                {...(enableEditing && {
-                  editMode,
-                  processRowUpdate,
-                  onProcessRowUpdateError,
-                  isCellEditable,
-                })}
-                {...(onRowSelectionModelChange && {
-                  onRowSelectionModelChange,
-                })}
-                {...(rowSelectionModel !== undefined && {
-                  rowSelectionModel,
-                })}
-                {...(isRowSelectable && { isRowSelectable })}
-                {...(disableRowSelectionOnClick && {
-                  disableRowSelectionOnClick,
-                })}
-              />
-            </PaginationSizeContext.Provider>
-          </HideRowsPerPageBelowContext.Provider>
-        ) : (
-          <Paper
-            elevation={0}
-            sx={{
-              width: '100%',
-              borderRadius: BORDER_RADIUS.md,
-              border: theme => `1px solid ${theme.palette.greyscale.border}`,
-              boxShadow: ELEVATION.xs,
-              overflow: 'hidden',
-            }}
-          >
-            <HideRowsPerPageBelowContext.Provider value={hideRowsPerPageBelow}>
-              <PaginationSizeContext.Provider value={pageSizeOptions}>
-                <StyledDataGrid
-                  apiRef={apiRef}
-                  rows={serverSidePagination ? rows : filteredRows}
-                  columns={gridColumns}
-                  getRowId={getRowId}
-                  {...(autoHeight && { autoHeight: true })}
-                  pagination
-                  hideFooter={hideFooter}
-                  paginationMode={serverSidePagination ? 'server' : 'client'}
-                  rowCount={serverSidePagination ? totalRows : undefined}
-                  paginationModel={paginationModel}
-                  onPaginationModelChange={onPaginationModelChange}
-                  pageSizeOptions={pageSizeOptions}
-                  checkboxSelection={checkboxSelection}
-                  {...(checkboxSelection && {
-                    slotProps: {
-                      baseCheckbox: { color: 'primary' as const },
-                    },
-                  })}
-                  disableVirtualization={false}
-                  {...(hasActionsColumn && { columnBufferPx: 500 })}
-                  loading={loading}
-                  slots={resolvedSlots}
-                  sx={dataGridSx}
-                  onRowClick={
-                    enableEditing
-                      ? undefined
-                      : hasRowUrl || onRowClick
-                        ? handleRowClickWithLink
-                        : undefined
-                  }
-                  disableMultipleRowSelection={disableMultipleRowSelection}
-                  {...(density && { density })}
-                  {...(mergedInitialState && {
-                    initialState: mergedInitialState,
-                  })}
-                  {...(serverSideFiltering && {
-                    filterMode: 'server',
-                    filterModel,
-                    onFilterModelChange,
-                  })}
-                  {...(sortingMode === 'server' && {
-                    sortingMode: 'server',
-                    sortModel,
-                    onSortModelChange,
-                  })}
-                  {...(enableEditing && {
-                    editMode,
-                    processRowUpdate,
-                    onProcessRowUpdateError,
-                    isCellEditable,
-                  })}
-                  {...(onRowSelectionModelChange && {
-                    onRowSelectionModelChange,
-                  })}
-                  {...(rowSelectionModel !== undefined && {
-                    rowSelectionModel,
-                  })}
-                  {...(isRowSelectable && { isRowSelectable })}
-                  {...(disableRowSelectionOnClick && {
-                    disableRowSelectionOnClick,
-                  })}
-                />
-              </PaginationSizeContext.Provider>
-            </HideRowsPerPageBelowContext.Provider>
-          </Paper>
-        )}
+            {disablePaperWrapper ? (
+              <HideRowsPerPageBelowContext.Provider
+                value={hideRowsPerPageBelow}
+              >
+                <PaginationSizeContext.Provider value={pageSizeOptions}>
+                  <StyledDataGrid
+                    apiRef={apiRef}
+                    rows={serverSidePagination ? rows : filteredRows}
+                    columns={gridColumns}
+                    getRowId={getRowId}
+                    {...(autoHeight && { autoHeight: true })}
+                    pagination
+                    hideFooter={hideFooter}
+                    paginationMode={serverSidePagination ? 'server' : 'client'}
+                    rowCount={serverSidePagination ? totalRows : undefined}
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={onPaginationModelChange}
+                    pageSizeOptions={pageSizeOptions}
+                    checkboxSelection={checkboxSelection}
+                    {...(checkboxSelection && {
+                      slotProps: {
+                        baseCheckbox: { color: 'primary' as const },
+                      },
+                    })}
+                    disableVirtualization={false}
+                    {...(hasActionsColumn && { columnBufferPx: 500 })}
+                    loading={loading}
+                    slots={resolvedSlots}
+                    sx={dataGridSx}
+                    onRowClick={
+                      enableEditing
+                        ? undefined
+                        : hasRowUrl || onRowClick
+                          ? handleRowClickWithLink
+                          : undefined
+                    }
+                    disableMultipleRowSelection={disableMultipleRowSelection}
+                    {...(density && { density })}
+                    {...(mergedInitialState && {
+                      initialState: mergedInitialState,
+                    })}
+                    {...(serverSideFiltering && {
+                      filterMode: 'server',
+                      filterModel,
+                      onFilterModelChange,
+                    })}
+                    {...(sortingMode === 'server' && {
+                      sortingMode: 'server',
+                      sortModel,
+                      onSortModelChange,
+                    })}
+                    {...(enableEditing && {
+                      editMode,
+                      processRowUpdate,
+                      onProcessRowUpdateError,
+                      isCellEditable,
+                    })}
+                    {...(onRowSelectionModelChange && {
+                      onRowSelectionModelChange,
+                    })}
+                    {...(rowSelectionModel !== undefined && {
+                      rowSelectionModel,
+                    })}
+                    {...(isRowSelectable && { isRowSelectable })}
+                    {...(disableRowSelectionOnClick && {
+                      disableRowSelectionOnClick,
+                    })}
+                  />
+                </PaginationSizeContext.Provider>
+              </HideRowsPerPageBelowContext.Provider>
+            ) : (
+              <Paper
+                elevation={0}
+                sx={{
+                  width: '100%',
+                  borderRadius: BORDER_RADIUS.md,
+                  border: theme =>
+                    `1px solid ${theme.palette.greyscale.border}`,
+                  boxShadow: ELEVATION.xs,
+                  overflow: 'hidden',
+                }}
+              >
+                <HideRowsPerPageBelowContext.Provider
+                  value={hideRowsPerPageBelow}
+                >
+                  <PaginationSizeContext.Provider value={pageSizeOptions}>
+                    <StyledDataGrid
+                      apiRef={apiRef}
+                      rows={serverSidePagination ? rows : filteredRows}
+                      columns={gridColumns}
+                      getRowId={getRowId}
+                      {...(autoHeight && { autoHeight: true })}
+                      pagination
+                      hideFooter={hideFooter}
+                      paginationMode={
+                        serverSidePagination ? 'server' : 'client'
+                      }
+                      rowCount={serverSidePagination ? totalRows : undefined}
+                      paginationModel={paginationModel}
+                      onPaginationModelChange={onPaginationModelChange}
+                      pageSizeOptions={pageSizeOptions}
+                      checkboxSelection={checkboxSelection}
+                      {...(checkboxSelection && {
+                        slotProps: {
+                          baseCheckbox: { color: 'primary' as const },
+                        },
+                      })}
+                      disableVirtualization={false}
+                      {...(hasActionsColumn && { columnBufferPx: 500 })}
+                      loading={loading}
+                      slots={resolvedSlots}
+                      sx={dataGridSx}
+                      onRowClick={
+                        enableEditing
+                          ? undefined
+                          : hasRowUrl || onRowClick
+                            ? handleRowClickWithLink
+                            : undefined
+                      }
+                      disableMultipleRowSelection={disableMultipleRowSelection}
+                      {...(density && { density })}
+                      {...(mergedInitialState && {
+                        initialState: mergedInitialState,
+                      })}
+                      {...(serverSideFiltering && {
+                        filterMode: 'server',
+                        filterModel,
+                        onFilterModelChange,
+                      })}
+                      {...(sortingMode === 'server' && {
+                        sortingMode: 'server',
+                        sortModel,
+                        onSortModelChange,
+                      })}
+                      {...(enableEditing && {
+                        editMode,
+                        processRowUpdate,
+                        onProcessRowUpdateError,
+                        isCellEditable,
+                      })}
+                      {...(onRowSelectionModelChange && {
+                        onRowSelectionModelChange,
+                      })}
+                      {...(rowSelectionModel !== undefined && {
+                        rowSelectionModel,
+                      })}
+                      {...(isRowSelectable && { isRowSelectable })}
+                      {...(disableRowSelectionOnClick && {
+                        disableRowSelectionOnClick,
+                      })}
+                    />
+                  </PaginationSizeContext.Provider>
+                </HideRowsPerPageBelowContext.Provider>
+              </Paper>
+            )}
           </Box>
         )}
       </RowActionsHoverGrid>
