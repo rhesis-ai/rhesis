@@ -190,13 +190,13 @@ def mint_token(
         headers={"kid": kid},
     )
     logger.info(
-        "Minted license token: sub=%s edition=%s kid=%s jti=%s exp=%s",
-        org_id,
+        "Minted license token: edition=%s kid=%s jti=%s exp=%s",
         edition.value,
         kid,
         jti,
         datetime.fromtimestamp(exp, tz=timezone.utc).isoformat(),
     )
+    logger.debug("Minted license token sub=%s", org_id)
     return token
 
 

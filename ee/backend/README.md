@@ -165,14 +165,20 @@ unlicensed feature routes via `require_feature`.
 
 ## License providers
 
-Core ships `DefaultLicenseProvider`, which denies every EE feature and
-reports the `community` edition — the safe default when the EE package
-isn't installed at all.
+Core ships `DefaultLicenseProvider`, a permissive fallback that allows
+every *registered* EE feature and reports the `community` edition. In
+practice this only matters when the EE package isn't installed at all —
+in that case no EE features are ever registered with `FeatureRegistry`,
+so `is_available()` returns `False` regardless of the license provider's
+permissiveness, and the community build has no EE surface to allow.
 
 When the EE package *is* installed, bootstrap installs
 `SignedTokenLicenseProvider` (`ee/backend/src/rhesis/backend/ee/licensing/
-provider.py`) in its place. It verifies Ed25519-signed JWTs (`EdDSA`, not
-RS256) and resolves entitlements in this order:
+provider.py`) in `DefaultLicenseProvider`'s place before any EE feature is
+registered, so `DefaultLicenseProvider`'s permissiveness is never actually
+exercised against a real feature in a running deployment. It verifies
+Ed25519-signed JWTs (`EdDSA`, not RS256) and resolves entitlements in this
+order:
 
 1. `RHESIS_LICENSE` env var — a blanket `sub:"*"` token covering every
    org in the deployment.
