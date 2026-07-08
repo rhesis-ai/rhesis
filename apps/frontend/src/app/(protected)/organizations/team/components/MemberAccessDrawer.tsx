@@ -76,11 +76,8 @@ export default function MemberAccessDrawer({
   const { data: session } = useSession();
   const [projectAccess, setProjectAccess] = useState<ProjectAccess[]>([]);
   const [loading, setLoading] = useState(false);
-  const {
-    OrgRoleCell,
-    ProjectRoleCell,
-    fetchUserProjectMemberships,
-  } = getMemberRoleExtensions();
+  const { OrgRoleCell, ProjectRoleCell, fetchUserProjectMemberships } =
+    getMemberRoleExtensions();
 
   useEffect(() => {
     if (!open || !user || !session?.session_token) return;
@@ -115,9 +112,7 @@ export default function MemberAccessDrawer({
                 project.id as string
               );
               const row = members.find(m => m.user_id === user.id);
-              return row
-                ? ({ project, member: row } as ProjectAccess)
-                : null;
+              return row ? ({ project, member: row } as ProjectAccess) : null;
             } catch {
               return null;
             }

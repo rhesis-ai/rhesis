@@ -192,7 +192,11 @@ export default function OrgRoleChip({
       sx={{ minWidth: 120, fontSize: 13 }}
     >
       {extraCurrentRole && (
-        <MenuItem key={extraCurrentRole.id} value={extraCurrentRole.id} disabled>
+        <MenuItem
+          key={extraCurrentRole.id}
+          value={extraCurrentRole.id}
+          disabled
+        >
           {extraCurrentRole.display_name}
         </MenuItem>
       )}

@@ -117,7 +117,11 @@ describe('ProjectRoleChip', () => {
     // Owner) — the component treats both identically via `can()`.
     useRealCanImplementation();
     rbacClientInstanceMock.getProjectMembers.mockResolvedValue([
-      member({ role_id: ADMIN_ROLE.id, role: ADMIN_ROLE, permitted_actions: [] }),
+      member({
+        role_id: ADMIN_ROLE.id,
+        role: ADMIN_ROLE,
+        permitted_actions: [],
+      }),
     ]);
 
     render(

@@ -19,7 +19,12 @@ import type { RoleRead } from '../types';
 // ---------------------------------------------------------------------------
 
 export const canMock = {
-  can: jest.fn(() => true),
+  can: jest.fn(
+    (
+      _subject: { permitted_actions?: string[] } | null | undefined,
+      _capability: string
+    ) => true
+  ),
   useCan: jest.fn((_capability?: string) => true),
   useCanWithStatus: jest.fn(() => ({ allowed: true, loading: false })),
   // Ambient-only stub (no `subject` support): mirrors useCan so a single
