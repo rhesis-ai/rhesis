@@ -19,6 +19,15 @@ from dr_rhesis.state import Phase, DrRhesisState, missing_core_slots
 from dr_rhesis.terminals import escalate, terminal_reply
 
 
+def is_rhesis_tracing_configured() -> bool:
+    """Return True when both Rhesis credentials needed for tracing are set.
+
+    Matches the gate in ``app.py``: ``RhesisClient`` and ``RhesisConnector`` both
+    need ``RHESIS_API_KEY`` and ``RHESIS_PROJECT_ID`` to ship spans reliably.
+    """
+    return bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
+
+
 @dataclass
 class TurnComponents:
     """Bundle of subagent components for one turn."""
@@ -201,14 +210,15 @@ def build_intent_pipeline(
     """Build the per-turn Haystack pipeline with ConditionalRouter intent branching.
 
     When ``enable_tracing`` is ``None`` (the default) the :class:`RhesisConnector`
-    tracer is added only if ``RHESIS_API_KEY`` is set, so unit tests without
-    credentials build a plain pipeline while real runs ship spans to Rhesis. The
-    connector is standalone — it needs no connections to other components.
+    tracer is added only when both ``RHESIS_API_KEY`` and ``RHESIS_PROJECT_ID``
+    are set (same gate as ``app.py``), so unit tests without credentials build a
+    plain pipeline while real runs ship spans to Rhesis. The connector is
+    standalone — it needs no connections to other components.
     """
     parts = components or build_turn_components()
 
     if enable_tracing is None:
-        enable_tracing = bool(os.getenv("RHESIS_API_KEY"))
+        enable_tracing = is_rhesis_tracing_configured()
 
     pipe = Pipeline()
     if enable_tracing:
@@ -309,5 +319,6 @@ __all__ = [
     "_build_intent_conditional_router",
     "build_intent_pipeline",
     "build_turn_components",
+    "is_rhesis_tracing_configured",
     "run_turn",
 ]

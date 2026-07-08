@@ -25,6 +25,7 @@ from rhesis.sdk.clients import DisabledClient
 # None of the imports above pull in haystack, so this is early enough.
 os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
 
+from dr_rhesis.pipeline import is_rhesis_tracing_configured  # noqa: E402
 from dr_rhesis.session import default_store, run_chat_turn  # noqa: E402
 from dr_rhesis.state import Phase  # noqa: E402
 
@@ -36,7 +37,15 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
+# Initialise the Rhesis client so ``@endpoint`` has a registered default client
+# to attach traces to. ``RhesisClient.__init__`` calls ``_register_default_client``
+# as a side effect — the ``rhesis_client`` variable itself is never passed
+# anywhere; ``@endpoint`` resolves it via ``get_default_client()`` at decorate
+# time. Gate on both credentials: ``RhesisClient`` eagerly installs OTEL
+# providers and would export against an unknown project scope without
+# ``RHESIS_PROJECT_ID``. ``DisabledClient`` keeps telemetry off when either is
+# missing.
+if is_rhesis_tracing_configured():
     rhesis_client = RhesisClient.from_environment()
 else:
     logger.info(
