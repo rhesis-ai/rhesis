@@ -9,8 +9,7 @@ import React, {
 } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { gridClasses } from '@mui/x-data-grid';
+import { gridClasses, type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { EditIcon, DeleteIcon } from '@/components/icons';
