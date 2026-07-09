@@ -5,14 +5,6 @@ name: "[Release] 2. Create and deploy (stg)"
 
 on:
   workflow_dispatch:  # Allows manual triggering
-  schedule:
-    # The time is in UTC.
-    # 6:50 UTC = 08:50 CEST.
-    # 7:50 UTC = 08:50 CET.
-    # Need to be adjusted after the time change to CEST or CET.
-    # The workflow is scheduled not to be on the full hour, because full hours are busy
-    # for GitHub Actions and delays can be expected.
-    - cron: '50 6 * * 4'
 
 
 jobs:
