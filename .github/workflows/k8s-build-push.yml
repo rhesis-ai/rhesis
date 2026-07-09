@@ -35,6 +35,9 @@ on:
         required: false
         type: string
         default: ''
+    secrets:
+      NEXT_PUBLIC_ONBOARDING_VIDEO_URL:
+        required: false
     outputs:
       tag:
         description: 'Resolved image tag (override or short git SHA)'
@@ -122,6 +125,8 @@ jobs:
         run: gcloud auth configure-docker "${{ env.REGISTRY_HOST }}" --quiet
 
       - name: Build Container
+        env:
+          NEXT_PUBLIC_ONBOARDING_VIDEO_URL: ${{ secrets.NEXT_PUBLIC_ONBOARDING_VIDEO_URL }}
         run: |
           TARGET_ARGS=()
           if [ -n "${{ inputs.target }}" ]; then
@@ -135,6 +140,10 @@ jobs:
               [ -z "$line" ] && continue
               BUILD_ARG_FLAGS+=(--build-arg "$line")
             done <<< "$BUILD_ARG_LINES"
+          fi
+
+          if [ -n "$NEXT_PUBLIC_ONBOARDING_VIDEO_URL" ]; then
+            BUILD_ARG_FLAGS+=(--build-arg "NEXT_PUBLIC_ONBOARDING_VIDEO_URL=$NEXT_PUBLIC_ONBOARDING_VIDEO_URL")
           fi
 
           docker build --platform linux/amd64 \
