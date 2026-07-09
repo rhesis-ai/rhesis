@@ -10,9 +10,7 @@ function storageKey(projectId: string): string {
   return `architect:resume:${projectId}`;
 }
 
-export function readResumeHint(
-  projectId: string
-): ArchitectResumeHint | null {
+export function readResumeHint(projectId: string): ArchitectResumeHint | null {
   if (typeof window === 'undefined') return null;
 
   try {

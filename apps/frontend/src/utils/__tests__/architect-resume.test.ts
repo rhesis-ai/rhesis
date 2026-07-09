@@ -38,10 +38,7 @@ describe('architect-resume', () => {
   });
 
   it('clears invalid stored JSON', () => {
-    sessionStorage.setItem(
-      `architect:resume:${PROJECT_ID}`,
-      '{not valid json'
-    );
+    sessionStorage.setItem(`architect:resume:${PROJECT_ID}`, '{not valid json');
 
     expect(readResumeHint(PROJECT_ID)).toBeNull();
     expect(sessionStorage.getItem(`architect:resume:${PROJECT_ID}`)).toBeNull();
