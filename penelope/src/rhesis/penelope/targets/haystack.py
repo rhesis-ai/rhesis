@@ -28,6 +28,14 @@ class HaystackTarget(Target):
         ...     "rag-bot",
         ...     input_mapping={"retriever": "query", "prompt_builder": "question"},
         ... )
+
+    Note:
+        File attachments are intentionally not supported. Haystack pipelines
+        receive their document payloads through ``run_inputs`` (the
+        ``{"component": {"socket": value}}`` shape), not via the
+        ``files_to_content_blocks`` convention other targets use, so a
+        ``files`` argument is rejected with a clear error rather than silently
+        dropped or mis-routed.
     """
 
     def __init__(

@@ -8,46 +8,10 @@ from typing import Any, Iterable, Mapping, Sequence
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from rhesis.sdk.telemetry.integrations.genai import TranslatedSpan
 from rhesis.sdk.telemetry.integrations.haystack import mapping
 
 logger = logging.getLogger(__name__)
-
-
-class _TranslatedSpan(ReadableSpan):
-    """Read-only view that swaps the original span's name/attributes/events."""
-
-    def __init__(
-        self,
-        original: ReadableSpan,
-        new_name: str,
-        new_attributes: Mapping[str, Any],
-        new_events: Sequence[Event],
-    ) -> None:
-        self._original = original
-        self._new_name = new_name
-        self._new_attributes = dict(new_attributes)
-        self._new_events = tuple(new_events)
-
-    @property
-    def name(self) -> str:  # type: ignore[override]
-        return self._new_name
-
-    @property
-    def attributes(self):  # type: ignore[override]
-        return self._new_attributes
-
-    @property
-    def events(self):  # type: ignore[override]
-        return self._new_events
-
-    def __getattr__(self, item: str) -> Any:
-        return getattr(self._original, item)
-
-    def to_json(self, indent: int = 4) -> str:  # type: ignore[override]
-        return self._original.to_json(indent=indent)
-
-    def __repr__(self) -> str:  # pragma: no cover
-        return f"_TranslatedSpan(name={self._new_name!r}, original={self._original!r})"
 
 
 def _is_haystack_span(span: ReadableSpan) -> bool:
@@ -78,7 +42,7 @@ def _translate_events(
     return new_events
 
 
-def translate_span(span: ReadableSpan) -> _TranslatedSpan:
+def translate_span(span: ReadableSpan) -> TranslatedSpan:
     """Build the translated wrapper for a single Haystack span."""
     raw_attrs = span.attributes or {}
     original_name = span.name or ""
@@ -87,7 +51,7 @@ def translate_span(span: ReadableSpan) -> _TranslatedSpan:
     if new_name.startswith("function.haystack.") and original_name and original_name != new_name:
         new_attrs.setdefault("haystack.original_span_name", original_name)
     new_events = _translate_events(span.events or (), new_attrs, span_name=original_name)
-    return _TranslatedSpan(span, new_name, new_attrs, new_events)
+    return TranslatedSpan(span, new_name, new_attrs, new_events)
 
 
 def _safe_fallback_span(span: ReadableSpan) -> ReadableSpan:
@@ -98,9 +62,9 @@ def _safe_fallback_span(span: ReadableSpan) -> ReadableSpan:
         raw_attrs.setdefault("haystack.original_span_name", original_name)
     raw_events = tuple(span.events or ())
     try:
-        return _TranslatedSpan(span, fallback_name, raw_attrs, raw_events)
+        return TranslatedSpan(span, fallback_name, raw_attrs, raw_events)
     except Exception:  # noqa: BLE001
-        logger.debug("Failed to build fallback _TranslatedSpan; forwarding original", exc_info=True)
+        logger.debug("Failed to build fallback TranslatedSpan; forwarding original", exc_info=True)
         return span
 
 

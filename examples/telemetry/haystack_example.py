@@ -48,8 +48,9 @@ def example_simple_pipeline():
     from haystack.utils import Secret
 
     prompt = PromptBuilder(template="Answer briefly: {{ query }}")
+    api_key = os.getenv("OPENAI_API_KEY")
     generator = OpenAIGenerator(
-        api_key=Secret.from_env_var("OPENAI_API_KEY", strict=False) or Secret.from_token("sk-test"),
+        api_key=Secret.from_token(api_key) if api_key else Secret.from_token("sk-test"),
         model="gpt-4o-mini",
     )
 

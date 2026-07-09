@@ -10,7 +10,6 @@ from opentelemetry.trace import INVALID_SPAN, SpanKind, Status, StatusCode
 
 from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.sdk.telemetry.context import is_tracing_disabled
-from rhesis.sdk.telemetry.utils.token_extraction import extract_token_usage
 
 MAX_CONTENT_LENGTH = 4000
 _BINARY_PLACEHOLDER = "[binary data omitted]"
@@ -103,19 +102,6 @@ def set_agent_attributes(span: trace.Span, *, agent_name: str, model: Optional[s
         provider = infer_model_provider(model)
         if provider:
             span.set_attribute(AIAttributes.MODEL_PROVIDER, provider)
-
-
-def set_token_attributes(span: trace.Span, usage: Any) -> None:
-    """Extract token usage from a provider response and set span attributes."""
-    if usage is None or is_tracing_disabled() or span is INVALID_SPAN:
-        return
-    try:
-        prompt, completion, total = extract_token_usage(usage)
-        span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, prompt)
-        span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, completion)
-        span.set_attribute(AIAttributes.LLM_TOKENS_TOTAL, total)
-    except Exception:
-        return
 
 
 @contextmanager

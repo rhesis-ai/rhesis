@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Callable, Optional
 
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 
 from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
+from rhesis.sdk.telemetry.integrations.genai import (
+    DISABLE_CONTENT_CAPTURE_ENV,
+    content_capture_enabled,
+    get_processor_exporter,
+    set_processor_exporter,
+)
 from rhesis.sdk.telemetry.integrations.haystack.translator import HaystackTranslatingExporter
 from rhesis.sdk.telemetry.integrations.tracing_helpers import (
     add_agent_io_events,
@@ -21,6 +26,15 @@ from rhesis.sdk.telemetry.integrations.tracing_helpers import (
 from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)
+
+# Span-processor types whose underlying exporter we know how to swap out for
+# translation. ``BatchSpanProcessor`` is what Rhesis installs by default;
+# ``SimpleSpanProcessor`` is common in local/dev setups (and was previously
+# missed by a copy that only probed ``BatchSpanProcessor``).
+_WRAPPABLE_PROCESSORS: tuple[type[SpanProcessor], ...] = (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+)
 
 _SETUP_ORDER_HINT = (
     "Create RhesisClient before auto_instrument('haystack'): "
@@ -133,10 +147,22 @@ def _patch_pipeline_run() -> None:
 
 
 def _enable_content_tracing() -> None:
+    """Enable Haystack content tracing only when capture is not opted out.
+
+    Mirrors MAF and Pydantic AI: prompt/completion/tool I/O capture is gated on
+    :func:`content_capture_enabled`, which honors ``RHESIS_DISABLE_CONTENT_CAPTURE``.
+    We never write to ``os.environ`` so the setting does not leak into other
+    tracing in the process after ``disable()``.
+    """
+    if not content_capture_enabled():
+        logger.info(
+            "Haystack content tracing left disabled (capture opted out via %s)",
+            DISABLE_CONTENT_CAPTURE_ENV,
+        )
+        return
     from haystack import tracing
 
     tracing.tracer.is_content_tracing_enabled = True
-    os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
 
 
 def _enable_haystack_tracing() -> Any:
@@ -149,20 +175,12 @@ def _enable_haystack_tracing() -> Any:
     return haystack_tracer
 
 
-def _set_batch_processor_exporter(processor: BatchSpanProcessor, exporter: SpanExporter) -> None:
-    inner = getattr(processor, "_batch_processor", None)
-    if inner is not None and hasattr(inner, "_exporter"):
-        inner._exporter = exporter  # noqa: SLF001
-        return
-    setattr(processor, "span_exporter", exporter)
-
-
 class HaystackIntegration(BaseIntegration):
     """Haystack framework integration."""
 
     def __init__(self) -> None:
         super().__init__()
-        self._patched_processors: list[tuple[BatchSpanProcessor, SpanExporter]] = []
+        self._patched_processors: list[tuple[SpanProcessor, SpanExporter]] = []
 
     @property
     def framework_name(self) -> str:
@@ -193,15 +211,16 @@ class HaystackIntegration(BaseIntegration):
         wrapped_count = 0
         already_wrapped_count = 0
         for child in children:
-            if not isinstance(child, BatchSpanProcessor):
+            if not isinstance(child, _WRAPPABLE_PROCESSORS):
                 continue
-            current = getattr(child, "span_exporter", None)
-            if current is None or isinstance(current, HaystackTranslatingExporter):
-                if isinstance(current, HaystackTranslatingExporter):
-                    already_wrapped_count += 1
+            current = get_processor_exporter(child)
+            if current is None:
+                continue
+            if isinstance(current, HaystackTranslatingExporter):
+                already_wrapped_count += 1
                 continue
             try:
-                _set_batch_processor_exporter(child, HaystackTranslatingExporter(current))
+                set_processor_exporter(child, HaystackTranslatingExporter(current))
                 self._patched_processors.append((child, current))
                 wrapped_count += 1
             except Exception:  # noqa: BLE001
@@ -209,9 +228,9 @@ class HaystackIntegration(BaseIntegration):
 
         if wrapped_count == 0 and already_wrapped_count == 0:
             logger.warning(
-                "haystack: no BatchSpanProcessor with a wrappable exporter found on the "
-                "active TracerProvider; refusing to enable instrumentation whose spans "
-                "could not be translated into the Rhesis ai.* schema. %s",
+                "haystack: no batch/simple span processor with a wrappable exporter found "
+                "on the active TracerProvider; refusing to enable instrumentation whose "
+                "spans could not be translated into the Rhesis ai.* schema. %s",
                 _SETUP_ORDER_HINT,
             )
             return False
@@ -220,7 +239,7 @@ class HaystackIntegration(BaseIntegration):
     def _unwrap_exporters(self) -> None:
         for processor, original_exporter in self._patched_processors:
             try:
-                _set_batch_processor_exporter(processor, original_exporter)
+                set_processor_exporter(processor, original_exporter)
             except Exception:  # noqa: BLE001
                 logger.debug("Failed to revert exporter on processor %r", processor, exc_info=True)
         self._patched_processors.clear()
