@@ -22,7 +22,7 @@ This skill complements the **`rhesis`** skill:
 
 Load the `rhesis` skill when creating entities or running tests. If unavailable locally, see [skills/rhesis](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis).
 
-> **Invocation:** Requires `/rhesis-prd-scaffold` because it creates platform entities via MCP. This gates writes behind your approval, not because the workflow is demo-only.
+> **Invocation:** Requires `/rhesis-prd-scaffold` because it creates platform entities via MCP and gates writes behind your approval.
 
 ## When to use
 
@@ -126,6 +126,8 @@ Target **6–12 behaviors** for a typical agent PRD. Split combined requirements
 - 1–2 failure examples when the PRD implies them
 
 Do **not** use `generate_metric` during plan execution — use `create_metric` with exact plan names.
+
+Set `metric_scope` to match how the behavior is tested: `["Single-Turn"]` for one-shot capabilities and guardrails; `["Multi-Turn"]` for conversation flows the PRD describes; both when the behavior appears in single- and multi-turn test sets.
 
 ### 4. Plan tags
 
