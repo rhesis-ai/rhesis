@@ -17,11 +17,13 @@ Optional: **pyenv** to pin Python 3.10+ if your machine needs it.
 
 | What | Port |
 | --- | --- |
-| Backend API / OpenAPI | 8080 |
-| Frontend / Next.js | 3000 |
-| Documentation site | 3001 |
+| Backend API / OpenAPI (`./rh dev backend`) | 8080 |
+| Frontend / Next.js (`./rh dev frontend`) | 3000 |
+| Documentation site (`./rh dev docs`) | 3001 |
 | Dev PostgreSQL (`./rh dev up`) | 11000 |
 | Dev Redis (`./rh dev up`) | 11001 |
+| Mock LLM server (`./rh dev mock-llm`) | 18080 |
+| Mock Chatbot server (`./rh dev mock-chatbot`) | 18090 |
 
 
 ## Clone the repo
@@ -39,8 +41,9 @@ From the repo root:
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
 {`./rh dev init         # env files (one-time; see note below)
 ./rh dev up             # postgres and redis (see table above)
-./rh dev backend        # terminal 1 — migrations via apps/backend/start.sh
-./rh dev frontend       # terminal 2`}
+./rh dev backend        # FastAPI server — http://localhost:8080
+./rh dev worker         # Celery worker for background tasks
+./rh dev frontend       # Next.js app — http://localhost:3000`}
 </CodeBlock>
 
 - **App:** [http://localhost:3000](http://localhost:3000)
@@ -48,7 +51,28 @@ From the repo root:
 
 `./rh dev init` writes `apps/backend/.env` and `apps/frontend/.env.local` for local infrastructure. If those files already exist and were not created by `init`, the script may prompt before overwriting.
 
-Run `./rh help` or `./rh dev` for the full command list (`./rh dev worker`, `./rh dev docs`, `./rh dev status`, etc.).
+
+Optionally, start the mock servers (see [LLM access](#llm-access) below):
+
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`./rh dev mock-llm      # mock LLM server — http://localhost:18080
+./rh dev mock-chatbot  # mock Chatbot server — http://localhost:18090`}
+</CodeBlock>
+
+Run `./rh help` or `./rh dev` for the full command list (`./rh dev docs`, `./rh dev status`, etc.).
+
+## LLM access
+
+Rhesis relies heavily on LLMs for test generation, test evaluation, and other features. You have three options for LLM access:
+
+1. **Use the LLM provided by Rhesis.ai (recommended)** — create an account at [app.rhesis.ai](https://app.rhesis.ai), generate an API key, and paste it into `apps/backend/.env`:
+
+<CodeBlock filename="apps/backend/.env" language="bash">
+{`RHESIS_API_KEY=your_api_key`}
+</CodeBlock>
+
+2. **Bring your own LLM** — add your own model under Model → Add button → Language Model. You have to set it as the default for generation, evaluation, and execution.
+3. **Use the mock LLM** — only supports single-turn testing. It's still in development and may be buggy. Start it with `./rh dev mock-llm` and `./rh dev mock-chatbot` (see Path 1 above).
 
 ## Path 2: Full stack with Docker
 
@@ -61,11 +85,6 @@ Typical URLs: frontend [http://localhost:3000](http://localhost:3000), API [http
 
 This mode is aimed at local testing (including convenient sign-in behavior). For production-style deployment, see the deployment documentation on this site.
 
-## Backend-only workflows
-
-For database access, environment configuration, `make` targets, and advanced setups (including cloud database proxies when your team uses them), see the **[Backend](/contribute/backend)** section — especially [Development workflow](/contribute/backend/development-workflow) and [Environment config](/contribute/backend/environment-config).
-
-From `apps/backend`, common entrypoints are `./start.sh`, or from the repo root `./rh dev backend`, or running `uvicorn` directly once the venv is active.
 
 ## Documentation site locally
 
@@ -75,11 +94,6 @@ From `apps/backend`, common entrypoints are `./start.sh`, or from the repo root 
 
 This runs `docs/src/start.sh` (default port **3001**).
 
-## Quick checks
-
-<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`curl -s http://localhost:8080/health`}
-</CodeBlock>
 
 ## Branching, commits, and checks
 
