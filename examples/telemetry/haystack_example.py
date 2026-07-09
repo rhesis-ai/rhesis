@@ -11,6 +11,11 @@ Prerequisites:
        export RHESIS_PROJECT_ID=your-project-id
        export GOOGLE_API_KEY=your-gemini-api-key
 
+Important:
+    Create RhesisClient *before* auto_instrument("haystack"). The integration
+    wraps the Rhesis OTLP exporter on the active TracerProvider; without a
+    RhesisClient, enable() returns False and spans are not translated.
+
 Run with:
     uv run --extra haystack haystack_example.py
 """

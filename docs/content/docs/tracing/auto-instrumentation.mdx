@@ -112,6 +112,50 @@ result = calculator.invoke({"expression": "2 + 2 * 3"})`}
 
 Under the hood the integration registers a callback handler globally and patches `BaseTool.invoke` / `BaseTool.ainvoke`, so tool spans fire even when the framework's normal callback plumbing is bypassed by user code.
 
+## Haystack
+
+### Installation
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install "rhesis-sdk[haystack]>=0.6.0"`}
+</CodeBlock>
+
+### Usage
+
+Haystack emits native OpenTelemetry spans for pipeline and component runs. Rhesis enables Haystack tracing, turns on content capture, and translates those spans into the `ai.*` schema before export.
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+from haystack import Pipeline
+
+# 1. Initialize Rhesis (sets up tracing). Required before auto_instrument().
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+)
+
+# 2. Enable Haystack auto-instrumentation
+auto_instrument("haystack")
+
+# 3. Run pipelines normally - spans are captured automatically
+result = pipeline.run({"prompt": {"query": "What is RAG?"}})`}
+</CodeBlock>
+
+<Callout type="info">
+  **Order matters.** `auto_instrument("haystack")` must run **after** `RhesisClient` is created. The integration wraps the Rhesis OTLP exporter on the active tracer provider; if no Rhesis provider is configured, `enable()` returns `False` and Haystack spans are not translated.
+</Callout>
+
+### What Gets Traced
+
+- Pipeline runs as `ai.agent.invoke` spans
+- LLM generators as `ai.llm.invoke` with token counts and prompt/completion events
+- Retrievers as `ai.retrieval` spans
+- Tool components as `ai.tool.invoke` spans
+- Component input/output when Haystack content tracing is enabled (on by default in this integration)
+
+See `examples/telemetry/haystack_example.py` for a runnable demo.
+
 ## LangGraph
 
 ### Installation
@@ -238,6 +282,7 @@ disable_auto_instrument()`}
 |---|---|---|---|
 | LangChain | Auto-instrument (callback + tool patch) | `langchain` | Supported |
 | LangGraph | Auto-instrument (callback + graph patch) | `langgraph` | Supported |
+| Haystack | Auto-instrument (OTel span translation) | `haystack` | Supported |
 | Microsoft Agent Framework | Auto-instrument (OTel span translation) | `agent-framework` | Supported |
 | Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …) | `@observe.*` decorators | n/a | Use [Decorators](/tracing/decorators) |
 

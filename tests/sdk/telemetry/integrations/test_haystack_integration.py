@@ -173,7 +173,7 @@ def test_enable_wraps_exporter_and_translates_spans():
     provider.add_span_processor(BatchSpanProcessor(capture))
 
     integration = INTEGRATION_MODULE.HaystackIntegration()
-    integration._wrap_existing_exporters(provider)
+    assert integration._wrap_existing_exporters(provider) is True
     assert len(integration._patched_processors) == 1
 
     wrapped_exporter = integration._patched_processors[0][0].span_exporter
@@ -196,6 +196,27 @@ def test_enable_wraps_exporter_and_translates_spans():
     assert capture.spans
     assert capture.spans[0].name == AIOperationType.LLM_INVOKE
     integration.disable()
+
+
+def test_enable_returns_false_without_rhesis_tracer_provider(monkeypatch):
+    from opentelemetry.trace import NoOpTracerProvider
+
+    monkeypatch.setattr(
+        INTEGRATION_MODULE,
+        "_enable_haystack_tracing",
+        lambda: "tracer",
+    )
+    monkeypatch.setattr(
+        INTEGRATION_MODULE.trace,
+        "get_tracer_provider",
+        lambda: NoOpTracerProvider(),
+    )
+    fake_haystack = MagicMock()
+    monkeypatch.setitem(__import__("sys").modules, "haystack", fake_haystack)
+
+    integration = INTEGRATION_MODULE.HaystackIntegration()
+    assert integration.enable() is False
+    assert integration.enabled is False
 
 
 def test_enable_falls_back_to_pipeline_patch(monkeypatch):

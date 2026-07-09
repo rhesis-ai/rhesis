@@ -22,6 +22,11 @@ from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)
 
+_SETUP_ORDER_HINT = (
+    "Create RhesisClient before auto_instrument('haystack'): "
+    "client = RhesisClient(api_key=..., project_id=...); auto_instrument('haystack')"
+)
+
 _original_pipeline_run: Optional[Callable] = None
 _original_pipeline_run_async: Optional[Callable] = None
 _patching_done = False
@@ -171,20 +176,29 @@ class HaystackIntegration(BaseIntegration):
         except ImportError:
             return False
 
-    def _wrap_existing_exporters(self, provider: TracerProvider) -> None:
+    def _wrap_existing_exporters(self, provider: TracerProvider) -> bool:
         try:
             multi = getattr(provider, "_active_span_processor", None)
             children = getattr(multi, "_span_processors", ()) if multi is not None else ()
         except Exception:  # noqa: BLE001
-            logger.debug("Could not introspect provider span processors", exc_info=True)
-            return
+            logger.warning(
+                "haystack: could not introspect provider span processors; refusing to "
+                "enable instrumentation whose spans could not be translated into the "
+                "Rhesis ai.* schema. %s",
+                _SETUP_ORDER_HINT,
+                exc_info=True,
+            )
+            return False
 
         wrapped_count = 0
+        already_wrapped_count = 0
         for child in children:
             if not isinstance(child, BatchSpanProcessor):
                 continue
             current = getattr(child, "span_exporter", None)
             if current is None or isinstance(current, HaystackTranslatingExporter):
+                if isinstance(current, HaystackTranslatingExporter):
+                    already_wrapped_count += 1
                 continue
             try:
                 _set_batch_processor_exporter(child, HaystackTranslatingExporter(current))
@@ -193,12 +207,15 @@ class HaystackIntegration(BaseIntegration):
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to wrap exporter on processor %r", child, exc_info=True)
 
-        if wrapped_count == 0:
+        if wrapped_count == 0 and already_wrapped_count == 0:
             logger.warning(
-                "haystack: no BatchSpanProcessor found on the active TracerProvider; "
-                "Haystack spans will be emitted but not translated into the Rhesis ai.* schema. "
-                "Ensure RhesisClient is created before auto_instrument()."
+                "haystack: no BatchSpanProcessor with a wrappable exporter found on the "
+                "active TracerProvider; refusing to enable instrumentation whose spans "
+                "could not be translated into the Rhesis ai.* schema. %s",
+                _SETUP_ORDER_HINT,
             )
+            return False
+        return True
 
     def _unwrap_exporters(self) -> None:
         for processor, original_exporter in self._patched_processors:
@@ -209,24 +226,50 @@ class HaystackIntegration(BaseIntegration):
         self._patched_processors.clear()
 
     def _create_callback(self):
-        """Enable Haystack native tracing and wrap exporters for ai.* translation."""
+        """Enable Haystack native tracing (used by :meth:`enable`)."""
+        return _enable_haystack_tracing()
+
+    def enable(self) -> bool:
+        if self._enabled:
+            logger.debug("%s observation already enabled", self.framework_name)
+            return True
+
+        if not self.is_installed():
+            logger.debug("%s not installed", self.framework_name)
+            return False
+
         try:
             haystack_tracer = _enable_haystack_tracing()
-            provider = trace.get_tracer_provider()
-            if isinstance(provider, TracerProvider):
-                self._wrap_existing_exporters(provider)
-            else:
-                logger.warning(
-                    "Active tracer provider is %s, not TracerProvider; "
-                    "Haystack spans will not be translated",
-                    type(provider).__name__,
-                )
-            return haystack_tracer
         except Exception as exc:
             logger.debug("Haystack tracing API unavailable, using pipeline patch fallback: %s", exc)
-            _enable_content_tracing()
-            _patch_pipeline_run()
-            return "haystack_patched"
+            try:
+                _enable_content_tracing()
+                _patch_pipeline_run()
+                self._callback = "haystack_patched"
+                self._enabled = True
+                logger.info("✓ Observing %s (pipeline patch fallback)", self.framework_name)
+                return True
+            except Exception as fallback_exc:
+                logger.warning("Failed to enable %s: %s", self.framework_name, fallback_exc)
+                return False
+
+        provider = trace.get_tracer_provider()
+        if not isinstance(provider, TracerProvider):
+            logger.warning(
+                "Active tracer provider is %s, not a Rhesis TracerProvider; Haystack spans "
+                "will not be translated into the Rhesis ai.* schema. %s",
+                type(provider).__name__,
+                _SETUP_ORDER_HINT,
+            )
+            return False
+
+        if not self._wrap_existing_exporters(provider):
+            return False
+
+        self._callback = haystack_tracer
+        self._enabled = True
+        logger.info("✓ Observing %s", self.framework_name)
+        return True
 
     def disable(self) -> None:
         if self._enabled:
