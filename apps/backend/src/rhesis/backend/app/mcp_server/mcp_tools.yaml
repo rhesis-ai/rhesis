@@ -1013,6 +1013,40 @@ tools:
           REQUIRED. UUID of the source type. Copy from list_sources on an
           existing source of the same type (check source_type_id field).
 
+  # ── Tags ────────────────────────────────────────────────
+  - name: list_tags
+    label: Listing tags
+    method: GET
+    path: /tags/
+    page_size: 50
+    description: >
+      List organization tags. Use before assigning tags to behaviors or
+      metrics so you reuse existing names (safety, compliance, functional,
+      demo, etc.) instead of inventing duplicates.
+    default_query:
+      $select: "id,name"
+
+  - name: assign_tag
+    label: Assigning tag
+    method: POST
+    path: /tags/{entity_type}/{entity_id}
+    requires_confirmation: true
+    description: >
+      Assign a tag to a behavior or metric. Creates the tag if it does not
+      exist. Call after create_behavior or create_metric to group entities
+      by theme (safety, compliance, functional, domain, demo sprint).
+      ENTITY: Tag ↔ Behavior/Metric.
+    parameters:
+      entity_type:
+        description: >
+          REQUIRED. Must be exactly "Behavior" or "Metric" (case-sensitive).
+      entity_id:
+        description: "REQUIRED. UUID of the behavior or metric."
+      name:
+        description: >
+          REQUIRED. Tag name (string). Reuse names from list_tags when
+          possible for consistent filtering in the behaviors grid.
+
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
     label: Checking job status

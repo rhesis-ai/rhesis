@@ -536,6 +536,27 @@ Most recent completed run for a test set + endpoint pair.
 **Key parameters:** `test_set_identifier`, `endpoint_id` (required)
 
 ---
+
+## Tags
+
+### `list_tags`
+List organization tags. Reuse existing names before assigning.
+
+**Typical call:** `$select=id,name`
+
+---
+
+### `assign_tag`
+Assign a tag to a behavior or metric. Creates the tag if missing.
+
+**Key parameters:**
+- `entity_type` (required) — `"Behavior"` or `"Metric"` (case-sensitive)
+- `entity_id` (required) — UUID
+- `name` (required) — tag name
+
+**CHAIN:** `create_behavior` / `create_metric` → `assign_tag`
+
+---
 ## Playbooks
 
 See `references/entity-model.md` for the full entity graph and tool chains by intent.

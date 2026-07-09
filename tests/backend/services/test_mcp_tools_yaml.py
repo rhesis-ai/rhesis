@@ -101,6 +101,22 @@ class TestNewMcpToolsPresent:
 
 
 @pytest.mark.unit
+class TestTagMcpToolsPresent:
+    TAG_TOOLS = frozenset({"list_tags", "assign_tag"})
+
+    def test_tag_tools_in_yaml(self):
+        names = {tc["name"] for tc in load_tool_configs()}
+        missing = self.TAG_TOOLS - names
+        assert not missing, f"Missing tag tools: {sorted(missing)}"
+
+    def test_assign_tag_path_and_method(self):
+        by_name = {tc["name"]: tc for tc in load_tool_configs()}
+        cfg = by_name["assign_tag"]
+        assert cfg["method"].upper() == "POST"
+        assert cfg["path"] == "/tags/{entity_type}/{entity_id}"
+
+
+@pytest.mark.unit
 class TestMcpToolsYamlStructure:
     """Every tool entry must declare name, method, and path."""
 

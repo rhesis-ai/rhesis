@@ -4,6 +4,8 @@ Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platf
 
 This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
+For **PRD-driven scaffolding** (requirements → behaviors + metrics + tags + test sets without endpoint exploration), see [`rhesis-prd-scaffold`](../rhesis-prd-scaffold/README.md).
+
 > **Note:** This is different from Rhesis's inbound MCP connector (where the platform consumes tools like Notion or GitHub). Here, an external AI agent calls *into* Rhesis to drive the testing platform.
 
 ---
@@ -130,7 +132,7 @@ You can also use it for direct operations without the full workflow:
 | `SKILL.md` | Skill instructions — loaded by all compatible agents |
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest |
 | `.mcp.json` | MCP server config bundled with the Claude Code plugin |
-| `references/tool-catalog.md` | All 27 MCP tools with parameters and common mistakes |
+| `references/tool-catalog.md` | All MCP tools with parameters and common mistakes |
 | `references/odata-patterns.md` | `$filter`, `$select`, navigation properties, batched lookups |
 | `references/exploration-strategies.md` | Domain probing, capability mapping, boundary discovery |
 | `references/result-analysis.md` | Single-run summaries, run comparison, failure patterns |
