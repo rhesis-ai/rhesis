@@ -308,6 +308,50 @@ class ResourceType(_PermissionEnum):
 
 
 # ---------------------------------------------------------------------------
+# Capability scope — organization vs. project
+# ---------------------------------------------------------------------------
+#
+# Community-side because authorize()/require_permission() (this package) need
+# it to decide whether a permission check should ignore the ambient project
+# scope. EE's ``ee/rbac/models.py`` re-exports these names for its own use
+# (custom-role ``scope`` column, catalog tests) rather than defining them,
+# since core code must never import from ``rhesis.backend.ee.*``.
+
+SCOPE_ORGANIZATION = "organization"
+SCOPE_PROJECT = "project"
+
+#: Resource types whose permissions are always org-scoped, regardless of any
+#: ambient project context (mirrors the seeded ``permission.scope`` column).
+_ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
+    {
+        "organization",
+        "member",
+        "role",
+        "token",
+        "recycle",
+        "sso",
+        "api_clients",
+    }
+)
+
+
+def capability_scope(cap: str) -> str:
+    """Return ``'organization'`` or ``'project'`` for a capability string.
+
+    ``project:create`` is org-scoped (creating a project *inside* the org).
+    All other ``project:*`` capabilities (read, update) are project-scoped.
+    """
+    parts = cap.split(":", 1)
+    resource = parts[0]
+    action = parts[1] if len(parts) > 1 else ""
+    if resource in _ORG_SCOPED_RESOURCES:
+        return SCOPE_ORGANIZATION
+    if resource == "project" and action == "create":
+        return SCOPE_ORGANIZATION
+    return SCOPE_PROJECT
+
+
+# ---------------------------------------------------------------------------
 # openapi_extra keys
 # ---------------------------------------------------------------------------
 
