@@ -1,4 +1,4 @@
-import { ObservabilitySection, TestsSection, McpSection, ModelProvidersSection } from '@/components/IntegrationsHub'
+import { ObservabilitySection, TestsSection, ToolsSection, ModelProvidersSection } from '@/components/IntegrationsHub'
 
 # Integrations
 
@@ -11,7 +11,7 @@ Rhesis plugs into your LLM stack across four layers, each addressing a different
 | **Test execution** | Letting Rhesis invoke entry points in your application remotely to run test cases. | [Connector](/sdk/connector) |
 | **REST API** | Programmatic access to test sets, runs, and platform resources. | [api.rhesis.ai/docs](https://api.rhesis.ai/docs) |
 
-Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEval, Ragas, Garak) and **MCP servers** as additional sources of metrics, tests, and tool context.
+Beyond those four layers, Rhesis also bundles **evaluation frameworks** (DeepEval, Ragas, Garak) and **tool connections** (Notion, GitHub, Jira, and more) as additional sources of metrics, tests, and knowledge context.
 
 ## Tracing your application
 
@@ -55,14 +55,14 @@ See: [DeepEval](/docs/metrics/deepeval) · [Ragas](/docs/metrics/ragas) · [Impo
   <TestsSection />
 </div>
 
-## MCP servers
+## Tools
 
-Connect MCP servers so Rhesis can use external tools during workflows — for example pulling context from Notion, GitHub, Jira, or Confluence during test generation.
+Pull knowledge into Rhesis from external services like Notion or Github, or create a Jira issue directly from a Rhesis task.
 
-See: [MCP](/docs/mcp)
+See: [Tools](/docs/tools)
 
 <div className="not-prose framework-integrations-showcase">
-  <McpSection />
+  <ToolsSection />
 </div>
 
 ## REST API
