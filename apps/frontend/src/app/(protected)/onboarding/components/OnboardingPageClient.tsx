@@ -36,11 +36,13 @@ interface FormData {
 interface OnboardingPageClientProps {
   sessionToken: string;
   userId: UUID;
+  onboardingVideoUrl?: string;
 }
 
 export default function OnboardingPageClient({
   sessionToken,
   userId,
+  onboardingVideoUrl,
 }: OnboardingPageClientProps) {
   const notifications = useNotifications();
   const [activeStep, setActiveStep] = React.useState(0);
@@ -354,6 +356,7 @@ export default function OnboardingPageClient({
             onBack={handleBack}
             isSubmitting={isSubmitting}
             onboardingStatus={onboardingStatus}
+            videoUrl={onboardingVideoUrl}
           />
         );
       default:

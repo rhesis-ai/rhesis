@@ -78,8 +78,6 @@ jobs:
       context: .
       environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       tag: ${{ inputs.tag || github.event.inputs.tag }}
-      build_args: |
-        NEXT_PUBLIC_ONBOARDING_VIDEO_URL=https://youtu.be/fNtxqGtBu2Y
     secrets: inherit
 
   deploy:
