@@ -35,9 +35,6 @@ on:
         required: false
         type: string
         default: ''
-    secrets:
-      NEXT_PUBLIC_ONBOARDING_VIDEO_URL:
-        required: false
     outputs:
       tag:
         description: 'Resolved image tag (override or short git SHA)'
