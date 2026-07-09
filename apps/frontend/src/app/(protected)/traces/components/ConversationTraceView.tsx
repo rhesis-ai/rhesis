@@ -48,7 +48,8 @@ function getPerTurnOverrides(
   rootSpans: SpanNode[]
 ): Record<number, TurnOverrideEntry> {
   const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
   if (!traceMetrics) return {};
 
   const turnOverrides = traceMetrics.turn_overrides as

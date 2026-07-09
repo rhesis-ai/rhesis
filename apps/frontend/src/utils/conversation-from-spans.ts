@@ -7,15 +7,18 @@ import type {
 
 function getAutomatedTurnSuccess(rootSpans: SpanNode[]): boolean | undefined {
   const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
   if (!traceMetrics) return undefined;
 
   const turnSection = traceMetrics.turn_metrics as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
   if (!turnSection) return undefined;
 
   const metrics = turnSection.metrics as
-    Record<string, { is_successful?: boolean }> | undefined;
+    | Record<string, { is_successful?: boolean }>
+    | undefined;
   if (metrics && Object.keys(metrics).length > 0) {
     return Object.values(metrics).every(m => m?.is_successful);
   }

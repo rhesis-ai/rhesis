@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Role-Based Access Control (RBAC) UI (Enterprise Edition):**
   - Introduced a new **Roles** tab in Organization Settings to view built-in roles and manage custom roles.
   - Added a **Role Editor Drawer** featuring a graded permission model across four resource areas and four capability levels (None, View, Edit, Manage).
-  - Added **
+  - Added \*\*
 
 ## [0.9.1] - 2026-06-25
 

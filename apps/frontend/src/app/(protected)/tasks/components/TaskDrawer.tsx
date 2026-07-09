@@ -152,7 +152,8 @@ export default function TaskDrawer({
 
   const entityType = initialEntity?.entityType;
   const commentId = initialEntity?.task_metadata?.comment_id as
-    string | undefined;
+    | string
+    | undefined;
 
   return (
     <BaseDrawer
