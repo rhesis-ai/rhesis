@@ -33,7 +33,7 @@ flowchart TB
 | `intent_router` | Classifies every message: greeting, meta, out_of_scope, emergency, health_concern. |
 | `gathering_brain` | Extracts slot updates, then asks one question about the next missing slot. |
 | `summary_writer` | Produces timeline + clinician questions from filled slots only. |
-| `safety_critic` | Independent reviewer with veto power; triggers one summary rewrite on rejection. |
+| `safety_critic` | Independent reviewer with veto power; a rejected summary gets one rewrite, which is re-reviewed — if that fails too, a deterministic slot recap ships instead. |
 
 ## Package Layout
 
@@ -79,7 +79,7 @@ sequenceDiagram
         else complete
             G->>W: filled slots
             W->>C: summary draft
-            C-->>S: approved summary (or one rewrite)
+            C-->>S: approved summary (rewrite re-reviewed; templated recap if rejected twice)
         end
     end
     S-->>U: reply + updated state
@@ -95,7 +95,7 @@ sequenceDiagram
 ## Safety Model
 
 1. Never diagnose or recommend treatment (prompt constraints + safety critic).
-2. Red-flag phrases trigger immediate escalation on **every** turn, not only at the end.
+2. Red-flag phrases trigger immediate escalation on **every** turn, not only at the end. This is deterministic: `IntentRouter` runs the rule-based check on the raw message *before* the LLM classification, so escalation never depends on the model's intent label.
 3. Summary writer and safety critic are separate components; the critic has veto power.
 4. No external medical lookup tools in the first draft.
 

@@ -9,6 +9,7 @@ from haystack.dataclasses import ChatMessage
 from haystack_integrations.components.generators.google_genai import GoogleGenAIChatGenerator
 from pydantic import BaseModel, ValidationError
 
+from dr_rhesis.safety import text_suggests_red_flag
 from dr_rhesis.state import DrRhesisState
 from dr_rhesis.utils import extract_json_object, format_history, reply_text
 
@@ -35,6 +36,15 @@ class IntentRouter:
 
     @component.output_types(intent=str, raw_json=dict)
     def run(self, message: str, state: DrRhesisState) -> dict[str, object]:
+        # Deterministic safety override: a message containing a red-flag phrase
+        # must escalate regardless of how the LLM would classify it (e.g. a
+        # medication request mentioning chest pain would otherwise be routed
+        # out_of_scope and get a polite redirect instead of 911 guidance).
+        if text_suggests_red_flag(message):
+            return {
+                "intent": "emergency",
+                "raw_json": {"intent": "emergency", "source": "red_flag_override"},
+            }
         messages = [
             ChatMessage.from_system(PROMPT),
             ChatMessage.from_user(

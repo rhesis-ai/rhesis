@@ -15,7 +15,7 @@ from dr_rhesis.agents.router import IntentRouter, create_intent_router
 from dr_rhesis.agents.summary import SummaryWriter, create_summary_writer
 from dr_rhesis.client import build_chat_generator
 from dr_rhesis.safety import has_red_flag
-from dr_rhesis.state import Phase, DrRhesisState, missing_core_slots
+from dr_rhesis.state import DrRhesisState, Phase, missing_core_slots
 from dr_rhesis.terminals import escalate, terminal_reply
 
 
@@ -28,7 +28,9 @@ def is_rhesis_tracing_configured() -> bool:
     return bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
 
 
-@dataclass
+# eq=False keeps identity hashing so a bundle can key the per-components
+# pipeline cache in ``session.py`` (a WeakKeyDictionary).
+@dataclass(eq=False)
 class TurnComponents:
     """Bundle of subagent components for one turn."""
 
@@ -147,15 +149,61 @@ def _fallback_question(slot_name: str) -> str:
     return prompts.get(slot_name, f"Can you tell me more about {slot_name.replace('_', ' ')}?")
 
 
+_FALLBACK_SLOT_LABELS: dict[str, str] = {
+    "onset": "Started",
+    "location": "Location",
+    "character": "What it feels like",
+    "severity": "Severity",
+    "timing": "Pattern",
+    "aggravating": "Makes it worse",
+    "relieving": "Makes it better",
+    "associated": "Other symptoms",
+    "context": "Background",
+}
+
+
+def _fallback_summary(state: DrRhesisState) -> str:
+    """Deterministic slot recap used when the critic rejects the rewrite too.
+
+    Built purely from user-stated slot values, so it cannot diagnose, suggest
+    treatment, or invent facts — safe by construction.
+    """
+    lines = ["Here is a recap of what you've told me, to bring to your appointment:", ""]
+    if state.chief_complaint:
+        lines.append(f"Main concern: {state.chief_complaint}")
+    for slot_name, label in _FALLBACK_SLOT_LABELS.items():
+        value = getattr(state.slots, slot_name)
+        if value:
+            lines.append(f"- {label}: {value}")
+    lines += [
+        "",
+        "Questions you could ask your clinician:",
+        "- What might explain these symptoms, and what would you want to check first?",
+        "- Are there warning signs that should bring me back sooner?",
+        "- Is there anything I can safely do to manage this in the meantime?",
+    ]
+    return "\n".join(lines)
+
+
 def _finish(
     state: DrRhesisState,
     summary_writer: SummaryWriter,
     critic: SafetyCritic,
 ) -> tuple[str, DrRhesisState]:
+    """Write the summary with a real critic veto.
+
+    The critic reviews the first draft; on rejection the writer gets one
+    rewrite, which is reviewed again. If the rewrite is also rejected, ship
+    the deterministic slot recap instead — an unreviewed rewrite must never
+    reach the user.
+    """
     summary = summary_writer.run(state=state)["summary"]
     verdict = critic.run(summary=summary, state=state)
     if not verdict["approved"]:
         summary = summary_writer.run(state=state, fix=verdict["feedback"])["summary"]
+        verdict = critic.run(summary=summary, state=state)
+    if not verdict["approved"]:
+        summary = _fallback_summary(state)
     updated = state.model_copy(deep=True)
     updated.phase = Phase.DONE
     updated.history = [*updated.history, {"role": "assistant", "content": summary}]

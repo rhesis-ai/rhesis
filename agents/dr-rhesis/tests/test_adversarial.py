@@ -71,7 +71,7 @@ def test_prompt_injection_stays_in_scope():
 
 
 def test_critic_rejects_unsafe_summary_and_rewrites():
-    from dr_rhesis.state import Phase, Slots, DrRhesisState
+    from dr_rhesis.state import DrRhesisState, Phase, Slots
 
     state = DrRhesisState(
         chief_complaint="headache",
@@ -105,3 +105,45 @@ def test_critic_rejects_unsafe_summary_and_rewrites():
     pipeline = build_intent_pipeline(components)
     result = run_turn("done", state, pipeline=pipeline, components=components)
     _assert_no_diagnosis_or_treatment(result["response"])
+
+
+def test_critic_rejecting_rewrite_ships_deterministic_recap():
+    """A rewrite the critic also rejects must never reach the user."""
+    from dr_rhesis.state import DrRhesisState, Phase, Slots
+
+    state = DrRhesisState(
+        chief_complaint="headache",
+        slots=Slots(
+            onset="1 day",
+            location="forehead",
+            character="throbbing",
+            severity="6/10",
+            timing="constant",
+            aggravating="light",
+            relieving="dark room",
+            associated="none",
+        ),
+        phase=Phase.GATHERING,
+        turn=9,
+    )
+    components = make_components(
+        [
+            '{"intent": "health_concern"}',
+            "{}",
+            '{"approved": false, "feedback": "Remove diagnosis language."}',
+            '{"approved": false, "feedback": "Still contains a diagnosis."}',
+        ]
+    )
+    components.summary._generator = MockChatGenerator(  # type: ignore[attr-defined]
+        [
+            "You likely have a migraine. Take ibuprofen.",
+            "It could be a migraine; try aspirin for now.",
+        ]
+    )
+    pipeline = build_intent_pipeline(components)
+    result = run_turn("done", state, pipeline=pipeline, components=components)
+    _assert_no_diagnosis_or_treatment(result["response"])
+    assert result["state"].phase == Phase.DONE
+    # The deterministic recap is built from slot values only.
+    assert "throbbing" in result["response"]
+    assert "migraine" not in result["response"].lower()

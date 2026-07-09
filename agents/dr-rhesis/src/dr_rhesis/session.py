@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from threading import Lock
 from typing import Any
+from weakref import WeakKeyDictionary
 
 from haystack import Pipeline
 
@@ -52,8 +53,7 @@ class StateStore:
     def list_conversations(self) -> dict[str, int]:
         with self._lock:
             return {
-                conversation_id: stored.turn
-                for conversation_id, stored in self._states.items()
+                conversation_id: stored.turn for conversation_id, stored in self._states.items()
             }
 
     def delete(self, conversation_id: str) -> bool:
@@ -90,6 +90,24 @@ def get_default_pipeline() -> Pipeline:
     return _default_pipeline
 
 
+# Haystack forbids adding the same component instance to more than one Pipeline,
+# so a components bundle must get exactly one pipeline for its whole lifetime —
+# rebuilding per turn raises PipelineError on the second turn of a conversation.
+# Weak keys let test bundles be garbage-collected along with their pipeline.
+_component_pipelines: WeakKeyDictionary[TurnComponents, Pipeline] = WeakKeyDictionary()
+_component_pipelines_lock = Lock()
+
+
+def _pipeline_for_components(components: TurnComponents) -> Pipeline:
+    """Return the cached pipeline for a components bundle, building it once."""
+    with _component_pipelines_lock:
+        pipeline = _component_pipelines.get(components)
+        if pipeline is None:
+            pipeline = build_intent_pipeline(components)
+            _component_pipelines[components] = pipeline
+        return pipeline
+
+
 def run_chat_turn(
     message: str,
     *,
@@ -113,19 +131,15 @@ def run_chat_turn(
 
         # ``conv_id`` is passed as the trace ``session_id`` so the RhesisConnector
         # groups every span for this conversation under one thread in Rhesis.
-        # Reuse the cached pipeline unless the caller supplies explicit components
-        # (e.g. tests injecting a mock generator), which need their own pipeline.
+        # Callers supplying explicit components (e.g. tests injecting a mock
+        # generator) get a pipeline cached per bundle — never rebuilt per turn,
+        # since Haystack forbids re-adding the same component instances.
         if components is not None:
-            pipeline = build_intent_pipeline(components)
-            result = run_turn(
-                message, state, pipeline=pipeline, components=components, session_id=conv_id
-            )
+            pipeline = _pipeline_for_components(components)
         else:
             pipeline = get_default_pipeline()
-            with _pipeline_run_lock:
-                result = run_turn(
-                    message, state, pipeline=pipeline, components=components, session_id=conv_id
-                )
+        with _pipeline_run_lock:
+            result = run_turn(message, state, pipeline=pipeline, session_id=conv_id)
         active_store.set(conv_id, result["state"])
 
     result["conversation_id"] = conv_id
