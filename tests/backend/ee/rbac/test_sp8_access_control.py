@@ -198,7 +198,12 @@ class TestAccessMatrix:
 @pytest.mark.ee
 @pytest.mark.integration
 class TestProjectRoleOverride:
-    """Project role beats org role (override, not a union)."""
+    """Project role can elevate but never restrict below the org role (Model A).
+
+    Mirrors GitLab's inherited-membership rule and GCP IAM's resource-hierarchy
+    inheritance: a narrower scope (project) can only add to what a broader
+    scope (organization) already grants, never take it away.
+    """
 
     @pytest.fixture(autouse=True)
     def _setup(self, test_db: Session):
@@ -210,34 +215,41 @@ class TestProjectRoleOverride:
     def _can_project(self, perm: str) -> bool:
         return _authorized(self.db, self.user_id, self.org_id, perm, project_id=self.project_id)
 
-    def test_viewer_project_role_overrides_admin_org_role_create(self):
-        """Admin org → can create; but Viewer project role → cannot create."""
+    def test_lower_viewer_project_role_does_not_restrict_admin_org_role(self):
+        """Admin org role → can create, even with an explicit Viewer project role."""
         _assign_org_role(self.db, self.org_id, self.user_id, "Admin")
         _assign_project_role(self.db, self.org_id, self.project_id, self.user_id, "Viewer")
-        assert not self._can_project("test_set:create")
+        assert self._can_project("test_set:create")
 
     def test_viewer_project_role_still_allows_read(self):
         _assign_org_role(self.db, self.org_id, self.user_id, "Admin")
         _assign_project_role(self.db, self.org_id, self.project_id, self.user_id, "Viewer")
         assert self._can_project("test_set:read")
 
-    def test_none_project_role_blocks_admin_org_permissions(self):
-        """Even Admin org role is blocked when project role is None."""
+    def test_none_project_role_does_not_block_admin_org_permissions(self):
+        """An explicit None project role can't restrict an Admin org role either."""
         _assign_org_role(self.db, self.org_id, self.user_id, "Admin")
         _assign_project_role(self.db, self.org_id, self.project_id, self.user_id, "None")
-        assert not self._can_project("test_set:read")
+        assert self._can_project("test_set:read")
 
     def test_org_role_applies_when_no_project_role_set(self):
         """Without a project-level row the org role governs."""
         _assign_org_role(self.db, self.org_id, self.user_id, "Admin")
         assert self._can_project("test_set:create")
 
+    def test_higher_project_role_elevates_above_lower_org_role(self):
+        """An explicit project role can still elevate access above a lower org role."""
+        _assign_org_role(self.db, self.org_id, self.user_id, "Viewer")
+        _assign_project_role(self.db, self.org_id, self.project_id, self.user_id, "Owner")
+        assert self._can_project("test_set:delete")
+
     def test_different_users_have_independent_project_roles(self):
-        """Two users, different project roles, independent decisions."""
+        """Two users with the same (low) org role get independent elevation
+        from their own explicit project roles."""
         viewer_id = _create_user(self.db, self.org_id)
         member_id = _create_user(self.db, self.org_id)
-        _assign_org_role(self.db, self.org_id, viewer_id, "Admin")
-        _assign_org_role(self.db, self.org_id, member_id, "Admin")
+        _assign_org_role(self.db, self.org_id, viewer_id, "Viewer")
+        _assign_org_role(self.db, self.org_id, member_id, "Viewer")
         _assign_project_role(self.db, self.org_id, self.project_id, viewer_id, "Viewer")
         _assign_project_role(self.db, self.org_id, self.project_id, member_id, "Member")
 
@@ -695,7 +707,9 @@ class TestCustomRoleEscalationGuard:
             )
         )
         self.db.add(
-            OrganizationMember(organization_id=self.org_id, user_id=target_id, role_id=broad_role.id)
+            OrganizationMember(
+                organization_id=self.org_id, user_id=target_id, role_id=broad_role.id
+            )
         )
         self.db.flush()
 
@@ -848,9 +862,7 @@ class TestProjectMemberAPI:
         admin_role = _builtin_role(self.db, "Admin")
         owner_role = _builtin_role(self.db, "Owner")
         _add_project_member(self.db, self.org_id, self.project_id, admin_id, admin_role.id)
-        _add_project_member(
-            self.db, self.org_id, self.project_id, owner_member_id, owner_role.id
-        )
+        _add_project_member(self.db, self.org_id, self.project_id, owner_member_id, owner_role.id)
 
         with pytest.raises(HTTPException) as exc, _rbac_enabled():
             assign_project_role(
@@ -963,7 +975,9 @@ class TestOrgMemberPermittedActions:
         """Ambient-permission gate: even when level and permission-subset
         checks would pass, an actor who doesn't hold member:manage at all
         must not see it in permitted_actions on any row."""
-        readonly_role = _custom_role(self.db, self.org_id, name="ReadOnlyA", scope=SCOPE_ORGANIZATION)
+        readonly_role = _custom_role(
+            self.db, self.org_id, name="ReadOnlyA", scope=SCOPE_ORGANIZATION
+        )
         target_role = _custom_role(self.db, self.org_id, name="ReadOnlyB", scope=SCOPE_ORGANIZATION)
         _grant_permission(self.db, readonly_role.id, "member:read")
         _grant_permission(self.db, target_role.id, "member:read")
