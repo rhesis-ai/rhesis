@@ -5,16 +5,16 @@ Turn **your PRD or requirements** into a **test foundation** on Rhesis — fine-
 Everything created lives in **your Rhesis organization** — reusable and refinable, not a one-off.
 
 <Callout type="info">
-  The **PRD skill** (`rhesis-prd`) builds your evaluation baseline from requirements. The [**platform skill**](/docs/skills/platform) (`rhesis`) explores endpoints, runs tests, and analyzes results. Install both for the full workflow.
+  The **PRD skill** (`rhesis-prd`) builds your evaluation baseline from requirements. The [**platform skill**](/docs/agent-skill/platform) (`rhesis`) explores endpoints, runs tests, and analyzes results. Install both for the full workflow.
 </Callout>
 
 ## Prerequisites
 
-Same as the [platform skill](/docs/skills/platform):
+Same as the [platform skill](/docs/agent-skill/platform):
 
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai) (or a self-hosted backend)
 - An API token — [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- The Rhesis MCP server connected in your agent (see [Platform skill — Install in Cursor](/docs/skills/platform#install-in-cursor))
+- The Rhesis MCP server connected in your agent (see [Platform skill — Install in Cursor](/docs/agent-skill/platform#install-in-cursor))
 
 ## What you get
 
@@ -57,7 +57,7 @@ npx skills add rhesis-ai/rhesis -g
 ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd`}
 </CodeBlock>
 
-Connect the MCP server as described in [Platform skill](/docs/skills/platform#install-in-cursor).
+Connect the MCP server as described in [Platform skill](/docs/agent-skill/platform#install-in-cursor).
 
 ## Usage
 

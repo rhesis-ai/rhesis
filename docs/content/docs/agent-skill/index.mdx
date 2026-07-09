@@ -1,11 +1,11 @@
-# Skills
+# Agent Skill
 
 Rhesis ships portable **agent skills** that teach your AI interface how to work with the platform via the Rhesis MCP server.
 
 | Skill | Package | When to use |
 | --- | --- | --- |
-| [**Platform skill**](/docs/skills/platform) | `rhesis` | Explore endpoints, design and run tests, analyze results |
-| [**PRD skill**](/docs/skills/prd) | `rhesis-prd` | Turn a PRD or requirements doc into behaviors, metrics, tags, and test sets |
+| [**Platform skill**](/docs/agent-skill/platform) | `rhesis` | Explore endpoints, design and run tests, analyze results |
+| [**PRD skill**](/docs/agent-skill/prd) | `rhesis-prd` | Turn a PRD or requirements doc into behaviors, metrics, tags, and test sets |
 
 Install both for the full workflow: bootstrap evaluation from requirements with the PRD skill, then execute and analyze with the platform skill.
 
@@ -23,7 +23,7 @@ npx skills add rhesis-ai/rhesis -g
 ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd`}
 </CodeBlock>
 
-Connect the MCP server in your agent — see [Platform skill — Install in Cursor](/docs/skills/platform#install-in-cursor).
+Connect the MCP server in your agent — see [Platform skill — Install in Cursor](/docs/agent-skill/platform#install-in-cursor).
 
 ## Source
 
