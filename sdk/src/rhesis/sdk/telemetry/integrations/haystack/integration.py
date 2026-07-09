@@ -175,6 +175,33 @@ def _enable_haystack_tracing() -> Any:
     return haystack_tracer
 
 
+def _disable_haystack_tracing() -> None:
+    """Best-effort revert of :func:`_enable_haystack_tracing`.
+
+    Called on the ``enable()`` early-return paths so a failed/false enable never
+    leaves Haystack emitting untranslated spans. ``disable_tracing`` is only
+    available in Haystack >= 2.x; older versions have no public teardown, so we
+    limit the damage by disabling content tracing and swallowing the rest.
+    """
+    try:
+        from haystack import tracing
+
+        disable = getattr(tracing, "disable_tracing", None)
+        if disable is not None:
+            disable()
+    except Exception:  # noqa: BLE001
+        logger.debug("Could not disable Haystack tracing on revert", exc_info=True)
+    # Always stop content tracing so a failed enable does not leak captures.
+    try:
+        from haystack import tracing
+
+        tracer = getattr(tracing, "tracer", None)
+        if tracer is not None:
+            tracer.is_content_tracing_enabled = False
+    except Exception:  # noqa: BLE001
+        logger.debug("Could not disable Haystack content tracing on revert", exc_info=True)
+
+
 class HaystackIntegration(BaseIntegration):
     """Haystack framework integration."""
 
@@ -257,12 +284,16 @@ class HaystackIntegration(BaseIntegration):
             logger.debug("%s not installed", self.framework_name)
             return False
 
+        # Try the native Haystack tracing path first (it produces the richest,
+        # ai.*-translated spans). To fail closed we verify a Rhesis TracerProvider
+        # and a wrappable exporter *after* enabling (option b of the review): if
+        # either check fails we revert Haystack tracing so we never leave the
+        # process emitting untranslated spans or stale content capture.
         try:
             haystack_tracer = _enable_haystack_tracing()
         except Exception as exc:
             logger.debug("Haystack tracing API unavailable, using pipeline patch fallback: %s", exc)
             try:
-                _enable_content_tracing()
                 _patch_pipeline_run()
                 self._callback = "haystack_patched"
                 self._enabled = True
@@ -280,9 +311,11 @@ class HaystackIntegration(BaseIntegration):
                 type(provider).__name__,
                 _SETUP_ORDER_HINT,
             )
+            _disable_haystack_tracing()
             return False
 
         if not self._wrap_existing_exporters(provider):
+            _disable_haystack_tracing()
             return False
 
         self._callback = haystack_tracer
@@ -294,6 +327,8 @@ class HaystackIntegration(BaseIntegration):
         if self._enabled:
             self._unwrap_exporters()
             HaystackPatchState.reset()
+            if self._callback != "haystack_patched":
+                _disable_haystack_tracing()
         super().disable()
 
 

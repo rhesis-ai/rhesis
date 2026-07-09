@@ -301,7 +301,11 @@ def synthesize_events(
             events.append(
                 (
                     AIEvents.AGENT_INPUT,
-                    {AIAttributes.AGENT_INPUT_CONTENT: truncate_content(sanitize_for_tracing(pipeline_input))},
+                    {
+                        AIAttributes.AGENT_INPUT_CONTENT: truncate_content(
+                            sanitize_for_tracing(pipeline_input)
+                        )
+                    },
                 )
             )
         if pipeline_output is not None:

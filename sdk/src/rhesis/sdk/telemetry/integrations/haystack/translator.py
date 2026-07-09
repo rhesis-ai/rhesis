@@ -30,7 +30,9 @@ def _translate_events(
 ) -> list[Event]:
     new_events: list[Event] = []
     for event in original_events:
-        new_events.append(Event(name=event.name, attributes=dict(event.attributes or {}), timestamp=event.timestamp))
+        new_events.append(
+            Event(name=event.name, attributes=dict(event.attributes or {}), timestamp=event.timestamp)
+        )
 
     existing_names = {event.name for event in new_events}
     for synth_name, synth_attrs in mapping.synthesize_events(attributes, span_name=span_name):

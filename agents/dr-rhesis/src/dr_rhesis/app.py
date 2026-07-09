@@ -54,8 +54,15 @@ else:
     )
     rhesis_client = DisabledClient()
 
-# Pending: SDK Haystack integration is not on main yet.
-# auto_instrument("haystack")
+# Enable Rhesis observability for the Haystack pipeline. Must run after the
+# RhesisClient is constructed above so the integration can wrap the Rhesis
+# OTLP exporter; without a client, enable() returns False and Haystack spans
+# are not translated into the ai.* schema. auto_instrument is a no-op when
+# RHESIS_CONNECTOR_DISABLED is set or the SDK haystack integration is
+# unavailable, so this is safe under DisabledClient too.
+from rhesis.sdk.telemetry import auto_instrument
+
+auto_instrument("haystack")
 
 _startup_validated: bool = False
 
