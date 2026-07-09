@@ -12,16 +12,32 @@ cd rhesis
 
 2. **Set up local development environment:**
 ```bash
-./rh dev init         # Initialize env files (one-time setup)
+./rh dev init         # Initialize env files (one-time setup) - apps/backend/.env and apps/frontend/.env.local
 ./rh dev up           # Start dev infrastructure (postgres + redis)
 ./rh dev backend      # Start backend server (auto-login enabled)
 ./rh dev worker       # Start worker for background tasks
 ./rh dev frontend     # Start frontend server
+
+# Optional
+./rh dev mock-llm    # Start mock LLM server
+./rh dev mock-chatbot # Start mock Chatbot server
 ```
 
 3. **Access the application** at http://localhost:3000
 
-Run `./rh help` to see all available commands.
+Run `./rh dev` to see all available commands.
+
+
+## LLM access
+
+Rhesis relies heavily on LLMs for test generation, test evaluation, and other features. You have three options for LLM access:
+
+1. **Use the LLM provided by Rhesis.ai (recommended)** - create an account at app.rhesis.ai, generate an API key, and paste it into `apps/backend/.env`:
+```
+RHESIS_API_KEY=your_api_key
+```
+2. **Bring your own LLM** - add your own model under Model -> Add button -> Language Model. You have to set it as the default for generation, evaluation, and execution.
+3. **Use the mock LLM** - only supports single-turn testing. It's still in development and may be buggy.
 
 ## Component Guides
 
