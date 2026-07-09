@@ -159,7 +159,7 @@ export default function TokenScopeField({
 
       {mode === 'restricted' && (
         <>
-          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+          <FormControl fullWidth size="small" sx={drawerOutlinedFieldSx}>
             <InputLabel id="token-role-label" shrink>
               Role template
             </InputLabel>

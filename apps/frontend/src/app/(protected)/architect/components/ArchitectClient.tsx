@@ -48,6 +48,8 @@ export default function ArchitectClient() {
       const client = getClient();
       if (!client) return;
       setIsLoadingSessions(true);
+      setActiveSessionId(null);
+      setSessions([]);
       try {
         const data = await client.getSessions();
         setSessions(data);
