@@ -46,7 +46,12 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.capabilities import Permission, get_all_capabilities
+from rhesis.backend.app.auth.capabilities import (
+    SCOPE_ORGANIZATION,
+    Permission,
+    capability_scope,
+    get_all_capabilities,
+)
 from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
@@ -301,6 +306,18 @@ def authorize(
         any exception in the provider returns ``False`` and logs the error.
     """
     perm_str = str(permission)
+
+    # Org-scoped capabilities (sso:manage, role:manage, member:manage, ...) must
+    # never be narrowed by an ambient project context. require_permission's
+    # auto-injected dependency reads project_id from the request's active
+    # project (e.g. an X-Project-Id header), which is meaningful for
+    # project-scoped actions but not for org-wide admin actions — a caller
+    # whose explicit *project* role is lower than their *org* role would
+    # otherwise be incorrectly denied an org-level action while that project
+    # happens to be active. Force project_id=None here so the PDP always
+    # resolves org-scoped permissions against the org role.
+    if project_id is not None and capability_scope(perm_str) == SCOPE_ORGANIZATION:
+        project_id = None
 
     # --- Token project boundary (deterministic, no DB, never cached) ---
     # A project-scoped token may only act within its own project.  Enforced here

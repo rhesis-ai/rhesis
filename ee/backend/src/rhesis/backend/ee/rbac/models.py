@@ -50,15 +50,19 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+# ---------------------------------------------------------------------------
+# Scope constants — defined in core (``app/auth/capabilities.py``) because
+# authorize()/require_permission() need them too and core code must never
+# import from ``rhesis.backend.ee.*``. Re-exported here unchanged so existing
+# EE/test imports of ``rhesis.backend.ee.rbac.models`` keep working.
+# ---------------------------------------------------------------------------
+from rhesis.backend.app.auth.capabilities import (  # noqa: E402
+    SCOPE_ORGANIZATION,
+    SCOPE_PROJECT,
+    capability_scope,
+)
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
-
-# ---------------------------------------------------------------------------
-# Scope constants
-# ---------------------------------------------------------------------------
-
-SCOPE_ORGANIZATION = "organization"
-SCOPE_PROJECT = "project"
 
 # Canonical built-in role names (order encodes precedence: highest first).
 BUILT_IN_ROLE_NAMES: tuple[str, ...] = ("Owner", "Admin", "Member", "Viewer", "None")
@@ -77,52 +81,18 @@ BUILT_IN_ROLE_LEVELS: dict[str, int] = {
 # constants are co-located and reviewable without opening a migration file.
 BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
     "Owner": (
-        "Complete control of the organization, including billing, "
-        "deletion, and ownership transfer."
+        "Complete control of the organization, including billing, deletion, and ownership transfer."
     ),
     "Admin": (
         "Manage members, roles, projects, and organization settings. "
         "Cannot delete the organization."
     ),
     "Member": (
-        "Create, edit, and run evaluations across their projects. "
-        "Manage their own API tokens."
+        "Create, edit, and run evaluations across their projects. Manage their own API tokens."
     ),
-    "Viewer": (
-        "Read-only access to all resources. Can browse and export "
-        "but cannot make changes."
-    ),
+    "Viewer": ("Read-only access to all resources. Can browse and export but cannot make changes."),
     "None": "No access. Explicitly revoke a member while keeping them in the organization.",
 }
-
-# Resource types whose permissions are org-scoped.
-_ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
-    {
-        "organization",
-        "member",
-        "role",
-        "token",
-        "recycle",
-        "sso",
-        "api_clients",
-    }
-)
-
-
-def capability_scope(cap: str) -> str:
-    """Return ``'organization'`` or ``'project'`` for a capability string.
-
-    ``project:create`` is org-scoped (creating a project *inside* the org).
-    All other ``project:*`` capabilities (read, update) are project-scoped.
-    """
-    parts = cap.split(":", 1)
-    resource = parts[0]
-    action = parts[1] if len(parts) > 1 else ""
-    if resource in _ORG_SCOPED_RESOURCES:
-        return SCOPE_ORGANIZATION
-    if resource == "project" and action == "create":
-        return SCOPE_ORGANIZATION
-    return SCOPE_PROJECT
 
 
 # Actions a **Member** may perform on any project-scoped resource.  Unlike the
