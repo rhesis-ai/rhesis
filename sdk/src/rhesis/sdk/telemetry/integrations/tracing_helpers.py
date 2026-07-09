@@ -1,5 +1,6 @@
 """Shared helpers for framework telemetry integrations."""
 
+import json
 import time
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional
@@ -12,11 +13,71 @@ from rhesis.sdk.telemetry.context import is_tracing_disabled
 from rhesis.sdk.telemetry.utils.token_extraction import extract_token_usage
 
 MAX_CONTENT_LENGTH = 4000
+_BINARY_PLACEHOLDER = "[binary data omitted]"
+_SENSITIVE_KEY_FRAGMENTS = ("password", "secret", "api_key", "apikey", "token", "authorization")
+_SIGNED_URL_FRAGMENTS = ("X-Amz-Signature=", "sig=", "signature=")
+
+
+def _is_sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(fragment in lowered for fragment in _SENSITIVE_KEY_FRAGMENTS)
+
+
+def _looks_like_signed_url(value: str) -> bool:
+    return any(fragment in value for fragment in _SIGNED_URL_FRAGMENTS)
+
+
+def sanitize_for_tracing(value: Any, *, key: str | None = None) -> Any:
+    """Replace binary, embedding, and sensitive values with safe placeholders."""
+    if key and _is_sensitive_key(key):
+        return "[redacted]"
+
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return _BINARY_PLACEHOLDER
+
+    if hasattr(value, "_to_trace_dict"):
+        try:
+            return sanitize_for_tracing(value._to_trace_dict())
+        except Exception:
+            return _BINARY_PLACEHOLDER
+
+    type_name = type(value).__name__
+    if type_name in {"ByteStream", "ImageContent", "Document", "SparseEmbedding"}:
+        return f"[{type_name} omitted]"
+
+    if isinstance(value, str):
+        if _looks_like_signed_url(value):
+            return "[signed url omitted]"
+        return value
+
+    if isinstance(value, list):
+        if len(value) > 32 and value and all(isinstance(item, (int, float)) for item in value[:8]):
+            return f"[embedding vector omitted: {len(value)} dimensions]"
+        return [sanitize_for_tracing(item) for item in value]
+
+    if isinstance(value, dict):
+        return {k: sanitize_for_tracing(v, key=str(k)) for k, v in value.items()}
+
+    if hasattr(value, "to_dict"):
+        try:
+            return sanitize_for_tracing(value.to_dict())
+        except Exception:
+            return str(value)
+
+    return value
 
 
 def truncate_content(value: Any) -> str:
     """Truncate serialized content for span events."""
-    return str(value)[:MAX_CONTENT_LENGTH]
+    safe = sanitize_for_tracing(value)
+    if isinstance(safe, str):
+        text = safe
+    else:
+        try:
+            text = json.dumps(safe, default=str)
+        except Exception:
+            text = str(safe)
+    return text[:MAX_CONTENT_LENGTH]
 
 
 def infer_model_provider(model_name: str) -> Optional[str]:

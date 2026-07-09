@@ -20,7 +20,13 @@ from rhesis.penelope.schemas import (
     ToolCall,
     ToolMessage,
 )
-from rhesis.penelope.targets import EndpointTarget, LangChainTarget, LangGraphTarget, Target
+from rhesis.penelope.targets import (
+    EndpointTarget,
+    HaystackTarget,
+    LangChainTarget,
+    LangGraphTarget,
+    Target,
+)
 from rhesis.penelope.tools.base import Tool
 
 __version__ = "0.1.0"
@@ -42,6 +48,7 @@ __all__ = [
     "ExtractInformationParams",
     "Target",
     "EndpointTarget",
+    "HaystackTarget",
     "LangChainTarget",
     "LangGraphTarget",
 ]

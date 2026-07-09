@@ -1,0 +1,243 @@
+"""Haystack framework integration."""
+
+from __future__ import annotations
+
+import logging
+import os
+from typing import Any, Callable, Optional
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+
+from rhesis.sdk.telemetry.attributes import AIAttributes
+from rhesis.sdk.telemetry.integrations.base import BaseIntegration
+from rhesis.sdk.telemetry.integrations.haystack.translator import HaystackTranslatingExporter
+from rhesis.sdk.telemetry.integrations.tracing_helpers import (
+    add_agent_io_events,
+    observe_framework_call,
+    set_agent_attributes,
+)
+from rhesis.telemetry.schemas import AIOperationType
+
+logger = logging.getLogger(__name__)
+
+_original_pipeline_run: Optional[Callable] = None
+_original_pipeline_run_async: Optional[Callable] = None
+_patching_done = False
+
+
+class HaystackPatchState:
+    """Accessor for Haystack patching state (used in tests)."""
+
+    @staticmethod
+    def get_run() -> Callable | None:
+        return _original_pipeline_run
+
+    @staticmethod
+    def set_run(func: Callable) -> None:
+        global _original_pipeline_run
+        _original_pipeline_run = func
+
+    @staticmethod
+    def get_run_async() -> Callable | None:
+        return _original_pipeline_run_async
+
+    @staticmethod
+    def set_run_async(func: Callable) -> None:
+        global _original_pipeline_run_async
+        _original_pipeline_run_async = func
+
+    @staticmethod
+    def is_done() -> bool:
+        return _patching_done
+
+    @staticmethod
+    def set_done(done: bool = True) -> None:
+        global _patching_done
+        _patching_done = done
+
+    @staticmethod
+    def reset() -> None:
+        global _original_pipeline_run, _original_pipeline_run_async, _patching_done
+        if _patching_done and _original_pipeline_run is not None:
+            try:
+                from haystack import Pipeline
+
+                Pipeline.run = _original_pipeline_run
+                if _original_pipeline_run_async is not None:
+                    Pipeline.run_async = _original_pipeline_run_async
+            except ImportError:
+                pass
+        _original_pipeline_run = None
+        _original_pipeline_run_async = None
+        _patching_done = False
+
+
+def _wrap_pipeline_run(original: Callable) -> Callable:
+    def wrapped(self, data=None, *args, **kwargs):
+        pipeline_name = getattr(self, "metadata", {}).get("name") or type(self).__name__
+        with observe_framework_call(
+            AIOperationType.AGENT_INVOKE,
+            framework="haystack",
+            operation_type=AIAttributes.OPERATION_AGENT_INVOKE,
+            attributes={AIAttributes.AGENT_NAME: pipeline_name},
+        ) as span:
+            set_agent_attributes(span, agent_name=pipeline_name)
+            add_agent_io_events(span, data, None)
+            result = original(self, data, *args, **kwargs)
+            add_agent_io_events(span, None, result)
+            return result
+
+    return wrapped
+
+
+def _wrap_pipeline_run_async(original: Callable) -> Callable:
+    async def wrapped(self, data=None, *args, **kwargs):
+        pipeline_name = getattr(self, "metadata", {}).get("name") or type(self).__name__
+        with observe_framework_call(
+            AIOperationType.AGENT_INVOKE,
+            framework="haystack",
+            operation_type=AIAttributes.OPERATION_AGENT_INVOKE,
+            attributes={AIAttributes.AGENT_NAME: pipeline_name},
+        ) as span:
+            set_agent_attributes(span, agent_name=pipeline_name)
+            add_agent_io_events(span, data, None)
+            result = await original(self, data, *args, **kwargs)
+            add_agent_io_events(span, None, result)
+            return result
+
+    return wrapped
+
+
+def _patch_pipeline_run() -> None:
+    global _original_pipeline_run, _original_pipeline_run_async, _patching_done
+    if _patching_done:
+        return
+
+    from haystack import Pipeline
+
+    _original_pipeline_run = Pipeline.run
+    Pipeline.run = _wrap_pipeline_run(_original_pipeline_run)
+
+    if hasattr(Pipeline, "run_async"):
+        _original_pipeline_run_async = Pipeline.run_async
+        Pipeline.run_async = _wrap_pipeline_run_async(_original_pipeline_run_async)
+
+    _patching_done = True
+
+
+def _enable_content_tracing() -> None:
+    from haystack import tracing
+
+    tracing.tracer.is_content_tracing_enabled = True
+    os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
+
+
+def _enable_haystack_tracing() -> Any:
+    from haystack import tracing
+    from haystack.tracing import OpenTelemetryTracer
+
+    _enable_content_tracing()
+    haystack_tracer = OpenTelemetryTracer(trace.get_tracer("rhesis.sdk.haystack"))
+    tracing.enable_tracing(haystack_tracer)
+    return haystack_tracer
+
+
+def _set_batch_processor_exporter(processor: BatchSpanProcessor, exporter: SpanExporter) -> None:
+    inner = getattr(processor, "_batch_processor", None)
+    if inner is not None and hasattr(inner, "_exporter"):
+        inner._exporter = exporter  # noqa: SLF001
+        return
+    setattr(processor, "span_exporter", exporter)
+
+
+class HaystackIntegration(BaseIntegration):
+    """Haystack framework integration."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._patched_processors: list[tuple[BatchSpanProcessor, SpanExporter]] = []
+
+    @property
+    def framework_name(self) -> str:
+        return "haystack"
+
+    def is_installed(self) -> bool:
+        try:
+            import haystack  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+
+    def _wrap_existing_exporters(self, provider: TracerProvider) -> None:
+        try:
+            multi = getattr(provider, "_active_span_processor", None)
+            children = getattr(multi, "_span_processors", ()) if multi is not None else ()
+        except Exception:  # noqa: BLE001
+            logger.debug("Could not introspect provider span processors", exc_info=True)
+            return
+
+        wrapped_count = 0
+        for child in children:
+            if not isinstance(child, BatchSpanProcessor):
+                continue
+            current = getattr(child, "span_exporter", None)
+            if current is None or isinstance(current, HaystackTranslatingExporter):
+                continue
+            try:
+                _set_batch_processor_exporter(child, HaystackTranslatingExporter(current))
+                self._patched_processors.append((child, current))
+                wrapped_count += 1
+            except Exception:  # noqa: BLE001
+                logger.warning("Failed to wrap exporter on processor %r", child, exc_info=True)
+
+        if wrapped_count == 0:
+            logger.warning(
+                "haystack: no BatchSpanProcessor found on the active TracerProvider; "
+                "Haystack spans will be emitted but not translated into the Rhesis ai.* schema. "
+                "Ensure RhesisClient is created before auto_instrument()."
+            )
+
+    def _unwrap_exporters(self) -> None:
+        for processor, original_exporter in self._patched_processors:
+            try:
+                _set_batch_processor_exporter(processor, original_exporter)
+            except Exception:  # noqa: BLE001
+                logger.debug("Failed to revert exporter on processor %r", processor, exc_info=True)
+        self._patched_processors.clear()
+
+    def _create_callback(self):
+        """Enable Haystack native tracing and wrap exporters for ai.* translation."""
+        try:
+            haystack_tracer = _enable_haystack_tracing()
+            provider = trace.get_tracer_provider()
+            if isinstance(provider, TracerProvider):
+                self._wrap_existing_exporters(provider)
+            else:
+                logger.warning(
+                    "Active tracer provider is %s, not TracerProvider; "
+                    "Haystack spans will not be translated",
+                    type(provider).__name__,
+                )
+            return haystack_tracer
+        except Exception as exc:
+            logger.debug("Haystack tracing API unavailable, using pipeline patch fallback: %s", exc)
+            _enable_content_tracing()
+            _patch_pipeline_run()
+            return "haystack_patched"
+
+    def disable(self) -> None:
+        if self._enabled:
+            self._unwrap_exporters()
+            HaystackPatchState.reset()
+        super().disable()
+
+
+_haystack_integration = HaystackIntegration()
+
+
+def get_integration() -> HaystackIntegration:
+    """Get the singleton Haystack integration instance."""
+    return _haystack_integration
