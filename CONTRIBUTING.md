@@ -17,27 +17,14 @@ cd rhesis
 ./rh dev backend      # Start backend server (auto-login enabled)
 ./rh dev worker       # Start worker for background tasks
 ./rh dev frontend     # Start frontend server
-
-# Optional
-./rh dev mock-llm    # Start mock LLM server
-./rh dev mock-chatbot # Start mock Chatbot server
 ```
 
 3. **Access the application** at http://localhost:3000
 
 Run `./rh dev` to see all available commands.
 
-
-## LLM access
-
-Rhesis relies heavily on LLMs for test generation, test evaluation, and other features. You have three options for LLM access:
-
-1. **Use the LLM provided by Rhesis.ai (recommended)** - create an account at app.rhesis.ai, generate an API key, and paste it into `apps/backend/.env`:
-```
-RHESIS_API_KEY=your_api_key
-```
-2. **Bring your own LLM** - add your own model under Model -> Add button -> Language Model. You have to set it as the default for generation, evaluation, and execution.
-3. **Use the mock LLM** - only supports single-turn testing. It's still in development and may be buggy.
+- [Development Setup](https://docs.rhesis.ai/development/contributing/development-setup) — Full environment setup guide, including LLM access options and mock servers
+- [Coding Standards](https://docs.rhesis.ai/development/contributing/coding-standards) — Python and TypeScript standards
 
 ## Component Guides
 
@@ -93,11 +80,6 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - [ ] Documentation updated if needed
 - [ ] All CI checks pass
 
-## Learn More
-
-- [Development Setup](https://docs.rhesis.ai/development/contributing/development-setup) — Full environment setup guide
-- [Coding Standards](https://docs.rhesis.ai/development/contributing/coding-standards) — Python and TypeScript standards
-- [Release Process](RELEASING.md) — Versioning and release workflow
 
 ## Questions or Need Help?
 
