@@ -12,6 +12,9 @@ from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.sdk.telemetry.context import is_tracing_disabled
 
 MAX_CONTENT_LENGTH = 4000
+MAX_SANITIZE_DEPTH = 32
+_CIRCULAR_PLACEHOLDER = "[circular reference omitted]"
+_DEPTH_PLACEHOLDER = "[max depth exceeded]"
 _BINARY_PLACEHOLDER = "[binary data omitted]"
 _SENSITIVE_KEY_FRAGMENTS = ("password", "secret", "api_key", "apikey", "token", "authorization")
 _SIGNED_URL_FRAGMENTS = ("X-Amz-Signature=", "sig=", "signature=")
@@ -27,7 +30,15 @@ def _looks_like_signed_url(value: str) -> bool:
 
 
 def sanitize_for_tracing(value: Any, *, key: str | None = None) -> Any:
-    """Replace binary, embedding, and sensitive values with safe placeholders."""
+    """Replace binary, embedding, and sensitive values with safe placeholders.
+
+    Guards against pathological inputs by limiting recursion depth and detecting
+    reference cycles that would otherwise recurse forever.
+    """
+    return _sanitize(value, key=key, depth=0, seen=set())
+
+
+def _sanitize(value: Any, *, key: str | None, depth: int, seen: set[int]) -> Any:
     if key and _is_sensitive_key(key):
         return "[redacted]"
 
@@ -36,7 +47,7 @@ def sanitize_for_tracing(value: Any, *, key: str | None = None) -> Any:
 
     if hasattr(value, "_to_trace_dict"):
         try:
-            return sanitize_for_tracing(value._to_trace_dict())
+            return _sanitize(value._to_trace_dict(), key=key, depth=depth + 1, seen=seen)
         except Exception:
             return _BINARY_PLACEHOLDER
 
@@ -52,14 +63,28 @@ def sanitize_for_tracing(value: Any, *, key: str | None = None) -> Any:
     if isinstance(value, list):
         if len(value) > 32 and value and all(isinstance(item, (int, float)) for item in value[:8]):
             return f"[embedding vector omitted: {len(value)} dimensions]"
-        return [sanitize_for_tracing(item) for item in value]
+        if depth >= MAX_SANITIZE_DEPTH:
+            return _DEPTH_PLACEHOLDER
+        return [_sanitize(item, key=None, depth=depth + 1, seen=seen) for item in value]
 
     if isinstance(value, dict):
-        return {k: sanitize_for_tracing(v, key=str(k)) for k, v in value.items()}
+        if depth >= MAX_SANITIZE_DEPTH:
+            return _DEPTH_PLACEHOLDER
+        obj_id = id(value)
+        if obj_id in seen:
+            return _CIRCULAR_PLACEHOLDER
+        seen.add(obj_id)
+        try:
+            return {
+                k: _sanitize(v, key=str(k), depth=depth + 1, seen=seen)
+                for k, v in value.items()
+            }
+        finally:
+            seen.discard(obj_id)
 
     if hasattr(value, "to_dict"):
         try:
-            return sanitize_for_tracing(value.to_dict())
+            return _sanitize(value.to_dict(), key=key, depth=depth + 1, seen=seen)
         except Exception:
             return str(value)
 
