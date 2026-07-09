@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Development setup
 
-Two approaches: **local mixed stack** (`./rh dev …`) for day-to-day work, or **all-in-one Docker** (`./rh start`) for a full environment without local service wiring.
+Two approaches:  (`./rh dev …`) for day-to-day work, or **all-in-one Docker** (`./rh start`) for a full environment without local service wiring.
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ From the repo root:
 
 `./rh dev init` writes `apps/backend/.env` and `apps/frontend/.env.local` for local infrastructure. If those files already exist and were not created by `init`, the script may prompt before overwriting.
 
-Tip: run `./rh dev tmux` to start all of the above services in a single tmux session with one window per service, instead of running each command in its own terminal.
+**Tip:** run `./rh dev tmux` to start all of the above services in a single tmux session with one window per service, instead of running each command in its own terminal.
 
 
 Optionally, start the mock servers (see [LLM access](#llm-access) below):
