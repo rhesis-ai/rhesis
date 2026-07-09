@@ -308,7 +308,7 @@ export default function PermissionGroupControl({
               {PERMISSION_COLUMNS.map(col => {
                 const cap = row[col.key];
                 const impliedByAll =
-                  cap &&
+                  cap !== undefined &&
                   (col.key === 'editOwn' || col.key === 'deleteOwn') &&
                   isOwnCapImpliedByAll(permissions, cap, availableCaps);
                 return (
