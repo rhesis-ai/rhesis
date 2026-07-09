@@ -25,6 +25,7 @@ diagnosed, same as the earlier debug_sql_timing.py probe (commit
 import logging
 import os
 import re
+import sys
 import time
 from contextvars import ContextVar
 
@@ -33,6 +34,18 @@ from sqlalchemy import event
 from rhesis.backend.app.database import engine
 
 logger = logging.getLogger("request_timing")
+logger.setLevel(logging.INFO)
+logger.propagate = False
+# Don't rely on the root logger's handlers -- in this environment
+# (is_google_cloud=False, backend_env != "local") set_logger() clears root's
+# handlers and adds nothing back, so anything that propagates to root ends up
+# wherever some other library's logging setup happens to redirect it (e.g.
+# garak's own FileHandler) instead of stdout. Attach our own handler so this
+# probe's output is visible regardless of that gap.
+if not logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(message)s"))
+    logger.addHandler(_handler)
 
 # Each entry: (elapsed_ms, normalized_sql)
 _query_log: ContextVar[list | None] = ContextVar("_query_log", default=None)
