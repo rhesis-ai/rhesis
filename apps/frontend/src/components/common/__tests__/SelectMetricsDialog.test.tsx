@@ -198,6 +198,30 @@ describe('SelectMetricsDialog', () => {
     expect(screen.queryByText('Multi Turn Metric')).not.toBeInTheDocument();
   });
 
+  it('filters metrics by backend pill selection', async () => {
+    const user = userEvent.setup();
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({
+        id: 'm-1',
+        name: 'Custom Metric',
+        backend_type: { type_value: 'custom' },
+      }),
+      makeMetric({
+        id: 'm-2',
+        name: 'Ragas Metric',
+        backend_type: { type_value: 'ragas' },
+      }),
+    ]);
+    renderDialog({ variant: 'drawer' });
+    await screen.findByText('Custom Metric');
+    expect(screen.getByText('Ragas Metric')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^custom$/i }));
+
+    expect(screen.getByText('Custom Metric')).toBeInTheDocument();
+    expect(screen.queryByText('Ragas Metric')).not.toBeInTheDocument();
+  });
+
   it('fetches metrics when the dialog opens (open=true)', async () => {
     mockGetAllMetrics.mockResolvedValue([]);
     renderDialog({ open: true });

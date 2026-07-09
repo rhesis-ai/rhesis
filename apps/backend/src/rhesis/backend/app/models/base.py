@@ -1,6 +1,5 @@
 from nanoid import generate
 from sqlalchemy import (
-    TIMESTAMP,
     Column,
     DateTime,
     String,
@@ -24,11 +23,13 @@ class Base:
     nano_id = Column(
         String, unique=True, default=lambda: generate(size=12, alphabet=custom_alphabet)
     )
-    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
     # Soft delete support
-    deleted_at = Column(DateTime, nullable=True, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     @hybrid_property
     def is_deleted(self):

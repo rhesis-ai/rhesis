@@ -234,7 +234,7 @@ def get_prompts(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Prompt]:
-    return get_items(
+    return get_items_detail(
         db,
         models.Prompt,
         skip,
@@ -290,7 +290,7 @@ def get_prompt_templates(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.PromptTemplate]:
-    return get_items(
+    return get_items_detail(
         db,
         models.PromptTemplate,
         skip,
@@ -349,7 +349,7 @@ def get_categories(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Category]:
-    return get_items(
+    return get_items_detail(
         db,
         models.Category,
         skip,
@@ -505,7 +505,7 @@ def get_test_set(
     return (
         QueryBuilder(db, models.TestSet)
         .with_organization_filter(organization_id)  # Add organization filtering
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.TestSet.id == test_set_id))
         .first()
     )
@@ -530,9 +530,10 @@ def get_test_sets(
     query_builder = (
         QueryBuilder(db, models.TestSet)
         # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
-        # Excludes collection relationships (prompts, tests, metrics, test_configurations,
-        # comments, tags) because those produce cartesian-product joins or lazy fan-out
-        # and the list endpoint does not serialize them.
+        # Excludes collection relationships (prompts, tests, metrics, test_configurations)
+        # because those produce cartesian-product joins or lazy fan-out and the list
+        # endpoint does not serialize them. comments/tasks/files/tags ARE serialized
+        # (via CountsMixin.counts / TagsMixin.tags) -- see with_default_derived_field_loads.
         .with_joined(
             "status",
             "license_type",
@@ -542,8 +543,9 @@ def get_test_sets(
             "assignee",
             "organization",
         )
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)  # Apply organization filtering
-        .with_visibility_filter()  # This already handles public visibility correctly
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -644,7 +646,7 @@ def get_test_set_by_nano_id_or_slug(
             "organization",
         )
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(
                 (models.TestSet.nano_id == identifier) | (models.TestSet.slug == identifier)
@@ -721,7 +723,7 @@ def get_test_sets_for_test(
             "organization",
         )
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.join(models.test.test_test_set_association).filter(
                 and_(
@@ -942,7 +944,7 @@ def get_status(
         .with_deleted()
         .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(status_id)
     )
     return _check_and_raise_if_deleted(item, models.Status, status_id, False)
@@ -1480,6 +1482,14 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     db.add(db_user)
     # Flush to get ID and other generated values before refresh
     db.flush()
+
+    # Seed the default org-role (EE) so the user is not locked out once RBAC is
+    # enabled for their org. No-op in community builds / when no org is set.
+    if db_user.organization_id is not None:
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, db_user.id, db_user.organization_id)
+
     # Transaction commit is handled by the session context manager
     db.refresh(db_user)
     return db_user
@@ -1566,11 +1576,6 @@ def delete_user(
     db.refresh(db_user)
 
     return db_user
-
-
-def get_user_by_auth0_id(db: Session, auth0_id: str) -> Optional[models.User]:
-    """Get a user by their Auth0 ID"""
-    return db.query(models.User).filter(models.User.auth0_id == auth0_id).first()
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
@@ -1802,6 +1807,7 @@ def get_user_tokens(
     filter: str | None = None,
     valid_only: bool = False,
     organization_id: str = None,
+    project_id: str = None,
 ) -> List[models.Token]:
     """Get all active bearer tokens for a user with pagination and sorting
 
@@ -1814,6 +1820,8 @@ def get_user_tokens(
         sort_order: Sort order (asc/desc)
         filter: OData filter string
         valid_only: If True, only returns valid (non-expired) tokens
+        organization_id: Organization ID for filtering
+        project_id: Project ID for filtering (Token is exempt from auto-filter)
 
     Returns:
         List of token objects
@@ -1825,6 +1833,11 @@ def get_user_tokens(
             lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
         )
     )
+
+    if project_id is not None:
+        query_builder = query_builder.with_custom_filter(
+            lambda q: q.filter(models.Token.project_id == project_id)
+        )
 
     # Add validity check if requested
     if valid_only:
@@ -1849,6 +1862,7 @@ def count_user_tokens(
     user_id: uuid.UUID,
     filter: str | None = None,
     organization_id: str = None,
+    project_id: str = None,
 ) -> int:
     """Count all active bearer tokens for a user
 
@@ -1860,6 +1874,7 @@ def count_user_tokens(
         user_id: User ID to count tokens for
         filter: OData filter string
         organization_id: Organization ID for filtering
+        project_id: Project ID for filtering (Token is exempt from auto-filter)
 
     Returns:
         Count of token objects
@@ -1871,6 +1886,11 @@ def count_user_tokens(
             lambda q: q.filter(models.Token.user_id == user_id, models.Token.token_type == "bearer")
         )
     )
+
+    if project_id is not None:
+        query_builder = query_builder.with_custom_filter(
+            lambda q: q.filter(models.Token.project_id == project_id)
+        )
 
     return query_builder.with_odata_filter(filter).count()
 
@@ -2094,8 +2114,9 @@ def get_projects(
         builder = (
             QueryBuilder(db, models.Project)
             .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+            .with_default_derived_field_loads()
             .with_organization_filter(organization_id)
-            .with_visibility_filter()
+            .with_visibility_filter(user_id)
             .with_odata_filter(filter)
         )
 
@@ -2129,7 +2150,7 @@ def count_projects(
         builder = (
             QueryBuilder(db, models.Project)
             .with_organization_filter(organization_id)
-            .with_visibility_filter()
+            .with_visibility_filter(user_id)
             .with_odata_filter(filter)
         )
         if user_id:
@@ -2187,6 +2208,7 @@ def get_tests(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Test]:
+    # NOTE: No secondary_sort_by: Test.content sorting is a slow correlated subquery
     return get_items_detail(
         db,
         models.Test,
@@ -2197,7 +2219,6 @@ def get_tests(
         filter,
         organization_id=organization_id,
         user_id=user_id,
-        secondary_sort_by="content",
     )
 
 
@@ -2211,12 +2232,54 @@ def create_test(
 def update_test(
     db: Session,
     test_id: uuid.UUID,
-    test: schemas.TestUpdate,
+    test: Dict[str, Any],
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Test]:
-    """Update test."""
-    return update_item(db, models.Test, test_id, test, organization_id, user_id)
+    """Update test and refresh parent test set attributes when metadata changes.
+
+    ``test`` must be the resolved update payload (e.g. from
+    ``resolve_test_entity_names``), not the raw API schema.
+    """
+    from rhesis.backend.app.services.test_set import update_test_set_attributes
+
+    metadata_fields = {
+        "behavior",
+        "behavior_id",
+        "topic",
+        "topic_id",
+        "category",
+        "category_id",
+        "test_type",
+        "test_type_id",
+    }
+    should_refresh_attributes = bool(metadata_fields & set(test.keys()))
+
+    db_test = update_item(db, models.Test, test_id, test, organization_id, user_id)
+    if db_test is None:
+        return None
+
+    if should_refresh_attributes:
+        affected_test_set_ids = (
+            db.execute(
+                select(test_test_set_association.c.test_set_id).where(
+                    test_test_set_association.c.test_id == test_id,
+                    test_test_set_association.c.organization_id == organization_id,
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        for test_set_id in affected_test_set_ids:
+            update_test_set_attributes(
+                db=db,
+                test_set_id=str(test_set_id),
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+    return db_test
 
 
 def delete_test(
@@ -2368,9 +2431,10 @@ def get_test_run(
             skip_one_to_many=True,
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
+        .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(test_run_id)
     )
 
@@ -2387,6 +2451,7 @@ def get_test_runs(
     experiment_id: str | None = None,
     parameter_version: str | None = None,
     has_experiment: bool | None = None,
+    has_reviews: bool | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
@@ -2401,6 +2466,26 @@ def get_test_runs(
             q = q.filter(models.TestRun.experiment_id.isnot(None))
         elif has_experiment is False:
             q = q.filter(models.TestRun.experiment_id.is_(None))
+        if has_reviews is not None:
+            from uuid import UUID
+
+            from sqlalchemy import func
+
+            exists_filters = [
+                models.TestResult.test_run_id == models.TestRun.id,
+                models.TestResult.test_reviews.isnot(None),
+                func.jsonb_typeof(models.TestResult.test_reviews["reviews"]) == "array",
+                func.coalesce(
+                    func.jsonb_array_length(models.TestResult.test_reviews["reviews"]),
+                    0,
+                )
+                > 0,
+            ]
+            if organization_id:
+                exists_filters.append(models.TestResult.organization_id == UUID(organization_id))
+
+            reviewed_result_exists = db.query(models.TestResult.id).filter(*exists_filters).exists()
+            q = q.filter(reviewed_result_exists if has_reviews else ~reviewed_result_exists)
         return q
 
     return (
@@ -2410,10 +2495,11 @@ def get_test_runs(
             skip_one_to_many=True,
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
+        .with_default_derived_field_loads()
         .with_custom_filter(_defer_endpoint_last_token)
         .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -2614,6 +2700,7 @@ def get_test_results(
         sort_by,
         sort_order,
         filter,
+        nested_relationships={"test": ["prompt", "behavior", "topic"]},
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -2868,8 +2955,9 @@ def get_metric(
         QueryBuilder(db, models.Metric)
         .with_joined(*_METRIC_M2O_RELATIONSHIPS)
         .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
         .first()
     )
@@ -2890,8 +2978,9 @@ def get_metrics(
         QueryBuilder(db, models.Metric)
         .with_joined(*_METRIC_M2O_RELATIONSHIPS)
         .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -3822,7 +3911,7 @@ def create_task(
         status = db.query(models.Status).filter(models.Status.id == task.status_id).first()
         if status and status.name == "Completed":
             # Set completed_at to current timestamp
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
 
     return create_item(db, models.Task, task, organization_id=organization_id, user_id=user_id)
 
@@ -3856,7 +3945,7 @@ def update_task(
             new_status = status_query.first()
             if new_status and new_status.name == "Completed":
                 # Set completed_at to current timestamp
-                task.completed_at = datetime.utcnow()
+                task.completed_at = datetime.now(timezone.utc)
 
     return update_item(
         db, models.Task, task_id, task, organization_id=organization_id, user_id=user_id
@@ -4455,9 +4544,9 @@ def mark_trace_processed(
         .filter(models.Trace.trace_id == trace_id)
         .update(
             {
-                "processed_at": datetime.utcnow(),
+                "processed_at": datetime.now(timezone.utc),
                 "enriched_data": enriched_data,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             }
         )
     )
@@ -4564,7 +4653,7 @@ def update_traces_with_test_result_id(
         .update(
             {
                 "test_result_id": test_result_uuid,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
             },
             synchronize_session=False,  # More efficient for bulk updates
         )
@@ -4612,7 +4701,7 @@ def update_conversation_id_for_trace(
         .update(
             {
                 models.Trace.conversation_id: conversation_id,
-                models.Trace.updated_at: datetime.utcnow(),
+                models.Trace.updated_at: datetime.now(timezone.utc),
             },
             synchronize_session=False,
         )
@@ -4875,12 +4964,12 @@ def update_trace_turn_metrics(
 
     existing = span.trace_metrics or {}
     existing["turn_metrics"] = turn_metrics
-    now = processed_at or datetime.utcnow()
+    now = processed_at or datetime.now(timezone.utc)
 
     update_values: Dict[str, Any] = {
         "trace_metrics": existing,
         "trace_metrics_processed_at": now,
-        "updated_at": datetime.utcnow(),
+        "updated_at": datetime.now(timezone.utc),
     }
     if status_id is not None:
         update_values["trace_metrics_status_id"] = status_id
@@ -4908,7 +4997,7 @@ def update_trace_conversation_metrics(
     if not spans:
         return 0
 
-    now = processed_at or datetime.utcnow()
+    now = processed_at or datetime.now(timezone.utc)
     count = 0
     for span in spans:
         existing = span.trace_metrics or {}
@@ -4921,7 +5010,7 @@ def update_trace_conversation_metrics(
         flag_modified(span, "trace_metrics")
 
         span.trace_metrics_processed_at = now
-        span.updated_at = datetime.utcnow()
+        span.updated_at = datetime.now(timezone.utc)
         if status_id is not None:
             span.trace_metrics_status_id = status_id
         count += 1

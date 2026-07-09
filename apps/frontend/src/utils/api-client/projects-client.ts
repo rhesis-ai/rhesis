@@ -53,7 +53,7 @@ export class ProjectsClient extends BaseApiClient {
 
   async createProject(project: ProjectCreate): Promise<Project> {
     try {
-      return await this.fetch<Project>(API_ENDPOINTS.projects, {
+      return await this.fetch<Project>(`${API_ENDPOINTS.projects}/`, {
         method: 'POST',
         body: JSON.stringify(project),
       });

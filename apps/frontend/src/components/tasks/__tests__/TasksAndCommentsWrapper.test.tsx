@@ -2,10 +2,17 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { taskKeys } from '@/constants/query-keys';
 import { TasksAndCommentsWrapper } from '../TasksAndCommentsWrapper';
 
 const mockCreateTask = jest.fn();
 const mockDeleteTask = jest.fn();
+const mockInvalidateQueries = jest.fn();
+
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
 
 jest.mock('@/hooks/useTasks', () => ({
   useTasks: jest.fn(() => ({
@@ -35,13 +42,11 @@ jest.mock('../TasksSection', () => ({
   TasksSection: ({
     onCreateTask,
     onDeleteTask,
-    refreshKey,
   }: {
     onCreateTask: (data: Record<string, unknown>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
-    refreshKey?: number;
   }) => (
-    <div data-testid="tasks-section" data-refresh-key={refreshKey ?? 0}>
+    <div data-testid="tasks-section">
       <button type="button" onClick={() => onCreateTask({ title: 'New Task' })}>
         create
       </button>
@@ -82,26 +87,20 @@ describe('TasksAndCommentsWrapper', () => {
     expect(screen.getByTestId('comments-wrapper')).toBeInTheDocument();
   });
 
-  it('bumps TasksSection refreshKey after creating a task', async () => {
+  it('invalidates the task cache after creating a task', async () => {
     const user = userEvent.setup();
     mockCreateTask.mockResolvedValue({ id: 'task-1' });
 
     render(<TasksAndCommentsWrapper {...DEFAULT_PROPS} />);
-    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
-      'data-refresh-key',
-      '0'
-    );
-
     await user.click(screen.getByRole('button', { name: 'create' }));
 
     expect(mockCreateTask).toHaveBeenCalledWith({ title: 'New Task' });
-    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
-      'data-refresh-key',
-      '1'
-    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: taskKeys.all(),
+    });
   });
 
-  it('bumps TasksSection refreshKey after deleting a task', async () => {
+  it('invalidates the task cache after deleting a task', async () => {
     const user = userEvent.setup();
     mockDeleteTask.mockResolvedValue(true);
 
@@ -109,10 +108,9 @@ describe('TasksAndCommentsWrapper', () => {
     await user.click(screen.getByRole('button', { name: 'delete' }));
 
     expect(mockDeleteTask).toHaveBeenCalledWith('task-1');
-    expect(screen.getByTestId('tasks-section')).toHaveAttribute(
-      'data-refresh-key',
-      '1'
-    );
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: taskKeys.all(),
+    });
   });
 
   it('calls parent onCountsChange when CommentsWrapper triggers it', async () => {

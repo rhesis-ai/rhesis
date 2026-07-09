@@ -1,22 +1,28 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.principal import Principal
+
+from fastapi import Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.auth.principal import AuthKind, resolve_principal_from_request
 from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
+    get_project_context,
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.token import (
     TokenCreate,
     TokenCreateResponse,
+    TokenInfoResponse,
     TokenRead,
     TokenUpdate,
 )
@@ -40,14 +46,35 @@ def create_token(
     data: dict = Body(...),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new API token."""
+    """Create a new API token.
+
+    Optional ``scopes`` field accepts a list of capability strings
+    (e.g. ``["testset:read", "endpoint:read"]``).  When supplied, every
+    scope must be within the caller's own effective permissions
+    (scopes ⊆ issuer — SP9).  In the community tier scopes are stored
+    but not enforced at authorization time; the EE tier intersects them.
+    """
     name = data.get("name")
     expires_in_days = data.get("expires_in_days")
+    requested_scopes: list | None = data.get("scopes")
 
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
+
+    # SP9: scopes ⊆ issuer check — a token may not exceed the creator's
+    # own effective permissions.  We check unconditionally so a downgraded
+    # user cannot back-door-escalate via a stale wide-scope token.
+    if requested_scopes is not None:
+        if not isinstance(requested_scopes, list) or not all(
+            isinstance(s, str) for s in requested_scopes
+        ):
+            raise HTTPException(status_code=422, detail="scopes must be a list of strings")
+        _validate_token_scopes(
+            requested_scopes, resolve_principal_from_request(current_user, request), db
+        )
 
     organization_id, user_id = tenant_context
     token_value = generate_api_token()
@@ -64,6 +91,8 @@ def create_token(
         ),
         "user_id": user_id,
         "organization_id": organization_id,
+        "scopes": requested_scopes,
+        "project_id": project_id,
     }
 
     token_create = TokenCreate(**token_data)
@@ -71,7 +100,6 @@ def create_token(
         db=db, token=token_create, organization_id=organization_id, user_id=user_id
     )
 
-    # Return the special response that includes the actual token value
     return TokenCreateResponse(
         id=created_token.id,
         access_token=created_token.token,
@@ -79,6 +107,91 @@ def create_token(
         token_type=created_token.token_type,
         expires_at=created_token.expires_at,
         name=created_token.name,
+        project_id=created_token.project_id,
+    )
+
+
+def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Session) -> None:
+    """Raise 422 when any requested scope exceeds the caller's own permissions.
+
+    SP9 invariant: scopes ⊆ issuer permissions.  The caller cannot create a
+    token that grants more access than they currently hold.  This also prevents
+    a downgraded user from re-materialising permissions they no longer have.
+
+    Chained-mint guard: when the request itself is authenticated via a scoped
+    token, the requested scopes must also be within that token's own scopes —
+    preventing privilege escalation by minting a wider child token.
+
+    In the community tier every valid capability string is permitted (the
+    DefaultAuthorizationProvider doesn't enforce scopes at auth time anyway).
+    In the EE tier we call the provider's ``get_effective_permissions`` so the
+    check matches exactly what ``authorize()`` would decide.
+    """
+    from rhesis.backend.app.auth.capabilities import get_all_capabilities
+    from rhesis.backend.app.auth.rbac import get_authorization_provider
+
+    # SP9 chained-mint guard: a scoped token cannot mint a token with wider scopes.
+    if principal.kind == AuthKind.TOKEN and principal.scopes is not None:
+        out_of_token_scope = set(scopes) - principal.scopes
+        if out_of_token_scope:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Requested scopes exceed authenticating token's scopes: "
+                    f"{sorted(out_of_token_scope)}"
+                ),
+            )
+
+    # Validate that all requested scopes are known capability strings.
+    # Skip when the capability cache is not yet populated (early startup / tests).
+    all_caps = set(get_all_capabilities())
+    if all_caps:
+        unknown = set(scopes) - all_caps
+        if unknown:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown capability strings in scopes: {sorted(unknown)}",
+            )
+
+    provider = get_authorization_provider()
+    if not hasattr(provider, "get_effective_permissions"):
+        # Community provider — scopes are stored but not enforced at auth time.
+        return
+
+    # EE provider — validate scopes ⊆ caller's effective permissions.
+    # project_id=None intentionally validates against the caller's org-level
+    # role (the org-role ceiling) rather than a specific project role.  This is
+    # the conservative correct baseline: if a project-membership role grants
+    # fewer permissions than the org role, the caller cannot create a token with
+    # those extra org-level caps and then use it in that project — the EE
+    # provider will intersect at authorization time anyway.  The inverse
+    # (project role wider than org role) is not currently supported.
+    effective = provider.get_effective_permissions(principal, project_id=None, db=db)
+    if not effective:
+        # RBAC not active for this org or no role assigned (community fallback
+        # path) — skip the ⊆ check; the caller can hold any valid capability.
+        return
+    out_of_bounds = set(scopes) - effective
+    if out_of_bounds:
+        raise HTTPException(
+            status_code=422,
+            detail=(f"Requested scopes exceed your effective permissions: {sorted(out_of_bounds)}"),
+        )
+
+
+@router.get("/current", response_model=TokenInfoResponse)
+def current_token_info(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Return project_id and organization_id for the calling API token."""
+    token_project_id = getattr(request.state, "api_token_project_id", None)
+    organization_id = str(current_user.organization_id) if current_user.organization_id else None
+
+    return TokenInfoResponse(
+        project_id=token_project_id,
+        organization_id=organization_id,
+        user_email=current_user.email,
     )
 
 
@@ -92,14 +205,18 @@ async def read_tokens(
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """List all active API tokens for the current user"""
+    """List active API tokens for the current user, scoped to the active project."""
     organization_id, user_id = tenant_context
 
-    # Set the count header with user-specific token count
     count = crud.count_user_tokens(
-        db=db, user_id=current_user.id, filter=filter, organization_id=organization_id
+        db=db,
+        user_id=current_user.id,
+        filter=filter,
+        organization_id=organization_id,
+        project_id=project_id,
     )
     response.headers["X-Total-Count"] = str(count)
 
@@ -112,6 +229,7 @@ async def read_tokens(
         sort_order=sort_order,
         filter=filter,
         organization_id=organization_id,
+        project_id=project_id,
     )
 
 
@@ -157,7 +275,18 @@ def update_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a token by ID."""
+    """Update a token by ID.
+
+    Token ``scopes`` are immutable after creation: the SP9 ``scopes ⊆ issuer``
+    and chained-mint guards run only at mint time, so changing scopes requires
+    creating a new token rather than editing an existing one.
+    """
+    if "scopes" in token.model_fields_set:
+        raise HTTPException(
+            status_code=422,
+            detail="Token scopes are immutable; create a new token to change them",
+        )
+
     organization_id, user_id = tenant_context
     db_token = crud.update_token(
         db, token_id=token_id, token=token, organization_id=organization_id, user_id=user_id

@@ -91,6 +91,7 @@ After linking, the pipeline dispatches an enrichment chain per unique trace ID. 
 def enrich_trace_async(self, trace_id, project_id, organization_id):
     db = SessionLocal()
     try:
+        bind_scope_to_session(db, organization_id, "", project_id)
         enricher = TraceEnricher(db)
         enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
         # ...

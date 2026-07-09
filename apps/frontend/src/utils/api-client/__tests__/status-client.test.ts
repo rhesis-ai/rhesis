@@ -1,4 +1,5 @@
 import { StatusClient } from '../status-client';
+import { EntityType } from '@/types/entity-type';
 
 const BASE_URL = 'http://127.0.0.1:8080/api/v1';
 
@@ -44,9 +45,9 @@ describe('StatusClient', () => {
 
   it('includes entity_type when provided', async () => {
     fetchMock.mockResolvedValue(makeFetch([]));
-    await client.getStatuses({ entity_type: 'TestRun' });
+    await client.getStatuses({ entity_type: EntityType.TEST_RUN });
     const calledUrl = fetchMock.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('entity_type=TestRun');
+    expect(calledUrl).toContain(`entity_type=${EntityType.TEST_RUN}`);
   });
 
   it('includes $filter when provided', async () => {

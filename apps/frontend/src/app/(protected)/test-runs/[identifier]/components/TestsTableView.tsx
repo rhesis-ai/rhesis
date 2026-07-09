@@ -36,7 +36,7 @@ import {
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import TestResultDrawer from './TestResultDrawer';
+import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import {
@@ -46,6 +46,7 @@ import {
   getTestResultDisplayStatus,
   truncateText,
 } from './test-run-results-grid-utils';
+import { EntityType } from '@/types/entity-type';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -226,7 +227,7 @@ export default function TestsTableView({
       const testResultsClient = clientFactory.getTestResultsClient();
       const statusClient = clientFactory.getStatusClient();
       const statuses = await statusClient.getStatuses({
-        entity_type: 'TestResult',
+        entity_type: EntityType.TEST_RESULT,
       });
 
       const metrics = test.test_metrics?.metrics || {};
@@ -527,7 +528,7 @@ export default function TestsTableView({
                   <Box
                     onClick={e => {
                       e.stopPropagation();
-                      openTestDrawer(test, 4);
+                      openTestDrawer(test, TEST_RESULT_DRAWER_TAB.tasks);
                     }}
                     sx={{
                       display: 'flex',
@@ -554,7 +555,7 @@ export default function TestsTableView({
                   <Box
                     onClick={e => {
                       e.stopPropagation();
-                      openTestDrawer(test, 4);
+                      openTestDrawer(test, TEST_RESULT_DRAWER_TAB.tasks);
                     }}
                     sx={{
                       display: 'flex',

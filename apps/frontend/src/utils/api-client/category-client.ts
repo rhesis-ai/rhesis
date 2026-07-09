@@ -32,7 +32,7 @@ export class CategoryClient extends BaseApiClient {
       queryParams.append('entity_type', entity_type);
     }
 
-    const url = `${API_ENDPOINTS.categories}?${queryParams.toString()}`;
+    const url = `${API_ENDPOINTS.categories}/?${queryParams.toString()}`;
 
     return this.fetch<Category[]>(url, {
       cache: 'no-store',
@@ -44,7 +44,7 @@ export class CategoryClient extends BaseApiClient {
   }
 
   async createCategory(category: CategoryCreate): Promise<Category> {
-    return this.fetch<Category>(API_ENDPOINTS.categories, {
+    return this.fetch<Category>(`${API_ENDPOINTS.categories}/`, {
       method: 'POST',
       body: JSON.stringify(category),
     });

@@ -11,9 +11,11 @@ import GridToolbar, {
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { fetchUserSettings } from '@/hooks/useUserSettings';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
-import { Organization } from '@/utils/api-client/interfaces/organization';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -28,6 +30,10 @@ import ModelFilterDrawer, {
 } from './components/ModelFilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
@@ -36,6 +42,14 @@ type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Model.READ
+  );
+  const canEditModel = useCan(Capability.Model.UPDATE);
+  const canDeleteModel = useCan(Capability.Model.DELETE);
+
   const [connectedModels, setConnectedModels] = useState<Model[]>([]);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -52,7 +66,7 @@ export default function ModelsPage() {
     'language' | 'embedding'
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
-  const [organization, setOrganization] = useState<Organization | undefined>();
+  const { organization } = useOrganization();
 
   // Toolbar state
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,52 +93,35 @@ export default function ModelsPage() {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
-        const usersClient = apiFactory.getUsersClient();
 
-        const types = await typeLookupClient.getTypeLookups({
-          $filter: "type_name eq 'ProviderType'",
-          limit: 100,
-        });
+        const [types, settings, modelsResponse, statuses] = await Promise.all([
+          typeLookupClient.getTypeLookups({
+            $filter: "type_name eq 'ProviderType'",
+            limit: 100,
+          }),
+          fetchUserSettings(
+            queryClient,
+            session.session_token,
+            userScope
+          ).catch(() => null),
+          modelsClient.getModels().catch(() => null),
+          apiFactory
+            .getStatusClient()
+            .getStatuses({
+              sort_by: 'name',
+              sort_order: 'asc',
+              entity_type: 'Model',
+            })
+            .catch(() => null),
+        ]);
+
         setProviderTypes(types);
-
-        try {
-          const settings = await usersClient.getUserSettings();
-          setUserSettings(settings);
-        } catch {
-          // continue without user settings
-        }
-
-        if (session.user?.organization_id) {
-          try {
-            const organizationsClient = apiFactory.getOrganizationsClient();
-            const org = await organizationsClient.getOrganization(
-              session.user.organization_id
-            );
-            setOrganization(org);
-          } catch {
-            // continue without organization
-          }
-        }
-
-        try {
-          const modelsResponse = await modelsClient.getModels();
-          setConnectedModels(modelsResponse.data);
-        } catch {
-          // show empty state
-        }
-
-        try {
-          const statuses = await apiFactory.getStatusClient().getStatuses({
-            sort_by: 'name',
-            sort_order: 'asc',
-            entity_type: 'Model',
-          });
+        if (settings) setUserSettings(settings);
+        if (modelsResponse) setConnectedModels(modelsResponse.data);
+        if (statuses)
           setStatusOptions(
             filterUniqueValidOptions(statuses).map(status => status.name)
           );
-        } catch {
-          // continue without status filter options
-        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to load providers'
@@ -135,7 +132,7 @@ export default function ModelsPage() {
     }
 
     loadData();
-  }, [session]);
+  }, [session, queryClient, userScope]);
 
   const handleFabClick = (event: React.MouseEvent<HTMLElement>) => {
     setFabAnchorEl(event.currentTarget);
@@ -162,9 +159,11 @@ export default function ModelsPage() {
   const refreshUserSettings = async () => {
     if (!session?.session_token) return;
     try {
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const usersClient = apiFactory.getUsersClient();
-      const settings = await usersClient.getUserSettings();
+      const settings = await fetchUserSettings(
+        queryClient,
+        session.session_token,
+        userScope
+      );
       setUserSettings(settings);
     } catch (error) {
       console.error('Failed to refresh user settings:', error);
@@ -365,6 +364,9 @@ export default function ModelsPage() {
     return typeMatch && searchMatch && providerMatch && statusMatch;
   });
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="models" />;
+
   return (
     <PageLayout
       title="Models"
@@ -372,24 +374,28 @@ export default function ModelsPage() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Add model"
-            aria-label="Add model"
-            onClick={handleFabClick}
-          />
-          <Menu
-            anchorEl={fabAnchorEl}
-            open={fabMenuOpen}
-            onClose={handleFabMenuClose}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          >
-            <MenuItem onClick={handleAddLanguageModel}>Language model</MenuItem>
-            <MenuItem onClick={handleAddEmbeddingModel}>
-              Embedding model
-            </MenuItem>
-          </Menu>
+          <Can capability={Capability.Model.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Add model"
+              aria-label="Add model"
+              onClick={handleFabClick}
+            />
+            <Menu
+              anchorEl={fabAnchorEl}
+              open={fabMenuOpen}
+              onClose={handleFabMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem onClick={handleAddLanguageModel}>
+                Language model
+              </MenuItem>
+              <MenuItem onClick={handleAddEmbeddingModel}>
+                Embedding model
+              </MenuItem>
+            </Menu>
+          </Can>
         </FabGroup>
       }
     >
@@ -447,8 +453,8 @@ export default function ModelsPage() {
               userSettings={userSettings}
               isVerified={userSettings?.is_verified}
               validationStatus={modelValidationStatus.get(model.id)}
-              onCardClick={handleCardClick}
-              onDelete={handleDeleteClick}
+              onCardClick={canEditModel ? handleCardClick : undefined}
+              onDelete={canDeleteModel ? handleDeleteClick : undefined}
               onRequestAccess={handleRequestPolyphemusAccess}
             />
           ))}
@@ -499,7 +505,7 @@ export default function ModelsPage() {
         onClose={() => setPolyphemusModalOpen(false)}
         onSuccess={handlePolyphemusAccessSuccess}
         userEmail={session?.user?.email || ''}
-        organization={organization}
+        organization={organization ?? undefined}
       />
     </PageLayout>
   );

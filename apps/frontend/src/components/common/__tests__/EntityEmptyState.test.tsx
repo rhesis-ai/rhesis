@@ -62,6 +62,20 @@ describe('EntityEmptyState', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('renders embedded variant without an extra card shell', () => {
+    const { container } = renderEmptyState({
+      embedded: true,
+      icon: RouteIcon,
+      title: 'No custom roles yet',
+      description: 'Create a custom role to define permissions.',
+      actionLabel: 'New role',
+      onAction: jest.fn(),
+    });
+
+    expect(screen.getByText('No custom roles yet')).toBeInTheDocument();
+    expect(container.querySelectorAll('.MuiPaper-root')).toHaveLength(0);
+  });
+
   it('renders enriched layout with secondary CTA and help section', () => {
     renderEmptyState({
       card: true,

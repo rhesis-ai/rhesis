@@ -1,42 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
   Paper,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
-  Alert,
   Stack,
   IconButton,
   Tooltip,
 } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import PlaygroundIcon from '@/components/PlaygroundIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import { Project } from '@/utils/api-client/interfaces/project';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { useEndpointOptions } from '@/hooks/useEndpoints';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
-
-interface EndpointOption {
-  endpointId: string;
-  endpointName: string;
-  projectId: string;
-  projectName: string;
-  environment: string;
-}
+import PlaygroundEndpointSelect from './PlaygroundEndpointSelect';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -140,17 +124,29 @@ export default function PlaygroundClient() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
 
-  const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
+  const {
+    options: endpointOptions,
+    isLoading,
+    error: optionsError,
+  } = useEndpointOptions(session?.session_token ?? '');
+  const error = optionsError
+    ? 'Failed to load endpoints. Please try again.'
+    : null;
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
     null
   );
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
+
+  const selectedOption = useMemo(
+    () =>
+      endpointOptions.find(opt => opt.endpointId === selectedEndpointId) ??
+      null,
+    [endpointOptions, selectedEndpointId]
+  );
 
   // Apply initial endpoint from URL params after endpoints are loaded
   useEffect(() => {
@@ -169,115 +165,26 @@ export default function PlaygroundClient() {
     }
   }, [endpointOptions, searchParams, initialEndpointApplied]);
 
-  const loadEndpoints = useCallback(async () => {
-    if (!session?.session_token) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const projectsClient = apiFactory.getProjectsClient();
-      const endpointsClient = apiFactory.getEndpointsClient();
-
-      const [projectsResponse, endpointsResponse] = await Promise.all([
-        projectsClient.getProjects({ limit: 100 }),
-        endpointsClient.getEndpoints({ limit: 100 }),
-      ]);
-
-      // Handle both array and paginated response formats
-      const projects = Array.isArray(projectsResponse)
-        ? projectsResponse
-        : projectsResponse?.data || [];
-
-      const endpoints = Array.isArray(endpointsResponse)
-        ? endpointsResponse
-        : endpointsResponse?.data || [];
-
-      // Create a map of project IDs to project data
-      const projectMap = new Map<string, Project>();
-      projects.forEach((project: Project) => {
-        projectMap.set(project.id.toString(), project);
-      });
-
-      // Build endpoint options with project information
-      const options: EndpointOption[] = endpoints
-        .filter(
-          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
-            !!endpoint.project_id
-        )
-        .map(endpoint => {
-          const project = projectMap.get(endpoint.project_id);
-          return {
-            endpointId: endpoint.id,
-            endpointName: endpoint.name,
-            projectId: endpoint.project_id,
-            projectName: project?.name || 'Unknown Project',
-            environment: endpoint.environment,
-          };
-        })
-        .sort((a, b) => {
-          const projectCompare = a.projectName.localeCompare(b.projectName);
-          if (projectCompare !== 0) return projectCompare;
-          return a.endpointName.localeCompare(b.endpointName);
-        });
-
-      setEndpointOptions(options);
-    } catch (err) {
-      setError('Failed to load endpoints. Please try again.');
-      console.error('Failed to load endpoints:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [session]);
-
-  // Load endpoints on mount
-  useEffect(() => {
-    loadEndpoints();
-  }, [loadEndpoints]);
-
   const handleReset = useCallback(() => {
     setSelectedEndpointId(null);
     setSelectedProjectId(null);
     setIsSplit(false);
   }, []);
 
-  const handleEndpointChange = (
-    event: React.ChangeEvent<HTMLInputElement> | { target: { value: string } }
-  ) => {
-    const value = event.target.value;
-    setSelectedEndpointId(value === '' ? null : value);
-
-    // Find the project ID for the selected endpoint
-    if (value) {
-      const selectedOption = endpointOptions.find(
-        opt => opt.endpointId === value
+  const handleEndpointSelect = useCallback(
+    (endpointId: string | null) => {
+      setSelectedEndpointId(endpointId);
+      if (!endpointId) {
+        setSelectedProjectId(null);
+        return;
+      }
+      const selected = endpointOptions.find(
+        opt => opt.endpointId === endpointId
       );
-      setSelectedProjectId(selectedOption?.projectId || null);
-    } else {
-      setSelectedProjectId(null);
-    }
-  };
-
-  const formatEnvironment = (env: string) => {
-    return env.charAt(0).toUpperCase() + env.slice(1);
-  };
-
-  const getEnvironmentColor = (env: string) => {
-    switch (env.toLowerCase()) {
-      case 'production':
-        return 'error.main';
-      case 'staging':
-        return 'warning.main';
-      case 'development':
-        return 'info.main';
-      default:
-        return 'text.secondary';
-    }
-  };
+      setSelectedProjectId(selected?.projectId ?? null);
+    },
+    [endpointOptions]
+  );
 
   const hasActiveSession = !!(selectedEndpointId || isSplit);
 
@@ -287,91 +194,29 @@ export default function PlaygroundClient() {
       description="Chat with your endpoints interactively to test their responses and generate test cases from your conversations."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<RestartAltIcon />}
-          tooltip="Reset playground"
-          onClick={handleReset}
-          disabled={!hasActiveSession}
-        />
+        <FabGroup>
+          <Fab
+            icon={<RestartAltIcon />}
+            tooltip="Reset playground"
+            aria-label="Reset playground"
+            onClick={handleReset}
+            disabled={!hasActiveSession}
+          />
+        </FabGroup>
       }
     >
-      {/* Endpoint Selector */}
-      <Paper elevation={0} sx={{ ...playgroundPanelSx, p: 2, mb: 2 }}>
-        {isLoading ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <CircularProgress size={20} />
-            <Typography variant="body2" color="text.secondary">
-              Loading endpoints...
-            </Typography>
-          </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : endpointOptions.length === 0 ? (
-          <Alert severity="info">
-            No endpoints available. Please create an endpoint in a project
-            first.
-          </Alert>
-        ) : (
-          <FormControl fullWidth size="small">
-            <InputLabel id="endpoint-selector-label">
-              Select an Endpoint
-            </InputLabel>
-            <Select
-              labelId="endpoint-selector-label"
-              id="endpoint-selector"
-              value={selectedEndpointId || ''}
-              label="Select an Endpoint"
-              onChange={handleEndpointChange}
-            >
-              <MenuItem value="">
-                <Typography variant="body2" color="text.secondary">
-                  Choose an endpoint to chat with...
-                </Typography>
-              </MenuItem>
-              {endpointOptions.map(option => (
-                <MenuItem key={option.endpointId} value={option.endpointId}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        flexGrow: 1,
-                        color: theme => theme.palette.greyscale.body,
-                      }}
-                    >
-                      {option.projectName} › {option.endpointName}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        ml: 2,
-                        px: 1,
-                        py: 0.25,
-                        borderRadius: BORDER_RADIUS.pill,
-                        bgcolor: theme => theme.palette.greyscale.surface2,
-                        color: getEnvironmentColor(option.environment),
-                        fontWeight: 600,
-                      }}
-                    >
-                      {formatEnvironment(option.environment)}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-      </Paper>
+      <PlaygroundEndpointSelect
+        endpointOptions={endpointOptions}
+        selectedEndpointId={selectedEndpointId}
+        isLoading={isLoading}
+        error={error}
+        onSelect={handleEndpointSelect}
+      />
 
       {/* Chat Area */}
       <Box
         sx={{
-          height: 'calc(100vh - 340px)',
+          height: 'calc(100vh - 260px)',
           minHeight: 400,
           display: 'flex',
           flexDirection: 'row',
@@ -379,11 +224,14 @@ export default function PlaygroundClient() {
         }}
       >
         {/* Pane 1 */}
-        {selectedEndpointId && selectedProjectId ? (
+        {selectedEndpointId && selectedProjectId && selectedOption ? (
           <PlaygroundChat
             key="pane-left"
             endpointId={selectedEndpointId}
             projectId={selectedProjectId}
+            endpointName={selectedOption.endpointName}
+            projectName={selectedOption.projectName}
+            environment={selectedOption.environment}
             label={isSplit ? 'Chat 1' : undefined}
             onClose={isSplit ? () => setIsSplit(false) : undefined}
             onSplit={!isSplit ? () => setIsSplit(true) : undefined}
@@ -398,11 +246,14 @@ export default function PlaygroundClient() {
 
         {/* Pane 2 (split mode only) */}
         {isSplit &&
-          (selectedEndpointId && selectedProjectId ? (
+          (selectedEndpointId && selectedProjectId && selectedOption ? (
             <PlaygroundChat
               key="pane-right"
               endpointId={selectedEndpointId}
               projectId={selectedProjectId}
+              endpointName={selectedOption.endpointName}
+              projectName={selectedOption.projectName}
+              environment={selectedOption.environment}
               label="Chat 2"
               onClose={() => setIsSplit(false)}
             />

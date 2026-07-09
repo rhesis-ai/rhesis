@@ -2,7 +2,7 @@ import logging
 from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
-from sqlalchemy import desc, inspect
+from sqlalchemy import desc, inspect, or_
 from sqlalchemy.orm import Query, RelationshipProperty, Session, joinedload, selectinload
 
 # Removed unused imports - legacy tenant functions no longer needed
@@ -125,9 +125,7 @@ class QueryBuilder:
 
         Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
         ``with_optimized_loads`` skips because they have no ``secondary`` table.
-        Each element resolves against the target model of the previous step, so
-        the full chain is batched into exactly two SELECT IN queries instead of
-        N + N*M lazy loads.
+        Each element resolves against the target model of the previous step.
 
         Example::
 
@@ -139,24 +137,96 @@ class QueryBuilder:
         current_model: type = self.model
         load = None
         for rel_name in chain:
-            attr = getattr(current_model, rel_name, None)
-            if attr is None:
+            rel_prop = inspect(current_model).relationships.get(rel_name)
+            if rel_prop is None:
                 raise ValueError(
                     f"with_selectin_chain: {current_model.__name__!r} has no "
                     f"relationship named {rel_name!r}"
                 )
+            attr = getattr(current_model, rel_name)
             load = selectinload(attr) if load is None else load.selectinload(attr)
-            rel_prop = inspect(current_model).relationships.get(rel_name)
-            if rel_prop is None:
-                raise ValueError(
-                    f"with_selectin_chain: {current_model.__name__!r}.{rel_name!r} "
-                    f"is not a relationship"
-                )
             current_model = rel_prop.mapper.class_
         if load is not None:
             self.query = self.query.options(load)
             self._selectin_count += 1
             self._maybe_warn_load_count()
+        return self
+
+    def with_default_derived_field_loads(self, extra_chains: list | None = None) -> "QueryBuilder":
+        """Selectin-load comments/tasks/files/tags for this model, and for any
+        many-to-one/one-to-one relationship whose target model also has them.
+
+        schema_factory.py nests a related model's own derived fields into the
+        response too (e.g. Test.prompt -> the nested PromptReference schema
+        also gets a "counts"/"tags" field, since Prompt has the same mixins),
+        so those need eager-loading as well -- not just this model's own. This
+        is what makes Test.prompt (near-1:1 with Test, so effectively N
+        distinct prompts per page) safe: without this, each row's prompt
+        lazy-loads its own comments/tasks/tags individually.
+
+        Checks the actual mixin class, not just attribute presence -- some
+        models (e.g. User.comments, "comments authored by this user") have an
+        unrelated attribute with the same name as a mixin's, which a plain
+        ``hasattr`` would wrongly match.
+
+        Safe to call unconditionally -- skips models/relationships that don't
+        have these mixins. Merges in any caller-supplied ``extra_chains`` too
+        (same format as ``with_selectin_chain``), deduped by full chain.
+        """
+        from rhesis.backend.app.models.mixins import (
+            CommentsMixin,
+            FilesMixin,
+            TagsMixin,
+            TasksMixin,
+        )
+
+        derived_field_chains = (
+            (CommentsMixin, ("comments",)),
+            (TasksMixin, ("tasks",)),
+            (FilesMixin, ("files",)),
+            (TagsMixin, ("_tags_relationship", "tag")),
+        )
+
+        chains = list(extra_chains or [])
+        seen = {tuple(chain) for chain in chains}
+
+        def _add(chain: list) -> None:
+            key = tuple(chain)
+            if key not in seen:
+                seen.add(key)
+                chains.append(list(chain))
+
+        for mixin, chain in derived_field_chains:
+            if issubclass(self.model, mixin):
+                _add(list(chain))
+        for chain in chains:
+            self.with_selectin_chain(*chain)
+
+        # Cascade one level into joined-in single-object relations (the ones
+        # with_optimized_loads/with_joined eager-load via joinedload) whose
+        # target model also carries these mixins. These relationships are
+        # already strategy=joinedload (by convention, whether set by this
+        # call or by the caller) -- selectinload-ing the same attribute
+        # independently raises a loader-strategy conflict, so the nested load
+        # is chained off the existing joinedload instead of starting fresh.
+        seen_nested = set()
+        for rel_name, rel_prop in get_model_relationships(
+            self.model, skip_many_to_many=True, skip_one_to_many=True
+        ).items():
+            target_model = rel_prop.mapper.class_
+            for mixin, chain in derived_field_chains:
+                key = (rel_name, *chain)
+                if key in seen_nested or not issubclass(target_model, mixin):
+                    continue
+                seen_nested.add(key)
+                load = joinedload(getattr(self.model, rel_name))
+                nested_model = target_model
+                for nested_name in chain:
+                    load = load.selectinload(getattr(nested_model, nested_name))
+                    nested_rel_prop = inspect(nested_model).relationships.get(nested_name)
+                    if nested_rel_prop is not None:
+                        nested_model = nested_rel_prop.mapper.class_
+                self.query = self.query.options(load)
         return self
 
     def _maybe_warn_load_count(self) -> None:
@@ -281,8 +351,6 @@ class QueryBuilder:
         e.g. in admin paths that operate outside the normal request scope.
         """
         if project_id and has_project_id(self.model):
-            from sqlalchemy import or_
-
             self.query = self.query.filter(
                 or_(
                     self.model.project_id == project_id,
@@ -291,11 +359,47 @@ class QueryBuilder:
             )
         return self
 
-    def with_visibility_filter(self) -> "QueryBuilder":
-        """Apply visibility filter if the model supports it"""
-        # Note: Visibility filtering is now handled through direct parameter passing
-        # rather than session variables. This method is kept for compatibility
-        # but no longer applies automatic filters.
+    def with_visibility_filter(self, user_id: Optional[str] = None) -> "QueryBuilder":
+        """Hide owner-only rows from non-owners.
+
+        Models that declare a ``visibility`` column alongside an owner column
+        (``user_id`` or ``owner_user_id``) are filtered so that rows whose
+        visibility marks them as private (``'user'`` for TestSet,
+        ``'private'`` for Experiment) are visible only to their owner.
+        Models without these columns are returned unfiltered.
+
+        Owner column priority: ``user_id`` > ``owner_user_id``.  Some
+        models (e.g. TestSet) also carry an ``owner_id`` column, but
+        ``user_id`` is the canonical field used by capability / ``:own``
+        checks and creation paths.  ``owner_id`` is intentionally
+        ignored here to stay aligned with the auth layer.
+        """
+        columns = inspect(self.model).columns.keys()
+        if "visibility" not in columns:
+            return self
+
+        # owner_id is intentionally not checked — see docstring.
+        if "user_id" in columns:
+            owner_col = self.model.user_id
+        elif "owner_user_id" in columns:
+            owner_col = self.model.owner_user_id
+        else:
+            return self
+
+        private_values = ("user", "private")
+
+        vis = self.model.visibility
+        if user_id:
+            self.query = self.query.filter(
+                or_(
+                    vis.is_(None),
+                    ~vis.in_(private_values),
+                    owner_col == user_id,
+                )
+            )
+        else:
+            self.query = self.query.filter(or_(vis.is_(None), ~vis.in_(private_values)))
+
         return self
 
     def with_odata_filter(self, filter_str: Optional[str]) -> "QueryBuilder":
@@ -432,6 +536,17 @@ class QueryBuilder:
 
         return self.query.filter(self.model.id == id).first()
 
+    def ids(self) -> List:
+        """Execute the built query, returning only matching IDs, in sort order.
+
+        First phase of a two-query pagination split: filter/sort/paginate on a
+        query with no eager-load joins, so Postgres only has to materialize
+        and sort the bare id column before applying LIMIT/OFFSET -- not every
+        joined column of every matching row. Pair with a second query that
+        eager-loads relationships scoped to ``model.id.in_(these_ids)``.
+        """
+        return [row[0] for row in self.build().with_entities(self.model.id).all()]
+
 
 def has_organization_id(model: Type[T]) -> bool:
     """Check if model has organization_id column"""
@@ -444,10 +559,14 @@ def has_project_id(model: Type[T]) -> bool:
 
 
 def has_visibility(model: Type[T]) -> bool:
-    """Check if model supports visibility filtering (has visibility, organization_id and user_id
-    fields)"""
+    """Check if model supports visibility filtering.
+
+    Requires a ``visibility`` column and an owner column (``user_id`` or
+    ``owner_user_id``).
+    """
     columns = inspect(model).columns.keys()
-    return "visibility" in columns and "organization_id" in columns and "user_id" in columns
+    has_owner = "user_id" in columns or "owner_user_id" in columns
+    return "visibility" in columns and has_owner
 
 
 def get_model_relationships(

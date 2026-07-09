@@ -13,18 +13,16 @@
  *
  * Section ordering
  * ----------------
- * `order: 110` puts API Clients immediately after SSO (which uses
- * 100). Keeping them adjacent is intentional -- the API Clients
- * section's empty state tells the operator to configure SSO first,
- * and surrounding the two sections groups them in the page's
- * reading order.
+ * `order: 40` places API after SSO (30). SSO and API stay adjacent so
+ * the API section's empty state ("configure SSO first") reads naturally.
  */
 
 import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
 import { FeatureGate } from '@/contexts/FeaturesContext';
-import { registerOrgSettingsSection } from '@/lib/extension-registries';
+import { registerOrgSettingsTab } from '@/lib/extension-registries';
+import ApiClientsEmptyState from './components/ApiClientsEmptyState';
 
 const ApiClientsSection = React.lazy(
   () => import('./components/ApiClientsSection')
@@ -32,7 +30,10 @@ const ApiClientsSection = React.lazy(
 
 function ApiClientsSectionGate() {
   return (
-    <FeatureGate feature={FeatureName.API_CLIENTS}>
+    <FeatureGate
+      feature={FeatureName.API_CLIENTS}
+      fallback={<ApiClientsEmptyState />}
+    >
       <React.Suspense
         fallback={
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -47,10 +48,10 @@ function ApiClientsSectionGate() {
 }
 
 export function registerApiClients(): void {
-  registerOrgSettingsSection({
-    id: 'api-clients',
-    title: 'API Clients',
-    order: 110,
+  registerOrgSettingsTab({
+    id: 'api',
+    title: 'API',
+    order: 40,
     component: ApiClientsSectionGate,
   });
 }

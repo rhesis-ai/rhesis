@@ -198,7 +198,13 @@ export default function EndpointTestWorkbench({
                     />
                   </Box>
                   <Box>
-                    <Box sx={fieldSurfaceBoxSx}>
+                    <Box
+                      sx={{
+                        ...fieldSurfaceBoxSx,
+                        maxHeight: 200,
+                        overflowY: 'auto',
+                      }}
+                    >
                       <Typography
                         sx={{
                           fontSize: 12,
@@ -286,7 +292,15 @@ export default function EndpointTestWorkbench({
       {/* Row 2c: JSON blocks — aligned */}
       <Grid size={{ xs: 12, md: 6 }}>
         <Box component="pre" sx={{ ...testPreviewSx, minHeight: 'unset' }}>
-          <TemplatePreview template={requestTemplate || '{}'} />
+          {(() => {
+            try {
+              return (
+                <JsonPreview value={JSON.parse(requestTemplate || '{}')} />
+              );
+            } catch {
+              return <TemplatePreview template={requestTemplate || '{}'} />;
+            }
+          })()}
         </Box>
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>

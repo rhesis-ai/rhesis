@@ -613,6 +613,7 @@ def update_test_set_attributes(
     test_set.attributes = generate_test_set_attributes(
         db=db, test_set=test_set, defaults=defaults, license_type=license_type
     )
+    db.flush()
 
     # Transaction commit is handled by the session context manager
 

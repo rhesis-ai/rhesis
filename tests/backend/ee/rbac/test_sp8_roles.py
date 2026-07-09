@@ -233,6 +233,15 @@ class TestEscalationGuard:
             actor_level=80,
         )
 
+    def test_role_create_schema_hides_builtin_and_level(self):
+        """Regression: the create API must not expose `is_built_in` or `level`, so a
+        caller cannot mint a built-in/global role or escalate its privilege level.
+        create_role hardcodes is_built_in=False and level=50 (below Member)."""
+        from rhesis.backend.ee.rbac.schemas import RoleCreate
+
+        assert "is_built_in" not in RoleCreate.model_fields
+        assert "level" not in RoleCreate.model_fields
+
 
 # ---------------------------------------------------------------------------
 # Role precedence (integration — needs synced DB)
@@ -451,8 +460,15 @@ class TestCacheBusting:
 class TestLastOwnerProtection:
     """Integration tests for _is_last_owner and demotion guard in assign_org_role."""
 
-    def _setup_owner(self, test_db, test_org_id: str):
-        """Create a user and assign them the Owner role; return (user_id, owner_role)."""
+    def _setup_owner(self, test_db):
+        """Create an isolated org + a user assigned the Owner role.
+
+        Uses a fresh org (NOT the shared session org) because these tests count
+        Owners: the shared test org's session user is itself an Owner, which
+        would inflate the count and break the sole-owner assertion.
+
+        Returns (org_id, user_id, owner_role).
+        """
         from sqlalchemy import text
 
         from rhesis.backend.app.scope import bypass_tenant_filter
@@ -462,6 +478,11 @@ class TestLastOwnerProtection:
             owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
         assert owner_role is not None
 
+        org_id = uuid.uuid4()
+        test_db.execute(
+            text("INSERT INTO organization (id, name, is_active) VALUES (:id, :name, true)"),
+            {"id": str(org_id), "name": f"LastOwnerOrg-{org_id.hex[:8]}"},
+        )
         user_id = uuid.uuid4()
         test_db.execute(
             text(
@@ -471,40 +492,40 @@ class TestLastOwnerProtection:
             {
                 "uid": str(user_id),
                 "email": f"owner-{user_id.hex[:8]}@example.com",
-                "oid": test_org_id,
+                "oid": str(org_id),
             },
         )
         test_db.flush()
         member = OrganizationMember(
-            organization_id=uuid.UUID(test_org_id),
+            organization_id=org_id,
             user_id=user_id,
             role_id=owner_role.id,
         )
         test_db.add(member)
         test_db.flush()
-        return user_id, owner_role
+        return org_id, user_id, owner_role
 
-    def test_is_last_owner_true_when_sole_owner(self, test_db, test_org_id: str):
+    def test_is_last_owner_true_when_sole_owner(self, test_db):
         from rhesis.backend.ee.rbac.models import OrganizationMember
         from rhesis.backend.ee.rbac.router import _is_last_owner
 
-        user_id, owner_role = self._setup_owner(test_db, test_org_id)
+        org_id, user_id, owner_role = self._setup_owner(test_db)
         member = (
             test_db.query(OrganizationMember)
-            .filter_by(organization_id=uuid.UUID(test_org_id), user_id=user_id)
+            .filter_by(organization_id=org_id, user_id=user_id)
             .first()
         )
-        assert _is_last_owner(member, uuid.UUID(test_org_id), test_db) is True
+        assert _is_last_owner(member, org_id, test_db) is True
 
-    def test_is_last_owner_false_when_multiple_owners(self, test_db, test_org_id: str):
+    def test_is_last_owner_false_when_multiple_owners(self, test_db):
         from sqlalchemy import text
 
         from rhesis.backend.ee.rbac.models import OrganizationMember
         from rhesis.backend.ee.rbac.router import _is_last_owner
 
-        user_id, owner_role = self._setup_owner(test_db, test_org_id)
+        org_id, user_id, owner_role = self._setup_owner(test_db)
 
-        # Add a second owner.
+        # Add a second owner to the same isolated org.
         user2_id = uuid.uuid4()
         test_db.execute(
             text(
@@ -514,13 +535,13 @@ class TestLastOwnerProtection:
             {
                 "uid": str(user2_id),
                 "email": f"owner2-{user2_id.hex[:8]}@example.com",
-                "oid": test_org_id,
+                "oid": str(org_id),
             },
         )
         test_db.flush()
         test_db.add(
             OrganizationMember(
-                organization_id=uuid.UUID(test_org_id),
+                organization_id=org_id,
                 user_id=user2_id,
                 role_id=owner_role.id,
             )
@@ -529,10 +550,10 @@ class TestLastOwnerProtection:
 
         member = (
             test_db.query(OrganizationMember)
-            .filter_by(organization_id=uuid.UUID(test_org_id), user_id=user_id)
+            .filter_by(organization_id=org_id, user_id=user_id)
             .first()
         )
-        assert _is_last_owner(member, uuid.UUID(test_org_id), test_db) is False
+        assert _is_last_owner(member, org_id, test_db) is False
 
     def test_is_last_owner_false_when_non_owner_role(self, test_db, test_org_id: str):
         from rhesis.backend.app.scope import bypass_tenant_filter
@@ -596,8 +617,14 @@ class TestScopeEnforcement:
         assert exc_info.value.status_code == 422
         assert "project-scoped" in exc_info.value.detail
 
-    def test_assign_project_role_rejects_org_scoped_role(self, test_db, test_org_id: str):
-        """PUT /projects/{pid}/members/{uid}/role with an org-scoped role → 422."""
+    def test_assign_project_role_accepts_builtin_org_role(self, test_db, test_org_id: str):
+        """Built-in org-scoped roles (Admin/Member/Viewer) are now accepted at the project tier.
+
+        Under the one-directional gate model (K8s ClusterRole semantics) org/built-in
+        roles bind *down* to projects.  The old 422 "org-scoped" rejection is gone.
+        The endpoint proceeds past the scope check and fails at membership-not-found (404),
+        proving that the scope guard no longer fires.
+        """
         from unittest.mock import MagicMock, patch
 
         from fastapi import HTTPException
@@ -616,8 +643,105 @@ class TestScopeEnforcement:
         mock_user.id = uuid.uuid4()
         mock_user.organization_id = uuid.UUID(test_org_id)
 
+        # Patch with full Admin perms + matching level so the escalation guard passes.
+        # The request then fails at 404 (project membership not found), not 422.
+        with patch(
+            "rhesis.backend.ee.rbac.router._get_actor_permissions",
+            return_value={"organization:update", "role:manage", "test_set:read"},
+        ):
+            with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                with patch(
+                    "rhesis.backend.ee.rbac.router._role_permission_names_resolved",
+                    return_value=[],
+                ):
+                    with pytest.raises(HTTPException) as exc_info:
+                        assign_project_role(
+                            project_id=uuid.uuid4(),
+                            user_id=uuid.uuid4(),
+                            body=ProjectMemberRoleAssign(role_id=admin_role.id),
+                            db=test_db,
+                            current_user=mock_user,
+                            _org=MagicMock(),
+                        )
+
+        # 404 (membership not found) — the scope guard did NOT fire.
+        assert exc_info.value.status_code == 404
+        assert "membership" in exc_info.value.detail.lower()
+
+    def test_assign_none_to_project_rejected(self, test_db, test_org_id: str):
+        """None (level 0) is rejected at the project tier → 422.
+
+        Owner (level 100) is NO LONGER rejected here — it binds down to the
+        project tier so a project lead can be designated (subject to the
+        escalation guard). Only None, an explicit revocation with no useful
+        project meaning, is blocked. See check_project_role_assignment.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import assign_project_role
+        from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleAssign
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        with bypass_tenant_filter():
+            role = test_db.query(Role).filter_by(name="None", is_built_in=True).first()
+        assert role is not None, "built-in 'None' not found"
+
+        # The None tier-check (422) fires before the escalation guard, so the
+        # patched empty actor permissions don't change the outcome.
         with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
             with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
+                with pytest.raises(HTTPException) as exc_info:
+                    assign_project_role(
+                        project_id=uuid.uuid4(),
+                        user_id=uuid.uuid4(),
+                        body=ProjectMemberRoleAssign(role_id=role.id),
+                        db=test_db,
+                        current_user=mock_user,
+                        _org=MagicMock(),
+                    )
+
+        assert exc_info.value.status_code == 422
+        assert "None role cannot be assigned at the project tier" in exc_info.value.detail
+
+    def test_assign_project_role_escalation_guard_blocks_low_privilege_actor(
+        self, test_db, test_org_id: str
+    ):
+        """A Member-level actor cannot grant built-in Admin (escalation → 403).
+
+        Prior to the _role_permission_names_resolved fix, built-in roles returned
+        [] from _role_permission_names, letting the escalation check silently pass.
+        This test ensures the resolved helper closes that gap.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import Role
+        from rhesis.backend.ee.rbac.router import assign_project_role
+        from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleAssign
+
+        with bypass_tenant_filter():
+            admin_role = test_db.query(Role).filter_by(name="Admin", is_built_in=True).first()
+        assert admin_role is not None
+
+        mock_user = MagicMock()
+        mock_user.id = uuid.uuid4()
+        mock_user.organization_id = uuid.UUID(test_org_id)
+
+        # Member-level actor: level 60, only member-tier permissions (no role:manage etc.)
+        member_perms = {"test_set:read", "test_set:create", "test_run:read"}
+        with patch(
+            "rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=member_perms
+        ):
+            with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=60):
                 with pytest.raises(HTTPException) as exc_info:
                     assign_project_role(
                         project_id=uuid.uuid4(),
@@ -628,8 +752,9 @@ class TestScopeEnforcement:
                         _org=MagicMock(),
                     )
 
-        assert exc_info.value.status_code == 422
-        assert "org-scoped" in exc_info.value.detail
+        # Escalation denied: Admin level 80 > actor level 60 (or perms overgrant).
+        assert exc_info.value.status_code == 403
+        assert "escalation" in exc_info.value.detail.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -663,8 +788,11 @@ class TestForeignUserValidation:
 
         with patch("rhesis.backend.ee.rbac.router._get_actor_permissions", return_value=set()):
             with patch("rhesis.backend.ee.rbac.router._get_actor_level", return_value=100):
-                # Admin role has many permissions; patch names to avoid escalation 403
-                with patch("rhesis.backend.ee.rbac.router._role_permission_names", return_value=[]):
+                # Admin is a built-in; patch the resolved helper to bypass escalation 403.
+                with patch(
+                    "rhesis.backend.ee.rbac.router._role_permission_names_resolved",
+                    return_value=[],
+                ):
                     with pytest.raises(HTTPException) as exc_info:
                         assign_org_role(
                             user_id=foreign_user_id,

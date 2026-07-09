@@ -1,7 +1,9 @@
 """Shared utilities for statistics functions."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
+
+from rhesis.backend.app.constants import OverallTestResult
 
 
 def parse_date_range(
@@ -16,7 +18,7 @@ def parse_date_range(
         start_date_obj = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         end_date_obj = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
     else:
-        end_date_obj = datetime.utcnow()
+        end_date_obj = datetime.now(timezone.utc)
         start_date_obj = end_date_obj - timedelta(days=30 * months)
     return start_date_obj, end_date_obj
 
@@ -34,6 +36,60 @@ def build_pass_rate_stats(stats_dict: Dict[str, Dict[str, int]]) -> Dict[str, Di
             "pass_rate": pass_rate,
         }
     return pass_rates
+
+
+def build_metric_pass_rate_stats(
+    stats_dict: Dict[str, Dict[str, int]],
+) -> Dict[str, Dict[str, Any]]:
+    """Like build_pass_rate_stats but includes automated counts and review adjustments."""
+    result: Dict[str, Dict[str, Any]] = {}
+    for name, stats in stats_dict.items():
+        passed = stats["passed"]
+        failed = stats["failed"]
+        total = passed + failed
+        automated_passed = stats.get("automated_passed", passed)
+        automated_failed = stats.get("automated_failed", failed)
+        result[name] = {
+            "total": total,
+            "passed": passed,
+            "failed": failed,
+            "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
+            "automated_passed": automated_passed,
+            "automated_failed": automated_failed,
+            "human_review_count": stats.get("human_review_count", 0),
+        }
+    return result
+
+
+def automated_metric_success(data: dict) -> bool:
+    """Return the pre-review automated metric outcome from stored JSON."""
+    override = data.get("override")
+    if isinstance(override, dict) and "original_value" in override:
+        return bool(override["original_value"])
+    return bool(data["is_successful"])
+
+
+def effective_metric_success(
+    overall_result: str | None,
+    is_successful: bool,
+    has_metric_override: bool,
+) -> bool:
+    """Return whether a metric counts as passed in aggregate stats.
+
+    Metric-level reviews update ``is_successful`` directly (``has_metric_override``
+    is True). Test-result-level reviews only update ``status_id`` / ``result``, so
+    when overall passed/failed disagrees with the stored metric value, prefer the
+    overall outcome.
+    """
+    if has_metric_override:
+        return is_successful
+
+    if overall_result == OverallTestResult.PASSED and not is_successful:
+        return True
+    if overall_result == OverallTestResult.FAILED and is_successful:
+        return False
+
+    return is_successful
 
 
 def build_response_data(
@@ -59,7 +115,7 @@ def build_metadata(
 ) -> Dict[str, Any]:
     """Build the standard metadata dict attached to every stats response."""
     metadata = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "organization_id": organization_id,
         "period": f"Last {months} months",
         "start_date": start_date_obj.isoformat(),

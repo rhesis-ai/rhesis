@@ -67,8 +67,8 @@ SENSITIVE_MARKERS = (
 ALLOWED_SITES: frozenset[tuple[str, int]] = frozenset(
     {
         # content_hash is a SHA-based fingerprint for version dedup, not a secret
-        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 155),
-        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 211),
+        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 148),
+        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 204),
         # auth_token_project_id is a UUID project reference, not a secret token;
         # comparing it to another project UUID is safe (no timing oracle risk)
         ("apps/backend/src/rhesis/backend/app/services/connector/manager.py", 1005),

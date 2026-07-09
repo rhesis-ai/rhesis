@@ -66,7 +66,7 @@ All tasks inherit from a `BaseTask` class that provides retry logic, error handl
 {`from celery import Task
 from contextlib import contextmanager
 
-from rhesis.backend.app.database import SessionLocal, set_tenant
+from rhesis.backend.app.database import get_db_with_tenant_variables
 
 class BaseTask(Task):
     """Base task class with retry settings and tenant context management."""
@@ -81,23 +81,13 @@ class BaseTask(Task):
     @contextmanager
     def get_db_session(self):
         """Get a database session with the proper tenant context."""
-        db = SessionLocal()
-        try:
-            # Start with a clean session
-            db.expire_all()
+        request = getattr(self, 'request', None)
+        org_id = getattr(request, 'organization_id', None) or ''
+        user_id = getattr(request, 'user_id', None) or ''
+        project_id = getattr(request, 'project_id', None) or ''
 
-            # Get task context
-            request = getattr(self, 'request', None)
-            org_id = getattr(request, 'organization_id', None)
-            user_id = getattr(request, 'user_id', None)
-
-            # Set tenant context if available
-            if org_id or user_id:
-                set_tenant(db, org_id, user_id)
-
+        with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
             yield db
-        finally:
-            db.close()
 
     def apply_async(self, args=None, kwargs=None, **options):
         """Store org_id and user_id in task context when task is queued."""
@@ -161,10 +151,6 @@ def with_tenant_context(func):
 
         # Get a database session
         with self.get_db_session() as db:
-            # Set tenant for this session
-            if organization_id or user_id:
-                set_tenant(db, organization_id, user_id)
-
             # Add db to kwargs and execute the task function
             kwargs['db'] = db
             return func(self, *args, **kwargs)

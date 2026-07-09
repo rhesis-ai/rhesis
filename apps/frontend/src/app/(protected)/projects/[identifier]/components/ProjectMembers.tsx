@@ -15,13 +15,17 @@ import {
   ProjectMemberUser,
 } from '@/utils/api-client/interfaces/project';
 import { DeleteIcon, PersonAddIcon } from '@/components/icons';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { projectKeys } from '@/constants/query-keys';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 interface ProjectMembersProps {
   projectId: string;
   sessionToken: string;
   /** ID of the project owner — prevents removing them. */
   ownerId?: string;
-  refreshKey?: number;
   onMembersLoaded?: (members: ProjectMember[]) => void;
 }
 
@@ -38,50 +42,51 @@ export default function ProjectMembers({
   projectId,
   sessionToken,
   ownerId,
-  refreshKey = 0,
   onMembersLoaded,
 }: ProjectMembersProps) {
   const notifications = useNotifications();
+  const canManageMembers = useCan(Capability.ProjectMember.MANAGE);
+  const queryClient = useQueryClient();
 
-  const [members, setMembers] = useState<ProjectMember[]>([]);
-  const [membersLoading, setMembersLoading] = useState(true);
-  const [membersError, setMembersError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
   });
-
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(
     null
   );
   const [removing, setRemoving] = useState(false);
 
-  const fetchMembers = useCallback(async () => {
-    setMembersLoading(true);
-    setMembersError(null);
-    try {
-      const factory = new ApiClientFactory(sessionToken);
-      const data = await factory
+  const membersQueryKey = [
+    ...projectKeys.detail(projectId),
+    'members',
+  ] as const;
+
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    error: membersQueryError,
+  } = useQuery({
+    queryKey: membersQueryKey,
+    queryFn: async () => {
+      const data = await new ApiClientFactory(sessionToken)
         .getProjectsClient()
         .getProjectMembers(projectId);
-      setMembers(data);
       onMembersLoaded?.(data);
-    } catch {
-      setMembersError('Failed to load project members.');
-    } finally {
-      setMembersLoading(false);
-    }
-  }, [projectId, sessionToken, onMembersLoaded]);
+      return data;
+    },
+    enabled: !!sessionToken && !!projectId,
+  });
 
-  useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers, refreshKey]);
+  const membersError = membersQueryError
+    ? 'Failed to load project members.'
+    : null;
 
-  const handleRemoveClick = (member: ProjectMember) => {
+  const handleRemoveClick = useCallback((member: ProjectMember) => {
     setMemberToRemove(member);
     setDeleteOpen(true);
-  };
+  }, []);
 
   const handleRemoveConfirm = async () => {
     if (!memberToRemove) return;
@@ -94,7 +99,7 @@ export default function ProjectMembers({
       notifications.show('Member removed from the project.', {
         severity: 'success',
       });
-      await fetchMembers();
+      queryClient.invalidateQueries({ queryKey: membersQueryKey });
     } catch (err) {
       notifications.show(
         err instanceof Error ? err.message : 'Failed to remove member.',
@@ -107,89 +112,129 @@ export default function ProjectMembers({
     }
   };
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1,
-      minWidth: 200,
-      valueGetter: (_value, row) =>
-        getMemberDisplayName((row as ProjectMember).user),
-      renderCell: params => {
-        const member = params.row as ProjectMember;
-        const name = getMemberDisplayName(member.user);
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar
-              src={member.user?.picture ?? undefined}
-              sx={{
-                width: theme => theme.spacing(4),
-                height: theme => theme.spacing(4),
-                flexShrink: 0,
+  const { ProjectRoleCell, prewarmProjectCaches } = getMemberRoleExtensions();
+
+  useEffect(() => {
+    if (sessionToken && projectId) {
+      prewarmProjectCaches?.(sessionToken, projectId, {
+        canManageRoles: canManageMembers,
+      });
+    }
+  }, [sessionToken, projectId, prewarmProjectCaches, canManageMembers]);
+
+  const columns: GridColDef[] = React.useMemo(() => {
+    const RoleCell = ProjectRoleCell;
+
+    const roleColumn: GridColDef = RoleCell
+      ? {
+          field: 'role',
+          headerName: 'Role',
+          width: 150,
+          sortable: false,
+          filterable: false,
+          renderCell: params => (
+            <RoleCell
+              userId={(params.row as ProjectMember).user_id}
+              projectId={projectId}
+              sessionToken={sessionToken}
+            />
+          ),
+        }
+      : {
+          field: 'role',
+          headerName: 'Role',
+          width: 120,
+          sortable: false,
+          filterable: false,
+          valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',
+          renderCell: params => (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textTransform: 'capitalize' }}
+            >
+              {(params.row as ProjectMember).role ?? 'member'}
+            </Typography>
+          ),
+        };
+
+    return [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (_value, row) =>
+          getMemberDisplayName((row as ProjectMember).user),
+        renderCell: params => {
+          const member = params.row as ProjectMember;
+          const name = getMemberDisplayName(member.user);
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Avatar
+                src={member.user?.picture ?? undefined}
+                sx={{
+                  width: theme => theme.spacing(4),
+                  height: theme => theme.spacing(4),
+                  flexShrink: 0,
+                }}
+              >
+                {!member.user?.picture && <PersonIcon fontSize="small" />}
+              </Avatar>
+              <Typography variant="body2" fontWeight={500}>
+                {name}
+              </Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'email',
+        headerName: 'Email',
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (_value, row) => (row as ProjectMember).user?.email ?? '',
+        renderCell: params => (
+          <Typography variant="body2" color="text.secondary">
+            {(params.row as ProjectMember).user?.email ?? ''}
+          </Typography>
+        ),
+      },
+      roleColumn,
+      {
+        field: 'actions',
+        headerName: '',
+        width: 56,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const member = params.row as ProjectMember;
+          if ((ownerId && member.user_id === ownerId) || !canManageMembers) {
+            return null;
+          }
+          return (
+            <IconButton
+              size="small"
+              title="Remove from project"
+              onClick={e => {
+                e.stopPropagation();
+                handleRemoveClick(member);
               }}
             >
-              {!member.user?.picture && <PersonIcon fontSize="small" />}
-            </Avatar>
-            <Typography variant="body2" fontWeight={500}>
-              {name}
-            </Typography>
-          </Box>
-        );
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          );
+        },
       },
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      flex: 1,
-      minWidth: 200,
-      valueGetter: (_value, row) => (row as ProjectMember).user?.email ?? '',
-      renderCell: params => (
-        <Typography variant="body2" color="text.secondary">
-          {(params.row as ProjectMember).user?.email ?? ''}
-        </Typography>
-      ),
-    },
-    {
-      field: 'role',
-      headerName: 'Role',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      valueGetter: (_value, row) => (row as ProjectMember).role ?? 'member',
-      renderCell: params => (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ textTransform: 'capitalize' }}
-        >
-          {(params.row as ProjectMember).role ?? 'member'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 56,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const member = params.row as ProjectMember;
-        if (ownerId && member.user_id === ownerId) return null;
-        return (
-          <IconButton
-            size="small"
-            title="Remove from project"
-            onClick={e => {
-              e.stopPropagation();
-              handleRemoveClick(member);
-            }}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        );
-      },
-    },
-  ];
+    ];
+  }, [
+    ProjectRoleCell,
+    projectId,
+    sessionToken,
+    ownerId,
+    canManageMembers,
+    handleRemoveClick,
+  ]);
 
   return (
     <Box>

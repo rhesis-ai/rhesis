@@ -77,9 +77,15 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
     server = MCPServer(
         name="Rhesis",
         instructions=(
-            "Rhesis platform API tools. Use these to create and manage "
-            "projects, test sets, tests, test configurations, test "
-            "runs, and view results."
+            "Rhesis platform API tools for AI test suite design and execution. "
+            "Entity model: Project owns Endpoints; Behaviors link to Metrics "
+            "(add_behavior_to_metric) before generate_test_set; Sources ground "
+            "single-turn generation; TestSet + Endpoint → execute_test_set → "
+            "TestRun → TestResults. "
+            "Creation order: behaviors → metrics → behavior-metric mappings → "
+            "generate_test_set → verify (get_test_set, list_test_set_tests) → "
+            "execute_test_set → analyze (get_test_run, get_test_result_stats). "
+            "Resolve entities by name via list_* + $filter; use get_* for full detail."
         ),
     )
 
@@ -115,6 +121,18 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                 auth_value = request.headers.get("authorization", "")
                 if auth_value:
                     headers["Authorization"] = auth_value
+                # Forward project scope so project-isolated resources
+                # (endpoints, etc.) resolve under the correct RLS project.
+                # Prefer the explicit header; fall back to the project_id
+                # bound to the API token (set by the auth layer on
+                # request.state).  Without this, MCP clients that
+                # authenticate with a project-scoped token (e.g. Cursor)
+                # would see no project filtering on list endpoints.
+                project_value = request.headers.get("x-project-id", "") or getattr(
+                    request.state, "api_token_project_id", ""
+                )
+                if project_value:
+                    headers["X-Project-Id"] = project_value
         except LookupError:
             pass
 

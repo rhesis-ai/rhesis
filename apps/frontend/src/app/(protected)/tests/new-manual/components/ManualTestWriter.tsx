@@ -53,6 +53,8 @@ import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { TEST_TYPES, TYPE_NAMES } from '@/constants/test-types';
 import MultiFileUpload from '@/components/common/MultiFileUpload';
+import { EntityType } from '@/types/entity-type';
+import { useTypeLookups } from '@/hooks/useLookups';
 
 type TestType = 'single_turn' | 'multi_turn';
 
@@ -175,6 +177,18 @@ export default function ManualTestWriter() {
 
   // Test set type ID resolved from testType
   const [testSetTypeId, setTestSetTypeId] = useState<UUID | undefined>();
+  const testTypeValue =
+    testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
+  const { data: resolvedTestSetTypes } = useTypeLookups(
+    session?.session_token ?? '',
+    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`,
+    !!session?.session_token
+  );
+  useEffect(() => {
+    if (resolvedTestSetTypes && resolvedTestSetTypes.length > 0) {
+      setTestSetTypeId(resolvedTestSetTypes[0].id as UUID);
+    }
+  }, [resolvedTestSetTypes]);
 
   // Dialogs
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -206,7 +220,7 @@ export default function ManualTestWriter() {
         // Fetch topics with entity_type filter
         const topicsClient = apiFactory.getTopicClient();
         const topicsData = await topicsClient.getTopics({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         });
@@ -215,24 +229,11 @@ export default function ManualTestWriter() {
         // Fetch categories
         const categoriesClient = apiFactory.getCategoryClient();
         const categoriesData = await categoriesClient.getCategories({
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
           sort_by: 'name',
           sort_order: 'asc',
         });
         setCategories(categoriesData);
-
-        // Fetch test set type ID based on selected test type
-        const typeLookupClient = apiFactory.getTypeLookupClient();
-        const typeValue =
-          testType === 'single_turn'
-            ? TEST_TYPES.SINGLE_TURN
-            : TEST_TYPES.MULTI_TURN;
-        const testSetTypes = await typeLookupClient.getTypeLookups({
-          $filter: `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${typeValue}'`,
-        });
-        if (testSetTypes.length > 0) {
-          setTestSetTypeId(testSetTypes[0].id as UUID);
-        }
       } catch (_error) {
         notifications.show('Failed to load test dimensions', {
           severity: 'error',
@@ -686,7 +687,7 @@ export default function ManualTestWriter() {
                   borderBottom: theme =>
                     `1px solid ${theme.palette.greyscale.border}`,
                   color: 'text.primary',
-                  fontSize: '0.875rem',
+                  fontSize: theme => theme.typography.body2.fontSize,
                   py: '12px',
                   // first/last column inset matching BaseDataGrid (30px)
                   '&:first-of-type': { pl: '30px' },
@@ -708,7 +709,7 @@ export default function ManualTestWriter() {
                 '& .MuiTableBody-root .MuiTableRow-root:hover': {
                   bgcolor: theme =>
                     theme.palette.mode === 'light'
-                      ? '#f7f8f9'
+                      ? theme.palette.greyscale.surface1
                       : 'rgba(255,255,255,0.04)',
                 },
                 // ── Input fields: invisible border until hover/focus ──────
@@ -728,11 +729,13 @@ export default function ManualTestWriter() {
                     borderWidth: '2px',
                   },
                 // Compact input size matching grid row height
-                '& .MuiInputBase-root': { fontSize: '0.875rem' },
+                '& .MuiInputBase-root': {
+                  fontSize: theme => theme.typography.body2.fontSize,
+                },
                 '& .MuiOutlinedInput-input': {
                   py: '7px',
                   px: '8px',
-                  fontSize: '0.875rem',
+                  fontSize: theme => theme.typography.body2.fontSize,
                 },
                 '& .MuiInputBase-inputMultiline': { py: '6px', px: '8px' },
                 // ── Row actions hover ────────────────────────────────────

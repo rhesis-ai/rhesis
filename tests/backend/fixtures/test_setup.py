@@ -10,6 +10,7 @@ This module provides utilities for setting up test environment including:
 
 import os
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
@@ -155,6 +156,121 @@ def setup_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         raise
 
 
+def ensure_owner_membership(db: Session, organization_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Guarantee *user_id* holds the built-in Owner role in *organization_id*.
+
+    With RBAC available by default, every authenticated request from a test
+    user is authorized against its ``organization_member`` role. Test users are
+    created via ``crud.create_user`` which fires the EE default-role hook
+    *before* ``owner_id`` is set (the FK requires the user to exist first), so
+    the hook always seeds them as **Member** — which lacks org-admin and
+    project-create capabilities, causing wholesale 403s. This creates the row
+    if the hook never ran, or upgrades a Member row to Owner.
+
+    The caller controls the transaction — this only flushes, never commits.
+    No-op in community builds (no EE package) or when RBAC is unavailable.
+    Idempotent: a row already at Owner is left untouched.
+    """
+    try:
+        from rhesis.backend.app.features import FeatureName, FeatureRegistry
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+    except ImportError:
+        return  # community build — no organization_member table
+
+    with bypass_tenant_filter():
+        organization = db.query(models.Organization).filter_by(id=organization_id).first()
+        if organization is None or not FeatureRegistry.is_available(FeatureName.RBAC, organization):
+            return
+
+        owner_role = (
+            db.query(Role).filter_by(name="Owner", is_built_in=True, organization_id=None).first()
+        )
+        if owner_role is None:
+            # Built-in roles are seeded by an Alembic migration; if Owner is
+            # missing the RBAC migrations didn't run — surface it loudly rather
+            # than silently leaving the user without permissions.
+            print(
+                "⚠️ built-in Owner role not found (organization_id=None); "
+                "cannot grant Owner to test user — RBAC migrations may be missing"
+            )
+            return
+
+        member = (
+            db.query(OrganizationMember)
+            .filter_by(organization_id=organization_id, user_id=user_id)
+            .first()
+        )
+        if member is None:
+            db.add(
+                OrganizationMember(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    role_id=owner_role.id,
+                )
+            )
+            db.flush()
+        elif member.role_id != owner_role.id:
+            member.role_id = owner_role.id
+            db.flush()
+
+
+@contextmanager
+def temporarily_set_org_role(db: Session, organization_id, user_id, role_name: str = "None"):
+    """Temporarily set *user_id*'s org-member role to the built-in *role_name*.
+
+    Under RBAC, authorization is decided by the caller's ``organization_member``
+    role, not ``organization.owner_id``. Tests that assert an unprivileged
+    caller is denied must therefore demote the caller's *role* (the shared
+    session user is otherwise an Owner). Defaults to "None" (empty permission
+    set) so every capability check is denied.
+
+    Busts the permission cache on entry and exit so the change (and its
+    reversal) takes effect immediately, and restores the prior role on exit.
+    No-op in community builds (no EE package). ``organization_id``/``user_id``
+    may be str or UUID.
+    """
+    try:
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+    except ImportError:
+        yield
+        return
+
+    org_uuid = (
+        organization_id
+        if isinstance(organization_id, uuid.UUID)
+        else uuid.UUID(str(organization_id))
+    )
+    user_uuid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
+
+    with bypass_tenant_filter():
+        target_role = (
+            db.query(Role).filter_by(name=role_name, is_built_in=True, organization_id=None).first()
+        )
+        member = (
+            db.query(OrganizationMember)
+            .filter_by(organization_id=org_uuid, user_id=user_uuid)
+            .first()
+        )
+    if target_role is None or member is None:
+        # Nothing to demote (community build, or user has no membership row).
+        yield
+        return
+
+    original_role_id = member.role_id
+    member.role_id = target_role.id
+    db.flush()
+    get_permission_cache().bust_user(user_uuid, org_uuid)
+    try:
+        yield
+    finally:
+        member.role_id = original_role_id
+        db.flush()
+        get_permission_cache().bust_user(user_uuid, org_uuid)
+
+
 def create_test_organization_and_user(
     db: Session,
     org_name: str = "Test Organization",
@@ -194,6 +310,14 @@ def create_test_organization_and_user(
         # Load initial data (uses get_db() with direct tenant context passing)
         print(f"🔧 Loading initial data for organization {organization.id}")
         setup_initial_data(db, str(organization.id), str(user.id))
+
+        # Grant the test user the Owner role LAST — after setup_initial_data.
+        # create_test_user() fired the EE default-role hook before owner_id was
+        # set (the FK requires the user to exist first), seeding them as Member;
+        # and load_initial_data runs project-scoped commits/rollbacks that would
+        # clobber an earlier, uncommitted role change. Doing it here, after all
+        # that, ensures the Owner grant is the final write the caller commits.
+        ensure_owner_membership(db, organization.id, user.id)
 
         return organization, user, api_token
 

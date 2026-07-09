@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import EditableSection from '@/components/common/EditableSection';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import TagsField from '@/components/common/TagsField';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -25,6 +27,7 @@ export default function TestFormElementsCard({
   onUpdate: _onUpdate,
 }: TestFormElementsCardProps) {
   const notifications = useNotifications();
+  const canEditTest = useCan(Capability.Test.UPDATE);
 
   const initialTagNames = (test.tags ?? []).map((t: Tag) => t.name);
 
@@ -65,6 +68,7 @@ export default function TestFormElementsCard({
 
   return (
     <EditableSection
+      editable={canEditTest}
       title="Tags"
       initialValue={initialDraft}
       onSave={handleSave}

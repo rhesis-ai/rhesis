@@ -84,20 +84,35 @@ OPENAI_SDK_PROVIDER=anthropic uv run --extra openai-sdk openai_sdk_example.py
 **File**: `pydantic_ai_example.py`
 
 Demonstrates (see [issue #1831](https://github.com/rhesis-ai/rhesis/issues/1831)):
-- Pydantic AI agent with **structured output** (`ObservabilityBrief`)
-- Optional **tool** (`lookup_observability_snippet`) with explicit tracing
-- **Manual instrumentation** via `@observe` — `ai.agent.invoke` for runs, `ai.tool.invoke` for tools
-- Nested hierarchy under `pydantic_ai_observability_pipeline`
+- **Zero-config auto-instrumentation** via `auto_instrument()` — built on
+  Pydantic AI's native OpenTelemetry instrumentation
+- Agent runs (`ai.agent.invoke`), per-model-call LLM spans (`ai.llm.invoke`
+  with tokens/messages), and tool executions (`ai.tool.invoke` with I/O events)
+- Structured output (`ObservabilityBrief`) recorded as JSON
+- Works with `run()`, `run_sync()`, and `run_stream()`
 - OpenAI or Gemini (set `PYDANTIC_AI_MODEL` and the matching API key in `.env`)
 
-Pydantic AI is OTel/OpenInference compatible; this example uses `@observe` so agent and tool
-boundaries show up in Rhesis today. Full `auto_instrument()` coverage is tracked in
-[#1083](https://github.com/rhesis-ai/rhesis/issues/1083).
-
-**Use Case**: Trace Pydantic AI agents with structured outputs and tool calls before native auto-instrumentation lands.
+**Use Case**: Trace Pydantic AI agents with structured outputs and tool calls, no code changes.
 
 ```bash
 uv run --extra pydantic-ai pydantic_ai_example.py
+# Traces: http://localhost:3000/traces
+```
+
+### 6b. Pydantic AI Multi-Agent Delegation
+**File**: `pydantic_ai_multi_agent_example.py`
+
+Demonstrates:
+- A **coordinator** agent delegating to two **specialist** agents via tools
+  (Pydantic AI's idiomatic delegation pattern)
+- Synthesized **`ai.agent.handoff`** spans with `ai.agent.handoff.from` /
+  `ai.agent.handoff.to`, connecting agents in the Rhesis Graph View
+- Specialist runs nested under the coordinator's tool spans in the trace tree
+
+**Use Case**: Observe multi-agent Pydantic AI systems with connected agent-to-agent edges.
+
+```bash
+uv run --extra pydantic-ai pydantic_ai_multi_agent_example.py
 # Traces: http://localhost:3000/traces
 ```
 

@@ -15,6 +15,9 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectDetailTabs from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
@@ -42,6 +45,7 @@ export default function ClientWrapper({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const notifications = useNotifications();
+  const { syncProject } = useActiveProject();
 
   const title = currentProject.name || `Project ${params.identifier}`;
   const breadcrumbs: BreadcrumbItem[] = [
@@ -84,6 +88,7 @@ export default function ClientWrapper({
         };
 
         setCurrentProject(updatedProjectWithOwner);
+        syncProject(updatedProjectWithOwner);
         notifications.show('Project updated successfully', {
           severity: 'success',
         });
@@ -98,7 +103,7 @@ export default function ClientWrapper({
         setIsUpdating(false);
       }
     },
-    [projectId, sessionToken, notifications, currentProject]
+    [projectId, sessionToken, notifications, currentProject, syncProject]
   );
 
   const handleDeleteConfirm = async () => {
@@ -124,19 +129,23 @@ export default function ClientWrapper({
 
   const pageActions = (
     <FabGroup>
-      <Fab
-        icon={<EditIcon sx={{ fontSize: 28 }} />}
-        tooltip="Edit project"
-        onClick={() => setIsDrawerOpen(true)}
-        disabled={isUpdating || isDeleting}
-      />
-      <Fab
-        icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
-        tooltip="Delete project"
-        onClick={() => setDeleteConfirmOpen(true)}
-        loading={isDeleting}
-        disabled={isUpdating}
-      />
+      <Can capability={Capability.Project.UPDATE}>
+        <Fab
+          icon={<EditIcon sx={{ fontSize: 28 }} />}
+          tooltip="Edit project"
+          onClick={() => setIsDrawerOpen(true)}
+          disabled={isUpdating || isDeleting}
+        />
+      </Can>
+      <Can capability={Capability.Project.UPDATE}>
+        <Fab
+          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+          tooltip="Delete project"
+          onClick={() => setDeleteConfirmOpen(true)}
+          loading={isDeleting}
+          disabled={isUpdating}
+        />
+      </Can>
     </FabGroup>
   );
 

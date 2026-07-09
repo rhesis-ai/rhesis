@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { useEmbeddingGraph } from '../useEmbeddingGraph';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
+import { EntityType } from '@/types/entity-type';
 
 jest.mock('@/utils/api-client/client-factory');
 
@@ -17,7 +18,7 @@ const oldGraph: Scatter2DGraph = {
     {
       embedding_id: 'e1',
       entity_id: 't1',
-      entity_type: 'Test',
+      entity_type: EntityType.TEST,
       cluster_index: 0,
       searchable_text: 'one',
       x: 0,

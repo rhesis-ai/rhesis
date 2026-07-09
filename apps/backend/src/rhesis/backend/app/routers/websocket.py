@@ -8,16 +8,24 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
 
+from rhesis.backend.app.auth.principal import (
+    REQUEST_STATE_AUTH_KIND,
+    AuthKind,
+    Principal,
+    resolve_principal,
+    resolve_principal_from_request,
+)
 from rhesis.backend.app.auth.user_utils import (
     get_authenticated_user_with_context,
     get_secret_key,
+    require_current_user_or_token,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
 from rhesis.backend.app.services.websocket import get_ws_token_service, ws_manager
 
@@ -38,7 +46,8 @@ class WebSocketTokenResponse(BaseModel):
 
 @router.post("/ws/token", response_model=WebSocketTokenResponse)
 async def get_websocket_token(
-    current_user: User = Depends(get_authenticated_user_with_context),
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
 ) -> WebSocketTokenResponse:
     """Get a short-lived token for WebSocket connection.
 
@@ -48,6 +57,21 @@ async def get_websocket_token(
     Returns:
         WebSocketTokenResponse with the token and expiration time.
     """
+    # Security (SP9): a WS token carries no scopes, so it always resolves to a
+    # full-access session principal on connect. Allowing an API token to mint one
+    # would let a *scoped* rh-* token escalate to full session access over the WS
+    # transport. WS tokens are therefore session-only; API-token clients connect
+    # to /ws directly with their token (the bearer path preserves their scopes).
+    # NOTE: get_authenticated_user_with_context only flags rh-* tokens as
+    # AuthKind.TOKEN; widen this guard if M2M JWTs ever carry SP9 scopes.
+    if getattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.SESSION) == AuthKind.TOKEN:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "WebSocket tokens must be minted from a session; "
+                "connect to /ws directly with your API token instead"
+            ),
+        )
     token_service = get_ws_token_service()
     token = token_service.create_ws_token(
         user_id=str(current_user.id),
@@ -62,19 +86,15 @@ async def get_websocket_token(
 async def authenticate_websocket_token(
     websocket: WebSocket,
     token: Optional[str] = None,
-) -> Optional[User]:
+) -> Optional[tuple[User, "Principal"]]:
     """Authenticate WebSocket connection using token from query parameter.
 
     This function supports two authentication methods:
     1. Short-lived WebSocket tokens (preferred, more secure)
-    2. Regular JWT tokens (fallback for compatibility)
+    2. Regular JWT/rh-* tokens (fallback for compatibility)
 
-    Args:
-        websocket: The WebSocket connection.
-        token: JWT, WebSocket token, or API token from query parameter.
-
-    Returns:
-        Authenticated User object, or None if authentication fails.
+    Returns a (User, Principal) pair so token scopes are preserved for
+    channel authorization (SP9).  Returns None if authentication fails.
     """
     if not token:
         return None
@@ -92,7 +112,8 @@ async def authenticate_websocket_token(
                 user = db.query(UserModel).filter(UserModel.id == ws_payload["sub"]).first()
                 if user:
                     logger.debug(f"WebSocket auth via WS token for user {user.id}")
-                    return user
+                    # WS tokens are always issued from session auth — session principal.
+                    return user, resolve_principal(user)
         except Exception as e:
             logger.warning(f"WebSocket token user lookup failed: {e}")
 
@@ -108,14 +129,18 @@ async def authenticate_websocket_token(
     mock_request = MockRequest()
 
     try:
-        # Use existing authentication logic (supports both rh- tokens and JWT)
+        # Use existing authentication logic (supports both rh- tokens and JWT).
+        # get_authenticated_user_with_context writes token context to mock_request.state
+        # so resolve_principal_from_request can harvest it below.
         user = await get_authenticated_user_with_context(
             request=mock_request,
             credentials=credentials,
             secret_key=get_secret_key(),
             without_context=False,  # Require organization
         )
-        return user
+        if user:
+            return user, resolve_principal_from_request(user, mock_request)
+        return None
     except Exception as e:
         logger.warning(f"WebSocket authentication failed: {e}")
         return None
@@ -145,17 +170,20 @@ async def websocket_endpoint(websocket: WebSocket):
     token = websocket.query_params.get("token")
 
     # Authenticate
-    user = await authenticate_websocket_token(websocket, token)
-    if not user:
+    auth = await authenticate_websocket_token(websocket, token)
+    if not auth:
         logger.warning("WebSocket authentication failed - closing connection")
         await websocket.close(code=1008, reason="Authentication failed")
         return
+    user, principal = auth
 
     # Accept the connection
     await websocket.accept()
 
-    # Register with manager
+    # Register with manager; store the principal so channel authorization
+    # can apply SP9 token scope intersection.
     conn_id = await ws_manager.connect(websocket, user)
+    ws_manager.register_principal(conn_id, principal)
 
     # Send connected confirmation
     try:

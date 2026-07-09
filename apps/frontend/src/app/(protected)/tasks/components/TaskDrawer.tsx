@@ -48,7 +48,7 @@ export default function TaskDrawer({
   onSuccess,
 }: TaskDrawerProps) {
   const { show } = useNotifications();
-  const { createTask } = useTasks({ autoFetch: false });
+  const { createTask } = useTasks();
 
   const [loading, setLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string>();

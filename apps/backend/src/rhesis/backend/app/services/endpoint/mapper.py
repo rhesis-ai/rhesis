@@ -1,7 +1,7 @@
 """Mapper service integration for SDK endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
@@ -71,7 +71,7 @@ def generate_and_apply_mappings(
             "source": mapping_result.source,
             "confidence": mapping_result.confidence,
             "reasoning": mapping_result.reasoning,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
         flag_modified(endpoint, "endpoint_metadata")
 

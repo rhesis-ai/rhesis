@@ -19,6 +19,7 @@ from rhesis.backend.tasks.architect.telemetry import (
 )
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.worker import app
+from rhesis.sdk.agents.errors import format_user_facing_error
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +62,12 @@ def architect_chat_task(
     )
 
     try:
-        import asyncio
-
         from rhesis.backend.app.database import get_db_with_tenant_variables
         from rhesis.backend.app.services.architect.runner import (
             ArchitectChatResult,
             run_architect_turn,
         )
+        from rhesis.sdk.async_utils import run_sync
         from rhesis.sdk.context import EndpointContext
 
         prior_trace_id = _load_session_trace_id(session_id, org_id, user_id, project_id)
@@ -94,7 +94,7 @@ def architect_chat_task(
                     project_id=project_id,
                 )
 
-        result: ArchitectChatResult = asyncio.run(_run())
+        result: ArchitectChatResult = run_sync(_run())
 
         if result.content:
             try:
@@ -166,7 +166,7 @@ def architect_chat_task(
                 type=EventType.ARCHITECT_ERROR,
                 payload={
                     "session_id": session_id,
-                    "error": str(e),
+                    "error": format_user_facing_error(e),
                     "error_type": type(e).__name__,
                 },
             ),

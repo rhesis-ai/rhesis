@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import BaseWorkflowSection from '../BaseWorkflowSection';
+import { EntityType } from '@/types/entity-type';
 
 jest.mock('@/components/common/NotificationContext', () => ({
   useNotifications: () => ({ show: jest.fn() }),
@@ -65,7 +66,7 @@ describe('BaseWorkflowSection', () => {
           id: 's1',
           name: 'Open',
           description: 'open',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
         } as never,
       ],
       status: 'Open',
@@ -106,7 +107,7 @@ describe('BaseWorkflowSection', () => {
           id: 's2',
           name: 'Completed',
           description: '',
-          entity_type: 'Test',
+          entity_type: EntityType.TEST,
         } as never,
       ],
     });

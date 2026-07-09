@@ -5,8 +5,14 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { testRunKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { PlayArrowIcon } from '@/components/icons';
@@ -14,11 +20,14 @@ import TestRunsGrid from './components/TestRunsGrid';
 import RunDrawer from '@/components/common/RunDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const queryClient = useQueryClient();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.TestRun.READ
+  );
+  const canCreateTestRun = useCan(Capability.TestRun.CREATE);
   const [testRunCount, setTestRunCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
 
@@ -26,32 +35,10 @@ export default function TestRunsPage() {
 
   const sessionToken = session?.session_token ?? '';
 
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testRunsClient = apiFactory.getTestRunsClient();
-        const response = await testRunsClient.getTestRuns({
-          skip: 0,
-          limit: 1,
-        });
-        setTestRunCount(response.pagination?.totalCount ?? 0);
-      } catch {
-        setTestRunCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
+  }, [queryClient]);
 
   if (status === 'loading') {
     return (
@@ -62,6 +49,9 @@ export default function TestRunsPage() {
       </PageLayout>
     );
   }
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="test runs" />;
 
   if (!sessionToken) {
     return (
@@ -81,11 +71,13 @@ export default function TestRunsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Test Run"
-              onClick={() => setCreateDrawerOpen(true)}
-            />
+            <Can capability={Capability.TestRun.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Test Run"
+                onClick={() => setCreateDrawerOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -96,8 +88,10 @@ export default function TestRunsPage() {
               icon={PlayArrowIcon}
               title="No test runs yet"
               description="Execute a test set against an AI endpoint to start your first test run. Test runs measure quality, safety, and reliability of your AI endpoints."
-              actionLabel="Create test run"
-              onAction={() => setCreateDrawerOpen(true)}
+              actionLabel={canCreateTestRun ? 'Create test run' : undefined}
+              onAction={
+                canCreateTestRun ? () => setCreateDrawerOpen(true) : undefined
+              }
               enrichment={getEntityEmptyStateEnrichment('test-runs')}
             />
           ) : (
@@ -112,8 +106,7 @@ export default function TestRunsPage() {
             >
               <TestRunsGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
+                onTotalCountChange={setTestRunCount}
               />
             </Paper>
           )}

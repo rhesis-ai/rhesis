@@ -11,6 +11,12 @@ interface EditableSectionProps<T> {
   title: string;
   subtitle?: React.ReactNode;
   headerActions?: React.ReactNode;
+  /**
+   * When false the edit button is hidden and the section is permanently
+   * read-only. Defaults to true. Pass `can(entity, Capability.X.UPDATE)` to
+   * gate editing on server-driven affordances.
+   */
+  editable?: boolean;
   initialValue: T;
   onSave: (draft: T) => Promise<boolean | void>;
   isDirty?: (draft: T, initial: T) => boolean;
@@ -29,6 +35,7 @@ export function EditableSection<T>({
   title,
   subtitle,
   headerActions,
+  editable = true,
   initialValue,
   onSave,
   isDirty = defaultIsDirty,
@@ -76,9 +83,9 @@ export function EditableSection<T>({
       isSaving={isSaving}
       saveDisabled={!dirty}
     />
-  ) : (
+  ) : editable ? (
     <SectionEditButton onClick={handleEdit} />
-  );
+  ) : null;
 
   return (
     <SectionCard

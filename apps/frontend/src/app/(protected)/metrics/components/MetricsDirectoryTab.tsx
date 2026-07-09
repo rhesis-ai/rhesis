@@ -32,6 +32,8 @@ import type {
   BehaviorWithMetrics,
 } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
+import { Can, useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -68,7 +70,6 @@ interface MetricsDirectoryTabProps {
   filterOptions: FilterOptions;
   isLoading: boolean;
   error: string | null;
-  onRefresh: () => void;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
   setBehaviorMetrics: React.Dispatch<React.SetStateAction<BehaviorMetrics>>;
@@ -99,7 +100,6 @@ export default function MetricsDirectoryTab({
   filterOptions,
   isLoading,
   error,
-  onRefresh: _onRefresh,
   setFilters,
   setMetrics,
   setBehaviorMetrics,
@@ -109,6 +109,8 @@ export default function MetricsDirectoryTab({
   const router = useRouter();
   const searchParams = useSearchParams();
   const notifications = useNotifications();
+  const canCreate = useCan(Capability.Metric.CREATE);
+  const canDelete = useCan(Capability.Metric.DELETE);
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -498,12 +500,14 @@ export default function MetricsDirectoryTab({
       breadcrumbs={[]}
       actions={
         <FabGroup>
-          <Fab
-            icon={<FabAddIcon />}
-            tooltip="Create metric"
-            aria-label="Create metric"
-            onClick={e => setFabAnchorEl(e.currentTarget)}
-          />
+          <Can capability={Capability.Metric.CREATE}>
+            <Fab
+              icon={<FabAddIcon />}
+              tooltip="Create metric"
+              aria-label="Create metric"
+              onClick={e => setFabAnchorEl(e.currentTarget)}
+            />
+          </Can>
           <Menu
             anchorEl={fabAnchorEl}
             open={fabMenuOpen}
@@ -541,8 +545,12 @@ export default function MetricsDirectoryTab({
           icon={InsertChartIcon}
           title="No metrics yet"
           description="Create your first metric to measure behaviors and evaluate whether your AI applications meet requirements."
-          actionLabel="Create metric"
-          onAction={() => router.push('/metrics/new?type=custom-prompt')}
+          actionLabel={canCreate ? 'Create metric' : undefined}
+          onAction={
+            canCreate
+              ? () => router.push('/metrics/new?type=custom-prompt')
+              : undefined
+          }
           enrichment={getEntityEmptyStateEnrichment('metrics')}
         />
       ) : (
@@ -659,6 +667,7 @@ export default function MetricsDirectoryTab({
                           : undefined
                     }
                     onDelete={
+                      canDelete &&
                       assignedBehaviors.length === 0 &&
                       metric.backend_type?.type_value?.toLowerCase() ===
                         'custom'

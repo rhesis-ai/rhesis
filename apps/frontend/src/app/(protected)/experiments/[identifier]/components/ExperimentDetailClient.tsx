@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { experimentKeys } from '@/constants/query-keys';
 import {
   Alert,
   Box,
@@ -26,13 +28,15 @@ import RunDrawer from '@/components/common/RunDrawer';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
-  ExperimentDetail,
   ParameterSchema,
   ParameterValue,
   ExperimentVersion,
   ProjectEnvironments,
 } from '@/utils/api-client/interfaces/parameters';
 import { EditIcon, PlayArrowIcon } from '@/components/icons';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/utils/affordances';
+import { Can } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TypedValueEditor from './TypedValueEditor';
 import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
@@ -40,6 +44,7 @@ import ExperimentOverviewTab from './ExperimentOverviewTab';
 import ExperimentVersionsGrid from './ExperimentVersionsGrid';
 import ExperimentRunsTab from './ExperimentRunsTab';
 import ExperimentParametersTab from './ExperimentParametersTab';
+import { formatDate } from '@/utils/date';
 
 const TAB_KEYS = ['overview', 'parameters', 'versions', 'runs'] as const;
 
@@ -84,16 +89,9 @@ export default function ExperimentDetailClient({
   const notifications = useNotifications();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
-  const [experiment, setExperiment] = useState<ExperimentDetail | null>(null);
-  const [schema, setSchema] = useState<ParameterSchema | null>(null);
-  const [environments, setEnvironments] = useState<ProjectEnvironments | null>(
-    null
-  );
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Configuration tab state
   const [draft, setDraft] = useState<Record<string, ParameterValue | null>>({});
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
 
@@ -120,37 +118,57 @@ export default function ExperimentDetailClient({
     [sessionToken]
   );
 
-  const refresh = useCallback(
-    async (options?: { silent?: boolean }) => {
-      const silent = options?.silent === true;
-      if (!silent) setLoading(true);
-      setError(null);
-      try {
-        const client = apiFactory.getParametersClient();
-        const detail = await client.getExperiment(experimentId);
-        setExperiment(detail);
-        const schemaResp = await client.getSchema(detail.project_id);
-        setSchema(schemaResp);
-        const envResp = await client.getEnvironments(detail.project_id);
-        setEnvironments(envResp);
-        const latest = detail.versions[detail.versions.length - 1];
-        setDraft(valuesFromVersion(latest, schemaResp));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load experiment');
-      } finally {
-        if (!silent) setLoading(false);
-      }
+  const queryClient = useQueryClient();
+
+  const {
+    data: expData,
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: experimentKeys.detail(experimentId),
+    queryFn: async () => {
+      const client = apiFactory.getParametersClient();
+      const detail = await client.getExperiment(experimentId);
+      const [schemaResp, envResp] = await Promise.all([
+        client.getSchema(detail.project_id),
+        client.getEnvironments(detail.project_id),
+      ]);
+      return { experiment: detail, schema: schemaResp, environments: envResp };
     },
-    [apiFactory, experimentId]
+    enabled: !!sessionToken && !!experimentId,
+  });
+
+  const experiment = expData?.experiment ?? null;
+  const schema = expData?.schema ?? null;
+  const environments = expData?.environments ?? null;
+  const error =
+    fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to load experiment'
+        : null;
+
+  const refresh = useCallback(
+    (_options?: { silent?: boolean }) => {
+      queryClient.invalidateQueries({
+        queryKey: experimentKeys.detail(experimentId),
+      });
+    },
+    [queryClient, experimentId]
   );
 
+  // Seed draft on first load only; skip if user has unsaved edits
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!expData || isDraftDirty) return;
+    const { experiment: detail, schema: schemaResp } = expData;
+    const latest = detail.versions[detail.versions.length - 1];
+    setDraft(valuesFromVersion(latest, schemaResp));
+  }, [expData, isDraftDirty]);
 
   const updateDraft = useCallback(
     (name: string, value: ParameterValue | null) => {
       setDraft(prev => ({ ...prev, [name]: value }));
+      setIsDraftDirty(true);
     },
     []
   );
@@ -170,6 +188,7 @@ export default function ExperimentDetailClient({
       });
       notifications.show('Version saved', { severity: 'success' });
       setMessage('');
+      setIsDraftDirty(false);
       await refresh({ silent: true });
       return true;
     } catch (e) {
@@ -198,12 +217,10 @@ export default function ExperimentDetailClient({
     }
     try {
       const client = apiFactory.getParametersClient();
-      const updated = await client.patchExperiment(experiment.id, {
+      await client.patchExperiment(experiment.id, {
         name: trimmed,
       });
-      setExperiment(prev =>
-        prev ? { ...prev, ...(updated as Partial<ExperimentDetail>) } : null
-      );
+      refresh();
       notifications.show('Experiment renamed', { severity: 'success' });
       setRenameOpen(false);
     } catch (e) {
@@ -212,7 +229,7 @@ export default function ExperimentDetailClient({
         { severity: 'error' }
       );
     }
-  }, [apiFactory, experiment, notifications, renameValue]);
+  }, [apiFactory, experiment, notifications, refresh, renameValue]);
 
   const handlePromote = useCallback(
     (version?: string, environment?: string) => {
@@ -227,11 +244,8 @@ export default function ExperimentDetailClient({
       if (!experiment) return;
       try {
         const client = apiFactory.getParametersClient();
-        const next = await client.deleteEnvironment(
-          experiment.project_id,
-          environmentName
-        );
-        setEnvironments(next);
+        await client.deleteEnvironment(experiment.project_id, environmentName);
+        refresh();
         notifications.show(`Environment "${environmentName}" unbound`, {
           severity: 'success',
         });
@@ -242,7 +256,7 @@ export default function ExperimentDetailClient({
         );
       }
     },
-    [apiFactory, experiment, notifications]
+    [apiFactory, experiment, notifications, refresh]
   );
 
   const breadcrumbs: BreadcrumbItem[] = useMemo(() => {
@@ -279,7 +293,7 @@ export default function ExperimentDetailClient({
       ? [
           {
             label: 'Created',
-            value: new Date(experiment.created_at).toLocaleDateString(),
+            value: formatDate(experiment.created_at),
           },
         ]
       : []),
@@ -293,6 +307,8 @@ export default function ExperimentDetailClient({
     },
   ];
 
+  const canUpdate = can(experiment, Capability.Experiment.UPDATE);
+
   const pageTitle = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Typography
@@ -302,15 +318,17 @@ export default function ExperimentDetailClient({
       >
         {experiment.name}
       </Typography>
-      <Tooltip title="Rename experiment">
-        <IconButton
-          size="small"
-          onClick={handleRenameOpen}
-          aria-label="Rename experiment"
-        >
-          <EditIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
+      {canUpdate && (
+        <Tooltip title="Rename experiment">
+          <IconButton
+            size="small"
+            onClick={handleRenameOpen}
+            aria-label="Rename experiment"
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 
@@ -322,11 +340,13 @@ export default function ExperimentDetailClient({
       metadata={<DetailMetadataStrip items={metadataItems} />}
       actions={
         <FabGroup>
-          <Fab
-            icon={<PlayArrowIcon />}
-            tooltip="Run Experiment"
-            onClick={() => setRunDrawerOpen(true)}
-          />
+          <Can capability={Capability.TestRun.CREATE}>
+            <Fab
+              icon={<PlayArrowIcon />}
+              tooltip="Run Experiment"
+              onClick={() => setRunDrawerOpen(true)}
+            />
+          </Can>
         </FabGroup>
       }
     >
@@ -348,7 +368,11 @@ export default function ExperimentDetailClient({
             experiment={experiment}
             environments={environments}
             sessionToken={sessionToken}
-            onUpdated={updated => setExperiment(updated)}
+            onUpdated={() =>
+              queryClient.invalidateQueries({
+                queryKey: experimentKeys.detail(experimentId),
+              })
+            }
             onUnbindEnvironment={handleUnbindEnvironment}
           />
         </DetailTabPanel>
@@ -372,7 +396,9 @@ export default function ExperimentDetailClient({
               setSelectedVersionHashes(new Set([versionHash]));
               setRunDrawerOpen(true);
             }}
-            onAddConfiguration={() => setConfigDrawerOpen(true)}
+            onAddConfiguration={
+              canUpdate ? () => setConfigDrawerOpen(true) : undefined
+            }
           />
         </DetailTabPanel>
 
@@ -433,7 +459,10 @@ export default function ExperimentDetailClient({
 
       <BaseDrawer
         open={configDrawerOpen}
-        onClose={() => setConfigDrawerOpen(false)}
+        onClose={() => {
+          setConfigDrawerOpen(false);
+          setIsDraftDirty(false);
+        }}
         title="Add configuration"
         onSave={async () => {
           const ok = await handleSaveVersion();

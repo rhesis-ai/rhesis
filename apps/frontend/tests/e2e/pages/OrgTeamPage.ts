@@ -2,7 +2,7 @@ import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
- * Page Object for the Organization Team page (/organizations/team).
+ * Page Object for the Organization Team tab on Organization Settings.
  */
 export class OrgTeamPage extends BasePage {
   constructor(page: Page) {
@@ -10,21 +10,26 @@ export class OrgTeamPage extends BasePage {
   }
 
   async goto() {
-    await this.page.goto('/organizations/team');
+    await this.page.goto('/organizations/settings?tab=team');
   }
 
   async expectLoaded() {
-    await expect(this.page).toHaveURL(/\/organizations\/team/);
+    await expect(this.page).toHaveURL(/\/organizations\/settings/);
+    await expect(this.page).toHaveURL(/tab=team/);
     await this.expectNoErrors();
   }
 
-  /** Opens the invite team members drawer via the header FAB. */
+  /** Opens the invite team members drawer from the Team tab action. */
   async openInviteDrawer() {
     await this.page.waitForLoadState('networkidle');
-    const fab = this.page.getByRole('button', { name: /invite team members/i });
-    const hasFab = await fab.isVisible({ timeout: 10_000 }).catch(() => false);
-    if (hasFab) {
-      await fab.click();
+    const inviteButton = this.page.getByRole('button', {
+      name: /invite members/i,
+    });
+    const hasInviteButton = await inviteButton
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false);
+    if (hasInviteButton) {
+      await inviteButton.click();
       return;
     }
     await this.page
@@ -49,17 +54,22 @@ export class OrgTeamPage extends BasePage {
   }
 
   /**
+   * The RBAC org-role cell (OrgRoleChip, field `orgRole`) for the grid row
+   * containing `identifierText` (typically the member's email).
+   */
+  roleCellForRow(identifierText: string) {
+    return this.page
+      .locator('[role="row"]', { hasText: identifierText })
+      .locator('[data-field="orgRole"]');
+  }
+
+  /**
    * Assert that the team members grid is shown.
    */
   async expectMembersAreaVisible() {
     await this.page.waitForLoadState('networkidle');
-
-    const grid = this.page.locator('[role="grid"]');
-    const mainContent = this.page.locator('main, [role="main"]').first();
-
-    const hasGrid = await grid.isVisible().catch(() => false);
-    const hasMain = await mainContent.isVisible().catch(() => false);
-
-    expect(hasGrid || hasMain).toBeTruthy();
+    await expect(this.page.getByRole('table').first()).toBeVisible({
+      timeout: 15_000,
+    });
   }
 }

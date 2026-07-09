@@ -130,7 +130,16 @@ export function JsonPreview({
         {tail}
       </>
     );
-  if (typeof value === 'string')
+  if (typeof value === 'string') {
+    if (/^\{\{[^}]+\}\}$/.test(value))
+      return (
+        <>
+          <Box component="span" sx={varChipSx}>
+            {value}
+          </Box>
+          {tail}
+        </>
+      );
     return (
       <>
         <Box component="span" sx={{ color: T.str }}>
@@ -139,6 +148,7 @@ export function JsonPreview({
         {tail}
       </>
     );
+  }
 
   if (Array.isArray(value)) {
     if (!value.length)

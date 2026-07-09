@@ -28,6 +28,9 @@ import {
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
+import { formatDate } from '@/utils/date';
 
 interface IdentityDraft {
   description: string;
@@ -97,6 +100,7 @@ export default function ExperimentOverviewTab({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <EditableSection
         title="Experiment Overview"
+        editable={can(experiment, Capability.Experiment.UPDATE)}
         initialValue={identityInitial}
         onSave={handleSaveIdentity}
       >
@@ -252,9 +256,7 @@ export default function ExperimentOverviewTab({
             <ViewField
               label="Last Saved"
               value={
-                latestVersion
-                  ? new Date(latestVersion.created_at).toLocaleString()
-                  : undefined
+                latestVersion ? formatDate(latestVersion.created_at) : undefined
               }
             />
           </Grid>

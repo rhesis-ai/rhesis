@@ -1,6 +1,6 @@
 """Tests for exchange rate service."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -50,13 +50,13 @@ class TestExchangeRateService:
 
         # Set cache
         service._usd_to_eur_rate = 0.92
-        service._last_fetch = datetime.utcnow()
+        service._last_fetch = datetime.now(timezone.utc)
 
         # Should be valid
         assert service._is_cache_valid()
 
         # Expire cache
-        service._last_fetch = datetime.utcnow() - timedelta(hours=25)
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Should be invalid
         assert not service._is_cache_valid()
@@ -67,7 +67,7 @@ class TestExchangeRateService:
 
         # Set valid cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow()
+        service._last_fetch = datetime.now(timezone.utc)
 
         # Mock API to verify it's not called
         mock_fetch = mocker.patch.object(service, "_fetch_rate_from_api")
@@ -83,7 +83,7 @@ class TestExchangeRateService:
 
         # Set stale cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow() - timedelta(hours=25)
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Mock API to return new rate
         mocker.patch.object(service, "_fetch_rate_from_api", return_value=0.93)
@@ -99,7 +99,7 @@ class TestExchangeRateService:
 
         # Set stale cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow() - timedelta(hours=25)
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Mock API failure
         mocker.patch.object(service, "_fetch_rate_from_api", return_value=None)
@@ -135,7 +135,7 @@ class TestExchangeRateService:
 
         # Set initial cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow()
+        service._last_fetch = datetime.now(timezone.utc)
 
         # Mock API to return new rate
         mocker.patch.object(service, "_fetch_rate_from_api", return_value=0.93)
@@ -198,7 +198,7 @@ class TestExchangeRateService:
 
         # Set valid cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow()
+        service._last_fetch = datetime.now(timezone.utc)
 
         # Mock async API to verify it's not called
         mock_fetch = mocker.patch.object(service, "_fetch_rate_from_api_async")
@@ -215,7 +215,7 @@ class TestExchangeRateService:
 
         # Set stale cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow() - timedelta(hours=25)
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Mock async API to return new rate
         mocker.patch.object(service, "_fetch_rate_from_api_async", return_value=0.93)
@@ -232,7 +232,7 @@ class TestExchangeRateService:
 
         # Set stale cache
         service._usd_to_eur_rate = 0.95
-        service._last_fetch = datetime.utcnow() - timedelta(hours=25)
+        service._last_fetch = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Mock async API failure
         mocker.patch.object(service, "_fetch_rate_from_api_async", return_value=None)

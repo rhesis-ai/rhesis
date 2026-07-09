@@ -1,0 +1,20 @@
+[
+  {
+    "id": "c0000000-0000-0000-0000-000000000001",
+    "organization_id": "e2e00000-0000-0000-0000-000000000002",
+    "user_id": "e2e00000-0000-0000-0000-000000000001",
+    "role_id": "a0000000-0000-0000-0000-000000000001",
+    "role": {
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "name": "owner",
+      "display_name": "Owner",
+      "description": "Full control of the organization.",
+      "scope": "organization",
+      "level": 100,
+      "is_built_in": true,
+      "organization_id": null,
+      "permissions": [],
+      "member_count": 1
+    }
+  }
+]

@@ -185,6 +185,15 @@ async def initialize_organization_data(
         # query inside execute_initial_test_runs would run without tenant context.
         set_session_variables(db, str(organization_id), str(current_user.id))
 
+        # Assign the org creator the Owner role (EE). The handler resolves Owner
+        # vs Member from organization.owner_id, so the creator (owner_id ==
+        # current_user.id) becomes Owner. No-op in community builds / RBAC-off.
+        # Runs here (not at org creation) because tenant GUCs are valid only
+        # after set_session_variables, which organization_member RLS requires.
+        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+
+        on_user_org_assigned(db, current_user.id, organization_id)
+
         # Execute initial test runs after the org is marked complete.
         # This is non-blocking - if it fails, onboarding has already succeeded.
         test_execution_summary = None
@@ -277,7 +286,7 @@ async def rollback_organization_data(
         if not org.is_onboarding_complete:
             raise HTTPException(status_code=400, detail="Organization not initialized yet")
 
-        rollback_initial_data(db, str(organization_id))
+        rollback_initial_data(db, str(organization_id), str(current_user.id))
 
         # Mark onboarding as incomplete
         org.is_onboarding_complete = False

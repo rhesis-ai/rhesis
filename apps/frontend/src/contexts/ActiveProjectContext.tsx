@@ -5,11 +5,17 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import {
+  fetchUserSettings,
+  writeUserSettingsCache,
+} from '@/hooks/useUserSettings';
 import {
   clearActiveProjectId,
   readActiveProjectId,
@@ -29,6 +35,8 @@ interface ActiveProjectContextValue {
   setActiveProject: (project: Project | null) => void;
   /** Reload the member-project list from the API. */
   refresh: (options?: { listOnly?: boolean }) => Promise<void>;
+  /** Update cached project data after an in-place edit (no reload). */
+  syncProject: (project: Project) => void;
 }
 
 const ActiveProjectContext = createContext<ActiveProjectContextValue>({
@@ -37,6 +45,7 @@ const ActiveProjectContext = createContext<ActiveProjectContextValue>({
   loading: false,
   setActiveProject: () => {},
   refresh: async () => {},
+  syncProject: () => {},
 });
 
 export function ActiveProjectProvider({
@@ -47,8 +56,14 @@ export function ActiveProjectProvider({
   initialActiveProject?: Project | null;
 }) {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const userScope = session?.user?.id ?? session?.session_token ?? '';
   const pathname = usePathname();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+  const [projects, setProjects] = useState<Project[]>(
+    initialActiveProject ? [initialActiveProject] : []
+  );
   const [activeProject, setActiveProjectState] = useState<Project | null>(
     initialActiveProject
   );
@@ -57,7 +72,12 @@ export function ActiveProjectProvider({
   const fetchProjects = useCallback(
     async (options?: { listOnly?: boolean }) => {
       if (!session?.session_token) return;
-      if (pathname.startsWith('/onboarding')) {
+      if (
+        pathnameRef.current.startsWith('/onboarding') ||
+        !session?.user?.organization_id
+      ) {
+        // No org yet (mid-onboarding, or the session hasn't caught up with a
+        // just-completed onboarding) — /projects/mine would 403.
         setLoading(false);
         return;
       }
@@ -103,7 +123,11 @@ export function ActiveProjectProvider({
         // 2. Fall back to the user's configured default project.
         let defaultId: string | null = null;
         try {
-          const settings = await factory.getUsersClient().getUserSettings();
+          const settings = await fetchUserSettings(
+            queryClient,
+            session.session_token,
+            userScope
+          );
           defaultId = settings?.default_project?.project_id
             ? String(settings.default_project.project_id)
             : null;
@@ -131,7 +155,12 @@ export function ActiveProjectProvider({
         setLoading(false);
       }
     },
-    [session?.session_token, pathname]
+    [
+      session?.session_token,
+      session?.user?.organization_id,
+      queryClient,
+      userScope,
+    ]
   );
 
   useEffect(() => {
@@ -151,12 +180,13 @@ export function ActiveProjectProvider({
         if (token) {
           try {
             const factory = new ApiClientFactory(token);
-            await factory.getUsersClient().updateUserSettings({
+            const updated = await factory.getUsersClient().updateUserSettings({
               default_project: {
                 project_id: project.id as UUID,
                 name: project.name,
               },
             });
+            writeUserSettingsCache(queryClient, userScope, updated);
           } catch {
             // Cookie still scopes the current session; ignore persistence failure.
           }
@@ -174,7 +204,7 @@ export function ActiveProjectProvider({
         window.location.reload();
       }
     },
-    [session?.session_token]
+    [session?.session_token, queryClient, userScope]
   );
 
   const refresh = useCallback(
@@ -182,6 +212,18 @@ export function ActiveProjectProvider({
       fetchProjects({ listOnly: options?.listOnly ?? true }),
     [fetchProjects]
   );
+
+  const syncProject = useCallback((project: Project) => {
+    const id = String(project.id);
+    setProjects(prev => {
+      const exists = prev.some(p => String(p.id) === id);
+      if (!exists) return [...prev, project];
+      return prev.map(p => (String(p.id) === id ? { ...p, ...project } : p));
+    });
+    setActiveProjectState(prev =>
+      prev && String(prev.id) === id ? { ...prev, ...project } : prev
+    );
+  }, []);
 
   return (
     <ActiveProjectContext.Provider
@@ -191,6 +233,7 @@ export function ActiveProjectProvider({
         loading,
         setActiveProject,
         refresh,
+        syncProject,
       }}
     >
       {children}

@@ -27,6 +27,16 @@ import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrap
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import { MentionOption } from '@/components/common/MentionTextInput';
+import { EntityType } from '@/types/entity-type';
+
+export const TEST_RESULT_DRAWER_TAB = {
+  overview: 0,
+  conversation: 1,
+  metrics: 2,
+  reviews: 3,
+  history: 4,
+  tasks: 5,
+} as const;
 
 interface TestResultDrawerProps {
   open: boolean;
@@ -152,14 +162,7 @@ export default function TestResultDrawer({
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
 
-  const TAB = {
-    overview: 0,
-    conversation: 1,
-    metrics: 2,
-    reviews: 3,
-    history: 4,
-    tasks: 5,
-  } as const;
+  const TAB = TEST_RESULT_DRAWER_TAB;
 
   // Update active tab when initialTab changes (when drawer opens with specific tab)
   React.useEffect(() => {
@@ -216,7 +219,7 @@ export default function TestResultDrawer({
 
       // Get available statuses for TestResult
       const statuses = await statusClient.getStatuses({
-        entity_type: 'TestResult',
+        entity_type: EntityType.TEST_RESULT,
       });
 
       // Determine the automated status from goal_evaluation
@@ -310,9 +313,9 @@ export default function TestResultDrawer({
                 minWidth: 'auto',
                 paddingX: 0,
                 paddingY: '5px',
-                marginRight: '50px',
+                marginRight: theme.spacing(6.25),
                 textTransform: 'none',
-                fontSize: '18px',
+                fontSize: theme.typography.pxToRem(18),
                 fontWeight: 700,
                 lineHeight: '25px',
                 color: theme.palette.text.disabled,

@@ -176,6 +176,19 @@ def add_project_member(
     if target_user is None:
         raise HTTPException(status_code=404, detail="User not found in this organization")
 
+    # Adding a member *with* a role must pass the same privilege-escalation guard
+    # as the EE role-assignment endpoint. Core has no graded roles, so the check
+    # is delegated to an EE-registered validator; without one, a role_id is
+    # rejected (422) rather than silently applied. See role_assignment_hook.
+    if body.role_id is not None:
+        from rhesis.backend.app.auth.role_assignment_hook import (
+            validate_project_role_assignment,
+        )
+
+        validate_project_role_assignment(
+            db=db, actor=current_user, role_id=body.role_id, project_id=project_id
+        )
+
     return crud.add_project_member(
         db=db,
         project_id=project_id,

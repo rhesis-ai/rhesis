@@ -4,7 +4,6 @@ import * as React from 'react';
 import {
   Avatar,
   Box,
-  Chip,
   InputAdornment,
   TextField,
   Button,
@@ -12,11 +11,8 @@ import {
   CircularProgress,
   List,
   ListItemButton,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import CheckIcon from '@mui/icons-material/Check';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
@@ -26,6 +22,12 @@ import {
   drawerOutlineButtonSx,
   drawerSectionSx,
 } from '@/components/common/drawerFormFieldSx';
+import {
+  getSelectableProjectItemSx,
+  getSelectableProjectNameSx,
+  projectAvatarSx,
+  projectDescriptionSx,
+} from './memberCardSx';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
@@ -33,13 +35,14 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { UUID } from 'crypto';
 
 interface InviteItem {
   id: string;
   email: string;
+  orgRoleId: string | null;
 }
 
 interface FormData {
@@ -52,10 +55,12 @@ interface TeamInviteFormProps {
   /** When true, submit is triggered by the parent drawer (no footer button). */
   embedded?: boolean;
   onSubmittingChange?: (submitting: boolean) => void;
+  /** Passed from the parent drawer so role pickers refetch when it opens. */
+  drawerOpen?: boolean;
 }
 
 function createInvite(email = ''): InviteItem {
-  return { id: crypto.randomUUID(), email };
+  return { id: crypto.randomUUID(), email, orgRoleId: null };
 }
 
 const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
@@ -65,12 +70,15 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
       disableDuringTour = false,
       embedded = false,
       onSubmittingChange,
+      drawerOpen = false,
     },
     ref
   ) {
     const { data: session } = useSession();
     const notifications = useNotifications();
     const { projects: availableProjects } = useActiveProject();
+    const { AddMemberRoleField, InviteOrgRoleField, assignOrgMemberRole } =
+      getMemberRoleExtensions();
 
     const [formData, setFormData] = useState<FormData>({
       invites: [createInvite()],
@@ -79,8 +87,12 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
     const [errors, setErrors] = useState<{
       [key: string]: { hasError: boolean; message: string };
     }>({});
-    const [selectedProjects, setSelectedProjects] = useState<Project[]>([]);
     const [projectSearch, setProjectSearch] = useState('');
+    // projectRoles maps projectId → chosen roleId (null = default/unset).
+    // A project being present in this map means it is selected for invite.
+    const [projectRoles, setProjectRoles] = useState<
+      Record<string, string | null>
+    >({});
 
     useEffect(() => {
       onSubmittingChange?.(isSubmitting);
@@ -162,108 +174,140 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         return;
       }
 
+      const sessionToken = session.session_token;
+
       try {
         setIsSubmitting(true);
 
-        const validEmails = formData.invites
-          .map(invite => invite.email.trim())
-          .filter(email => email);
+        const validInvites = formData.invites.filter(invite =>
+          invite.email.trim()
+        );
 
-        if (validEmails.length === 0) {
+        if (validInvites.length === 0) {
           notifications.show('Please enter at least one email address', {
             severity: 'error',
           });
           return;
         }
 
-        const clientFactory = new ApiClientFactory(session.session_token);
+        const clientFactory = new ApiClientFactory(sessionToken);
         const usersClient = clientFactory.getUsersClient();
 
-        const invitationResults: Array<{
-          email: string;
-          success: boolean;
-          error?: string;
-        }> = [];
-
-        const createUserPromises = validEmails.map(async email => {
-          const userData = {
-            email: email,
-            organization_id: session.user?.organization_id as UUID,
-            is_active: true,
-            send_invite: true,
+        type InviteResult = {
+          user: Awaited<ReturnType<typeof usersClient.createUser>> | null;
+          invitation: {
+            email: string;
+            success: boolean;
+            error?: string;
           };
+        };
 
-          try {
-            const user = await usersClient.createUser(userData);
-            invitationResults.push({ email, success: true });
-            return user;
-          } catch (error: unknown) {
-            let errorMessage = 'Unknown error';
-            let isExpectedError = false;
+        const createUserResults = await Promise.all(
+          validInvites.map(async invite => {
+            const email = invite.email.trim();
+            const userData = {
+              email: email,
+              organization_id: session.user?.organization_id as UUID,
+              is_active: true,
+              send_invite: true,
+            };
 
-            if (error instanceof Error) {
-              if (error.message.includes('API error:')) {
-                const statusMatch = error.message.match(/API error: (\d+)/);
-                const statusCode = statusMatch
-                  ? parseInt(statusMatch[1])
-                  : null;
-                isExpectedError = statusCode
-                  ? [400, 409, 422, 429].includes(statusCode)
-                  : false;
+            try {
+              const user = await usersClient.createUser(userData);
+              if (user && invite.orgRoleId && assignOrgMemberRole) {
+                try {
+                  await assignOrgMemberRole(
+                    sessionToken,
+                    String(user.id),
+                    invite.orgRoleId
+                  );
+                } catch {
+                  // org-role assignment failure is non-fatal — user is still invited
+                }
+              }
+              return {
+                user,
+                invitation: { email, success: true },
+              } satisfies InviteResult;
+            } catch (error: unknown) {
+              let errorMessage = 'Unknown error';
+              let isExpectedError = false;
 
-                const match = error.message.match(/API error: \d+ - (.+)/);
-                if (match && match[1]) {
-                  try {
-                    const parsed = JSON.parse(match[1]);
-                    errorMessage = parsed.detail || parsed.message || match[1];
-                  } catch {
-                    errorMessage = match[1];
+              if (error instanceof Error) {
+                if (error.message.includes('API error:')) {
+                  const statusMatch = error.message.match(/API error: (\d+)/);
+                  const statusCode = statusMatch
+                    ? parseInt(statusMatch[1])
+                    : null;
+                  isExpectedError = statusCode
+                    ? [400, 409, 422, 429].includes(statusCode)
+                    : false;
+
+                  const match = error.message.match(/API error: \d+ - (.+)/);
+                  if (match && match[1]) {
+                    try {
+                      const parsed = JSON.parse(match[1]);
+                      errorMessage =
+                        parsed.detail || parsed.message || match[1];
+                    } catch {
+                      errorMessage = match[1];
+                    }
+                  } else {
+                    errorMessage = error.message;
                   }
                 } else {
                   errorMessage = error.message;
                 }
-              } else {
-                errorMessage = error.message;
+              } else if (
+                typeof error === 'object' &&
+                error !== null &&
+                'detail' in error
+              ) {
+                errorMessage = String((error as { detail: unknown }).detail);
+              } else if (typeof error === 'string') {
+                errorMessage = error;
               }
-            } else if (
-              typeof error === 'object' &&
-              error !== null &&
-              'detail' in error
-            ) {
-              errorMessage = String((error as { detail: unknown }).detail);
-            } else if (typeof error === 'string') {
-              errorMessage = error;
+
+              if (!isExpectedError) {
+                // unexpected errors logged by API client
+              }
+
+              return {
+                user: null,
+                invitation: { email, success: false, error: errorMessage },
+              } satisfies InviteResult;
             }
+          })
+        );
 
-            if (!isExpectedError) {
-              // unexpected errors logged by API client
-            }
-
-            invitationResults.push({
-              email,
-              success: false,
-              error: errorMessage,
-            });
-            return null;
-          }
-        });
-
-        const createdUsers = await Promise.all(createUserPromises);
+        const createdUsers = createUserResults.map(result => result.user);
+        const invitationResults = createUserResults.map(
+          result => result.invitation
+        );
 
         // Enroll successfully created users into the selected projects.
-        if (selectedProjects.length > 0) {
+        const selectedProjectIds = Object.keys(projectRoles);
+        if (selectedProjectIds.length > 0) {
           const projectsClient = clientFactory.getProjectsClient();
           const enrollPromises = createdUsers.flatMap((user, idx) => {
             if (!user || !invitationResults[idx]?.success) return [];
-            return selectedProjects.map(project =>
-              projectsClient
-                .addProjectMember(String(project.id), {
-                  user_id: String(user.id),
-                })
-                .catch(() => {
-                  // enrollment failure is non-fatal — user is still invited
-                })
-            );
+            return selectedProjectIds.map(async projectId => {
+              const userId = String(user.id);
+              const roleId = projectRoles[projectId];
+              try {
+                // Single atomic request: the backend applies the escalation
+                // guard before creating the membership row, so the member is
+                // never left enrolled with a role other than the one selected
+                // here (no best-effort follow-up assignment to partially fail).
+                await projectsClient.addProjectMember(projectId, {
+                  user_id: userId,
+                  role: 'member',
+                  role_id: roleId ?? undefined,
+                });
+              } catch {
+                // enrollment failure is non-fatal — user is still invited
+              }
+            });
           });
           await Promise.all(enrollPromises);
         }
@@ -271,7 +315,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         const successCount = invitationResults.filter(
           result => result.success
         ).length;
-        const failedCount = validEmails.length - successCount;
+        const failedCount = validInvites.length - successCount;
 
         if (successCount > 0 && failedCount === 0) {
           notifications.show(
@@ -359,7 +403,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         if (successCount > 0) {
           setFormData({ invites: [createInvite()] });
           setErrors({});
-          setSelectedProjects([]);
+          setProjectRoles({});
           setProjectSearch('');
 
           if (onInvitesSent) {
@@ -390,6 +434,17 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         delete newErrors[invite.id];
         setErrors(newErrors);
       }
+    };
+
+    const handleOrgRoleChange = (
+      invite: InviteItem,
+      orgRoleId: string | null
+    ) => {
+      setFormData(prev => ({
+        invites: prev.invites.map(i =>
+          i.id === invite.id ? { ...i, orgRoleId } : i
+        ),
+      }));
     };
 
     const addEmailField = () => {
@@ -449,14 +504,27 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                   helperText={errors[invite.id]?.message || ''}
                   placeholder="colleague@company.com"
                   variant="outlined"
-                  sx={drawerOutlinedFieldSx}
+                  sx={{
+                    ...drawerOutlinedFieldSx,
+                    flex: InviteOrgRoleField ? 1.4 : 1,
+                  }}
                   data-tour={index === 0 ? 'invite-email-input' : undefined}
                 />
+                {InviteOrgRoleField && session?.session_token && (
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <InviteOrgRoleField
+                      sessionToken={session.session_token}
+                      value={invite.orgRoleId}
+                      onChange={roleId => handleOrgRoleChange(invite, roleId)}
+                      active={drawerOpen}
+                    />
+                  </Box>
+                )}
                 {formData.invites.length > 1 && (
                   <IconButton
                     onClick={() => removeEmailField(invite)}
                     color="error"
-                    sx={{ mt: '8px' }}
+                    sx={{ mt: 1 }}
                   >
                     <DeleteIcon />
                   </IconButton>
@@ -483,7 +551,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
         <Box sx={drawerSectionSx}>
           <FormSectionDivider
             headline="Project access"
-            descriptiveText="Invited users will only have access to the projects you select. Leave empty to invite without any project access — an admin can add them later."
+            descriptiveText="Invited users will only have access to the projects you select. Leave empty to invite without project access — an admin can add them later."
           />
           <Box>
             {availableProjects.length === 0 ? (
@@ -513,83 +581,37 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                 />
                 <List
                   disablePadding
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme => theme.spacing(0.5),
-                  }}
+                  sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
                 >
                   {availableProjects
                     .filter(p =>
                       p.name.toLowerCase().includes(projectSearch.toLowerCase())
                     )
                     .map(project => {
-                      const isSelected = selectedProjects.some(
-                        p => String(p.id) === String(project.id)
-                      );
+                      const projectId = String(project.id);
+                      const isSelected = projectId in projectRoles;
                       return (
                         <ListItemButton
-                          key={String(project.id)}
-                          selected={isSelected}
+                          key={projectId}
                           onClick={() =>
-                            setSelectedProjects(prev =>
-                              isSelected
-                                ? prev.filter(
-                                    p => String(p.id) !== String(project.id)
-                                  )
-                                : [...prev, project]
-                            )
+                            setProjectRoles(prev => {
+                              if (isSelected) {
+                                const next = { ...prev };
+                                delete next[projectId];
+                                return next;
+                              }
+                              return { ...prev, [projectId]: null };
+                            })
                           }
-                          sx={{
-                            borderRadius: '12px',
-                            px: 1.5,
-                            py: 1.25,
-                            gap: theme => theme.spacing(1.5),
-                            border: theme =>
-                              isSelected
-                                ? `2px solid ${theme.palette.primary.main}`
-                                : `2px solid transparent`,
-                            '&.Mui-selected': {
-                              bgcolor: theme =>
-                                theme.palette.mode === 'light'
-                                  ? 'primary.50'
-                                  : 'primary.900',
-                            },
-                            '&.Mui-selected:hover': {
-                              bgcolor: theme =>
-                                theme.palette.mode === 'light'
-                                  ? 'primary.100'
-                                  : 'primary.800',
-                            },
-                          }}
+                          sx={getSelectableProjectItemSx(isSelected)}
                         >
-                          <Avatar
-                            sx={{
-                              width: theme => theme.spacing(4),
-                              height: theme => theme.spacing(4),
-                              bgcolor: 'primary.main',
-                              flexShrink: 0,
-                              fontSize: theme =>
-                                theme.typography.body2.fontSize,
-                              fontWeight: theme =>
-                                theme.typography.fontWeightBold,
-                              '& svg': { fontSize: theme => theme.spacing(2) },
-                            }}
-                          >
+                          <Avatar sx={projectAvatarSx}>
                             {getProjectIcon(project)}
                           </Avatar>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography
                               variant="body2"
-                              sx={{
-                                fontWeight: theme =>
-                                  isSelected
-                                    ? theme.typography.fontWeightBold
-                                    : theme.typography.fontWeightRegular,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
+                              sx={getSelectableProjectNameSx(isSelected)}
                             >
                               {project.name}
                             </Typography>
@@ -597,43 +619,30 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                               <Typography
                                 variant="caption"
                                 color="text.secondary"
-                                sx={{
-                                  display: 'block',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
+                                sx={projectDescriptionSx}
                               >
                                 {project.description}
                               </Typography>
                             )}
                           </Box>
-                          {isSelected && (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: theme => theme.spacing(0.75),
-                                flexShrink: 0,
-                              }}
-                            >
-                              <Chip
-                                label="Member"
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                                sx={{
-                                  height: theme => theme.spacing(2.5),
-                                  fontSize: theme =>
-                                    theme.typography.caption.fontSize,
-                                }}
-                              />
-                              <CheckIcon
-                                fontSize="small"
-                                sx={{ color: 'primary.main' }}
-                              />
-                            </Box>
-                          )}
+                          {isSelected &&
+                            AddMemberRoleField &&
+                            session?.session_token && (
+                              <Box sx={{ flexShrink: 0 }}>
+                                <AddMemberRoleField
+                                  sessionToken={session.session_token}
+                                  value={projectRoles[projectId] ?? null}
+                                  onChange={roleId =>
+                                    setProjectRoles(prev => ({
+                                      ...prev,
+                                      [projectId]: roleId,
+                                    }))
+                                  }
+                                  size="small"
+                                  active={drawerOpen}
+                                />
+                              </Box>
+                            )}
                         </ListItemButton>
                       );
                     })}
@@ -651,28 +660,6 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                     </Typography>
                   )}
               </>
-            )}
-
-            {/* Role note — static "Member" until RBAC lands */}
-            {availableProjects.length > 0 && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme => theme.spacing(0.5),
-                  mt: 1,
-                }}
-              >
-                <Tooltip title="Role-based access control is coming soon. All invited members receive the Member role for now.">
-                  <InfoOutlinedIcon
-                    fontSize="small"
-                    sx={{ color: 'text.disabled' }}
-                  />
-                </Tooltip>
-                <Typography variant="caption" color="text.disabled">
-                  Selected projects will be granted the Member role
-                </Typography>
-              </Box>
             )}
           </Box>
         </Box>

@@ -6,11 +6,9 @@ import React, {
   useCallback,
   useContext,
   useMemo,
-  useRef,
 } from 'react';
 import {
   GridColDef,
-  GridPaginationModel,
   GridFilterModel,
   GridRowParams,
   GridToolbarColumnsButton,
@@ -20,6 +18,8 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
+import { can } from '@/utils/affordances';
+import { Capability } from '@/constants/capabilities';
 import { Typography, Box, Alert, Avatar } from '@mui/material';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
@@ -38,11 +38,14 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { taskKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface TasksGridProps {
   sessionToken: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 const STATUS_PILL_TABS = [
@@ -112,32 +115,14 @@ function TasksUnifiedToolbar() {
 
 export default function TasksGrid({
   sessionToken,
-  refreshKey,
-  onRefresh: _onRefresh,
+  onTotalCountChange,
 }: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
+  const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [drawerFilters, setDrawerFilters] =
     useState<TaskFilters>(EMPTY_TASK_FILTERS);
@@ -145,118 +130,103 @@ export default function TasksGrid({
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const fetchTasks = useCallback(async () => {
-    if (!sessionToken) return;
+  const {
+    filterModel,
+    paginationModel,
+    sortModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+    handleSortModelChange,
+  } = useGridState({
+    searchQuery,
+    typeFilter: statusFilter,
+    typeFilterField: 'status',
+    applyDrawerFilters: useCallback(
+      (prev: GridFilterModel) => {
+        const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
+        const otherItems = prev.items.filter(
+          item => !DRAWER_FIELDS.includes(item.field ?? '')
+        );
+        const drawerItems: typeof prev.items = [];
+        if (drawerFilters.status) {
+          drawerItems.push({
+            field: 'status',
+            operator: 'equals',
+            value: drawerFilters.status,
+          });
+        }
+        if (drawerFilters.priority) {
+          drawerItems.push({
+            field: 'priority',
+            operator: 'equals',
+            value: drawerFilters.priority,
+          });
+        }
+        if (drawerFilters.assignee) {
+          drawerItems.push({
+            field: 'assignee',
+            operator: 'equals',
+            value: drawerFilters.assignee,
+          });
+        }
+        const newItems = [...otherItems, ...drawerItems];
+        if (
+          newItems.length === prev.items.length &&
+          newItems.every((it, i) => it === prev.items[i])
+        )
+          return prev;
+        return { ...prev, items: newItems };
+      },
+      [drawerFilters]
+    ),
+  });
 
-    try {
-      setLoading(true);
-
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const tasksClient = clientFactory.getTasksClient();
-
-      const oDataFilter = combineTaskFiltersToOData(filterModel);
-
-      const response = await tasksClient.getTasks({
+  const filterString = combineTaskFiltersToOData(filterModel);
+  const {
+    data: tasksData,
+    isLoading: loading,
+    errorMessage: error,
+    dismissError,
+  } = useGridQuery({
+    queryKey: taskKeys.list(
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+      'created_at',
+      'desc'
+    ),
+    errorFallbackMessage: 'Failed to load tasks',
+    queryFn: () => {
+      const client = new ApiClientFactory(sessionToken).getTasksClient();
+      return client.getTasks({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'created_at',
         sort_order: 'desc',
-        $filter: oDataFilter,
+        ...(filterString && { $filter: filterString }),
       });
+    },
+    enabled: !!sessionToken,
+  });
+  const tasks: Task[] = tasksData?.data ?? [];
+  const totalCount = tasksData?.totalCount ?? 0;
 
-      if (!isMounted.current) return;
-
-      setTasks(response.data);
-      setTotalCount(response.totalCount || 0);
-      setError(null);
-    } catch {
-      if (!isMounted.current) return;
-      setError('Failed to load tasks');
-      setTasks([]);
-    } finally {
-      if (isMounted.current) setLoading(false);
-    }
+  useEffect(() => {
+    if (!tasksData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveTaskFilters(drawerFilters);
+    if (!filtersActive) onTotalCountChange?.(totalCount);
   }, [
-    sessionToken,
-    paginationModel.page,
-    paginationModel.pageSize,
-    filterModel,
+    tasksData,
+    filterModel.items.length,
+    searchQuery,
+    drawerFilters,
+    onTotalCountChange,
+    totalCount,
   ]);
-
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      fetchTasks();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(item => item.field !== 'status');
-      const items =
-        statusFilter && statusFilter !== 'all'
-          ? [
-              ...otherItems,
-              { field: 'status', operator: 'equals', value: statusFilter },
-            ]
-          : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [statusFilter]);
-
-  useEffect(() => {
-    const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => !DRAWER_FIELDS.includes(item.field ?? '')
-      );
-      const drawerItems: typeof prev.items = [];
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status',
-          operator: 'equals',
-          value: drawerFilters.status,
-        });
-      }
-      if (drawerFilters.priority) {
-        drawerItems.push({
-          field: 'priority',
-          operator: 'equals',
-          value: drawerFilters.priority,
-        });
-      }
-      if (drawerFilters.assignee) {
-        drawerItems.push({
-          field: 'assignee',
-          operator: 'equals',
-          value: drawerFilters.assignee,
-        });
-      }
-      return { ...prev, items: [...otherItems, ...drawerItems] };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [drawerFilters]);
 
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
@@ -264,18 +234,6 @@ export default function TasksGrid({
     },
     [router]
   );
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
-
-  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    setFilterModel(newModel);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
 
   const handleRowDeleteAction = useCallback((id: string) => {
     setPendingDeleteId(id);
@@ -294,7 +252,7 @@ export default function TasksGrid({
         autoHideDuration: 4000,
       });
       setPendingDeleteId(null);
-      fetchTasks();
+      queryClient.invalidateQueries({ queryKey: taskKeys.all() });
     } catch {
       notifications.show('Failed to delete task', {
         severity: 'error',
@@ -304,7 +262,7 @@ export default function TasksGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [pendingDeleteId, sessionToken, notifications, fetchTasks]);
+  }, [pendingDeleteId, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -314,7 +272,9 @@ export default function TasksGrid({
   const columns: GridColDef[] = useMemo(() => {
     const actionsCol = createRowActionsColumn({
       onEdit: id => router.push(`/tasks/${id}`),
+      canEdit: row => can(row as unknown as Task, Capability.Task.UPDATE),
       onDelete: id => handleRowDeleteAction(id),
+      canDelete: row => can(row as unknown as Task, Capability.Task.DELETE),
     });
     return [
       {
@@ -408,7 +368,7 @@ export default function TasksGrid({
     >
       <Box sx={{ position: 'relative' }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
             {error}
           </Alert>
         )}

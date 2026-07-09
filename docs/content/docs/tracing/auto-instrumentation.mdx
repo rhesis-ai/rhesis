@@ -11,9 +11,11 @@ Auto-instrumentation automatically traces all LLM calls, tool invocations, and c
 <Mermaid chart={`flowchart LR
     AI["auto_instrument()"] --> LC["LangChain"]
     AI --> LG["LangGraph"]
+    AI --> MAF["Microsoft Agent Framework"]
 
     LC --> T["Automatic Traces"]
-    LG --> T`} />
+    LG --> T
+    MAF --> T`} />
 
 ## API at a glance
 
@@ -236,7 +238,10 @@ disable_auto_instrument()`}
 |---|---|---|---|
 | LangChain | Auto-instrument (callback + tool patch) | `langchain` | Supported |
 | LangGraph | Auto-instrument (callback + graph patch) | `langgraph` | Supported |
+| Microsoft Agent Framework | Auto-instrument (OTel span translation) | `agent-framework` | Supported |
 | Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …) | `@observe.*` decorators | n/a | Use [Decorators](/tracing/decorators) |
+
+Microsoft Agent Framework has its own dedicated guide - see [Microsoft Agent Framework](/tracing/agent-framework) for installation, handoff tracing, and content-capture options.
 
 For frameworks not in the auto-instrument list, wrap the functions, tools, or agents you want to trace with `@observe.llm`, `@observe.tool`, `@observe.retrieval`, etc. Without decorators only top-level inputs and outputs are captured.
 
@@ -249,6 +254,7 @@ To add a new framework to the auto-instrument list, see [Contributing: SDK Integ
   - [Setup](/tracing/setup) - Initial configuration
   - [Decorators](/tracing/decorators) - `@observe` and `@endpoint`
   - [Multi-Agent Tracing](/tracing/multi-agent) - Agent and handoff spans
+  - [Microsoft Agent Framework](/tracing/agent-framework) - Native agent and handoff tracing for MAF
   - [Integrations](/docs/integrations) - The four integration layers at a glance
   - [Connector](/sdk/connector) - Register functions as endpoints
 </Callout>

@@ -174,7 +174,7 @@ describe('Sidebar', () => {
       render(<Sidebar />);
       fireEvent.click(screen.getByText('Acme Corp'));
       expect(screen.getByText('Org Settings')).toBeInTheDocument();
-      expect(screen.getByText('Team')).toBeInTheDocument();
+      expect(screen.queryByText('Team')).not.toBeInTheDocument();
       expect(screen.getByText('Projects')).toBeInTheDocument();
       expect(
         screen.getByRole('menuitem', { name: /switch project/i })
@@ -203,18 +203,6 @@ describe('Sidebar', () => {
       fireEvent.click(screen.getByText('Acme Corp'));
       fireEvent.click(screen.getByText('Projects'));
       expect(mockRouterPush).toHaveBeenCalledWith('/projects');
-    });
-
-    it('navigates to team when Team is clicked', () => {
-      setupMocks();
-      (useNavigationItems as jest.Mock).mockReturnValue({
-        navigation: [],
-        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
-      });
-      render(<Sidebar />);
-      fireEvent.click(screen.getByText('Acme Corp'));
-      fireEvent.click(screen.getByText('Team'));
-      expect(mockRouterPush).toHaveBeenCalledWith('/organizations/team');
     });
   });
 

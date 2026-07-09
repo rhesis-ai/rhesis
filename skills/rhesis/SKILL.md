@@ -22,6 +22,8 @@ For self-hosted backends, set `RHESIS_MCP_URL=http://localhost:8080/mcp` instead
 5. **Execution** — run the test set against the endpoint when the user confirms
 6. **Analysis** — fetch results and present a structured summary
 
+See `references/entity-model.md` for the entity graph, relations, and tool chains.
+
 Not every request needs the full cycle. Direct requests ("update metric X", "list my test sets", "compare these two runs") skip straight to the relevant tools.
 
 ## Resolving entities by name
@@ -94,28 +96,20 @@ Only after the user confirms (yes / go ahead / looks good) should you call any c
 
 Execute the approved plan exactly — no additions, substitutions, or extra entities.
 
+**Why this order matters:** `generate_test_set` must run only after every behavior, metric, and behavior→metric link is in place. The backend rejects earlier calls with "Cannot generate test sets yet…", which wastes a retry. An older version of this skill listed generation before metrics — that was wrong and is corrected below. Full parameter detail lives in the Architect `system_prompt.j2` Entity Creation Order section.
+
 **Order of operations:**
 
 1. **Reuse lookup** — if you don't already have IDs for reused entities from planning, resolve them now via `list_behaviors` / `list_metrics` with `$filter`.
 2. **Create project** — only if the plan includes one. Use exact name and description from the plan.
 3. **Create new behaviors** — for each behavior marked **(new)**, call `create_behavior` with both `name` and `description`. Skip behaviors marked **(reuse)**.
-4. **Generate test sets** — for each test set, call `generate_test_set` with:
-   - `name` from the plan
-   - `config.generation_prompt` — specific and detailed (this drives the synthesizer)
-   - `config.behaviors` — required, non-empty list of behavior name strings
-   - `config.categories` and `config.topics` — optional
-   - `num_tests` — typically 5–15 per test set
-   - `test_type` — `"Single-Turn"` or `"Multi-Turn"`
-   - `sources` — optional, if the user mentioned reference material or documentation. Use `list_sources` to find available sources first, then pass `[{"id": "<uuid>"}]`. Only works with Single-Turn tests.
-   The response includes a `task_id`.
-5. **Wait for generation** — poll `get_job_status` with the `task_id` until `status` is `"SUCCESS"`. When done, extract `test_set_id` from `result`.
-6. **Resolve behavior IDs** — for reused behaviors, you have IDs from step 1. For newly created behaviors, call `list_behaviors` with batched OR filters: `$filter=name eq 'A' or name eq 'B'`. One call for all.
-7. **Create/improve metrics** — for each metric in the plan:
-   - **(reuse)**: use the existing ID — no call needed
-   - **(improve)**: call `improve_metric` with the existing metric's ID and edit instructions
-   - **(new)**: call `create_metric` with the **exact name from the plan**. Do NOT use `generate_metric` during plan execution — it produces its own name, which breaks plan tracking.
-8. **Link metrics to behaviors** — for each mapping in the plan, call `add_behavior_to_metric` with the metric ID and behavior ID.
-9. **Report and offer** — summarize what was created (by name, never IDs) and offer to run the tests.
+4. **Resolve behavior IDs** — batch OR filters on `list_behaviors` for any IDs you still need.
+5. **Create/improve metrics** — for each metric: **(reuse)** skip; **(improve)** call `improve_metric` (read with `get_metric` first); **(new)** call `create_metric` with the exact plan name. Do NOT use `generate_metric` during plan execution.
+6. **Link metrics to behaviors** — `add_behavior_to_metric` for every mapping. All mappings must complete before generating test sets.
+7. **Generate test sets** — for each test set, call `generate_test_set` with `name`, `config` (generation_prompt + behaviors), `num_tests`, `test_type`, and optional `sources` from `list_sources` or `create_source` (Single-Turn only). Response includes `task_id`.
+8. **Wait for generation** — poll `get_job_status` until `SUCCESS`; extract `test_set_id` from `result`.
+9. **Verify** — call `get_test_set` and `list_test_set_tests` to spot-check generated content.
+10. **Report and offer** — summarize what was created (by name, never IDs) and offer to run the tests.
 
 ### Naming conventions
 
@@ -146,7 +140,7 @@ Never use snake_case, camelCase, or prefixes like "is_" or "check_".
 
 Only execute tests when the user explicitly asks.
 
-- Use **only `execute_test_set`** with `test_set_identifier` (the test set UUID) and `endpoint_id` (the endpoint UUID).
+- Use **only `execute_test_set`** with `test_set_identifier` (test set UUID, nano_id, or slug) and `endpoint_id` (the endpoint UUID).
 - Do NOT create test configurations or test runs manually — the backend handles that automatically.
 - If there are multiple test sets, call `execute_test_set` once per test set.
 - After calling `execute_test_set`, the response includes a `test_run_id` and a `task_id`. Poll `get_job_status` with `task_id` to wait for completion, then use `test_run_id` to fetch results.
@@ -227,6 +221,11 @@ Not every request needs the full workflow. If the user asks for a specific actio
 - "Link metric A to behavior B" → resolve both by name, call `add_behavior_to_metric`
 - "List my test sets" → call `list_test_sets` with `$select=name,id,description`
 - "What metrics exist?" → call `list_metrics`
+
+- "Ground tests in this doc" → `create_source` then `generate_test_set` with source id
+- "Show test set contents" → `list_test_sets` → `list_test_set_tests`
+- "Fix metric threshold" → `get_metric` → `update_metric`
+- "Unlink metric from behavior" → `get_metric_behaviors` → `remove_behavior_from_metric`
 
 Only enter the full phased workflow when the user asks to design or create a test suite from scratch.
 

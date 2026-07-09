@@ -15,11 +15,21 @@ from rhesis.backend.app.features import (
 
 @pytest.fixture
 def clean_registry():
-    """Reset the registry before and after each test for isolation."""
+    """Reset the registry before each test, restore the real state after.
+
+    ``ee.bootstrap()`` registers RBAC (and other EE features) exactly once,
+    at process import time — it never runs again during a test session. A
+    bare ``FeatureRegistry.reset()`` on teardown leaves ``_features`` empty
+    for the rest of the suite, so every later test sees RBAC as unregistered
+    and every RBAC permission check silently falls back to the community
+    provider. Snapshot the pre-test state and restore it instead of wiping.
+    """
+    saved_features = dict(FeatureRegistry._features)
+    saved_license = FeatureRegistry._license
     FeatureRegistry.reset()
     yield
-    # Leave clean - EE features register via ee.bootstrap, not here.
-    FeatureRegistry.reset()
+    FeatureRegistry._features = saved_features
+    FeatureRegistry._license = saved_license
 
 
 class _DenyingProvider:
@@ -153,11 +163,13 @@ class TestDefaultLicenseProvider:
         feature = Feature(name=FeatureName.SSO, display_name="SSO")
         assert provider.allows_feature(feature, org=object()) is True
 
-    def test_denies_rbac_by_default(self):
-        """RBAC must be off by default to avoid locking out users with no org-role rows."""
+    def test_allows_rbac_by_default(self):
+        """RBAC is allowed by default now that the backfill migration seeds
+        organization_member rows for every existing user, so enabling it does
+        not lock anyone out (see DefaultLicenseProvider's docstring)."""
         provider = DefaultLicenseProvider()
         feature = Feature(name=FeatureName.RBAC, display_name="RBAC")
-        assert provider.allows_feature(feature, org=object()) is False
+        assert provider.allows_feature(feature, org=object()) is True
 
     def test_info_marks_dev_edition(self):
         """Edition is 'dev' rather than 'community' when EE pkg is loaded but unlicensed."""

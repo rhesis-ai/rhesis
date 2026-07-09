@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.9.0"
+version = "0.9.1"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,7 +36,7 @@ dependencies = [
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
-    "litellm>=1.83.10",
+    "litellm>=1.84.0",
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7,<0.4",
@@ -45,11 +45,11 @@ dependencies = [
     "ipython>=8.37.0",
     "ipykernel>=7.1.0",
     "rhesis[telemetry]",
-    "aiohttp",
+    "aiohttp>=3.14.1",
     "aiohttp_security",
     "aiohttp_session",
     "appdirs",
-    "cryptography>=46.0.7",
+    "cryptography>=48.0.1",
     "pillow>=12.1.1",
     "marshmallow>=3.26.2",
     "mammoth>=1.11.0",
@@ -62,6 +62,7 @@ dependencies = [
     "torch",
     "jsonfinder>=0.4.2",
     "chonkie>=1.6.1",
+    "pdfminer.six>=20231228",
 ]
 
 [project.license]
@@ -89,14 +90,14 @@ garak = [
 
 # Framework integrations for auto-instrumentation
 langchain = [
-    "langchain>=0.1.0",
+    "langchain>=1.3.9",
     "langchain-core>=1.3.3",
 ]
 
 langgraph = [
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
-    "langchain>=0.1.0",
+    "langchain>=1.3.9",
     "langchain-core>=1.3.3",
 ]
 
@@ -108,13 +109,37 @@ haystack = [
     "haystack-ai>=2.0.0",
 ]
 
+pydantic-ai = [
+    "pydantic-ai>=0.0.49",
+]
+
+# Microsoft Agent Framework (the unified successor to AutoGen / Semantic Kernel).
+#
+# We deliberately depend on the individual subpackages instead of the
+# ``agent-framework`` meta-package. The meta-package transitively installs
+# ``agent-framework-azure-ai-search==0.0.0a1`` (a placeholder distribution)
+# whose RECORD ships an empty ``agent_framework/__init__.py`` that, depending on
+# install order, can clobber the real ``__init__.py`` from
+# ``agent-framework-core``. Pinning the subpackages directly avoids the trap
+# while keeping ``pip install rhesis-sdk[agent-framework]`` ergonomic for
+# end users.
+agent-framework = [
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
+    "agent-framework-orchestrations>=1.0.0b260421",
+]
+
 all-integrations = [
-    "langchain>=0.1.0",
+    "langchain>=1.3.9",
     "langchain-core>=1.3.3",
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
     "haystack-ai>=2.0.0",
+    "pydantic-ai>=0.0.49",
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
+    "agent-framework-orchestrations>=1.0.0b260421",
 ]
 
 all = [
@@ -122,12 +147,16 @@ all = [
     "transformers>=5.0.0",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
-    "langchain>=0.1.0",
+    "langchain>=1.3.9",
     "langchain-core>=1.3.3",
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
     "haystack-ai>=2.0.0",
+    "pydantic-ai>=0.0.49",
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
+    "agent-framework-orchestrations>=1.0.0b260421",
 ]
 [dependency-groups]
 dev = [
@@ -151,6 +180,19 @@ dev = [
     "garak>=0.14.0",
     "rhesis-penelope",
     "virtualenv>=20.36.1",
+    # Microsoft Agent Framework subpackages installed in dev so the integration
+    # tests under tests/sdk/telemetry/integrations/ run without needing
+    # ``--all-extras``. End users still install via the
+    # ``rhesis-sdk[agent-framework]`` optional extra. We pin the subpackages
+    # directly (not the meta-package) to avoid the
+    # ``agent-framework-azure-ai-search==0.0.0a1`` stub clobber documented above.
+    "agent-framework-core>=1.1.0",
+    "agent-framework-openai>=1.1.0",
+    "agent-framework-orchestrations>=1.0.0b260421",
+    # Same reasoning: pydantic-ai installed in dev so the integration tests
+    # under tests/sdk/telemetry/integrations/ run without ``--all-extras``.
+    # End users install via the ``rhesis-sdk[pydantic-ai]`` optional extra.
+    "pydantic-ai>=0.0.49",
 ]
 
 [build-system]
@@ -175,24 +217,29 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
 constraint-dependencies = [
-    "tornado>=6.5.5",
+    "tornado>=6.5.7",
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "langchain-openai>=1.1.14",
     "gitpython>=3.1.50",
     "mistune>=3.2.1",
-    "jupyterlab>=4.5.7",
-    "jupyter-server>=2.18.0",
+    "jupyterlab>=4.5.9",
+    "jupyter-server>=2.20.0",
     "notebook>=7.5.6",
     "langchain-core>=1.3.3",
     "langchain-classic>=1.0.7",
-    "langsmith>=0.8.0",
-    "litellm>=1.83.10",
+    "langsmith>=0.8.18",
+    "litellm>=1.84.0",
     "urllib3>=2.7.0",
     "idna>=3.15",
-    "python-multipart>=0.0.27",
+    "python-multipart>=0.0.31",
+    "starlette>=1.3.1",
+    "pyjwt>=2.13.0",
+    "bleach>=6.4.0",
+    "pyarrow>=23.0.1",
+    "pydantic-settings>=2.14.2",
 ]
 override-dependencies = [
     "datasets>=4.0.0",

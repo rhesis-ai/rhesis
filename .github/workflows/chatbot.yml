@@ -226,7 +226,6 @@ jobs:
           VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},
           VERTEX_AI_PROJECT=${{ secrets.VERTEX_AI_PROJECT }},
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
-          GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }},
           WORKERS=${{ vars.CHATBOT_WORKERS || '4' }},
           ENVIRONMENT=${{ env.ENVIRONMENT }},

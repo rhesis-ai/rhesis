@@ -39,7 +39,6 @@ def _mock_application_settings(
 ):
     env = backend_env.lower()
     settings = Mock(backend_env=env, api_base_url=api_base_url)
-    settings.is_local = env == "local"
     settings.is_development = env != "production"
     settings.is_production = env == "production"
     return lambda: settings
@@ -229,277 +228,6 @@ class TestEmailRegistration:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-# =============================================================================
-# Legacy Auth0 Tests (Kept for backward compatibility during migration)
-# =============================================================================
-
-
-@pytest.mark.unit
-@pytest.mark.critical
-class TestAuthLogin:
-    """Test legacy Auth0 authentication login endpoint (requires AUTH_LEGACY_AUTH0_ENABLED)"""
-
-    # oauth is now imported lazily inside the login() endpoint via
-    # ``from rhesis.backend.app.auth.oauth import oauth``, so we must
-    # patch at the *source* module rather than on the router.
-    _OAUTH_PATCH = "rhesis.backend.app.auth.oauth.oauth"
-
-    def test_login_redirect_success(self, client: TestClient):
-        """Test successful login redirects to Auth0 when legacy mode enabled"""
-        with patch.dict(
-            os.environ,
-            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
-        ):
-            with patch(self._OAUTH_PATCH) as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                response = client.get("/auth/login", follow_redirects=False)
-
-                mock_oauth.auth0.authorize_redirect.assert_called_once()
-                assert response.status_code == 307
-
-    def test_login_with_connection_parameter(self, client: TestClient):
-        """Test login with specific connection parameter"""
-        with patch.dict(
-            os.environ,
-            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
-        ):
-            with patch(self._OAUTH_PATCH) as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                client.get(
-                    "/auth/login?connection=google-oauth2",
-                    follow_redirects=False,
-                )
-
-                call_args = mock_oauth.auth0.authorize_redirect.call_args
-                assert "connection" in call_args[1]
-                assert call_args[1]["connection"] == "google-oauth2"
-
-    def test_login_with_return_to_parameter(self, client: TestClient):
-        """Test login with custom return_to parameter"""
-        with patch.dict(
-            os.environ,
-            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
-        ):
-            with patch(self._OAUTH_PATCH) as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                client.get("/auth/login?return_to=/architect", follow_redirects=False)
-
-                mock_oauth.auth0.authorize_redirect.assert_called_once()
-
-    def test_login_disabled_without_legacy_flag(self, client: TestClient):
-        """Test legacy login is disabled without AUTH_LEGACY_AUTH0_ENABLED"""
-        with patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "false"}, clear=True):
-            response = client.get("/auth/login")
-
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
-            assert "Legacy Auth0 login is disabled" in response.json()["detail"]
-
-    def test_login_missing_auth0_domain(self, client: TestClient):
-        """Test login fails when AUTH0_DOMAIN is not configured"""
-        with patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}, clear=True):
-            response = client.get("/auth/login")
-
-            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-            assert "AUTH0_DOMAIN not configured" in response.json()["detail"]
-
-    def test_login_oauth_exception(self, client: TestClient):
-        """Test login handles OAuth exceptions gracefully"""
-        with patch.dict(
-            os.environ,
-            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
-        ):
-            with patch(self._OAUTH_PATCH) as mock_oauth:
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    side_effect=Exception("OAuth error")
-                )
-
-                response = client.get("/auth/login")
-
-                assert response.status_code == status.HTTP_400_BAD_REQUEST
-                assert "OAuth error" in response.json()["detail"]
-
-    def test_login_stores_origin_in_session(self, client: TestClient):
-        """Test login stores frontend origin for callback"""
-        with patch.dict(
-            os.environ,
-            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
-        ):
-            with patch(self._OAUTH_PATCH) as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                headers = {"origin": "http://localhost:3000"}
-                client.get("/auth/login", headers=headers, follow_redirects=False)
-
-                mock_oauth.auth0.authorize_redirect.assert_called_once()
-
-    def test_login_callback_url_https_rewrite(self, client: TestClient):
-        """Test callback URL is rewritten from HTTP to HTTPS for non-localhost"""
-        with patch.dict(
-            os.environ,
-            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
-        ):
-            with patch(self._OAUTH_PATCH) as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                with patch.object(client.app, "state", {}):
-                    client.get("/auth/login", follow_redirects=False)
-
-                call_args = mock_oauth.auth0.authorize_redirect.call_args
-                assert "redirect_uri" in call_args[1]
-
-
-@pytest.mark.unit
-@pytest.mark.critical
-class TestAuthCallback:
-    """Test authentication callback endpoint (legacy Auth0 path)
-
-    The callback now falls through to ``_legacy_auth0_callback`` only
-    when ``AUTH_LEGACY_AUTH0_ENABLED=true`` and there is no
-    ``auth_provider`` in session.  The helper imports
-    ``get_auth0_user_info`` and ``extract_user_data`` from
-    ``rhesis.backend.app.auth.oauth`` inside the function body, so
-    patches must target that source module.
-    """
-
-    # Source-module paths for deferred imports
-    _AUTH0_INFO = "rhesis.backend.app.auth.oauth.get_auth0_user_info"
-    _EXTRACT = "rhesis.backend.app.auth.oauth.extract_user_data"
-
-    @patch("rhesis.backend.app.routers.auth.build_redirect_url")
-    @patch("rhesis.backend.app.routers.auth.create_refresh_token")
-    @patch("rhesis.backend.app.routers.auth.create_session_token")
-    @patch("rhesis.backend.app.routers.auth.find_or_create_user")
-    def test_callback_success(
-        self,
-        mock_find_user,
-        mock_create_token,
-        mock_create_refresh,
-        mock_build_redirect,
-        client: TestClient,
-    ):
-        """Test successful authentication callback flow"""
-        mock_token = {"access_token": "test_token"}
-        mock_userinfo = {"sub": "auth0|123", "email": "test@example.com"}
-
-        mock_user = Mock()
-        mock_user.id = str(uuid.uuid4())
-        mock_user.organization_id = None
-        mock_find_user.return_value = mock_user
-
-        mock_session_token = "session_token_123"
-        mock_create_token.return_value = mock_session_token
-        mock_create_refresh.return_value = "refresh_token_456"
-
-        mock_redirect_url = "http://localhost:3000/dashboard?token=session_token_123"
-        mock_build_redirect.return_value = mock_redirect_url
-
-        with (
-            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
-            patch(self._AUTH0_INFO) as mock_get_user_info,
-            patch(self._EXTRACT) as mock_extract_data,
-        ):
-            mock_get_user_info.return_value = (mock_token, mock_userinfo)
-            mock_extract_data.return_value = (
-                "auth0|123",
-                "test@example.com",
-                {"name": "Test User"},
-            )
-
-            response = client.get(
-                "/auth/callback?code=test_code&state=test_state",
-                follow_redirects=False,
-            )
-
-        assert response.status_code in [
-            status.HTTP_307_TEMPORARY_REDIRECT,
-            status.HTTP_302_FOUND,
-        ]
-        mock_get_user_info.assert_called_once()
-        mock_extract_data.assert_called_once_with(mock_userinfo)
-        mock_find_user.assert_called_once()
-        mock_create_token.assert_called_once_with(mock_user)
-        mock_create_refresh.assert_called_once()
-        mock_build_redirect.assert_called_once()
-
-    def test_callback_auth0_error(self, client: TestClient):
-        """Test callback handles Auth0 errors gracefully"""
-        with (
-            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
-            patch(self._AUTH0_INFO) as mock_get_user_info,
-        ):
-            mock_get_user_info.side_effect = Exception("Auth0 communication error")
-
-            response = client.get("/auth/callback?code=test_code&state=test_state")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Auth0 communication error" in response.json()["detail"]
-
-    def test_callback_user_data_extraction_error(self, client: TestClient):
-        """Test callback handles user data extraction errors"""
-        with (
-            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
-            patch(self._AUTH0_INFO) as mock_get_user_info,
-            patch(self._EXTRACT) as mock_extract_data,
-        ):
-            mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
-            mock_extract_data.side_effect = Exception("Invalid user data")
-
-            response = client.get("/auth/callback?code=test_code&state=test_state")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Invalid user data" in response.json()["detail"]
-
-    @patch("rhesis.backend.app.routers.auth.find_or_create_user")
-    def test_callback_user_creation_error(self, mock_find_user, client: TestClient):
-        """Test callback handles user creation/finding errors"""
-        mock_find_user.side_effect = Exception("Database error")
-
-        with (
-            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
-            patch(self._AUTH0_INFO) as mock_get_user_info,
-            patch(self._EXTRACT) as mock_extract_data,
-        ):
-            mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
-            mock_extract_data.return_value = (
-                "auth0|123",
-                "test@example.com",
-                {},
-            )
-
-            response = client.get("/auth/callback?code=test_code&state=test_state")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Database error" in response.json()["detail"]
-
-
 @pytest.mark.unit
 @pytest.mark.critical
 class TestAuthLogout:
@@ -562,6 +290,19 @@ class TestAuthLogout:
 
             assert response.status_code == status.HTTP_200_OK
             assert response.url == "http://localhost:3000/"
+
+    def test_logout_clears_session_cookie_secure_variants(self, client: TestClient):
+        """Logout clears the backend session cookie with both Secure variants."""
+        with patch.dict(os.environ, {"FRONTEND_URL": "https://app.example.com"}):
+            response = client.get("/auth/logout", follow_redirects=False)
+
+        assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+        set_cookies = response.headers.get_list("set-cookie")
+        session_clears = [h for h in set_cookies if h.startswith("session=")]
+        assert len(session_clears) == 2
+        assert any("Secure" in h for h in session_clears)
+        assert any("Secure" not in h for h in session_clears)
+        assert all("domain=" not in h.lower() for h in session_clears)
 
 
 @pytest.mark.unit
@@ -709,42 +450,6 @@ class TestAuthenticationFlow:
 class TestAuthEdgeCases:
     """Test edge cases for authentication"""
 
-    def test_login_with_malformed_parameters(self, client: TestClient):
-        """Test login with malformed query parameters"""
-        with patch.dict(
-            os.environ,
-            {
-                "AUTH0_DOMAIN": "test-domain.auth0.com",
-                "AUTH_LEGACY_AUTH0_ENABLED": "true",
-            },
-        ):
-            with patch("rhesis.backend.app.auth.oauth.oauth") as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                malformed_params = [
-                    "?connection=",
-                    "?return_to=",
-                    "?connection=invalid space",
-                    "?return_to=" + "x" * 1000,
-                ]
-
-                for params in malformed_params:
-                    response = client.get(
-                        f"/auth/login{params}",
-                        follow_redirects=False,
-                    )
-                    assert response.status_code in [
-                        status.HTTP_307_TEMPORARY_REDIRECT,
-                        status.HTTP_302_FOUND,
-                        status.HTTP_400_BAD_REQUEST,
-                        status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    ]
-
     def test_callback_with_missing_parameters(self, client: TestClient):
         """🏃‍♂️ Test callback with missing required parameters"""
         response = client.get("/auth/callback")
@@ -785,38 +490,6 @@ class TestAuthEdgeCases:
 class TestAuthPerformance:
     """Test authentication performance"""
 
-    def test_multiple_login_requests_performance(self, client: TestClient):
-        """Test performance of multiple login requests"""
-        import time
-
-        with patch.dict(
-            os.environ,
-            {
-                "AUTH0_DOMAIN": "test-domain.auth0.com",
-                "AUTH_LEGACY_AUTH0_ENABLED": "true",
-            },
-        ):
-            with patch("rhesis.backend.app.auth.oauth.oauth") as mock_oauth:
-                from starlette.responses import RedirectResponse
-
-                mock_redirect_response = RedirectResponse(
-                    url="https://test-domain.auth0.com/authorize?..."
-                )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
-
-                start_time = time.time()
-
-                for i in range(10):
-                    response = client.get("/auth/login", follow_redirects=False)
-                    assert response.status_code in [
-                        status.HTTP_307_TEMPORARY_REDIRECT,
-                        status.HTTP_302_FOUND,
-                    ]
-
-                duration = time.time() - start_time
-
-                assert duration < 5.0
-
     def test_multiple_verify_requests_performance(self, client: TestClient):
         """🐌 Test performance of multiple verify requests"""
         import time
@@ -849,7 +522,6 @@ class TestAuthHealthChecks:
         """✅ Basic health check for auth endpoints"""
         # Test that auth endpoints are accessible (even if they return errors)
         endpoints = [
-            "/auth/login",
             "/auth/logout",
             "/auth/callback",
         ]
@@ -1495,48 +1167,6 @@ class TestGetCallbackUrl:
         url = get_callback_url(request)
         assert url == "http://localhost:8080/auth/callback"
 
-    @patch.dict(
-        os.environ,
-        {"BACKEND_ENV": "local"},
-        clear=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("local"),
-    )
-    def test_environment_local_uses_localhost(self, mock_qs):
-        """BACKEND_ENV=local returns http://localhost:{port}/auth/callback."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(host="localhost", port=9090)
-        url = get_callback_url(request)
-        assert url == "http://localhost:9090/auth/callback"
-
-    @patch.dict(
-        os.environ,
-        {"BACKEND_ENV": "local"},
-        clear=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("local"),
-    )
-    def test_backend_env_local_uses_localhost(self, mock_qs):
-        """BACKEND_ENV=local returns http://localhost:{port}/auth/callback."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(host="localhost", port=8080)
-        url = get_callback_url(request)
-        assert url == "http://localhost:8080/auth/callback"
-
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=False,
@@ -1553,47 +1183,55 @@ class TestGetCallbackUrl:
         url = get_callback_url(request)
         assert url == "http://localhost:8080/auth/callback"
 
-    @patch.dict(
-        os.environ,
-        {"BACKEND_ENV": "local"},
-        clear=False,
-    )
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=False,
     )
     @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("local"),
+        new=_mock_application_settings(api_base_url="http://localhost:8080"),
     )
     def test_local_preserves_127_hostname(self, mock_qs):
-        """Local mode via 127.0.0.1 preserves hostname for session cookies."""
+        """Loopback API_BASE_URL via 127.0.0.1 preserves hostname for session cookies."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="127.0.0.1", port=8080)
         url = get_callback_url(request)
         assert url == "http://127.0.0.1:8080/auth/callback"
 
-    @patch.dict(
-        os.environ,
-        {"BACKEND_ENV": "local"},
-        clear=False,
-    )
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",
         return_value=False,
     )
     @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("local"),
+        new=_mock_application_settings(api_base_url="http://localhost:8080"),
     )
     def test_local_rejects_non_local_hostname(self, mock_qs):
-        """Misconfigured local mode with evil Host falls back to localhost."""
+        """Loopback API_BASE_URL with evil Host falls back to localhost."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="evil.com", port=8080)
         url = get_callback_url(request)
         assert url == "http://localhost:8080/auth/callback"
+
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
+    )
+    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(
+        self, mock_qs
+    ):
+        """BACKEND_ENV=local alone does not enable local callback behavior."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="localhost", port=8080)
+        url = get_callback_url(request)
+        assert url == "https://api.rhesis.ai/auth/callback"
 
     @patch(
         "rhesis.backend.app.routers.auth.is_quick_start_enabled",

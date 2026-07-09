@@ -187,6 +187,22 @@ The backend container startup process:
 3. Runs all pending migrations
 4. Starts the FastAPI application
 
+### Database roles for production
+
+Use separate database credentials for runtime traffic and migrations when your
+Postgres provider supports it:
+
+| Variable | Purpose |
+| --- | --- |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_DRIVER` | Shared database connection components |
+| `APP_DB_USER`, `APP_DB_PASS` | Runtime backend and worker database role |
+| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | Migration or administrative database role |
+
+If `ADMIN_DB_*` is not set, migrations fall back to the app credentials for
+single-role setups. On managed Postgres, the admin role does not need to be a
+PostgreSQL superuser; RLS-aware migrations set the required tenant session
+variables during backfills.
+
 ## Environment Configuration
 
 ### Required Environment Variables
@@ -299,6 +315,49 @@ DEFAULT_EMBEDDING_MODEL=openai/text-embedding-3-small`}
 For embeddings, supported default provider prefixes are `rhesis`, `openai`, `gemini`, and `vertex_ai`. If you previously relied on an explicit deployment secret such as `DEFAULT_EMBEDDING_MODEL=vertex_ai/text-embedding-005`, that explicit value continues to override the new `rhesis/rhesis-embedding` code default.
 
 Supported language-model provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.
+
+#### Object Storage for Files
+
+Rhesis stores uploaded file bytes in object storage. Metadata remains in Postgres, but file content, thumbnails, and execution attachments are read from the configured storage backend.
+
+Set `STORAGE_SERVICE_URI` in `.env.docker`:
+
+<CodeBlock filename=".env.docker" language="bash">
+{`# Local filesystem for single-host deployments or CI
+STORAGE_SERVICE_URI=file:///var/lib/rhesis/files
+
+# Google Cloud Storage
+# STORAGE_SERVICE_URI=gs://your-rhesis-files-bucket
+
+# S3-compatible object storage
+# STORAGE_SERVICE_URI=s3://your-rhesis-files-bucket`}
+</CodeBlock>
+
+| Backend | Example | Operational notes |
+|---|---|---|
+| Local filesystem | `file:///var/lib/rhesis/files` | Mount the same persistent volume into backend and worker containers |
+| Google Cloud Storage | `gs://bucket-name` | Grant the backend and worker identity object read/write permissions |
+| S3-compatible storage | `s3://bucket-name` | Provide credentials through the standard AWS environment variables |
+
+Downloads from `GET /files/{id}/content` and thumbnails from `GET /files/{id}/thumbnail` redirect to presigned URLs. Browsers and the SDK follow these redirects automatically; custom clients should allow redirects.
+
+<Callout type="info">
+  If you are upgrading from a pre-0.8.0 deployment, apply the storage-column
+  migration, deploy code that streams file bytes to object storage, and only
+  then apply the migration that drops the legacy database `content` column.
+</Callout>
+
+#### Enterprise Features
+
+Enterprise Edition features are discovered at runtime through `GET /features`. The endpoint returns license metadata and enabled feature names for the current organization. Frontend pages hide gated UI until the feature appears in that response.
+
+| Feature | Feature name | Related docs |
+|---|---|---|
+| Role-Based Access Control | `rbac` | [Roles & Permissions](/docs/organizations/roles) |
+| Single Sign-On | `sso` | [Single Sign-On](/docs/organizations/sso) |
+| API Clients | `api_clients` | [API Clients](/docs/organizations/api-clients) |
+
+When the Enterprise package is not installed, Rhesis runs in Community mode and these features are unavailable.
 
 ## Telemetry & Privacy
 

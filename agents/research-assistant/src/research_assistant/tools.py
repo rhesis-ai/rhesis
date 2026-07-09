@@ -26,11 +26,11 @@ def get_tool_llm() -> ChatGoogleGenerativeAI:
     """Get or create the LLM for tool simulation."""
     global _tool_llm
     if _tool_llm is None:
-        _tool_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+        _tool_llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.3)
     return _tool_llm
 
 
-@observe.llm(provider="google", model="gemini-2.0-flash")
+@observe.llm(provider="google", model="gemini-3.1-flash-lite")
 def simulate_tool_response(tool_name: str, prompt: str, output_format: str = "") -> str:
     """Simulate a tool response using LLM."""
     llm = get_tool_llm()

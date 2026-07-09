@@ -66,8 +66,12 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { AddIcon, DeleteIcon, PromoteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import ProjectAddEnvironmentDrawer from './ProjectAddEnvironmentDrawer';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { projectKeys } from '@/constants/query-keys';
 
 const FIGMA_BODY_SX = {
   fontSize: 14,
@@ -150,14 +154,14 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
   ) {
     const notifications = useNotifications();
     const theme = useTheme();
+    const canUpdateProject = useCan(Capability.Project.UPDATE);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(
-      null
-    );
-    const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const queryClient = useQueryClient();
+    const environmentsQueryKey = [
+      ...projectKeys.detail(projectId),
+      'environments',
+    ] as const;
     const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
       string | null
     >(null);
@@ -173,34 +177,35 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
     );
     const [deleting, setDeleting] = useState(false);
 
-    const apiFactory = useMemo(
-      () => new ApiClientFactory(sessionToken),
-      [sessionToken]
-    );
-
-    const refresh = useCallback(async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const client = apiFactory.getParametersClient();
+    const {
+      data: envData,
+      isLoading: loading,
+      error: fetchError,
+    } = useQuery({
+      queryKey: environmentsQueryKey,
+      queryFn: async () => {
+        const client = new ApiClientFactory(sessionToken).getParametersClient();
         const [bindingsResp, expsResp] = await Promise.all([
           client.getEnvironments(projectId),
           client.listProjectExperiments(projectId, { limit: 200 }),
         ]);
-        setBindings(bindingsResp);
-        setExperiments(expsResp);
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : 'Failed to load environments'
-        );
-      } finally {
-        setLoading(false);
-      }
-    }, [apiFactory, projectId]);
+        return { bindings: bindingsResp, experiments: expsResp };
+      },
+      enabled: !!sessionToken && !!projectId,
+    });
 
-    useEffect(() => {
-      refresh();
-    }, [refresh]);
+    const bindings = envData?.bindings ?? null;
+    const experiments = envData?.experiments ?? [];
+    const error =
+      fetchError instanceof Error
+        ? fetchError.message
+        : fetchError
+          ? 'Failed to load environments'
+          : null;
+
+    const refresh = useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: environmentsQueryKey });
+    }, [queryClient, environmentsQueryKey]);
 
     const rows: EnvironmentRow[] = useMemo(() => {
       const out: EnvironmentRow[] = BuiltInEnvironment.ALL.map(name => ({
@@ -248,12 +253,9 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
       if (!deleteTargetName) return;
       setDeleting(true);
       try {
-        const client = apiFactory.getParametersClient();
-        const next = await client.deleteEnvironment(
-          projectId,
-          deleteTargetName
-        );
-        setBindings(next);
+        const client = new ApiClientFactory(sessionToken).getParametersClient();
+        await client.deleteEnvironment(projectId, deleteTargetName);
+        refresh();
         setDeleteDialogOpen(false);
         setDeleteTargetName(null);
         notifications.show(`Environment "${deleteTargetName}" removed`, {
@@ -267,7 +269,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
       } finally {
         setDeleting(false);
       }
-    }, [apiFactory, deleteTargetName, notifications, projectId]);
+    }, [deleteTargetName, notifications, projectId, refresh, sessionToken]);
 
     const displayedRows = useMemo(() => {
       const query = searchQuery.trim().toLowerCase();
@@ -388,36 +390,38 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
                   width: '100%',
                 }}
               >
-                <Tooltip
-                  title={
-                    promoteDisabled
-                      ? 'No shared experiments to promote'
-                      : 'Promote a shared experiment to this environment'
-                  }
-                >
-                  <span>
-                    <IconButton
-                      size="small"
-                      disabled={promoteDisabled}
-                      onClick={e => {
-                        e.stopPropagation();
-                        setPickerEnvironmentName(row.name);
-                      }}
-                      sx={{
-                        p: 0.5,
-                        color: 'text.secondary',
-                        '&:hover': {
-                          color: 'primary.main',
-                          bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        },
-                      }}
-                      aria-label={`Promote experiment to ${row.name}`}
-                    >
-                      <PromoteIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                {canRemoveEnvironment(row) && (
+                {canUpdateProject && (
+                  <Tooltip
+                    title={
+                      promoteDisabled
+                        ? 'No shared experiments to promote'
+                        : 'Promote a shared experiment to this environment'
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        disabled={promoteDisabled}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setPickerEnvironmentName(row.name);
+                        }}
+                        sx={{
+                          p: 0.5,
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                          },
+                        }}
+                        aria-label={`Promote experiment to ${row.name}`}
+                      >
+                        <PromoteIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+                {canUpdateProject && canRemoveEnvironment(row) && (
                   <Tooltip title="Remove environment">
                     <IconButton
                       size="small"
@@ -444,7 +448,13 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
           },
         },
       ],
-      [experimentName, sharedExperiments, theme, handleDeleteRow]
+      [
+        experimentName,
+        sharedExperiments,
+        theme,
+        handleDeleteRow,
+        canUpdateProject,
+      ]
     );
 
     if (loading) {
@@ -493,7 +503,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
             />
           </Box>
 
-          {!hideToolbarAddButton ? (
+          {!hideToolbarAddButton && canUpdateProject ? (
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
               <Button
                 variant="outlined"

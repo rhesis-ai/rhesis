@@ -7,6 +7,8 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { invokeEndpoint } from '@/actions/endpoints';
 import EndpointTestWorkbench from '../../components/EndpointTestWorkbench';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { responseMappingToPathToVar } from '../../components/JsonPreview';
 import {
   extractVars,
@@ -17,6 +19,7 @@ import {
 
 export default function EndpointTestTab() {
   const { endpoint } = useEndpointDetailContext();
+  const canInvoke = useCan(Capability.Endpoint.UPDATE);
 
   const requestTemplate = useMemo(
     () => JSON.stringify(endpoint.request_mapping ?? {}, null, 2),
@@ -133,15 +136,17 @@ export default function EndpointTestTab() {
       title="Test"
       subtitle="Fire a live request and see exactly what your API returns and how Rhesis maps it."
       actions={
-        <LoadingButton
-          variant="contained"
-          onClick={handleTest}
-          loading={isTestingEndpoint}
-          loadingPosition="start"
-          startIcon={<PlayArrowIcon />}
-        >
-          Run test
-        </LoadingButton>
+        canInvoke ? (
+          <LoadingButton
+            variant="contained"
+            onClick={handleTest}
+            loading={isTestingEndpoint}
+            loadingPosition="start"
+            startIcon={<PlayArrowIcon />}
+          >
+            Check connection
+          </LoadingButton>
+        ) : undefined
       }
     >
       <EndpointTestWorkbench

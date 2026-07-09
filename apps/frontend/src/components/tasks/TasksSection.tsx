@@ -2,10 +2,13 @@
 
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AddIcon } from '@/components/icons';
 import TasksIcon from '@/components/TasksIcon';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { SectionCard } from '@/components/common/SectionCard';
 import {
@@ -17,7 +20,7 @@ import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useNotifications } from '@/components/common/NotificationContext';
+import { taskKeys } from '@/constants/query-keys';
 
 interface TasksSectionProps {
   entityType: EntityType;
@@ -28,10 +31,6 @@ interface TasksSectionProps {
   onDeleteTask?: (taskId: string) => Promise<void>;
   /** Opens the in-context task creation drawer */
   onOpenCreateDrawer?: (commentId?: string) => void;
-  currentUserId: string;
-  currentUserName: string;
-  /** Bump after create/delete so the list refetches. */
-  refreshKey?: number;
 }
 
 export function TasksSection({
@@ -42,31 +41,50 @@ export function TasksSection({
   onEditTask: _onEditTask,
   onDeleteTask,
   onOpenCreateDrawer,
-  currentUserId: _currentUserId,
-  currentUserName: _currentUserName,
-  refreshKey = 0,
 }: TasksSectionProps) {
   const router = useRouter();
-  const { show: showNotification } = useNotifications();
-
-  // Component state
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
+  const queryClient = useQueryClient();
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 10,
   });
 
-  // Use a ref for the notification function to avoid including it
-  // as an effect dependency, which could cause re-fetch loops.
-  const showNotificationRef = React.useRef(showNotification);
-  React.useEffect(() => {
-    showNotificationRef.current = showNotification;
-  }, [showNotification]);
+  const currentPage = paginationModel.page;
+  const currentPageSize = paginationModel.pageSize;
+  const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
 
-  // Handle pagination changes
+  const queryKey = taskKeys.list(
+    `${entityType}:${entityId}`,
+    currentPage,
+    currentPageSize,
+    'created_at',
+    'desc'
+  );
+
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const tasksClient = clientFactory.getTasksClient();
+      return tasksClient.getTasks({
+        skip: currentPage * currentPageSize,
+        limit: currentPageSize,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        $filter: filter,
+      });
+    },
+    enabled: !!sessionToken && !!entityType && !!entityId,
+    placeholderData: prev => prev,
+  });
+
+  const tasks: Task[] = data?.data ?? [];
+  const totalCount: number = data?.totalCount ?? 0;
+
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
       setPaginationModel(newModel);
@@ -74,77 +92,13 @@ export function TasksSection({
     []
   );
 
-  // Extract primitive values to use as stable dependencies
-  const currentPage = paginationModel.page;
-  const currentPageSize = paginationModel.pageSize;
-
-  // Fetch tasks - using a simpler, more robust pattern
-  React.useEffect(() => {
-    // Don't even create the controller if we're missing required props
-    if (!entityType || !entityId || !sessionToken) {
-      setLoading(false); // Important: ensure loading is false if we can't fetch
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    const fetchTasks = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const tasksClient = clientFactory.getTasksClient();
-
-        const skip = currentPage * currentPageSize;
-        const filter = `entity_type eq '${entityType}' and entity_id eq ${entityId}`;
-
-        const response = await tasksClient.getTasks({
-          skip,
-          limit: currentPageSize,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-          $filter: filter,
-        });
-
-        // Only update state if not aborted
-        if (!abortController.signal.aborted) {
-          setTasks(response.data);
-          setTotalCount(response.totalCount);
-          setLoading(false);
-        }
-      } catch (err) {
-        // Only update state if not aborted
-        if (!abortController.signal.aborted) {
-          const errorMessage =
-            err instanceof Error ? err.message : 'Failed to fetch tasks';
-          setError(errorMessage);
-          showNotificationRef.current(errorMessage, { severity: 'error' });
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchTasks();
-
-    return () => {
-      abortController.abort();
-    };
-  }, [
-    currentPage,
-    currentPageSize,
-    entityType,
-    entityId,
-    sessionToken,
-    refreshKey,
-  ]);
-
   const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-      } catch (error) {
-        console.error('Failed to delete task:', error);
+        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+      } catch (err) {
+        console.error('Failed to delete task:', err);
       }
     }
   };
@@ -152,8 +106,8 @@ export function TasksSection({
   const handleRowClick = (params: GridRowParams) => {
     try {
       router.push(`/tasks/${params.id}`);
-    } catch (error) {
-      console.error('Failed to navigate to task:', error);
+    } catch (err) {
+      console.error('Failed to navigate to task:', err);
     }
   };
 
@@ -163,7 +117,6 @@ export function TasksSection({
     }
   };
 
-  // Column definitions for the table
   const columns: GridColDef[] = [
     {
       field: 'title',
@@ -263,18 +216,20 @@ export function TasksSection({
   ];
 
   const createButton = (
-    <Button
-      variant="outlined"
-      startIcon={
-        <AddIcon
-          sx={{ color: theme => `${theme.palette.primary.main} !important` }}
-        />
-      }
-      onClick={handleCreateTask}
-      size="small"
-    >
-      Create
-    </Button>
+    <Can capability={Capability.Task.CREATE}>
+      <Button
+        variant="outlined"
+        startIcon={
+          <AddIcon
+            sx={{ color: theme => `${theme.palette.primary.main} !important` }}
+          />
+        }
+        onClick={handleCreateTask}
+        size="small"
+      >
+        Create
+      </Button>
+    </Can>
   );
 
   if (error) {
@@ -286,7 +241,7 @@ export function TasksSection({
             color="error"
             sx={{ textAlign: 'center', py: 3 }}
           >
-            {error}
+            Failed to load tasks
           </Typography>
         </SectionCard>
       </TaskErrorBoundary>
@@ -323,14 +278,16 @@ export function TasksSection({
               Create a task to track follow-ups for this{' '}
               {getEntityDisplayName(entityType).toLowerCase()}.
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon sx={{ color: 'white !important' }} />}
-              onClick={handleCreateTask}
-              sx={{ color: 'white' }}
-            >
-              Create task
-            </Button>
+            <Can capability={Capability.Task.CREATE}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon sx={{ color: 'white !important' }} />}
+                onClick={handleCreateTask}
+                sx={{ color: 'white' }}
+              >
+                Create task
+              </Button>
+            </Can>
           </Box>
         </SectionCard>
       </TaskErrorBoundary>

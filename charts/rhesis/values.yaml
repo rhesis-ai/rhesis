@@ -65,10 +65,9 @@ config:
   nextPublicAppUrl: ""
   nextauthUrl: ""
   nextTelemetryDisabled: "1"
-  nextPublicAuth0ClientId: ""
-  nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
+  nextPublicOnboardingVideoUrl: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""
@@ -79,7 +78,6 @@ config:
   azureOpenAiDeploymentName: "gpt-4o"
   azureOpenAiApiVersion: ""
   openAiModelName: "gpt-4o"
-  geminiModelName: "gemini-2.0-flash-001"
   # Default LLM providers (format: provider/model). See apps/backend/.../constants.py
   defaultGenerationModel: "rhesis/rhesis-default"
   defaultEvaluationModel: "rhesis/rhesis-default"
@@ -96,7 +94,7 @@ config:
   celeryWorkerLogLevel: "INFO"
 
   # GCP / Vertex AI
-  vertexAiLocation: "europe-west4"
+  vertexAiLocation: "eu"
   vertexAiProject: ""
 
   # Chatbot

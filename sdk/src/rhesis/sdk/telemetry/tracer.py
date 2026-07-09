@@ -69,7 +69,7 @@ class Tracer:
     def __init__(
         self,
         api_key: str,
-        project_id: str,
+        project_id: Optional[str],
         environment: str,
         base_url: str,
     ):

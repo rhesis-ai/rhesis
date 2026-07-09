@@ -1,22 +1,31 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from rhesis.backend.app.routers.base import RhesisRouter
+from fastapi import Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.affordances import populate_review_permitted_actions
+from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
+from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.services.review import (
+    authorize_review_action,
+    get_review_status_details,
+    update_review_metadata,
+)
 from rhesis.backend.app.services.review_override import (
     apply_review_override,
     revert_override,
@@ -403,6 +412,7 @@ def generate_test_result_stats(
 @router.get("/{test_result_id}", response_model=TestResultDetailSchema)
 def read_test_result(
     test_result_id: UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -414,6 +424,8 @@ def read_test_result(
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
+    if db_test_result.test_reviews and "reviews" in db_test_result.test_reviews:
+        populate_review_permitted_actions(db_test_result.test_reviews["reviews"])
     return db_test_result
 
 
@@ -421,6 +433,7 @@ def read_test_result(
 def update_test_result(
     test_result_id: UUID,
     test_result: schemas.TestResultUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -441,6 +454,13 @@ def update_test_result(
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.TestResult.UPDATE_OWN, db_test_result, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to update this test result")
 
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     if test_result.test_metrics and not test_result.status_id:
@@ -476,17 +496,25 @@ def update_test_result(
 @router.delete("/{test_result_id}", response_model=schemas.TestResult)
 def delete_test_result(
     test_result_id: UUID,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete a test result"""
+    """Delete a test result. Only the creator may delete their own result."""
     organization_id, user_id = tenant_context
     db_test_result = crud.get_test_result(
         db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
     )
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
+
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, Permission.TestResult.DELETE_OWN, db_test_result, project_id=project_id, db=db
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
 
     return crud.delete_test_result(
         db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id
@@ -498,37 +526,11 @@ def delete_test_result(
 # ============================================================================
 
 
-def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> dict:
-    """Helper to fetch status details for review"""
-    status = (
-        db.query(models.Status)
-        .filter(models.Status.id == status_id, models.Status.organization_id == organization_id)
-        .first()
-    )
-    if not status:
-        raise HTTPException(status_code=404, detail="Status not found")
-    return {"status_id": str(status.id), "name": status.name}
-
-
-def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
-    """Helper to update metadata when reviews change"""
-    now = datetime.utcnow().isoformat()
-    reviews_data["metadata"] = {
-        "last_updated_at": now,
-        "last_updated_by": {
-            "user_id": str(current_user.id),
-            "name": current_user.name or current_user.email,
-        },
-        "total_reviews": len(reviews_data.get("reviews", [])),
-        "latest_status": latest_status,
-        "summary": f"Last updated by {current_user.name or current_user.email}",
-    }
-
-
 @router.post("/{test_result_id}/reviews", response_model=schemas.ReviewResponse)
 def add_review(
     test_result_id: UUID,
     review: schemas.ReviewCreate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -553,7 +555,7 @@ def add_review(
         raise HTTPException(status_code=404, detail="Test result not found")
 
     # Get status details
-    status_details = _get_status_details(db, review.status_id, organization_id)
+    status_details = get_review_status_details(db, review.status_id, organization_id)
 
     # Initialize test_reviews if it doesn't exist
     if not db_test_result.test_reviews:
@@ -565,7 +567,7 @@ def add_review(
         db_test_result.test_reviews["reviews"] = []
 
     # Create the new review
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     new_review = {
         "review_id": str(uuid4()),
         "status": status_details,
@@ -580,7 +582,7 @@ def add_review(
     db_test_result.test_reviews["reviews"].append(new_review)
 
     # Update metadata
-    _update_review_metadata(db_test_result.test_reviews, current_user, status_details)
+    update_review_metadata(db_test_result.test_reviews, current_user, status_details)
 
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
@@ -602,6 +604,7 @@ def add_review(
     # Without this, FastAPI's dependency-cleanup commit races the next request.
     db.commit()
 
+    populate_review_permitted_actions([new_review])
     return new_review
 
 
@@ -610,6 +613,7 @@ def update_review(
     test_result_id: UUID,
     review_id: str,
     review: schemas.ReviewUpdate,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -649,12 +653,23 @@ def update_review(
     if review_to_update is None:
         raise HTTPException(status_code=404, detail="Review not found")
 
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_review_action(
+        principal,
+        review_to_update,
+        Permission.TestResult.UPDATE_OWN,
+        project_id=project_id,
+        db=db,
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to update this review")
+
     old_target = review_to_update.get("target", {})
 
     # Update fields if provided
     status_changed = False
     if review.status_id is not None:
-        status_details = _get_status_details(db, review.status_id, organization_id)
+        status_details = get_review_status_details(db, review.status_id, organization_id)
         review_to_update["status"] = status_details
         status_changed = True
 
@@ -670,11 +685,11 @@ def update_review(
         target_changed = True
 
     # Update timestamp
-    review_to_update["updated_at"] = datetime.utcnow().isoformat()
+    review_to_update["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Update metadata
     latest_status = review_to_update["status"]
-    _update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
+    update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
 
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
@@ -706,6 +721,7 @@ def update_review(
     db.refresh(db_test_result)
     db.commit()
 
+    populate_review_permitted_actions([review_to_update])
     return review_to_update
 
 
@@ -713,6 +729,7 @@ def update_review(
 def delete_review(
     test_result_id: UUID,
     review_id: str,
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -748,6 +765,17 @@ def delete_review(
     if review_index is None:
         raise HTTPException(status_code=404, detail="Review not found")
 
+    principal = resolve_principal_from_request(current_user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_review_action(
+        principal,
+        reviews[review_index],
+        Permission.TestResult.DELETE_OWN,
+        project_id=project_id,
+        db=db,
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this review")
+
     # Remove the review
     deleted_review = reviews.pop(review_index)
 
@@ -758,14 +786,14 @@ def delete_review(
             key=lambda r: r.get("updated_at", r.get("created_at", "")),
         )
         latest_status = latest_review.get("status", {"status_id": None, "name": "Unknown"})
-        _update_review_metadata(
+        update_review_metadata(
             db_test_result.test_reviews,
             current_user,
             latest_status,
         )
     else:
         db_test_result.test_reviews["metadata"] = {
-            "last_updated_at": datetime.utcnow().isoformat(),
+            "last_updated_at": datetime.now(timezone.utc).isoformat(),
             "last_updated_by": {
                 "user_id": str(current_user.id),
                 "name": current_user.name or current_user.email,

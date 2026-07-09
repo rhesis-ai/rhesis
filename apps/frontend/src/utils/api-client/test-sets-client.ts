@@ -323,7 +323,7 @@ export class TestSetsClient extends BaseApiClient {
   }
 
   async createTestSet(testSet: TestSetCreate): Promise<TestSet> {
-    return this.fetch<TestSet>(API_ENDPOINTS.testSets, {
+    return this.fetch<TestSet>(`${API_ENDPOINTS.testSets}/`, {
       method: 'POST',
       body: JSON.stringify(testSet),
     });

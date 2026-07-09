@@ -238,6 +238,57 @@ class TestBuiltInRoleRLSPolicy:
         }
         assert visible_owner == {"ProbeBuiltIn", "ProbeCustom"}
 
+    def test_restricted_role_cannot_write_builtin_or_cross_org(
+        self, test_db: Session, test_org_id: str
+    ):
+        """Audit fix: the role WITH CHECK must let a tenant write only its own-org
+        rows — never a NULL-org (built-in) or cross-org role row."""
+        import uuid
+
+        import pytest
+        from sqlalchemy import text
+
+        probe = f"rls_wc_probe_{uuid.uuid4().hex[:8]}"
+        other_org = str(uuid.uuid4())
+
+        test_db.execute(text(f'CREATE ROLE "{probe}" NOLOGIN'))
+        test_db.execute(text(f'GRANT SELECT, INSERT ON public.role TO "{probe}"'))
+        test_db.execute(text(f'SET LOCAL ROLE "{probe}"'))
+        test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": test_org_id})
+
+        # Own-org custom role: permitted by WITH CHECK.
+        with test_db.begin_nested():
+            test_db.execute(
+                text(
+                    "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
+                    "VALUES (gen_random_uuid(),'WcOwnOrg','project',30,false,:o)"
+                ),
+                {"o": test_org_id},
+            )
+
+        # NULL-org (built-in) row: rejected — a tenant must not mint a global role.
+        with pytest.raises(Exception):
+            with test_db.begin_nested():
+                test_db.execute(
+                    text(
+                        "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
+                        "VALUES (gen_random_uuid(),'WcEvilBuiltIn','organization',100,true,NULL)"
+                    )
+                )
+
+        # Cross-org row: rejected.
+        with pytest.raises(Exception):
+            with test_db.begin_nested():
+                test_db.execute(
+                    text(
+                        "INSERT INTO role (id,name,scope,level,is_built_in,organization_id) "
+                        "VALUES (gen_random_uuid(),'WcCrossOrg','project',30,false,:o)"
+                    ),
+                    {"o": other_org},
+                )
+
+        test_db.execute(text("RESET ROLE"))
+
 
 # ---------------------------------------------------------------------------
 # permissions_for_built_in_role unit tests (pure, no DB)
@@ -273,6 +324,20 @@ class TestPermissionsForBuiltInRole:
         result = permissions_for_built_in_role("Owner", self._CAPS)
         assert result == set(self._CAPS)
 
+    def test_architect_create_is_member_not_viewer(self):
+        """SP11 gate semantics: a read-only Viewer may read but not run the
+        architect agent; a Member may run it (and preflight)."""
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        caps = ["architect:read", "architect:create", "preflight:create", "test_set:read"]
+        viewer = permissions_for_built_in_role("Viewer", caps)
+        member = permissions_for_built_in_role("Member", caps)
+
+        assert "architect:read" in viewer
+        assert "architect:create" not in viewer
+        assert "preflight:create" not in viewer
+        assert {"architect:read", "architect:create", "preflight:create"} <= member
+
     def test_none_gets_nothing(self):
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
@@ -300,7 +365,9 @@ class TestPermissionsForBuiltInRole:
 
         result = permissions_for_built_in_role("Admin", self._CAPS)
         assert "role:manage" not in result
-        assert "role:read" not in result
+        # role:read IS granted to Admin so they can see the role catalog when
+        # assigning roles via member:manage; only role:manage stays Owner-only.
+        assert "role:read" in result
         assert "sso:manage" not in result
         assert "api_clients:manage" not in result
         assert "organization:update" in result
@@ -410,12 +477,17 @@ class TestPermissionsForBuiltInRole:
         assert result == set()
 
     def test_admin_excludes_ee_management_against_live_catalog(self):
-        """Admin must never hold EE-management caps regardless of catalog changes."""
+        """Admin must never hold EE-management caps regardless of catalog changes.
+
+        role:read is intentionally NOT excluded — Admin can view the role
+        catalog (to assign roles via member:manage); only role:manage,
+        sso:manage, and api_clients:manage stay Owner-only.
+        """
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
         admin = permissions_for_built_in_role("Admin", get_all_capabilities())
-        excluded = {"role:manage", "role:read", "sso:manage", "api_clients:manage"}
+        excluded = {"role:manage", "sso:manage", "api_clients:manage"}
         assert not admin & excluded, (
             f"Admin role holds EE-only management permissions: {admin & excluded}"
         )

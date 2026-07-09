@@ -1,9 +1,10 @@
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
 export type FileEntityType =
-  | 'Test'
-  | 'TestResult'
-  | 'Trace'
+  | typeof EntityType.TEST
+  | typeof EntityType.TEST_RESULT
+  | typeof EntityType.TRACE
   | 'ArchitectSession';
 
 export interface FileResponse {

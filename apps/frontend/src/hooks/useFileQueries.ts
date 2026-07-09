@@ -10,22 +10,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-
-// ApiClientFactory is an instance-based factory (no static helpers). We
-// instantiate it per-token so the cached, lazy ``getFilesClient()`` accessor
-// is the one issuing requests.
-
-// ---------------------------------------------------------------------------
-// Query key factory
-// ---------------------------------------------------------------------------
-export const fileKeys = {
-  all: ['files'] as const,
-  metadata: (fileId: string) => [...fileKeys.all, 'metadata', fileId] as const,
-  thumbnail: (fileId: string, size: number) =>
-    [...fileKeys.all, 'thumbnail', fileId, size] as const,
-  contentUrl: (fileId: string) =>
-    [...fileKeys.all, 'contentUrl', fileId] as const,
-};
+import { fileKeys } from '@/constants/query-keys';
 
 // ---------------------------------------------------------------------------
 // useFileMetadata — cached file metadata from GET /files/{id}

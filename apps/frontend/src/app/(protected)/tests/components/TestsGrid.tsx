@@ -2,14 +2,16 @@
 
 import React, {
   useEffect,
+  useRef,
   useState,
   useContext,
   useCallback,
-  useRef,
   useMemo,
 } from 'react';
-import ListIcon from '@mui/icons-material/ListOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import { useQueryClient } from '@tanstack/react-query';
+import { testKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import {
   GridColDef,
@@ -27,13 +29,20 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { Typography, Box, Alert, Chip } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Alert,
+  Chip,
+  FormControlLabel,
+  Switch,
+} from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
-import TestSetSelectionDialog from './TestSetSelectionDialog';
+import TestSetSelectionDrawer from './TestSetSelectionDrawer';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -49,20 +58,41 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   getTestContentValue,
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
 import { TEST_TYPES } from '@/constants/test-types';
-import { applyTestDrawerFiltersToModel } from './test-filter-model';
-import { DEFAULT_GRID_SORT, gridSortToApiParams } from '@/utils/grid-sort';
+import {
+  applyTestDrawerFiltersToModel,
+  buildTestIdsODataFilter,
+  combineODataFilterExpressions,
+} from './test-filter-model';
+import { gridSortToApiParams } from '@/utils/grid-sort';
+import {
+  fetchFailedTestIdsForInsights,
+  formatInsightsFailedTestsBanner,
+  type InsightsFailedTestsFilter,
+} from '@/app/(protected)/insights/utils/insights-failed-tests';
 
 interface TestsTableProps {
   sessionToken: string;
-  onRefresh?: () => void;
   onNewTest?: () => void;
   disableAddButton?: boolean;
+  insightsFailedFilter?: InsightsFailedTestsFilter | null;
+  insightsEndpointName?: string;
+  onTotalCountChange?: (count: number) => void;
+  onBulkActionsChange?: (actions: TestsBulkActionsState) => void;
+}
+
+export interface TestsBulkActionsState {
+  visible: boolean;
+  assignDisabled: boolean;
+  onAssign: () => void;
+  onDelete: () => void;
 }
 
 // ─── Toolbar context (passes search/filter state into the DataGrid slot) ──────
@@ -75,6 +105,8 @@ interface TestsToolbarState {
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
+  checkboxSelectionMode: boolean;
+  setCheckboxSelectionMode: (v: boolean) => void;
 }
 
 const TestsToolbarContext = React.createContext<TestsToolbarState>({
@@ -85,6 +117,8 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
+  checkboxSelectionMode: false,
+  setCheckboxSelectionMode: () => {},
 });
 
 const PILL_TABS = [
@@ -102,6 +136,8 @@ function TestsUnifiedToolbar() {
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
+    checkboxSelectionMode,
+    setCheckboxSelectionMode,
   } = useContext(TestsToolbarContext);
 
   return (
@@ -121,6 +157,24 @@ function TestsUnifiedToolbar() {
       }
       rightContent={
         <>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={checkboxSelectionMode}
+                onChange={event =>
+                  setCheckboxSelectionMode(event.target.checked)
+                }
+                size="small"
+                color="primary"
+              />
+            }
+            label={
+              <Typography variant="button" color="primary">
+                Select tests
+              </Typography>
+            }
+            sx={{ m: 0, whiteSpace: 'nowrap' }}
+          />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -132,41 +186,106 @@ function TestsUnifiedToolbar() {
 
 export default function TestsTable({
   sessionToken,
-  onRefresh,
   onNewTest: _onNewTest,
   disableAddButton: _disableAddButton = false,
+  insightsFailedFilter = null,
+  insightsEndpointName,
+  onTotalCountChange,
+  onBulkActionsChange,
 }: TestsTableProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
+  const canEditTest = useCan(Capability.Test.UPDATE);
+  const canDeleteTest = useCan(Capability.Test.DELETE);
+  const queryClient = useQueryClient();
 
   // Search + tab filter — managed here, shared to toolbar via context
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [drawerFilters, setDrawerFilters] =
+    useState<TestFilters>(EMPTY_TEST_FILTERS);
+
+  const {
+    filterModel,
+    paginationModel,
+    sortModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+    handleSortModelChange,
+  } = useGridState({
+    searchQuery,
+    typeFilter,
+    typeFilterField: 'test_type.type_value',
+    applyDrawerFilters: useCallback(
+      (prev: GridFilterModel) =>
+        applyTestDrawerFiltersToModel(prev, drawerFilters),
+      [drawerFilters]
+    ),
+  });
 
   // Component state
+  const [checkboxSelectionMode, setCheckboxSelectionMode] = useState(false);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
-  const [tests, setTests] = useState<TestDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
-  const [sortModel, setSortModel] = useState<GridSortModel>(DEFAULT_GRID_SORT);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] =
-    useState<TestFilters>(EMPTY_TEST_FILTERS);
-  const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
+  const [testSetDrawerOpen, setTestSetDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [insightsFailedTestIds, setInsightsFailedTestIds] = useState<
+    string[] | null
+  >(null);
+  const [insightsFilterLoading, setInsightsFilterLoading] = useState(false);
+  const [insightsFilterError, setInsightsFilterError] = useState<string | null>(
+    null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const insightsFilterReady =
+    !insightsFailedFilter || insightsFailedTestIds !== null;
+
+  const gridFilterString = combineTestFiltersToOData(filterModel);
+  const insightsIdFilter =
+    insightsFailedFilter && insightsFailedTestIds !== null
+      ? buildTestIdsODataFilter(insightsFailedTestIds)
+      : '';
+  const filterString = combineODataFilterExpressions(
+    gridFilterString,
+    insightsIdFilter
+  );
+  const { sort_by, sort_order } = gridSortToApiParams(sortModel);
+
+  const {
+    data: testsData,
+    isLoading: loading,
+    errorMessage: error,
+    dismissError,
+  } = useGridQuery({
+    queryKey: testKeys.list(
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+      sort_by,
+      sort_order
+    ),
+    errorFallbackMessage: 'Failed to load tests',
+    queryFn: () => {
+      const testsClient = new ApiClientFactory(sessionToken).getTestsClient();
+      return testsClient.getTests({
+        skip: paginationModel.page * paginationModel.pageSize,
+        limit: paginationModel.pageSize,
+        sort_by,
+        sort_order,
+        ...(filterString && { filter: filterString }),
+      });
+    },
+    enabled: !!sessionToken && insightsFilterReady,
+  });
+
+  const tests = testsData?.data ?? [];
+  const totalCount = testsData?.pagination.totalCount ?? 0;
 
   // Compute whether selected tests have mixed types
   const selectedTestTypes = useMemo(() => {
@@ -184,122 +303,72 @@ export default function TestsTable({
   }, [selectedRows, tests]);
 
   useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Data fetching function
-  const fetchTests = useCallback(async () => {
-    if (!sessionToken) return;
-
-    try {
-      setLoading(true);
-
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const testsClient = clientFactory.getTestsClient();
-
-      // Convert filter model to OData filter string
-      const filterString = combineTestFiltersToOData(filterModel);
-      const { sort_by, sort_order } = gridSortToApiParams(sortModel);
-
-      const apiParams: Parameters<typeof testsClient.getTests>[0] = {
-        skip: paginationModel.page * paginationModel.pageSize,
-        limit: paginationModel.pageSize,
-        sort_by,
-        sort_order,
-        ...(filterString && { filter: filterString }),
-      };
-
-      const response = await testsClient.getTests(apiParams);
-
-      setTests(response.data);
-      setTotalCount(response.pagination.totalCount);
-
-      setError(null);
-    } catch (_error) {
-      setError('Failed to load tests');
-      setTests([]);
-    } finally {
-      setLoading(false);
-    }
+    if (!testsData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveTestFilters(drawerFilters) ||
+      !!insightsFailedFilter;
+    if (!filtersActive) onTotalCountChange?.(testsData.pagination.totalCount);
   }, [
-    sessionToken,
-    paginationModel.page,
-    paginationModel.pageSize,
-    filterModel,
-    sortModel,
+    testsData,
+    filterModel.items.length,
+    searchQuery,
+    drawerFilters,
+    insightsFailedFilter,
+    onTotalCountChange,
   ]);
 
-  // Initial data fetch
+  // Apply Insights failed-test filter from URL params
   useEffect(() => {
-    fetchTests();
-  }, [fetchTests]);
+    if (!insightsFailedFilter || !sessionToken) {
+      setInsightsFailedTestIds(null);
+      setInsightsFilterError(null);
+      setInsightsFilterLoading(false);
+      return;
+    }
 
-  // Handle pagination change
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
+    let cancelled = false;
 
-  // Handle filter change
-  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
-    setFilterModel(newModel);
-    // Reset to first page when filters change
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
+    const loadFailedTestIds = async () => {
+      setInsightsFailedTestIds(null);
+      setInsightsFilterLoading(true);
+      setInsightsFilterError(null);
+      try {
+        const ids = await fetchFailedTestIdsForInsights(sessionToken, {
+          endpointId: insightsFailedFilter.endpointId,
+          timeRange: insightsFailedFilter.timeRange,
+          behaviorId: insightsFailedFilter.behaviorId,
+          behaviorName: insightsFailedFilter.behaviorName,
+          metricName: insightsFailedFilter.metricName,
+          topicName: insightsFailedFilter.topicName,
+          outcome: insightsFailedFilter.outcome,
+        });
+        if (!cancelled) {
+          setInsightsFailedTestIds(ids);
+        }
+      } catch {
+        if (!cancelled) {
+          setInsightsFilterError('Failed to load test cases from Insights.');
+          setInsightsFailedTestIds([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setInsightsFilterLoading(false);
+        }
+      }
+    };
 
-  const handleSortModelChange = useCallback((newModel: GridSortModel) => {
-    setSortModel(newModel);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
-
-  // Sync external searchQuery prop into filterModel
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  // Sync external typeFilter prop into filterModel
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'test_type.type_value'
-      );
-      const items =
-        typeFilter && typeFilter !== 'all'
-          ? [
-              ...otherItems,
-              {
-                field: 'test_type.type_value',
-                operator: 'equals',
-                value: typeFilter,
-              },
-            ]
-          : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [typeFilter]);
-
-  // Sync drawer filters into filterModel
-  useEffect(() => {
-    setFilterModel(prev => applyTestDrawerFiltersToModel(prev, drawerFilters));
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [drawerFilters]);
+    void loadFailedTestIds();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    insightsFailedFilter?.endpointId,
+    insightsFailedFilter?.timeRange,
+    sessionToken,
+    insightsFailedFilter,
+  ]);
 
   // Row action handlers
   const handleRowDeleteAction = useCallback((id: string) => {
@@ -323,12 +392,14 @@ export default function TestsTable({
     const actionsCol = createRowActionsColumn({
       onEdit: id => handleRowEditAction(id),
       onDelete: id => handleRowDeleteAction(id),
+      canEdit: () => canEditTest,
+      canDelete: () => canDeleteTest,
     });
     return [
       {
         field: 'prompt.content',
         headerName: 'Content',
-        width: 360,
+        flex: 2,
         minWidth: 200,
         resizable: true,
         filterable: true,
@@ -575,37 +646,68 @@ export default function TestsTable({
 
   const handleCreateTestSet = useCallback(() => {
     if (selectedRows.length > 0) {
-      setTestSetDialogOpen(true);
+      setTestSetDrawerOpen(true);
     }
   }, [selectedRows]);
 
-  const handleTestSetSelect = useCallback(
-    async (testSet: TestSet) => {
-      if (!sessionToken) return;
+  const handleTestSetsAssign = useCallback(
+    async (testSets: TestSet[]) => {
+      if (!sessionToken || testSets.length === 0) return;
 
-      try {
-        const testSetsClient = new TestSetsClient(sessionToken);
-        await testSetsClient.associateTestsWithTestSet(
-          testSet.id,
-          selectedRows as string[]
-        );
+      const testIds = selectedRows as string[];
+      const testSetsClient = new TestSetsClient(sessionToken);
+      let successCount = 0;
+      let alreadyAssociatedCount = 0;
+      let failureCount = 0;
 
-        if (isMounted.current) {
-          notifications.show(
-            `Successfully associated ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'} with test set "${testSet.name}"`,
-            {
-              severity: 'success',
-              autoHideDuration: 6000,
-            }
-          );
-
-          setTestSetDialogOpen(false);
+      for (const testSet of testSets) {
+        try {
+          await testSetsClient.associateTestsWithTestSet(testSet.id, testIds);
+          successCount++;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : '';
+          if (errorMessage.toLowerCase().includes('already associated')) {
+            alreadyAssociatedCount++;
+          } else {
+            failureCount++;
+          }
         }
-      } catch (_error) {
-        notifications.show('Failed to associate tests with test set', {
+      }
+
+      if (failureCount > 0) {
+        notifications.show('Failed to associate tests with some test sets', {
           severity: 'error',
           autoHideDuration: 6000,
         });
+        return;
+      }
+
+      if (successCount > 0) {
+        const destinationLabel =
+          testSets.length === 1
+            ? `test set "${testSets[0].name}"`
+            : `${testSets.length} test sets`;
+
+        notifications.show(
+          `Successfully associated ${testIds.length} ${testIds.length === 1 ? 'test' : 'tests'} with ${destinationLabel}`,
+          {
+            severity: 'success',
+            autoHideDuration: 6000,
+          }
+        );
+        setTestSetDrawerOpen(false);
+        return;
+      }
+
+      if (alreadyAssociatedCount > 0) {
+        notifications.show(
+          'Selected tests are already in the chosen test set(s)',
+          {
+            severity: 'warning',
+            autoHideDuration: 6000,
+          }
+        );
+        setTestSetDrawerOpen(false);
       }
     },
     [sessionToken, selectedRows, notifications]
@@ -637,8 +739,7 @@ export default function TestsTable({
 
       setPendingDeleteId(null);
       setSelectedRows([]);
-      fetchTests();
-      onRefresh?.();
+      queryClient.invalidateQueries({ queryKey: testKeys.all() });
     } catch (_error) {
       notifications.show('Failed to delete tests', {
         severity: 'error',
@@ -648,14 +749,7 @@ export default function TestsTable({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  }, [
-    pendingDeleteId,
-    selectedRows,
-    sessionToken,
-    notifications,
-    fetchTests,
-    onRefresh,
-  ]);
+  }, [pendingDeleteId, selectedRows, sessionToken, notifications, queryClient]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
@@ -672,84 +766,50 @@ export default function TestsTable({
     setSelectedTest(undefined);
   }, []);
 
-  const handleTestSaved = useCallback(async () => {
-    if (sessionToken) {
-      try {
-        // Fetch the most recent test (the one just created)
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const testsClient = clientFactory.getTestsClient();
-
-        const response = await testsClient.getTests({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-
-        if (response.data.length > 0) {
-          const newTest = response.data[0];
-
-          // Add the new test to the top of the current list
-          setTests(prevTests => {
-            // Check if the test already exists to avoid duplicates
-            const existingIndex = prevTests.findIndex(
-              test => test.id === newTest.id
-            );
-            if (existingIndex >= 0) {
-              // Update existing test
-              const updatedTests = [...prevTests];
-              updatedTests[existingIndex] = newTest;
-              return updatedTests;
-            } else {
-              // Add new test to the top
-              return [newTest, ...prevTests];
-            }
-          });
-
-          // Update total count
-          setTotalCount(prev => prev + 1);
-
-          // If we're not on the first page, go to first page to show the new test
-          if (paginationModel.page > 0) {
-            setPaginationModel(prev => ({ ...prev, page: 0 }));
-          }
-        }
-
-        onRefresh?.();
-      } catch (_error) {
-        // Fallback to full refresh
-        fetchTests();
-        onRefresh?.();
-      }
+  const handleCheckboxSelectionModeChange = useCallback((enabled: boolean) => {
+    setCheckboxSelectionMode(enabled);
+    if (!enabled) {
+      setSelectedRows([]);
     }
-  }, [sessionToken, onRefresh, fetchTests, paginationModel.page]);
+  }, []);
 
-  // Get action buttons based on selection (Add Tests removed — FAB in page header handles it)
-  const getActionButtons = useCallback(() => {
-    if (selectedRows.length === 0) return [];
+  const handleTestSaved = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: testKeys.all() });
+    if (paginationModel.page > 0) {
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    }
+  }, [queryClient, paginationModel.page]);
 
-    return [
-      {
-        label: 'Assign to Test Set',
-        icon: <ListIcon />,
-        variant: 'contained' as const,
-        onClick: handleCreateTestSet,
-        disabled: selectedTestTypes.isMixed,
-      },
-      {
-        label: 'Delete Tests',
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: handleDeleteTests,
-      },
-    ];
-  }, [
-    selectedRows.length,
-    handleCreateTestSet,
-    handleDeleteTests,
-    selectedTestTypes.isMixed,
-  ]);
+  const showSelectionActions = checkboxSelectionMode && selectedRows.length > 0;
+
+  const bulkHandlersRef = useRef({
+    onAssign: handleCreateTestSet,
+    onDelete: handleDeleteTests,
+  });
+  bulkHandlersRef.current = {
+    onAssign: handleCreateTestSet,
+    onDelete: handleDeleteTests,
+  };
+
+  useEffect(() => {
+    onBulkActionsChange?.({
+      visible: showSelectionActions,
+      assignDisabled: selectedTestTypes.isMixed,
+      onAssign: () => bulkHandlersRef.current.onAssign(),
+      onDelete: () => bulkHandlersRef.current.onDelete(),
+    });
+  }, [showSelectionActions, selectedTestTypes.isMixed, onBulkActionsChange]);
+
+  useEffect(() => {
+    return () => {
+      onBulkActionsChange?.({
+        visible: false,
+        assignDisabled: false,
+        onAssign: () => {},
+        onDelete: () => {},
+      });
+    };
+  }, [onBulkActionsChange]);
 
   return (
     <TestsToolbarContext.Provider
@@ -761,35 +821,27 @@ export default function TestsTable({
         openFilterDrawer: () => setFilterDrawerOpen(true),
         hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
         activeFilterCount: countActiveTestFilters(drawerFilters),
+        checkboxSelectionMode,
+        setCheckboxSelectionMode: handleCheckboxSelectionModeChange,
       }}
     >
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}
 
-      {selectedRows.length > 0 && (
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            borderBottom: theme =>
-              `1px solid ${theme.palette.greyscale.border}`,
-          }}
-        >
-          <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} selected
-          </Typography>
-          {selectedTestTypes.isMixed && (
-            <Alert severity="warning" sx={{ py: 0 }}>
-              Select tests with the same test type
-            </Alert>
-          )}
-        </Box>
+      {insightsFailedFilter && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {insightsFilterLoading
+            ? 'Loading test cases from Insights…'
+            : insightsFilterError ||
+              formatInsightsFailedTestsBanner(
+                insightsFailedFilter,
+                insightsFailedTestIds?.length ?? 0,
+                insightsEndpointName
+              )}
+        </Alert>
       )}
 
       <BaseDataGrid
@@ -799,13 +851,16 @@ export default function TestsTable({
         getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
-        actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
-        onRowClick={handleRowClick}
-        getRowUrl={row => `/tests/${row.id}`}
+        checkboxSelection={checkboxSelectionMode}
+        disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+        onRowSelectionModelChange={
+          checkboxSelectionMode ? handleSelectionChange : undefined
+        }
+        rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+        onRowClick={checkboxSelectionMode ? undefined : handleRowClick}
+        getRowUrl={
+          checkboxSelectionMode ? undefined : row => `/tests/${row.id}`
+        }
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
@@ -818,7 +873,7 @@ export default function TestsTable({
         toolbarSlot={TestsUnifiedToolbar}
         showToolbar={true}
         disablePaperWrapper={true}
-        persistState
+        persistState={!insightsFailedFilter}
         initialState={{
           columns: {
             columnVisibilityModel: {
@@ -838,10 +893,10 @@ export default function TestsTable({
             test={selectedTest}
             onSuccess={handleTestSaved}
           />
-          <TestSetSelectionDialog
-            open={testSetDialogOpen}
-            onClose={() => setTestSetDialogOpen(false)}
-            onSelect={handleTestSetSelect}
+          <TestSetSelectionDrawer
+            open={testSetDrawerOpen}
+            onClose={() => setTestSetDrawerOpen(false)}
+            onSelect={handleTestSetsAssign}
             sessionToken={sessionToken}
             testTypeValue={selectedTestTypes.commonTypeValue}
           />

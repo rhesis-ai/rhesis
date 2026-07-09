@@ -5,6 +5,8 @@ import {
   SiJira,
   SiGitlab,
   SiShortcut,
+  SiLinear,
+  SiAsana,
 } from '@icons-pack/react-simple-icons';
 
 /**
@@ -15,9 +17,31 @@ import {
  * - Provider icons and branding
  */
 
-// Providers supported via the deterministic REST extract path.
-// Must match ToolProviderType values defined in the backend.
-export const REST_PROVIDERS = ['notion', 'github'];
+// Providers that support the extract action (REST or MCP — backend picks transport).
+// Must stay in sync with _ROUTES in apps/backend/.../services/tool/actions.py.
+export const EXTRACT_PROVIDERS = [
+  'notion',
+  'github',
+  'gitlab',
+  'shortcut',
+  'asana',
+  'azure_devops',
+  'linear',
+];
+
+const TOOL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  azure_devops: 'Azure DevOps',
+};
+
+export function formatToolProviderDisplayName(typeValue: string): string {
+  return (
+    TOOL_PROVIDER_DISPLAY_NAMES[typeValue] ??
+    typeValue.charAt(0).toUpperCase() + typeValue.slice(1)
+  );
+}
+
+/** @deprecated Use EXTRACT_PROVIDERS */
+export const REST_PROVIDERS = EXTRACT_PROVIDERS;
 
 // Short description of what each provider is used for in Rhesis
 export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
@@ -27,20 +51,25 @@ export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
   gitlab: 'Import issues, merge requests, and wiki pages from GitLab projects',
   shortcut: 'Import stories and epics from Shortcut into your knowledge base',
   asana: 'Import tasks and projects from Asana into your knowledge base',
+  linear:
+    'Import issues and project context from Linear into your knowledge base',
+  azure_devops:
+    'Import work items, epics, and user stories from Azure DevOps boards',
 };
 
-function AsanaIcon({ className }: { className?: string }) {
+function AzureDevOpsIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       className={className}
       role="img"
-      aria-label="Asana"
+      aria-label="Azure DevOps"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="12" cy="6" r="3.5" fill="#F06A6A" />
-      <circle cx="5.5" cy="16" r="3.5" fill="#F06A6A" />
-      <circle cx="18.5" cy="16" r="3.5" fill="#F06A6A" />
+      <path
+        fill="currentColor"
+        d="M21 4.6v12.3l-5 4.1-7.8-2.8v2.8L3.9 17.4l11.4.9V5.1L21 4.6zM15.5 6 8.2 8.9v6.2L3 13.2V8.5l5.2-2.1L15.5 3v3z"
+      />
     </svg>
   );
 }
@@ -52,5 +81,7 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   jira: <SiJira className="h-8 w-8" />,
   gitlab: <SiGitlab className="h-8 w-8" />,
   shortcut: <SiShortcut className="h-8 w-8" />,
-  asana: <AsanaIcon className="h-8 w-8" />,
+  asana: <SiAsana className="h-8 w-8" />,
+  linear: <SiLinear className="h-8 w-8" />,
+  azure_devops: <AzureDevOpsIcon className="h-8 w-8" />,
 };

@@ -26,8 +26,6 @@ from alembic import op
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models, schemas
-
 # revision identifiers, used by Alembic.
 revision: str = "6a7b8c9d0e1f"
 down_revision: Union[str, None] = "5d7e4f2a3b1c"
@@ -43,6 +41,8 @@ def upgrade() -> None:
     metric_scope, backend_type_id, metric_type_id, status_id, or incorrect
     score_type and updates them using the existing CRUD infrastructure.
     """
+    from rhesis.backend.app import crud, models, schemas
+
     bind = op.get_bind()
 
     # Use raw SQL for the initial check so this migration does not SELECT columns

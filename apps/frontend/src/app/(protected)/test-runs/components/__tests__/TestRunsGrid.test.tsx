@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TestRunsGrid from '../TestRunsGrid';
@@ -97,7 +97,14 @@ jest.mock('../TestRunFilterDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="test-run-filter-drawer" /> : null,
-  EMPTY_TEST_RUN_FILTERS: { testSet: '', executor: '', tag: '' },
+  EMPTY_TEST_RUN_FILTERS: {
+    testSet: '',
+    executor: '',
+    tag: '',
+    tags: 'all',
+    comments: 'all',
+    tasks: 'all',
+  },
   hasActiveTestRunFilters: () => false,
   countActiveTestRunFilters: () => 0,
 }));
@@ -143,6 +150,7 @@ const makeTestRun = (
   tags: [],
   counts: { comments: 0, tasks: 0 },
   created_at: '2024-01-01T00:00:00Z',
+  permitted_actions: ['test_run:read', 'test_run:update', 'test_run:delete'],
 });
 
 const makePaginatedResponse = <T,>(data: T[], total?: number) => ({
@@ -195,7 +203,17 @@ describe('TestRunsGrid', () => {
     mockGetTestRuns.mockRejectedValue(new Error('Network error'));
     render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(screen.getByText(/failed to load test runs/i)).toBeInTheDocument();
+    expect(screen.getByText(/network error/i)).toBeInTheDocument();
+  });
+
+  it('dismisses the error alert on close', async () => {
+    mockGetTestRuns.mockRejectedValue(new Error('Network error'));
+    render(<TestRunsGrid sessionToken="tok" />);
+    await screen.findByRole('alert');
+    await userEvent.click(screen.getByLabelText(/close/i));
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    );
   });
 
   it('navigates to test run detail on row click', async () => {

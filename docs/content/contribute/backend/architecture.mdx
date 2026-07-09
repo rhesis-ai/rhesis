@@ -90,6 +90,23 @@ API endpoints are organized into routers by resource type, with each router hand
 
 Long-running operations are handled by Celery tasks defined in the `tasks/` directory, which are executed asynchronously.
 
+### Logging
+
+Backend startup calls `set_logger()` from `rhesis.backend.logging.logging_config`.
+The logger chooses handlers from runtime configuration:
+
+| Runtime condition | Output |
+| --- | --- |
+| Google Cloud runtime detected | JSON logs on stdout with `severity`, `module`, and `message` fields |
+| `BACKEND_ENV=local` | Colored console logs plus timestamped files under `LOG_DIR` |
+| Other environments | Root logger level and framework logger levels are controlled by `LOG_LEVEL` |
+
+`DEV_MODE=true` enables Uvicorn hot reload and `--log-level debug` in `start.sh`, and forces `CELERY_WORKER_LOGLEVEL=DEBUG` in the worker. Set `DEV_MODE=true` in `apps/backend/.env` when running via `./rh dev`; leave it unset or `false` everywhere else (Docker Compose local, cloud deployments).
+
+All configured handlers wrap their formatter in `RedactingFormatter`, which
+scrubs bearer tokens, JWTs, API keys, database URLs, cookies, passwords, and
+private keys from final log output.
+
 ### Authentication
 
 Authentication is handled through a native provider-based system, with custom middleware to enforce different authentication requirements based on route configuration.

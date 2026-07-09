@@ -108,10 +108,7 @@ export default function ApiClientsSection() {
 
   const handleRotate = async (client: AuthClient) => {
     try {
-      const rotated = await apiClient.rotateClient(
-        organization.id,
-        client.id
-      );
+      const rotated = await apiClient.rotateClient(organization.id, client.id);
       setRevealTitle('Save the new client secret');
       setRevealing(rotated);
       // Update the row in place so the new `token_epoch` is visible
@@ -128,38 +125,30 @@ export default function ApiClientsSection() {
 
   const handleDisable = async (client: AuthClient) => {
     try {
-      const updated = await apiClient.disableClient(
-        organization.id,
-        client.id
-      );
-      setClients(prev =>
-        prev.map(c => (c.id === updated.id ? updated : c))
-      );
+      const updated = await apiClient.disableClient(organization.id, client.id);
+      setClients(prev => prev.map(c => (c.id === updated.id ? updated : c)));
       notifications.show('Client disabled', {
         severity: 'success',
         autoHideDuration: 3000,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to disable client';
+      const msg =
+        err instanceof Error ? err.message : 'Failed to disable client';
       notifications.show(msg, { severity: 'error', autoHideDuration: 5000 });
     }
   };
 
   const handleEnable = async (client: AuthClient) => {
     try {
-      const updated = await apiClient.enableClient(
-        organization.id,
-        client.id
-      );
-      setClients(prev =>
-        prev.map(c => (c.id === updated.id ? updated : c))
-      );
+      const updated = await apiClient.enableClient(organization.id, client.id);
+      setClients(prev => prev.map(c => (c.id === updated.id ? updated : c)));
       notifications.show('Client enabled', {
         severity: 'success',
         autoHideDuration: 3000,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to enable client';
+      const msg =
+        err instanceof Error ? err.message : 'Failed to enable client';
       notifications.show(msg, { severity: 'error', autoHideDuration: 5000 });
     }
   };
@@ -173,7 +162,8 @@ export default function ApiClientsSection() {
         autoHideDuration: 3000,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete client';
+      const msg =
+        err instanceof Error ? err.message : 'Failed to delete client';
       notifications.show(msg, { severity: 'error', autoHideDuration: 5000 });
     }
   };
@@ -234,51 +224,47 @@ export default function ApiClientsSection() {
 
   return (
     <>
-    <SectionCard title="API Clients">
-    <Stack spacing={2}>
-      {/* Description and CTA share one row. `alignItems: flex-start`
+      <SectionCard title="API Clients">
+        <Stack spacing={2}>
+          {/* Description and CTA share one row. `alignItems: flex-start`
           pins the button to the top so the description wraps cleanly
           underneath it instead of being vertically centred against
           the button (which made the layout feel lopsided). */}
-      <Box
-        sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}
-      >
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ flexGrow: 1 }}
-        >
-          API Clients let an external integration trade an OIDC access
-          token from your IdP for a Rhesis access token (RFC 8693).
-          Configure the IdP under <strong>Single Sign-On</strong>{' '}
-          first; clients only work for organizations with SSO enabled
-          and a slug set.
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={openCreateDrawer}
-          sx={{ flexShrink: 0 }}
-        >
-          Create
-        </Button>
-      </Box>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ flexGrow: 1 }}
+            >
+              API Clients let an external integration trade an OIDC access token
+              from your IdP for a Rhesis access token (RFC 8693). Configure the
+              IdP under <strong>Single Sign-On</strong> first; clients only work
+              for organizations with SSO enabled and a slug set.
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={openCreateDrawer}
+              sx={{ flexShrink: 0 }}
+            >
+              Create
+            </Button>
+          </Box>
 
-      {loadError && <Alert severity="error">{loadError}</Alert>}
+          {loadError && <Alert severity="error">{loadError}</Alert>}
 
-      <ApiClientsList
-        clients={clients}
-        loading={loading}
-        onRotate={handleRotate}
-        onDisable={handleDisable}
-        onEnable={handleEnable}
-        onDelete={handleDelete}
-      />
-
-    </Stack>
-    </SectionCard>
-    {drawers}
+          <ApiClientsList
+            clients={clients}
+            loading={loading}
+            onRotate={handleRotate}
+            onDisable={handleDisable}
+            onEnable={handleEnable}
+            onDelete={handleDelete}
+          />
+        </Stack>
+      </SectionCard>
+      {drawers}
     </>
   );
 }

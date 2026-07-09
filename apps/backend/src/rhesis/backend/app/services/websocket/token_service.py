@@ -108,7 +108,7 @@ class WebSocketTokenService:
 
             # Verify purpose
             if payload.get("purpose") != self.PURPOSE:
-                logger.warning("WebSocket token has wrong purpose")
+                logger.debug("WebSocket token has wrong purpose")
                 return None
 
             # Verify JTI exists

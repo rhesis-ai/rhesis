@@ -67,7 +67,7 @@ class ConnectorManager:
         self._executor = TestExecutor()
         self._tracer = Tracer(
             api_key=api_key,
-            project_id=project_id or "",
+            project_id=project_id,
             environment=environment,
             base_url=base_url,
         )

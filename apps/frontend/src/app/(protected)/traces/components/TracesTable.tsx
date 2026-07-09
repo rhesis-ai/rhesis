@@ -21,6 +21,7 @@ import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
+import { formatDate } from '@/utils/date';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
@@ -277,7 +278,7 @@ export default function TracesTable({
             addSuffix: true,
           });
           return (
-            <Tooltip title={new Date(params.value).toLocaleString()}>
+            <Tooltip title={formatDate(params.value)}>
               <Typography variant="body2">{timeAgo}</Typography>
             </Tooltip>
           );

@@ -16,10 +16,23 @@ if (typeof afterEach === 'function') {
   });
 }
 import { ThemeProvider } from '@mui/material/styles';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import lightTheme from '@/styles/theme';
 
+let testQueryClient: QueryClient;
+
+beforeEach(() => {
+  testQueryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+});
+
 function AllProviders({ children }: { children: React.ReactNode }) {
-  return <ThemeProvider theme={lightTheme}>{children}</ThemeProvider>;
+  return (
+    <QueryClientProvider client={testQueryClient}>
+      <ThemeProvider theme={lightTheme}>{children}</ThemeProvider>
+    </QueryClientProvider>
+  );
 }
 
 function render(

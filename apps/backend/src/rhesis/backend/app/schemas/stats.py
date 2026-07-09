@@ -30,6 +30,9 @@ class MetricStats(BaseModel):
     passed: int
     failed: int
     pass_rate: float
+    automated_passed: int = 0
+    automated_failed: int = 0
+    human_review_count: int = 0
 
 
 class OverallStats(BaseModel):

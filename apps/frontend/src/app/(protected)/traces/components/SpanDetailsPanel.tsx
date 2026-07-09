@@ -34,6 +34,7 @@ import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
@@ -505,7 +506,7 @@ export default function SpanDetailsPanel({
                                 theme.palette.mode === 'dark'
                                   ? theme.palette.grey[800]
                                   : theme.palette.grey[100],
-                              borderRadius: theme => theme.shape.borderRadius,
+                              borderRadius: BORDER_RADIUS.xs,
                               overflow: 'auto',
                               fontSize: theme =>
                                 theme.typography.body2.fontSize,
@@ -537,7 +538,7 @@ export default function SpanDetailsPanel({
                                 theme.palette.mode === 'dark'
                                   ? theme.palette.grey[800]
                                   : theme.palette.grey[100],
-                              borderRadius: theme => theme.shape.borderRadius,
+                              borderRadius: BORDER_RADIUS.xs,
                               overflow: 'auto',
                               fontSize: theme =>
                                 theme.typography.body2.fontSize,
@@ -577,7 +578,7 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: theme => theme.shape.borderRadius,
+                          borderRadius: BORDER_RADIUS.xs,
                           overflow: 'auto',
                           fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
@@ -644,8 +645,7 @@ export default function SpanDetailsPanel({
                                     theme.palette.mode === 'dark'
                                       ? theme.palette.grey[800]
                                       : theme.palette.grey[100],
-                                  borderRadius: theme =>
-                                    `${theme.shape.borderRadius}px`,
+                                  borderRadius: BORDER_RADIUS.xs,
                                   borderLeft: theme =>
                                     `3px solid ${
                                       msg.role === 'system'
@@ -717,7 +717,7 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: theme => theme.shape.borderRadius,
+                          borderRadius: BORDER_RADIUS.xs,
                           overflow: 'auto',
                           fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
@@ -774,7 +774,7 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: theme => theme.shape.borderRadius,
+                          borderRadius: BORDER_RADIUS.xs,
                           overflow: 'auto',
                           fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
@@ -813,7 +813,7 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: theme => theme.shape.borderRadius,
+                          borderRadius: BORDER_RADIUS.xs,
                           overflow: 'auto',
                           fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
@@ -870,7 +870,7 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: theme => theme.shape.borderRadius,
+                          borderRadius: BORDER_RADIUS.xs,
                           overflow: 'auto',
                           fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
@@ -909,7 +909,7 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: theme => theme.shape.borderRadius,
+                          borderRadius: BORDER_RADIUS.xs,
                           overflow: 'auto',
                           fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
@@ -1092,7 +1092,6 @@ export default function SpanDetailsPanel({
               selectedSpan={span}
               trace={trace}
               sessionToken={sessionToken}
-              currentUserId={currentUserId}
               onTraceUpdated={onTraceUpdated ?? (() => {})}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}

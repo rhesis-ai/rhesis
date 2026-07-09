@@ -22,6 +22,16 @@ export class OrgSettingsPage extends BasePage {
     await this.expectHeading(/organization settings/i);
   }
 
+  /** Switch to the Team tab on Organization Settings. */
+  async openTeamTab() {
+    await this.page.getByRole('tab', { name: /^team$/i }).click();
+  }
+
+  /** Switch to the RBAC "Roles" tab (registered by ee/frontend/src/rbac/register.tsx). */
+  async openRolesTab() {
+    await this.page.getByRole('tab', { name: /^roles$/i }).click();
+  }
+
   /** Click Edit on the first settings card (Basic Information). */
   async clickEditBasicInformation() {
     const section = this.page

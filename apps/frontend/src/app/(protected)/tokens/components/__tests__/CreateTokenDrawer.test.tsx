@@ -6,6 +6,16 @@ import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import CreateTokenDrawer from '../CreateTokenDrawer';
 
+jest.mock('@/contexts/ActiveProjectContext', () => ({
+  useActiveProject: () => ({
+    activeProject: { id: 'proj-1', name: 'My Project' },
+    projects: [],
+    loading: false,
+    setActiveProject: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}));
+
 const onClose = jest.fn();
 const onCreateToken = jest.fn();
 
@@ -15,6 +25,7 @@ function renderDrawer(open = true) {
       <CreateTokenDrawer
         open={open}
         onClose={onClose}
+        sessionToken="test-token"
         onCreateToken={onCreateToken}
       />
     </ThemeProvider>
@@ -64,7 +75,7 @@ describe('CreateTokenDrawer', () => {
     await user.click(screen.getByRole('button', { name: /create/i }));
 
     await waitFor(() => {
-      expect(onCreateToken).toHaveBeenCalledWith('My Token', 30);
+      expect(onCreateToken).toHaveBeenCalledWith('My Token', 30, null);
     });
   });
 
@@ -74,6 +85,7 @@ describe('CreateTokenDrawer', () => {
         <CreateTokenDrawer
           open={false}
           onClose={onClose}
+          sessionToken="test-token"
           onCreateToken={onCreateToken}
         />
       </ThemeProvider>
@@ -84,6 +96,7 @@ describe('CreateTokenDrawer', () => {
         <CreateTokenDrawer
           open={true}
           onClose={onClose}
+          sessionToken="test-token"
           onCreateToken={onCreateToken}
         />
       </ThemeProvider>
@@ -104,7 +117,7 @@ describe('CreateTokenDrawer', () => {
     await user.click(screen.getByRole('button', { name: /create/i }));
 
     await waitFor(() => {
-      expect(onCreateToken).toHaveBeenCalledWith('Permanent Token', null);
+      expect(onCreateToken).toHaveBeenCalledWith('Permanent Token', null, null);
     });
   });
 });

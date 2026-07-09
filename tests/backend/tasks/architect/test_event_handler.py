@@ -15,6 +15,7 @@ from rhesis.backend.app.services.architect.event_handler import (
     _safe_preview,
     _tool_description,
 )
+from rhesis.sdk.agents.errors import format_user_facing_error
 
 _HANDLER_MODULE = "rhesis.backend.app.services.architect.event_handler"
 
@@ -174,6 +175,21 @@ class TestWebSocketEventHandlerEvents:
         assert payload["error_type"] == "ValueError"
 
     @pytest.mark.asyncio
+    async def test_on_error_sanitizes_provider_traceback(self, handler):
+        err = RuntimeError(
+            "litellm.APIConnectionError: connection failed\n"
+            "Traceback (most recent call last):\n"
+            '  File "/app/litellm/main.py", line 639, in acompletion\n'
+            "    response = await init_response\n"
+        )
+        with patch.object(handler, "publish") as mock_pub:
+            await handler.on_error(error=err)
+
+        payload = mock_pub.call_args[0][1]
+        assert "Traceback" not in payload["error"]
+        assert "litellm" not in payload["error"]
+
+    @pytest.mark.asyncio
     async def test_on_agent_end_is_noop(self, handler):
         with patch.object(handler, "publish") as mock_pub:
             await handler.on_agent_end(result="done")
@@ -230,7 +246,7 @@ class TestWebSocketEventHandlerStreaming:
 
         payload = mock_pub.call_args[0][1]
         assert payload["content"] == "partial"
-        assert payload["error"] == "LLM timeout"
+        assert payload["error"] == format_user_facing_error("LLM timeout")
 
 
 # ---------------------------------------------------------------------------

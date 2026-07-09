@@ -19,6 +19,8 @@ from rhesis.backend.app.schemas.websocket import (
 if TYPE_CHECKING:
     from rhesis.backend.app.services.websocket.manager import WebSocketManager
 
+from rhesis.sdk.agents.errors import format_user_facing_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,6 +106,28 @@ async def handle_architect_message(
                     active_project_id,
                 )
 
+            # SP11: gate the message → agent-run enqueue through the PDP. The WS
+            # transport is not covered by the HTTP PEP backstop, so authorize
+            # explicitly here. Reuse the connection's stored principal (carries
+            # token scopes + project boundary from auth) so scoped tokens and
+            # read-only roles cannot trigger agent execution.
+            from rhesis.backend.app.auth.capabilities import Permission
+            from rhesis.backend.app.auth.principal import resolve_principal
+            from rhesis.backend.app.auth.rbac import authorize
+
+            principal = manager._principals.get(conn_id) or resolve_principal(user)
+            authz_project_id = UUID(active_project_id) if active_project_id else None
+            if not authorize(
+                principal, Permission.Architect.CREATE, project_id=authz_project_id, db=db
+            ):
+                await _send_architect_error(
+                    manager,
+                    conn_id,
+                    correlation_id,
+                    "Not authorized to send messages in this architect session",
+                )
+                return
+
             crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(
@@ -111,6 +135,7 @@ async def handle_architect_message(
                     role="user",
                     content=user_message,
                     attachments=payload.get("attachments"),
+                    project_id=active_project_id,
                 ),
                 organization_id=str(user.organization_id),
                 user_id=str(user.id),
@@ -153,7 +178,7 @@ async def handle_architect_message(
             manager,
             conn_id,
             correlation_id,
-            str(e),
+            format_user_facing_error(e),
             error_type=type(e).__name__,
         )
 

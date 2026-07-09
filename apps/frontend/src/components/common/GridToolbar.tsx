@@ -20,12 +20,16 @@ export interface GridToolbarProps {
   searchWidth?: number;
   /** Use `standalone` on directory pages where the toolbar sits on the page bg. */
   searchVariant?: 'embedded' | 'standalone';
+  /** When true, the search pill grows to fill remaining toolbar width. */
+  searchFullWidth?: boolean;
   onFilterClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   hasActiveFilters?: boolean;
   /** Number of active filters to display on the filter button badge */
   activeFilterCount?: number;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
+  /** When false, hides the search pill (e.g. insights empty state toolbar). */
+  showSearch?: boolean;
   sx?: SxProps<Theme>;
 }
 
@@ -36,13 +40,19 @@ export const directoryToolbarSx: SxProps<Theme> = {
   py: 0,
   borderBottom: 'none',
   minHeight: 'auto',
+  gap: '20px',
 };
 
 /** Spread on directory toolbars: layout + raised search pill for page-bg contrast. */
 export const directoryToolbarProps = {
   sx: directoryToolbarSx,
   searchVariant: 'standalone',
-} as const satisfies Pick<GridToolbarProps, 'sx' | 'searchVariant'>;
+  /** Figma Toolbar 841:38547 — Searchfield width */
+  searchWidth: 288,
+} as const satisfies Pick<
+  GridToolbarProps,
+  'sx' | 'searchVariant' | 'searchWidth'
+>;
 
 export interface PrimarySegmentedPillsProps {
   tabs: ToolbarPillTab[];
@@ -89,74 +99,88 @@ export function PrimarySegmentedPills({
 }: PrimarySegmentedPillsProps) {
   return (
     <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      {tabs.map(({ value, label, icon }, idx, arr) => {
-        const isSelected =
-          mode === 'single'
-            ? activeValue === value
-            : value === clearValue
-              ? selectedValues.length === 0
-              : selectedValues.includes(value);
-        const isFirst = idx === 0;
-        const isLast = idx === arr.length - 1;
+      <Box
+        sx={{
+          display: 'inline-flex',
+          maxWidth: '100%',
+          border: '1px solid',
+          borderColor: 'primary.main',
+          borderRadius: BORDER_RADIUS.pill,
+          overflow: 'hidden',
+        }}
+      >
+        {tabs.map(({ value, label, icon }, idx) => {
+          const isSelected =
+            mode === 'single'
+              ? activeValue === value
+              : value === clearValue
+                ? selectedValues.length === 0
+                : selectedValues.includes(value);
 
-        return (
-          <Box
-            key={value || 'all'}
-            component="button"
-            type="button"
-            onClick={() => {
-              if (mode === 'single') {
-                onSingleChange?.(value);
-                return;
-              }
-              if (value === clearValue) {
-                onMultiChange?.([]);
-                return;
-              }
-              const next = selectedValues.includes(value)
-                ? selectedValues.filter(v => v !== value)
-                : [...selectedValues, value];
-              onMultiChange?.(next);
-            }}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              px: '16px',
-              py: '8px',
-              fontSize: 14,
-              fontWeight: 700,
-              lineHeight: '22px',
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: 'primary.main',
-              borderLeft: isFirst ? '1px solid' : 'none',
-              borderRight: isLast ? '1px solid' : 'none',
-              borderRadius: isFirst
-                ? `${BORDER_RADIUS.pill} 0 0 ${BORDER_RADIUS.pill}`
-                : isLast
-                  ? `0 ${BORDER_RADIUS.pill} ${BORDER_RADIUS.pill} 0`
-                  : 0,
-              bgcolor: isSelected ? 'primary.main' : 'transparent',
-              color: isSelected ? '#fff' : 'primary.main',
-              transition: 'background-color 0.15s, color 0.15s',
-              '&:hover': {
-                bgcolor: isSelected
-                  ? 'primary.dark'
-                  : theme => `${theme.palette.primary.main}0f`,
-              },
-              whiteSpace: 'nowrap',
-              '& svg': {
-                fontSize: 20,
-              },
-            }}
-          >
-            {icon}
-            {label}
-          </Box>
-        );
-      })}
+          return (
+            <Box
+              key={value || 'all'}
+              component="button"
+              type="button"
+              onClick={() => {
+                if (mode === 'single') {
+                  onSingleChange?.(value);
+                  return;
+                }
+                if (value === clearValue) {
+                  onMultiChange?.([]);
+                  return;
+                }
+                const next = selectedValues.includes(value)
+                  ? selectedValues.filter(v => v !== value)
+                  : [...selectedValues, value];
+                onMultiChange?.(next);
+              }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                px: '16px',
+                py: '8px',
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                cursor: 'pointer',
+                border: 'none',
+                borderRadius: 0,
+                ...(idx > 0 && {
+                  borderLeft: '1px solid',
+                  borderColor: 'primary.main',
+                }),
+                bgcolor: isSelected ? 'primary.main' : 'transparent',
+                color: isSelected ? '#fff' : 'primary.main',
+                transition: 'background-color 0.15s, color 0.15s',
+                outline: 'none',
+                WebkitTapHighlightColor: 'transparent',
+                '&:focus-visible': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: -2,
+                  zIndex: 1,
+                },
+                '&:hover': {
+                  bgcolor: isSelected
+                    ? 'primary.dark'
+                    : theme => `${theme.palette.primary.main}0f`,
+                },
+                whiteSpace: 'nowrap',
+                '& svg': {
+                  fontSize: 20,
+                },
+              }}
+            >
+              {icon}
+              {label}
+            </Box>
+          );
+        })}
+      </Box>
     </Box>
   );
 }
@@ -174,6 +198,40 @@ export const linkedGridToolbarSx: SxProps<Theme> = {
 export const sectionCardGridBleedSx: SxProps<Theme> = {
   mx: '-30px',
   width: 'calc(100% + 60px)',
+};
+
+/** Shared 30px horizontal inset for grids/tables embedded in a bleeded section card. */
+export const SECTION_CARD_GRID_INSET_PX = '30px';
+
+/** Table horizontal padding inside a bleeded section-card grid area. */
+export const sectionCardGridTableInsetSx: SxProps<Theme> = {
+  px: SECTION_CARD_GRID_INSET_PX,
+};
+
+/** Clears edge cell padding when the table container already provides horizontal inset. */
+export const sectionCardGridTableEdgeCellResetSx: SxProps<Theme> = {
+  '& .MuiTableCell-root:first-of-type': {
+    pl: 0,
+  },
+  '& .MuiTableCell-root:last-of-type': {
+    pr: 0,
+  },
+};
+
+/** DataGrid column/footer horizontal inset inside a bleeded section-card grid area. */
+export const sectionCardGridDataGridInsetSx: SxProps<Theme> = {
+  '&& .MuiDataGrid-columnHeader--first': {
+    paddingLeft: SECTION_CARD_GRID_INSET_PX,
+  },
+  '&& .MuiDataGrid-columnHeader--last': {
+    paddingRight: SECTION_CARD_GRID_INSET_PX,
+  },
+  '&& .MuiDataGrid-cell:first-child': {
+    paddingLeft: SECTION_CARD_GRID_INSET_PX,
+  },
+  '&& .MuiDataGrid-cell:last-of-type': {
+    paddingRight: SECTION_CARD_GRID_INSET_PX,
+  },
 };
 
 /** 48px row/header height matching Figma linked-data table rows. */
@@ -211,11 +269,13 @@ export function GridToolbar({
   searchPlaceholder = 'Search…',
   searchWidth = 240,
   searchVariant = 'embedded',
+  searchFullWidth = false,
   onFilterClick,
   hasActiveFilters = false,
   activeFilterCount,
   middleContent,
   rightContent,
+  showSearch = true,
   sx,
 }: GridToolbarProps) {
   // Figma grid-card default: 30px all around. Directory pages and drawers
@@ -239,15 +299,34 @@ export function GridToolbar({
           activeFilterCount={activeFilterCount}
         />
       ) : null}
-      <SearchPill
-        value={searchQuery}
-        onChange={onSearchChange}
-        placeholder={searchPlaceholder}
-        width={searchWidth}
-        variant={searchVariant}
-      />
+      {showSearch ? (
+        searchFullWidth ? (
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <SearchPill
+              value={searchQuery}
+              onChange={onSearchChange}
+              placeholder={searchPlaceholder}
+              width="100%"
+              variant={searchVariant}
+            />
+          </Box>
+        ) : (
+          <SearchPill
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder={searchPlaceholder}
+            width={searchWidth}
+            variant={searchVariant}
+          />
+        )
+      ) : null}
       {middleContent}
-      {!middleContent && <Box sx={{ flex: 1 }} />}
+      {!middleContent && !searchFullWidth && showSearch && (
+        <Box sx={{ flex: 1 }} />
+      )}
+      {!middleContent && !searchFullWidth && !showSearch && (
+        <Box sx={{ flex: 1 }} />
+      )}
       {rightContent ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {rightContent}

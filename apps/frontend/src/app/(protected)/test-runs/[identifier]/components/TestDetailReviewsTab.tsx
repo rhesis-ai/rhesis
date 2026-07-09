@@ -23,10 +23,17 @@ import {
   Review,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Capability } from '@/constants/capabilities';
+import { can } from '@/components/common/Can';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
 import { isPassedStatusName } from '@/utils/test-result-status';
+import {
+  getResultReviews,
+  getLatestMetricReviewForResult,
+  isExplicitTestLevelReview,
+} from './test-run-summary-utils';
 import {
   MentionOption,
   renderMentionText,
@@ -59,6 +66,7 @@ export default function TestDetailReviewsTab({
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
+  const canCreateReview = can(test, Capability.TestResult.UPDATE);
   const [createOpen, setCreateOpen] = useState(false);
   const [showOthers, setShowOthers] = useState(false);
 
@@ -144,13 +152,42 @@ export default function TestDetailReviewsTab({
 
   const lastReview = test.last_review;
 
-  // Conflict: human review disagrees with automated
-  const hasConflict = useMemo(() => {
-    if (!lastReview?.status?.name) return false;
-    return (
-      isPassedStatusName(lastReview.status.name) !== automatedStatus.passed
+  const testLevelReviews = useMemo(
+    () =>
+      getResultReviews(test).filter(review =>
+        isExplicitTestLevelReview(test, review)
+      ),
+    [test]
+  );
+
+  const latestTestLevelReview = useMemo(() => {
+    if (lastReview && isExplicitTestLevelReview(test, lastReview)) {
+      return lastReview;
+    }
+    const sorted = [...testLevelReviews].sort(
+      (a, b) =>
+        new Date((b as Review).updated_at).getTime() -
+        new Date((a as Review).updated_at).getTime()
     );
-  }, [lastReview, automatedStatus]);
+    return (sorted[0] as Review | undefined) ?? null;
+  }, [lastReview, test, testLevelReviews]);
+
+  const latestMetricReview = useMemo(
+    () => getLatestMetricReviewForResult(test) as Review | undefined,
+    [test]
+  );
+
+  const hasMetricReviewOnly =
+    !latestTestLevelReview && latestMetricReview !== undefined;
+
+  // Conflict: human test-level review disagrees with automated
+  const hasConflict = useMemo(() => {
+    if (!latestTestLevelReview?.status?.name) return false;
+    return (
+      isPassedStatusName(latestTestLevelReview.status.name) !==
+      automatedStatus.passed
+    );
+  }, [latestTestLevelReview, automatedStatus]);
 
   const getReviewStatusDisplay = (
     statusName: string
@@ -227,10 +264,12 @@ export default function TestDetailReviewsTab({
           <Typography variant="body2" color="text.primary">
             Human Review:
           </Typography>
-          {lastReview ? (
+          {latestTestLevelReview ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {(() => {
-                const display = getReviewStatusDisplay(lastReview.status.name);
+                const display = getReviewStatusDisplay(
+                  latestTestLevelReview.status.name
+                );
                 return (
                   <>
                     <StatusChip
@@ -243,24 +282,36 @@ export default function TestDetailReviewsTab({
                       <Chip
                         icon={
                           <WarningAmberIcon
-                            sx={{
-                              fontSize: '14px !important',
-                              color: '#de3355 !important',
-                            }}
+                            sx={{ fontSize: '14px !important' }}
                           />
                         }
                         label="Conflict"
                         size="small"
+                        color="error"
+                        variant="outlined"
                         sx={{
                           borderRadius: BORDER_RADIUS.pill,
-                          bgcolor: '#fdedee',
-                          color: '#de3355',
-                          border: 'none',
-                          '& .MuiChip-label': { color: '#de3355' },
+                          '& .MuiChip-icon': { color: 'error.main' },
                         }}
                       />
                     )}
                   </>
+                );
+              })()}
+            </Box>
+          ) : hasMetricReviewOnly && latestMetricReview ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {(() => {
+                const display = getReviewStatusDisplay(
+                  latestMetricReview.status.name
+                );
+                return (
+                  <StatusChip
+                    passed={display.passed}
+                    label={`${display.label} (metric)`}
+                    size="small"
+                    variant="outlined"
+                  />
                 );
               })()}
             </Box>
@@ -279,7 +330,7 @@ export default function TestDetailReviewsTab({
       {hasConflict && (
         <Box
           sx={{
-            bgcolor: '#ffab24',
+            bgcolor: 'warning.light',
             borderRadius: BORDER_RADIUS.xs,
             px: '30px',
             py: '12px',
@@ -324,12 +375,16 @@ export default function TestDetailReviewsTab({
       {noReviewsAtAll ? (
         <EmptyStateCard
           title="No reviews created yet"
-          onCreateReview={() => setCreateOpen(true)}
+          onCreateReview={
+            canCreateReview ? () => setCreateOpen(true) : undefined
+          }
         />
       ) : myReviewsEmpty && !showOthers ? (
         <EmptyStateCard
           title="You have not created any reviews yet"
-          onCreateReview={() => setCreateOpen(true)}
+          onCreateReview={
+            canCreateReview ? () => setCreateOpen(true) : undefined
+          }
           showOthersCount={otherReviews.length}
           onShowOthers={() => setShowOthers(true)}
         />
@@ -356,15 +411,17 @@ export default function TestDetailReviewsTab({
             <Typography variant="h6" color="primary" fontWeight={600}>
               Reviews
             </Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateOpen(true)}
-              sx={{ '& .MuiSvgIcon-root': { color: 'primary.main' } }}
-            >
-              Create
-            </Button>
+            {canCreateReview && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateOpen(true)}
+                sx={{ '& .MuiSvgIcon-root': { color: 'primary.main' } }}
+              >
+                Create
+              </Button>
+            )}
           </Box>
 
           {/* Review items */}
@@ -390,7 +447,7 @@ export default function TestDetailReviewsTab({
                         sx={{
                           width: 32,
                           height: 32,
-                          fontSize: '0.75rem',
+                          fontSize: 12,
                           bgcolor: 'primary.main',
                         }}
                       >
@@ -416,7 +473,7 @@ export default function TestDetailReviewsTab({
                         size="small"
                         variant="outlined"
                       />
-                      {String(review.user.user_id) === currentUserId && (
+                      {can(review, Capability.TestResult.DELETE) && (
                         <Tooltip title="Delete review">
                           <IconButton
                             size="small"
@@ -522,7 +579,8 @@ export default function TestDetailReviewsTab({
 
 interface EmptyStateCardProps {
   title: string;
-  onCreateReview: () => void;
+  /** Omit to hide the create button (user lacks test_result:update). */
+  onCreateReview?: () => void;
   showOthersCount?: number;
   onShowOthers?: () => void;
 }
@@ -555,18 +613,20 @@ function EmptyStateCard({
         Create a review to evaluate this test result and provide your assessment
         of the automated findings.
       </Typography>
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={onCreateReview}
-        sx={{
-          borderRadius: BORDER_RADIUS.md,
-          // Override the MuiDrawer theme rule that sets all icons to body color
-          '& .MuiSvgIcon-root': { color: '#FFFFFF' },
-        }}
-      >
-        Create review
-      </Button>
+      {onCreateReview && (
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={onCreateReview}
+          sx={{
+            borderRadius: BORDER_RADIUS.md,
+            // Override the MuiDrawer theme rule that sets all icons to body color
+            '& .MuiSvgIcon-root': { color: '#ffffff' },
+          }}
+        >
+          Create review
+        </Button>
+      )}
       {showOthersCount !== undefined && showOthersCount > 0 && onShowOthers && (
         <Button
           variant="text"

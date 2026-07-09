@@ -7,6 +7,10 @@ testable with Penelope's autonomous testing agent.
 
 from typing import Any, List, Optional
 
+from rhesis.penelope.targets._content_blocks import (
+    afiles_to_content_blocks,
+    files_to_content_blocks,
+)
 from rhesis.sdk.targets import Target, TargetResponse
 
 
@@ -87,13 +91,39 @@ class LangChainTarget(Target):
         files: Optional[List] = None,
         **kwargs: Any,
     ) -> TargetResponse:
-        """Send a message to the LangChain runnable."""
+        """Send a message to the LangChain runnable.
+
+        When `files` is provided, the message is sent as a HumanMessage with
+        multimodal content blocks directly (bypassing input_key templating),
+        since LangChain prompt templates only substitute strings - a list of
+        content blocks would otherwise be stringified into the prompt text
+        instead of becoming real attachments. This best-effort path works for
+        runnables that accept a message (or list of messages) at the top level,
+        e.g. a bare chat model or a MessagesPlaceholder-first prompt; it is not
+        guaranteed to work for chains that strictly expect a string under
+        input_key.
+
+        Additional **kwargs are intentionally dropped when files are present -
+        this is not an oversight. Wrapping the HumanMessage back into
+        `{input_key: HumanMessage(...), **kwargs}` does not help: templates
+        substitute the input_key value into a string-typed slot regardless of
+        its type, so even a HumanMessage gets stringified into the prompt text
+        the same way a plain content-block list does. Getting real attachments
+        through requires bypassing input_key templating entirely, which is
+        fundamentally incompatible with also threading extra template
+        variables through **kwargs.
+        """
         if not message.strip():
             return TargetResponse(success=False, content="", error="Empty message")
 
         try:
             # Prepare input for LangChain
-            input_data = {self.input_key: message, **kwargs}
+            if files:
+                from langchain_core.messages import HumanMessage
+
+                input_data = HumanMessage(content=files_to_content_blocks(message, files))
+            else:
+                input_data = {self.input_key: message, **kwargs}
 
             # Handle conversational chains (RunnableWithMessageHistory)
             if hasattr(self.runnable, "get_session_history"):
@@ -102,28 +132,7 @@ class LangChainTarget(Target):
             else:
                 response = self.runnable.invoke(input_data)
 
-            # Extract content from response
-            if hasattr(response, "content"):
-                # LangChain message object (AIMessage, etc.)
-                content = response.content
-                raw_response = {"content": content, "type": type(response).__name__}
-            elif isinstance(response, str):
-                content = response
-                raw_response = response
-            else:
-                content = str(response)
-                raw_response = str(response)
-
-            return TargetResponse(
-                success=True,
-                content=content,
-                conversation_id=conversation_id or "default",
-                metadata={
-                    "input_sent": message,
-                    "raw_response": raw_response,
-                    "runnable_type": type(self.runnable).__name__,
-                },
-            )
+            return self._success_response(response, message, conversation_id)
 
         except Exception as e:
             return TargetResponse(
@@ -131,6 +140,80 @@ class LangChainTarget(Target):
                 content="",
                 error=f"LangChain error: {str(e)}",
             )
+
+    async def a_send_message(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        files: Optional[List] = None,
+        **kwargs: Any,
+    ) -> TargetResponse:
+        """Async version of send_message, using the runnable's native ainvoke().
+
+        Every LangChain Runnable exposes ``ainvoke()`` (the Runnable interface
+        provides it), so this avoids the base class thread-pool fallback. File
+        attachments are materialized with ``aread_bytes()`` so object-storage
+        fetches don't block the event loop. The files/kwargs semantics match
+        send_message (see its docstring).
+
+        Duck-typed runnables without ``ainvoke()`` (validate_configuration
+        only requires ``invoke()``) fall back to the base class thread-pool
+        path instead of raising.
+        """
+        if not hasattr(self.runnable, "ainvoke"):
+            return await super().a_send_message(message, conversation_id, files, **kwargs)
+
+        if not message.strip():
+            return TargetResponse(success=False, content="", error="Empty message")
+
+        try:
+            if files:
+                from langchain_core.messages import HumanMessage
+
+                input_data = HumanMessage(content=await afiles_to_content_blocks(message, files))
+            else:
+                input_data = {self.input_key: message, **kwargs}
+
+            if hasattr(self.runnable, "get_session_history"):
+                config = {"configurable": {"session_id": conversation_id or "default"}}
+                response = await self.runnable.ainvoke(input_data, config=config)
+            else:
+                response = await self.runnable.ainvoke(input_data)
+
+            return self._success_response(response, message, conversation_id)
+
+        except Exception as e:
+            return TargetResponse(
+                success=False,
+                content="",
+                error=f"LangChain error: {str(e)}",
+            )
+
+    def _success_response(
+        self, response: Any, message: str, conversation_id: Optional[str]
+    ) -> TargetResponse:
+        """Build the TargetResponse for a successful invocation."""
+        if hasattr(response, "content"):
+            # LangChain message object (AIMessage, etc.)
+            content = response.content
+            raw_response = {"content": content, "type": type(response).__name__}
+        elif isinstance(response, str):
+            content = response
+            raw_response = response
+        else:
+            content = str(response)
+            raw_response = str(response)
+
+        return TargetResponse(
+            success=True,
+            content=content,
+            conversation_id=conversation_id or "default",
+            metadata={
+                "input_sent": message,
+                "raw_response": raw_response,
+                "runnable_type": type(self.runnable).__name__,
+            },
+        )
 
     def get_tool_documentation(self) -> str:
         """Get documentation for Penelope."""

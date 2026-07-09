@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useQueryClient } from '@tanstack/react-query';
+import { testSetKeys } from '@/constants/query-keys';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -20,15 +22,23 @@ import FileImportDrawer from './components/FileImportDrawer';
 import GarakImportDrawer from './components/GarakImportDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function TestSetsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.TestSet.READ
+  );
+  const canCreate = useCan(Capability.TestSet.CREATE);
+  const canGenerate = useCan(Capability.TestSet.GENERATE);
 
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [fileImportDrawerOpen, setFileImportDrawerOpen] = React.useState(false);
@@ -39,48 +49,24 @@ export default function TestSetsPage() {
 
   const sessionToken = session?.session_token ?? '';
 
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testSetsClient = apiFactory.getTestSetsClient();
-        const response = await testSetsClient.getTestSets({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        setTestSetCount(response.pagination?.totalCount ?? 0);
-      } catch {
-        setTestSetCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
+  }, [queryClient]);
 
   const handleFileImportSuccess = React.useCallback(
     (_testSetId: string) => {
-      handleRefresh();
+      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
       notifications.show('Test set imported successfully from file', {
         severity: 'success',
       });
     },
-    [handleRefresh, notifications]
+    [queryClient, notifications]
   );
 
   const handleGarakImportSuccess = React.useCallback(
     (testSetIds: string[]) => {
-      handleRefresh();
+      queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
       const count = testSetIds.length;
       notifications.show(
         `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
@@ -90,7 +76,7 @@ export default function TestSetsPage() {
         router.push(`/test-sets/${testSetIds[0]}`);
       }
     },
-    [handleRefresh, notifications, router]
+    [queryClient, notifications, router]
   );
 
   if (status === 'loading') {
@@ -102,6 +88,9 @@ export default function TestSetsPage() {
       </PageLayout>
     );
   }
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="test sets" />;
 
   if (!sessionToken) {
     return (
@@ -131,18 +120,22 @@ export default function TestSetsPage() {
               tooltip="Import from Garak"
               onClick={() => setGarakImportDrawerOpen(true)}
             />
-            <Fab
-              icon={<AutoFixHighIcon />}
-              tooltip="AI generated Test Set"
-              aria-label="AI generated Test Set"
-              onClick={() => router.push('/test-sets/new-generated')}
-            />
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Test Set"
-              aria-label="New Test Set"
-              onClick={() => setCreateDrawerOpen(true)}
-            />
+            <Can capability={Capability.TestSet.GENERATE}>
+              <Fab
+                icon={<AutoFixHighIcon />}
+                tooltip="AI generated Test Set"
+                aria-label="AI generated Test Set"
+                onClick={() => router.push('/test-sets/new-generated')}
+              />
+            </Can>
+            <Can capability={Capability.TestSet.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Test Set"
+                aria-label="New Test Set"
+                onClick={() => setCreateDrawerOpen(true)}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -153,8 +146,8 @@ export default function TestSetsPage() {
               icon={HorizontalSplitIcon}
               title="No test sets yet"
               description="Group related tests into a test set to version, share, and run them together."
-              actionLabel="Create test set"
-              onAction={() => setCreateDrawerOpen(true)}
+              actionLabel={canCreate ? 'Create test set' : undefined}
+              onAction={canCreate ? () => setCreateDrawerOpen(true) : undefined}
               enrichment={getEntityEmptyStateEnrichment('test-sets')}
             />
           ) : (
@@ -169,8 +162,7 @@ export default function TestSetsPage() {
             >
               <TestSetsGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
+                onTotalCountChange={setTestSetCount}
               />
             </Paper>
           )}

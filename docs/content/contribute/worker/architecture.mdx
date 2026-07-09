@@ -50,7 +50,7 @@ Example import hierarchy:
 <CodeBlock language="python" filename="worker_task_example.py" isTerminal={false}>
 {`# In a worker task
 from rhesis.backend.app import models, crud    # Backend models and database operations
-from rhesis.backend.app.database import SessionLocal, set_tenant  # Backend database utilities
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.tasks.base import BaseTask # Worker-specific task base class
 from rhesis.sdk import client                  # Shared SDK components`}
 </CodeBlock>
@@ -80,8 +80,11 @@ The worker requires the same environment variables as the backend, plus addition
 
 <CodeBlock language="bash" filename=".env" isTerminal={false}>
 {`# Backend variables also needed by worker
-DATABASE_URL=postgresql://user:password@host/dbname
-TENANT_ENABLED=true
+BACKEND_ENV=production
+DB_HOST=postgres.example.com
+DB_NAME=rhesis
+APP_DB_USER=rhesis_app
+APP_DB_PASS=...
 LOG_LEVEL=INFO
 
 # Worker-specific variables

@@ -23,28 +23,27 @@ export class PlaygroundPage extends BasePage {
   }
 
   /**
-   * Assert that either the endpoint selector or a "no endpoints" message
-   * is visible — both indicate the page rendered correctly.
+   * Assert that the playground page rendered — endpoint FAB, empty state, or chat area.
    */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
 
-    // The endpoint dropdown combobox or select element
-    const endpointSelect = this.page
-      .locator('[role="combobox"]')
-      .or(this.page.locator('select'));
-    // Shown when the user has no endpoints configured
+    const combobox = this.page.getByRole('combobox', {
+      name: /select endpoint/i,
+    });
     const noEndpointsMsg = this.page.getByText(/no endpoints available/i);
-    // The prompt/chat input area
+    const emptyState = this.page.getByText(
+      /select an endpoint to start chatting/i
+    );
     const chatArea = this.page.locator('main, [role="main"]').first();
 
-    const hasSelect = await endpointSelect
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const hasCombobox = await combobox.isVisible().catch(() => false);
     const hasNoEndpoints = await noEndpointsMsg.isVisible().catch(() => false);
+    const hasEmptyState = await emptyState.isVisible().catch(() => false);
     const hasMain = await chatArea.isVisible().catch(() => false);
 
-    expect(hasSelect || hasNoEndpoints || hasMain).toBeTruthy();
+    expect(
+      hasCombobox || hasNoEndpoints || hasEmptyState || hasMain
+    ).toBeTruthy();
   }
 }

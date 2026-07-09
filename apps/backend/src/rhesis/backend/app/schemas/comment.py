@@ -4,8 +4,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import EntityType
 
+from .affordances import WithPermittedActions
 from .base import Base
 from .emoji_reaction import EmojiReaction
 
@@ -55,8 +57,15 @@ class CommentUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Comment(CommentBase):
-    """Full Comment schema with all fields"""
+class Comment(CommentBase, WithPermittedActions):
+    """Full Comment schema with all fields.
+
+    ``permitted_actions`` (server-resolved object-level affordances) is filled
+    automatically during response serialization — see
+    :class:`WithPermittedActions`.
+    """
+
+    __resource_type__ = ResourceType.COMMENT
 
     id: UUID
     user_id: UUID

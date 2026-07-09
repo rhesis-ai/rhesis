@@ -1,9 +1,5 @@
 # Staging environment overrides — merged on top of values.yaml by ArgoCD.
 # GCP project: rhesis-stg (Artifact Registry and Vertex AI below).
-#
-# Staging Auth0: create a dedicated application in the Auth0 tenant and set
-# nextPublicAuth0ClientId (and nextPublicAuth0Domain if using a custom domain)
-# before first deploy. Until then, leave client id empty only in non-integrated tests.
 
 # ---------------------------------------------------------------------------
 # Global — Artifact Registry
@@ -38,10 +34,8 @@ config:
   apiBaseUrl: "https://stg-api.rhesis.ai"
   nextPublicAppUrl: "https://stg-app.rhesis.ai"
   nextauthUrl: "https://stg-app.rhesis.ai"
-  # Replace with the staging Auth0 application client id when ready.
-  nextPublicAuth0ClientId: ""
-  nextPublicAuth0Domain: "stg-rhesis.eu.auth0.com"
   nextPublicSupportEmail: "hello@rhesis.ai"
+  nextPublicOnboardingVideoUrl: "https://youtu.be/fNtxqGtBu2Y"
   # Backend
   rhesisBaseUrl: "https://stg-api.rhesis.ai"
   frontendUrl: "https://stg-app.rhesis.ai"
@@ -51,12 +45,11 @@ config:
   vertexAiProject: "playground-437609"
 
   # AI / Vertex (same model stack as dev; override per staging policy if needed)
-  geminiModelName: "gemini-2.5-flash-001"
-  defaultGenerationModel: "vertex_ai/gemini-2.5-flash"
-  defaultEvaluationModel: "vertex_ai/gemini-2.5-flash"
-  defaultExecutionModel: "vertex_ai/gemini-2.5-flash"
+  defaultGenerationModel: "vertex_ai/gemini-3.1-flash-lite"
+  defaultEvaluationModel: "vertex_ai/gemini-3.1-flash-lite"
+  defaultExecutionModel: "vertex_ai/gemini-3.1-flash-lite"
   defaultEmbeddingModel: "vertex_ai/text-embedding-005"
-  vertexAiLocation: "europe-west4"
+  vertexAiLocation: "eu"
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------

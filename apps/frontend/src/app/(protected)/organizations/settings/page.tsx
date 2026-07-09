@@ -1,63 +1,25 @@
 'use client';
 
 import * as React from 'react';
-import { Alert, Box, CircularProgress } from '@mui/material';
+import { Alert } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
-import { useState, useEffect, useCallback } from 'react';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Organization } from '@/utils/api-client/interfaces/organization';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Organization.READ
+  );
+  const { organization, refresh } = useOrganization();
 
   const organizationName = organization?.name || 'Organization';
-
-  const fetchOrganization = useCallback(
-    async (showLoading = false) => {
-      if (!session?.session_token || !session?.user?.organization_id) {
-        setInitialLoading(false);
-        return;
-      }
-
-      try {
-        if (showLoading) {
-          setInitialLoading(true);
-        }
-        setError(null);
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const organizationsClient = apiFactory.getOrganizationsClient();
-        const orgData = await organizationsClient.getOrganization(
-          session.user.organization_id
-        );
-        setOrganization(orgData);
-      } catch (err: unknown) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to load organization details'
-        );
-      } finally {
-        if (showLoading) {
-          setInitialLoading(false);
-        }
-      }
-    },
-    [session]
-  );
-
-  useEffect(() => {
-    fetchOrganization(true);
-  }, [fetchOrganization]);
-
-  const handleUpdate = useCallback(() => {
-    fetchOrganization(false);
-  }, [fetchOrganization]);
 
   const breadcrumbs = [
     { label: organizationName, href: '/organizations' },
@@ -71,25 +33,8 @@ export default function OrganizationSettingsPage() {
     breadcrumbs,
   };
 
-  if (initialLoading) {
-    return (
-      <PageLayout {...pageHeader}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      </PageLayout>
-    );
-  }
-
-  if (error) {
-    return (
-      <PageLayout {...pageHeader}>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      </PageLayout>
-    );
-  }
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="organization settings" />;
 
   if (!organization) {
     return (
@@ -107,13 +52,13 @@ export default function OrganizationSettingsPage() {
         value={{
           organization,
           sessionToken: session?.session_token || '',
-          onUpdate: handleUpdate,
+          onUpdate: refresh,
         }}
       >
         <OrganizationSettingsTabs
           organization={organization}
           sessionToken={session?.session_token || ''}
-          onUpdate={handleUpdate}
+          onUpdate={refresh}
         />
       </OrgSettingsProvider>
     </PageLayout>

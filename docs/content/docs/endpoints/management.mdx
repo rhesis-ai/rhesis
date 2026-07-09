@@ -13,17 +13,20 @@ Click **Test** to send the request. A collapsible request preview shows the full
 After a successful response, the JSON tree is clickable. Click any key to map it to an output variable (`output`, `context`, `metadata`, etc.). The mapping is saved to the endpoint's response mapping automatically.
 
 <Callout type="info">
-  The response mapping you build here is the same one used during test runs. You can also edit it directly in the **Overview** tab.
+  The response mapping you build here is the same one used during test runs. You can also edit it directly in the **Mapping** tab.
 </Callout>
 
 ## Endpoint Detail Tabs
 
 | Tab | Description |
 |---|---|
-| **Overview** | Name, URL, protocol, method, request body template, and response mapping |
-| **Headers** | Authentication token and custom request headers |
+| **Overview** | Name, URL, protocol, method, environment, and tracing toggle |
+| **Connection** | Authentication token, OAuth client credentials, and custom request headers |
+| **Mapping** | Request body template and response mapping |
 | **Test** | Interactive test-and-map workbench |
-| **Test Runs** | History of test runs executed against this endpoint |
+
+Execution history is available from the [Test Runs](/docs/test-runs) pages and
+grids rather than an endpoint detail tab.
 
 ## Exploring an Endpoint Programmatically
 

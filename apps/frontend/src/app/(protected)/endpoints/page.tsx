@@ -6,6 +6,8 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { endpointKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -15,13 +17,20 @@ import EndpointsGrid from './components/EndpointsGrid';
 import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Endpoint.READ
+  );
+  const canCreate = useCan(Capability.Endpoint.CREATE);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [createProjectId, setCreateProjectId] = React.useState<
@@ -31,30 +40,6 @@ export default function EndpointsPage() {
   useDocumentTitle('Endpoints');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const response = await endpointsClient.getEndpoints({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        setEndpointCount(response.pagination?.totalCount ?? 0);
-      } catch {
-        setEndpointCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
-
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
 
   React.useEffect(() => {
     if (searchParams.get('create') !== '1') return;
@@ -73,8 +58,8 @@ export default function EndpointsPage() {
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
     setCreateProjectId(undefined);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
+  }, [queryClient]);
 
   if (status === 'loading') {
     return (
@@ -85,6 +70,9 @@ export default function EndpointsPage() {
       </PageLayout>
     );
   }
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="endpoints" />;
 
   if (!sessionToken) {
     return (
@@ -104,12 +92,14 @@ export default function EndpointsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Endpoint"
-              onClick={handleCreate}
-              data-tour="create-endpoint-button"
-            />
+            <Can capability={Capability.Endpoint.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Endpoint"
+                onClick={handleCreate}
+                data-tour="create-endpoint-button"
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -120,8 +110,8 @@ export default function EndpointsPage() {
               icon={EndpointsIcon}
               title="No endpoints yet"
               description="Create your first endpoint to connect your application under test and start running tests and evaluations."
-              actionLabel="Create endpoint"
-              onAction={handleCreate}
+              actionLabel={canCreate ? 'Create endpoint' : undefined}
+              onAction={canCreate ? handleCreate : undefined}
               enrichment={getEntityEmptyStateEnrichment('endpoints')}
             />
           ) : (
@@ -136,8 +126,7 @@ export default function EndpointsPage() {
             >
               <EndpointsGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
+                onTotalCountChange={setEndpointCount}
               />
             </Paper>
           )}

@@ -65,6 +65,6 @@ TOOLS = [
 ]
 
 
-def create_node(model_name: str = "gemini-2.0-flash", temperature: float = 0.3):
+def create_node(model_name: str = "gemini-3.1-flash-lite", temperature: float = 0.3):
     """Create the synthesis agent node."""
     return create_agent_node("synthesis_agent", PROMPT, TOOLS, model_name, temperature)

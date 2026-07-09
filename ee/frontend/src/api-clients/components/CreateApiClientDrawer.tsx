@@ -47,10 +47,7 @@ import {
   TextField,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import {
-  V1_SUPPORTED_SCOPES,
-  type AuthClientCreateRequest,
-} from '../types';
+import { V1_SUPPORTED_SCOPES, type AuthClientCreateRequest } from '../types';
 
 /** Mirror of backend `_CLIENT_ID_RE`. Documented next to the field too. */
 const CLIENT_ID_RE = /^[a-z0-9][a-z0-9_-]{2,63}$/;
@@ -84,7 +81,8 @@ export default function CreateApiClientDrawer({
   onSubmit,
   errorMessage,
 }: CreateApiClientDrawerProps) {
-  const [form, setForm] = React.useState<AuthClientCreateRequest>(INITIAL_STATE);
+  const [form, setForm] =
+    React.useState<AuthClientCreateRequest>(INITIAL_STATE);
   const [submitting, setSubmitting] = React.useState(false);
 
   React.useEffect(() => {
@@ -233,8 +231,8 @@ export default function CreateApiClientDrawer({
             ))}
           </FormGroup>
           <FormHelperText>
-            Adding <code>offline_access</code> lets the integration
-            exchange for a refresh token.
+            Adding <code>offline_access</code> lets the integration exchange for
+            a refresh token.
           </FormHelperText>
         </FormControl>
 
@@ -262,8 +260,8 @@ export default function CreateApiClientDrawer({
             ))}
           </Select>
           <FormHelperText>
-            Used when the caller omits the <code>scope</code> form
-            parameter. Must be one of the allowed scopes.
+            Used when the caller omits the <code>scope</code> form parameter.
+            Must be one of the allowed scopes.
           </FormHelperText>
         </FormControl>
       </Stack>

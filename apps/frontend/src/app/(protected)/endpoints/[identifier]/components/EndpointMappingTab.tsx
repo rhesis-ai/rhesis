@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   Box,
   Button,
@@ -45,6 +47,7 @@ function mappingFromEndpoint(endpoint: {
 
 export default function EndpointMappingTab() {
   const { endpoint, saveFields } = useEndpointDetailContext();
+  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
   const notifications = useNotifications();
   const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
   const [manualExpanded, setManualExpanded] = useState(true);
@@ -171,6 +174,7 @@ export default function EndpointMappingTab() {
       />
 
       <EditableSection
+        editable={canEditEndpoint}
         title="Manual Mapping"
         subtitle={
           <>

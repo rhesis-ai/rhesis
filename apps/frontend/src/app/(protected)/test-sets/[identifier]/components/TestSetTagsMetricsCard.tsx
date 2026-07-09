@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import EditableSection from '@/components/common/EditableSection';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import TagsField from '@/components/common/TagsField';
 import TestSetMetrics from './TestSetMetrics';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -27,6 +29,7 @@ export default function TestSetTagsMetricsCard({
   onUpdate: _onUpdate,
 }: TestSetTagsMetricsCardProps) {
   const notifications = useNotifications();
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
 
   const initialTagNames = (testSet.tags ?? []).map((t: Tag) => t.name);
   const initialDraft: TagsDraft = { tagNames: initialTagNames };
@@ -70,6 +73,7 @@ export default function TestSetTagsMetricsCard({
 
   return (
     <EditableSection
+      editable={canEditTestSet}
       title="Metrics & tags"
       initialValue={initialDraft}
       onSave={handleSave}

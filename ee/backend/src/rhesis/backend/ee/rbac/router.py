@@ -14,6 +14,7 @@ Role catalog:
 
 Org-level role assignment:
   GET    /organization-members         — list org-level role assignments
+  GET    /organization-members/{user_id}/project-memberships — user's projects + roles
   PUT    /organization-members/{user_id}/role   — assign org role
   DELETE /organization-members/{user_id}        — remove org membership row
 
@@ -31,15 +32,16 @@ from __future__ import annotations
 
 import logging
 import uuid
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.feature_gates import require_feature
 from rhesis.backend.app.auth.principal import resolve_principal
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.dependencies import assert_project_access, get_tenant_db_session
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.models.user import User
 from rhesis.backend.ee.rbac.schemas import (
@@ -47,9 +49,11 @@ from rhesis.backend.ee.rbac.schemas import (
     OrgRoleAssign,
     ProjectMemberRoleAssign,
     ProjectMemberRoleRead,
+    ProjectSummary,
     RoleCreate,
     RoleRead,
     RoleUpdate,
+    UserProjectMembershipRead,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,6 +100,22 @@ def _role_permission_names(role_id: uuid.UUID, db: Session) -> list[str]:
         .filter(RolePermission.role_id == role_id, Permission.is_retired.is_(False))
         .all()
     ]
+
+
+def _role_permission_names_resolved(role, db: Session) -> list[str]:
+    """Return effective permission names for *role*, handling built-ins correctly.
+
+    Built-in roles have no ``role_permission`` rows — their permissions are
+    computed from code via ``permissions_for_built_in_role``.  Using this
+    resolver in the escalation guard ensures a Member-level actor cannot silently
+    skip the permissions check when assigning a built-in (whose DB rows return []).
+    """
+    if role.is_built_in:
+        from rhesis.backend.app.auth.capabilities import get_all_capabilities
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        return list(permissions_for_built_in_role(role.name, get_all_capabilities()))
+    return _role_permission_names(role.id, db)
 
 
 def _get_actor_level(principal, project_id, db: Session) -> int:
@@ -171,6 +191,44 @@ def _check_escalation(
         )
 
 
+def check_project_role_assignment(
+    db: Session, actor: User, role_id: uuid.UUID, project_id: uuid.UUID
+):
+    """Escalation guard for granting *role_id* on *project_id* to a member.
+
+    Shared by the EE ``assign_project_role`` endpoint and the community
+    ``add_project_member`` validator hook so both paths enforce the identical
+    rule.  Raises 404 (unknown role), 422 (None role at project tier), or 403
+    (escalation) on rejection; returns the resolved ``Role`` so callers can
+    reuse it without a second load.
+    """
+    principal = resolve_principal(actor)
+    # Both halves of the escalation guard use the project scope for consistency.
+    actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
+    actor_level = _get_actor_level(principal, project_id=project_id, db=db)
+
+    target_role = _get_role_or_404(role_id, db)
+
+    # One-directional scope gate (K8s ClusterRole model):
+    # - Org/built-in roles bind "down" to the project tier.  Owner (level 100)
+    #   IS now permitted at the project tier so a project creator or lead can
+    #   be designated as the project owner independently of the org owner.
+    #   Only None (level 0, explicit revocation) is blocked — it has no useful
+    #   meaning as a project assignment.  This matches isAssignableProjectRole.
+    # - Project-only custom roles (scope=project) are accepted as before.
+    # - The org-tier gate in assign_org_role stays strict: project-only roles
+    #   cannot be promoted org-wide.
+    if target_role.is_built_in and target_role.level == 0:
+        raise HTTPException(
+            status_code=422,
+            detail="The None role cannot be assigned at the project tier",
+        )
+
+    new_perm_names = _role_permission_names_resolved(target_role, db)
+    _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
+    return target_role
+
+
 def _bust(user_id: uuid.UUID, org_id: uuid.UUID) -> None:
     """Bust the permission cache for *user_id* within *org_id* (non-fatal)."""
     try:
@@ -230,29 +288,162 @@ def _is_last_owner(member, org_id: uuid.UUID, db: Session) -> bool:
     return owner_count <= 1
 
 
-def _role_to_read(role, db: Session) -> RoleRead:
-    """Serialize a Role ORM object to RoleRead, including permission list."""
-    from rhesis.backend.ee.rbac.models import Permission, RolePermission
+def _member_permitted_actions(
+    *,
+    is_self: bool,
+    current_role_level: Optional[int],
+    actor_level: int,
+    actor_permissions: set[str],
+    current_role_is_built_in: bool = True,
+    current_role_permission_names: Optional[set[str]] = None,
+    is_last_owner: bool = False,
+    include_delete: bool = True,
+) -> list[str]:
+    """Capability strings the actor may exercise on a member currently
+    holding a role at *current_role_level* (``None`` when unassigned).
+
+    Populates the object-level ``permitted_actions`` on ``OrgMemberRead`` /
+    ``ProjectMemberRoleRead`` so the frontend never re-derives escalation
+    logic itself. Gates apply, mirroring the write-path guards enforced by
+    ``assign_org_role``, ``assign_project_role``, and ``remove_org_member``:
+
+    1. The actor holds the action in their own effective permission set —
+       the same vocabulary as the route-level capability gate, so a Viewer
+       (``member:read`` only) never gets ``member:manage`` here just
+       because the escalation math happens to pass.
+    2. The member being acted on is not the actor themselves.
+    3. The member's current role does not outrank the actor's.
+    4. For a **custom** current role only: its permission set must be a
+       subset of the actor's. Every custom role is created at a hardcoded
+       level (50, see ``create_role``) with no correlation to its
+       permissions, so two custom roles routinely share a level while
+       holding very different — and differently dangerous — permission
+       sets. The level check alone would let an actor holding a narrow
+       custom role modify or remove someone holding an unrelated custom
+       role that happens to sit at the same level but grants far more.
+       Built-in roles skip this: their permission sets form a fixed,
+       strictly-ordered chain keyed by level (``BUILT_IN_ROLE_LEVELS``), so
+       the level check alone is sufficient there. Mirrors
+       ``_check_escalation`` and the frontend's ``isWithinActorAuthority``,
+       which apply the same extra check on the create/grant paths.
+
+    ``member:delete`` is additionally withheld when *is_last_owner* is True
+    (removing the sole Owner is never allowed, regardless of authority).
+    Pass ``include_delete=False`` for project members: unlike org members,
+    project membership removal goes through the community
+    ``remove_project_member`` endpoint, which this escalation guard does not
+    reach, so asserting the affordance here would be misleading.
+    """
+    if is_self:
+        return []
+    if current_role_level is not None and current_role_level > actor_level:
+        return []
+    if (
+        not current_role_is_built_in
+        and current_role_permission_names is not None
+        and not current_role_permission_names.issubset(actor_permissions)
+    ):
+        return []
+    actions = []
+    if Permission.Member.MANAGE.value in actor_permissions:
+        actions.append(Permission.Member.MANAGE.value)
+    if (
+        include_delete
+        and not is_last_owner
+        and Permission.Member.DELETE.value in actor_permissions
+    ):
+        actions.append(Permission.Member.DELETE.value)
+    return actions
+
+
+def _member_counts_for_roles(
+    role_ids: list[uuid.UUID], org_id: uuid.UUID, db: Session
+) -> dict[uuid.UUID, int]:
+    """Count distinct users holding each role in *role_ids* within *org_id*.
+
+    One grouped query over the union of org-level (``organization_member``) and
+    project-level (``project_membership``) assignments — the ``UNION`` dedups
+    ``(role_id, user_id)`` pairs so a user holding the same role at both tiers
+    (or on several projects) is counted once per role.  Returns ``{role_id: count}``
+    with roles that have no holders omitted (callers default to 0).
+    """
+    from sqlalchemy import func, select, union
+
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.ee.rbac.models import OrganizationMember
+
+    if not role_ids:
+        return {}
+
+    org_q = select(
+        OrganizationMember.role_id.label("role_id"),
+        OrganizationMember.user_id.label("user_id"),
+    ).where(
+        OrganizationMember.role_id.in_(role_ids),
+        OrganizationMember.organization_id == org_id,
+    )
+    proj_q = select(
+        ProjectMembership.role_id.label("role_id"),
+        ProjectMembership.user_id.label("user_id"),
+    ).where(
+        ProjectMembership.role_id.in_(role_ids),
+        ProjectMembership.organization_id == org_id,
+    )
+    unioned = union(org_q, proj_q).subquery()
+    rows = db.execute(
+        select(unioned.c.role_id, func.count().label("cnt")).group_by(unioned.c.role_id)
+    ).all()
+    return {row.role_id: row.cnt for row in rows}
+
+
+def _role_to_read(role, db: Session, member_count: int = 0) -> RoleRead:
+    """Serialize a Role ORM object to RoleRead, including permission list.
+
+    Built-in roles have no ``role_permission`` rows — their permissions are
+    computed dynamically from ``permissions_for_built_in_role``.  Custom roles
+    are resolved from the join table as normal.  *member_count* is supplied by
+    the caller (precomputed in bulk for list views) to avoid an N+1.
+    """
+    from rhesis.backend.app.auth.capabilities import get_all_capabilities
+    from rhesis.backend.ee.rbac.models import (
+        Permission,
+        RolePermission,
+        permissions_for_built_in_role,
+    )
     from rhesis.backend.ee.rbac.schemas import PermissionRead
 
-    perms = (
-        db.query(Permission)
-        .join(RolePermission, Permission.id == RolePermission.permission_id)
-        .filter(
-            RolePermission.role_id == role.id,
-            Permission.is_retired.is_(False),
+    if role.is_built_in:
+        perm_names = permissions_for_built_in_role(role.name, get_all_capabilities())
+        perms = (
+            db.query(Permission)
+            .filter(
+                Permission.name.in_(perm_names),
+                Permission.is_retired.is_(False),
+            )
+            .all()
         )
-        .all()
-    )
+    else:
+        perms = (
+            db.query(Permission)
+            .join(RolePermission, Permission.id == RolePermission.permission_id)
+            .filter(
+                RolePermission.role_id == role.id,
+                Permission.is_retired.is_(False),
+            )
+            .all()
+        )
+
     return RoleRead(
         id=role.id,
         name=role.name,
         display_name=role.display_name,
+        description=role.description,
         scope=role.scope,
         level=role.level,
         is_built_in=role.is_built_in,
         organization_id=role.organization_id,
         permissions=[PermissionRead.model_validate(p) for p in perms],
+        member_count=member_count,
     )
 
 
@@ -281,7 +472,8 @@ def list_roles(
             .all()
         )
 
-    return [_role_to_read(r, db) for r in roles]
+    counts = _member_counts_for_roles([r.id for r in roles], current_user.organization_id, db)
+    return [_role_to_read(r, db, counts.get(r.id, 0)) for r in roles]
 
 
 @router.get("/roles/{role_id}", response_model=RoleRead, **capability(Permission.Role.READ))
@@ -296,7 +488,8 @@ def get_role(
     # Restrict: must be built-in or owned by the current org.
     if role.organization_id is not None and role.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Role not found")
-    return _role_to_read(role, db)
+    counts = _member_counts_for_roles([role.id], current_user.organization_id, db)
+    return _role_to_read(role, db, counts.get(role.id, 0))
 
 
 @router.post(
@@ -331,9 +524,23 @@ def create_role(
     perm_ids = _resolve_permission_ids(body.permission_names, db)
     _check_escalation(body.permission_names, role_level, actor_permissions, actor_level)
 
+    # Friendly conflict (409) instead of a raw IntegrityError from the
+    # ix_role_name_org unique index (name, organization_id).
+    existing = (
+        db.query(Role)
+        .filter(
+            Role.name == body.name,
+            Role.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="A role with this name already exists")
+
     role = Role(
         name=body.name,
         display_name=body.display_name or body.name,
+        description=body.description,
         scope=body.scope,
         level=role_level,
         is_built_in=False,
@@ -378,6 +585,9 @@ def update_role(
     if body.display_name is not None:
         role.display_name = body.display_name
 
+    if body.description is not None:
+        role.description = body.description
+
     if body.permission_names is not None:
         # Validate names exist (422) before escalation guard (403).
         perm_ids = _resolve_permission_ids(body.permission_names, db)
@@ -393,7 +603,8 @@ def update_role(
 
     db.flush()
     db.refresh(role)
-    return _role_to_read(role, db)
+    counts = _member_counts_for_roles([role.id], current_user.organization_id, db)
+    return _role_to_read(role, db, counts.get(role.id, 0))
 
 
 @router.delete("/roles/{role_id}", status_code=204, **capability(Permission.Role.MANAGE))
@@ -403,12 +614,22 @@ def delete_role(
     current_user: User = Depends(require_current_user_or_token),
     _org=_RBAC_DEP,
 ):
-    """Delete a custom role.
+    """Soft-delete a custom role and unassign everyone who held it.
 
-    Built-in roles cannot be deleted. If any users are currently assigned this
-    role, the DELETE is rejected to prevent orphaned members.
+    Built-in roles cannot be deleted. The role row is retained (``deleted_at`` is
+    stamped) for auditability; the global soft-delete filter then hides it from
+    every subsequent query. Rather than blocking the delete when the role is in
+    use, holders are actively removed from it:
+
+    - Org-tier members (``organization_member.role_id`` is NOT NULL) are
+      reassigned to the built-in **None** role (zero permissions) — access is
+      explicitly revoked and must be deliberately re-granted.
+    - Project-tier members (``project_membership.role_id`` is nullable) have
+      their ``role_id`` cleared, so they fall back to their inherited org role.
     """
-    from rhesis.backend.ee.rbac.models import OrganizationMember
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 
     role = _get_role_or_404(role_id, db)
     if role.is_built_in:
@@ -416,18 +637,36 @@ def delete_role(
     if role.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    # Refuse if any org member is currently on this role (FK RESTRICT in DB
-    # would catch it anyway, but a nicer error message helps operators).
-    in_use = db.query(OrganizationMember).filter_by(role_id=role.id).first()
-    if in_use:
-        raise HTTPException(
-            status_code=409,
-            detail="Role is still assigned to one or more org members; reassign them first",
-        )
+    org_id = current_user.organization_id
 
-    # Bust before delete so the query can still find holders.
-    _bust_role_holders(role.id, current_user.organization_id, db)
-    db.delete(role)
+    # Bust the permission cache for every holder while role_id still points here.
+    _bust_role_holders(role.id, org_id, db)
+
+    # Org-tier holders must keep a role (role_id is NOT NULL) — reassign them to
+    # the built-in None role. It has organization_id IS NULL, so the lookup must
+    # bypass the ambient tenant filter.
+    with bypass_tenant_filter():
+        none_role = (
+            db.query(Role)
+            .filter_by(name="None", is_built_in=True, organization_id=None)
+            .first()
+        )
+    if none_role is None:
+        # Fail loudly rather than orphan members; None is seeded by migration.
+        raise HTTPException(
+            status_code=500,
+            detail="Built-in None role missing; cannot safely unassign role holders",
+        )
+    db.query(OrganizationMember).filter_by(role_id=role.id, organization_id=org_id).update(
+        {OrganizationMember.role_id: none_role.id}, synchronize_session=False
+    )
+
+    # Project-tier holders revert to their inherited org role (role_id nullable).
+    db.query(ProjectMembership).filter_by(role_id=role.id, organization_id=org_id).update(
+        {ProjectMembership.role_id: None}, synchronize_session=False
+    )
+
+    role.soft_delete()
     db.flush()
 
 
@@ -446,13 +685,132 @@ def list_org_members(
     current_user: User = Depends(require_current_user_or_token),
     _org=_RBAC_DEP,
 ):
-    """List all org-level role assignments for the current organization."""
-    from rhesis.backend.ee.rbac.models import OrganizationMember
+    """List all org-level role assignments with user details for the current org.
+
+    Returns user summary alongside each membership so the team grid can be
+    built from this single call instead of ``GET /users`` + ``GET /rbac/
+    organization-members``.
+
+    Batch-loads unique roles to avoid N+1 lazy-load queries (built-in roles
+    have ``organization_id IS NULL`` and are filtered out by the tenant
+    listener, so the ORM relationship always returns None).
+    """
+    from rhesis.backend.app.models.user import User as UserModel
+    from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 
     members = (
         db.query(OrganizationMember).filter_by(organization_id=current_user.organization_id).all()
     )
-    return [OrgMemberRead.model_validate(m) for m in members]
+
+    unique_role_ids = {m.role_id for m in members}
+    roles_by_id = {}
+    for role_id in unique_role_ids:
+        role = _load_role(role_id, db)
+        if role is not None:
+            roles_by_id[role_id] = _role_to_read(role, db)
+
+    user_ids = [m.user_id for m in members]
+    users = db.query(UserModel).filter(UserModel.id.in_(user_ids)).all() if user_ids else []
+    users_by_id = {u.id: u for u in users}
+
+    # Resolve the actor's authority and the org's current Owner count once
+    # (not per row) so `permitted_actions` can be computed without an N+1.
+    # This is the server-side source of truth for "can I modify this member
+    # at all" — the frontend must not re-derive escalation logic itself.
+    from rhesis.backend.app.scope import bypass_tenant_filter
+    from rhesis.backend.ee.rbac.schemas import UserSummary
+
+    principal = resolve_principal(current_user)
+    actor_level = _get_actor_level(principal, project_id=None, db=db)
+    actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
+    with bypass_tenant_filter():
+        owner_role = db.query(Role).filter_by(name="Owner", is_built_in=True).first()
+    owner_role_id = owner_role.id if owner_role is not None else None
+    owner_count = sum(1 for m in members if m.role_id == owner_role_id)
+
+    result = []
+    for m in members:
+        current_role = roles_by_id.get(m.role_id)
+        is_self = str(m.user_id) == str(current_user.id)
+        is_last_owner = m.role_id == owner_role_id and owner_count <= 1
+        actions = _member_permitted_actions(
+            is_self=is_self,
+            current_role_level=current_role.level if current_role else None,
+            current_role_is_built_in=current_role.is_built_in if current_role else True,
+            current_role_permission_names={p.name for p in current_role.permissions}
+            if current_role
+            else None,
+            actor_level=actor_level,
+            actor_permissions=actor_permissions,
+            is_last_owner=is_last_owner,
+        )
+
+        result.append(
+            OrgMemberRead(
+                id=m.id,
+                organization_id=m.organization_id,
+                user_id=m.user_id,
+                role_id=m.role_id,
+                role=roles_by_id.get(m.role_id),
+                user=UserSummary.model_validate(users_by_id[m.user_id])
+                if m.user_id in users_by_id
+                else None,
+                permitted_actions=actions,
+            )
+        )
+    return result
+
+
+@router.get(
+    "/organization-members/{user_id}/project-memberships",
+    response_model=list[UserProjectMembershipRead],
+    **capability(Permission.Member.READ),
+)
+def list_user_project_memberships(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+    _org=_RBAC_DEP,
+):
+    """Return every project membership for *user_id* in a single call.
+
+    Replaces the N per-project ``GET /projects/{id}/members`` waterfall
+    that the Member Access drawer previously required.
+
+    Batch-loads unique roles and eager-loads ``project`` to avoid N+1
+    lazy-load queries, mirroring ``list_org_members``.
+    """
+    from sqlalchemy.orm import joinedload
+
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    memberships = (
+        db.query(ProjectMembership)
+        .filter_by(
+            user_id=user_id,
+            organization_id=current_user.organization_id,
+        )
+        .options(joinedload(ProjectMembership.project))
+        .all()
+    )
+
+    unique_role_ids = {m.role_id for m in memberships if m.role_id is not None}
+    roles_by_id = {}
+    for role_id in unique_role_ids:
+        role = _load_role(role_id, db)
+        if role is not None:
+            roles_by_id[role_id] = _role_to_read(role, db)
+
+    return [
+        UserProjectMembershipRead(
+            project_id=m.project_id,
+            user_id=m.user_id,
+            role_id=m.role_id,
+            role=roles_by_id.get(m.role_id),
+            project=ProjectSummary.model_validate(m.project),
+        )
+        for m in memberships
+    ]
 
 
 @router.put(
@@ -479,6 +837,12 @@ def assign_org_role(
     actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
     actor_level = _get_actor_level(principal, project_id=None, db=db)
 
+    if str(user_id) == str(current_user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change your own organization role",
+        )
+
     target_role = _get_role_or_404(body.role_id, db)
 
     # Enforce scope: org-tier assignment requires an org-scoped role.
@@ -488,7 +852,7 @@ def assign_org_role(
             detail="Role is project-scoped and cannot be assigned at the organization tier",
         )
 
-    new_perm_names = _role_permission_names(target_role.id, db)
+    new_perm_names = _role_permission_names_resolved(target_role, db)
     _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
 
     # Validate the target user belongs to this org.
@@ -510,6 +874,33 @@ def assign_org_role(
         .first()
     )
     if member is not None and member.role_id != body.role_id:
+        # Symmetric escalation guard: _check_escalation above only validates
+        # the *new* role's level against the actor. Without this, an Admin
+        # could freely downgrade a member who currently outranks them (e.g.
+        # a second Owner) since the requested role (e.g. Viewer) is always
+        # ≤ the actor's level. Reuse the same helper that computes
+        # `permitted_actions` on list_org_members so the write guard and the
+        # affordance the frontend reads from can never drift apart.
+        current_role = _load_role(member.role_id, db)
+        current_role_level = current_role.level if current_role is not None else None
+        if not _member_permitted_actions(
+            is_self=False,
+            current_role_level=current_role_level,
+            current_role_is_built_in=current_role.is_built_in if current_role else True,
+            current_role_permission_names=set(_role_permission_names_resolved(current_role, db))
+            if current_role
+            else None,
+            actor_level=actor_level,
+            actor_permissions=actor_permissions,
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Privilege escalation denied: cannot modify a member "
+                    f"whose current role level ({current_role_level}) exceeds "
+                    f"your own ({actor_level})"
+                ),
+            )
         # Last-owner protection: refuse to demote the sole Owner.
         if _is_last_owner(member, current_user.organization_id, db):
             raise HTTPException(
@@ -560,6 +951,35 @@ def remove_org_member(
     if member is None:
         raise HTTPException(status_code=404, detail="Org membership not found")
 
+    # Symmetric escalation guard, mirroring assign_org_role: removal isn't
+    # gated on a *new* role's level the way assignment is, so without this
+    # an Admin could remove a member who currently outranks them (e.g. a
+    # second Owner) outright. Self-removal ("leave organization") is
+    # deliberately not blocked here, unlike role changes.
+    principal = resolve_principal(current_user)
+    actor_level = _get_actor_level(principal, project_id=None, db=db)
+    actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
+    current_role = _load_role(member.role_id, db)
+    current_role_level = current_role.level if current_role is not None else None
+    if Permission.Member.DELETE.value not in _member_permitted_actions(
+        is_self=False,
+        current_role_level=current_role_level,
+        current_role_is_built_in=current_role.is_built_in if current_role else True,
+        current_role_permission_names=set(_role_permission_names_resolved(current_role, db))
+        if current_role
+        else None,
+        actor_level=actor_level,
+        actor_permissions=actor_permissions,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Privilege escalation denied: cannot remove a member whose "
+                f"current role level ({current_role_level}) exceeds your own "
+                f"({actor_level})"
+            ),
+        )
+
     if _is_last_owner(member, current_user.organization_id, db):
         raise HTTPException(
             status_code=400,
@@ -574,6 +994,87 @@ def remove_org_member(
 # ---------------------------------------------------------------------------
 # Project-level role assignment
 # ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/projects/{project_id}/members",
+    response_model=list[ProjectMemberRoleRead],
+    **capability(Permission.Member.READ),
+)
+def list_project_members(
+    project_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+    _org=_RBAC_DEP,
+):
+    """List all project members with their RBAC role assignments.
+
+    Returns every ``project_membership`` row for *project_id*, including the
+    resolved role when ``role_id`` is set.  Members without an explicit
+    project-level role have ``role_id`` and ``role`` as ``None``.
+
+    ``member:read`` is org-scoped, so the capability gate alone does not confirm
+    the caller may see *this* project's roster. Enforce project access
+    explicitly: the caller must be enrolled in the project or hold an org-level
+    ``member:manage`` role (Admin/Owner). Otherwise a plain org Viewer could
+    enumerate any project's members.
+
+    Batch-loads unique roles to avoid N+1 lazy-load queries, mirroring
+    ``list_org_members``. Also resolves the actor's authority once so
+    `permitted_actions` (whether the caller may change *this* member's role)
+    can be computed server-side — the frontend must not re-derive escalation
+    logic itself.
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    assert_project_access(request, current_user, str(project_id), db)
+
+    memberships = (
+        db.query(ProjectMembership)
+        .filter_by(
+            project_id=project_id,
+            organization_id=current_user.organization_id,
+        )
+        .all()
+    )
+
+    unique_role_ids = {m.role_id for m in memberships if m.role_id is not None}
+    roles_by_id = {}
+    for role_id in unique_role_ids:
+        role = _load_role(role_id, db)
+        if role is not None:
+            roles_by_id[role_id] = _role_to_read(role, db)
+
+    principal = resolve_principal(current_user)
+    actor_level = _get_actor_level(principal, project_id=project_id, db=db)
+    actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
+
+    result = []
+    for m in memberships:
+        current_role = roles_by_id.get(m.role_id)
+        is_self = str(m.user_id) == str(current_user.id)
+        actions = _member_permitted_actions(
+            is_self=is_self,
+            current_role_level=current_role.level if current_role else None,
+            current_role_is_built_in=current_role.is_built_in if current_role else True,
+            current_role_permission_names={p.name for p in current_role.permissions}
+            if current_role
+            else None,
+            actor_level=actor_level,
+            actor_permissions=actor_permissions,
+            include_delete=False,
+        )
+        result.append(
+            ProjectMemberRoleRead(
+                project_id=project_id,
+                user_id=m.user_id,
+                role_id=m.role_id,
+                role=roles_by_id.get(m.role_id),
+                permitted_actions=actions,
+            )
+        )
+    return result
 
 
 @router.put(
@@ -596,25 +1097,15 @@ def assign_project_role(
     membership endpoint). The privilege-escalation guard applies.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
-    from rhesis.backend.ee.rbac.models import SCOPE_PROJECT
     from rhesis.backend.ee.rbac.schemas import ProjectMemberRoleRead
 
-    principal = resolve_principal(current_user)
-    # Both halves of the escalation guard use the project scope for consistency.
-    actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
-    actor_level = _get_actor_level(principal, project_id=project_id, db=db)
-
-    target_role = _get_role_or_404(body.role_id, db)
-
-    # Enforce scope: project-tier assignment requires a project-scoped role.
-    if target_role.scope != SCOPE_PROJECT:
+    if str(user_id) == str(current_user.id):
         raise HTTPException(
-            status_code=422,
-            detail="Role is org-scoped and cannot be assigned at the project tier",
+            status_code=400,
+            detail="Cannot change your own project role",
         )
 
-    new_perm_names = _role_permission_names(target_role.id, db)
-    _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
+    target_role = check_project_role_assignment(db, current_user, body.role_id, project_id)
 
     membership = (
         db.query(ProjectMembership)
@@ -628,6 +1119,41 @@ def assign_project_role(
     if membership is None:
         raise HTTPException(status_code=404, detail="Project membership not found")
 
+    principal = resolve_principal(current_user)
+    actor_level = _get_actor_level(principal, project_id=project_id, db=db)
+    actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
+
+    if membership.role_id is not None and membership.role_id != body.role_id:
+        # Symmetric escalation guard, mirroring assign_org_role: without this,
+        # an actor could downgrade a member who currently outranks them (e.g.
+        # a project Admin demoting an org Owner's project role) since
+        # check_project_role_assignment above only validates the *new*
+        # role's level, which is always ≤ the actor's own level. Reuse the
+        # same helper that computes `permitted_actions` on
+        # list_project_members so the write guard and the affordance the
+        # frontend reads from can never drift apart.
+        current_role = _load_role(membership.role_id, db)
+        current_role_level = current_role.level if current_role is not None else None
+        if not _member_permitted_actions(
+            is_self=False,
+            current_role_level=current_role_level,
+            current_role_is_built_in=current_role.is_built_in if current_role else True,
+            current_role_permission_names=set(_role_permission_names_resolved(current_role, db))
+            if current_role
+            else None,
+            actor_level=actor_level,
+            actor_permissions=actor_permissions,
+            include_delete=False,
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Privilege escalation denied: cannot modify a member "
+                    f"whose current role level ({current_role_level}) exceeds "
+                    f"your own ({actor_level})"
+                ),
+            )
+
     membership.role_id = body.role_id
     db.flush()
     _bust(user_id, current_user.organization_id)
@@ -636,6 +1162,17 @@ def assign_project_role(
         user_id=user_id,
         role_id=body.role_id,
         role=_role_to_read(target_role, db),
+        permitted_actions=_member_permitted_actions(
+            is_self=False,
+            current_role_level=target_role.level,
+            current_role_is_built_in=target_role.is_built_in,
+            current_role_permission_names=set(
+                _role_permission_names_resolved(target_role, db)
+            ),
+            actor_level=actor_level,
+            actor_permissions=actor_permissions,
+            include_delete=False,
+        ),
     )
 
 

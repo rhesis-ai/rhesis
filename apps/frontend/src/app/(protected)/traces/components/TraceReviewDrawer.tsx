@@ -25,6 +25,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import { EntityType } from '@/types/entity-type';
 import MentionTextInput, {
   MentionOption,
   inferReviewTarget,
@@ -166,13 +167,13 @@ export default function TraceReviewDrawer({
 
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!sessionToken || statuses.length > 0) return;
+      if (!open || !sessionToken || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
         const statusClient = clientFactory.getStatusClient();
         const fetchedStatuses = await statusClient.getStatuses({
-          entity_type: 'TestResult',
+          entity_type: EntityType.TEST_RESULT,
         });
         setStatuses(fetchedStatuses);
       } catch (_err) {
@@ -182,7 +183,7 @@ export default function TraceReviewDrawer({
       }
     };
     fetchStatuses();
-  }, [sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length]);
 
   useEffect(() => {
     if (open && selectedSpan) {

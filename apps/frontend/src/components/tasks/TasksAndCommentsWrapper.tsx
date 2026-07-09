@@ -2,9 +2,11 @@
 
 import React, { useCallback, useState } from 'react';
 import { Box } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
+import { taskKeys } from '@/constants/query-keys';
 import { TasksSection } from './TasksSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { TaskCreationDrawer } from './TaskCreationDrawer';
@@ -30,18 +32,14 @@ export function TasksAndCommentsWrapper({
   onCountsChange,
   additionalMetadata,
 }: TasksAndCommentsWrapperProps) {
+  const queryClient = useQueryClient();
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [pendingCommentId, setPendingCommentId] = useState<
     string | undefined
   >();
   const [isCreating, setIsCreating] = useState(false);
-  const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
 
-  const { createTask, deleteTask } = useTasks({
-    entityType,
-    entityId,
-    autoFetch: false,
-  });
+  const { createTask, deleteTask } = useTasks();
 
   const handleCreateTask = useCallback(
     async (taskData: Record<string, unknown>) => {
@@ -62,7 +60,7 @@ export function TasksAndCommentsWrapper({
         await createTask(enrichedTaskData);
         setCreateDrawerOpen(false);
         setPendingCommentId(undefined);
-        setTasksRefreshKey(key => key + 1);
+        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
@@ -70,7 +68,7 @@ export function TasksAndCommentsWrapper({
         setIsCreating(false);
       }
     },
-    [createTask, onCountsChange, additionalMetadata]
+    [createTask, onCountsChange, additionalMetadata, queryClient]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
@@ -81,13 +79,13 @@ export function TasksAndCommentsWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-        setTasksRefreshKey(key => key + 1);
+        queryClient.invalidateQueries({ queryKey: taskKeys.all() });
         await onCountsChange?.();
       } catch {
         // Errors surfaced by useTasks
       }
     },
-    [deleteTask, onCountsChange]
+    [deleteTask, onCountsChange, queryClient]
   );
 
   const handleOpenCreateDrawer = useCallback((commentId?: string) => {
@@ -120,9 +118,6 @@ export function TasksAndCommentsWrapper({
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
           onOpenCreateDrawer={handleOpenCreateDrawer}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          refreshKey={tasksRefreshKey}
         />
 
         <CommentsWrapper
@@ -144,8 +139,6 @@ export function TasksAndCommentsWrapper({
         onSubmit={handleCreateTask}
         entityType={entityType}
         entityId={entityId}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
         isLoading={isCreating}
         commentId={pendingCommentId}
       />

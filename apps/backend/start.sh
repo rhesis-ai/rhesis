@@ -23,15 +23,11 @@ handle_error() {
 
 # Function to check if we're in production mode
 is_production() {
-    [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]
+    [ "${BACKEND_ENV}" = "production" ]
 }
 
-is_local() {
-    [ "${ENVIRONMENT}" = "local" ] || [ "${BACKEND_ENV}" = "local" ]
-}
-
-is_development() {
-    [ "${ENVIRONMENT}" = "development" ] || [ "${BACKEND_ENV}" = "development" ]
+dev_mode_enabled() {
+    [ "${DEV_MODE:-false}" = "true" ]
 }
 
 # Function to display banner
@@ -64,7 +60,7 @@ run_migrations() {
 # Function to load environment from .env file (local development only)
 load_env_file() {
     # Skip if already in production (env vars set by Docker/K8s)
-    if [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]; then
+    if [ "${BACKEND_ENV}" = "production" ]; then
         log "${BLUE}📦 Production environment detected, using system env vars${NC}"
         return
     fi
@@ -121,7 +117,8 @@ start_server() {
     log "  Port: $port"
     log "  Workers: $workers"
     log "  Timeout: ${timeout}s"
-    log "  Environment: $(is_production && echo "production" || echo "development")"
+    log "  Environment: ${BACKEND_ENV:-unset}"
+    log "  DEV_MODE (reload): $(dev_mode_enabled && echo "true" || echo "false")"
     echo ""
 
     # Determine command prefix
@@ -145,14 +142,8 @@ start_server() {
             --error-logfile - \
             --log-level info \
             rhesis.backend.app.main:app
-    elif is_local; then
-        log "${BLUE}🛠️  Starting local production server with Uvicorn...${NC}"
-        exec ${CMD_PREFIX}uvicorn \
-            rhesis.backend.app.main:app \
-            --host "$host" \
-            --port "$port"
-    elif is_development; then
-        log "${BLUE}🛠️  Starting development server with Uvicorn (hot reload)...${NC}"
+    elif dev_mode_enabled; then
+        log "${BLUE}🛠️  Starting server with Uvicorn (hot reload)...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
@@ -160,13 +151,12 @@ start_server() {
             --log-level debug \
             --reload
     else
-        # Default: no ENVIRONMENT/BACKEND_ENV (e.g. docker-compose for integration tests)
-        log "${BLUE}🛠️  Starting server with Uvicorn (default)...${NC}"
+        # Default: local, development, staging, integration tests — no reload
+        log "${BLUE}🛠️  Starting server with Uvicorn...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
-            --port "$port" \
-            --log-level debug
+            --port "$port"
     fi
 }
 

@@ -1,13 +1,15 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict, Field, field_validator
 
+from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import (
     LEGACY_TARGET_TEST,
     REVIEW_TARGET_TEST_RESULT,
     ReviewTarget,
 )
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.affordances import WithPermittedActions
 
 # Re-export for backward compatibility
 REVIEW_TARGET_TRACE = ReviewTarget.TRACE
@@ -38,7 +40,16 @@ class TestResultUpdate(TestResultBase):
     test_configuration_id: Optional[UUID4] = None
 
 
-class TestResult(TestResultBase):
+class TestResult(TestResultBase, WithPermittedActions):
+    """Full TestResult response with server-resolved object-level affordances.
+
+    ``permitted_actions`` is populated automatically during serialization for
+    the calling principal — see :class:`WithPermittedActions`.
+    """
+
+    __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RESULT
+    # __owner_attr__ defaults to "user_id", which is correct for TestResult.
+
     last_review: Optional[Dict[str, Any]] = None
     matches_review: bool = False
     review_summary: Optional[Dict[str, Any]] = None
@@ -89,3 +100,4 @@ class ReviewResponse(Base):
     created_at: str
     updated_at: str
     target: Dict[str, Any]
+    permitted_actions: List[str] = Field(default_factory=list)

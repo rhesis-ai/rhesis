@@ -318,7 +318,7 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
 }
 
 interface EmptyStateProps {
-  onAdd: () => void;
+  onAdd?: () => void;
   showAddButton?: boolean;
 }
 

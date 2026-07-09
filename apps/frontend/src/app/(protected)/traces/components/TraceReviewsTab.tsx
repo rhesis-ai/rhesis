@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '@/utils/date';
 import {
   Box,
   Typography,
@@ -25,6 +26,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import { BORDER_RADIUS } from '@/styles/theme';
 import {
   SpanNode,
   TraceDetailResponse,
@@ -37,6 +39,9 @@ import { Status } from '@/utils/api-client/interfaces/status';
 import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
+import { Capability } from '@/constants/capabilities';
+import { can, Can } from '@/components/common/Can';
+import { EntityType } from '@/types/entity-type';
 import {
   findStatusByCategory,
   isPassedStatusName,
@@ -51,7 +56,6 @@ interface TraceReviewsTabProps {
   selectedSpan: SpanNode;
   trace: TraceDetailResponse;
   sessionToken: string;
-  currentUserId: string;
   onTraceUpdated: () => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
@@ -64,7 +68,6 @@ export default function TraceReviewsTab({
   selectedSpan,
   trace: _trace,
   sessionToken,
-  currentUserId,
   onTraceUpdated,
   mentionableMetrics = [],
   mentionableTurns = [],
@@ -104,7 +107,7 @@ export default function TraceReviewsTab({
         const clientFactory = new ApiClientFactory(sessionToken);
         const statusClient = clientFactory.getStatusClient();
         const statusList = await statusClient.getStatuses({
-          entity_type: 'TestResult',
+          entity_type: EntityType.TEST_RESULT,
         });
         setStatuses(statusList);
       } catch (err) {
@@ -261,12 +264,6 @@ export default function TraceReviewsTab({
     hasConflict = reviewPassed !== automatedStatus.passed;
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleString();
-  };
-
   const getReviewStatusDisplay = (statusName: string) => {
     const isPassed = isPassedStatusName(statusName);
     const name = statusName.toLowerCase();
@@ -347,9 +344,12 @@ export default function TraceReviewsTab({
                             }
                             label="Conflict"
                             size="small"
-                            color="warning"
-                            variant="filled"
-                            sx={{ ml: 1 }}
+                            color="error"
+                            variant="outlined"
+                            sx={{
+                              borderRadius: BORDER_RADIUS.pill,
+                              '& .MuiChip-icon': { color: 'error.main' },
+                            }}
                           />
                         )}
                       </>
@@ -467,7 +467,7 @@ export default function TraceReviewsTab({
                             size="small"
                             variant="outlined"
                           />
-                          {review.user.user_id === currentUserId && (
+                          {can(review, Capability.TestResult.DELETE) && (
                             <Tooltip title="Delete review">
                               <IconButton
                                 size="small"
@@ -606,18 +606,20 @@ export default function TraceReviewsTab({
           </Paper>
         )}
 
-        {/* Add Review Section */}
+        {/* Add Review Section — hidden when user lacks test_result:update */}
         <Box sx={{ mt: 3 }}>
           {!showReviewForm ? (
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setShowReviewForm(true)}
-              fullWidth
-              sx={{ py: 1.5 }}
-            >
-              Add Review
-            </Button>
+            <Can capability={Capability.TestResult.UPDATE}>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setShowReviewForm(true)}
+                fullWidth
+                sx={{ py: 1.5 }}
+              >
+                Add Review
+              </Button>
+            </Can>
           ) : (
             <Collapse in={showReviewForm}>
               <Paper

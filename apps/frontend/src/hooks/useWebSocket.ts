@@ -3,11 +3,27 @@ import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { EventType, WebSocketMessage, EventHandler } from '@/utils/websocket';
 
 /**
+ * A channel to subscribe to on mount.
+ *
+ * Use the object form for project-scoped resource channels (e.g.
+ * `test_run:{id}`, `test_set:{id}`, `architect:{id}`) so the backend can
+ * satisfy the project_isolation RLS policy when it resolves the resource for
+ * authorization. Omitting `projectId` for a project-scoped resource makes the
+ * backend open the auth lookup with a blank project, which the fail-closed RLS
+ * policy hides — the subscription is then denied and the channel silently
+ * receives no events. Org-/user-scoped and ephemeral channels (e.g.
+ * `preflight:{id}`) can use the plain string form.
+ */
+export type ChannelSubscription =
+  | string
+  | { channel: string; projectId?: string | null };
+
+/**
  * Options for the useWebSocket hook.
  */
 interface UseWebSocketOptions {
   /** Channels to subscribe to on mount */
-  channels?: string[];
+  channels?: ChannelSubscription[];
   /** Handler for all messages (regardless of type) */
   onMessage?: EventHandler;
   /** Specific event type handlers */
@@ -34,7 +50,7 @@ interface UseWebSocketResult {
     handler: EventHandler
   ) => () => void;
   /** Subscribe to a backend channel */
-  subscribeToChannel: (channel: string) => void;
+  subscribeToChannel: (channel: string, projectId?: string | null) => void;
   /** Unsubscribe from a backend channel */
   unsubscribeFromChannel: (channel: string) => void;
   /** Manually trigger a reconnection attempt */
@@ -92,13 +108,18 @@ export function useWebSocket(
     }
 
     // Subscribe to all specified channels
-    options.channels.forEach(channel => {
-      subscribeToChannel(channel);
+    options.channels.forEach(entry => {
+      const { channel, projectId } =
+        typeof entry === 'string'
+          ? { channel: entry, projectId: undefined }
+          : entry;
+      subscribeToChannel(channel, projectId);
     });
 
     // Unsubscribe on unmount
     return () => {
-      options.channels?.forEach(channel => {
+      options.channels?.forEach(entry => {
+        const channel = typeof entry === 'string' ? entry : entry.channel;
         unsubscribeFromChannel(channel);
       });
     };

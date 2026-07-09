@@ -6,14 +6,22 @@ import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 export class TokensClient extends BaseApiClient {
   async createToken(
     name: string,
-    expiresInDays: number | null
+    expiresInDays: number | null,
+    scopes?: string[] | null
   ): Promise<TokenResponse> {
-    return this.fetch<TokenResponse>(API_ENDPOINTS.tokens, {
+    const payload: Record<string, unknown> = {
+      name,
+      expires_in_days: expiresInDays,
+    };
+    if (scopes != null) {
+      payload.scopes = scopes;
+    }
+    return this.fetch<TokenResponse>(`${API_ENDPOINTS.tokens}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name, expires_in_days: expiresInDays }),
+      body: JSON.stringify(payload),
     });
   }
 

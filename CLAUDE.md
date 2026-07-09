@@ -438,6 +438,80 @@ blanks GUCs must commit/flush first.
 
 ---
 
+## Affordances (Server-Driven Permissions)
+
+The backend resolves permitted actions per object and exposes them as `permitted_actions: string[]`
+on response schemas that mixin `WithPermittedActions`. The frontend consumes them through **three
+primitives only** — never roll your own ownership checks.
+
+### Three primitives
+
+| Primitive | When to use |
+|---|---|
+| `can(subject, Capability.X.Y)` | Object already in scope and its type extends `WithPermittedActions`. Checks the object's own `permitted_actions`. |
+| `useCan(Capability.X.Y)` | No object in scope (page guard, create button, editable prop). Checks the caller's ambient scope set. |
+| `<Can capability={Capability.X.Y}>` | Same as `useCan` but declarative JSX — wraps buttons/FABs. |
+
+```tsx
+// Object-level — subject carries permitted_actions
+const canUpdate = can(experiment, Capability.Experiment.UPDATE);
+
+// Ambient — scope/role check (no object)
+const canRead = useCan(Capability.TestRun.READ);
+if (!canRead) return <AccessDenied resource="test runs" />;
+
+// Declarative
+<Can capability={Capability.TestSet.CREATE}>
+  <Fab icon={<FabAddIcon />} />
+</Can>
+```
+
+### Which types carry object-level affordances
+
+These backend schemas extend `WithPermittedActions` and their frontend interfaces mirror it:
+`TestResult`, `ExperimentRead`, `Task`, `TestRun`, `Comment`.
+
+All others (Behavior, Metric, Endpoint, TestSet, Source, …) use `useCan` / `<Can>` (ambient).
+
+### Adding affordances to a new resource
+
+**Backend**: add `WithPermittedActions` to the Pydantic response schema and annotate
+`resource_type` on the class.
+
+**Frontend**: extend the TypeScript interface with `WithPermittedActions` from
+`@/types/affordances`, then use `can(subject, …)` instead of `useCan`.
+
+### Page-level read guard pattern
+
+```tsx
+const canRead = useCan(Capability.Foo.READ);
+if (!canRead) return <AccessDenied resource="foos" />;
+```
+
+### Jest test mocks
+
+Tests that render components using any affordance primitive must mock the module:
+
+```ts
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => true,
+  useCanWithStatus: () => ({ allowed: true, loading: false }),
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  can: () => true,
+}));
+```
+
+### Key files
+
+- `apps/frontend/src/components/common/Can.tsx` — the three primitives
+- `apps/frontend/src/contexts/PermissionsContext.tsx` — ambient scope provider
+- `apps/frontend/src/constants/capabilities.ts` — `Capability` enum (keep in sync with backend)
+- `apps/frontend/src/types/affordances.ts` — `WithPermittedActions` interface
+- `apps/backend/src/rhesis/backend/app/schemas/affordances.py` — backend mixin
+- `apps/backend/src/rhesis/backend/app/auth/capabilities.py` — `Permission` enum
+
+---
+
 ## Feature Gating
 
 Gated capabilities (e.g. SSO) flow through a single primitive on the

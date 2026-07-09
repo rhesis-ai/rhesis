@@ -25,6 +25,9 @@ export enum EventType {
   UNSUBSCRIBE = 'unsubscribe',
   SUBSCRIBED = 'subscribed',
   UNSUBSCRIBED = 'unsubscribed',
+  // A SUBSCRIBE was rejected; payload carries the offending `channel` so a
+  // subscriber can correlate the failure and stop waiting for events.
+  SUBSCRIPTION_ERROR = 'subscription_error',
 
   // Generic events (use-case specific events added as needed)
   NOTIFICATION = 'notification',
@@ -231,8 +234,19 @@ export type EventHandler = (message: WebSocketMessage) => void;
 export interface WebSocketClientOptions {
   /** WebSocket server URL (without protocol, e.g., "api.example.com/ws") */
   url: string;
-  /** Authentication token (JWT or API token) */
+  /**
+   * Static fallback authentication token. Used when `tokenProvider` is absent
+   * or throws. Prefer providing `tokenProvider` so each connection attempt
+   * uses a fresh short-lived token rather than a long-lived session JWT.
+   */
   token: string;
+  /**
+   * Optional async function that returns a fresh token before each connection
+   * attempt (including auto-reconnects). When provided, the returned token
+   * replaces `token` for that attempt. On failure the static `token` is used
+   * as a fallback so connectivity is not lost.
+   */
+  tokenProvider?: () => Promise<string>;
   /** Base interval for reconnection attempts in ms (default: 1000) */
   reconnectInterval?: number;
   /** Maximum number of reconnection attempts (default: 10) */

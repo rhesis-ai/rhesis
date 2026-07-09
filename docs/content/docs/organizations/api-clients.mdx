@@ -1,0 +1,118 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# API Clients
+
+API Clients let external services exchange an organization-scoped OIDC access token for a Rhesis JWT using RFC 8693 token exchange. Use them for machine-to-machine integrations that should authenticate through your identity provider instead of a human API token.
+
+<Callout type="info">
+  API Clients are an Enterprise Edition feature and require SSO to be configured for the organization.
+</Callout>
+
+## How token exchange works
+
+1. An organization admin creates an API Client in Rhesis.
+2. Rhesis returns a plaintext `client_secret` exactly once.
+3. The external service obtains an OIDC access token from the organization's IdP.
+4. The service calls `POST /auth/token-exchange` with RFC 8693 form fields.
+5. Rhesis validates the subject token against the organization's SSO issuer and returns a Rhesis access token.
+
+The exchange audience binds the request to one organization:
+
+<CodeBlock filename="audience.txt" language="text">
+{`rhesis:org:acme`}
+</CodeBlock>
+
+The slug after `rhesis:org:` must match the organization's slug.
+
+## Create an API Client
+
+Create clients from the organization settings UI or with the API:
+
+<CodeBlock filename="create_api_client.sh" language="bash">
+{`curl -X POST "https://api.example.com/organizations/<org-id>/auth-clients" \
+  -H "Authorization: Bearer $RHESIS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "warehouse-sync",
+    "name": "Warehouse Sync",
+    "expected_subject_azp": "warehouse-sync",
+    "expected_subject_audience": "account",
+    "allowed_scopes": ["read", "offline_access"],
+    "default_scope": "read"
+  }'`}
+</CodeBlock>
+
+Request fields:
+
+| Field | Required | Description |
+|---|---|---|
+| `client_id` | Yes | Public identifier matching `^[a-z0-9][a-z0-9_-]{2,63}$` |
+| `name` | No | Human-readable label for the admin UI |
+| `expected_subject_azp` | Yes | Required `azp` claim on the subject token |
+| `expected_subject_audience` | Yes | Required `aud` claim on the subject token |
+| `allowed_scopes` | Yes | Supported values: `read`, `full`, `offline_access` |
+| `default_scope` | Yes | Single scope applied when token exchange omits `scope` |
+
+<Callout type="info">
+  The plaintext `client_secret` is returned only on create and rotate. Copy it immediately and store it in your secret manager.
+</Callout>
+
+## Exchange a token
+
+Call `POST /auth/token-exchange` with `application/x-www-form-urlencoded`. Client credentials can be sent with HTTP Basic authentication or in the form body, but not both.
+
+<CodeBlock filename="token_exchange.sh" language="bash">
+{`SUBJECT_TOKEN="<oidc-access-token-from-your-idp>"
+
+curl -X POST "https://api.example.com/auth/token-exchange" \
+  -u "warehouse-sync:$CLIENT_SECRET" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+  --data-urlencode "subject_token=$SUBJECT_TOKEN" \
+  --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+  --data-urlencode "audience=rhesis:org:acme" \
+  --data-urlencode "scope=read offline_access"`}
+</CodeBlock>
+
+Successful responses follow the OAuth token response shape:
+
+<CodeBlock filename="token_exchange_response.json" language="json">
+{`{
+  "access_token": "<rhesis-jwt>",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 900,
+  "scope": "read offline_access",
+  "refresh_token": "<refresh-token>",
+  "refresh_expires_in": 2592000
+}`}
+</CodeBlock>
+
+`refresh_token` is present only when the resolved scope includes `offline_access`.
+
+## Manage clients
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /organizations/{org_id}/auth-clients` | Create a client and return one-shot secret |
+| `GET /organizations/{org_id}/auth-clients` | List clients without secrets |
+| `GET /organizations/{org_id}/auth-clients/{id}` | Read one client without secret |
+| `POST /organizations/{org_id}/auth-clients/{id}/rotate` | Rotate secret and token epoch |
+| `POST /organizations/{org_id}/auth-clients/{id}/disable` | Disable a client |
+| `POST /organizations/{org_id}/auth-clients/{id}/enable` | Re-enable a client |
+| `DELETE /organizations/{org_id}/auth-clients/{id}` | Delete a disabled client |
+
+Rotating a client secret also advances the client's token epoch. Existing client-bound refresh chains stop working after rotation.
+
+## Common errors
+
+- `invalid_target`: audience is malformed, the organization slug does not exist, SSO is unavailable, or API Clients are not enabled.
+- `invalid_client`: client credentials are missing or invalid.
+- `invalid_grant`: the subject token is invalid, expired, replayed, or does not match the configured `azp` and audience.
+- `invalid_scope`: requested scopes are not allowed for the client.
+
+## Related pages
+
+- [Single Sign-On](/docs/organizations/sso)
+- [Integrations](/docs/integrations)
+- [Self-Hosting](/docs/deployment/self-hosting)

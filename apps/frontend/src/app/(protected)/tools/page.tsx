@@ -1,41 +1,66 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Box, Alert, CircularProgress, Menu, MenuItem } from '@mui/material';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Box, Alert, CircularProgress } from '@mui/material';
+import { BuildIcon } from '@/components/icons';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import GridToolbar, {
+  directoryToolbarProps,
+} from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   Tool,
   ToolCreate,
   ToolUpdate,
-  TypeLookup,
 } from '@/utils/api-client/interfaces/tool';
+import { useTypeLookups } from '@/hooks/useLookups';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
-import { ProviderCard, ToolConnectionDrawer } from './components';
+import {
+  ConnectedToolCard,
+  ToolConnectionDrawer,
+  ToolFilterDrawer,
+  ToolFilters,
+  EMPTY_TOOL_FILTERS,
+  hasActiveToolFilters,
+  countActiveToolFilters,
+} from './components';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function ToolsPage() {
   const { data: session } = useSession();
   const notifications = useNotifications();
-  const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Tool.READ
+  );
+  const canCreateTool = useCan(Capability.Tool.CREATE);
+  useDocumentTitle('Tools');
   const [tools, setTools] = useState<Tool[]>([]);
+  const { data: providerTypes = [] } = useTypeLookups(
+    session?.session_token ?? '',
+    "type_name eq 'ToolProviderType'",
+    !!session?.session_token
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
-    null
-  );
   const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
 
-  // FAB menu
-  const [fabAnchorEl, setFabAnchorEl] = useState<null | HTMLElement>(null);
-  const fabMenuOpen = Boolean(fabAnchorEl);
+  // Toolbar state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<ToolFilters>(EMPTY_TOOL_FILTERS);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -47,17 +72,11 @@ export default function ToolsPage() {
         setLoading(true);
         const apiFactory = new ApiClientFactory(session.session_token);
         const toolsClient = apiFactory.getToolsClient();
-        const typeLookupClient = apiFactory.getTypeLookupClient();
 
-        const [providerTypesData, toolsResponse] = await Promise.all([
-          typeLookupClient.getTypeLookups({
-            $filter: "type_name eq 'ToolProviderType'",
-            limit: 100,
-          }),
-          toolsClient.getTools({ limit: 100 }).catch(() => ({ data: [] })),
-        ]);
+        const toolsResponse = await toolsClient
+          .getTools({ limit: 100 })
+          .catch(() => ({ data: [] }));
 
-        setProviderTypes(providerTypesData);
         setTools(toolsResponse.data || []);
       } catch (err) {
         setError(
@@ -71,36 +90,8 @@ export default function ToolsPage() {
     loadData();
   }, [session]);
 
-  const handleFabClick = (event: React.MouseEvent<HTMLElement>) => {
-    setFabAnchorEl(event.currentTarget);
-  };
-
-  const handleFabMenuClose = () => {
-    setFabAnchorEl(null);
-  };
-
-  const handleConnectClick = (providerType: TypeLookup) => {
-    handleFabMenuClose();
-    setSelectedProvider(providerType);
-    setToolToEdit(null);
-    setConnectionDrawerOpen(true);
-  };
-
-  const handleEditClick = (tool: Tool) => {
-    const pt =
-      providerTypes.find(p => p.id === tool.tool_provider_type_id) ?? null;
-    setSelectedProvider(pt);
-    setToolToEdit(tool);
-    setConnectionDrawerOpen(true);
-  };
-
-  const handleDeleteClick = (tool: Tool) => {
-    setToolToDelete(tool);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleToolCreate = async (
-    _providerId: string,
+  const handleConnect = async (
+    _: string,
     toolData: ToolCreate
   ): Promise<Tool> => {
     if (!session?.session_token) throw new Error('No session token');
@@ -125,6 +116,16 @@ export default function ToolsPage() {
     });
   };
 
+  const handleCardClick = (tool: Tool) => {
+    setToolToEdit(tool);
+    setConnectionDrawerOpen(true);
+  };
+
+  const handleDeleteClick = (tool: Tool) => {
+    setToolToDelete(tool);
+    setDeleteDialogOpen(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!session?.session_token || !toolToDelete) return;
     try {
@@ -147,20 +148,48 @@ export default function ToolsPage() {
   };
 
   // TODO: remove once Confluence is supported
-  const supportedProviderTypes = providerTypes.filter(
-    pt => pt.type_value !== 'confluence'
+  const supportedProviderTypes = useMemo(
+    () => providerTypes.filter(pt => pt.type_value !== 'confluence'),
+    [providerTypes]
   );
 
-  // Zip each provider type with its existing connection (or null)
-  const providerCards = supportedProviderTypes.map(pt => ({
-    providerType: pt,
-    tool: tools.find(t => t.tool_provider_type_id === pt.id) ?? null,
-  }));
-
-  // Only show unconnected providers in the FAB menu
-  const unconnectedProviders = supportedProviderTypes.filter(
-    pt => !tools.find(t => t.tool_provider_type_id === pt.id)
+  const availableProviders = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          tools
+            .map(t => t.tool_provider_type?.type_value)
+            .filter((v): v is string => Boolean(v))
+        )
+      ).sort(),
+    [tools]
   );
+
+  const filteredTools = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return tools.filter(tool => {
+      const searchMatch =
+        !q ||
+        tool.name?.toLowerCase().includes(q) ||
+        tool.description?.toLowerCase().includes(q) ||
+        tool.tool_provider_type?.type_value?.toLowerCase().includes(q);
+
+      const providerMatch =
+        filters.providers.length === 0 ||
+        (tool.tool_provider_type?.type_value &&
+          filters.providers.includes(tool.tool_provider_type.type_value));
+
+      return searchMatch && providerMatch;
+    });
+  }, [tools, searchQuery, filters]);
+
+  const openConnectionDrawer = () => {
+    setToolToEdit(null);
+    setConnectionDrawerOpen(true);
+  };
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="tool connections" />;
 
   return (
     <PageLayout
@@ -168,35 +197,16 @@ export default function ToolsPage() {
       description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
       breadcrumbs={[]}
       actions={
-        !loading && (
-          <FabGroup>
+        <FabGroup>
+          <Can capability={Capability.Tool.CREATE}>
             <Fab
               icon={<FabAddIcon />}
-              tooltip={
-                unconnectedProviders.length === 0
-                  ? 'All tools are connected'
-                  : 'Connect a tool'
-              }
-              aria-label="Connect a tool"
-              disabled={unconnectedProviders.length === 0}
-              onClick={handleFabClick}
+              tooltip="Add tool connection"
+              aria-label="Add tool connection"
+              onClick={openConnectionDrawer}
             />
-            <Menu
-              anchorEl={fabAnchorEl}
-              open={fabMenuOpen}
-              onClose={handleFabMenuClose}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-              {unconnectedProviders.map(pt => (
-                <MenuItem key={pt.id} onClick={() => handleConnectClick(pt)}>
-                  {pt.type_value.charAt(0).toUpperCase() +
-                    pt.type_value.slice(1)}
-                </MenuItem>
-              ))}
-            </Menu>
-          </FabGroup>
-        )
+          </Can>
+        </FabGroup>
       }
     >
       {error && (
@@ -205,48 +215,89 @@ export default function ToolsPage() {
         </Alert>
       )}
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-            },
-            gap: '24px',
-          }}
-        >
-          {providerCards.map(({ providerType, tool }) => (
-            <ProviderCard
-              key={providerType.id}
-              providerType={providerType}
-              tool={tool}
-              onConnect={handleConnectClick}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
+      <Box sx={{ mt: 2, mb: 2 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : tools.length === 0 ? (
+          <EntityEmptyState
+            card
+            icon={BuildIcon}
+            title="No tool connections yet"
+            description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
+            actionLabel={canCreateTool ? 'Add tool connection' : undefined}
+            onAction={canCreateTool ? openConnectionDrawer : undefined}
+          />
+        ) : (
+          <>
+            <GridToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search tool connections..."
+              onFilterClick={() => setFilterDrawerOpen(true)}
+              hasActiveFilters={hasActiveToolFilters(filters)}
+              activeFilterCount={countActiveToolFilters(filters)}
+              {...directoryToolbarProps}
             />
-          ))}
-        </Box>
-      )}
+
+            {filteredTools.length === 0 ? (
+              <EntityEmptyState
+                card
+                showAddIcon={false}
+                icon={BuildIcon}
+                title="No connections match your search or filters"
+                description="Try adjusting your search or filters to find the tool connections you're looking for."
+                actionLabel="Reset filters"
+                onAction={() => {
+                  setSearchQuery('');
+                  setFilters(EMPTY_TOOL_FILTERS);
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, 1fr)',
+                    md: 'repeat(3, 1fr)',
+                  },
+                  gap: 3,
+                }}
+              >
+                {filteredTools.map(tool => (
+                  <ConnectedToolCard
+                    key={tool.id}
+                    tool={tool}
+                    onDelete={handleDeleteClick}
+                    onCardClick={handleCardClick}
+                  />
+                ))}
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
+
+      <ToolFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={filters}
+        availableProviders={availableProviders}
+        onApply={f => setFilters(f)}
+      />
 
       <ToolConnectionDrawer
         open={connectionDrawerOpen}
-        provider={selectedProvider}
+        providers={supportedProviderTypes}
         tool={toolToEdit}
         mode={toolToEdit ? 'edit' : 'create'}
         onClose={() => {
           setConnectionDrawerOpen(false);
-          setTimeout(() => {
-            setToolToEdit(null);
-            setSelectedProvider(null);
-          }, 300);
+          setTimeout(() => setToolToEdit(null), 300);
         }}
-        onConnect={handleToolCreate}
+        onConnect={handleConnect}
         onUpdate={handleUpdate}
       />
 

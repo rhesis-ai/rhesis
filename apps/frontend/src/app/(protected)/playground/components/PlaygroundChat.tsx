@@ -23,6 +23,11 @@ import Tooltip from '@mui/material/Tooltip';
 import { useSession } from 'next-auth/react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
 import { playgroundPanelSx } from './playgroundPanelSx';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
+import {
+  formatEnvironment,
+  getEnvironmentColor,
+} from '@/utils/endpoint-options';
 import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
@@ -35,6 +40,12 @@ interface PlaygroundChatProps {
   endpointId: string;
   /** The project ID for trace viewing */
   projectId: string;
+  /** Display name of the endpoint */
+  endpointName: string;
+  /** Display name of the project */
+  projectName: string;
+  /** Endpoint environment label */
+  environment: string;
   /** Optional label shown in the header bar (e.g. "Chat 1") */
   label?: string;
   /** Callback when the close button in the header is clicked */
@@ -52,6 +63,9 @@ interface PlaygroundChatProps {
 export default function PlaygroundChat({
   endpointId,
   projectId,
+  endpointName,
+  projectName,
+  environment,
   label,
   onClose,
   onSplit,
@@ -239,7 +253,7 @@ export default function PlaygroundChat({
           sx={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: label ? 'space-between' : 'flex-end',
+            justifyContent: 'space-between',
             px: 1.5,
             minHeight: theme => theme.spacing(4),
             bgcolor: theme => theme.palette.greyscale.surface1,
@@ -247,14 +261,66 @@ export default function PlaygroundChat({
             borderColor: theme => theme.palette.greyscale.border,
           }}
         >
-          {label && (
-            <Typography
-              variant="captionBold"
-              sx={{ color: theme => theme.palette.greyscale.label }}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
+            {label && (
+              <Typography
+                variant="captionBold"
+                sx={{
+                  color: theme => theme.palette.greyscale.label,
+                  flexShrink: 0,
+                }}
+              >
+                {label}
+              </Typography>
+            )}
+            {label && (
+              <Typography
+                variant="captionBold"
+                sx={{ color: theme => theme.palette.greyscale.border }}
+              >
+                ·
+              </Typography>
+            )}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                minWidth: 0,
+              }}
             >
-              {label}
-            </Typography>
-          )}
+              <Typography
+                variant="captionBold"
+                noWrap
+                sx={{ color: theme => theme.palette.greyscale.body }}
+              >
+                {`${projectName} › ${endpointName}`}
+              </Typography>
+              <Typography
+                component="span"
+                variant="caption"
+                sx={{
+                  flexShrink: 0,
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: BORDER_RADIUS.pill,
+                  bgcolor: theme => theme.palette.greyscale.surface2,
+                  color: getEnvironmentColor(environment),
+                  fontWeight: 600,
+                }}
+              >
+                {formatEnvironment(environment)}
+              </Typography>
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {/* Create Multi-Turn Test Button */}
             <Tooltip

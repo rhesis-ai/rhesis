@@ -16,12 +16,18 @@ Test naming convention: ``test_<subject>_<condition>_<expected>``
 from __future__ import annotations
 
 import uuid
-from typing import Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from rhesis.backend.app.auth.principal import Principal, resolve_principal
+from rhesis.backend.app.auth.principal import (
+    REQUEST_STATE_API_TOKEN_PROJECT_ID,
+    REQUEST_STATE_API_TOKEN_SCOPES,
+    REQUEST_STATE_AUTH_KIND,
+    Principal,
+    resolve_principal,
+    resolve_principal_from_request,
+)
 from rhesis.backend.app.auth.rbac import (
     AuthorizationProvider,
     DefaultAuthorizationProvider,
@@ -120,6 +126,67 @@ class TestPrincipal:
         )
         assert p1 == p2
 
+    # -- REQUEST_STATE_* constants ------------------------------------------
+
+    def test_request_state_constants_have_expected_values(self):
+        assert REQUEST_STATE_AUTH_KIND == "auth_kind"
+        assert REQUEST_STATE_API_TOKEN_SCOPES == "api_token_scopes"
+        assert REQUEST_STATE_API_TOKEN_PROJECT_ID == "api_token_project_id"
+
+    # -- resolve_principal_from_request -------------------------------------
+
+    def _make_request(self, **state_attrs):
+        """Return a minimal request-like object with the given state attributes."""
+        state = type("State", (), {})()
+        for k, v in state_attrs.items():
+            setattr(state, k, v)
+        req = MagicMock()
+        req.state = state
+        return req
+
+    def _make_user(self):
+        user = MagicMock()
+        user.id = USER_ID
+        user.organization_id = ORG_ID
+        return user
+
+    def test_resolve_from_request_session_auth_defaults(self):
+        """No token state → kind='session', scopes=None, token_project_id=None."""
+        p = resolve_principal_from_request(self._make_user(), self._make_request())
+        assert p.kind == "session"
+        assert p.scopes is None
+        assert p.token_project_id is None
+
+    def test_resolve_from_request_token_with_scopes_and_project(self):
+        """Full token state → kind='token', scopes and project_id propagated."""
+        req = self._make_request(
+            auth_kind="token",
+            api_token_scopes=frozenset({"test_set:read", "endpoint:read"}),
+            api_token_project_id=str(PROJECT_ID),
+        )
+        p = resolve_principal_from_request(self._make_user(), req)
+        assert p.kind == "token"
+        assert p.scopes == frozenset({"test_set:read", "endpoint:read"})
+        assert p.token_project_id == PROJECT_ID
+
+    def test_resolve_from_request_unscoped_token(self):
+        """auth_kind='token' with no scopes/project → kind='token', others None."""
+        req = self._make_request(auth_kind="token")
+        p = resolve_principal_from_request(self._make_user(), req)
+        assert p.kind == "token"
+        assert p.scopes is None
+        assert p.token_project_id is None
+
+    def test_resolve_from_request_invalid_project_id_ignored(self):
+        """A non-UUID token_project_id string is silently ignored."""
+        req = self._make_request(
+            auth_kind="token",
+            api_token_project_id="not-a-uuid",
+        )
+        p = resolve_principal_from_request(self._make_user(), req)
+        assert p.kind == "token"
+        assert p.token_project_id is None
+
 
 # ---------------------------------------------------------------------------
 # DefaultAuthorizationProvider — truth table
@@ -177,9 +244,7 @@ class TestDefaultAuthorizationProvider:
         """Project member (non-owner) cannot perform org-scoped actions."""
         p = _principal()
         db = _mock_db(is_owner=False, is_member=True)
-        assert not self.provider.is_authorized(
-            p, "organization:update", project_id=None, db=db
-        )
+        assert not self.provider.is_authorized(p, "organization:update", project_id=None, db=db)
 
     def test_non_member_owner_only_capability_denied(self):
         """Non-owner cannot invoke owner-only capabilities (e.g. organization:update)."""
@@ -294,10 +359,12 @@ class TestAuthorize:
 class TestCapabilities:
     def setup_method(self):
         from rhesis.backend.app.auth.capabilities import reset_capabilities
+
         reset_capabilities()
 
     def teardown_method(self):
         from rhesis.backend.app.auth.capabilities import reset_capabilities
+
         reset_capabilities()
 
     # --- @capability() decorator ---
@@ -377,6 +444,7 @@ class TestCapabilities:
     def _make_app(self, routes):
         """Build a minimal fake FastAPI app with given route specs."""
         from fastapi.routing import APIRoute
+
         app = MagicMock()
         api_routes = []
         for path, methods, extra in routes:
@@ -391,11 +459,13 @@ class TestCapabilities:
     def test_build_capability_map_derives_from_resource_stamp(self):
         from rhesis.backend.app.auth.capabilities import build_capability_map
 
-        app = self._make_app([
-            ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
-            ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
-            ("/behaviors/{id}", {"DELETE"}, {"x-rhesis-resource": "behavior"}),
-        ])
+        app = self._make_app(
+            [
+                ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
+                ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
+                ("/behaviors/{id}", {"DELETE"}, {"x-rhesis-resource": "behavior"}),
+            ]
+        )
         cap_map = build_capability_map(app)
         assert "behavior:read" in cap_map
         assert "behavior:create" in cap_map
@@ -404,27 +474,35 @@ class TestCapabilities:
     def test_build_capability_map_explicit_capability_wins(self):
         from rhesis.backend.app.auth.capabilities import build_capability_map
 
-        app = self._make_app([
-            ("/test_sets/generate", {"POST"}, {
-                "x-rhesis-capability": "test_set:generate",
-                "x-rhesis-resource": "test_set",
-            }),
-        ])
+        app = self._make_app(
+            [
+                (
+                    "/test_sets/generate",
+                    {"POST"},
+                    {
+                        "x-rhesis-capability": "test_set:generate",
+                        "x-rhesis-resource": "test_set",
+                    },
+                ),
+            ]
+        )
         cap_map = build_capability_map(app)
         assert "test_set:generate" in cap_map
         assert "test_set:create" not in cap_map
 
     def test_register_and_get_all_capabilities(self):
         from rhesis.backend.app.auth.capabilities import (
-            register_capabilities,
             get_all_capabilities,
+            register_capabilities,
         )
 
-        app = self._make_app([
-            ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
-            ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
-            ("/test_sets/{id}", {"DELETE"}, {"x-rhesis-resource": "test_set"}),
-        ])
+        app = self._make_app(
+            [
+                ("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"}),
+                ("/behaviors", {"POST"}, {"x-rhesis-resource": "behavior"}),
+                ("/test_sets/{id}", {"DELETE"}, {"x-rhesis-resource": "test_set"}),
+            ]
+        )
         register_capabilities(app)
         caps = get_all_capabilities()
         assert isinstance(caps, list)
@@ -436,25 +514,39 @@ class TestCapabilities:
     def test_get_all_capabilities_before_register_returns_empty(self):
         """get_all_capabilities() returns [] (with warning) before registration."""
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
+
         assert get_all_capabilities() == []
 
     def test_register_capabilities_is_idempotent(self):
-        """Calling register_capabilities twice replaces the cache cleanly."""
+        """Calling register_capabilities twice replaces the cache cleanly.
+
+        ``register_capabilities`` merges route-derived caps with the full
+        ``Permission`` enum.  To verify the route-derived part is *replaced*
+        (not merged), we use resource names that have no corresponding
+        ``Permission`` enum entry — otherwise the enum contribution would keep
+        the capability in the cache regardless.
+        """
         from rhesis.backend.app.auth.capabilities import (
-            register_capabilities,
             get_all_capabilities,
+            register_capabilities,
         )
 
-        app1 = self._make_app([("/behaviors", {"GET"}, {"x-rhesis-resource": "behavior"})])
-        app2 = self._make_app([("/risks", {"GET"}, {"x-rhesis-resource": "risk"})])
+        # "app1_sentinel" and "app2_sentinel" are deliberately not in the
+        # Permission enum, so their presence/absence reflects only routes.
+        app1 = self._make_app(
+            [("/app1_sentinel", {"GET"}, {"x-rhesis-resource": "app1_sentinel"})]
+        )
+        app2 = self._make_app(
+            [("/app2_sentinel", {"GET"}, {"x-rhesis-resource": "app2_sentinel"})]
+        )
 
         register_capabilities(app1)
-        assert "behavior:read" in get_all_capabilities()
+        assert "app1_sentinel:read" in get_all_capabilities()
 
         register_capabilities(app2)
         caps = get_all_capabilities()
-        assert "risk:read" in caps
-        assert "behavior:read" not in caps  # replaced, not merged
+        assert "app2_sentinel:read" in caps
+        assert "app1_sentinel:read" not in caps  # route-derived part replaced, not merged
 
 
 # ---------------------------------------------------------------------------
@@ -648,11 +740,15 @@ class TestRealAppCapabilities:
         )
 
     def test_capabilities_all_have_resource_action_format(self):
-        """Every capability must match the ``resource:action`` format."""
+        """Every capability must match ``resource:action`` (optionally ``:own`` or ``:assigned``).
+
+        The optional qualifier is the object-level capability form (SP10),
+        e.g. ``comment:update:own`` or ``task:update:assigned`` — see ``authorize_object``.
+        """
         import re
 
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
 
-        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$")
+        pattern = re.compile(r"^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(:own|:assigned)?$")
         for cap in get_all_capabilities():
             assert pattern.match(cap), f"Capability '{cap}' does not match resource:action format"

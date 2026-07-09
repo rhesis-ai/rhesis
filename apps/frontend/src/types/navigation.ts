@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { type Theme } from '@mui/material/styles';
 import { type Session } from 'next-auth';
 import { type Project } from '@/utils/api-client/interfaces/project';
+import { type Organization } from '@/utils/api-client/interfaces/organization';
 
 export interface NavigationPageItem {
   kind: 'page';
@@ -10,6 +11,8 @@ export interface NavigationPageItem {
   icon?: React.ReactNode;
   action?: React.ReactNode;
   children?: NavigationPageItem[];
+  /** When set, the nav item renders locked for users who lack this capability. */
+  requiredPermission?: string;
 }
 
 export interface NavigationHeaderItem {
@@ -73,4 +76,5 @@ export interface LayoutProps {
   authentication: AuthenticationProps;
   theme: Theme;
   initialActiveProject?: Project | null;
+  initialOrganization?: Organization | null;
 }

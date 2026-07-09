@@ -10,21 +10,25 @@ import OnboardingShell from './OnboardingShell';
 import { ONBOARDING_STEP_COUNT } from './onboarding-steps';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
+import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { UUID } from 'crypto';
 import { UserUpdate } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { writeActiveProjectId } from '@/utils/active-project';
 
 type OnboardingStatus =
   | 'idle'
   | 'creating_organization'
   | 'updating_user'
   | 'loading_initial_data'
+  | 'creating_project'
   | 'completed';
 
 interface FormData {
   firstName: string;
   lastName: string;
   organizationName: string;
+  projectName: string;
   website: string;
   invites: { id: string; email: string }[];
 }
@@ -47,6 +51,7 @@ export default function OnboardingPageClient({
     firstName: '',
     lastName: '',
     organizationName: '',
+    projectName: '',
     website: '',
     invites: [{ id: crypto.randomUUID(), email: '' }],
   });
@@ -130,8 +135,9 @@ export default function OnboardingPageClient({
       }
 
       if ('session_token' in response) {
+        const activeSessionToken = response.session_token;
         const signInResult = await signIn('credentials', {
-          session_token: response.session_token,
+          session_token: activeSessionToken,
           refresh_token:
             (response as { refresh_token?: string }).refresh_token || '',
           redirect: false,
@@ -140,6 +146,13 @@ export default function OnboardingPageClient({
         if (signInResult?.error) {
           throw new Error('Failed to establish session after onboarding');
         }
+
+        const authenticatedFactory = new ApiClientFactory(activeSessionToken);
+        const authenticatedUsersClient = authenticatedFactory.getUsersClient();
+        const authenticatedOrganizationsClient =
+          authenticatedFactory.getOrganizationsClient();
+        const authenticatedProjectsClient =
+          authenticatedFactory.getProjectsClient();
 
         try {
           const validEmails = formData.invites
@@ -162,7 +175,8 @@ export default function OnboardingPageClient({
               };
 
               try {
-                const user = await usersClient.createUser(userData);
+                const user =
+                  await authenticatedUsersClient.createUser(userData);
                 invitationResults.push({ email, success: true });
                 return user;
               } catch (error: unknown) {
@@ -234,21 +248,43 @@ export default function OnboardingPageClient({
 
         try {
           setOnboardingStatus('loading_initial_data');
-          const initDataResponse = await organizationsClient.loadInitialData(
-            organization.id
-          );
+          const initDataResponse =
+            await authenticatedOrganizationsClient.loadInitialData(
+              organization.id
+            );
 
-          if (initDataResponse.status === 'success') {
-            setOnboardingStatus('completed');
-            notifications.show('Onboarding completed successfully!', {
-              severity: 'success',
-            });
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            window.location.href = '/architect';
-            return;
-          } else {
+          if (initDataResponse.status !== 'success') {
             throw new Error('Failed to initialize organization data');
           }
+
+          setOnboardingStatus('creating_project');
+          const projectData: ProjectCreate = {
+            name: formData.projectName.trim(),
+            user_id: userId,
+            owner_id: userId,
+            organization_id: organization.id as UUID,
+            is_active: true,
+            icon: 'SmartToy',
+          };
+
+          const createdProject =
+            await authenticatedProjectsClient.createProject(projectData);
+
+          writeActiveProjectId(String(createdProject.id));
+          await authenticatedUsersClient.updateUserSettings({
+            default_project: {
+              project_id: createdProject.id as UUID,
+              name: createdProject.name,
+            },
+          });
+
+          setOnboardingStatus('completed');
+          notifications.show('Onboarding completed successfully!', {
+            severity: 'success',
+          });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          window.location.href = '/architect';
+          return;
         } catch (initError: unknown) {
           completingRef.current = false;
           setIsSubmitting(false);

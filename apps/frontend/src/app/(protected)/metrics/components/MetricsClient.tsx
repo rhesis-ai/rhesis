@@ -92,7 +92,7 @@ export default function MetricsClientComponent({
     React.useState<BehaviorMetrics>({});
 
   // Refresh key for manual refresh
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [refreshKey] = React.useState(0);
 
   // Use ref to track the actual session token value to prevent unnecessary re-fetches
   const lastSessionTokenRef = React.useRef<string | null>(null);
@@ -233,11 +233,6 @@ export default function MetricsClientComponent({
     fetchData();
   }, [sessionToken, refreshKey, notifications, sessionStatus]);
 
-  // Refresh data function - trigger re-render by updating a key
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   return (
     <ErrorBoundary>
       <MetricsDirectoryTab
@@ -249,7 +244,6 @@ export default function MetricsClientComponent({
         filterOptions={filterOptions}
         isLoading={isLoading}
         error={error}
-        onRefresh={handleRefresh}
         setFilters={setFilters}
         setMetrics={setMetrics}
         setBehaviorMetrics={setBehaviorMetrics}

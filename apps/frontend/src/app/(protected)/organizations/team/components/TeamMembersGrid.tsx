@@ -1,23 +1,41 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import { Box, Avatar, Typography, Alert, IconButton } from '@mui/material';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  GridColDef,
-  GridPaginationModel,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
-import BaseDataGrid from '@/components/common/BaseDataGrid';
-import GridToolbar from '@/components/common/GridToolbar';
-import GridBadge from '@/components/common/GridBadge';
+  Alert,
+  Avatar,
+  Box,
+  CircularProgress,
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
+import PersonIcon from '@mui/icons-material/Person';
+import GridToolbar, {
+  linkedGridToolbarSx,
+  sectionCardGridTableEdgeCellResetSx,
+  sectionCardGridTableInsetSx,
+} from '@/components/common/GridToolbar';
+import { ROW_ACTIONS_CLASS } from '@/components/common/createRowActionsColumn';
+import {
+  SectionOverviewHeaderCell,
+  SectionOverviewPagination,
+  sectionOverviewBodyCellSx,
+  sectionOverviewRowActionIconButtonSx,
+  sectionOverviewTableSx,
+} from '@/components/common/SectionOverviewTable';
+import { DeleteIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
-import PersonIcon from '@mui/icons-material/Person';
-import { DeleteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import {
@@ -28,50 +46,10 @@ import {
   type TeamFilters,
 } from '@/utils/odata-filter';
 import TeamFilterDrawer from './TeamFilterDrawer';
-
-interface TeamToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-}
-
-const TeamToolbarContext = React.createContext<TeamToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-});
-
-function TeamUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-  } = useContext(TeamToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search team members…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      rightContent={
-        <>
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
-    />
-  );
-}
+import MemberAccessDrawer from './MemberAccessDrawer';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 interface TeamMembersGridProps {
   refreshTrigger?: number;
@@ -97,6 +75,8 @@ export default function TeamMembersGrid({
   onTotalCountChange,
 }: TeamMembersGridProps) {
   const { data: session } = useSession();
+  const canDeleteMember = useCan(Capability.Member.DELETE);
+  const canManageMembers = useCan(Capability.Member.MANAGE);
   const notifications = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,13 +86,13 @@ export default function TeamMembersGrid({
   const [drawerFilters, setDrawerFilters] =
     useState<TeamFilters>(EMPTY_TEAM_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 25,
-  });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [accessDrawerOpen, setAccessDrawerOpen] = useState(false);
+  const [accessDrawerUser, setAccessDrawerUser] = useState<User | null>(null);
 
   const fetchUsers = useCallback(
     async (skip = 0, limit = 25) => {
@@ -148,25 +128,13 @@ export default function TeamMembersGrid({
   );
 
   useEffect(() => {
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
+    setPage(0);
   }, [searchQuery, drawerFilters]);
 
   useEffect(() => {
-    const skip = paginationModel.page * paginationModel.pageSize;
-    fetchUsers(skip, paginationModel.pageSize);
-  }, [
-    fetchUsers,
-    paginationModel.page,
-    paginationModel.pageSize,
-    refreshTrigger,
-  ]);
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
+    const skip = page * pageSize;
+    fetchUsers(skip, pageSize);
+  }, [fetchUsers, page, pageSize, refreshTrigger]);
 
   const handleDeleteUser = useCallback((user: User) => {
     setUserToDelete(user);
@@ -191,8 +159,8 @@ export default function TeamMembersGrid({
         { severity: 'success' }
       );
 
-      const skip = paginationModel.page * paginationModel.pageSize;
-      await fetchUsers(skip, paginationModel.pageSize);
+      const skip = page * pageSize;
+      await fetchUsers(skip, pageSize);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error
@@ -214,143 +182,238 @@ export default function TeamMembersGrid({
     setUserToDelete(null);
   };
 
-  const columns: GridColDef[] = useMemo(
-    () => [
-      {
-        field: 'name',
-        headerName: 'Name',
-        flex: 1,
-        minWidth: 220,
-        valueGetter: (_value, row) => getDisplayName(row as User),
-        renderCell: params => {
-          const user = params.row as User;
-          const status = getUserStatus(user);
-          const displayName = getDisplayName(user);
+  const handleRowClick = useCallback((user: User) => {
+    setAccessDrawerUser(user);
+    setAccessDrawerOpen(true);
+  }, []);
 
-          return (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                width: '100%',
-                minWidth: 0,
-              }}
-            >
-              <Avatar
-                src={user.picture || undefined}
-                sx={{
-                  width: 32,
-                  height: 32,
-                  flexShrink: 0,
-                  bgcolor: status === 'active' ? 'primary.main' : 'grey.400',
-                }}
-              >
-                {user.picture ? null : <PersonIcon fontSize="small" />}
-              </Avatar>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 500,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {displayName}
-              </Typography>
-            </Box>
-          );
-        },
-      },
-      {
-        field: 'email',
-        headerName: 'Email',
-        flex: 1,
-        minWidth: 220,
-        renderCell: params => (
-          <Typography variant="body2" color="text.secondary">
-            {(params.row as User).email}
-          </Typography>
-        ),
-      },
-      {
-        field: 'status',
-        headerName: 'Status',
-        width: 120,
-        sortable: true,
-        valueGetter: (_value, row) => getUserStatus(row as User),
-        renderCell: params => {
-          const status = getUserStatus(params.row as User);
-          return (
-            <GridBadge label={status === 'active' ? 'Active' : 'Invited'} />
-          );
-        },
-      },
-      {
-        field: 'actions',
-        headerName: '',
-        width: 56,
-        sortable: false,
-        filterable: false,
-        renderCell: params => {
-          const user = params.row as User;
-          const currentUserId = session?.user?.id;
+  const { OrgRoleCell, prewarmCaches } = getMemberRoleExtensions();
+  const sessionToken = session?.session_token ?? '';
 
-          if (user.id === currentUserId) {
-            return null;
-          }
+  useEffect(() => {
+    if (sessionToken) {
+      prewarmCaches?.(sessionToken, { canManageRoles: canManageMembers });
+    }
+  }, [sessionToken, prewarmCaches, canManageMembers]);
 
-          return (
-            <IconButton
-              onClick={e => {
-                e.stopPropagation();
-                handleDeleteUser(user);
-              }}
-              size="small"
-              title="Remove from organization"
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          );
-        },
-      },
-    ],
-    [session?.user?.id, handleDeleteUser]
-  );
+  const showRoleColumn = Boolean(OrgRoleCell);
+  const currentUserId = session?.user?.id;
 
   return (
-    <TeamToolbarContext.Provider
-      value={{
-        searchQuery,
-        setSearchQuery,
-        openFilterDrawer: () => setFilterDrawerOpen(true),
-        hasActiveDrawerFilters: hasActiveTeamFilters(drawerFilters),
-        activeFilterCount: countActiveTeamFilters(drawerFilters),
-      }}
-    >
+    <>
       {error && (
-        <Alert severity="error" sx={{ m: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <BaseDataGrid
-        rows={users}
-        columns={columns}
-        loading={loading}
-        getRowId={row => row.id}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        serverSidePagination={true}
+      <GridToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search team members…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveTeamFilters(drawerFilters)}
+        activeFilterCount={countActiveTeamFilters(drawerFilters)}
+        sx={linkedGridToolbarSx}
+      />
+
+      <TableContainer
+        sx={
+          [
+            sectionOverviewTableSx,
+            sectionCardGridTableInsetSx,
+            sectionCardGridTableEdgeCellResetSx,
+          ] as SxProps<Theme>
+        }
+      >
+        <Table>
+          <TableHead>
+            <TableRow>
+              <SectionOverviewHeaderCell>Name</SectionOverviewHeaderCell>
+              <SectionOverviewHeaderCell showDivider>
+                Email
+              </SectionOverviewHeaderCell>
+              {showRoleColumn && (
+                <SectionOverviewHeaderCell showDivider width={150}>
+                  Role
+                </SectionOverviewHeaderCell>
+              )}
+              <SectionOverviewHeaderCell showDivider width={120}>
+                Status
+              </SectionOverviewHeaderCell>
+              {canDeleteMember && (
+                <SectionOverviewHeaderCell showDivider width={56} />
+              )}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={
+                    showRoleColumn
+                      ? canDeleteMember
+                        ? 5
+                        : 4
+                      : canDeleteMember
+                        ? 4
+                        : 3
+                  }
+                  sx={{ ...sectionOverviewBodyCellSx, borderTop: 'none' }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      py: 4,
+                    }}
+                  >
+                    <CircularProgress size={24} />
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={
+                    showRoleColumn
+                      ? canDeleteMember
+                        ? 5
+                        : 4
+                      : canDeleteMember
+                        ? 4
+                        : 3
+                  }
+                  sx={{ ...sectionOverviewBodyCellSx, borderTop: 'none' }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    No team members match your search.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map(user => {
+                const status = getUserStatus(user);
+                const displayName = getDisplayName(user);
+
+                return (
+                  <TableRow
+                    key={user.id}
+                    hover
+                    onClick={() => handleRowClick(user)}
+                    sx={{ height: 48, cursor: 'pointer' }}
+                  >
+                    <TableCell sx={sectionOverviewBodyCellSx}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          minWidth: 0,
+                        }}
+                      >
+                        <Avatar
+                          src={user.picture || undefined}
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            flexShrink: 0,
+                            bgcolor:
+                              status === 'active' ? 'primary.main' : 'grey.400',
+                          }}
+                        >
+                          {user.picture ? null : (
+                            <PersonIcon fontSize="small" />
+                          )}
+                        </Avatar>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {displayName}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={sectionOverviewBodyCellSx}>
+                      <Typography variant="body2" color="text.secondary">
+                        {user.email}
+                      </Typography>
+                    </TableCell>
+                    {showRoleColumn && OrgRoleCell && (
+                      <TableCell
+                        sx={sectionOverviewBodyCellSx}
+                        data-field="orgRole"
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                      >
+                        <OrgRoleCell
+                          userId={user.id}
+                          sessionToken={sessionToken}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell sx={sectionOverviewBodyCellSx}>
+                      {status === 'active' ? 'Active' : 'Invited'}
+                    </TableCell>
+                    {canDeleteMember && (
+                      <TableCell
+                        align="right"
+                        sx={{ ...sectionOverviewBodyCellSx, width: 56 }}
+                      >
+                        {user.id !== currentUserId && (
+                          <Box
+                            className={ROW_ACTIONS_CLASS}
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              width: '100%',
+                            }}
+                          >
+                            <Tooltip title="Remove from organization">
+                              <IconButton
+                                size="small"
+                                aria-label="Remove from organization"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleDeleteUser(user);
+                                }}
+                                sx={{
+                                  ...sectionOverviewRowActionIconButtonSx,
+                                  '&:hover': {
+                                    color: 'error.main',
+                                    bgcolor: 'action.hover',
+                                  },
+                                }}
+                              >
+                                <DeleteIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <SectionOverviewPagination
+        page={page}
+        pageSize={pageSize}
         totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50, 100]}
-        disableRowSelectionOnClick
-        disablePaperWrapper={true}
-        showToolbar={true}
-        toolbarSlot={TeamUnifiedToolbar}
-        persistState
-        storageKey="team-members-grid"
+        onPageChange={setPage}
+        onPageSizeChange={newSize => {
+          setPageSize(newSize);
+          setPage(0);
+        }}
       />
 
       <TeamFilterDrawer
@@ -361,6 +424,12 @@ export default function TeamMembersGrid({
           setDrawerFilters(f);
           setFilterDrawerOpen(false);
         }}
+      />
+
+      <MemberAccessDrawer
+        open={accessDrawerOpen}
+        onClose={() => setAccessDrawerOpen(false)}
+        user={accessDrawerUser}
       />
 
       <DeleteModal
@@ -375,6 +444,6 @@ export default function TeamMembersGrid({
           deleting ? 'Removing...' : 'Remove from Organization'
         }
       />
-    </TeamToolbarContext.Provider>
+    </>
   );
 }

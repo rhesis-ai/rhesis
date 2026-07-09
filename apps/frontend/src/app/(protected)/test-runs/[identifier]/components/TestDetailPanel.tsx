@@ -33,6 +33,7 @@ import {
   toMentionId,
 } from '@/components/common/MentionTextInput';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
+import { EntityType } from '@/types/entity-type';
 
 interface TestDetailPanelProps {
   test: TestResultDetail | null;
@@ -191,7 +192,7 @@ export default function TestDetailPanel({
 
       // Get available statuses for TestResult
       const statuses = await statusClient.getStatuses({
-        entity_type: 'TestResult',
+        entity_type: EntityType.TEST_RESULT,
       });
 
       // Determine the automated status from goal_evaluation

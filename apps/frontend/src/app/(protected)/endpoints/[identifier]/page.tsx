@@ -1,82 +1,64 @@
 'use client';
 
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import { use, useEffect, useState } from 'react';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import { use } from 'react';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { EndpointDetailProvider } from './components/EndpointDetailContext';
 import EndpointDetailView from './components/EndpointDetailView';
 import EndpointHeaderActions from './components/EndpointHeaderActions';
+import { useEndpoint, useProject } from '@/hooks/useEndpoints';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function EndpointPage({ params }: PageProps) {
   const { identifier } = use(params);
+  const router = useRouter();
 
   const { data: session, status } = useSession();
-  const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
-  const [projectName, setProjectName] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const sessionToken = session?.session_token ?? '';
+
+  const isValidId = !!identifier && UUID_REGEX.test(identifier);
+
+  const {
+    data: endpoint,
+    isLoading,
+    isFetching,
+    error: fetchError,
+    refetch,
+  } = useEndpoint(
+    sessionToken,
+    identifier,
+    status === 'authenticated' && !!sessionToken && isValidId
+  );
+  const { data: project } = useProject(
+    sessionToken,
+    endpoint?.project_id ?? '',
+    !!endpoint?.project_id
+  );
 
   useDocumentTitle(endpoint?.name || null);
 
-  useEffect(() => {
-    const fetchEndpoint = async () => {
-      try {
-        if (status === 'loading') return;
-        if (!identifier) return;
-
-        if (!session) {
-          throw new Error('No session available');
-        }
-
-        const uuidRegex =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(identifier)) {
-          throw new Error('Invalid endpoint identifier format');
-        }
-
-        const sessionToken = session.session_token || '';
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const data = await endpointsClient.getEndpoint(identifier);
-        setEndpoint(data);
-
-        if (data.project_id) {
-          try {
-            const projectsClient = apiFactory.getProjectsClient();
-            const project = await projectsClient.getProject(data.project_id);
-            setProjectName(project.name);
-            setEndpoint(prev =>
-              prev
-                ? { ...prev, project: { ...prev.project, name: project.name } }
-                : prev
-            );
-          } catch (projectErr) {
-            console.error(
-              '[EndpointPage] Failed to fetch project name:',
-              projectErr
-            );
-          }
-        }
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEndpoint();
-  }, [identifier, session, status]);
+  const loading = status === 'loading' || isLoading;
+  const error = !isValidId
+    ? 'Invalid endpoint identifier format'
+    : fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to load endpoint'
+        : null;
 
   if (status === 'unauthenticated') {
     return (
@@ -88,7 +70,7 @@ export default function EndpointPage({ params }: PageProps) {
     );
   }
 
-  if (status === 'loading' || loading || !identifier || (!endpoint && !error)) {
+  if (loading || (!endpoint && !error)) {
     return (
       <Box
         sx={{
@@ -101,6 +83,22 @@ export default function EndpointPage({ params }: PageProps) {
         <CircularProgress size={24} sx={{ mr: 1 }} />
         <Typography>Loading endpoint...</Typography>
       </Box>
+    );
+  }
+
+  if (fetchError && isNotFoundApiError(fetchError)) {
+    return (
+      <DetailNotFoundState
+        entityLabel="Endpoint"
+        entityId={identifier}
+        breadcrumbs={[
+          { label: 'Endpoints', href: '/endpoints' },
+          { label: 'Not Found', href: `/endpoints/${identifier}` },
+        ]}
+        onBack={() => router.push('/endpoints')}
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
     );
   }
 
@@ -119,6 +117,11 @@ export default function EndpointPage({ params }: PageProps) {
       </Box>
     );
   }
+
+  const projectName = project?.name ?? '';
+  const endpointWithProject = project
+    ? { ...endpoint, project: { ...endpoint.project, name: project.name } }
+    : endpoint;
 
   const breadcrumbs =
     endpoint.project_id && projectName
@@ -147,7 +150,7 @@ export default function EndpointPage({ params }: PageProps) {
   );
 
   return (
-    <EndpointDetailProvider endpoint={endpoint}>
+    <EndpointDetailProvider endpoint={endpointWithProject}>
       <PageLayout
         title={endpoint.name}
         breadcrumbs={breadcrumbs}

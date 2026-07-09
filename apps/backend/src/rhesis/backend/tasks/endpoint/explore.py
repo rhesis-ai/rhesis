@@ -8,7 +8,6 @@ Follows the same async/polling pattern as ``generate_and_save_test_set``
 and ``execute_test_configuration``.
 """
 
-import asyncio
 import json
 import logging
 import time
@@ -144,6 +143,7 @@ def run_exploration_task(
     _step("Connecting to endpoint")
 
     from rhesis.sdk.agents.tools import ExploreEndpointTool
+    from rhesis.sdk.async_utils import run_sync
 
     start = time.monotonic()
 
@@ -174,7 +174,7 @@ def run_exploration_task(
         # silently drop the entire progress trail.
         event_handlers: List[Any] = [_PenelopeProgressHandler(_emit)]
 
-        result = asyncio.run(
+        result = run_sync(
             tool.execute(
                 endpoint_id=endpoint_id,
                 strategy=strategy,

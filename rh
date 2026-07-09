@@ -13,6 +13,10 @@ NC='\033[0m' # No Color
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+CELERY_WORKER_CONCURRENCY="${CELERY_WORKER_CONCURRENCY:-4}"
+CELERY_WORKER_PREFETCH_MULTIPLIER="${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}"
+FLOWER_PORT="${FLOWER_PORT:-5555}"
+
 # Function to display help
 show_help() {
     echo -e "${CYAN}"
@@ -187,9 +191,10 @@ BROKER_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
 CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 
 # Environment
-ENVIRONMENT=development
-BACKEND_ENV=development
+BACKEND_ENV=local
+DEV_MODE=true
 LOG_LEVEL=DEBUG
+OTEL_RHESIS_TELEMETRY_ENABLED=false
 
 # URLs
 API_BASE_URL=http://localhost:8080
@@ -200,6 +205,9 @@ BACKEND_URL=http://localhost:8080
 JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# Rhesis API Key (get one at https://app.rhesis.ai)
+RHESIS_API_KEY=your_api_key
 EOF
 }
 
@@ -653,8 +661,18 @@ fi
 
     local compose_rc=0
     if [ "$use_build" -eq 1 ]; then
-        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up --build -d postgres redis backend worker frontend
+        # Build and start as two steps instead of `up --build`. Running them
+        # together can deadlock: after the BuildKit build finishes, Compose
+        # keeps waiting on the build result stream and never moves on to
+        # creating containers (the process sits idle with no Docker activity).
+        # BUILDX_NO_DEFAULT_ATTESTATIONS disables the provenance/attestation
+        # manifests whose export is what triggers the wedge.
+        BUILDX_NO_DEFAULT_ATTESTATIONS=1 docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local build backend worker frontend
         compose_rc=$?
+        if [ "$compose_rc" -eq 0 ]; then
+            docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d postgres redis backend worker frontend
+            compose_rc=$?
+        fi
     else
         docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local pull postgres redis backend worker frontend
         compose_rc=$?
@@ -736,8 +754,15 @@ restart_all() {
 
     local compose_rc=0
     if [ "$use_build" -eq 1 ]; then
-        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate --build postgres redis backend worker frontend
+        # Build then recreate as two steps (see start_all): `up --build` can
+        # deadlock after the build completes. BUILDX_NO_DEFAULT_ATTESTATIONS
+        # disables the attestation/provenance export that triggers the hang.
+        BUILDX_NO_DEFAULT_ATTESTATIONS=1 docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local build backend worker frontend
         compose_rc=$?
+        if [ "$compose_rc" -eq 0 ]; then
+            docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
+            compose_rc=$?
+        fi
     else
         docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
         compose_rc=$?
@@ -1124,7 +1149,6 @@ start_worker() {
     }
 
     LOG_FILE="$SCRIPT_DIR/celery.log"
-    FLOWER_PORT="${FLOWER_PORT:-5555}"
 
     echo -e "${GREEN}Starting new Celery worker...${NC}"
     echo -e "${BLUE}Logs will be written to: ${LOG_FILE}${NC}"
@@ -1171,7 +1195,8 @@ start_worker() {
         --pool threads \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry,architect \
-        --concurrency=${CELERY_WORKER_CONCURRENCY:-2} \
+        --concurrency=${CELERY_WORKER_CONCURRENCY} \
+        --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER} \
         --optimization=fair \
         -E &
     WORKER_PID=$!

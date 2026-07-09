@@ -2,7 +2,7 @@
 Task for collecting and processing test execution results.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import UUID
 
@@ -68,7 +68,7 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
                 raise ValueError(f"Test run not found: {test_run_id}")
 
             # Set completion time now for consistent use throughout
-            completion_time = datetime.utcnow()
+            completion_time = datetime.now(timezone.utc)
 
             # Process test run results using the dedicated processor
             processor = TestRunProcessor(self.log_with_context)

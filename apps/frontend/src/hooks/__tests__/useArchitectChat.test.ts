@@ -68,7 +68,21 @@ describe('useArchitectChat', () => {
   it('subscribes to architect channel when session and connection are ready', () => {
     renderHook(() => useArchitectChat({ sessionId: 'sess-1' }));
 
-    expect(mockSubscribeToChannel).toHaveBeenCalledWith('architect:sess-1');
+    expect(mockSubscribeToChannel).toHaveBeenCalledWith(
+      'architect:sess-1',
+      undefined
+    );
+  });
+
+  it('passes sessionProjectId when subscribing to architect channel', () => {
+    renderHook(() =>
+      useArchitectChat({ sessionId: 'sess-1', sessionProjectId: 'proj-42' })
+    );
+
+    expect(mockSubscribeToChannel).toHaveBeenCalledWith(
+      'architect:sess-1',
+      'proj-42'
+    );
   });
 
   it('unsubscribes from architect channel on unmount', () => {
@@ -592,9 +606,7 @@ describe('useArchitectChat', () => {
       expect(result.current.error).toBe('Something went wrong');
       expect(result.current.messages).toHaveLength(2);
       expect(result.current.messages[1].role).toBe('assistant');
-      expect(result.current.messages[1].content).toBe(
-        'Error: Something went wrong'
-      );
+      expect(result.current.messages[1].content).toBe('Something went wrong');
       expect(result.current.messages[1].isError).toBe(true);
     });
 

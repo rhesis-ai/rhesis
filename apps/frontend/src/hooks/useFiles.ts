@@ -1,10 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileResponse,
   FileEntityType,
 } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { EntityType } from '@/types/entity-type';
+import { fileKeys } from '@/constants/query-keys';
 
 interface UseFilesProps {
   entityId: string;
@@ -17,59 +20,72 @@ export function useFiles({
   entityType,
   sessionToken,
 }: UseFilesProps) {
-  const [files, setFiles] = useState<FileResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const notifications = useNotifications();
+  const queryClient = useQueryClient();
+  const queryKey = fileKeys.list(entityType, entityId);
 
-  const fetchFiles = useCallback(async () => {
-    if (!sessionToken || !entityId) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const filesClient = clientFactory.getFilesClient();
-
-      let fetched: FileResponse[];
-      if (entityType === 'Test') {
-        fetched = await filesClient.getTestFiles(entityId);
-      } else if (entityType === 'TestResult') {
-        fetched = await filesClient.getTestResultFiles(entityId);
-      } else {
-        fetched = [];
+  const {
+    data: files = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<FileResponse[]>({
+    queryKey,
+    queryFn: async () => {
+      const filesClient = new ApiClientFactory(sessionToken).getFilesClient();
+      if (entityType === EntityType.TEST) {
+        return filesClient.getTestFiles(entityId);
       }
-      setFiles(fetched);
-    } catch (_err) {
-      setError('Failed to fetch files');
+      if (entityType === EntityType.TEST_RESULT) {
+        return filesClient.getTestResultFiles(entityId);
+      }
+      return [];
+    },
+    enabled: !!sessionToken && !!entityId,
+  });
+
+  const error = isError ? 'Failed to fetch files' : null;
+
+  useEffect(() => {
+    if (isError) {
       notifications.show('Failed to fetch files', {
         severity: 'error',
         autoHideDuration: 3000,
       });
-    } finally {
-      setIsLoading(false);
     }
-  }, [entityId, entityType, sessionToken, notifications]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isError]);
 
-  const uploadFiles = useCallback(
-    async (newFiles: File[]) => {
+  const uploadMutation = useMutation({
+    mutationFn: (newFiles: File[]) => {
       if (!sessionToken) {
         throw new Error('No session token available');
       }
+      return new ApiClientFactory(sessionToken)
+        .getFilesClient()
+        .uploadFiles(newFiles, entityId, entityType);
+    },
+  });
 
+  const deleteMutation = useMutation({
+    mutationFn: (fileId: string) => {
+      if (!sessionToken) {
+        throw new Error('No session token available');
+      }
+      return new ApiClientFactory(sessionToken)
+        .getFilesClient()
+        .deleteFile(fileId);
+    },
+  });
+
+  const uploadFiles = useCallback(
+    async (newFiles: File[]) => {
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const filesClient = clientFactory.getFilesClient();
-        const uploaded = await filesClient.uploadFiles(
-          newFiles,
-          entityId,
-          entityType
-        );
-        setFiles(prev => [...prev, ...uploaded]);
+        const uploaded = await uploadMutation.mutateAsync(newFiles);
+        queryClient.setQueryData<FileResponse[]>(queryKey, prev => [
+          ...(prev ?? []),
+          ...uploaded,
+        ]);
         notifications.show(
           `${uploaded.length} file${uploaded.length > 1 ? 's' : ''} uploaded`,
           { severity: 'success', autoHideDuration: 3000 }
@@ -86,20 +102,16 @@ export function useFiles({
         throw err;
       }
     },
-    [entityId, entityType, sessionToken, notifications]
+    [uploadMutation, queryClient, queryKey, notifications]
   );
 
   const deleteFile = useCallback(
     async (fileId: string) => {
-      if (!sessionToken) {
-        throw new Error('No session token available');
-      }
-
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const filesClient = clientFactory.getFilesClient();
-        await filesClient.deleteFile(fileId);
-        setFiles(prev => prev.filter(f => f.id !== fileId));
+        await deleteMutation.mutateAsync(fileId);
+        queryClient.setQueryData<FileResponse[]>(queryKey, prev =>
+          (prev ?? []).filter(f => f.id !== fileId)
+        );
         notifications.show('File deleted', {
           severity: 'neutral',
           autoHideDuration: 3000,
@@ -112,12 +124,8 @@ export function useFiles({
         throw err;
       }
     },
-    [sessionToken, notifications]
+    [deleteMutation, queryClient, queryKey, notifications]
   );
-
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
 
   const totalSizeBytes = files.reduce((sum, f) => sum + f.size_bytes, 0);
 
@@ -128,6 +136,6 @@ export function useFiles({
     totalSizeBytes,
     uploadFiles,
     deleteFile,
-    refetch: fetchFiles,
+    refetch,
   };
 }

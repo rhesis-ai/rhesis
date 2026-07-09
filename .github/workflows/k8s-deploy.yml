@@ -91,11 +91,11 @@ jobs:
               for KEY in backend.image.tag frontend.image.tag docs.image.tag \
                          polyphemus.image.tag otelCollector.image.tag \
                          telemetryProcessor.image.tag "workers[0].image.tag"; do
-                SET_FLAGS+=(--helm-set "${KEY}=$TAG")
+                SET_FLAGS+=(--helm-set-string "${KEY}=$TAG")
               done
               ;;
-            workers)  SET_FLAGS+=(--helm-set "workers[0].image.tag=$TAG") ;;
-            *)        SET_FLAGS+=(--helm-set "${SERVICE}.image.tag=$TAG") ;;
+            workers)  SET_FLAGS+=(--helm-set-string "workers[0].image.tag=$TAG") ;;
+            *)        SET_FLAGS+=(--helm-set-string "${SERVICE}.image.tag=$TAG") ;;
           esac
           echo "Setting tags on app ${{ inputs.app_name }} [${{ inputs.environment }}]:"
           printf '  %s\n' "${SET_FLAGS[@]}"

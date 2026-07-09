@@ -242,7 +242,7 @@ def set_logger():
         json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
         root_logger.addHandler(json_console_handler)
 
-    if ENVIRONMENT in ("local", "development"):
+    if ENVIRONMENT == "local":
         color_console_handler = logging.StreamHandler(stream=sys.stdout)
         color_console_handler.setLevel(LOG_LEVEL)
         color_console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))

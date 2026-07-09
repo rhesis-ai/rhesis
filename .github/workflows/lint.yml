@@ -22,6 +22,7 @@ jobs:
         filters: |
           frontend:
             - 'apps/frontend/**'
+            - 'ee/frontend/**'
           docs:
             - 'docs/src/**'
             - 'docs/content/**'

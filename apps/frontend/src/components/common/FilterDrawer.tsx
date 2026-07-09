@@ -122,10 +122,10 @@ export function FilterDrawerShell({
       >
         <Typography
           sx={{
-            fontSize: 23,
+            fontSize: 22,
             fontWeight: 700,
             color: theme => theme.palette.greyscale.title,
-            lineHeight: '27.6px',
+            lineHeight: 1.1,
           }}
         >
           {title}
@@ -147,7 +147,7 @@ export function FilterDrawerShell({
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: 3.75,
+          gap: 5,
           pt: '4px',
         }}
       >
@@ -160,7 +160,7 @@ export function FilterDrawerShell({
           sx={{
             display: 'flex',
             justifyContent: 'flex-end',
-            gap: '10px',
+            gap: '20px',
             flexShrink: 0,
           }}
         >
@@ -228,7 +228,7 @@ export function FilterSection({
         pt: '20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '20px',
       }}
     >
       <ButtonBase
@@ -299,6 +299,32 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
     },
   });
 }
+
+/** Shared Select styling for filter drawer dropdowns (Figma Input/Dropdown). */
+export const filterDrawerSelectSx: SxProps<Theme> = theme => ({
+  borderRadius: BORDER_RADIUS.sm,
+  fontSize: 14,
+  lineHeight: '22px',
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderRadius: BORDER_RADIUS.sm,
+    borderColor: theme.palette.greyscale.border,
+  },
+  '& .MuiSelect-select': {
+    py: '10px',
+    pl: '16px',
+    pr: '32px',
+    minHeight: 24,
+    boxSizing: 'border-box',
+  },
+  '& .MuiInputLabel-root': {
+    fontSize: 12,
+    lineHeight: '18px',
+    color: theme.palette.greyscale.subtitle,
+  },
+  '& .MuiInputLabel-shrink': {
+    color: theme.palette.greyscale.subtitle,
+  },
+});
 
 /** Shared TextField styling for filter drawer autocomplete/text inputs. */
 export const filterDrawerTextFieldSx: SxProps<Theme> = theme => ({

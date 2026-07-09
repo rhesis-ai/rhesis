@@ -19,7 +19,11 @@ interface TestRunDetailHeaderProps {
   onRerun: () => void;
   isDownloading?: boolean;
   canRerun?: boolean;
+  /** Tooltip for the re-run FAB (e.g. when disabled because the test set was deleted). */
+  rerunTooltip?: string;
   canCompare?: boolean;
+  /** Gate the rename button on server-driven affordances (default true). */
+  canRename?: boolean;
 }
 
 export default function TestRunDetailHeader({
@@ -30,7 +34,9 @@ export default function TestRunDetailHeader({
   onRerun,
   isDownloading = false,
   canRerun = true,
+  rerunTooltip = 'Re-run test',
   canCompare = true,
+  canRename = true,
 }: TestRunDetailHeaderProps) {
   const creatorName =
     testRun.user?.name || testRun.user?.email || 'Unknown user';
@@ -59,11 +65,13 @@ export default function TestRunDetailHeader({
           >
             {testRun.name || 'Test Run'}
           </Typography>
-          <Tooltip title="Rename test run">
-            <IconButton size="small" onClick={onRename} aria-label="Rename">
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {canRename && (
+            <Tooltip title="Rename test run">
+              <IconButton size="small" onClick={onRename} aria-label="Rename">
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
         <Typography
           variant="body2"
@@ -98,7 +106,7 @@ export default function TestRunDetailHeader({
         />
         <Fab
           icon={<RestartAltOutlinedIcon />}
-          tooltip="Re-run test"
+          tooltip={rerunTooltip}
           onClick={onRerun}
           disabled={!canRerun}
           aria-label="Re-run test"

@@ -186,6 +186,13 @@ def _prepare_update_data(
     # cannot accidentally (or maliciously) change the project scope of a record.
     data.pop("project_id", None)
 
+    # Token scopes are mint-time-only: the SP9 "scopes ⊆ issuer" + chained-mint
+    # guard runs only at creation (routers/token.py). Stripping scopes here makes
+    # them immutable across every update path (PUT, refresh, …) so a token's
+    # capability set can never be widened after issue without re-minting.
+    if model.__name__ == "Token":
+        data.pop("scopes", None)
+
     # Clean string fields
     data = _clean_string_fields(model, data)
 
@@ -320,7 +327,7 @@ def get_item(
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(item_id)
     )
 
@@ -365,9 +372,10 @@ def get_item_detail(
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
         .with_optimized_loads(skip_one_to_many=True)
+        .with_default_derived_field_loads()
         .with_organization_filter(organization_id)
         .with_project_filter(project_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .filter_by_id(item_id)
     )
 
@@ -412,7 +420,7 @@ def get_item_with_deferred(
         .with_deleted()  # Always include deleted to check status
         .with_optimized_loads()
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
     )
 
     # Add undefer options for deferred fields BEFORE query execution
@@ -444,7 +452,7 @@ def get_items(
     return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
@@ -471,35 +479,56 @@ def get_items_detail(
     Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
 
     Uses selectinload for many-to-many and joinedload for other relationships.
+    Also always selectin-loads comments/tasks/files/tags for any model that has
+    them -- see QueryBuilder.with_default_derived_field_loads for why.
 
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
-        selectin_chains: List of relationship-name chains to load with nested selectinload.
-                        Use for polymorphic one-to-many collections (e.g. TagsMixin) that
-                        are skipped by with_optimized_loads.
-                        Format: [["_tags_relationship", "tag"], ...]
+        selectin_chains: Extra relationship-name chains to load with nested selectinload,
+                        beyond the defaults above. Format: [["rel", "nested_rel"], ...]
+
+    Runs as two queries rather than one: a joinless query picks the page's IDs
+    (filter + sort + LIMIT/OFFSET), then a second query eager-loads
+    relationships scoped to just those IDs. Without this split, Postgres has
+    to build every eager-loaded join for every matching row across the whole
+    org before it can sort and cut down to `limit` -- for a model joined
+    against a dozen tables, that cost scales with total matching rows, not
+    with the page size actually returned.
     """
-    builder = QueryBuilder(db, model).with_optimized_loads(
-        skip_many_to_many=False,
-        skip_one_to_many=True,
-        nested_relationships=nested_relationships,
-    )
-    for chain in selectin_chains or []:
-        builder = builder.with_selectin_chain(*chain)
-    return (
-        builder.with_organization_filter(organization_id)
-        .with_visibility_filter()
+    ordered_ids = (
+        QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
-        .with_pagination(skip, limit)
         .with_sorting(
             sort_by,
             sort_order,
             secondary_sort_by=secondary_sort_by,
             secondary_sort_order=secondary_sort_order,
         )
+        .with_pagination(skip, limit)
+        .ids()
+    )
+    if not ordered_ids:
+        return []
+
+    builder = QueryBuilder(db, model).with_optimized_loads(
+        skip_many_to_many=False,
+        skip_one_to_many=True,
+        nested_relationships=nested_relationships,
+    )
+    builder = builder.with_default_derived_field_loads(selectin_chains)
+    items = (
+        builder.with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+        .query.filter(model.id.in_(ordered_ids))
         .all()
     )
+
+    # WHERE id IN (...) does not preserve order -- re-apply the phase-1 sort.
+    items_by_id = {item.id: item for item in items}
+    return [items_by_id[item_id] for item_id in ordered_ids if item_id in items_by_id]
 
 
 def create_item(
@@ -699,7 +728,7 @@ def get_deleted_items(
         QueryBuilder(db, model)
         .only_deleted()
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_pagination(skip, limit)
         .with_sorting(sort_by, sort_order)
         .all()
@@ -795,7 +824,7 @@ def count_items(
     return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_odata_filter(filter)
         .count()
     )
@@ -878,7 +907,9 @@ def get_or_create_entity(
 
     # Build base query with direct tenant context
     query = (
-        QueryBuilder(db, model).with_organization_filter(organization_id).with_visibility_filter()
+        QueryBuilder(db, model)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
     )
 
     # Try to find by ID first if provided
@@ -936,7 +967,7 @@ def get_or_create_status(
     query = (
         QueryBuilder(db, Status)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(Status.name == name, Status.entity_type_id == entity_type_lookup.id)
         )
@@ -979,7 +1010,7 @@ def get_or_create_type_lookup(
     query = (
         QueryBuilder(db, TypeLookup)
         .with_organization_filter(organization_id)
-        .with_visibility_filter()
+        .with_visibility_filter(user_id)
         .with_custom_filter(
             lambda q: q.filter(
                 TypeLookup.type_name == type_name, TypeLookup.type_value == type_value

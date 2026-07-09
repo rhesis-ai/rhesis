@@ -27,7 +27,7 @@ class User(Base):
     is_email_verified = Column(Boolean, default=False)  # Email verification for sign-up
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
-    last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
+    last_login_at = Column(DateTime(timezone=True), nullable=True)  # Track when user last logged in
 
     # Native authentication columns (provider-agnostic)
     provider_type = Column(
@@ -128,18 +128,6 @@ class User(Base):
 
     # Tool relationships
     tools = relationship("Tool", foreign_keys="[Tool.user_id]", back_populates="user")
-
-    @classmethod
-    def from_auth0(cls, userinfo: dict) -> "User":
-        """Create a User instance from Auth0 userinfo (legacy, kept for migration)"""
-        return cls(
-            auth0_id=userinfo["sub"],
-            email=userinfo["email"],
-            name=userinfo.get("name"),
-            picture=userinfo.get("picture"),
-            given_name=userinfo.get("given_name"),
-            family_name=userinfo.get("family_name"),
-        )
 
     @classmethod
     def from_auth_user(cls, auth_user: "AuthUser") -> "User":

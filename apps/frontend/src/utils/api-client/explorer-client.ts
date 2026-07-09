@@ -99,7 +99,7 @@ export class ExplorerClient extends BaseApiClient {
       sort_order: sortOrder,
     });
     return this.fetch<ExplorerTestSet[]>(
-      `${API_ENDPOINTS.explorer}?${params.toString()}`,
+      `${API_ENDPOINTS.explorer}/?${params.toString()}`,
       { cache: 'no-store' }
     );
   }
@@ -113,7 +113,7 @@ export class ExplorerClient extends BaseApiClient {
     name: string,
     description?: string
   ): Promise<ExplorerTestSet> {
-    return this.fetch<ExplorerTestSet>(API_ENDPOINTS.explorer, {
+    return this.fetch<ExplorerTestSet>(`${API_ENDPOINTS.explorer}/`, {
       method: 'POST',
       body: JSON.stringify({ name, description: description ?? null }),
       headers: {

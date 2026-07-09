@@ -8,9 +8,28 @@ Manage your organization's profile, settings, and team members.
 
 You can configure your organization's information and contact details in [Organization Settings](https://app.rhesis.ai/organizations/settings).
 
+## Organization menu and sidebar
 
+The sidebar brand block shows the active project and organization. Open it to
+access organization settings, team management, projects, and **Switch project**.
 
+The main sidebar is organized into product areas:
 
+| Section | Pages |
+| --- | --- |
+| Define | Knowledge, Behaviors, Metrics |
+| Generate | Playground, Explorer, Tests, Test Sets |
+| Improve | Insights, Test Runs, Experiments, Traces, Tasks |
+| CONNECT | Endpoints, Models, Tools, API |
+
+Metrics and Models are visible to all users. If your role does not include the
+required permission, the item appears locked instead of hidden.
+
+Enterprise installations can also enable:
+
+- [Roles & Permissions](/docs/organizations/roles) for role-based access control
+- [Single Sign-On](/docs/organizations/sso) for per-organization OIDC login
+- [API Clients](/docs/organizations/api-clients) for machine-to-machine token exchange
 
 ## Team Management
 
@@ -38,5 +57,6 @@ You'll immediately lose access and be signed out. A new invitation is required t
 
 <Callout type="default">
   **Next Steps** - Create [Projects](/docs/projects) to organize your
-  work - Configure [Integrations](/docs/integrations) for your workflow
+  work - Configure [Integrations](/docs/integrations) for your workflow -
+  Enable [Single Sign-On](/docs/organizations/sso) for enterprise identity
 </Callout>

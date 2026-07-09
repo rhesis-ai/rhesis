@@ -3,12 +3,16 @@
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { Button } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
+import { projectKeys } from '@/constants/query-keys';
 import { SectionCard } from '@/components/common/SectionCard';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
 import { PersonAddIcon } from '@/components/icons';
 import { Project, ProjectMember } from '@/utils/api-client/interfaces/project';
 import ProjectMembers from './ProjectMembers';
 import ProjectAddMemberDrawer from './ProjectAddMemberDrawer';
+import { Can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ProjectMembersTabProps {
   project: Project;
@@ -21,8 +25,8 @@ export default function ProjectMembersTab({
   projectId,
   sessionToken,
 }: ProjectMembersTabProps) {
+  const queryClient = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [memberUserIds, setMemberUserIds] = useState<string[]>([]);
 
   const handleMembersLoaded = useCallback((members: ProjectMember[]) => {
@@ -30,30 +34,33 @@ export default function ProjectMembersTab({
   }, []);
 
   const handleMemberAdded = useCallback(() => {
-    setRefreshKey(key => key + 1);
-  }, []);
+    queryClient.invalidateQueries({
+      queryKey: [...projectKeys.detail(projectId), 'members'],
+    });
+  }, [queryClient, projectId]);
 
   return (
     <>
       <SectionCard
         title="Members"
         actions={
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<PersonAddIcon sx={{ fontSize: 20 }} />}
-            onClick={() => setDrawerOpen(true)}
-            sx={sectionEditButtonSx}
-          >
-            Add as member
-          </Button>
+          <Can capability={Capability.ProjectMember.MANAGE}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+              onClick={() => setDrawerOpen(true)}
+              sx={sectionEditButtonSx}
+            >
+              Add as member
+            </Button>
+          </Can>
         }
       >
         <ProjectMembers
           projectId={projectId}
           sessionToken={sessionToken}
           ownerId={project.owner_id ? String(project.owner_id) : undefined}
-          refreshKey={refreshKey}
           onMembersLoaded={handleMembersLoaded}
         />
       </SectionCard>

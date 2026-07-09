@@ -56,7 +56,7 @@ All tasks inherit from a `BaseTask` class that provides retry logic, error handl
 {`from celery import Task
 from contextlib import contextmanager
 
-from rhesis.backend.app.database import SessionLocal, set_tenant
+from rhesis.backend.app.database import get_db_with_tenant_variables
 
 class BaseTask(Task):
     """Base task class with retry settings and tenant context management."""
@@ -71,23 +71,13 @@ class BaseTask(Task):
     @contextmanager
     def get_db_session(self):
         """Get a database session with the proper tenant context."""
-        db = SessionLocal()
-        try:
-            # Start with a clean session
-            db.expire_all()
+        request = getattr(self, 'request', None)
+        org_id = getattr(request, 'organization_id', None) or ''
+        user_id = getattr(request, 'user_id', None) or ''
+        project_id = getattr(request, 'project_id', None) or ''
 
-            # Get task context
-            request = getattr(self, 'request', None)
-            org_id = getattr(request, 'organization_id', None)
-            user_id = getattr(request, 'user_id', None)
-
-            # Set tenant context if available
-            if org_id or user_id:
-                set_tenant(db, org_id, user_id)
-
+        with get_db_with_tenant_variables(org_id, user_id, project_id) as db:
             yield db
-        finally:
-            db.close()
 
     def apply_async(self, args=None, kwargs=None, **options):
         """Store org_id and user_id in task context when task is queued."""
@@ -152,10 +142,6 @@ def with_tenant_context(func):
 
         # Get a database session
         with self.get_db_session() as db:
-            # Set tenant for this session
-            if organization_id or user_id:
-                set_tenant(db, organization_id, user_id)
-
             # Add db to kwargs and execute the task function
             kwargs['db'] = db
             return func(self, *args, **kwargs)
@@ -419,21 +405,15 @@ If tasks fail with errors related to the tenant context, such as:
 Ensure that:
 
 1. Your database has the proper configuration parameters set
-2. The `organization_id` and `user_id` are correctly passed to the task
-3. The tenant context is explicitly set at the beginning of database operations
+2. The `organization_id`, `user_id`, and `project_id` are correctly passed to the task
+3. Database work runs inside `self.get_db_session()` so tenant GUCs and ORM scope are bound
 
-The `execute_single_test` task in `tasks/execution/test.py` includes defensive coding to handle such issues:
+Tasks should open tenant-aware sessions through the task base class:
 
-<CodeBlock filename="test.py" language="python">
-{`# Explicitly set tenant context to ensure it's active for all queries
-if organization_id:
-    # Verify PostgreSQL has the parameter defined
-    try:
-        db.execute(text('SHOW "app.current_organization"'))
-    except Exception as e:
-        logger.warning(f"The database parameter 'app.current_organization' may not be defined: {e}")
-        # Continue without setting tenant context - will use normal filters instead
-
-    # Set the tenant context for this session
-    set_tenant(db, organization_id, user_id)`}
+<CodeBlock filename="tenant_aware_task.py" language="python">
+{`@app.task(base=BaseTask, bind=True)
+def execute_single_test(self, test_id: str):
+    with self.get_db_session() as db:
+        test = db.query(Test).filter(Test.id == test_id).first()
+        # The session has tenant GUCs and Session.info['_scope'] configured.`}
 </CodeBlock>

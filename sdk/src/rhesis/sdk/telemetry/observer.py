@@ -16,8 +16,11 @@ def auto_instrument(*frameworks: str) -> List[str]:
     Only instruments AI operations (not every function).
 
     Args:
-        *frameworks: Specific frameworks ("langchain", "langgraph", "autogen").
-                    If empty, auto-detects all installed frameworks.
+        *frameworks: Specific frameworks. Recognized values:
+                     ``"langchain"``, ``"langgraph"``, ``"autogen"``,
+                     ``"agent_framework"`` (alias: ``"maf"`` for
+                     Microsoft Agent Framework).
+                     If empty, auto-detects all installed frameworks.
 
     Returns:
         List of successfully instrumented frameworks
@@ -34,18 +37,28 @@ def auto_instrument(*frameworks: str) -> List[str]:
 
         # Instrument specific framework only
         auto_instrument("langchain")
+
+        # Microsoft Agent Framework
+        auto_instrument("agent_framework")  # or "maf"
     """
     from rhesis.sdk.telemetry.integrations import get_all_integrations
 
     available = get_all_integrations()
 
     if not frameworks:
-        # Auto-detect: try all available
-        to_instrument = available.values()
+        # Auto-detect: try every distinct integration once. The dict can
+        # contain aliases pointing at the same instance, so deduplicate by
+        # identity to avoid enabling the same integration twice.
+        to_instrument = list({id(v): v for v in available.values()}.values())
         logger.info("Auto-detecting AI frameworks...")
     else:
-        # Explicit: only specified frameworks
-        to_instrument = [available[name] for name in frameworks if name in available]
+        # Explicit: resolve names through aliases, dedupe identical integrations.
+        seen: dict[int, object] = {}
+        for name in frameworks:
+            integration = available.get(name)
+            if integration is not None:
+                seen.setdefault(id(integration), integration)
+        to_instrument = list(seen.values())
 
         # Warn about unknown frameworks
         unknown = set(frameworks) - set(available.keys())
@@ -56,9 +69,17 @@ def auto_instrument(*frameworks: str) -> List[str]:
     instrumented = []
 
     for integration in to_instrument:
-        if integration.enable():
-            instrumented.append(integration.framework_name)
-            _instrumented_frameworks.append(integration)
+        if integration.enable():  # type: ignore[attr-defined]
+            instrumented.append(integration.framework_name)  # type: ignore[attr-defined]
+            # Guard the bookkeeping list against repeated ``auto_instrument``
+            # calls (app reload, hot-reload, second call from a notebook).
+            # Each integration is a singleton, so identity-aware membership
+            # (``in``) is sufficient. Without this guard a single integration
+            # could appear N times after N calls and ``disable_auto_instrument``
+            # would invoke ``disable()`` on it N times (today a no-op thanks
+            # to the ``not self._enabled`` early return, but bookkeeping debt).
+            if integration not in _instrumented_frameworks:
+                _instrumented_frameworks.append(integration)
 
     if instrumented:
         logger.info(f"Instrumented: {', '.join(instrumented)}")

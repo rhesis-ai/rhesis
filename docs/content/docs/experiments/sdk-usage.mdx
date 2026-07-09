@@ -98,9 +98,10 @@ You can provide a default value as the second argument: `params.get_number("temp
 The `Parameters.get()` method resolves values using a strict precedence order (first match wins):
 
 1. **Connector Contextvar:** Injected by the platform during a test run. This wins unconditionally so tests cannot accidentally hit the network for live configuration.
-2. **Environment Variables:** `RHESIS_PARAMETERS_PIN` or `RHESIS_PARAMETERS_ENVIRONMENT` (legacy: `RHESIS_PARAMETERS_LABEL`). Lets ops pin a deploy without code changes.
-3. **Explicit Kwargs:** `version` > `experiment_id` > `environment` > implicit `environment='default'`. Lets application code be explicit.
-4. **HTTP API Fetch:** If none of the above short-circuit the resolution, it fetches from the Rhesis API.
+2. **Explicit Kwargs:** `version` > `experiment_id` > `environment`. Lets application code be explicit.
+3. **Environment Variables:** `RHESIS_PARAMETERS_ENVIRONMENT` (legacy: `RHESIS_PARAMETERS_LABEL`). Lets ops choose an environment without code changes when no explicit kwargs are passed.
+4. **Implicit default:** If nothing else is provided, the SDK resolves the `default` environment.
+5. **HTTP API Fetch:** If none of the above short-circuit the resolution, it fetches from the Rhesis API.
 
 The order is "innermost wins" — overrides closer to the running call beat global settings.
 
@@ -117,10 +118,10 @@ You can manually invalidate the cache during testing using `Parameters.invalidat
 
 The SDK respects environment variables as a deployment primitive. 
 
-- `RHESIS_PARAMETERS_PIN=v3` pins the application to an immutable version regardless of environment movement. This acts as a production safety net or staged rollout mechanism.
 - `RHESIS_PARAMETERS_ENVIRONMENT=production` switches the application to a non-default environment without requiring code changes.
+- `RHESIS_PARAMETERS_LABEL=production` is accepted as a legacy alias for the same behavior.
 
-This gives operators a code-free escape hatch to manage configuration rollouts.
+For immutable pins, pass `version="v3"` explicitly in code or deployment configuration that calls `Parameters.get()`.
 
 ## Error handling & graceful degradation
 

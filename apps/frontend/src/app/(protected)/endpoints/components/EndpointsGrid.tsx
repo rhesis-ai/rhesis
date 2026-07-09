@@ -12,9 +12,8 @@ import { Box, Typography, useTheme, Alert } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import GridToolbar from '@/components/common/GridToolbar';
 import {
-  GridColDef,
-  GridPaginationModel,
   GridFilterModel,
+  GridColDef,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
@@ -37,12 +36,17 @@ import {
   createRowActionsColumn,
   rowActionsHoverSx,
 } from '@/components/common/createRowActionsColumn';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { getProjectIcon } from './endpoint-icon-utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { endpointKeys } from '@/constants/query-keys';
+import { useGridState } from '@/hooks/useGridState';
+import { useGridQuery } from '@/hooks/useGridQuery';
 
 interface EndpointsGridProps {
   sessionToken?: string;
-  refreshKey?: number;
-  onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
   projectId?: string;
 }
 
@@ -98,144 +102,132 @@ function EndpointsUnifiedToolbar() {
 
 export default function EndpointsGrid({
   sessionToken: sessionTokenProp,
-  refreshKey,
-  onRefresh,
+  onTotalCountChange,
   projectId,
 }: EndpointsGridProps) {
   const theme = useTheme();
   const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
+  const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
+  const canDeleteEndpoint = useCan(Capability.Endpoint.DELETE);
+  const queryClient = useQueryClient();
 
   const sessionToken = sessionTokenProp || session?.session_token || '';
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({
-    items: [],
-  });
+  const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
+    EMPTY_ENDPOINT_FILTERS
+  );
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
-    EMPTY_ENDPOINT_FILTERS
-  );
 
-  const fetchEndpoints = useCallback(async () => {
-    if (!sessionToken) return;
+  const {
+    filterModel,
+    paginationModel,
+    setPaginationModel,
+    handlePaginationModelChange,
+    handleFilterModelChange,
+  } = useGridState({
+    searchQuery,
+    applyDrawerFilters: useCallback(
+      (prev: GridFilterModel) => {
+        const otherItems = prev.items.filter(
+          item =>
+            !DRAWER_FILTER_FIELDS.includes(
+              item.field as (typeof DRAWER_FILTER_FIELDS)[number]
+            )
+        );
+        const drawerItems: typeof prev.items = [];
 
-    try {
-      setLoading(true);
-      const filterString = buildEndpointListFilter(filterModel, projectId);
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const endpointsClient = apiFactory.getEndpointsClient();
-      const response = await endpointsClient.getEndpoints({
+        if (drawerFilters.connectionType) {
+          drawerItems.push({
+            field: 'connectionType',
+            operator: 'equals',
+            value: drawerFilters.connectionType,
+          });
+        }
+        if (drawerFilters.environment) {
+          drawerItems.push({
+            field: 'environment',
+            operator: 'equals',
+            value: drawerFilters.environment,
+          });
+        }
+        if (drawerFilters.status) {
+          drawerItems.push({
+            field: 'status',
+            operator: 'equals',
+            value: drawerFilters.status,
+          });
+        }
+
+        const newItems = [...otherItems, ...drawerItems];
+        if (
+          newItems.length === prev.items.length &&
+          newItems.every((it, i) => it === prev.items[i])
+        )
+          return prev;
+        return { ...prev, items: newItems };
+      },
+      [drawerFilters]
+    ),
+    initialPageSize: 10,
+  });
+
+  const filterString = buildEndpointListFilter(filterModel, projectId);
+  const sort_by = 'created_at';
+  const sort_order = 'desc';
+
+  const {
+    data: endpointsData,
+    isLoading: loading,
+    errorMessage: error,
+    dismissError,
+  } = useGridQuery({
+    queryKey: endpointKeys.list(
+      filterString,
+      paginationModel.page,
+      paginationModel.pageSize,
+      sort_by,
+      sort_order
+    ),
+    errorFallbackMessage: 'Failed to load endpoints',
+    queryFn: () => {
+      const client = new ApiClientFactory(sessionToken).getEndpointsClient();
+      return client.getEndpoints({
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by,
+        sort_order,
         ...(filterString && { $filter: filterString }),
       });
+    },
+    enabled: !!sessionToken,
+  });
 
-      setEndpoints(response.data);
-      setTotalCount(response.pagination.totalCount);
-      setError(null);
-    } catch {
-      const hasActiveFilters =
-        hasActiveEndpointFilters(drawerFilters) || searchQuery.trim() !== '';
-      if (hasActiveFilters) {
-        setEndpoints([]);
-        setTotalCount(0);
-        setError(null);
-      } else {
-        setError('Failed to load endpoints');
-        setEndpoints([]);
-      }
-    } finally {
-      setLoading(false);
-    }
+  const endpoints = endpointsData?.data ?? [];
+  const totalCount = endpointsData?.pagination.totalCount ?? 0;
+
+  useEffect(() => {
+    if (!endpointsData) return;
+    const filtersActive =
+      filterModel.items.length > 0 ||
+      !!searchQuery ||
+      hasActiveEndpointFilters(drawerFilters);
+    if (!filtersActive) onTotalCountChange?.(totalCount);
   }, [
-    sessionToken,
-    paginationModel,
-    filterModel,
-    projectId,
-    drawerFilters,
+    endpointsData,
+    filterModel.items.length,
     searchQuery,
+    drawerFilters,
+    onTotalCountChange,
+    totalCount,
   ]);
-
-  useEffect(() => {
-    fetchEndpoints();
-  }, [fetchEndpoints]);
-
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      fetchEndpoints();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item => item.field !== 'quickFilter'
-      );
-      const items = searchQuery
-        ? [
-            ...otherItems,
-            { field: 'quickFilter', operator: 'contains', value: searchQuery },
-          ]
-        : otherItems;
-      return { ...prev, items };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [searchQuery]);
-
-  useEffect(() => {
-    setFilterModel(prev => {
-      const otherItems = prev.items.filter(
-        item =>
-          !DRAWER_FILTER_FIELDS.includes(
-            item.field as (typeof DRAWER_FILTER_FIELDS)[number]
-          )
-      );
-      const drawerItems: typeof prev.items = [];
-
-      if (drawerFilters.connectionType) {
-        drawerItems.push({
-          field: 'connectionType',
-          operator: 'equals',
-          value: drawerFilters.connectionType,
-        });
-      }
-      if (drawerFilters.environment) {
-        drawerItems.push({
-          field: 'environment',
-          operator: 'equals',
-          value: drawerFilters.environment,
-        });
-      }
-      if (drawerFilters.status) {
-        drawerItems.push({
-          field: 'status',
-          operator: 'equals',
-          value: drawerFilters.status,
-        });
-      }
-
-      return { ...prev, items: [...otherItems, ...drawerItems] };
-    });
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, [drawerFilters, projectId]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -270,22 +262,9 @@ export default function EndpointsGrid({
     }
   }, [sessionToken]);
 
-  const handleFilterModelChange = useCallback((model: GridFilterModel) => {
-    setFilterModel(model);
-    setPaginationModel(prev => ({ ...prev, page: 0 }));
-  }, []);
-
-  const handlePaginationModelChange = useCallback(
-    (newModel: GridPaginationModel) => {
-      setPaginationModel(newModel);
-    },
-    []
-  );
-
   const handleRefresh = useCallback(() => {
-    fetchEndpoints();
-    onRefresh?.();
-  }, [fetchEndpoints, onRefresh]);
+    queryClient.invalidateQueries({ queryKey: endpointKeys.all() });
+  }, [queryClient]);
 
   const handleDeleteEndpoints = async () => {
     if (!sessionToken || !pendingDeleteId) return;
@@ -322,6 +301,8 @@ export default function EndpointsGrid({
         router.push(`/endpoints/${id}`);
       },
       onDelete: id => handleRowDeleteAction(id),
+      canEdit: () => canEditEndpoint,
+      canDelete: () => canDeleteEndpoint,
     });
     return [
       {
@@ -404,7 +385,7 @@ export default function EndpointsGrid({
   return (
     <EndpointsToolbarContext.Provider value={toolbarContextValue}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
           {error}
         </Alert>
       )}

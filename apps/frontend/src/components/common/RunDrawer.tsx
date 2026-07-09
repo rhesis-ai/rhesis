@@ -53,6 +53,7 @@ import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { useEndpoints } from '@/hooks/useEndpoints';
 import type {
   TestSetMetric,
   LastTestRunSummary,
@@ -74,6 +75,7 @@ import tagStyles from '@/styles/BaseTag.module.css';
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
+import { formatDate } from '@/utils/date';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -279,7 +281,24 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   // ---- Project / Endpoint ----
   const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
+  const { data: rawEndpoints, isLoading: endpointsLoading } = useEndpoints(
+    sessionToken,
+    { sort_by: 'name', sort_order: 'asc', limit: 100 },
+    open && (cfg.projectEditable || mode === 'runExperiment')
+  );
+  const endpoints = useMemo<EndpointOption[]>(
+    () =>
+      (rawEndpoints ?? [])
+        .filter(e => e.id && e.name && e.name.trim() !== '')
+        .map(e => ({
+          id: e.id as UUID,
+          name: e.name,
+          environment: e.environment,
+          project_id: e.project_id,
+          organization_id: e.organization_id,
+        })),
+    [rawEndpoints]
+  );
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
     []
   );
@@ -435,20 +454,11 @@ export default function RunDrawer(props: RunDrawerProps) {
       setLoading(true);
       try {
         const projectsClient = apiFactory.getProjectsClient();
-        const endpointsClient = apiFactory.getEndpointsClient();
-
-        const [projectsData, endpointsResponse] = await Promise.all([
-          projectsClient.getProjects({
-            sort_by: 'name',
-            sort_order: 'asc',
-            limit: 100,
-          }),
-          endpointsClient.getEndpoints({
-            sort_by: 'name',
-            sort_order: 'asc',
-            limit: 100,
-          }),
-        ]);
+        const projectsData = await projectsClient.getProjects({
+          sort_by: 'name',
+          sort_order: 'asc',
+          limit: 100,
+        });
 
         if (!mounted) return;
 
@@ -469,32 +479,9 @@ export default function RunDrawer(props: RunDrawerProps) {
               created_at: p.created_at,
             }))
         );
-
-        const allEndpoints =
-          endpointsResponse && Array.isArray(endpointsResponse.data)
-            ? endpointsResponse.data
-                .filter(e => e.id && e.name && e.name.trim() !== '')
-                .map(e => ({
-                  id: e.id as UUID,
-                  name: e.name,
-                  environment: e.environment,
-                  project_id: e.project_id,
-                  organization_id: e.organization_id,
-                }))
-            : [];
-
-        setEndpoints(allEndpoints);
-
-        if (experimentData) {
-          const filtered = allEndpoints.filter(
-            e => e.project_id === experimentData.experiment.project_id
-          );
-          setFilteredEndpoints(filtered);
-        }
       } catch {
         if (mounted) {
           setProjects([]);
-          setEndpoints([]);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -506,6 +493,18 @@ export default function RunDrawer(props: RunDrawerProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sessionToken, mode]);
+
+  // `runExperiment` mode filters endpoints to the experiment's project as
+  // soon as the shared endpoints list resolves (the general
+  // "filter endpoints when project changes" effect below skips this mode).
+  useEffect(() => {
+    if (mode !== 'runExperiment' || !experimentData) return;
+    setFilteredEndpoints(
+      endpoints.filter(
+        e => e.project_id === experimentData.experiment.project_id
+      )
+    );
+  }, [mode, experimentData, endpoints]);
 
   // -----------------------------------------------------------------------
   // Load test sets (newTestRun & runExperiment modes)
@@ -1082,7 +1081,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                   {hasDuplicate && (
                     <Typography variant="caption" color="text.secondary">
                       {option.created_at
-                        ? `Created ${new Date(option.created_at).toLocaleDateString()}`
+                        ? `Created ${formatDate(option.created_at)}`
                         : `ID: ${option.nano_id ?? option.id.slice(0, 8)}`}
                     </Typography>
                   )}
@@ -1173,7 +1172,7 @@ export default function RunDrawer(props: RunDrawerProps) {
           }}
           isOptionEqualToValue={(a, b) => a.id === b.id}
         />
-        {options.length === 0 && !loading && (
+        {options.length === 0 && !loading && !endpointsLoading && (
           <FormHelperText>
             No endpoints available for this project
           </FormHelperText>
@@ -1538,7 +1537,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                 {lastTestRun.name ||
                   `Test run from ${
                     lastTestRun.created_at
-                      ? new Date(lastTestRun.created_at).toLocaleDateString()
+                      ? formatDate(lastTestRun.created_at)
                       : 'unknown date'
                   }`}
               </Link>{' '}
@@ -1810,6 +1809,7 @@ export default function RunDrawer(props: RunDrawerProps) {
             hideHelperText
             compact
             fieldSx={drawerOutlinedFieldSx}
+            enabled={open}
           />
 
           {effectiveTestSetType === 'Multi-Turn' && (
@@ -1822,6 +1822,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               hideHelperText
               compact
               fieldSx={drawerOutlinedFieldSx}
+              enabled={open}
             />
           )}
 
@@ -1900,13 +1901,13 @@ export default function RunDrawer(props: RunDrawerProps) {
       open={open}
       onClose={onClose}
       title={title}
-      loading={loading || executing}
+      loading={loading || endpointsLoading || executing}
       error={error}
       onSave={handleExecute}
       saveDisabled={!canExecute}
       saveButtonText={saveButtonText}
     >
-      {loading ? (
+      {loading || endpointsLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
         </Box>
@@ -1988,6 +1989,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                 hideHelperText
                 compact
                 fieldSx={drawerOutlinedFieldSx}
+                enabled={open}
               />
               {(effectiveTestSetType === 'Multi-Turn' ||
                 mode === 'createFromGrid') && (
@@ -2000,6 +2002,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                   hideHelperText
                   compact
                   fieldSx={drawerOutlinedFieldSx}
+                  enabled={open}
                 />
               )}
               <FormControl fullWidth sx={drawerOutlinedFieldSx}>

@@ -38,7 +38,6 @@ from __future__ import annotations
 #: Routes that require no authentication (public endpoints).
 PUBLIC_ROUTES: list[str] = [
     "/",
-    "/auth/login",
     "/auth/login/{provider}",
     "/auth/login/email",
     "/auth/callback",
@@ -54,7 +53,6 @@ PUBLIC_ROUTES: list[str] = [
     "/auth/exchange-code",
     "/auth/refresh",
     "/auth/verify",
-    "/auth/demo",
     "/auth/local-login",
     "/home",
     "/home/",

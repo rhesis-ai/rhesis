@@ -31,7 +31,7 @@ All migration paths use **`apps/backend/migrate.sh`**, which runs `alembic upgra
 - **Docker Compose** — `start.sh` in the backend container calls `migrate.sh`.
 - **Cloud deploy** — a separate Cloud Run Job runs `migrate.sh`; the backend service sets `SKIP_MIGRATIONS=true`.
 
-In local and test environments (`ENVIRONMENT` or `BACKEND_ENV` is `local` or `test`), `migrate.sh` skips the Postgres wait loop and database ownership step. Deployed environments run both before applying migrations.
+When `BACKEND_ENV` is `local`, `migrate.sh` skips the Postgres wait loop and database ownership step (Postgres is already running). All other environments — including the SDK integration test backend — run both before applying migrations.
 
 You can also run migrations directly: `cd apps/backend && ./migrate.sh` (with `.env` loaded or database variables exported).
 

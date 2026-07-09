@@ -15,7 +15,6 @@ import SvgIcon from '@mui/material/SvgIcon';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import Divider from '@mui/material/Divider';
@@ -359,37 +358,6 @@ export function Sidebar() {
               }}
             >
               Org Settings
-            </Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              router.push('/organizations/team');
-              setOrgMenuAnchor(null);
-            }}
-            sx={{
-              gap: '10px',
-              px: '14px',
-              py: '8px',
-              '&:hover': {
-                bgcolor: theme => theme.palette.greyscale.border,
-              },
-            }}
-          >
-            <GroupOutlinedIcon
-              sx={{
-                fontSize: 24,
-                color: theme => theme.palette.greyscale.body,
-              }}
-            />
-            <Typography
-              sx={{
-                fontSize: 14,
-                fontWeight: 700,
-                lineHeight: '22px',
-                color: theme => theme.palette.greyscale.body,
-              }}
-            >
-              Team
             </Typography>
           </MenuItem>
           <MenuItem

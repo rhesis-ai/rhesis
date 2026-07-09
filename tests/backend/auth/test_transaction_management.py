@@ -7,23 +7,21 @@ in authentication utilities after refactoring to remove manual db.commit() and d
 Tests focus on:
 - Automatic transaction commit on success in auth operations
 - Proper error handling without manual rollbacks
-- Token usage updates and user profile updates
+- Token usage updates
 
 Functions tested from auth utilities:
 - token_validation.py: update_token_usage
-- user_utils.py: get_or_create_user_from_profile
 
 Run with: python -m pytest tests/backend/auth/test_transaction_management.py -v
 """
 
 import uuid
-from unittest.mock import patch
 
 import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.auth import token_validation, user_utils
+from rhesis.backend.app.auth import token_validation
 from rhesis.backend.app.utils.encryption import hash_token
 
 
@@ -187,100 +185,6 @@ class TestAuthTransactionManagement:
         assert db_token is not None
         assert db_token.token == "validation_token_456"
 
-    def test_find_or_create_user_updates_existing_user_commits(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
-    ):
-        """Test that find_or_create_user commits user updates automatically"""
-        # Create an existing user
-        user_email = f"existing_user_{uuid.uuid4()}@example.com"
-        existing_user = models.User(
-            email=user_email,
-            name="Old Name",
-            given_name="Old Given",
-            family_name="Old Family",
-            picture="old_picture.jpg",
-            auth0_id="old_auth0_id",
-            organization_id=uuid.UUID(test_org_id),
-        )
-        test_db.add(existing_user)
-        test_db.flush()
-
-        # Create user profile data
-        user_profile = {
-            "name": "New Name",
-            "given_name": "New Given",
-            "family_name": "New Family",
-            "picture": "new_picture.jpg",
-        }
-        auth0_id = "new_auth0_id"
-
-        # Update user from profile
-        result = user_utils.find_or_create_user(test_db, auth0_id, user_email, user_profile)
-
-        # Verify user was updated and persisted
-        assert result is not None
-        assert result.id == existing_user.id
-        assert result.name == "New Name"
-        assert result.given_name == "New Given"
-        assert result.family_name == "New Family"
-        assert result.picture == "new_picture.jpg"
-        assert result.auth0_id == "new_auth0_id"
-        assert result.last_login_at is not None
-
-        # Verify it's actually updated in the database (committed)
-        db_user = test_db.query(models.User).filter(models.User.id == existing_user.id).first()
-        assert db_user is not None
-        assert db_user.name == "New Name"
-        assert db_user.given_name == "New Given"
-        assert db_user.family_name == "New Family"
-        assert db_user.picture == "new_picture.jpg"
-        assert db_user.auth0_id == "new_auth0_id"
-        assert db_user.last_login_at is not None
-
-    def test_find_or_create_user_creates_new_user_commits(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
-    ):
-        """Test that find_or_create_user commits new user creation automatically"""
-        # Create user profile data for non-existing user
-        user_email = f"new_user_{uuid.uuid4()}@example.com"
-        user_profile = {
-            "name": "New User Name",
-            "given_name": "New Given",
-            "family_name": "New Family",
-            "picture": "new_user_picture.jpg",
-        }
-        auth0_id = f"new_auth0_id_{uuid.uuid4()}"
-
-        # Get initial user count
-        initial_count = test_db.query(models.User).count()
-
-        # Mock email validation to bypass deliverability check for test emails
-        with patch(
-            "rhesis.backend.app.utils.validation.validate_and_normalize_email"
-        ) as mock_validate:
-            mock_validate.return_value = user_email.lower()
-
-            # Create user from profile (this will actually create a user)
-            result = user_utils.find_or_create_user(test_db, auth0_id, user_email, user_profile)
-
-        # Verify result is a user
-        assert result is not None
-        assert result.email == user_email.lower()
-        assert result.name == user_profile["name"]
-        assert result.given_name == user_profile["given_name"]
-        assert result.family_name == user_profile["family_name"]
-        assert result.picture == user_profile["picture"]
-        assert result.auth0_id == auth0_id
-
-        # Verify user was actually created in database
-        final_count = test_db.query(models.User).count()
-        assert final_count == initial_count + 1
-
-        # Verify the user exists in the database
-        db_user = test_db.query(models.User).filter(models.User.email == user_email.lower()).first()
-        assert db_user is not None
-        assert db_user.auth0_id == auth0_id
-
     def test_multiple_token_updates_transaction_isolation(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
@@ -335,95 +239,3 @@ class TestAuthTransactionManagement:
         assert db_token1.last_used_at is not None
         assert db_token2.last_used_at is not None
 
-    def test_user_profile_update_by_email_and_auth0_id(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
-    ):
-        """Test that user profile updates work correctly for both email and auth0_id lookups"""
-        # Create a user with both email and auth0_id
-        user_email = f"profile_user_{uuid.uuid4()}@example.com"
-        existing_user = models.User(
-            email=user_email,
-            name="Original Name",
-            auth0_id="original_auth0_id",
-            organization_id=uuid.UUID(test_org_id),
-        )
-        test_db.add(existing_user)
-        test_db.flush()
-
-        # Test update via email lookup
-        user_profile = {
-            "name": "Updated via Email",
-            "given_name": "Updated Given",
-            "family_name": "Updated Family",
-            "picture": "updated_picture.jpg",
-        }
-        new_auth0_id = "new_auth0_id_123"
-
-        result = user_utils.find_or_create_user(test_db, new_auth0_id, user_email, user_profile)
-
-        # Verify user was found by email and updated
-        assert result is not None
-        assert result.id == existing_user.id
-        assert result.name == "Updated via Email"
-        assert result.auth0_id == new_auth0_id
-
-        # Verify changes are persisted
-        db_user = test_db.query(models.User).filter(models.User.id == existing_user.id).first()
-        assert db_user is not None
-        assert db_user.name == "Updated via Email"
-        assert db_user.auth0_id == new_auth0_id
-
-    def test_concurrent_auth_operations_do_not_interfere(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
-    ):
-        """Test that concurrent auth operations do not interfere with each other"""
-        # Create multiple tokens and users
-        token_value = "concurrent_token"
-        token = models.Token(
-            name="Concurrent Test Token",
-            token=token_value,
-            token_hash=hash_token(token_value),
-            token_obfuscated="concurrent_...token",
-            token_type="bearer",
-            organization_id=uuid.UUID(test_org_id),
-            user_id=uuid.UUID(authenticated_user_id),
-        )
-
-        user_email = f"concurrent_user_{uuid.uuid4()}@example.com"
-        user = models.User(
-            email=user_email, name="Concurrent User", organization_id=uuid.UUID(test_org_id)
-        )
-
-        test_db.add_all([token, user])
-        test_db.flush()
-
-        # Perform concurrent operations
-        # Update token usage
-        token_validation.update_token_usage(test_db, token)
-
-        # Update user profile
-        user_profile = {
-            "name": "Updated Concurrent User",
-            "given_name": "Updated",
-            "family_name": "User",
-            "picture": "updated.jpg",
-        }
-        updated_user = user_utils.find_or_create_user(
-            test_db, "new_auth0_id", user_email, user_profile
-        )
-
-        # Verify both operations succeeded independently
-        # Check token
-        db_token = test_db.query(models.Token).filter(models.Token.id == token.id).first()
-        assert db_token is not None
-        assert db_token.last_used_at is not None
-
-        # Check user
-        assert updated_user is not None
-        assert updated_user.name == "Updated Concurrent User"
-        assert updated_user.auth0_id == "new_auth0_id"
-
-        db_user = test_db.query(models.User).filter(models.User.id == user.id).first()
-        assert db_user is not None
-        assert db_user.name == "Updated Concurrent User"
-        assert db_user.auth0_id == "new_auth0_id"

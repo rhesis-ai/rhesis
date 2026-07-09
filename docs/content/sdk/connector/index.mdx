@@ -34,11 +34,11 @@ client = RhesisClient(
 {`from rhesis.sdk import endpoint
 
 @endpoint()
-def chat(input: str, session_id: str = None) -> dict:
+def chat(input: str, conversation_id: str = None) -> dict:
     """Handle chat messages."""
     return {
         "output": process_message(input),
-        "session_id": session_id or generate_session_id(),
+        "conversation_id": conversation_id or generate_conversation_id(),
     }`}
 
 </CodeBlock>
@@ -59,11 +59,11 @@ For a script that only defines endpoints and does not run a web server, call `cl
 client = RhesisClient.from_environment()
 
 @endpoint()
-def chat(input: str, session_id: str = None) -> dict:
+def chat(input: str, conversation_id: str = None) -> dict:
     """Handle chat messages."""
     return {
         "output": "Echo: " + input,
-        "session_id": session_id or "default-session",
+        "conversation_id": conversation_id or "default-conversation",
     }
 
 if __name__ == "__main__":
@@ -71,6 +71,51 @@ if __name__ == "__main__":
 </CodeBlock>
 
 If you already have a running event loop (e.g. in an async REPL or Jupyter), do not call `connect()`. Run the connector as a task in that loop instead.
+
+## Platform context with `EndpointContext`
+
+Most SDK endpoint functions only need business inputs such as `input`, `files`, or
+`conversation_id`. Backend-integrated endpoint functions can also declare an
+`EndpointContext` parameter when they need tenant-scoped platform access during
+execution.
+
+<CodeBlock filename="endpoint_context.py" language="python">
+{`from sqlalchemy import text
+
+from rhesis.sdk import EndpointContext, endpoint
+
+@endpoint()
+def enrich_with_project_data(input: str, ctx: EndpointContext) -> dict:
+    with ctx.get_db() as db:
+        # The session carries the organization, user, and project scope
+        # injected by the platform connector execution context.
+        scoped_count = db.execute(text("select 1")).scalar_one()
+
+    return {
+        "output": f"Scoped DB check {scoped_count}: {input}",
+    }`}
+</CodeBlock>
+
+`EndpointContext` is injected by type annotation. It is never accepted from
+remote inputs, so callers cannot forge `organization_id`, `user_id`, or
+`project_id` through the request payload. The context exposes:
+
+| Attribute or method | Description |
+| --- | --- |
+| `organization_id` | Organization associated with the connector execution |
+| `user_id` | User associated with the connector execution |
+| `project_id` | Active project for this execution, if available |
+| `get_db()` | Returns a context-managed database session scoped to the tenant |
+
+When the endpoint runs inside the Rhesis backend, `get_db()` uses the backend
+tenant-aware session factory. If you construct `EndpointContext` outside the
+backend process, pass `_db_factory` so `get_db()` can create a scoped session.
+
+<Callout type="info">
+  External SDK users are unaffected by this refactor unless they declare an
+  `EndpointContext` parameter. The connector WebSocket execution path is the
+  supported way to run SDK endpoints from the platform.
+</Callout>
 
 ## SDK-side metrics with `@metric` (v0.6.9+)
 
@@ -83,10 +128,10 @@ These metric functions are executed from the backend during evaluation.
 client = RhesisClient.from_environment()
 
 @endpoint()
-def chat(input: str, session_id: str | None = None) -> dict:
+def chat(input: str, conversation_id: str | None = None) -> dict:
     return {
         "output": f"Echo: {input}",
-        "session_id": session_id or "default-session",
+        "conversation_id": conversation_id or "default-conversation",
     }
 
 @metric(name="groundedness_check", score_type="binary")
@@ -140,8 +185,8 @@ if __name__ == "__main__":
 </CodeBlock>
 
 <Callout type="info">
-  `@endpoint` registrations still require `project_id`. The optional `project_id` behavior applies to
-  metrics-only connector usage.
+  `@endpoint` registrations still require a `project_id`. It can come from the constructor, `RHESIS_PROJECT_ID`
+  env var, or a project-scoped API token. The optional `project_id` behavior applies to metrics-only connector usage.
 </Callout>
 
 ### See It in Action
@@ -233,7 +278,8 @@ Registered endpoints appear in the Rhesis dashboard:
 
 **Functions not appearing**:
 
-- Verify `RhesisClient` initialized with `api_key`, `project_id`, and `environment`
+- Verify `RhesisClient` initialized with `api_key` and `environment`
+- Ensure a `project_id` is available (via constructor, `RHESIS_PROJECT_ID` env var, or a project-scoped token)
 - Check functions use `@endpoint()` decorator
 - Check logs for "Connector initialized" and "Sent registration" messages
 
@@ -245,14 +291,14 @@ Registered endpoints appear in the Rhesis dashboard:
 
 **Mapping problems**:
 
-- **Auto-mapping**: Use standard field names (`input`, `session_id`, `output`)
+- **Auto-mapping**: Use standard field names (`input`, `conversation_id`, `output`)
 - **Manual mapping**: Verify Jinja2/JSONPath syntax
 - **Custom fields**: Ensure custom request fields are included in API requests
 
 **Common errors**:
 
 - `"RhesisClient not initialized"`: Create `RhesisClient` instance before using `@endpoint`
-- `"@endpoint requires project_id"`: Provide `project_id` or set `RHESIS_PROJECT_ID` env var
+- `"@endpoint requires project_id"`: Provide `project_id`, set `RHESIS_PROJECT_ID` env var, or use a project-scoped API token
 - `"Functions not appearing as Active"`: Restart app to trigger re-registration
 
 **Parameter binding issues**:

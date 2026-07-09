@@ -17,6 +17,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import FirstPageIcon from '@mui/icons-material/FirstPage';
 import LastPageIcon from '@mui/icons-material/LastPage';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
+import { formatDate } from '@/utils/date';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ArchitectSidebarProps {
   sessions: ArchitectSession[];
@@ -41,7 +44,7 @@ function formatRelativeTime(dateStr?: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatDate(date);
 }
 
 export default function ArchitectSidebar({
@@ -54,6 +57,9 @@ export default function ArchitectSidebar({
   onSelectSession,
   onDeleteSession,
 }: ArchitectSidebarProps) {
+  const canCreateSession = useCan(Capability.Architect.CREATE);
+  const canDeleteSession = useCan(Capability.Architect.DELETE);
+
   if (collapsed) {
     return (
       <Box
@@ -78,11 +84,13 @@ export default function ArchitectSidebar({
             <LastPageIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="New conversation" placement="right">
-          <IconButton size="small" onClick={onNewSession}>
-            <AddIcon />
-          </IconButton>
-        </Tooltip>
+        {canCreateSession && (
+          <Tooltip title="New conversation" placement="right">
+            <IconButton size="small" onClick={onNewSession}>
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
     );
   }
@@ -113,15 +121,17 @@ export default function ArchitectSidebar({
           gap: 1,
         }}
       >
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={onNewSession}
-          size="small"
-          sx={{ flex: 1 }}
-        >
-          New conversation
-        </Button>
+        {canCreateSession && (
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={onNewSession}
+            size="small"
+            sx={{ flex: 1 }}
+          >
+            New conversation
+          </Button>
+        )}
         <Tooltip title="Collapse sidebar">
           <IconButton size="small" onClick={onToggleCollapse}>
             <FirstPageIcon fontSize="small" />
@@ -178,19 +188,21 @@ export default function ArchitectSidebar({
                     variant: 'caption',
                   }}
                 />
-                <Tooltip title="Delete">
-                  <IconButton
-                    className="delete-btn"
-                    size="small"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onDeleteSession(s.id);
-                    }}
-                    sx={{ opacity: 0, transition: 'opacity 0.2s' }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {canDeleteSession && (
+                  <Tooltip title="Delete">
+                    <IconButton
+                      className="delete-btn"
+                      size="small"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onDeleteSession(s.id);
+                      }}
+                      sx={{ opacity: 0, transition: 'opacity 0.2s' }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </ListItemButton>
             ))}
           </List>

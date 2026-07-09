@@ -31,7 +31,7 @@ export class TypeLookupClient extends BaseApiClient {
     }
 
     const queryString = queryParams.toString();
-    const url = `${API_ENDPOINTS.type_lookups}?${queryString}`;
+    const url = `${API_ENDPOINTS.type_lookups}/?${queryString}`;
 
     return this.fetch<TypeLookup[]>(url, {
       cache: 'no-store',
@@ -43,7 +43,7 @@ export class TypeLookupClient extends BaseApiClient {
   }
 
   async createTypeLookup(typeLookup: TypeLookupCreate): Promise<TypeLookup> {
-    return this.fetch<TypeLookup>(API_ENDPOINTS.type_lookups, {
+    return this.fetch<TypeLookup>(`${API_ENDPOINTS.type_lookups}/`, {
       method: 'POST',
       body: JSON.stringify(typeLookup),
     });

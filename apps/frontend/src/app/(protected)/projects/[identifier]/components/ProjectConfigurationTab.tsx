@@ -7,6 +7,8 @@ import { AddIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import ProjectTraceMetrics, {
   type ProjectTraceMetricsHandle,
 } from './ProjectTraceMetrics';
@@ -32,6 +34,7 @@ export default function ProjectConfigurationTab({
   sessionToken,
   onProjectUpdate,
 }: ProjectConfigurationTabProps) {
+  const canUpdateProject = useCan(Capability.Project.UPDATE);
   const traceMetricsRef = useRef<ProjectTraceMetricsHandle>(null);
   const environmentsRef = useRef<ProjectEnvironmentsHandle>(null);
 
@@ -44,15 +47,17 @@ export default function ProjectConfigurationTab({
       <SectionCard
         title="Trace Metrics"
         actions={
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<AddIcon sx={{ fontSize: 20 }} />}
-            onClick={() => traceMetricsRef.current?.openAddDialog()}
-            sx={sectionEditButtonSx}
-          >
-            Add Metric
-          </Button>
+          canUpdateProject ? (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+              onClick={() => traceMetricsRef.current?.openAddDialog()}
+              sx={sectionEditButtonSx}
+            >
+              Add Metric
+            </Button>
+          ) : undefined
         }
       >
         <ProjectTraceMetrics
@@ -72,15 +77,17 @@ export default function ProjectConfigurationTab({
       <SectionCard
         title="Environments"
         actions={
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<AddIcon sx={{ fontSize: 20 }} />}
-            onClick={() => environmentsRef.current?.openAddDrawer()}
-            sx={sectionEditButtonSx}
-          >
-            New Environment
-          </Button>
+          canUpdateProject ? (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+              onClick={() => environmentsRef.current?.openAddDrawer()}
+              sx={sectionEditButtonSx}
+            >
+              New Environment
+            </Button>
+          ) : undefined
         }
       >
         <ProjectEnvironments

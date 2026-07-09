@@ -7,6 +7,8 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface BehaviorCardProps {
   behavior: BehaviorWithMetrics;
@@ -54,8 +56,9 @@ export default function BehaviorCard({
     }
   };
 
+  const canDeleteBehavior = useCan(Capability.Behavior.DELETE);
   const metricsCount = behavior.metrics?.length || 0;
-  const canDelete = metricsCount === 0;
+  const canDelete = canDeleteBehavior && metricsCount === 0;
 
   const tags = behavior.tags ?? [];
   const tagsCount = tags.length;

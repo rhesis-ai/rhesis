@@ -22,6 +22,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UsersClient } from '@/utils/api-client/users-client';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { getMemberRoleExtensions } from '@/lib/extension-registries';
 
 function getUserDisplayName(user: User): string {
   if (user.name) return user.name;
@@ -51,10 +52,14 @@ export default function ProjectAddMemberDrawer({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  const { AddMemberRoleField } = getMemberRoleExtensions();
 
   const resetForm = useCallback(() => {
     setSelectedUser(null);
+    setSelectedRoleId(null);
     setUsersError(null);
   }, []);
 
@@ -100,10 +105,15 @@ export default function ProjectAddMemberDrawer({
     setAdding(true);
     try {
       const factory = new ApiClientFactory(sessionToken);
+      // A single atomic request: the backend applies the escalation guard
+      // before creating the membership row, so there is no window where the
+      // member exists with a role other than the one selected here.
       await factory.getProjectsClient().addProjectMember(projectId, {
         user_id: selectedUser.id,
         role: 'member',
+        role_id: selectedRoleId ?? undefined,
       });
+
       notifications.show(
         `${getUserDisplayName(selectedUser)} added to the project.`,
         { severity: 'success' }
@@ -204,6 +214,13 @@ export default function ProjectAddMemberDrawer({
               />
             )}
           />
+          {AddMemberRoleField && (
+            <AddMemberRoleField
+              sessionToken={sessionToken}
+              value={selectedRoleId}
+              onChange={setSelectedRoleId}
+            />
+          )}
         </Box>
       </Box>
     </BaseDrawer>

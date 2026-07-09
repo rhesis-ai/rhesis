@@ -30,10 +30,21 @@ You are restricted to the following Asana workspace:
 Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid }}".
 {% endif %}
 {% endif %}
-{% if include_children %}
-Also extract every child page / nested item and return each as a separate entry.
+{% if provider == "linear" %}
+Use Linear tools to retrieve the full issue, project, or document content, including
+description, acceptance criteria, and comments when available.
 {% endif %}
+{% if provider == "azure_devops" %}
+Use Azure DevOps tools to retrieve the full work item, epic, user story, or wiki page
+content, including description, acceptance criteria, and comments when available.
+{% if azure_context and azure_context.project %}
+You are restricted to the following Azure DevOps project:
+- Project: {{ azure_context.project }}
 
+Scope all Azure DevOps tool calls to project "{{ azure_context.project }}".
+Do not access content outside this project!
+{% endif %}
+{% endif %}
 Return ONLY a JSON array. Each element is an object with these fields:
 - id: a stable identifier for the item (page id, file path, issue key, ...)
 - title: the item's title or name

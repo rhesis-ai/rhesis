@@ -2,10 +2,11 @@ import json
 import logging
 import os
 import uuid
+from contextlib import ExitStack
 from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import inspect
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
@@ -106,6 +107,15 @@ def _reassign_default_project_if_removed(
 
 
 _logger = logging.getLogger(__name__)
+
+EXAMPLE_PROJECT_NAME = "Example Project (Insurance Chatbot)"
+
+# Shared reference data seeded during onboarding — keep project_id NULL so every
+# project can resolve statuses, type lookups, and default models via FK.
+_ORG_WIDE_INITIAL_DATA_MODELS = frozenset({"Status", "TypeLookup", "Model", "Project"})
+
+# Built-in metric providers are shared across projects (like statuses/models).
+_ORG_WIDE_METRIC_BACKEND_TYPES = frozenset({"deepeval", "ragas", "garak", "rhesis"})
 
 
 def _bust_permission_cache(user_id: uuid.UUID, organization_id: uuid.UUID) -> None:
@@ -804,8 +814,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             # fail-closed `project_isolation` RLS policy, which rejects an INSERT
             # whose project_id does not match `app.current_project`. Onboarding
             # runs with no active project, so bind the session to this endpoint's
-            # project for the insert, then restore the org-level (no-project)
-            # scope so entities created afterwards stay org-level (project_id NULL).
+            # project for the insert.
             with temporary_project_scope(db, organization_id, user_id, str(project.id)):
                 get_or_create_entity(
                     db=db,
@@ -921,6 +930,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     }
                     db.execute(behavior_metric_association.insert().values(**association_values))
                     db.flush()
+
+        _assign_demo_entities_to_example_project(db, organization_id, user_id, initial_data)
 
         # Process default Rhesis language model
         print("Processing default Rhesis language model...")
@@ -1407,6 +1418,53 @@ def _build_model_data_map(initial_data: dict) -> dict:
     return model_data_map
 
 
+def _metric_stays_org_wide(metric: models.Metric) -> bool:
+    """True when a seeded metric should remain visible in every project."""
+    backend_type = metric.backend_type
+    return backend_type is not None and backend_type.type_value in _ORG_WIDE_METRIC_BACKEND_TYPES
+
+
+def _assign_demo_entities_to_example_project(
+    db: Session, organization_id: str, user_id: str, initial_data: dict
+) -> None:
+    """Assign onboarding demo content to the example project.
+
+    Demo entities are seeded before the example project exists, leaving
+    ``project_id`` NULL. NULL rows are visible in every project via the
+    auto-filter listener. Status, TypeLookup, Model, and built-in metric
+    providers (deepeval/ragas/garak/rhesis) stay org-wide.
+    """
+    example_project = (
+        db.query(models.Project)
+        .filter(
+            models.Project.name == EXAMPLE_PROJECT_NAME,
+            models.Project.organization_id == uuid.UUID(organization_id),
+        )
+        .first()
+    )
+    if example_project is None:
+        return
+
+    project_id = example_project.id
+    model_data_map = _build_model_data_map(initial_data)
+
+    with temporary_project_scope(db, organization_id, user_id, str(project_id)):
+        for model_name, identifiers in model_data_map.items():
+            if model_name in _ORG_WIDE_INITIAL_DATA_MODELS or not identifiers:
+                continue
+            model_cls = getattr(models, model_name, None)
+            if model_cls is None or not hasattr(model_cls, "project_id"):
+                continue
+            records = _get_matching_records(db, model_cls, identifiers, organization_id)
+            for record in records:
+                if record.project_id is None:
+                    if model_name == "Metric" and _metric_stays_org_wide(record):
+                        continue
+                    record.project_id = project_id
+
+        db.flush()
+
+
 def _get_matching_records(db: Session, model, identifiers: set, organization_id: str):
     """Get records that match the initial data identifiers."""
     query = (
@@ -1418,6 +1476,12 @@ def _get_matching_records(db: Session, model, identifiers: set, organization_id:
 
     if model.__name__ == "Test":
         return query.join(models.Prompt).filter(models.Prompt.content.in_(identifiers)).all()
+    elif model.__name__ == "Metric":
+        return (
+            query.options(joinedload(models.Metric.backend_type))
+            .filter(model.name.in_(identifiers))
+            .all()
+        )
     elif model.__name__ == "TypeLookup":
         return query.filter(model.type_value.in_(identifiers)).all()
     elif hasattr(model, "content"):
@@ -1450,7 +1514,7 @@ def _delete_entity_associations(db: Session, entity):
             db.execute(stmt)
 
 
-def rollback_initial_data(db: Session, organization_id: str) -> None:
+def rollback_initial_data(db: Session, organization_id: str, user_id: str | None = None) -> None:
     """
     Remove all data that was inserted by load_initial_data for a specific organization.
     Only deletes entities that match the data in initial_data.json.
@@ -1460,6 +1524,7 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
 
     # Load initial data and build model map
     initial_data = _load_initial_data()
+    _inject_garak_metrics(initial_data)
     model_data_map = _build_model_data_map(initial_data)
 
     # Get models to process
@@ -1501,121 +1566,161 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
         if not org.is_onboarding_complete:
             raise ValueError("Organization not initialized yet")
 
-        # Collect entities to delete
-        for model in sorted_models:
-            if model.__name__ in ["User", "Organization"]:
-                continue
-
-            identifiers = model_data_map.get(model.__name__, set())
-            if not identifiers:
-                continue
-
-            # Get matching records. We intentionally do NOT eager-load
-            # relationships here: _get_nested_entities() walks every
-            # non-M2M relationship — including one-to-many collections
-            # — and joinedload across many one-to-many relationships
-            # produces cartesian-product result sets. Lazy-loading per
-            # relationship as we recurse is slower but bounded.
-            query = (
-                QueryBuilder(db, model)
-                .with_organization_filter(organization_id)
-                .with_custom_filter(lambda q: q.filter(model.organization_id == organization_id))
-                .build()
+        example_project = (
+            db.query(models.Project)
+            .filter(
+                models.Project.name == EXAMPLE_PROJECT_NAME,
+                models.Project.organization_id == uuid.UUID(organization_id),
             )
-
-            if model.__name__ == "Test":
-                records = (
-                    query.join(models.Prompt).filter(models.Prompt.content.in_(identifiers)).all()
-                )
-            elif model.__name__ == "TypeLookup":
-                records = query.filter(model.type_value.in_(identifiers)).all()
-            elif hasattr(model, "content"):
-                records = query.filter(model.content.in_(identifiers)).all()
-            else:
-                records = query.filter(model.name.in_(identifiers)).all()
-
-            for record in records:
-                # Add the record itself if it matches
-                if _get_entity_identifier_from_instance(record) in model_data_map[model.__name__]:
-                    entities_to_delete.add(record)
-
-                # Add nested entities that match initial data
-                for entity in _get_nested_entities(db, record, organization_id):
-                    if (
-                        entity.__class__.__name__ in model_data_map
-                        and _get_entity_identifier_from_instance(entity)
-                        in model_data_map[entity.__class__.__name__]
-                    ):
-                        entities_to_delete.add(entity)
-
-        # Sort entities for deletion
-        # Endpoints must be deleted before Projects due to FK constraint
-        deletion_order = {
-            "Prompt": 0,
-            "Test": 1,
-            "Topic": 2,
-            "Behavior": 2,
-            "Category": 2,
-            "Metric": 2,
-            "TestSet": 3,
-            "Endpoint": 3,  # Delete endpoints before projects
-            "Project": 4,
-        }
-        sorted_entities = sorted(
-            entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+            .first()
         )
 
-        # Delete entities
-        deleted_ids = set()
-        for entity in sorted_entities:
-            if entity.id in deleted_ids:
-                continue
+        scope_user_id = user_id
+        if example_project is not None and not scope_user_id and example_project.owner_id:
+            scope_user_id = str(example_project.owner_id)
 
-            try:
-                # Special handling for Status deletion
-                # Status entities are referenced by many other entities with NOT NULL constraints
-                # We need to delete or update those entities before deleting the Status
-                if entity.__class__.__name__ == "Status":
-                    # Nullify trace_metrics_status_id references before deletion
-                    db.query(models.Trace).filter(
-                        models.Trace.trace_metrics_status_id == entity.id,
-                        models.Trace.organization_id == organization_id,
-                    ).update(
-                        {"trace_metrics_status_id": None},
-                        synchronize_session="fetch",
+        # Scope to the example project for Postgres RLS and ORM auto-filter when
+        # demo rows carry project_id; fall back to bypass when no project exists.
+        with ExitStack() as stack:
+            if example_project is not None and scope_user_id:
+                stack.enter_context(
+                    temporary_project_scope(
+                        db, organization_id, scope_user_id, str(example_project.id)
                     )
+                )
+            elif example_project is not None:
+                raise ValueError(
+                    "user_id is required to rollback project-scoped onboarding demo data"
+                )
+            else:
+                stack.enter_context(bypass_tenant_filter())
 
-                    # Delete tasks that reference this status
-                    tasks_with_status = (
-                        db.query(models.Task)
-                        .filter(
-                            models.Task.status_id == entity.id,
-                            models.Task.organization_id == organization_id,
-                        )
+            # Collect entities to delete
+            for model in sorted_models:
+                if model.__name__ in ["User", "Organization"]:
+                    continue
+
+                identifiers = model_data_map.get(model.__name__, set())
+                if not identifiers:
+                    continue
+
+                # Get matching records. We intentionally do NOT eager-load
+                # relationships here: _get_nested_entities() walks every
+                # non-M2M relationship — including one-to-many collections
+                # — and joinedload across many one-to-many relationships
+                # produces cartesian-product result sets. Lazy-loading per
+                # relationship as we recurse is slower but bounded.
+                query = (
+                    QueryBuilder(db, model)
+                    .with_organization_filter(organization_id)
+                    .with_custom_filter(
+                        lambda q: q.filter(model.organization_id == organization_id)
+                    )
+                    .build()
+                )
+
+                if model.__name__ == "Test":
+                    records = (
+                        query.join(models.Prompt)
+                        .filter(models.Prompt.content.in_(identifiers))
                         .all()
                     )
+                elif model.__name__ == "TypeLookup":
+                    records = query.filter(model.type_value.in_(identifiers)).all()
+                elif hasattr(model, "content"):
+                    records = query.filter(model.content.in_(identifiers)).all()
+                else:
+                    records = query.filter(model.name.in_(identifiers)).all()
 
-                    for task in tasks_with_status:
-                        try:
-                            db.delete(task)
-                        except Exception as task_error:
-                            print(f"Error deleting task {task.id}: {task_error}")
+                for record in records:
+                    # Add the record itself if it matches
+                    if (
+                        _get_entity_identifier_from_instance(record)
+                        in model_data_map[model.__name__]
+                    ):
+                        entities_to_delete.add(record)
 
-                    # Also delete embeddings that reference this status
-                    db.query(models.Embedding).filter(
-                        models.Embedding.status_id == entity.id,
-                        models.Embedding.organization_id == organization_id,
-                    ).delete(synchronize_session="fetch")
+                    # Add nested entities that match initial data
+                    for entity in _get_nested_entities(db, record, organization_id):
+                        if (
+                            entity.__class__.__name__ in model_data_map
+                            and _get_entity_identifier_from_instance(entity)
+                            in model_data_map[entity.__class__.__name__]
+                        ):
+                            entities_to_delete.add(entity)
 
-                    db.flush()
+            # Endpoints must be deleted before Projects due to FK constraint.
+            # Project-scoped demo rows must be removed before Project.
+            deletion_order = {
+                "Prompt": 0,
+                "Test": 1,
+                "Topic": 2,
+                "Behavior": 2,
+                "Category": 2,
+                "Metric": 2,
+                "UseCase": 2,
+                "Risk": 2,
+                "Demographic": 3,
+                "Dimension": 4,
+                "TestSet": 5,
+                "Endpoint": 5,
+                "Project": 6,
+            }
+            sorted_entities = sorted(
+                entities_to_delete, key=lambda e: deletion_order.get(e.__class__.__name__, 999)
+            )
 
-                _delete_entity_associations(db, entity)
-                db.delete(entity)
-                deleted_ids.add(entity.id)
-                db.flush()  # Use flush instead of commit to keep transaction atomic
-            except Exception as e:
-                print(f"Error deleting {entity.__class__.__name__}: {e}")
-                continue
+            # Delete entities
+            deleted_ids = set()
+            for entity in sorted_entities:
+                if entity.id in deleted_ids:
+                    continue
+
+                try:
+                    # Special handling for Status deletion
+                    # Status entities are referenced by many other entities with NOT NULL constraints
+                    # We need to delete or update those entities before deleting the Status
+                    if entity.__class__.__name__ == "Status":
+                        # Nullify trace_metrics_status_id references before deletion
+                        db.query(models.Trace).filter(
+                            models.Trace.trace_metrics_status_id == entity.id,
+                            models.Trace.organization_id == organization_id,
+                        ).update(
+                            {"trace_metrics_status_id": None},
+                            synchronize_session="fetch",
+                        )
+
+                        # Delete tasks that reference this status
+                        tasks_with_status = (
+                            db.query(models.Task)
+                            .filter(
+                                models.Task.status_id == entity.id,
+                                models.Task.organization_id == organization_id,
+                            )
+                            .all()
+                        )
+
+                        for task in tasks_with_status:
+                            try:
+                                db.delete(task)
+                            except Exception as task_error:
+                                print(f"Error deleting task {task.id}: {task_error}")
+
+                        # Also delete embeddings that reference this status
+                        db.query(models.Embedding).filter(
+                            models.Embedding.status_id == entity.id,
+                            models.Embedding.organization_id == organization_id,
+                        ).delete(synchronize_session="fetch")
+
+                        db.flush()
+
+                    _delete_entity_associations(db, entity)
+                    db.delete(entity)
+                    deleted_ids.add(entity.id)
+                    db.flush()  # Use flush instead of commit to keep transaction atomic
+                except Exception as e:
+                    print(f"Error deleting {entity.__class__.__name__}: {e}")
+                    continue
 
         # Update organization status
         org = db.query(models.Organization).filter_by(id=organization_id).first()

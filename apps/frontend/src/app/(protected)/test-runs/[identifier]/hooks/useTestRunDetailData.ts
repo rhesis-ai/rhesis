@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { UUID } from 'crypto';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
@@ -24,6 +23,7 @@ interface UseTestRunDetailDataReturn {
   availableMetrics: string[];
   loading: boolean;
   error: string | null;
+  refetch: () => Promise<void>;
 }
 
 async function fetchAllTestResults(
@@ -79,52 +79,54 @@ function buildPromptsMap(
   );
 }
 
-async function fetchBehaviorsWithMetrics(
-  testRunId: string,
-  sessionToken: string
-): Promise<{
+function extractBehaviorsWithMetrics(results: TestResultDetail[]): {
   behaviors: BehaviorWithMetrics[];
   availableMetrics: string[];
-}> {
-  const apiFactory = new ApiClientFactory(sessionToken);
-  const testRunsClient = apiFactory.getTestRunsClient();
-  const behaviorClient = apiFactory.getBehaviorClient();
+} {
+  const behaviorMap = new Map<string, BehaviorWithMetrics>();
 
-  const [behaviorsData, metricsData] = await Promise.all([
-    testRunsClient.getTestRunBehaviors(testRunId),
-    testRunsClient.getTestRunMetrics(testRunId),
-  ]);
+  for (const result of results) {
+    const behavior = result.test?.behavior;
+    const metrics = result.test_metrics?.metrics ?? {};
 
-  const behaviorsWithMetrics = await Promise.all(
-    behaviorsData.map(async behavior => {
-      try {
-        const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
-          behavior.id as UUID
-        );
-        return {
-          id: behavior.id as string,
-          name: behavior.name,
-          description: behavior.description ?? undefined,
-          metrics: behaviorMetrics.map(m => ({
-            name: m.name,
-            description: m.description ?? undefined,
-          })),
-        };
-      } catch {
-        return {
-          id: behavior.id as string,
-          name: behavior.name,
-          description: behavior.description ?? undefined,
-          metrics: [] as Array<{ name: string; description?: string }>,
-        };
+    if (behavior && !behaviorMap.has(behavior.id as string)) {
+      behaviorMap.set(behavior.id as string, {
+        id: behavior.id as string,
+        name: behavior.name,
+        description: behavior.description || undefined,
+        metrics: [],
+      });
+    }
+
+    if (behavior) {
+      const entry = behaviorMap.get(behavior.id as string)!;
+      for (const [name, data] of Object.entries(metrics)) {
+        if (!entry.metrics.some(m => m.name === name)) {
+          entry.metrics.push({
+            name,
+            description: data.description || undefined,
+          });
+        }
       }
-    })
-  );
+    }
+  }
 
-  return {
-    behaviors: behaviorsWithMetrics,
-    availableMetrics: metricsData,
-  };
+  const behaviors = Array.from(behaviorMap.values())
+    .map(behavior => ({
+      ...behavior,
+      metrics: [...behavior.metrics].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      ),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const availableMetrics = [
+    ...new Set(
+      results.flatMap(r => Object.keys(r.test_metrics?.metrics ?? {}))
+    ),
+  ].sort();
+
+  return { behaviors, availableMetrics };
 }
 
 export function useTestRunDetailData({
@@ -138,6 +140,11 @@ export function useTestRunDetailData({
   const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const refetch = useCallback(async () => {
+    setReloadToken(token => token + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled || !sessionToken || !testRunId) {
@@ -152,17 +159,17 @@ export function useTestRunDetailData({
       setError(null);
 
       try {
-        const [results, behaviorData] = await Promise.all([
-          fetchAllTestResults(testRunId, sessionToken),
-          fetchBehaviorsWithMetrics(testRunId, sessionToken),
-        ]);
+        const results = await fetchAllTestResults(testRunId, sessionToken);
 
         if (cancelled) return;
 
+        const { behaviors, availableMetrics } =
+          extractBehaviorsWithMetrics(results);
+
         setTestResults(results);
         setPrompts(buildPromptsMap(results));
-        setBehaviors(behaviorData.behaviors);
-        setAvailableMetrics(behaviorData.availableMetrics);
+        setBehaviors(behaviors);
+        setAvailableMetrics(availableMetrics);
       } catch {
         if (!cancelled) {
           setError('Failed to load test run data');
@@ -183,7 +190,7 @@ export function useTestRunDetailData({
     return () => {
       cancelled = true;
     };
-  }, [testRunId, sessionToken, enabled]);
+  }, [testRunId, sessionToken, enabled, reloadToken]);
 
   return {
     testResults,
@@ -192,5 +199,6 @@ export function useTestRunDetailData({
     availableMetrics,
     loading,
     error,
+    refetch,
   };
 }

@@ -24,13 +24,15 @@ import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
 import { FeatureGate } from '@/contexts/FeaturesContext';
-import { registerOrgSettingsSection } from '@/lib/extension-registries';
+import { registerOrgSettingsTab } from '@/lib/extension-registries';
+import { SectionCard } from '@/components/common/SectionCard';
+import SSOEmptyState from './components/SSOEmptyState';
 
 const SSOConfigForm = React.lazy(() => import('./components/SSOConfigForm'));
 
 function SSOSection() {
   return (
-    <FeatureGate feature={FeatureName.SSO}>
+    <FeatureGate feature={FeatureName.SSO} fallback={<SSOEmptyState />}>
       <React.Suspense
         fallback={
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -38,17 +40,19 @@ function SSOSection() {
           </Box>
         }
       >
-        <SSOConfigForm />
+        <SectionCard title="Single Sign-On (SSO)">
+          <SSOConfigForm />
+        </SectionCard>
       </React.Suspense>
     </FeatureGate>
   );
 }
 
 export function registerSSO(): void {
-  registerOrgSettingsSection({
+  registerOrgSettingsTab({
     id: 'sso',
-    title: 'Single Sign-On (SSO)',
-    order: 100,
+    title: 'SSO',
+    order: 30,
     component: SSOSection,
   });
 }

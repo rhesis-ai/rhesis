@@ -23,13 +23,13 @@ x-sdk-redis-config: &sdk-redis-config
   CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@sdk-test-redis:6379/1
 
 x-sdk-backend-config: &sdk-backend-config
-  BACKEND_ENV: test
   FRONTEND_URL: "http://localhost:3000"
   JWT_SECRET_KEY: your-jwt-secret-key
   SESSION_SECRET_KEY: test-session-secret-key
   LOG_LEVEL: DEBUG
   RHESIS_CONNECTOR_DISABLED: true
   API_BASE_URL: "http://localhost:10003"
+  OTEL_RHESIS_TELEMETRY_ENABLED: "false"
 
 services:
   # ==========================================================================

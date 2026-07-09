@@ -91,6 +91,16 @@ GH_CLIENT_SECRET=your-github-client-secret`}
 
 If no OAuth credentials are provided, only email/password authentication is available.
 
+### Localhost redirects in development
+
+When `BACKEND_ENV` is not `production`, OAuth redirects may return to a loopback
+frontend origin stored in the login session. This supports workflows where a
+developer runs the Next.js frontend on `localhost`, `127.0.0.1`, or `::1` while
+pointing at a remote development backend.
+
+Production deployments never accept loopback redirect origins, and development
+matching uses exact hostnames so lookalike domains are rejected.
+
 ## Authentication Configuration
 
 <CodeBlock filename=".env" language="bash">

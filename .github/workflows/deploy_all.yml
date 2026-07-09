@@ -19,8 +19,6 @@ on:
         description: 'Environment to deploy to'
         required: true
         type: string
-  schedule:
-    - cron: '0 0 * * *'
 
 jobs:
   backend-deploy:

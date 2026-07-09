@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useComments } from '../useComments';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';
 
@@ -14,6 +16,19 @@ jest.mock('../../components/common/NotificationContext', () => ({
 const mockApiClientFactory = ApiClientFactory as jest.MockedClass<
   typeof ApiClientFactory
 >;
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
 
 describe('useComments - Dependency Stability', () => {
   const mockCommentsClient = {
@@ -42,7 +57,9 @@ describe('useComments - Dependency Stability', () => {
   it('should not trigger infinite fetches when notifications change', async () => {
     mockCommentsClient.getComments.mockResolvedValue([]);
 
-    const { rerender } = renderHook(() => useComments(defaultProps));
+    const { rerender } = renderHook(() => useComments(defaultProps), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(mockCommentsClient.getComments).toHaveBeenCalledTimes(1);

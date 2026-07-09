@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   ToggleButton,
@@ -10,16 +10,11 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import {
-  TestResultDetail,
-  REVIEW_TARGET_TYPES,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
-import {
-  findStatusByCategory,
-  isPassedStatusName,
-} from '@/utils/test-result-status';
+import { findStatusByCategory } from '@/utils/test-result-status';
+import { EntityType } from '@/types/entity-type';
 import MentionTextInput, {
   MentionOption,
   inferReviewTarget,
@@ -71,16 +66,16 @@ export default function ReviewJudgementDrawer({
     [statuses]
   );
 
-  // Fetch statuses for TestResult entity type on mount
+  // Fetch statuses for TestResult entity type when first opened
   useEffect(() => {
     const fetchStatuses = async () => {
-      if (!sessionToken || statuses.length > 0) return;
+      if (!open || !sessionToken || statuses.length > 0) return;
       try {
         setLoadingStatuses(true);
         const clientFactory = new ApiClientFactory(sessionToken);
         const statusClient = clientFactory.getStatusClient();
         const fetched = await statusClient.getStatuses({
-          entity_type: 'TestResult',
+          entity_type: EntityType.TEST_RESULT,
         });
         setStatuses(fetched);
       } catch (_err) {
@@ -90,7 +85,7 @@ export default function ReviewJudgementDrawer({
       }
     };
     fetchStatuses();
-  }, [sessionToken, statuses.length]);
+  }, [open, sessionToken, statuses.length]);
 
   // Reset form when drawer opens (intentionally excludes initialComment/initialStatus
   // from deps so parent state resets don't clear a form the user is actively filling)
@@ -110,42 +105,6 @@ export default function ReviewJudgementDrawer({
     if (matching) setSelectedStatusId(String(matching.id));
   }, [open, statuses, initialStatus, selectedStatusId]);
 
-  // Automated status of the review target (used for conflict validation)
-  const getOriginalStatus = useCallback((): 'passed' | 'failed' => {
-    if (!test) return 'failed';
-
-    if (
-      inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
-      inferredTarget.reference
-    ) {
-      const metrics = test.test_metrics?.metrics || {};
-      const entry = Object.entries(metrics).find(
-        ([name]) => name === inferredTarget.reference
-      );
-      return entry?.[1]?.is_successful ? 'passed' : 'failed';
-    }
-
-    if (
-      inferredTarget.type === REVIEW_TARGET_TYPES.TURN &&
-      inferredTarget.reference
-    ) {
-      const turns = test.test_output?.conversation_summary || [];
-      const turnNum = parseInt(inferredTarget.reference.replace(/\D/g, ''), 10);
-      const turn = turns.find((t: { turn: number }) => t.turn === turnNum);
-      return turn?.success ? 'passed' : 'failed';
-    }
-
-    const metrics = test.test_metrics?.metrics || {};
-    const metricValues = Object.values(metrics);
-    const totalMetrics = metricValues.length;
-    const passedMetrics = metricValues.filter(m => m.is_successful).length;
-    return totalMetrics > 0 && passedMetrics === totalMetrics
-      ? 'passed'
-      : 'failed';
-  }, [test, inferredTarget]);
-
-  const originalStatus = getOriginalStatus();
-
   const handleSave = async () => {
     if (!reason.trim()) {
       setError('Please provide a comment for your review.');
@@ -163,27 +122,6 @@ export default function ReviewJudgementDrawer({
     }
 
     if (!test || !sessionToken) return;
-
-    const selectedStatus = statuses.find(
-      s => String(s.id) === selectedStatusId
-    );
-
-    // For test_result-level first reviews, block matching the automated outcome
-    if (inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT) {
-      const hasExistingReview = !!test.last_review;
-      if (
-        !hasExistingReview &&
-        selectedStatus &&
-        isPassedStatusName(selectedStatus.name) ===
-          (originalStatus === 'passed')
-      ) {
-        setError(
-          'The selected status matches the automated result. ' +
-            'Please select a different status, or add a comment confirming your agreement.'
-        );
-        return;
-      }
-    }
 
     try {
       setSubmitting(true);

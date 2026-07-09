@@ -7,22 +7,31 @@ import Typography from '@mui/material/Typography';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { taskKeys } from '@/constants/query-keys';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import TasksGrid from './components/TasksGrid';
 import TaskDrawer, {
   type TaskDrawerInitialEntity,
 } from './components/TaskDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { EntityType } from '@/types/tasks';
 
 export default function TasksPage() {
   const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Task.READ
+  );
+  const canCreateTask = useCan(Capability.Task.CREATE);
   const searchParams = useSearchParams();
-  const [refreshKey, setRefreshKey] = React.useState(0);
   const [taskCount, setTaskCount] = React.useState<number | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [initialEntity, setInitialEntity] = React.useState<
@@ -32,26 +41,6 @@ export default function TasksPage() {
   useDocumentTitle('Tasks');
 
   const sessionToken = session?.session_token ?? '';
-
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (!sessionToken) return;
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const tasksClient = apiFactory.getTasksClient();
-        const response = await tasksClient.getTasks({
-          skip: 0,
-          limit: 1,
-          sort_by: 'created_at',
-          sort_order: 'desc',
-        });
-        setTaskCount(response.totalCount ?? 0);
-      } catch {
-        setTaskCount(0);
-      }
-    };
-    fetchCount();
-  }, [sessionToken, refreshKey]);
 
   React.useEffect(() => {
     const shouldOpen = searchParams.get('create') === 'true';
@@ -86,15 +75,11 @@ export default function TasksPage() {
     window.history.replaceState({}, '', newUrl.toString());
   }, [searchParams]);
 
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
-
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);
     setInitialEntity(undefined);
-    handleRefresh();
-  }, [handleRefresh]);
+    queryClient.invalidateQueries({ queryKey: taskKeys.all() });
+  }, [queryClient]);
 
   const handleCloseDrawer = React.useCallback(() => {
     setCreateDrawerOpen(false);
@@ -110,6 +95,9 @@ export default function TasksPage() {
       </PageLayout>
     );
   }
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="tasks" />;
 
   if (!sessionToken) {
     return (
@@ -129,15 +117,17 @@ export default function TasksPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FabAddIcon />}
-              tooltip="New Task"
-              aria-label="New Task"
-              onClick={() => {
-                setInitialEntity(undefined);
-                setCreateDrawerOpen(true);
-              }}
-            />
+            <Can capability={Capability.Task.CREATE}>
+              <Fab
+                icon={<FabAddIcon />}
+                tooltip="New Task"
+                aria-label="New Task"
+                onClick={() => {
+                  setInitialEntity(undefined);
+                  setCreateDrawerOpen(true);
+                }}
+              />
+            </Can>
           </FabGroup>
         }
       >
@@ -147,11 +137,15 @@ export default function TasksPage() {
               icon={AssignmentOutlinedIcon}
               title="No tasks yet"
               description="Create tasks to track follow-ups, issues, and action items from tests and evaluations."
-              actionLabel="Create task"
-              onAction={() => {
-                setInitialEntity(undefined);
-                setCreateDrawerOpen(true);
-              }}
+              actionLabel={canCreateTask ? 'Create task' : undefined}
+              onAction={
+                canCreateTask
+                  ? () => {
+                      setInitialEntity(undefined);
+                      setCreateDrawerOpen(true);
+                    }
+                  : undefined
+              }
             />
           ) : (
             <Paper
@@ -165,8 +159,7 @@ export default function TasksPage() {
             >
               <TasksGrid
                 sessionToken={sessionToken}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
+                onTotalCountChange={setTaskCount}
               />
             </Paper>
           )}

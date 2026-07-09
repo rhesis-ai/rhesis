@@ -39,29 +39,35 @@ import {
   getPrioritiesForTask,
   clearCache,
 } from '../task-lookup';
+import { EntityType } from '@/types/entity-type';
 
 const API_STATUSES = [
-  { id: 's1', name: 'Open', description: 'open', entity_type: 'Task' },
+  { id: 's1', name: 'Open', description: 'open', entity_type: EntityType.TASK },
   {
     id: 's2',
     name: 'In Progress',
     description: 'in progress',
-    entity_type: 'Task',
+    entity_type: EntityType.TASK,
   },
   {
     id: 's3',
     name: 'Completed',
     description: 'completed',
-    entity_type: 'Task',
+    entity_type: EntityType.TASK,
   },
   {
     id: 's4',
     name: 'Cancelled',
     description: 'cancelled',
-    entity_type: 'Task',
+    entity_type: EntityType.TASK,
   },
   // This one should be filtered OUT (not in the allowed list)
-  { id: 's5', name: 'Archived', description: 'archived', entity_type: 'Task' },
+  {
+    id: 's5',
+    name: 'Archived',
+    description: 'archived',
+    entity_type: EntityType.TASK,
+  },
 ];
 
 const API_PRIORITIES = [
@@ -260,7 +266,7 @@ describe('getStatusesForTask', () => {
       id: 'extra-id',
       name: 'Custom Status',
       description: 'custom',
-      entity_type: 'Task',
+      entity_type: EntityType.TASK,
     });
 
     const result = await getStatusesForTask('tok', 'extra-id');

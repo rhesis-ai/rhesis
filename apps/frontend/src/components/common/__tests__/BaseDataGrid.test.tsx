@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import BaseDataGrid from '../BaseDataGrid';
+import BaseDataGrid, { applyFlexColumnSizing } from '../BaseDataGrid';
 import { GridColDef, GridRowModel } from '@mui/x-data-grid';
 
 // Lightweight stub for MUI DataGrid — renders rows as a plain HTML table so
@@ -78,6 +78,53 @@ const sampleRows = [
   { id: '2', name: 'Bob', status: 'inactive' },
   { id: '3', name: 'Charlie', status: 'active' },
 ];
+
+describe('applyFlexColumnSizing', () => {
+  it('caps width-only columns with maxWidth instead of converting to flex', () => {
+    const columns: GridColDef[] = [
+      { field: 'title', headerName: 'Title', width: 300, minWidth: 150 },
+      { field: 'status', headerName: 'Status', width: 120, minWidth: 90 },
+      { field: 'actions', headerName: '', width: 88 },
+    ];
+
+    const sized = applyFlexColumnSizing(columns);
+
+    expect(sized[0]).toMatchObject({
+      width: 300,
+      maxWidth: 300,
+      minWidth: 150,
+    });
+    expect(sized[0].flex).toBeUndefined();
+    expect(sized[1]).toMatchObject({ width: 120, maxWidth: 120, minWidth: 90 });
+    expect(sized[2]).toMatchObject({ width: 88, hideable: false });
+    expect(sized[2].flex).toBeUndefined();
+  });
+
+  it('gives unsized columns flex to fill remaining width', () => {
+    const columns: GridColDef[] = [{ field: 'name', headerName: 'Name' }];
+
+    expect(applyFlexColumnSizing(columns)[0]).toMatchObject({
+      flex: 1,
+      minWidth: 50,
+    });
+  });
+
+  it('preserves columns that already define flex', () => {
+    const columns: GridColDef[] = [
+      { field: 'name', headerName: 'Name', flex: 2, minWidth: 100 },
+    ];
+
+    expect(applyFlexColumnSizing(columns)[0]).toEqual(columns[0]);
+  });
+
+  it('preserves columns with maxWidth as fixed-width', () => {
+    const columns: GridColDef[] = [
+      { field: 'name', headerName: 'Name', width: 200, maxWidth: 200 },
+    ];
+
+    expect(applyFlexColumnSizing(columns)[0]).toEqual(columns[0]);
+  });
+});
 
 describe('BaseDataGrid', () => {
   beforeEach(() => {

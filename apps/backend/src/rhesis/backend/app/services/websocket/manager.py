@@ -10,7 +10,10 @@ This module provides the WebSocketManager class that handles:
 import asyncio
 import logging
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.principal import Principal
 
 from fastapi import WebSocket
 
@@ -52,6 +55,7 @@ class WebSocketManager:
         """Initialize the WebSocket manager."""
         self._registry = ConnectionRegistry()
         self._redis_listener_task: Optional[asyncio.Task] = None
+        self._principals: dict[str, "Principal"] = {}
 
     async def connect(self, websocket: WebSocket, user: User) -> str:
         """Register a new authenticated connection.
@@ -79,6 +83,14 @@ class WebSocketManager:
         )
         return conn_id
 
+    def register_principal(self, conn_id: str, principal: "Principal") -> None:
+        """Store the authenticated principal for a connection.
+
+        Called once after connect() so that channel authorization can apply
+        SP9 token scope intersection for scoped rh-* tokens.
+        """
+        self._principals[conn_id] = principal
+
     def disconnect(self, conn_id: str) -> None:
         """Clean up a connection and all its subscriptions.
 
@@ -86,6 +98,7 @@ class WebSocketManager:
             conn_id: The connection ID to disconnect.
         """
         conn_info = self._registry.remove(conn_id)
+        self._principals.pop(conn_id, None)
 
         # Clean up rate limiter tracking
         rate_limiter = get_rate_limiter()
@@ -251,14 +264,69 @@ class WebSocketManager:
             await self._send_error(conn_id, "Missing channel in subscribe request")
             return
 
-        # Security: Authorize channel subscription
+        # The client sends the channel resource's own project_id so the
+        # authorization DB session can satisfy the fail-closed project_isolation
+        # RLS policy when looking the resource up. Without it the session opens
+        # with a blank app.current_project, and that policy (org set + project
+        # unset -> only project_id IS NULL rows) hides any project-scoped
+        # resource, making _resolve_channel_project_id return "not found" and
+        # silently denying an otherwise-authorized subscription.
+        #
+        # The value is validated as a UUID before being used: project_isolation
+        # policies cast app.current_project to ::uuid, so a malformed string
+        # would cause a Postgres cast error on every query during the auth
+        # lookup and turn the subscribe into a server error/disconnect. An
+        # invalid value is treated as blank (fail-closed: the resource will not
+        # be found, subscription is denied with SUBSCRIPTION_ERROR).
+        subscribe_project_id = ""
+        if message.payload:
+            raw_project_id = message.payload.get("project_id") or ""
+            if raw_project_id:
+                try:
+                    import uuid as _uuid
+
+                    _uuid.UUID(str(raw_project_id))
+                    subscribe_project_id = str(raw_project_id)
+                except (ValueError, AttributeError):
+                    logger.warning(
+                        "SUBSCRIBE from conn %s carries malformed project_id %r"
+                        " — treating as blank",
+                        conn_id,
+                        raw_project_id,
+                    )
+
+        # Security: Authorize channel subscription.
+        # SP11: open a short-lived tenant session so the PDP can evaluate
+        # the caller's read capability for resource-type channels.
+        # Pass the stored principal so SP9 token scope intersection applies.
+        from rhesis.backend.app.database import get_db_with_tenant_variables
+
         authorizer = get_channel_authorizer()
-        authorized, error_message = await authorizer.authorize(user, channel)
+        stored_principal = self._principals.get(conn_id)
+        with get_db_with_tenant_variables(
+            str(user.organization_id), str(user.id), subscribe_project_id
+        ) as db:
+            authorized, error_message = await authorizer.authorize(
+                user, channel, db=db, principal=stored_principal
+            )
         if not authorized:
             logger.warning(
                 f"Unauthorized subscription attempt by user {user.id} to {channel}: {error_message}"
             )
-            await self._send_error(conn_id, error_message or "Subscription denied")
+            # Channel-scoped error so the subscriber can correlate the denial and
+            # stop waiting (e.g. clear a "Thinking…" spinner) instead of hanging.
+            await self.broadcast(
+                WebSocketMessage(
+                    type=EventType.SUBSCRIPTION_ERROR,
+                    channel=channel,
+                    correlation_id=message.correlation_id,
+                    payload={
+                        "channel": channel,
+                        "error": error_message or "Subscription denied",
+                    },
+                ),
+                ConnectionTarget(connection_id=conn_id),
+            )
             return
 
         success = self.subscribe(conn_id, channel)

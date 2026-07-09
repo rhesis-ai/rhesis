@@ -13,6 +13,34 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-25
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.9.1**
+- **Frontend 0.9.1**
+- **SDK 0.9.1**
+
+### Summary of Changes
+
+**Backend v0.9.1:**
+- Implemented a comprehensive Role-Based Access Control (RBAC) system featuring custom roles, token-
+
+**Frontend v0.9.1:**
+- Redesigned the Insights page into a behavior-centric pass rate view with expandable metric/topic rows
+
+**SDK v0.9.1:**
+#2004)*
+        *   Backend/SDK support for Azure DevOps and
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.9.0] - 2026-06-11
 
 ### Platform Release

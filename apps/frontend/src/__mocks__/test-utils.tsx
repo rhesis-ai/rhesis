@@ -1,3 +1,5 @@
+import { EntityType } from '@/types/entity-type';
+
 const mockSession = {
   user: {
     id: 'user-1',
@@ -118,7 +120,7 @@ export const createMockPaginatedResponse = <T,>(
 export const createMockComment = (overrides = {}) => ({
   id: 'mock-comment-id',
   message: 'Mock comment message',
-  entity_type: 'Test',
+  entity_type: EntityType.TEST,
   entity_id: 'test-123',
   parent_id: null,
   created_at: '2024-01-01T00:00:00Z',
@@ -135,7 +137,7 @@ export const createMockFileResponse = (overrides = {}) => ({
   size_bytes: 1024,
   description: undefined,
   entity_id: 'test-123',
-  entity_type: 'Test',
+  entity_type: EntityType.TEST,
   position: 0,
   user_id: 'user-1',
   organization_id: 'org-1',
@@ -150,7 +152,7 @@ export const createMockTask = (overrides = {}) => ({
   description: 'A mock task for testing',
   status: { id: 'status-1', name: 'Open' },
   priority: 1,
-  entity_type: 'Test',
+  entity_type: EntityType.TEST,
   entity_id: 'test-123',
   due_date: null,
   created_at: '2024-01-01T00:00:00Z',

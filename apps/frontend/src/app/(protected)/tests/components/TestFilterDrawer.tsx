@@ -9,10 +9,16 @@ import {
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
 import { TEST_TYPES } from '@/constants/test-types';
+import {
+  useStatuses,
+  useBehaviors,
+  useCategories,
+  useTopics,
+} from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
+import { EntityType } from '@/types/entity-type';
 import {
   EMPTY_ACTIVITY_PRESENCE_FILTERS,
   countActivePresenceFilters,
@@ -90,65 +96,50 @@ export default function TestFilterDrawer({
   onApply,
 }: TestFilterDrawerProps) {
   const [draft, setDraft] = React.useState<TestFilters>(filters);
-  const [statusOptions, setStatusOptions] = React.useState<string[]>([]);
-  const [behaviorOptions, setBehaviorOptions] = React.useState<string[]>([]);
-  const [categoryOptions, setCategoryOptions] = React.useState<string[]>([]);
-  const [topicOptions, setTopicOptions] = React.useState<string[]>([]);
-  const [loadingOptions, setLoadingOptions] = React.useState(false);
+  const token = sessionToken ?? '';
+
+  const { data: rawStatuses, isLoading: loadingStatuses } = useStatuses(
+    token,
+    ENTITY_TYPES.test,
+    open
+  );
+  const { data: rawBehaviors, isLoading: loadingBehaviors } = useBehaviors(
+    token,
+    open
+  );
+  const { data: rawCategories, isLoading: loadingCategories } = useCategories(
+    token,
+    EntityType.TEST,
+    open
+  );
+  const { data: rawTopics, isLoading: loadingTopics } = useTopics(
+    token,
+    EntityType.TEST,
+    open
+  );
+  const loadingOptions =
+    loadingStatuses || loadingBehaviors || loadingCategories || loadingTopics;
+
+  const statusOptions = React.useMemo(
+    () => filterUniqueValidOptions(rawStatuses ?? []).map(s => s.name),
+    [rawStatuses]
+  );
+  const behaviorOptions = React.useMemo(
+    () => filterUniqueValidOptions(rawBehaviors ?? []).map(b => b.name),
+    [rawBehaviors]
+  );
+  const categoryOptions = React.useMemo(
+    () => filterUniqueValidOptions(rawCategories ?? []).map(c => c.name),
+    [rawCategories]
+  );
+  const topicOptions = React.useMemo(
+    () => filterUniqueValidOptions(rawTopics ?? []).map(t => t.name),
+    [rawTopics]
+  );
 
   React.useEffect(() => {
     if (open) setDraft(filters);
   }, [open, filters]);
-
-  React.useEffect(() => {
-    if (!open || !sessionToken) return;
-
-    const loadOptions = async () => {
-      setLoadingOptions(true);
-      try {
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const [statusesData, behaviorsData, categoriesData, topicsData] =
-          await Promise.all([
-            apiFactory.getStatusClient().getStatuses({
-              sort_by: 'name',
-              sort_order: 'asc',
-              entity_type: ENTITY_TYPES.test,
-            }),
-            apiFactory.getBehaviorClient().getBehaviors({
-              sort_by: 'name',
-              sort_order: 'asc',
-            }),
-            apiFactory.getCategoryClient().getCategories({
-              sort_by: 'name',
-              sort_order: 'asc',
-              entity_type: 'Test',
-            }),
-            apiFactory.getTopicClient().getTopics({
-              sort_by: 'name',
-              sort_order: 'asc',
-              entity_type: 'Test',
-            }),
-          ]);
-
-        setStatusOptions(
-          filterUniqueValidOptions(statusesData).map(s => s.name)
-        );
-        setBehaviorOptions(
-          filterUniqueValidOptions(behaviorsData).map(b => b.name)
-        );
-        setCategoryOptions(
-          filterUniqueValidOptions(categoriesData).map(c => c.name)
-        );
-        setTopicOptions(filterUniqueValidOptions(topicsData).map(t => t.name));
-      } catch {
-        // Keep empty options on failure
-      } finally {
-        setLoadingOptions(false);
-      }
-    };
-
-    loadOptions();
-  }, [open, sessionToken]);
 
   const handleReset = () => setDraft(EMPTY_TEST_FILTERS);
 

@@ -96,10 +96,6 @@ interface GenerateMultiTurnTestsResponse {
   tests: MultiTurnTest[];
 }
 
-interface TextResponse {
-  text: string;
-}
-
 // Tool Types
 export interface ToolItem {
   id: string;
@@ -218,50 +214,6 @@ export class ServicesClient extends BaseApiClient {
     return this.fetch<string>(
       `${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`
     );
-  }
-
-  async getOpenAIJson(prompt: string): Promise<Record<string, unknown>> {
-    return this.fetch<Record<string, unknown>>(
-      `${API_ENDPOINTS.services}/openai/json`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt),
-        }),
-      }
-    );
-  }
-
-  async getOpenAIChat(messages: Array<{ role: string; content: string }>) {
-    return this.fetch<string>(`${API_ENDPOINTS.services}/openai/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages,
-        response_format: 'text',
-      }),
-    });
-  }
-
-  async generateText(
-    prompt: string,
-    stream: boolean = false
-  ): Promise<TextResponse> {
-    return this.fetch<TextResponse>(`${API_ENDPOINTS.services}/generate/text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt,
-        stream,
-      }),
-    });
   }
 
   async generateTests(

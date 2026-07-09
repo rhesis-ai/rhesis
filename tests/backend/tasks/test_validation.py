@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import pytest
 
-from rhesis.backend.tasks.enums import TestType
+from rhesis.backend.app.constants import TestType
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
 

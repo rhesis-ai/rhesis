@@ -12,6 +12,7 @@ from rhesis.backend.app.services.preflight import (
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
+    CHECK_METRIC_COMPATIBILITY,
     CHECK_METRIC_FUNCTIONALITY,
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
@@ -31,6 +32,7 @@ class TestConstants:
             CHECK_EVALUATION_MODEL,
             CHECK_EXECUTION_MODEL,
             CHECK_BEHAVIOR_METRIC_COVERAGE,
+            CHECK_METRIC_COMPATIBILITY,
             CHECK_METRIC_FUNCTIONALITY,
             CHECK_TEST_SET_NOT_EMPTY,
         ]
@@ -374,6 +376,295 @@ class TestValidateMetricsLoadable:
         assert "Failed to create metric" in result.detail
 
 
+class TestInferEndpointCapabilities:
+    def test_all_fields_present(self):
+        from rhesis.backend.app.services.preflight.checks import _infer_endpoint_capabilities
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {"context": "$.ctx", "tool_calls": "$.tools", "output": "$.out"}
+        caps = _infer_endpoint_capabilities(endpoint)
+        assert caps["context"] is True
+        assert caps["tool_calls"] is True
+        assert caps["metadata"] is False
+
+    def test_empty_mapping(self):
+        from rhesis.backend.app.services.preflight.checks import _infer_endpoint_capabilities
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {}
+        caps = _infer_endpoint_capabilities(endpoint)
+        assert caps["context"] is False
+        assert caps["tool_calls"] is False
+        assert caps["metadata"] is False
+
+    def test_none_mapping(self):
+        from rhesis.backend.app.services.preflight.checks import _infer_endpoint_capabilities
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = None
+        caps = _infer_endpoint_capabilities(endpoint)
+        assert caps["context"] is False
+        assert caps["tool_calls"] is False
+
+
+class TestCheckMetricEndpointIssues:
+    def _make_metric(self, name, class_name=None, context_required=False,
+                     ground_truth_required=False):
+        m = MagicMock()
+        m.name = name
+        m.class_name = class_name
+        m.context_required = context_required
+        m.ground_truth_required = ground_truth_required
+        return m
+
+    def test_no_issues_when_all_compatible(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("Accuracy")
+        caps = {"context": True, "tool_calls": True, "metadata": True}
+        issues = _check_metric_endpoint_issues([metric], caps, 0, 10)
+        assert issues == []
+
+    def test_context_required_but_missing(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("Faithfulness", context_required=True)
+        caps = {"context": False, "tool_calls": False, "metadata": False}
+        issues = _check_metric_endpoint_issues([metric], caps, 0, 10)
+        assert len(issues) == 1
+        assert "context" in issues[0]
+        assert "Faithfulness" in issues[0]
+
+    def test_ground_truth_required_all_missing(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("CorrectnessMetric", ground_truth_required=True)
+        caps = {"context": False, "tool_calls": False, "metadata": False}
+        issues = _check_metric_endpoint_issues([metric], caps, 5, 5)
+        assert len(issues) == 1
+        assert "ground truth" in issues[0]
+        assert "5 of 5" in issues[0]
+
+    def test_ground_truth_required_partial_missing(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("CorrectnessMetric", ground_truth_required=True)
+        caps = {"context": False, "tool_calls": False, "metadata": False}
+        issues = _check_metric_endpoint_issues([metric], caps, 3, 10)
+        assert len(issues) == 1
+        assert "3 of 10" in issues[0]
+
+    def test_ground_truth_required_none_missing(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("CorrectnessMetric", ground_truth_required=True)
+        caps = {"context": False, "tool_calls": False, "metadata": False}
+        issues = _check_metric_endpoint_issues([metric], caps, 0, 10)
+        assert issues == []
+
+    def test_tool_calls_class_missing(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("ToolAccuracy", class_name="DeepEvalToolUse")
+        caps = {"context": False, "tool_calls": False, "metadata": False}
+        issues = _check_metric_endpoint_issues([metric], caps, 0, 10)
+        assert len(issues) == 1
+        assert "tool_calls" in issues[0]
+
+    def test_tool_calls_class_present(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        metric = self._make_metric("ToolAccuracy", class_name="DeepEvalToolUse")
+        caps = {"context": False, "tool_calls": True, "metadata": False}
+        issues = _check_metric_endpoint_issues([metric], caps, 0, 10)
+        assert issues == []
+
+    def test_multiple_metrics_multiple_issues(self):
+        from rhesis.backend.app.services.preflight.checks import _check_metric_endpoint_issues
+
+        m1 = self._make_metric("Faithfulness", context_required=True)
+        m2 = self._make_metric("Correctness", ground_truth_required=True)
+        caps = {"context": False, "tool_calls": False, "metadata": False}
+        issues = _check_metric_endpoint_issues([m1, m2], caps, 2, 5)
+        assert len(issues) == 2
+
+
+class TestCheckMetricCompatibility:
+    def _make_db(self, metrics=None, total_tests=5, missing_ground_truth=0):
+        """Build a mock db with chained query returns for the compatibility check."""
+        db = MagicMock()
+
+        # Metrics query (for define_custom mode via Metric.id.in_)
+        # Use a flexible side_effect on db.query so different models return different mocks
+        metric_query = MagicMock()
+        metric_query.filter.return_value.all.return_value = metrics or []
+
+        ts_query = MagicMock()
+        test_set_mock = MagicMock()
+        test_set_mock.metrics = metrics or []
+        ts_query.filter.return_value.first.return_value = test_set_mock
+
+        # total_tests count
+        total_count_query = MagicMock()
+        total_count_query.filter.return_value.count.return_value = total_tests
+
+        # missing ground truth count
+        missing_count_query = MagicMock()
+        missing_count_query.join.return_value.join.return_value.filter.return_value\
+            .filter.return_value.count.return_value = missing_ground_truth
+
+        return db
+
+    @pytest.mark.asyncio
+    async def test_no_metrics_skipped(self):
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = []
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {}
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom", selected_metrics=[], publish=False
+        )
+
+        assert result.status == PreflightCheckStatus.SKIPPED
+
+    @pytest.mark.asyncio
+    async def test_passed_when_all_compatible(self):
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        metric = MagicMock()
+        metric.name = "Accuracy"
+        metric.class_name = "AccuracyMetric"
+        metric.metric_scope = ["Single-Turn"]  # real DB value
+        metric.context_required = False
+        metric.ground_truth_required = False
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [metric]
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {"output": "$.output"}
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], publish=False
+        )
+
+        assert result.status == PreflightCheckStatus.PASSED
+        assert "Accuracy" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_warning_when_context_missing(self):
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        metric = MagicMock()
+        metric.name = "Faithfulness"
+        metric.class_name = "FaithfulnessMetric"
+        metric.metric_scope = ["Single-Turn"]  # real DB value
+        metric.context_required = True
+        metric.ground_truth_required = False
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [metric]
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {"output": "$.output"}  # no context key
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], publish=False
+        )
+
+        assert result.status == PreflightCheckStatus.WARNING
+        assert "issue(s)" in result.message
+        assert "context" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_warning_on_partial_ground_truth(self):
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        metric = MagicMock()
+        metric.name = "Correctness"
+        metric.class_name = "CorrectnessMetric"
+        metric.metric_scope = ["Single-Turn"]  # real DB value
+        metric.context_required = False
+        metric.ground_truth_required = True
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [metric]
+        # total_tests count (filter().count())
+        db.query.return_value.filter.return_value.count.return_value = 10
+        # missing ground truth count (join().join().filter().filter().count())
+        db.query.return_value.join.return_value.join.return_value\
+            .filter.return_value.filter.return_value.count.return_value = 3
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {}
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], publish=False
+        )
+
+        assert result.status == PreflightCheckStatus.WARNING
+        assert "3" in result.detail
+        assert "10" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_skips_ground_truth_query(self):
+        """Ground-truth query must not run for multi-turn scope (prompt_id is NULL)."""
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        metric = MagicMock()
+        metric.name = "ConvJudge"
+        metric.class_name = "ConversationalJudge"
+        metric.metric_scope = ["Multi-Turn"]  # real DB value
+        metric.context_required = False
+        metric.ground_truth_required = True  # even if set, should not trigger query
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [metric]
+
+        endpoint = MagicMock()
+        endpoint.response_mapping = {}
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[metric], is_multi_turn=True, publish=False
+        )
+
+        # No ground-truth warning should appear since the query is skipped
+        assert result.status == PreflightCheckStatus.PASSED
+        # The Prompt-join count query must not have been called
+        db.query.return_value.join.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_db_error_returns_failed(self):
+        from rhesis.backend.app.services.preflight.checks import check_metric_compatibility
+
+        db = MagicMock()
+        db.query.side_effect = RuntimeError("db gone")
+
+        endpoint = MagicMock()
+        ts_id = uuid4()
+
+        result = await check_metric_compatibility(
+            db, endpoint, ts_id, "define_custom",
+            selected_metrics=[MagicMock()], publish=False
+        )
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "db gone" in result.detail
+
+
 class TestRunPreflightChecksMulti:
     @pytest.mark.asyncio
     async def test_reuse_skips_connectivity(self):
@@ -416,6 +707,14 @@ class TestRunPreflightChecksMulti:
                 new_callable=AsyncMock,
                 return_value=_make_result(
                     CHECK_BEHAVIOR_METRIC_COVERAGE, PreflightCheckStatus.PASSED
+                ),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator"
+                ".check_metric_compatibility",
+                new_callable=AsyncMock,
+                return_value=_make_result(
+                    CHECK_METRIC_COMPATIBILITY, PreflightCheckStatus.PASSED
                 ),
             ),
             patch(

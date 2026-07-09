@@ -10,7 +10,7 @@ session via Session.object_session() rather than accepting it as a parameter.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -26,6 +26,21 @@ from rhesis.backend.app.constants import (
     categorize_test_result_status,
 )
 from rhesis.backend.app.models.user import User
+
+
+def _normalize_metric_name(name: str) -> str:
+    return re.sub(r"(^-|-$)", "", re.sub(r"[^a-z0-9]+", "-", name.lower()))
+
+
+def _find_metric_key(metrics: Dict[str, Any], metric_name: str) -> Optional[str]:
+    """Resolve a metric reference to its stored key (exact or slug-normalized)."""
+    if metric_name in metrics:
+        return metric_name
+    normalized_target = _normalize_metric_name(metric_name)
+    for key in metrics:
+        if isinstance(key, str) and _normalize_metric_name(key) == normalized_target:
+            return key
+    return None
 
 
 def is_passed_status(status_name: str) -> bool:
@@ -76,7 +91,7 @@ def apply_review_override(
     Recalculates the overall Pass/Fail status for metric- and turn-level overrides.
     """
     review_passed = is_passed_status(status_details.get("name", ""))
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     if target_type == REVIEW_TARGET_METRIC and target_reference:
         _apply_metric_override(
@@ -117,9 +132,10 @@ def _apply_metric_override(
     metrics = test_metrics.get("metrics")
     if not metrics or not isinstance(metrics, dict):
         return
-    metric = metrics.get(metric_name)
-    if metric is None:
+    metric_key = _find_metric_key(metrics, metric_name)
+    if metric_key is None:
         return
+    metric = metrics[metric_key]
 
     current_val = metric.get("is_successful", False)
     existing_override = metric.get("override")
@@ -247,9 +263,10 @@ def _revert_metric_override(
     metrics = test_metrics.get("metrics")
     if not metrics or not isinstance(metrics, dict):
         return
-    metric = metrics.get(metric_name)
-    if metric is None:
+    metric_key = _find_metric_key(metrics, metric_name)
+    if metric_key is None:
         return
+    metric = metrics[metric_key]
 
     override = metric.get("override")
     if not override or override.get("review_id") != deleted_review_id:
@@ -263,7 +280,7 @@ def _revert_metric_override(
             metric["is_successful"] = original_val
             metric.pop("override", None)
         else:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             metric["is_successful"] = review_passed
             metric["override"] = {
                 "original_value": original_val,
@@ -310,7 +327,7 @@ def _revert_turn_override(
                 turn["success"] = original_val
                 turn.pop("override", None)
             else:
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 turn["success"] = review_passed
                 turn["override"] = {
                     "original_value": original_val,

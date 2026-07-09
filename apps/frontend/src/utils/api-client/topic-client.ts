@@ -7,6 +7,7 @@ import {
   TopicsQueryParams,
 } from './interfaces/topic';
 import { UUID } from 'crypto';
+import { EntityType } from '@/types/entity-type';
 
 export class TopicClient extends BaseApiClient {
   async getTopics(params: TopicsQueryParams = {}): Promise<Topic[]> {
@@ -32,7 +33,7 @@ export class TopicClient extends BaseApiClient {
       queryParams.append('entity_type', entity_type);
     }
 
-    const url = `${API_ENDPOINTS.topics}?${queryParams.toString()}`;
+    const url = `${API_ENDPOINTS.topics}/?${queryParams.toString()}`;
 
     return this.fetch<Topic[]>(url, {
       cache: 'no-store',
@@ -44,7 +45,7 @@ export class TopicClient extends BaseApiClient {
   }
 
   async createTopic(topic: TopicCreate): Promise<Topic> {
-    return this.fetch<Topic>(API_ENDPOINTS.topics, {
+    return this.fetch<Topic>(`${API_ENDPOINTS.topics}/`, {
       method: 'POST',
       body: JSON.stringify(topic),
     });
@@ -69,7 +70,7 @@ export class TopicClient extends BaseApiClient {
    */
   async findTopicByName(
     name: string,
-    entityType: string = 'Test'
+    entityType: string = EntityType.TEST
   ): Promise<Topic | null> {
     const topics = await this.getTopics({
       $filter: `name eq '${name}'`,
@@ -85,7 +86,7 @@ export class TopicClient extends BaseApiClient {
    */
   async getOrCreateTopic(
     name: string,
-    entityType: string = 'Test'
+    entityType: string = EntityType.TEST
   ): Promise<Topic> {
     // First try to find existing topic
     const existing = await this.findTopicByName(name, entityType);
