@@ -31,9 +31,9 @@ Iterate over time (add behaviors, tighten metrics, regenerate tests) and run aga
 
 ## What it's good at
 
-- **PRD → specific behaviors** — splits broad requirements ("handle flights and hotels") into testable pieces
-- **Avoiding vague behaviors** — no umbrella names like "Reliability" or "Robustness"
-- **Metrics that match the PRD** — guardrails get pass/fail categories; quality gets scored metrics
+- **PRD → specific behaviors** — unpacks bundled user stories and policy bullets into independently testable expectations
+- **Avoiding vague behaviors** — no section titles, NFR hand-waving, or umbrella names like "Reliability" or "Robustness"
+- **Metrics from acceptance criteria** — binary gates, named states, counts, and limits in the PRD drive score type and pass rules
 - **Tags for organization** — consistent taxonomy from your requirements
 - **Test generation aligned to requirements** — jailbreaks, off-topic asks, refusals where your PRD calls for them
 
@@ -69,4 +69,6 @@ Explicit invocation is required — the skill creates platform entities via MCP 
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | PRD → test foundation workflow |
-| `references/behavior-design.md` | Fine-grained behavior rules and anti-patterns |
+| `references/prd-anatomy.md` | How real PRDs are structured (stakeholders, stories, FRs) |
+| `references/behavior-design.md` | Splitting bundled PRD text into behaviors |
+| `references/metric-design.md` | FR/AC-driven metrics: binary, categorical, numeric |

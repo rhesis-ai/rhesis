@@ -58,29 +58,58 @@ The user can iterate (add behaviors, tighten metrics, regenerate tests) and exec
 
 ## What this skill optimizes for
 
-- **PRD → specific behaviors** — splits broad requirements (e.g. "handle flights and hotels") into testable pieces
-- **No vague umbrella behaviors** — never "Reliability", "Robustness", or standalone "Compliance"
-- **Metrics matched to the PRD** — categorical for guardrails, numeric for quality gradations
+- **PRD → specific behaviors** — unpacks bundled user stories and policy bullets into independently testable expectations
+- **No vague umbrella behaviors** — never section titles ("Order Support"), NFR hand-waving ("operate safely"), or standalone "Compliance"
+- **Metrics from acceptance criteria** — score type, categories, and thresholds come from AC language (binary gates, named states, counts, limits) — see [metric-design.md](references/metric-design.md)
 - **Tags for organization** — consistent taxonomy from requirements (functional, safety, compliance, domain, transparency)
 - **Test generation aligned to requirements** — adversarial probes, off-topic asks, refusals where the PRD calls for them
 
-See [behavior-design.md](references/behavior-design.md) for split rules and anti-patterns.
+See [prd-anatomy.md](references/prd-anatomy.md) for how real PRDs are structured, [behavior-design.md](references/behavior-design.md) for split rules, and [metric-design.md](references/metric-design.md) for AC-driven metrics.
 
 ## Example
 
-**User:** "Here's our PRD: customer support agent handles refunds and order status. Never reveal system prompts. Refuse requests to bypass payment. Stay in retail domain only."
+**User:** pastes a PRD fragment as it actually arrives — stakeholders, persona story, numbered FRs (fictional *Helios Retail Support Agent v2.1*; do not treat as a product spec):
 
-**Plan excerpt (fine-grained, not umbrella names):**
+```text
+### Stakeholders — Legal & Trust (excerpt)
+Legal requires the assistant to operate safely in customer-facing channels and to stay
+within approved product and policy content. The agent must not provide legal advice
+or interpret warranty terms beyond the published FAQ corpus (rev 2025-03). Trust &
+Safety: no disclosure of system prompts, retrieval chunk text, or internal playbooks; no
+assistance structuring chargeback abuse, warranty fraud, or bulk-purchase arbitrage.
 
-| Behavior | Tags | Metric |
-|---|---|---|
-| Refund Request Handling | functional | Refund Flow Completeness (numeric) |
-| Order Status Lookup | functional | Order Status Accuracy (numeric) |
-| Internal Configuration Secrecy | safety | Internal Configuration Disclosure (categorical) |
-| Payment Bypass Refusal | compliance | Fraud Request Refusal (categorical) |
-| Retail Domain Scope Adherence | domain | Domain Adherence (categorical) |
+### User Story RS-04 — Morgan, marketplace operations lead
+Morgan monitors seller disputes during flash sales. The agent must pull order status
+and refund eligibility in one thread without re-entering the order number after each
+follow-up. If outside the 30-day window or SKU is final-sale, state the policy reason
+in one sentence and do not offer workarounds unless Morgan asks for escalation.
 
-**Not:** "Reliability", "Robustness", or "Compliance" as standalone behavior names.
+### §4 Order & refunds
+FR-4.1 (P9) — Before initiating refund, verify purchase date ≤ 30 calendar days
+(store timezone).
+FR-4.2 (P9) — If SKU is final-sale in catalog API, do not initiate refund; response
+includes SKU flag and policy link.
+FR-4.3 (P8) — When refund denied, one-sentence reason citing date OR final-sale OR
+open-RMA; no speculative alternatives.
+FR-4.4 (P7) — Order status lookup accepts order number OR email on file, not both.
+FR-3.2 (P8) — Maintain order context ≥ 3 follow-up turns without re-asking order number.
+```
+
+**Plan excerpt (behaviors + AC-driven metrics — not section titles):**
+
+| Behavior | Tags | Metric | Source | Score type |
+|---|---|---|---|---|
+| Order Context Retention Across Follow-ups | functional | Order Context Retention Rate | FR-3.2 | numeric |
+| Refund Eligibility Window Check | functional | Refund Window Compliance | FR-4.1 | categorical (binary) |
+| Final-Sale Refund Block | functional | Final-Sale Workflow Block | FR-4.2 | categorical (binary) |
+| Denial Reason Single-Sentence Citation | quality | Eligibility Denial Format Compliance | FR-4.3 | categorical (multi-way) |
+| Order Status Lookup by Identifier | functional | Valid Identifier Usage | FR-4.4 | categorical (binary) |
+| Internal Configuration Secrecy | safety | Internal Configuration Disclosure | Legal & Trust bullet | categorical (binary) |
+| Chargeback Abuse Assistance Refusal | compliance | Chargeback Abuse Refusal | Legal & Trust bullet | categorical (binary) |
+
+**Not:** "Operate Safely", "Legal & Trust Requirements", "Order & Refunds", or "Morgan's Workflow".
+
+**Plan flags:** "operate safely" has no FR — only FAQ corpus boundary is testable from this paste; chargeback vs warranty fraud split per distinct prohibition; confirm open-RMA handling if RMA states undefined.
 
 ## Workflow
 
@@ -91,14 +120,15 @@ PRD intake → Extract expectations → Plan (behaviors + metrics + tags + test 
 
 ### 1. PRD intake
 
-Accept free-form input: markdown, bullets, Notion export, chat paste, file attachment, or repo files.
+Accept free-form input: markdown, Confluence/Notion export, Word paste, file attachment, or repo files. Expect **mixed structure** — see [prd-anatomy.md](references/prd-anatomy.md).
 
 Read for:
-- **Functional capabilities** — what the agent must do (specific actions, not "be reliable")
-- **Guardrails** — refusals, domain limits, secrecy, language, compliance
-- **Quality bars** — tone, format, transparency, confirmation flows
-- **Out of scope** — what must be redirected or declined
-- **Environment constraints** — staging vs production, simulated backends, disclosure requirements (only when the PRD states them)
+- **Stakeholder / legal blocks** — scope, prohibitions, brand constraints (extract duties, reject theme names as behaviors)
+- **Persona user stories** — narrative requirements buried in prose; link each behavior to a numbered FR when one exists
+- **Numbered requirements (FR-/PC-/AC-IDs)** — primary source for **metrics**; note priority `(P#)` for plan ordering
+- **Acceptance criteria** — quantifiers (`≤`, `≥`, `within N days`), required fields, gates, confirm steps
+- **Appendices** — compliance lists: one behavior per distinct prohibition
+- **TBD / open questions** — flag in plan; do not invent rubrics for "intuitive", "seamless", "operate safely" without an FR
 
 If the PRD is vague on guardrails, ask **one** focused question (e.g. "Should off-topic requests get a short redirect or a full explanation?"). Do not interrogate — infer reasonable defaults and note them in the plan.
 
@@ -108,12 +138,12 @@ See [behavior-design.md](references/behavior-design.md) for rules and anti-patte
 
 **Core rule:** Each behavior names **one testable expectation** about a **specific aspect** of the agent. Never use umbrella names like "Reliability", "Robustness", or "Quality".
 
-| Bad (too broad) | Good (specific) |
+| Bad (naive read of PRD) | Good (extracted expectations) |
 |---|---|
-| Robustness | Internal Configuration Secrecy |
-| Compliance | Unlawful Request Refusal |
-| Reliability | Retail Domain Scope Adherence |
-| Helpfulness | Refund Eligibility Collection |
+| Operate Safely (Legal stakeholder theme) | Published FAQ Corpus Boundary — only if FAQ limit is in the same paste |
+| Order & Refunds (§ title) | Refund Eligibility Window Check + Final-Sale Refund Block + … per FR |
+| Morgan's flash-sale workflow (persona title) | Order Context Retention + Refund Window + Denial Reason Format per RS-04 + FRs |
+| Fraud / compliance (appendix heading) | Chargeback Abuse Refusal + Warranty Fraud Refusal + … per PC-item |
 
 **Naming:** Title Case, 2–5 words. Examples: "Hotel Booking Assistance", "Price Transparency", "Staging Data Disclosure".
 
@@ -127,26 +157,44 @@ Target **6–12 behaviors** for a typical agent PRD. Split combined requirements
 
 ### 3. Design custom metrics
 
-**One primary metric per behavior** in most cases. Metrics judge whether the behavior expectation was met.
+**Start from acceptance criteria, not the behavior name.** For each behavior, locate the user story AC or numbered requirement it came from. Extract **binary gates**, **named states**, **counts**, and **limits** — those drive score type and pass rules.
 
-**Prefer categorical** for guardrails (pass/fail with clear categories):
-- `categories`: e.g. `["Compliant", "Partial", "Violation"]`
-- `passing_categories`: e.g. `["Compliant"]`
-- `evaluation_prompt`: what to check, with 3–5 bullet criteria in the prompt body
+See [metric-design.md](references/metric-design.md) for PRD language → categorical vs numeric mapping, category design, and anti-patterns.
 
-**Prefer numeric** for quality gradations (relevance, completeness, clarity):
-- `min_score` 0, `max_score` 1, `threshold` 0.8, `threshold_operator` `>=`
+**One primary metric per behavior** in most cases. The metric judges whether **the PRD's pass condition** for that AC was met.
 
-**Metric names** mirror the behavior but describe the **measurement**: behavior "Flight Search Assistance" → metric "Flight Search Completeness".
+**Score type selection (AC-first):**
+
+| PRD gives you | Use | Rhesis `score_type` |
+|---|---|---|
+| Hard shall/shall-not, yes/no gate, single allowed outcome | Binary pass/fail | `categorical` with **2** categories |
+| Named states, distinct failure modes, eligibility buckets | Multi-way pass/fail | `categorical` with 3+ categories |
+| Counts, limits (`≤5`), completeness over listed fields, format degree | Graded compliance | `numeric` with `threshold` tied to the AC |
+
+Do **not** default guardrails to categorical and capabilities to numeric — read the AC. "Returns up to 5 options" is numeric/countable; "must refuse" is binary categorical.
+
+**Categorical** — categories and `passing_categories` must reflect **PRD-named outcomes**:
+
+- `categories`: e.g. `["Within 30 Days", "Outside 30 Days"]` when AC says `< 30 days`
+- `passing_categories`: subset that satisfies the AC
+- `evaluation_prompt`: open with the AC paraphrased; bullets = checkable conditions quoted from the PRD
+
+**Numeric** — thresholds must trace to quantifiers in the PRD or to a defined field checklist from the same AC:
+
+- `min_score` 0, `max_score` 1, `threshold` set from AC (e.g. all required recap fields present → 1.0)
+- If the PRD does not justify a threshold, state the assumption in the plan — do not silently use 0.8
+
+**Metric names** describe the **measurement** ("Refund Window Compliance"), not the behavior title.
 
 **evaluation_prompt** must reference `{{prompt}}`, `{{response}}`, and when available `{{expected_response}}`. Include:
-- What to evaluate (specific, not generic)
-- Pass criteria as bullets
-- 1–2 failure examples when the PRD implies them
 
-Do **not** use `generate_metric` during plan execution — use `create_metric` with exact plan names.
+- The source AC or requirement ID
+- Pass criteria as bullets — each bullet one PRD condition
+- Failure examples when the PRD or policy section implies them
 
-Set `metric_scope` to match how the behavior is tested: `["Single-Turn"]` for one-shot capabilities and guardrails; `["Multi-Turn"]` for conversation flows the PRD describes; both when the behavior appears in single- and multi-turn test sets.
+Do **not** use `generate_metric` during plan execution — use `create_metric` with exact plan names and AC text in the prompt.
+
+Set `metric_scope` to match how the AC is tested: `["Single-Turn"]` for one-shot checks; `["Multi-Turn"]` for flows the AC describes across turns.
 
 ### 4. Plan tags
 
@@ -185,8 +233,8 @@ Present a structured plan:
 | ... | ... | safety, compliance | (new) |
 
 ## Metrics
-| Metric | Behavior | Score type | Status |
-| ... | ... | categorical | (new) |
+| Metric | Behavior | AC / requirement | Score type | Pass definition | Status |
+| ... | ... | CS-02 "< 30 days" | categorical (binary) | Within 30 Days | (new) |
 
 ## Behavior → Metric Mappings
 - **Behavior Name** → Metric Name
@@ -228,8 +276,10 @@ Before finalizing the plan, verify:
 
 - [ ] No behavior name contains "Reliability", "Robustness", "Quality", or "Compliance" alone — always qualify (e.g. "Unlawful Request Refusal")
 - [ ] Every capability in the PRD maps to at least one behavior
-- [ ] Every guardrail in the PRD maps to at least one behavior + categorical metric
-- [ ] Every behavior has ≥1 linked metric
+- [ ] Every guardrail in the PRD maps to at least one behavior + metric whose categories/pass rules come from the policy text
+- [ ] Every behavior has ≥1 linked metric with **AC source** and **score type rationale** documented in the plan
+- [ ] No metric uses generic "quality" scoring when the PRD only states binary or enumerated rules
+- [ ] `evaluation_prompt` bullets are traceable to PRD acceptance criteria, not invented rubrics
 - [ ] Tags group behaviors for filtering (not random one-offs)
 - [ ] Test set generation prompts mention adversarial cases for guardrail behaviors
 - [ ] Behaviors and metrics reflect **this user's PRD**, not a generic template

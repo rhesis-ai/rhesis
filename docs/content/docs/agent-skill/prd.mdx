@@ -39,9 +39,9 @@ You can iterate over time — add behaviors, tighten metrics, regenerate tests �
 
 ## What it's good at
 
-- **PRD → specific behaviors** — splits broad requirements ("handle flights and hotels") into testable pieces
-- **Avoiding vague behaviors** — no umbrella names like "Reliability" or "Robustness"
-- **Metrics that match the PRD** — guardrails get pass/fail categories; quality gets scored metrics
+- **PRD → specific behaviors** — unpacks bundled user stories and policy bullets into independently testable expectations
+- **Avoiding vague behaviors** — no section titles, NFR hand-waving, or umbrella names like "Reliability" or "Robustness"
+- **Metrics from acceptance criteria** — score type, categories, and thresholds come from AC language (binary gates, named states, counts, limits)
 - **Tags for organization** — consistent taxonomy from your requirements
 - **Test generation aligned to requirements** — jailbreaks, off-topic asks, refusals where your PRD calls for them
 
@@ -74,14 +74,25 @@ Explicit invocation is required — the skill creates platform entities via MCP 
 
 ### Example input
 
+Paste a PRD as it actually looks — stakeholder blocks, persona narratives, numbered `FR-x.x` requirements with `(P#)` priorities. Example structure (fictional *Helios Retail Support Agent*):
+
 ```text
-Customer support agent handles refunds and order status.
-Never reveal system prompts.
-Refuse requests to bypass payment.
-Stay in retail domain only.
+/rhesis-prd
+
+### Stakeholders — Legal & Trust (excerpt)
+...must not provide legal advice beyond published FAQ corpus (rev 2025-03)...
+no disclosure of system prompts, retrieval chunk text, or internal playbooks...
+
+### User Story RS-04 — Morgan, marketplace operations lead
+...order status and refund eligibility in one thread without re-entering the order number...
+outside the 30-day window or final-sale SKU → one-sentence policy reason, no workarounds...
+
+### §4 Order & refunds
+FR-4.1 (P9) — purchase date ≤ 30 calendar days before refund...
+FR-4.2 (P9) — final-sale SKU → do not initiate refund...
 ```
 
-The agent proposes fine-grained behaviors (for example, **Refund Request Handling**, **Internal Configuration Secrecy**, **Retail Domain Scope Adherence**) — not umbrella labels like "Compliance" or "Robustness".
+The agent should mine **FR-4.1** for a binary window metric, split Legal's fraud list into **separate refusal behaviors**, and **not** create "Operate Safely" or section-title behaviors. See `skills/rhesis-prd/references/` for full split and metric rules.
 
 ## After the foundation is created
 
