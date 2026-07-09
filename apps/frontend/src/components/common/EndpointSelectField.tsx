@@ -47,13 +47,16 @@ export default function EndpointSelectField({
 
   return (
     <FormControl fullWidth>
-      <InputLabel id={labelId}>{label}</InputLabel>
+      <InputLabel id={labelId} shrink>
+        {label}
+      </InputLabel>
       <Select
         labelId={labelId}
         id={selectId}
         value={value ?? ''}
         label={label}
         displayEmpty
+        notched
         onChange={handleChange}
         renderValue={selected => {
           if (!selected) {
