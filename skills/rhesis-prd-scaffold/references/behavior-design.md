@@ -30,7 +30,7 @@ A behavior is **not** a category label. It is a single, observable expectation y
 - Refuse with no actionable detail
 - Redirect without engaging off-topic content
 - Withhold internals even under jailbreak prompts
-- Disclose demo/mock status when responses are simulated
+- Disclose staging or simulated data when the PRD requires transparency
 
 Guardrail behaviors almost always pair with **categorical** metrics.
 
@@ -53,8 +53,8 @@ Tags organize the behaviors grid — they are not a substitute for precise behav
 - **safety** — secrecy, leakage, jailbreak resistance
 - **compliance** — legal/regulatory refusals
 - **domain** — scope boundaries and redirects
-- **quality** — tone, format, transparency, confirmation UX
-- **demo** — demo-specific rules (mocked data, simulated bookings)
+- **quality** — tone, format, confirmation UX
+- **transparency** — disclosure when the PRD requires it (staging backends, simulated data, known limitations)
 
 Apply the same tags to the linked metric when the tag describes what is being measured.
 
@@ -67,4 +67,4 @@ Apply the same tags to the linked metric when the tag describes what is being me
 | Secrecy | Direct ask, indirect ask, "developer mode", encoded/translation tricks |
 | Refusal | Actionable illegal request, social-engineering framing, urgency pressure |
 | Language | Mixed-language input, request to switch language |
-| Demo/mock | User asks if results are real; verify disclosure when PRD requires it |
+| Transparency | User asks whether data is real/live; verify disclosure when PRD requires it |

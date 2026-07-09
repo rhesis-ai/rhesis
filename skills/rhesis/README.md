@@ -4,7 +4,7 @@ Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platf
 
 This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
-For **PRD-driven scaffolding** (requirements → behaviors + metrics + tags + test sets without endpoint exploration), see [`rhesis-prd-scaffold`](../rhesis-prd-scaffold/README.md).
+For **building a test foundation from your PRD** (requirements → behaviors + custom metrics + tags + test sets), see [`rhesis-prd-scaffold`](../rhesis-prd-scaffold/README.md).
 
 > **Note:** This is different from Rhesis's inbound MCP connector (where the platform consumes tools like Notion or GitHub). Here, an external AI agent calls *into* Rhesis to drive the testing platform.
 
