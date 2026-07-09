@@ -205,6 +205,9 @@ BACKEND_URL=http://localhost:8080
 JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# Rhesis API Key (get one at https://app.rhesis.ai)
+RHESIS_API_KEY=your_api_key
 EOF
 }
 
