@@ -173,7 +173,17 @@ class PermissionAuthorizationProvider:
 
         if org_role is None:
             # No org-level floor to enforce — the explicit project role (if
-            # any) is the whole answer.
+            # any) is the whole answer. If the membership row exists but
+            # role_id is NULL (e.g. its custom role was deleted — see
+            # delete_role's docstring in router.py), this deliberately
+            # resolves to None (deny) rather than falling back to some
+            # default project role: with no org role to compare against,
+            # there is no floor to fall back to, and granting access here
+            # would let a role deletion silently re-grant standard access to
+            # holders an admin may be deliberately locking out. Community
+            # mode's DefaultAuthorizationProvider treats a bare membership
+            # row as implicit standard access with no equivalent "delete the
+            # role" trigger, so the two tiers are not directly comparable.
             return explicit_role
 
         if org_role.level >= self._IMPLICIT_PROJECT_ACCESS_LEVEL:
