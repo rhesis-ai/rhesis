@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import functools
 import logging
-import os
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -17,17 +16,16 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from rhesis.sdk import RhesisClient, endpoint
-from rhesis.sdk.clients import DisabledClient
-
-# Must be set before any `haystack` import (pulled in transitively by
-# dr_rhesis.session) so span input/output content is captured, not dropped.
-# None of the imports above pull in haystack, so this is early enough.
-os.environ.setdefault("HAYSTACK_CONTENT_TRACING_ENABLED", "true")
-
+# Haystack content tracing (input/output capture) is enabled in-memory by the
+# SDK at auto_instrument("haystack") time, gated on RHESIS_DISABLE_CONTENT_CAPTURE.
+# We deliberately do NOT set HAYSTACK_CONTENT_TRACING_ENABLED in os.environ here:
+# that would leak across the process after disable() and override a user's opt-out,
+# which is the regression Arman flagged in PR #2009 point 2.
 from dr_rhesis.pipeline import is_rhesis_tracing_configured  # noqa: E402
 from dr_rhesis.session import default_store, run_chat_turn  # noqa: E402
 from dr_rhesis.state import Phase  # noqa: E402
+from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.clients import DisabledClient
 
 logging.basicConfig(
     level=logging.INFO,

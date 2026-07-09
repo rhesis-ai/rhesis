@@ -20,7 +20,6 @@ Run with:
     uv run --extra haystack haystack_example.py
 """
 
-import os
 import time
 from pathlib import Path
 
@@ -48,9 +47,13 @@ def example_simple_pipeline():
     from haystack.utils import Secret
 
     prompt = PromptBuilder(template="Answer briefly: {{ query }}")
-    api_key = os.getenv("OPENAI_API_KEY")
+    # Secret.from_env_var always returns a truthy Secret, so there is no real
+    # fallback path — use a placeholder token only when the env var is unset.
+    api_key = Secret.from_env_var("OPENAI_API_KEY", strict=False)
+    if api_key.resolve_value() is None:
+        api_key = Secret.from_token("sk-test")
     generator = OpenAIGenerator(
-        api_key=Secret.from_token(api_key) if api_key else Secret.from_token("sk-test"),
+        api_key=api_key,
         model="gpt-4o-mini",
     )
 

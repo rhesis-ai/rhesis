@@ -38,7 +38,9 @@ def _translate_events(
     for synth_name, synth_attrs in mapping.synthesize_events(attributes, span_name=span_name):
         if synth_name in existing_names:
             continue
-        new_events.append(Event(name=synth_name, attributes=synth_attrs, timestamp=0))
+        # Omit timestamp for synthesized events to match genai.translate_events(),
+        # which lets the SDK use the parent span's/default timestamp instead of 0.
+        new_events.append(Event(name=synth_name, attributes=synth_attrs))
         existing_names.add(synth_name)
 
     return new_events

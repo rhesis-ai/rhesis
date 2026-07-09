@@ -254,8 +254,10 @@ def translate_attributes(attributes: Mapping[str, Any], *, span_name: str) -> di
     kind = _classify_component(component_type, fqn)
 
     translated.setdefault(AIAttributes.OPERATION_TYPE, _operation_to_ai_type(kind))
-    if component_name:
-        translated.setdefault(AIAttributes.AGENT_NAME, str(component_name))
+    # Reserve ai.agent.name for pipeline/agent spans (set in the branch above).
+    # For individual components we keep the component identity under its native
+    # haystack.component.name tag rather than overloading ai.agent.name, which
+    # otherwise mislabels LLM/tool/retrieval components as agents.
 
     if kind == "tool":
         translated.setdefault(AIAttributes.TOOL_NAME, str(component_name or component_type))
