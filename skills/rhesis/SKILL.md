@@ -1,11 +1,31 @@
 ---
 name: rhesis
-description: Design, run, and analyze AI test suites on the Rhesis platform. Use when the user wants to test an AI endpoint or chatbot, create test sets, run evaluations, explore endpoint capabilities, or analyze test results.
+description: >-
+  Design, run, and analyze AI test suites on Rhesis — explore endpoints, build
+  test foundations from PRDs/requirements, create behaviors and metrics, execute
+  tests, and analyze results. Use when testing an AI endpoint, pasting a PRD or
+  product spec, or working with Rhesis via MCP.
 ---
 
-# Rhesis Platform Skill
+# Rhesis Agent Skill
 
-This skill teaches you how to work effectively with the Rhesis platform: explore what an AI endpoint can do, design a test suite, create entities on the platform, run tests, and analyze results. All platform operations are performed through the `rhesis` MCP server tools.
+One skill for the full Rhesis workflow: **explore endpoints**, **build test foundations from PRDs**, **run tests**, and **analyze results**. All platform operations use the `rhesis` MCP server.
+
+## Choose a workflow
+
+| User intent | Workflow | Guide |
+|---|---|---|
+| Paste PRD / requirements / product spec | **PRD → test foundation** | `references/prd-workflow.md` |
+| Test an endpoint, run suites, analyze runs | **Platform** (discover → plan → execute) | Below |
+| Direct command ("list test sets", "improve metric X") | **Direct** | [Direct requests](#direct-requests) |
+
+**Routing rules:**
+
+- PRD, spec, guardrails doc, or "build from requirements" → **PRD workflow** first. Do not explore an endpoint unless the user asks after the foundation exists.
+- Endpoint name, test run, exploration → **platform workflow**.
+- Ambiguous `/rhesis` with no context → ask once: *explore an endpoint*, *build from a PRD*, or *run/analyze existing tests*?
+
+PRD workflow creates org entities — **always present the plan and wait for approval** before any create/generate call.
 
 ## Prerequisites
 
@@ -104,12 +124,13 @@ Execute the approved plan exactly — no additions, substitutions, or extra enti
 2. **Create project** — only if the plan includes one. Use exact name and description from the plan.
 3. **Create new behaviors** — for each behavior marked **(new)**, call `create_behavior` with both `name` and `description`. Skip behaviors marked **(reuse)**.
 4. **Resolve behavior IDs** — batch OR filters on `list_behaviors` for any IDs you still need.
-5. **Create/improve metrics** — for each metric: **(reuse)** skip; **(improve)** call `improve_metric` (read with `get_metric` first); **(new)** call `create_metric` with the exact plan name. Do NOT use `generate_metric` during plan execution.
+5. **Create/improve metrics** — for each metric: **(reuse)** skip; **(improve)** call `improve_metric` (read with `get_metric` first); **(new)** call `create_metric` with the exact plan name and required `metric_scope` (`["Single-Turn"]`, `["Multi-Turn"]`, or both). Do NOT use `generate_metric` during plan execution. See `references/prd/scope-alignment.md` when planning from a PRD.
 6. **Link metrics to behaviors** — `add_behavior_to_metric` for every mapping. All mappings must complete before generating test sets.
-7. **Generate test sets** — for each test set, call `generate_test_set` with `name`, `config` (generation_prompt + behaviors), `num_tests`, `test_type`, and optional `sources` from `list_sources` or `create_source` (Single-Turn only). Response includes `task_id`.
-8. **Wait for generation** — poll `get_job_status` until `SUCCESS`; extract `test_set_id` from `result`.
-9. **Verify** — call `get_test_set` and `list_test_set_tests` to spot-check generated content.
-10. **Report and offer** — summarize what was created (by name, never IDs) and offer to run the tests.
+7. **Assign tags** (PRD / planned tags only) — `assign_tag` with `entity_type` `"Behavior"` or `"Metric"` after metrics exist, before generating test sets.
+8. **Generate test sets** — for each test set, call `generate_test_set` with `name`, `config` (generation_prompt + behaviors), `num_tests`, `test_type`, and optional `sources` from `list_sources` or `create_source` (Single-Turn only). Response includes `task_id`.
+9. **Wait for generation** — poll `get_job_status` until `SUCCESS`; extract `test_set_id` from `result`.
+10. **Verify** — call `get_test_set` and `list_test_set_tests` to spot-check generated content.
+11. **Report and offer** — summarize what was created (by name, never IDs) and offer to run the tests.
 
 ### Naming conventions
 
@@ -125,6 +146,7 @@ Never use snake_case, camelCase, or prefixes like "is_" or "check_".
 - `metric_type` in `create_metric`: must always be `"custom-prompt"`
 - `backend_type` in `create_metric`: must always be `"custom"`
 - `score_type`: must be exactly `"numeric"` or `"categorical"` — no other values
+- `metric_scope`: required list — each entry `"Single-Turn"` and/or `"Multi-Turn"`. Platform drops metrics that do not match the test's type.
 - `threshold_operator`: must be one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="` — not words like "gte"
 - `categories` (categorical metrics): must be a non-empty list of strings
 - `config.behaviors` in `generate_test_set`: must be a non-empty list of behavior name strings
@@ -227,7 +249,7 @@ Not every request needs the full workflow. If the user asks for a specific actio
 - "Fix metric threshold" → `get_metric` → `update_metric`
 - "Unlink metric from behavior" → `get_metric_behaviors` → `remove_behavior_from_metric`
 
-Only enter the full phased workflow when the user asks to design or create a test suite from scratch.
+Only enter the full phased workflow when the user asks to design or create a test suite from scratch, or provides a PRD (see `references/prd-workflow.md`).
 
 ## Security and boundaries
 

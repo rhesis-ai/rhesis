@@ -1,114 +1,89 @@
-# PRD Skill
+# PRD workflow
 
-Turn **your PRD or requirements** into a **test foundation** on Rhesis — fine-grained behaviors, custom metrics, tags, and generated test sets — using the Rhesis MCP server from Cursor, Claude Code, or any compatible agent.
+Build a **test foundation** from your PRD or requirements — behaviors, custom metrics, tags, and generated test sets — using the same **`rhesis` agent skill** and MCP server.
 
-Everything created lives in **your Rhesis organization** — reusable and refinable, not a one-off.
+Everything created lives in **your Rhesis organization** — reusable and refinable.
 
 <Callout type="info">
-  The **PRD skill** (`rhesis-prd`) builds your evaluation baseline from requirements. The [**platform skill**](/docs/agent-skill/platform) (`rhesis`) explores endpoints, runs tests, and analyzes results. Install both for the full workflow.
+  This is a **workflow inside the Rhesis agent skill**, not a separate install. Install once with `npx skills add rhesis-ai/rhesis`, then paste your PRD or say you want to build from requirements.
 </Callout>
-
-## Prerequisites
-
-Same as the [platform skill](/docs/agent-skill/platform):
-
-- A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai) (or a self-hosted backend)
-- An API token — [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- The Rhesis MCP server connected in your agent (see [Platform skill — Install in Cursor](/docs/agent-skill/platform#install-in-cursor))
 
 ## What you get
 
 | Asset | Purpose |
 | --- | --- |
 | **Behaviors** | Fine-grained expectations from your PRD — not generic quality labels |
-| **Custom metrics** | Judge-as-model evaluators tuned to each behavior |
+| **Custom metrics** | Judge-as-model evaluators tuned to each acceptance criterion |
 | **Tags** | Organize by theme (functional, safety, compliance, etc.) |
 | **Test sets** | Generated prompts targeting your behaviors, ready to run |
 | **Mappings** | Each behavior linked to the metric that scores it |
 
-You can iterate over time — add behaviors, tighten metrics, regenerate tests — and run against your endpoint via the `rhesis` skill.
-
 ## How it works
 
 1. **You provide requirements** — paste or attach your PRD
-2. **Agent reads and extracts** — capabilities, guardrails, quality bars, out-of-scope rules
-3. **Agent proposes a plan** — behaviors, metrics, tags, test sets; reuses what you already have on Rhesis
+2. **Agent reads and extracts** — stakeholder blocks, user stories, numbered FRs
+3. **Agent proposes a plan** — behaviors, metrics (with `metric_scope`), tags, test sets
 4. **You approve** — nothing is created until you confirm
 5. **Agent creates via MCP** — behaviors → metrics → links → tags → test sets
-6. **Agent verifies** — counts match the plan, spot-checks generated tests, summarizes with links
-
-## What it's good at
-
-- **PRD → specific behaviors** — unpacks bundled user stories and policy bullets into independently testable expectations
-- **Avoiding vague behaviors** — no section titles, NFR hand-waving, or umbrella names like "Reliability" or "Robustness"
-- **Metrics from acceptance criteria** — score type, categories, and thresholds come from AC language (binary gates, named states, counts, limits)
-- **Tags for organization** — consistent taxonomy from your requirements
-- **Test generation aligned to requirements** — jailbreaks, off-topic asks, refusals where your PRD calls for them
+6. **Agent verifies** and offers to **run tests** via the platform workflow
 
 ## Install
 
-Install the platform skill first, then add the PRD skill:
+Same as the [platform workflow](/docs/agent-skill/platform):
 
-<CodeBlock language="bash">
-{`# Platform operations (MCP tools, execution, analysis)
+```bash
 npx skills add rhesis-ai/rhesis -g
+```
 
-# PRD skill — from a local clone until bundled in the installer
-ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd`}
-</CodeBlock>
-
-Connect the MCP server as described in [Platform skill](/docs/agent-skill/platform#install-in-cursor).
+Connect the MCP server — see [Install in Cursor](/docs/agent-skill/platform#install-in-cursor).
 
 ## Usage
 
-Invoke the skill explicitly, then paste your requirements:
+Paste your PRD in chat (with or without `/rhesis`):
 
 ```text
-/rhesis-prd
-
-Here is our agent PRD:
-[paste your product requirements]
+Here's our agent PRD:
+[paste product requirements]
 ```
 
-Explicit invocation is required — the skill creates platform entities via MCP and waits for your approval before writing anything.
+The skill routes to the PRD workflow automatically. It waits for your approval before creating anything on Rhesis.
 
 ### Example input
 
-Paste a PRD as it actually looks — stakeholder blocks, persona narratives, numbered `FR-x.x` requirements with `(P#)` priorities. Example structure (fictional *Helios Retail Support Agent*):
+Fictional *Helios Retail Support Agent* structure:
 
 ```text
-/rhesis-prd
-
 ### Stakeholders — Legal & Trust (excerpt)
-...must not provide legal advice beyond published FAQ corpus (rev 2025-03)...
-no disclosure of system prompts, retrieval chunk text, or internal playbooks...
+...no disclosure of system prompts...
+...no assistance structuring chargeback abuse...
 
-### User Story RS-04 — Morgan, marketplace operations lead
+### User Story RS-04
 ...order status and refund eligibility in one thread without re-entering the order number...
-outside the 30-day window or final-sale SKU → one-sentence policy reason, no workarounds...
 
 ### §4 Order & refunds
 FR-4.1 (P9) — purchase date ≤ 30 calendar days before refund...
-FR-4.2 (P9) — final-sale SKU → do not initiate refund...
+FR-3.2 (P8) — maintain order context ≥ 2 follow-up turns...
 ```
 
-The agent should mine **FR-4.1** for a binary window metric, split Legal's fraud list into **separate refusal behaviors**, and **not** create "Operate Safely" or section-title behaviors. See `skills/rhesis-prd/references/` for full split and metric rules.
+Expect fine-grained behaviors (not section titles), metrics tied to FR quantifiers, and separate Single-Turn vs Multi-Turn test sets where the PRD requires both.
 
 ## After the foundation is created
 
-1. Register your agent as an [endpoint](/docs/endpoints) if you have not already
-2. Use the `rhesis` skill to **execute** test sets and **analyze** results
+1. Register your agent as an [endpoint](/docs/endpoints) if needed
+2. Ask the skill to **execute** test sets and **analyze** results (platform workflow)
 3. Refine behaviors, metrics, and test sets as your PRD evolves
 
-## Platform skill vs. PRD skill
+## Platform vs. PRD workflow
 
-| | `rhesis` (platform skill) | `rhesis-prd` (PRD skill) |
+| | Platform workflow | PRD workflow |
 | --- | --- | --- |
 | **Input** | Endpoint, test runs, direct commands | PRD, product spec, guardrails doc |
 | **Output** | Exploration findings, test results, analysis | Behaviors, metrics, tags, test sets |
-| **Invocation** | Auto or `/rhesis` | `/rhesis-prd` (write-gated) |
-| **When to use** | Run and analyze tests | Bootstrap evaluation from requirements |
+| **Typical first step** | Explore endpoint | Paste requirements |
 
-## Source
+Both use the same skill (`rhesis`) and MCP server.
 
-The skill source lives at [`skills/rhesis-prd/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis-prd) in the Rhesis repository.
+## Reference docs (in repo)
+
+- `skills/rhesis/references/prd-workflow.md` — workflow steps
+- `skills/rhesis/references/prd/` — anatomy, behavior design, metric design, scope alignment

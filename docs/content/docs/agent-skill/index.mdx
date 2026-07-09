@@ -1,31 +1,36 @@
 # Agent Skill
 
-Rhesis ships portable **agent skills** that teach your AI interface how to work with the platform via the Rhesis MCP server.
+Rhesis ships one **agent skill** (`rhesis`) that covers the full workflow via the Rhesis MCP server — from PRD to test execution.
 
-| Skill | Package | When to use |
-| --- | --- | --- |
-| [**Platform skill**](/docs/agent-skill/platform) | `rhesis` | Explore endpoints, design and run tests, analyze results |
-| [**PRD skill**](/docs/agent-skill/prd) | `rhesis-prd` | Turn a PRD or requirements doc into behaviors, metrics, tags, and test sets |
+| Workflow | When to use |
+| --- | --- |
+| [**Platform**](/docs/agent-skill/platform) | Explore endpoints, design and run tests, analyze results |
+| [**PRD → test foundation**](/docs/agent-skill/prd) | Paste requirements; create behaviors, metrics, tags, and test sets |
 
-Install both for the full workflow: bootstrap evaluation from requirements with the PRD skill, then execute and analyze with the platform skill.
+One install. Invoke with `/rhesis` or natural language — the skill routes to the right workflow from your message.
 
 <Callout type="info">
-  **This is different from Rhesis's inbound MCP connector** (where the platform imports content from Notion, GitHub, or Jira). Skills let an external AI agent call *into* Rhesis to drive testing workflows.
+  **This is different from Rhesis's inbound MCP connector** (where the platform imports content from Notion, GitHub, or Jira). The agent skill lets an external AI interface call *into* Rhesis to drive testing workflows.
 </Callout>
 
 ## Quick install
 
 <CodeBlock language="bash">
-{`# Platform skill — explore, run, analyze
-npx skills add rhesis-ai/rhesis -g
-
-# PRD skill — from a local clone until bundled in the installer
-ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd`}
+{`npx skills add rhesis-ai/rhesis -g`}
 </CodeBlock>
 
-Connect the MCP server in your agent — see [Platform skill — Install in Cursor](/docs/agent-skill/platform#install-in-cursor).
+Connect the MCP server in your agent — see [Install in Cursor](/docs/agent-skill/platform#install-in-cursor).
+
+## Examples
+
+```text
+# Platform — explore and test an endpoint
+"I want to test my travel chatbot. The endpoint is called 'travel-agent-v2'."
+
+# PRD — build a test foundation first
+"Here's our agent PRD: [paste requirements]"
+```
 
 ## Source
 
-- [`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) — platform skill
-- [`skills/rhesis-prd/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis-prd) — PRD skill
+[`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) — skill instructions and reference docs (`references/prd/` for PRD workflow).

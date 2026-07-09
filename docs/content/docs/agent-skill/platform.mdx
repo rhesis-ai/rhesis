@@ -1,8 +1,8 @@
-# Platform skill
+# Platform workflow
 
 Use Rhesis from Claude Code, Cursor, or any compatible AI interface — without the Rhesis web UI.
 
-The **platform skill** (`rhesis`) packages the platform's domain knowledge into a portable skill file. Once installed, your AI interface can explore endpoints, design test suites, generate and run tests, and analyze results using the Rhesis MCP server as its backend.
+The **Rhesis agent skill** (`rhesis`) packages platform knowledge into one portable skill file: explore endpoints, design test suites, generate and run tests, and analyze results. For **building from a PRD first**, see the [PRD workflow](/docs/agent-skill/prd) — same install, same skill.
 
 <Callout type="info">
   **This is different from Rhesis's inbound MCP connector** (where the platform imports content from Notion, GitHub, or Jira). Here, an external AI agent calls *into* Rhesis to drive the testing workflow.
@@ -123,15 +123,15 @@ You can also use it for direct operations:
 "Link the Accuracy metric to the Provides Accurate Information behavior"
 ```
 
-## PRD skill
+## PRD workflow
 
-If you have a product requirements document and want a **test foundation** on Rhesis before running tests, use the [PRD skill](/docs/agent-skill/prd). Paste your PRD with `/rhesis-prd` to create behaviors, custom metrics, tags, and generated test sets via MCP — then use this platform skill to execute and analyze.
+If you have a product requirements document and want a **test foundation** before running tests, paste your PRD in chat — the skill routes to the [PRD workflow](/docs/agent-skill/prd). After approval it creates behaviors, metrics, tags, and test sets via MCP; then continue here to execute and analyze.
 
-## Platform skill vs. native Architect
+## Agent skill vs. native Architect
 
 The Rhesis platform has a built-in Architect agent with a web chat UI. This skill is a complement, not a replacement:
 
-| | Native Architect | Platform skill |
+| | Native Architect | Rhesis agent skill |
 |---|---|---|
 | **Access** | Rhesis web UI | Your existing AI interface |
 | **Plan tracking** | Structured plan with progress bar | Conversational, host agent context |
@@ -165,4 +165,4 @@ Use the native Architect for maximum structural control. Use this skill when you
 
 The skill source lives at [`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) in the Rhesis repository. Reference files covering MCP tools, OData query patterns, exploration strategies, and result analysis are in `skills/rhesis/references/`.
 
-See also the [PRD skill](/docs/agent-skill/prd) (`skills/rhesis-prd/`) for building a test foundation from requirements.
+See also the [PRD workflow](/docs/agent-skill/prd) (`skills/rhesis/references/prd/`) for building a test foundation from requirements.

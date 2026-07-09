@@ -2,9 +2,9 @@
 
 Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platform — from within Claude Code, Cursor, Codex, or [any compatible AI interface](https://github.com/vercel-labs/skills#supported-agents).
 
-This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
+This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, **build a test foundation from a PRD**, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
-For **building a test foundation from your PRD** (requirements → behaviors + custom metrics + tags + test sets), see [`rhesis-prd`](../rhesis-prd/README.md).
+**One skill, two workflows:** platform (explore → run → analyze) and PRD → test foundation. See `references/prd-workflow.md`.
 
 > **Note:** This is different from Rhesis's inbound MCP connector (where the platform consumes tools like Notion or GitHub). Here, an external AI agent calls *into* Rhesis to drive the testing platform.
 
@@ -102,6 +102,10 @@ Refer to your agent's documentation for the exact config file location and forma
 Once installed, start a conversation naturally:
 
 ```
+"Here's our agent PRD: [paste requirements]"
+```
+
+```
 "I want to test my travel chatbot. The endpoint is called 'travel-agent-v2'."
 ```
 
@@ -136,6 +140,8 @@ You can also use it for direct operations without the full workflow:
 | `references/odata-patterns.md` | `$filter`, `$select`, navigation properties, batched lookups |
 | `references/exploration-strategies.md` | Domain probing, capability mapping, boundary discovery |
 | `references/result-analysis.md` | Single-run summaries, run comparison, failure patterns |
+| `references/prd-workflow.md` | PRD → test foundation workflow |
+| `references/prd/` | PRD anatomy, behavior/metric design, scope alignment |
 
 ---
 
