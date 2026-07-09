@@ -321,7 +321,9 @@ export default function TestRunMainView({
         return newMap;
       });
       void refetchTestResults();
-      queryClient.invalidateQueries({ queryKey: testRunKeys.all() });
+      void queryClient.invalidateQueries({
+        queryKey: [...testRunKeys.all(), 'list'],
+      });
     },
     [refetchTestResults, queryClient]
   );
