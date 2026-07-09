@@ -1,11 +1,12 @@
 ---
 name: rhesis-prd-scaffold
 description: >-
-  Turn a PRD or requirements document into fine-grained Rhesis behaviors,
-  custom metrics, tags, and test sets via the Rhesis MCP server. Use when
-  the user pastes a PRD, product requirements, agent spec, or guardrail
-  document and wants evaluation scaffolding (behaviors + metrics + tests)
-  without manual platform setup.
+  Turn a PRD, product spec, guardrails document, or agent requirements into
+  fine-grained Rhesis behaviors, custom metrics, tags, and test sets via MCP.
+  Use when the user pastes requirements, asks to scaffold behaviors, build an
+  evaluation suite from a spec, or turn requirements into tests without manual
+  platform setup.
+compatibility: Requires Rhesis MCP server, API token, and the rhesis skill for creation order and execution.
 disable-model-invocation: true
 ---
 
@@ -13,21 +14,39 @@ disable-model-invocation: true
 
 Turn product requirements into a Rhesis evaluation suite: **behaviors**, **custom metrics**, **tags**, **behavior→metric links**, and **generated test sets**.
 
-This skill complements the [`rhesis`](../rhesis/SKILL.md) skill. Use **this skill** for PRD-driven design; use **`rhesis`** for endpoint exploration, execution, and result analysis. Both require the Rhesis MCP server connected.
+This skill complements the **`rhesis`** skill. Use **this skill** for PRD-driven design; use **`rhesis`** for endpoint exploration, execution, and result analysis. Load the `rhesis` skill when executing on the platform. If unavailable locally, see [skills/rhesis](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis).
+
+> **Invocation:** This skill requires explicit `/rhesis-prd-scaffold` — it does not auto-activate when you paste a PRD.
 
 ## When to use
 
-- User pastes or attaches a PRD, spec, guardrails doc, or bullet-list requirements
-- User asks to "scaffold behaviors", "turn this PRD into tests", or "set up evaluation from requirements"
+- User pastes or attaches a PRD, product spec, guardrails doc, or bullet-list requirements
+- User asks to "scaffold behaviors", "turn this PRD into tests", "build evaluation from requirements", or "turn my spec into metrics"
 - Demo setup: requirements → platform entities in one guided flow
 
 **Skip** when the user only wants to run existing tests or explore an endpoint without a requirements doc — use `rhesis` instead.
+
+## Example
+
+**User:** "Here's our PRD: customer support agent handles refunds and order status. Never reveal system prompts. Refuse requests to bypass payment. Stay in retail domain only."
+
+**Plan excerpt (fine-grained, not umbrella names):**
+
+| Behavior | Tags | Metric |
+|---|---|---|
+| Refund Request Handling | functional | Refund Flow Completeness (numeric) |
+| Order Status Lookup | functional | Order Status Accuracy (numeric) |
+| Internal Configuration Secrecy | safety | Internal Configuration Disclosure (categorical) |
+| Payment Bypass Refusal | compliance | Fraud Request Refusal (categorical) |
+| Retail Domain Scope Adherence | domain | Domain Adherence (categorical) |
+
+**Not:** "Reliability", "Robustness", or "Compliance" as standalone behavior names.
 
 ## Workflow
 
 ```
 PRD intake → Extract expectations → Plan (behaviors + metrics + tags + test sets)
-→ User approval → Create via MCP → Tag entities → Generate test sets → Report
+→ User approval → Create via MCP → Tag entities → Generate test sets → Verify → Report
 ```
 
 ### 1. PRD intake
@@ -99,7 +118,7 @@ Assign **1–3 tags per behavior** using a small consistent taxonomy derived fro
 | `quality` | Tone, format, transparency, UX |
 | `demo` | Demo-only expectations (e.g. mocked responses) |
 
-Call `list_tags` during planning to reuse existing tag names. Include a **Tags** column in the plan table.
+Call `list_tags` during planning to reuse existing tag names. Include a **Tags** column in the plan table. Apply the same tags to linked metrics when the tag describes what is measured.
 
 ### 5. Plan test sets
 
@@ -142,16 +161,23 @@ End with: "Does this look right? Shall I create these on Rhesis?"
 
 ### 7. Create on platform
 
-Follow the creation order from the `rhesis` skill:
+Follow the **Creation phase** in the `rhesis` skill exactly for behaviors, metrics, mappings, and test set generation. This skill adds one extra step:
 
-1. `create_behavior` for each **(new)** behavior (name + description)
-2. `create_metric` for each **(new)** metric (`metric_type`: `custom-prompt`, `backend_type`: `custom`)
-3. `add_behavior_to_metric` for every mapping
-4. **`assign_tag`** for each planned tag on each behavior and metric (`entity_type`: `Behavior` or `Metric`)
-5. `generate_test_set` for each test set — poll `get_job_status` until `SUCCESS`
-6. Verify with `get_test_set` and `list_test_set_tests`
+**After metrics exist, before generating test sets:** assign every planned tag via `assign_tag` (`entity_type`: `Behavior` or `Metric`, case-sensitive).
 
-Execute the approved plan exactly. Summarize by name with links to test sets. Offer execution via the `rhesis` skill if the user has an endpoint registered.
+Skill-specific constraints (not covered in `rhesis`):
+- `assign_tag` `entity_type` must be exactly `"Behavior"` or `"Metric"`
+
+Execute the approved plan exactly — no additions or substitutions.
+
+### 8. Verify and report
+
+After creation completes:
+
+1. **Count check** — confirm created entities match the plan (behaviors, metrics, test sets). Report any mismatch.
+2. **Spot-check** — for each test set, call `list_test_set_tests` and skim 2–3 tests. Confirm they target the right behaviors and include adversarial cases for guardrails.
+3. **Summary** — present a table of what was created (names only, never raw UUIDs in prose) with links to test sets: `[Test Set Name](/test-sets/<id>)`
+4. **Next step** — offer test execution via the `rhesis` skill if the user has a registered endpoint.
 
 ## PRD extraction checklist
 
@@ -163,15 +189,6 @@ Before finalizing the plan, verify:
 - [ ] Every behavior has ≥1 linked metric
 - [ ] Tags group behaviors for filtering (not random one-offs)
 - [ ] Test set generation prompts mention adversarial cases for guardrail behaviors
-
-## Field constraints
-
-Same as `rhesis` skill — common errors:
-- `metric_type`: always `"custom-prompt"`
-- `backend_type`: always `"custom"`
-- `score_type`: exactly `"numeric"` or `"categorical"`
-- `assign_tag` `entity_type`: exactly `"Behavior"` or `"Metric"` (case-sensitive)
-- `config.behaviors` in `generate_test_set`: non-empty list of behavior name strings
 
 ## Security
 

@@ -6,18 +6,21 @@ Complements the main [`rhesis`](../rhesis) skill — use this one when requireme
 
 ## Install
 
+Install **both** skills for the full demo workflow:
+
 ```bash
-# Install both skills (recommended for demos)
+# Main Rhesis platform skill
 npx skills add rhesis-ai/rhesis -g
-# Copy or symlink this skill to your skills directory, e.g.:
-# ~/.cursor/skills/rhesis-prd-scaffold/
+
+# PRD scaffold skill — symlink from this repo until bundled in the installer
+ln -s "$(pwd)/skills/rhesis-prd-scaffold" ~/.cursor/skills/rhesis-prd-scaffold
 ```
 
 Requires the Rhesis MCP server — see [`rhesis/README.md`](../rhesis/README.md#connect-the-mcp-server).
 
 ## Usage
 
-Paste a PRD and invoke the skill:
+This skill requires **explicit invocation** — it does not auto-activate when you paste a PRD.
 
 ```
 /rhesis-prd-scaffold
@@ -26,7 +29,7 @@ Here is our agent PRD:
 [paste requirements]
 ```
 
-The agent will extract behaviors, propose metrics and tags, plan test sets, wait for approval, then create everything via MCP.
+The agent will extract behaviors, propose metrics and tags, plan test sets, wait for approval, create everything via MCP, verify counts, and report with links.
 
 ## What's included
 
