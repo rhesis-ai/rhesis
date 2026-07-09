@@ -5,16 +5,16 @@ Turn **your PRD or requirements** into a **test foundation** on Rhesis — fine-
 Everything created lives in **your Rhesis organization** — reusable and refinable, not a one-off.
 
 <Callout type="info">
-  The **PRD skill** (`rhesis-prd`) builds your evaluation baseline from requirements. The main [**Agent Skill**](/docs/agent-skill) (`rhesis`) explores endpoints, runs tests, and analyzes results. Install both for the full workflow.
+  The **PRD skill** (`rhesis-prd`) builds your evaluation baseline from requirements. The [**platform skill**](/docs/skills/platform) (`rhesis`) explores endpoints, runs tests, and analyzes results. Install both for the full workflow.
 </Callout>
 
 ## Prerequisites
 
-Same as the [Agent Skill](/docs/agent-skill):
+Same as the [platform skill](/docs/skills/platform):
 
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai) (or a self-hosted backend)
 - An API token — [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- The Rhesis MCP server connected in your agent (see [Agent Skill — Install in Cursor](/docs/agent-skill#install-in-cursor))
+- The Rhesis MCP server connected in your agent (see [Platform skill — Install in Cursor](/docs/skills/platform#install-in-cursor))
 
 ## What you get
 
@@ -47,7 +47,7 @@ You can iterate over time — add behaviors, tighten metrics, regenerate tests �
 
 ## Install
 
-Install the main Agent Skill first, then add the PRD skill:
+Install the platform skill first, then add the PRD skill:
 
 <CodeBlock language="bash">
 {`# Platform operations (MCP tools, execution, analysis)
@@ -57,7 +57,7 @@ npx skills add rhesis-ai/rhesis -g
 ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd`}
 </CodeBlock>
 
-Connect the MCP server as described in [Agent Skill](/docs/agent-skill#install-in-cursor).
+Connect the MCP server as described in [Platform skill](/docs/skills/platform#install-in-cursor).
 
 ## Usage
 
@@ -89,9 +89,9 @@ The agent proposes fine-grained behaviors (for example, **Refund Request Handlin
 2. Use the `rhesis` skill to **execute** test sets and **analyze** results
 3. Refine behaviors, metrics, and test sets as your PRD evolves
 
-## Agent Skill vs. PRD skill
+## Platform skill vs. PRD skill
 
-| | `rhesis` (Agent Skill) | `rhesis-prd` (PRD skill) |
+| | `rhesis` (platform skill) | `rhesis-prd` (PRD skill) |
 | --- | --- | --- |
 | **Input** | Endpoint, test runs, direct commands | PRD, product spec, guardrails doc |
 | **Output** | Exploration findings, test results, analysis | Behaviors, metrics, tags, test sets |

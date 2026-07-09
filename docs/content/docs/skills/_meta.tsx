@@ -2,7 +2,8 @@ import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
   index: 'Overview',
-  prd: 'PRD Skill',
+  platform: 'Platform skill',
+  prd: 'PRD skill',
 }
 
 export default meta

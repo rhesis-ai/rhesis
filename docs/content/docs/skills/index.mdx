@@ -1,0 +1,31 @@
+# Skills
+
+Rhesis ships portable **agent skills** that teach your AI interface how to work with the platform via the Rhesis MCP server.
+
+| Skill | Package | When to use |
+| --- | --- | --- |
+| [**Platform skill**](/docs/skills/platform) | `rhesis` | Explore endpoints, design and run tests, analyze results |
+| [**PRD skill**](/docs/skills/prd) | `rhesis-prd` | Turn a PRD or requirements doc into behaviors, metrics, tags, and test sets |
+
+Install both for the full workflow: bootstrap evaluation from requirements with the PRD skill, then execute and analyze with the platform skill.
+
+<Callout type="info">
+  **This is different from Rhesis's inbound MCP connector** (where the platform imports content from Notion, GitHub, or Jira). Skills let an external AI agent call *into* Rhesis to drive testing workflows.
+</Callout>
+
+## Quick install
+
+<CodeBlock language="bash">
+{`# Platform skill — explore, run, analyze
+npx skills add rhesis-ai/rhesis -g
+
+# PRD skill — from a local clone until bundled in the installer
+ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd`}
+</CodeBlock>
+
+Connect the MCP server in your agent — see [Platform skill — Install in Cursor](/docs/skills/platform#install-in-cursor).
+
+## Source
+
+- [`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) — platform skill
+- [`skills/rhesis-prd/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis-prd) — PRD skill

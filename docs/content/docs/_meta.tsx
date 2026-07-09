@@ -79,7 +79,7 @@ const meta: MetaRecord = {
   },
 
   architect: 'Architect',
-  'agent-skill': 'Agent Skill',
+  skills: 'Skills',
   organizations: 'Organizations & Team',
   deployment: 'Deployment',
 
