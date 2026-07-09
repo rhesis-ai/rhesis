@@ -1,28 +1,28 @@
 ---
-name: rhesis-prd-scaffold
+name: rhesis-prd
 description: >-
   Turn a PRD, product spec, guardrails document, or agent requirements into a
   Rhesis test foundation — fine-grained behaviors, custom metrics, tags, and
   test sets — via MCP. Use when the user provides requirements and wants a
-  durable evaluation baseline scaffolded on the platform without hand-building
+  durable evaluation baseline built on the platform without hand-building
   every behavior and metric.
 compatibility: Requires Rhesis MCP server, API token, and the rhesis skill for creation order and execution.
 disable-model-invocation: true
 ---
 
-# Rhesis PRD Scaffold
+# Rhesis PRD
 
 Turn **your PRD** into a **test foundation** on Rhesis: fine-grained **behaviors**, **custom metrics**, **tags**, **behavior→metric links**, and **generated test sets** — created through the MCP server from your existing AI environment (Cursor, Claude Code, etc.).
 
 A test foundation is the durable baseline you run, extend, and refine as your agent evolves. These assets live in your organization — **reusable and refinable, not a one-off**.
 
 This skill complements the **`rhesis`** skill:
-- **`rhesis-prd-scaffold`** — requirements → test foundation (this skill)
+- **`rhesis-prd`** — requirements → test foundation (this skill)
 - **`rhesis`** — endpoint exploration, test execution, result analysis
 
 Load the `rhesis` skill when creating entities or running tests. If unavailable locally, see [skills/rhesis](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis).
 
-> **Invocation:** Requires `/rhesis-prd-scaffold` because it creates platform entities via MCP and gates writes behind your approval.
+> **Invocation:** Requires `/rhesis-prd` because it creates platform entities via MCP and gates writes behind your approval.
 
 ## When to use
 

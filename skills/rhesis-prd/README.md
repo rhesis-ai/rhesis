@@ -1,11 +1,11 @@
-# Rhesis PRD Scaffold Skill
+# Rhesis PRD Skill
 
 Turn **your PRD or requirements** into a **test foundation** on Rhesis — fine-grained behaviors, custom metrics, tags, and generated test sets — using the Rhesis MCP server from Cursor, Claude Code, or any compatible agent.
 
 Everything created lives in **your Rhesis organization** — reusable and refinable, not a one-off.
 
 Complements the main [`rhesis`](../rhesis) skill:
-- **`rhesis-prd-scaffold`** — requirements → test foundation
+- **`rhesis-prd`** — requirements → test foundation
 - **`rhesis`** — endpoint exploration, execution, result analysis
 
 ## What you get
@@ -45,8 +45,8 @@ Install both skills for the full workflow (foundation + run/analyze):
 # Platform operations (MCP tools, execution, analysis)
 npx skills add rhesis-ai/rhesis -g
 
-# PRD → test foundation — symlink from this repo until bundled in the installer
-ln -s "$(pwd)/skills/rhesis-prd-scaffold" ~/.cursor/skills/rhesis-prd-scaffold
+# PRD skill — symlink from this repo until bundled in the installer
+ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd
 ```
 
 Connect the Rhesis MCP server — see [`rhesis/README.md`](../rhesis/README.md#connect-the-mcp-server).
@@ -54,7 +54,7 @@ Connect the Rhesis MCP server — see [`rhesis/README.md`](../rhesis/README.md#c
 ## Usage
 
 ```
-/rhesis-prd-scaffold
+/rhesis-prd
 
 Here is our agent PRD:
 [paste your product requirements]

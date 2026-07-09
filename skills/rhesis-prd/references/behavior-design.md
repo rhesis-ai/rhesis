@@ -1,4 +1,4 @@
-# Behavior Design for PRD Scaffolding
+# Behavior Design for PRD
 
 ## One behavior = one specific expectation
 
