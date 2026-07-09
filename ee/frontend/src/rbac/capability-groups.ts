@@ -488,6 +488,57 @@ function capsInArea(area: ResourceArea): string[] {
   return [...new Set(Object.values(area.levels).flatMap(caps => [...caps]))];
 }
 
+/** `resource:update` / `resource:delete` → matching `:own` capability string. */
+export function getOwnImpliedByAllCap(allCap: string): string | undefined {
+  const match = allCap.match(/^([^:]+):(update|delete)$/);
+  if (!match) return undefined;
+  return `${match[1]}:${match[2]}:own`;
+}
+
+/** `resource:update:own` / `resource:delete:own` → matching unscoped capability. */
+export function getAllCapImplyingOwn(ownCap: string): string | undefined {
+  const match = ownCap.match(/^([^:]+):(update|delete):own$/);
+  if (!match) return undefined;
+  return `${match[1]}:${match[2]}`;
+}
+
+export function isOwnCapImpliedByAll(
+  permissions: ReadonlySet<string>,
+  ownCap: string,
+  availableCaps: ReadonlySet<string>
+): boolean {
+  const allCap = getAllCapImplyingOwn(ownCap);
+  if (!allCap || !availableCaps.has(allCap)) return false;
+  return permissions.has(allCap);
+}
+
+/**
+ * Toggle one capability in a set. Selecting an "all" edit/delete cap also
+ * grants the matching ":own" cap; clearing "all" clears ":own" too.
+ */
+export function applyCapabilityToggle(
+  permissions: Set<string>,
+  cap: string,
+  availableCaps: ReadonlySet<string>
+): void {
+  const ownImplied = getOwnImpliedByAllCap(cap);
+  const validOwnImplied =
+    ownImplied && availableCaps.has(ownImplied) ? ownImplied : undefined;
+
+  if (permissions.has(cap)) {
+    permissions.delete(cap);
+    if (validOwnImplied) permissions.delete(validOwnImplied);
+    return;
+  }
+
+  permissions.add(cap);
+  if (validOwnImplied) permissions.add(validOwnImplied);
+}
+
+export function areaCapabilitySet(area: ResourceArea): ReadonlySet<string> {
+  return new Set(capsInArea(area));
+}
+
 function standardCap(
   caps: string[],
   resourceId: string,

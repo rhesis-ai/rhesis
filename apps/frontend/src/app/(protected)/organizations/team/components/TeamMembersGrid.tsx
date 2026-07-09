@@ -377,6 +377,7 @@ export default function TeamMembersGrid({
                             <Tooltip title="Remove from organization">
                               <IconButton
                                 size="small"
+                                aria-label="Remove from organization"
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleDeleteUser(user);

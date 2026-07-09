@@ -18,6 +18,8 @@ import { BORDER_RADIUS } from '@/styles/theme-constants';
 import {
   CapabilityLevel,
   groupAreaCapabilitiesByResource,
+  isOwnCapImpliedByAll,
+  areaCapabilitySet,
   LEVEL_LABELS,
   type ResourceArea,
 } from '../capability-groups';
@@ -126,6 +128,7 @@ export default function PermissionGroupControl({
 }: PermissionGroupControlProps) {
   const [expanded, setExpanded] = useState(false);
   const resourceRows = groupAreaCapabilitiesByResource(area);
+  const availableCaps = areaCapabilitySet(area);
 
   const allCaps = new Set(
     Object.values(area.levels).flatMap(caps => [...caps])
@@ -304,6 +307,10 @@ export default function PermissionGroupControl({
 
               {PERMISSION_COLUMNS.map(col => {
                 const cap = row[col.key];
+                const impliedByAll =
+                  cap &&
+                  (col.key === 'editOwn' || col.key === 'deleteOwn') &&
+                  isOwnCapImpliedByAll(permissions, cap, availableCaps);
                 return (
                   <Box key={col.key} sx={crudCheckboxCellSx}>
                     {cap ? (
@@ -311,7 +318,7 @@ export default function PermissionGroupControl({
                         size="small"
                         checked={permissions.has(cap)}
                         onChange={() => onToggleCapability(cap)}
-                        disabled={readOnly}
+                        disabled={readOnly || impliedByAll}
                         sx={permissionCheckboxSx}
                         inputProps={{
                           'aria-label': `${row.label} ${col.label}`,

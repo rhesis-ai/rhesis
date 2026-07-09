@@ -11,7 +11,10 @@ import PermissionGroupControl from '../PermissionGroupControl';
 import {
   RESOURCE_AREAS,
   CapabilityLevel,
+  applyCapabilityToggle,
+  areaCapabilitySet,
   groupAreaCapabilitiesByResource,
+  isOwnCapImpliedByAll,
   type ResourceArea,
 } from '../../capability-groups';
 import { Capability } from '@/constants/capabilities';
@@ -107,6 +110,36 @@ describe('PermissionGroupControl', () => {
     expect(screen.queryByText('Delete own test runs')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Test Run Delete (own)')).toBeInTheDocument();
   });
+
+  it('checks and disables own edit/delete when all is selected', async () => {
+    const user = userEvent.setup();
+    const onToggle = jest.fn();
+    render(
+      <PermissionGroupControl
+        area={AREA}
+        currentLevel={CapabilityLevel.NONE}
+        onLevelChange={jest.fn()}
+        permissions={
+          new Set([
+            Capability.TestResult.UPDATE,
+            Capability.TestResult.UPDATE_OWN,
+          ])
+        }
+        onToggleCapability={onToggle}
+        maxLevel={CapabilityLevel.MANAGE}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /expand/i }));
+
+    const editOwn = screen.getByLabelText('Test Result Edit (own)');
+    expect(editOwn).toBeChecked();
+    expect(editOwn).toBeDisabled();
+
+    const deleteAll = screen.getByLabelText('Test Result Delete (all)');
+    expect(deleteAll).not.toBeChecked();
+    expect(deleteAll).toBeEnabled();
+  });
 });
 
 describe('groupAreaCapabilitiesByResource', () => {
@@ -140,5 +173,54 @@ describe('groupAreaCapabilitiesByResource', () => {
       deleteAll: Capability.Endpoint.DELETE,
       extras: [],
     });
+  });
+});
+
+describe('applyCapabilityToggle', () => {
+  it('grants own edit/delete when selecting all', () => {
+    const permissions = new Set<string>();
+    const available = areaCapabilitySet(AREA);
+
+    applyCapabilityToggle(permissions, Capability.TestResult.UPDATE, available);
+    expect(permissions).toEqual(
+      new Set([Capability.TestResult.UPDATE, Capability.TestResult.UPDATE_OWN])
+    );
+
+    permissions.clear();
+    applyCapabilityToggle(permissions, Capability.TestResult.DELETE, available);
+    expect(permissions).toEqual(
+      new Set([Capability.TestResult.DELETE, Capability.TestResult.DELETE_OWN])
+    );
+  });
+
+  it('revokes own edit/delete when clearing all', () => {
+    const permissions = new Set([
+      Capability.TestResult.UPDATE,
+      Capability.TestResult.UPDATE_OWN,
+    ]);
+    const available = areaCapabilitySet(AREA);
+
+    applyCapabilityToggle(permissions, Capability.TestResult.UPDATE, available);
+    expect(permissions).toEqual(new Set());
+  });
+
+  it('detects own caps implied by all', () => {
+    const available = areaCapabilitySet(AREA);
+    const permissions = new Set([Capability.TestResult.UPDATE]);
+
+    expect(
+      isOwnCapImpliedByAll(
+        permissions,
+        Capability.TestResult.UPDATE_OWN,
+        available
+      )
+    ).toBe(true);
+    expect(
+      isOwnCapImpliedByAll(
+        permissions,
+        Capability.TestRun.DELETE_OWN,
+        available
+      )
+    ).toBe(false);
   });
 });

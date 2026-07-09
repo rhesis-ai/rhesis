@@ -18,7 +18,9 @@ import type { RoleRead } from '../types';
 import {
   CapabilityLevel,
   RESOURCE_AREAS,
+  applyCapabilityToggle,
   applyLevel,
+  areaCapabilitySet,
   levelForArea,
 } from '../capability-groups';
 import PermissionGroupControl from './PermissionGroupControl';
@@ -99,17 +101,16 @@ export default function RoleEditorDrawer({
     []
   );
 
-  const handleToggleCapability = useCallback((cap: string) => {
-    setPermissions(prev => {
-      const next = new Set(prev);
-      if (next.has(cap)) {
-        next.delete(cap);
-      } else {
-        next.add(cap);
-      }
-      return next;
-    });
-  }, []);
+  const handleToggleCapability = useCallback(
+    (cap: string, area: (typeof RESOURCE_AREAS)[number]) => {
+      setPermissions(prev => {
+        const next = new Set(prev);
+        applyCapabilityToggle(next, cap, areaCapabilitySet(area));
+        return next;
+      });
+    },
+    []
+  );
 
   const handleCopyFrom = useCallback(
     (roleId: string) => {
@@ -300,7 +301,7 @@ export default function RoleEditorDrawer({
               currentLevel={levelForArea(permissions, area)}
               onLevelChange={lvl => handleLevelChange(area, lvl)}
               permissions={permissions}
-              onToggleCapability={handleToggleCapability}
+              onToggleCapability={cap => handleToggleCapability(cap, area)}
               readOnly={readOnly}
               maxLevel={levelForArea(actorPermissions, area)}
             />
