@@ -1,6 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.odata import apply_select
 
 router = RhesisRouter(
     prefix="/tags",
@@ -48,13 +51,18 @@ def read_tags(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all tags with their related objects"""
     organization_id, user_id = tenant_context
-    return crud.get_tags(
+    results = crud.get_tags(
         db=db,
         skip=skip,
         limit=limit,
@@ -64,6 +72,10 @@ def read_tags(
         organization_id=organization_id,
         user_id=user_id,
     )
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/{tag_id}", response_model=schemas.Tag)

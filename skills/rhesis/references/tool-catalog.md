@@ -549,10 +549,12 @@ List organization tags. Reuse existing names before assigning.
 ### `assign_tag`
 Assign a tag to a behavior or metric. Creates the tag if missing.
 
+**Request shape:** `POST /tags/{entity_type}/{entity_id}` with JSON body `{"name": "safety"}`. Path params are case-sensitive: `"Behavior"` or `"Metric"`.
+
 **Key parameters:**
-- `entity_type` (required) — `"Behavior"` or `"Metric"` (case-sensitive)
-- `entity_id` (required) — UUID
-- `name` (required) — tag name
+- `entity_type` (path, required) — `"Behavior"` or `"Metric"` (case-sensitive)
+- `entity_id` (path, required) — UUID
+- `name` (JSON body, required) — tag name string
 
 **CHAIN:** `create_behavior` / `create_metric` → `assign_tag`
 

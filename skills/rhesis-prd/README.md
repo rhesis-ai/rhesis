@@ -51,6 +51,8 @@ ln -s "$(pwd)/skills/rhesis-prd" ~/.cursor/skills/rhesis-prd
 
 Connect the Rhesis MCP server — see [`rhesis/README.md`](../rhesis/README.md#connect-the-mcp-server).
 
+The `compatibility` field in `SKILL.md` frontmatter follows the [Agent Skills](https://agentskills.io/specification) open standard and is supported by Cursor.
+
 ## Usage
 
 ```
