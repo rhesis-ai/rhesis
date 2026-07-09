@@ -626,6 +626,11 @@ def delete_role(
       explicitly revoked and must be deliberately re-granted.
     - Project-tier members (``project_membership.role_id`` is nullable) have
       their ``role_id`` cleared, so they fall back to their inherited org role.
+      A holder with **no** org role at all (a pure project member — see
+      ``_resolve_role`` in ``ee/rbac/provider.py``) has no floor to fall back
+      to and loses project access entirely until a role is explicitly
+      reassigned; this is intentional (deleting a role is meant to revoke,
+      not silently downgrade to a default), not an oversight.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
