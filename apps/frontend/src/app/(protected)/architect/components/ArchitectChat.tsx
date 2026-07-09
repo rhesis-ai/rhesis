@@ -30,6 +30,7 @@ interface ArchitectChatProps {
   onSessionTitleUpdate?: (sessionId: string, title: string) => void;
   initialMessage?: string | null;
   onInitialMessageSent?: () => void;
+  onUserActivity?: () => void;
   /** The project_id the session was created under (from the session object). */
   sessionProjectId?: string | null;
 }
@@ -127,6 +128,7 @@ export default function ArchitectChat({
   onSessionTitleUpdate: _onSessionTitleUpdate,
   initialMessage,
   onInitialMessageSent,
+  onUserActivity,
   sessionProjectId,
 }: ArchitectChatProps) {
   const { data: authSession } = useSession();
@@ -264,13 +266,15 @@ export default function ArchitectChat({
   const handleSend = useCallback(
     (message: string, attachments?: ChatAttachments) => {
       sendMessage(message, attachments);
+      onUserActivity?.();
     },
-    [sendMessage]
+    [sendMessage, onUserActivity]
   );
 
   const handleSuggestedPrompt = (prompt: string) => {
     if (!isLoading) {
       sendMessage(prompt);
+      onUserActivity?.();
     }
   };
 
@@ -446,7 +450,10 @@ export default function ArchitectChat({
                   streamingState={
                     message.isStreaming ? streamingState : undefined
                   }
-                  onAccept={() => sendMessage('Yes, go ahead.')}
+                  onAccept={() => {
+                    sendMessage('Yes, go ahead.');
+                    onUserActivity?.();
+                  }}
                   onReject={() => chatInputRef.current?.focus()}
                 />
               );

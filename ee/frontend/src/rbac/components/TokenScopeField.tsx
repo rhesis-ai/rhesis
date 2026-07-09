@@ -105,6 +105,10 @@ export default function TokenScopeField({
 
   const handleRoleChange = (roleId: string) => {
     setSelectedRoleId(roleId);
+    if (!roleId) {
+      onChange([]);
+      return;
+    }
     const role = roles.find(r => r.id === roleId);
     if (role?.permissions) {
       onChange(role.permissions.map(p => p.name));
@@ -155,14 +159,34 @@ export default function TokenScopeField({
 
       {mode === 'restricted' && (
         <>
-          <FormControl fullWidth size="small" sx={drawerOutlinedFieldSx}>
-            <InputLabel id="token-role-label">Role template</InputLabel>
+          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
+            <InputLabel id="token-role-label" shrink>
+              Role template
+            </InputLabel>
             <Select
               labelId="token-role-label"
               label="Role template"
               value={selectedRoleId}
+              displayEmpty
+              notched
               onChange={e => handleRoleChange(e.target.value)}
+              renderValue={value => {
+                if (!value) {
+                  return (
+                    <Typography variant="body1" color="text.secondary">
+                      Select a role
+                    </Typography>
+                  );
+                }
+                const role = assignableRoles.find(r => r.id === value);
+                return role?.display_name ?? value;
+              }}
             >
+              <MenuItem value="">
+                <Typography variant="body1" color="text.secondary">
+                  Select a role
+                </Typography>
+              </MenuItem>
               {assignableRoles.map(role => (
                 <MenuItem key={role.id} value={role.id}>
                   {role.display_name}

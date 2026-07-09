@@ -688,13 +688,6 @@ export default function SourcePreviewClientWrapper({
           )}
         </Paper>
 
-        <SourceTagsCard
-          sessionToken={sessionToken}
-          source={localSource}
-          userId={currentUserId ? (currentUserId as UUID) : undefined}
-          onUpdate={handleTagsUpdate}
-        />
-
         {/* Extracted Content Section */}
         {content && (
           <Paper
@@ -784,24 +777,22 @@ export default function SourcePreviewClientWrapper({
           </Paper>
         )}
 
+        <SourceTagsCard
+          sessionToken={sessionToken}
+          source={localSource}
+          userId={currentUserId ? (currentUserId as UUID) : undefined}
+          onUpdate={handleTagsUpdate}
+        />
+
         {/* Comments Section */}
-        <Paper
-          sx={{
-            p: theme.spacing(3),
-            borderRadius: theme.spacing(1),
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1],
-          }}
-        >
-          <CommentsWrapper
-            entityType="Source"
-            entityId={localSource.id}
-            sessionToken={sessionToken}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            currentUserPicture={currentUserPicture}
-          />
-        </Paper>
+        <CommentsWrapper
+          entityType="Source"
+          entityId={localSource.id}
+          sessionToken={sessionToken}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+        />
       </Stack>
     </PageLayout>
   );
