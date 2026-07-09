@@ -123,6 +123,10 @@ You can also use it for direct operations:
 "Link the Accuracy metric to the Provides Accurate Information behavior"
 ```
 
+## PRD skill
+
+If you have a product requirements document and want a **test foundation** on Rhesis before running tests, use the [PRD Skill](/docs/agent-skill/prd). Paste your PRD with `/rhesis-prd` to create behaviors, custom metrics, tags, and generated test sets via MCP — then use this Agent Skill to execute and analyze.
+
 ## Agent Skill vs. native Architect
 
 The Rhesis platform has a built-in Architect agent with a web chat UI. This skill is a complement, not a replacement:
@@ -159,4 +163,6 @@ Use the native Architect for maximum structural control. Use this skill when you
 
 ## Source
 
-The skill source lives at [`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) in the Rhesis repository. Reference files covering all 27 MCP tools, OData query patterns, exploration strategies, and result analysis are in `skills/rhesis/references/`.
+The skill source lives at [`skills/rhesis/`](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis) in the Rhesis repository. Reference files covering MCP tools, OData query patterns, exploration strategies, and result analysis are in `skills/rhesis/references/`.
+
+See also the [PRD Skill](/docs/agent-skill/prd) (`skills/rhesis-prd/`) for building a test foundation from requirements.
