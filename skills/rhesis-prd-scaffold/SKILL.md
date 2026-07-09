@@ -14,7 +14,7 @@ disable-model-invocation: true
 
 Turn **your PRD** into a **test foundation** on Rhesis: fine-grained **behaviors**, **custom metrics**, **tags**, **behavior→metric links**, and **generated test sets** — created through the MCP server from your existing AI environment (Cursor, Claude Code, etc.).
 
-A test foundation is the durable baseline you run, extend, and refine as your agent evolves. It is not a throwaway setup — every entity lives on the platform for your organization to reuse.
+A test foundation is the durable baseline you run, extend, and refine as your agent evolves. These assets live in your organization — **reusable and refinable, not a one-off**.
 
 This skill complements the **`rhesis`** skill:
 - **`rhesis-prd-scaffold`** — requirements → test foundation (this skill)
@@ -46,6 +46,25 @@ After this workflow completes, the user has on Rhesis:
 | **Mappings** | Each behavior linked to the metric that scores it |
 
 The user can iterate (add behaviors, tighten metrics, regenerate tests) and execute via the `rhesis` skill once their endpoint is registered.
+
+## How it works
+
+1. User provides requirements — paste or attach their PRD
+2. Agent reads and extracts — capabilities, guardrails, quality bars, out-of-scope rules
+3. Agent proposes a plan — behaviors, metrics, tags, test sets; reuses existing Rhesis entities where possible
+4. User approves — nothing is created until they confirm
+5. Agent creates via MCP — behaviors → metrics → links → tags → test sets
+6. Agent verifies — counts match the plan, spot-checks generated tests, summarizes with links
+
+## What this skill optimizes for
+
+- **PRD → specific behaviors** — splits broad requirements (e.g. "handle flights and hotels") into testable pieces
+- **No vague umbrella behaviors** — never "Reliability", "Robustness", or standalone "Compliance"
+- **Metrics matched to the PRD** — categorical for guardrails, numeric for quality gradations
+- **Tags for organization** — consistent taxonomy from requirements (functional, safety, compliance, domain, transparency)
+- **Test generation aligned to requirements** — adversarial probes, off-topic asks, refusals where the PRD calls for them
+
+See [behavior-design.md](references/behavior-design.md) for split rules and anti-patterns.
 
 ## Example
 
