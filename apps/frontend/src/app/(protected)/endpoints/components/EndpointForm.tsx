@@ -288,9 +288,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           input_data: inputData,
           endpoint_path: formData.endpoint_path || undefined,
           response_format: (formData.response_format || 'json') as
-            | 'json'
-            | 'xml'
-            | 'text',
+            'json' | 'xml' | 'text',
         });
 
         const r = result as Record<string, unknown>;

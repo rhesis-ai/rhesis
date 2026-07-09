@@ -13,6 +13,33 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-09
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.10.0**
+- **Frontend 0.10.0**
+- **SDK 0.10.0**
+
+### Summary of Changes
+
+**Backend v0.10.0:**
+- Optimized database performance across list and detail endpoints by eliminating N+1 queries, splitting complex join queries,
+
+**Frontend v0.10.0:**
+- **Enterprise RBAC & Role Management (EE):** Introduced a comprehensive Role-Based Access Control
+
+**SDK v0.10.0:**
+- Added full integration for Pydantic AI, including auto-instrumentation via a native OpenTelemetry translator
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.9.1] - 2026-06-25
 
 ### Platform Release

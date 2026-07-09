@@ -11,11 +11,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import BlockIcon from '@mui/icons-material/Block';
 
 export type TestRunStatusColor =
-  | 'success'
-  | 'error'
-  | 'warning'
-  | 'info'
-  | 'default';
+  'success' | 'error' | 'warning' | 'info' | 'default';
 
 /**
  * Get the color for a test run status

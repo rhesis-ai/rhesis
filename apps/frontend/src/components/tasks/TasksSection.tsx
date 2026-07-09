@@ -177,11 +177,7 @@ export function TasksSection({
             label={params.row.status?.name || 'Unknown'}
             color={
               getStatusColor(params.row.status?.name) as
-                | 'warning'
-                | 'primary'
-                | 'success'
-                | 'error'
-                | 'default'
+                'warning' | 'primary' | 'success' | 'error' | 'default'
             }
             size="small"
           />

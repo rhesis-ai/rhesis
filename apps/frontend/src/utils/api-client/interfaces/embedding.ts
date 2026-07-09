@@ -26,5 +26,4 @@ export interface EmbeddingGraphComputeResponse {
 }
 
 export type EmbeddingGraphGetResponse =
-  | { status: 'pending' }
-  | { status: 'ready'; graph: Scatter2DGraph };
+  { status: 'pending' } | { status: 'ready'; graph: Scatter2DGraph };
