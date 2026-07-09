@@ -6,7 +6,6 @@ import OnboardingStepHeader from './OnboardingStepHeader';
 import OnboardingNavButtons from './OnboardingNavButtons';
 import OnboardingVideoPlayer from './OnboardingVideoPlayer';
 import { ONBOARDING_STEPS } from './onboarding-steps';
-import { getOnboardingVideoUrl } from '@/utils/onboarding-video';
 import { onboardingVideoShellSx } from './onboarding-styles';
 
 type OnboardingStatus =
@@ -22,6 +21,7 @@ interface WelcomeVideoStepProps {
   onBack: () => void;
   isSubmitting?: boolean;
   onboardingStatus: OnboardingStatus;
+  videoUrl?: string;
 }
 
 export default function WelcomeVideoStep({
@@ -29,9 +29,9 @@ export default function WelcomeVideoStep({
   onBack,
   isSubmitting = false,
   onboardingStatus,
+  videoUrl,
 }: WelcomeVideoStepProps) {
   const step = ONBOARDING_STEPS[3];
-  const videoUrl = getOnboardingVideoUrl();
 
   const getButtonText = () => {
     switch (onboardingStatus) {
