@@ -581,8 +581,23 @@ def add_review(
     # Add the review
     db_test_result.test_reviews["reviews"].append(new_review)
 
+    # Preserve any already-snapshotted original status before metadata gets
+    # rebuilt below (update_review_metadata overwrites the whole dict).
+    preserved_original_status_id = (db_test_result.test_reviews.get("metadata") or {}).get(
+        "original_status_id"
+    )
+
     # Update metadata
     update_review_metadata(db_test_result.test_reviews, current_user, status_details)
+
+    # Snapshot the automated status once, before apply_review_override() below
+    # overwrites status_id to match the reviewer's verdict. Without this,
+    # matches_review/classify_test_result_review_counts would compare the
+    # verdict against itself post-override and never detect a disagreement.
+    db_test_result.test_reviews["metadata"]["original_status_id"] = (
+        preserved_original_status_id
+        or (str(db_test_result.status_id) if db_test_result.status_id else None)
+    )
 
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
@@ -687,9 +702,17 @@ def update_review(
     # Update timestamp
     review_to_update["updated_at"] = datetime.now(timezone.utc).isoformat()
 
+    # Preserve the snapshotted original status before metadata gets rebuilt
+    # below (update_review_metadata overwrites the whole dict).
+    preserved_original_status_id = (db_test_result.test_reviews.get("metadata") or {}).get(
+        "original_status_id"
+    )
+
     # Update metadata
     latest_status = review_to_update["status"]
     update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
+    if preserved_original_status_id is not None:
+        db_test_result.test_reviews["metadata"]["original_status_id"] = preserved_original_status_id
 
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
@@ -781,6 +804,9 @@ def delete_review(
 
     # Update metadata if there are remaining reviews
     if reviews:
+        preserved_original_status_id = (db_test_result.test_reviews.get("metadata") or {}).get(
+            "original_status_id"
+        )
         latest_review = max(
             reviews,
             key=lambda r: r.get("updated_at", r.get("created_at", "")),
@@ -791,6 +817,10 @@ def delete_review(
             current_user,
             latest_status,
         )
+        if preserved_original_status_id is not None:
+            db_test_result.test_reviews["metadata"]["original_status_id"] = (
+                preserved_original_status_id
+            )
     else:
         db_test_result.test_reviews["metadata"] = {
             "last_updated_at": datetime.now(timezone.utc).isoformat(),
