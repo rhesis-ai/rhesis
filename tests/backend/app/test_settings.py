@@ -414,7 +414,7 @@ def test_auth_settings_uses_defaults(clean_auth_env):
     assert settings.session_secret_key is None
     assert settings.jwt_secret_key is None
     assert settings.jwt_algorithm == "HS256"
-    assert settings.jwt_access_token_expire_minutes == 15
+    assert settings.jwt_access_token_expire_minutes == 10080
     assert settings.google_enabled is False
     assert settings.github_enabled is False
 
