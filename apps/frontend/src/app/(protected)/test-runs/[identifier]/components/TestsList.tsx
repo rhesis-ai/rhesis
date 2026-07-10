@@ -18,6 +18,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ChatIcon from '@mui/icons-material/Chat';
 import TaskIcon from '@mui/icons-material/Task';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import {
   TestResultDetail,
   ConversationTurn,
@@ -27,6 +28,7 @@ import {
   hasConflictingReview,
   type TestResultStatus,
 } from '@/utils/test-result-status';
+import { resultHasAnyHumanReview } from './test-run-summary-utils';
 
 interface TestsListProps {
   tests: TestResultDetail[];
@@ -100,7 +102,7 @@ function TestListItem({
 
   // Check if there's a conflicting review
   const conflictingReview = hasConflictingReview(test);
-  const _hasHumanReview = !!test.last_review;
+  const reviewed = resultHasAnyHumanReview(test);
 
   // Truncate prompt content for display
   const truncatedPrompt =
@@ -243,7 +245,7 @@ function TestListItem({
               )}
 
               {/* Human Review Indicator */}
-              {conflictingReview && (
+              {conflictingReview ? (
                 <Tooltip
                   title={`Human review overrides automated result (${test.last_review?.user.name})`}
                   arrow
@@ -255,6 +257,17 @@ function TestListItem({
                     }}
                   />
                 </Tooltip>
+              ) : (
+                reviewed && (
+                  <Tooltip title="This test has been reviewed" arrow>
+                    <RateReviewOutlinedIcon
+                      sx={{
+                        fontSize: 14,
+                        color: 'text.secondary',
+                      }}
+                    />
+                  </Tooltip>
+                )
               )}
             </Box>
 
