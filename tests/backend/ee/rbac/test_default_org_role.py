@@ -9,7 +9,7 @@ Deny-first matrix:
 - new invitee (user != owner) → **Member**: allowed on Member endpoints,
   denied on Admin-only ones;
 - org creator (user == owner) → **Owner**: allowed everywhere;
-- RBAC off / community build → handler no-ops (no row written);
+- RBAC off / community build → handler still writes the row (dormant until RBAC on);
 - idempotent: an existing Owner is never downgraded on re-invite.
 
 Run with:
@@ -412,16 +412,28 @@ class TestOnboardingHttpSequenceUnderRbac:
 @pytest.mark.ee
 @pytest.mark.integration
 class TestNoOpAndIdempotency:
-    def test_rbac_off_writes_no_row(self, test_db: Session):
+    def test_writes_row_even_when_rbac_off(self, test_db: Session):
         org_id = _create_org(test_db)
         user_id = _create_user(test_db, org_id)
 
-        # DefaultLicenseProvider allows RBAC by default (dev/unlicensed EE);
-        # force it off here to cover the licensed-off / community-build case.
         with _rbac_off():
             assign_default_org_role(test_db, user_id, org_id)
 
-        assert _member_row(test_db, org_id, user_id) is None
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Member"
+
+    def test_creator_gets_owner_even_when_rbac_off(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        _set_owner(test_db, org_id, user_id)
+
+        with _rbac_off():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Owner"
 
     def test_existing_owner_not_downgraded(self, test_db: Session):
         """Re-invite of an existing Owner must keep Owner, not reset to Member."""

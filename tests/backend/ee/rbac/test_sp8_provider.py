@@ -543,3 +543,69 @@ class TestBuiltInRoleBranch:
 
         assert perms == set()
         db.query.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Owner floor — org owner without organization_member row
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestOwnerFloor:
+    def test_owner_without_member_row_gets_owner_permissions(self, test_db):
+        from sqlalchemy import text
+
+        from tests.backend.ee.rbac._rbac_helpers import _authorized, _create_org, _create_user
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        test_db.execute(
+            text("UPDATE organization SET owner_id = :owner WHERE id = :id"),
+            {"owner": str(user_id), "id": str(org_id)},
+        )
+        test_db.flush()
+
+        assert _authorized(test_db, user_id, org_id, "member:manage", project_id=None)
+
+    def test_non_owner_without_member_row_still_denied(self, test_db):
+        from tests.backend.ee.rbac._rbac_helpers import _authorized, _create_org, _create_user
+
+        org_id = _create_org(test_db)
+        _create_user(test_db, org_id)  # owner not set — plain member
+        other_id = _create_user(test_db, org_id)
+
+        assert not _authorized(test_db, other_id, org_id, "test_set:read", project_id=None)
+
+    def test_owner_floor_respects_token_scope_intersection(self, test_db):
+        from sqlalchemy import text
+
+        from rhesis.backend.app.auth.rbac import authorize
+
+        from tests.backend.ee.rbac._rbac_helpers import (
+            _create_org,
+            _create_user,
+            _ee_provider_active,
+            _principal,
+        )
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        test_db.execute(
+            text("UPDATE organization SET owner_id = :owner WHERE id = :id"),
+            {"owner": str(user_id), "id": str(org_id)},
+        )
+        test_db.flush()
+
+        principal = _principal(user_id, org_id)
+        principal = Principal(
+            user_id=principal.user_id,
+            organization_id=principal.organization_id,
+            kind="token",
+            scopes=frozenset(["test_set:read"]),
+        )
+
+        with _ee_provider_active():
+            assert authorize(principal, "test_set:read", project_id=None, db=test_db)
+            assert not authorize(principal, "test_set:delete", project_id=None, db=test_db)
+

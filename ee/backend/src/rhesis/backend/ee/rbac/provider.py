@@ -7,18 +7,21 @@ for orgs with the RBAC feature enabled.  Installed via
 
 Resolution order:
 1. If RBAC is not available for the org → delegate to the community provider.
-2. No org role at all (org-scoped checks) → deny; org-scoped permissions
-   require an org role. (For project-scoped checks, see step 5 — a pure
+2. No ``organization_member`` row (or ``role_id`` is NULL) but
+   ``organization.owner_id == principal.user_id`` → built-in **Owner** role
+   (owner floor — mirrors the community bypass; SP9 token scopes still apply).
+3. No org role at all (org-scoped checks) → deny; org-scoped permissions
+   require an org role. (For project-scoped checks, see step 6 — a pure
    project member with no org role is still governed by their explicit
    project role.)
-3. Org Admin or Owner (level >= 80): implicit access to all projects. Their
+4. Org Admin or Owner (level >= 80): implicit access to all projects. Their
    org role applies as the effective project role. They do not need to be
    individually enrolled in every project.
-4. Org Member or Viewer (level < 80): explicit project enrollment is
+5. Org Member or Viewer (level < 80): explicit project enrollment is
    required. If a ``project_membership`` row exists (even with
    ``role_id = NULL``), their org role applies to that project. If no
    membership row exists, access is denied for that project.
-5. If the user also has an explicit ``project_membership.role_id`` for this
+6. If the user also has an explicit ``project_membership.role_id`` for this
    project, it is compared against the org role (when one exists) and the
    **higher-level** role wins — an explicit project role can elevate access
    above the org role, but can never restrict it below what the org role
@@ -30,7 +33,7 @@ GitHub, Linear, and Notion: org-level administrators see and can manage all
 workspaces/projects without being individually added to each one.  Contributors
 (Member/Viewer) are scoped to projects they have been explicitly invited to.
 
-"Higher role wins, never restricts" (step 5) mirrors GitLab's inherited-membership
+"Higher role wins, never restricts" (step 6) mirrors GitLab's inherited-membership
 rule and GCP IAM's resource-hierarchy inheritance: a narrower scope (project) can
 only add to what a broader scope (organization) already grants. An org Owner
 assigned a lower explicit role on one project still keeps Owner-level access to
@@ -225,7 +228,9 @@ class PermissionAuthorizationProvider:
 
     def _get_org_role(self, principal: "Principal", db: "Session"):
         """Return the org-level role for the principal, or None."""
-        from rhesis.backend.ee.rbac.models import OrganizationMember
+        from rhesis.backend.app.models.organization import Organization
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 
         member = (
             db.query(OrganizationMember)
@@ -235,10 +240,27 @@ class PermissionAuthorizationProvider:
             )
             .first()
         )
-        if member is None or member.role_id is None:
-            return None
+        if member is not None and member.role_id is not None:
+            return self._load_role(member.role_id, db)
 
-        return self._load_role(member.role_id, db)
+        # Owner floor: missing organization_member rows must not lock out the
+        # org creator (post-backfill orgs, RBAC-dark onboarding).  Flows
+        # through the built-in Owner role so SP9 token-scope intersection
+        # still applies — unlike the community provider's raw allow bypass.
+        with bypass_tenant_filter():
+            org = (
+                db.query(Organization)
+                .filter_by(id=principal.organization_id, owner_id=principal.user_id)
+                .first()
+            )
+            if org is not None:
+                return (
+                    db.query(Role)
+                    .filter_by(name="Owner", is_built_in=True, organization_id=None)
+                    .first()
+                )
+
+        return None
 
     def _role_has_permission(self, role, perm_str: str, db: "Session") -> bool:
         """Return True when *role* carries *perm_str*.
