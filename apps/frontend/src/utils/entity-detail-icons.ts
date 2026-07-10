@@ -3,7 +3,6 @@ import FolderOffOutlinedIcon from '@mui/icons-material/FolderOffOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import {
-  AccountTreeIcon,
   BehaviorsIcon,
   BiotechIcon,
   CategoryIcon,

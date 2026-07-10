@@ -58,7 +58,12 @@ export function CrossProjectAlert({
       return;
     }
 
-    writeActiveProjectId(resolvedEntity.project_id!);
+    const projectId = resolvedEntity.project_id;
+    if (!projectId) {
+      return;
+    }
+
+    writeActiveProjectId(projectId);
     window.location.reload();
   };
 

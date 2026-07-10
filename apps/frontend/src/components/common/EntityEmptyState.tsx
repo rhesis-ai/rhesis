@@ -11,7 +11,6 @@ import {
   emptyStateActionsRowSx,
   emptyStateCompactContentSx,
   emptyStateCompactTitleSx,
-  emptyStateContainedActionSx,
   emptyStateDescriptionSx,
   emptyStateEnrichedActionSx,
   emptyStateHeaderStackSx,
