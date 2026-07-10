@@ -11,7 +11,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
@@ -188,7 +187,10 @@ def _ensure_local_admin_org_role(
     ``initialize_local_environment`` builds the org/user via direct ORM
     construction rather than ``crud.create_user``/the onboarding endpoint, so
     the hook that seeds the ``organization_member`` row never runs on its own.
-    No-op when RBAC is unavailable or a row already exists (idempotent).
+    No-op when RBAC is unavailable or a row already exists (idempotent). The
+    EE handler (``assign_default_org_role``) logs the outcome itself, so core
+    does not re-query the EE-owned ``organization_member`` table here — doing
+    so would violate the core/EE import boundary (``community-boundary`` CI job).
 
     Caller must set RLS session variables before invoking this function.
     """
@@ -196,37 +198,6 @@ def _ensure_local_admin_org_role(
 
     on_user_org_assigned(db, user_id, organization_id)
     db.flush()
-
-    try:
-        from rhesis.backend.ee.rbac.models import OrganizationMember
-
-        row = (
-            db.query(OrganizationMember)
-            .filter_by(organization_id=organization_id, user_id=user_id)
-            .first()
-        )
-        if row:
-            logger.info(
-                "Verified organization_member row for user %s (role_id=%s)",
-                user_id,
-                row.role_id,
-            )
-        else:
-            logger.warning(
-                "organization_member row NOT found for user %s in org %s "
-                "— RBAC may not be active or the insert was rejected by RLS",
-                user_id,
-                organization_id,
-            )
-    except ImportError:
-        pass
-    except SQLAlchemyError:
-        logger.warning(
-            "Could not verify organization_member row for user %s — "
-            "organization_member table may not exist yet (migrations pending)",
-            user_id,
-            exc_info=True,
-        )
 
 
 def _apply_default_model_ids_to_user(
