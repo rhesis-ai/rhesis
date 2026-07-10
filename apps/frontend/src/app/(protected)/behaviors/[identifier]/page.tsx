@@ -3,6 +3,7 @@ import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import BehaviorDetailClient from './components/BehaviorDetailClient';
 import type { UUID } from 'crypto';
 
@@ -37,10 +38,12 @@ export default async function BehaviorDetailPage({ params }: PageProps) {
     projectId
   );
 
-  const behavior = await client.getBehaviorWithMetrics(identifier as UUID);
-
-  if (!behavior) {
-    throw new Error('Behavior not found');
+  let behavior;
+  try {
+    behavior = await client.getBehaviorWithMetrics(identifier as UUID);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
   }
 
   const serializedBehavior = JSON.parse(JSON.stringify(behavior));

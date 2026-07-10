@@ -3,6 +3,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -40,17 +41,12 @@ export default async function TestSetPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory(session.session_token);
   const testSetsClient = apiFactory.getTestSetsClient();
 
-  const response = await testSetsClient.getTestSets({
-    limit: 1,
-    $filter: `id eq ${identifier}`,
-  } as {
-    limit: number;
-    $filter: string;
-  });
-
-  let testSet = response.data[0];
-  if (!testSet) {
-    throw new Error('Test set not found');
+  let testSet;
+  try {
+    testSet = await testSetsClient.getTestSet(identifier);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
   }
 
   if (testSet.test_set_type_id) {

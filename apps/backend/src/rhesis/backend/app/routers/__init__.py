@@ -35,6 +35,7 @@ from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
 from .recycle import router as recycle_router
+from .resolve import router as resolve_router
 from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
@@ -152,6 +153,7 @@ routers = sorted(
         task_management_router,
         tools_router,
         recycle_router,
+        resolve_router,
         garak_router,
         features_router,
         feedback_router,

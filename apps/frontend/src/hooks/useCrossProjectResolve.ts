@@ -1,0 +1,99 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { ResolvedEntity } from '@/utils/api-client/resolve-client';
+import { UUID_PATTERN } from '@/utils/entity-error-handler';
+
+interface UseCrossProjectResolveResult {
+  crossProjectData: ResolvedEntity | null;
+  isResolving: boolean;
+  resolveAttempted: boolean;
+  resolveError: unknown;
+  retryResolve: () => void;
+}
+
+export function useCrossProjectResolve(
+  entityType: string | undefined,
+  entityId: string | undefined,
+  enabled = true
+): UseCrossProjectResolveResult {
+  const { data: session } = useSession();
+  const [crossProjectData, setCrossProjectData] =
+    useState<ResolvedEntity | null>(null);
+  const [resolveAttempted, setResolveAttempted] = useState(false);
+  const [resolveError, setResolveError] = useState<unknown>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const requestIdRef = useRef(0);
+
+  const retryResolve = useCallback(() => {
+    setResolveAttempted(false);
+    setResolveError(null);
+    setRetryCount(count => count + 1);
+  }, []);
+
+  useEffect(() => {
+    setCrossProjectData(null);
+    setResolveAttempted(false);
+    setResolveError(null);
+  }, [entityType, entityId, enabled]);
+
+  useEffect(() => {
+    if (!enabled || !entityType || !entityId) {
+      return;
+    }
+
+    if (!session?.session_token) {
+      setResolveAttempted(true);
+      return;
+    }
+
+    if (!UUID_PATTERN.test(entityId)) {
+      setResolveAttempted(true);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    const factory = new ApiClientFactory(session.session_token);
+    const resolveClient = factory.getResolveClient();
+
+    resolveClient
+      .resolveEntity(entityType, entityId)
+      .then(result => {
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+        setCrossProjectData(result);
+        setResolveError(null);
+        setResolveAttempted(true);
+      })
+      .catch(error => {
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+        setResolveError(error);
+        setResolveAttempted(true);
+      });
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [enabled, entityType, entityId, session?.session_token, retryCount]);
+
+  const isResolving =
+    enabled &&
+    !!entityType &&
+    !!entityId &&
+    UUID_PATTERN.test(entityId) &&
+    !resolveAttempted &&
+    !!session?.session_token;
+
+  return {
+    crossProjectData,
+    isResolving,
+    resolveAttempted: resolveAttempted || !session?.session_token,
+    resolveError,
+    retryResolve,
+  };
+}
