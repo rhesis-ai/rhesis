@@ -1,5 +1,11 @@
-
-# Define configurations using YAML anchors
+# Host-facing access — single source of truth.
+# Internal container ports stay constant (backend 8080, frontend 3000);
+# these only control the host ports and the URLs derived from them.
+x-host:
+  backend_port:  &backend_port  ${BACKEND_PORT:-8080}
+  frontend_port: &frontend_port ${FRONTEND_PORT:-3000}
+  api_base_url:  &api_base_url  ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8080}}
+  frontend_url:  &frontend_url  ${FRONTEND_URL:-http://localhost:${FRONTEND_PORT:-3000}}
 
 # Object storage configuration (local dev defaults to bind-mounted /app/storage)
 x-common-storage: &common-storage
@@ -40,11 +46,11 @@ x-common-environment: &common-environment
   QUICK_START: ${QUICK_START:-false}
 
 x-rhesis-config: &rhesis-config
-  API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+  API_BASE_URL: *api_base_url
   RHESIS_BASE_URL: https://api.rhesis.ai
   RHESIS_API_KEY: ${RHESIS_API_KEY:-your-rhesis-api-key}
   RHESIS_CONNECTOR_DISABLED: true
-  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  FRONTEND_URL: *frontend_url
   BACKEND_URL: http://backend:8080
   DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis/rhesis-default}
   DEFAULT_EVALUATION_MODEL: ${DEFAULT_EVALUATION_MODEL:-rhesis/rhesis-default}
@@ -55,7 +61,6 @@ x-telemetry-config: &telemetry-config
 
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
-  NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
   NEXT_TELEMETRY_DISABLED: 1
 
 
@@ -112,7 +117,8 @@ services:
     volumes:
       - rhesis-storage:/app/storage
     ports:
-      - "8080:8080"
+      - target: 8080
+        published: *backend_port
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -179,7 +185,8 @@ services:
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
     ports:
-      - "3000:3000"
+      - target: 3000
+        published: *frontend_port
     depends_on:
       backend:
         condition: service_healthy
