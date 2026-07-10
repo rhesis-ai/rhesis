@@ -6,6 +6,10 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import {
   clearResumeHint,
   pickResumableSessionId,
@@ -18,6 +22,9 @@ import ArchitectWelcome from './ArchitectWelcome';
 export default function ArchitectClient() {
   const { data: session } = useSession();
   const { activeProject } = useActiveProject();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Architect.READ
+  );
   const [sessions, setSessions] = useState<ArchitectSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
@@ -45,6 +52,7 @@ export default function ArchitectClient() {
   // when the project scope switches.
   useEffect(() => {
     const loadSessions = async () => {
+      if (permsLoading || !canRead) return;
       const client = getClient();
       if (!client) return;
       setIsLoadingSessions(true);
@@ -69,7 +77,7 @@ export default function ArchitectClient() {
       }
     };
     loadSessions();
-  }, [getClient, activeProject?.id]);
+  }, [getClient, activeProject?.id, permsLoading, canRead]);
 
   // Bump last-activity when navigating away mid-conversation.
   useEffect(() => {
@@ -164,6 +172,9 @@ export default function ArchitectClient() {
       touchResumeHint(activeSessionId);
     }
   }, [activeSessionId, touchResumeHint]);
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="architect sessions" />;
 
   return (
     <Box

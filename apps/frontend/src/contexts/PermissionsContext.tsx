@@ -63,7 +63,21 @@ const DISABLED_STATE: AmbientPermissions = {
 
 const PermissionsContext = createContext<AmbientPermissions>(DISABLED_STATE);
 
-export function PermissionsProvider({ children }: { children: ReactNode }) {
+export function PermissionsProvider({
+  children,
+  initialPermissions = null,
+}: {
+  children: ReactNode;
+  /**
+   * Server-fetched `GET /me/permissions` result for the active project (see
+   * `(protected)/layout.tsx`), seeded as this query's `initialData` so
+   * `loading` is already `false` on the very first client render instead of
+   * flashing "no permissions" (which hides every gated nav item) for one
+   * round trip. `null` when RBAC is off, there's no session server-side, or
+   * the fetch failed — falls back to the normal client-side fetch.
+   */
+  initialPermissions?: string[] | null;
+}) {
   const { data: session, status } = useSession();
   const { activeProject } = useActiveProject();
   const { loading: featuresLoading } = useFeaturesState();
@@ -82,6 +96,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         .getMyPermissions(activeProject?.id ?? undefined),
     enabled: !featuresLoading && rbacEnabled && !!sessionToken,
     staleTime: 5 * 60_000,
+    ...(initialPermissions ? { initialData: initialPermissions } : {}),
   });
 
   const value = useMemo<AmbientPermissions>(() => {

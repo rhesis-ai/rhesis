@@ -18,6 +18,10 @@ import PlaygroundIcon from '@/components/PlaygroundIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
 import PlaygroundEndpointSelect from './PlaygroundEndpointSelect';
@@ -123,12 +127,18 @@ function ChatPlaceholder({
 export default function PlaygroundClient() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Endpoint.READ
+  );
 
   const {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(session?.session_token ?? '');
+  } = useEndpointOptions(
+    session?.session_token ?? '',
+    !permsLoading && canRead
+  );
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;
@@ -187,6 +197,9 @@ export default function PlaygroundClient() {
   );
 
   const hasActiveSession = !!(selectedEndpointId || isSplit);
+
+  if (permsLoading) return <PageLoadingState />;
+  if (!canRead) return <AccessDenied resource="endpoints" />;
 
   return (
     <PageLayout
