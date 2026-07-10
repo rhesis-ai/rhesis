@@ -86,7 +86,7 @@ export default function EmbeddingTestsPanel({
   const theme = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(LIST_VIEW_TAB);
-  const clustersActive = activeTab === CLUSTER_VIEW_TAB;
+  const clustersActive = CLUSTER_VIEW_ENABLED && activeTab === CLUSTER_VIEW_TAB;
 
   const { graph, isLoading, isComputing, error, computeGraph } =
     useEmbeddingGraph(testSetId, sessionToken, { enabled: clustersActive });
