@@ -716,7 +716,6 @@ fi
         echo -e "${CYAN}Access the platform:${NC}"
         echo -e "   Frontend:  ${WHITE}http://localhost:${shown_frontend_port}${NC} (auto-login enabled)"
         echo -e "   Backend:   ${WHITE}http://localhost:${shown_backend_port}/docs${NC}"
-        echo -e "   Worker:    ${WHITE}http://localhost:8081/health/basic${NC}"
         echo ""
         echo -e "${YELLOW}Useful commands:${NC}"
         echo -e "   View logs:    ${GREEN}./rh logs${NC}"
