@@ -1,6 +1,8 @@
 """Tests for backend constants."""
 
-from rhesis.backend.app.constants import TestExecutionContext
+import pytest
+
+from rhesis.backend.app.constants import TestExecutionContext, TestSetType, TestType
 
 
 def test_test_execution_context_has_context_key():
@@ -85,3 +87,17 @@ def test_backend_and_sdk_constants_match():
         TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
         == SDKTestContext.SpanAttributes.TEST_CONFIGURATION_ID
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Single-Turn", TestType.SINGLE_TURN),
+        ("Multi-Turn", TestType.MULTI_TURN),
+        ("single_turn", TestType.SINGLE_TURN),
+        ("multi_turn", TestType.MULTI_TURN),
+    ],
+)
+def test_test_type_from_string_accepts_canonical_and_legacy_aliases(raw, expected):
+    assert TestType.from_string(raw) == expected
+    assert TestSetType.from_string(raw) == TestSetType(expected.value)

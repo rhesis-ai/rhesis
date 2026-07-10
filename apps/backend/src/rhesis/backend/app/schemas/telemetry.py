@@ -41,8 +41,18 @@ class TraceType(str, Enum):
     """Filter traces by single-turn vs multi-turn (conversation)."""
 
     ALL = "all"
-    SINGLE_TURN = "single_turn"  # Traces without conversation_id
-    MULTI_TURN = "multi_turn"  # Traces with conversation_id
+    SINGLE_TURN = "Single-Turn"  # Traces without conversation_id
+    MULTI_TURN = "Multi-Turn"  # Traces with conversation_id
+
+    @classmethod
+    def _missing_(cls, value: object):
+        """Accept legacy snake_case query values during the canonical migration."""
+        if not isinstance(value, str):
+            return None
+        return {
+            "single_turn": cls.SINGLE_TURN,
+            "multi_turn": cls.MULTI_TURN,
+        }.get(value)
 
 
 # Re-export SDK schemas for backward compatibility
