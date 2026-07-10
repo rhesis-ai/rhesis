@@ -2,6 +2,8 @@ import { auth } from '@/auth';
 import OnboardingPageClient from './components/OnboardingPageClient';
 import { UUID } from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 export default async function OnboardingPage() {
   const session = await auth();
   if (!session?.session_token) {

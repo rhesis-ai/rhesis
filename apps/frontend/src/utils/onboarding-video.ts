@@ -94,3 +94,11 @@ export function getYouTubeWatchUrl(raw: string): string | null {
   if (!videoId) return null;
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
+
+export function getOnboardingVideoUrl(): string | undefined {
+  return (
+    process.env.ONBOARDING_VIDEO_URL?.trim() ||
+    process.env.NEXT_PUBLIC_ONBOARDING_VIDEO_URL?.trim() ||
+    undefined
+  );
+}
