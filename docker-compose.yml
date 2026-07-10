@@ -1,13 +1,5 @@
 
 # Define configurations using YAML anchors
-x-common-database: &common-database
-  DB_DRIVER: ${DB_DRIVER:-postgresql}
-  DB_HOST: ${DB_HOST:-postgres}
-  DB_PORT: ${DB_PORT:-5432}
-  DB_NAME: ${DB_NAME:-rhesis-db}
-  APP_DB_USER: ${APP_DB_USER:-rhesis-user}
-  APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
-  DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
 
 # Object storage configuration (local dev defaults to bind-mounted /app/storage)
 x-common-storage: &common-storage
@@ -82,16 +74,16 @@ services:
   postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: ${DB_NAME:-rhesis-db}
-      POSTGRES_USER: ${APP_DB_USER:-rhesis-user}
-      POSTGRES_PASSWORD: ${APP_DB_PASS:-rhesis-password}
+      POSTGRES_DB: rhesis-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: rhesis-password
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-rhesis-user} -d ${DB_NAME:-rhesis-db}"]
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -123,7 +115,11 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
+      <<: [*common-redis, *common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
+      DB_HOST: postgres
+      APP_DB_USER: rhesis-user
+      APP_DB_PASS: rhesis-password
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
     volumes:
       - rhesis-storage:/app/storage
@@ -154,7 +150,11 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
+      <<: [*common-redis, *common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
+      DB_HOST: postgres
+      APP_DB_USER: rhesis-user
+      APP_DB_PASS: rhesis-password
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}

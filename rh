@@ -177,11 +177,8 @@ $DEV_ENV_MARKER on $timestamp
 
 QUICK_START=true
 
-# Database (dev ports)
-DB_DRIVER=postgresql
-DB_HOST=localhost
+# Database
 DB_PORT=${DEV_POSTGRES_PORT}
-DB_NAME=rhesis-db
 APP_DB_USER=rhesis-user
 APP_DB_PASS=rhesis-password
 DB_ENCRYPTION_KEY=${encryption_key}

@@ -183,9 +183,24 @@ def clean_telemetry_env(monkeypatch):
 
 
 @pytest.mark.unit
+def test_database_settings_uses_dev_defaults_when_env_missing(clean_database_env):
+    """With no DB_* vars set, host/port/name default to the local dev database."""
+    settings = DatabaseSettings(_env_file=None)
+
+    assert settings.host == "localhost"
+    assert settings.port == 5432
+    assert settings.name == "rhesis-db"
+    assert settings.app_user is None
+    assert settings.app_password is None
+
+
+@pytest.mark.unit
 def test_database_app_credentials_are_required(clean_database_env):
-    with pytest.raises(ValidationError):
-        DatabaseSettings(_env_file=None)
+    """Credentials have no default and must always be provided explicitly."""
+    settings = DatabaseSettings(_env_file=None)
+
+    with pytest.raises(ValueError, match="APP_DB_USER and APP_DB_PASS are required"):
+        _ = settings.app_url
 
 
 @pytest.mark.unit
