@@ -123,7 +123,9 @@ class HaystackTarget(Target):
         if run_inputs is not None:
             run_data = dict(run_inputs)
         elif self.input_mapping:
-            run_data = {component: {socket: message} for component, socket in self.input_mapping.items()}
+            run_data = {
+                component: {socket: message} for component, socket in self.input_mapping.items()
+            }
         else:
             run_data = {self.input_key: message}
 
@@ -139,7 +141,10 @@ class HaystackTarget(Target):
     def _handle_files(self, files: Optional[List]) -> Optional[str]:
         if not files:
             return None
-        return "HaystackTarget does not support file attachments; pass document bytes via run_inputs instead."
+        return (
+            "HaystackTarget does not support file attachments; pass document"
+            " bytes via run_inputs instead."
+        )
 
     def send_message(
         self,
@@ -247,8 +252,13 @@ Inputs: {mapping}
 File attachments: Not supported (use run_inputs for document payloads)
 
 Send messages using send_message_to_target(message, conversation_id).
-{"Maintain conversation_id for multi-turn pipeline context." if self.history_key else "Each message is independent unless history_key is configured."}
-For multi-component pipelines, configure input_mapping or pass run_inputs={{"component": {{"socket": value}}}}.
+{
+            "Maintain conversation_id for multi-turn pipeline context."
+            if self.history_key
+            else "Each message is independent unless history_key is configured."
+        }
+For multi-component pipelines, configure input_mapping or pass
+run_inputs={{"component": {{"socket": value}}}}.
 """
 
     def clear_session(self, session_id: str) -> None:

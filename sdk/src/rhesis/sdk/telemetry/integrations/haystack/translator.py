@@ -31,7 +31,9 @@ def _translate_events(
     new_events: list[Event] = []
     for event in original_events:
         new_events.append(
-            Event(name=event.name, attributes=dict(event.attributes or {}), timestamp=event.timestamp)
+            Event(
+                name=event.name, attributes=dict(event.attributes or {}), timestamp=event.timestamp
+            )
         )
 
     existing_names = {event.name for event in new_events}

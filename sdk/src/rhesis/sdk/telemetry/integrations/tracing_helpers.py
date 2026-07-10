@@ -76,8 +76,7 @@ def _sanitize(value: Any, *, key: str | None, depth: int, seen: set[int]) -> Any
         seen.add(obj_id)
         try:
             return {
-                k: _sanitize(v, key=str(k), depth=depth + 1, seen=seen)
-                for k, v in value.items()
+                k: _sanitize(v, key=str(k), depth=depth + 1, seen=seen) for k, v in value.items()
             }
         finally:
             seen.discard(obj_id)

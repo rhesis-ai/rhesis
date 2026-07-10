@@ -373,7 +373,11 @@ def synthesize_events(
             events.append(
                 (
                     AIEvents.TOOL_INPUT,
-                    {AIAttributes.TOOL_INPUT_CONTENT: truncate_content(sanitize_for_tracing(component_input))},
+                    {
+                        AIAttributes.TOOL_INPUT_CONTENT: truncate_content(
+                            sanitize_for_tracing(component_input)
+                        )
+                    },
                 )
             )
         if component_output is not None:
@@ -394,7 +398,11 @@ def synthesize_events(
             events.append(
                 (
                     AIEvents.AGENT_INPUT,
-                    {AIAttributes.AGENT_INPUT_CONTENT: truncate_content(sanitize_for_tracing(component_input))},
+                    {
+                        AIAttributes.AGENT_INPUT_CONTENT: truncate_content(
+                            sanitize_for_tracing(component_input)
+                        )
+                    },
                 )
             )
         if component_output is not None:
