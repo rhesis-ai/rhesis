@@ -16,7 +16,7 @@ from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import status as http_status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
@@ -34,7 +34,7 @@ class LicenseInfo(BaseModel):
 class FeaturesResponse(BaseModel):
     license: LicenseInfo
     enabled: List[str]
-    warnings: Dict[str, str] = {}
+    warnings: Dict[str, str] = Field(default_factory=dict)
 
 
 @router.get("", response_model=FeaturesResponse)

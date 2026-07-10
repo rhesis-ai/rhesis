@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
@@ -219,6 +220,13 @@ def _ensure_local_admin_org_role(
             )
     except ImportError:
         pass
+    except SQLAlchemyError:
+        logger.warning(
+            "Could not verify organization_member row for user %s — "
+            "organization_member table may not exist yet (migrations pending)",
+            user_id,
+            exc_info=True,
+        )
 
 
 def _apply_default_model_ids_to_user(
