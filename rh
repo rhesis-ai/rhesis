@@ -126,6 +126,23 @@ generate_encryption_key() {
          python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null
 }
 
+# Prompt for a host port, accepting a default when the user just presses Enter.
+# Usage: PORT=$(prompt_port "backend" 8080)
+# The prompt is written to stderr (via read -p) so it is not captured by $(...).
+prompt_port() {
+    local label="$1"
+    local default="$2"
+    local port=""
+    if [ -t 0 ]; then
+        read -r -p "$(echo -e "${YELLOW}Enter ${label} port [default: ${default}]: ${NC}")" port
+    fi
+    # Fall back to the default on empty input or a non-numeric entry.
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        port="$default"
+    fi
+    echo "$port"
+}
+
 # ============================================================================
 # Dev environment functions
 # ============================================================================
@@ -586,6 +603,16 @@ start_all() {
 
         # Create or update .env.docker.local
         if [ ! -f ".env.docker.local" ]; then
+            # Ask which host ports to serve on (Enter accepts the defaults).
+            echo ""
+            echo -e "${YELLOW}🔌 Host ports${NC}"
+            echo -e "${WHITE}   Choose the host ports for Rhesis (press Enter to accept the default).${NC}"
+            echo ""
+            local backend_port frontend_port
+            backend_port=$(prompt_port "backend" 8080)
+            frontend_port=$(prompt_port "frontend" 3000)
+            echo -e "${GREEN}✅ Using backend port ${backend_port}, frontend port ${frontend_port}${NC}"
+
             # Create new file
             echo "# Auto-generated local environment configuration" > .env.docker.local
             echo "" >> .env.docker.local
@@ -594,6 +621,10 @@ start_all() {
             echo "" >> .env.docker.local
             echo "# Local Authentication Bypass" >> .env.docker.local
             echo "QUICK_START=true" >> .env.docker.local
+            echo "" >> .env.docker.local
+            echo "# Host ports" >> .env.docker.local
+            echo "BACKEND_PORT=$backend_port" >> .env.docker.local
+            echo "FRONTEND_PORT=$frontend_port" >> .env.docker.local
             echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
         else
             # Update existing file
@@ -677,9 +708,14 @@ fi
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
         echo ""
+        local shown_backend_port shown_frontend_port
+        shown_backend_port=$(grep -m1 "^BACKEND_PORT=" .env.docker.local 2>/dev/null | cut -d= -f2)
+        shown_frontend_port=$(grep -m1 "^FRONTEND_PORT=" .env.docker.local 2>/dev/null | cut -d= -f2)
+        shown_backend_port="${shown_backend_port:-8080}"
+        shown_frontend_port="${shown_frontend_port:-3000}"
         echo -e "${CYAN}Access the platform:${NC}"
-        echo -e "   Frontend:  ${WHITE}http://localhost:3000${NC} (auto-login enabled)"
-        echo -e "   Backend:   ${WHITE}http://localhost:8080/docs${NC}"
+        echo -e "   Frontend:  ${WHITE}http://localhost:${shown_frontend_port}${NC} (auto-login enabled)"
+        echo -e "   Backend:   ${WHITE}http://localhost:${shown_backend_port}/docs${NC}"
         echo -e "   Worker:    ${WHITE}http://localhost:8081/health/basic${NC}"
         echo ""
         echo -e "${YELLOW}Useful commands:${NC}"

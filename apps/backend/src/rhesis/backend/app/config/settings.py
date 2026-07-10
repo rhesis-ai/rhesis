@@ -9,11 +9,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class DatabaseSettings(BaseSettings):
     """Database configuration built from component environment variables.
 
-    Host/port/name default to the local dev database (postgres on
-    localhost:5432/rhesis-db, matching docker-compose and ``./rh dev up``).
-    Credentials have no default and must always be provided via .env or
-    other config, in any environment.
-
     Runtime (app) URL uses APP_DB_USER / APP_DB_PASS.
     Migration (admin) URL uses ADMIN_DB_USER / ADMIN_DB_PASS, falling back to
     the app credentials when the admin vars are not set (single-role setups).
