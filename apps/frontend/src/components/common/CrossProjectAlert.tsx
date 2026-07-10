@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Button, Box, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
-import SwapHorizIcon from '@mui/icons-material/SwapHorizOutlined';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import EntityMessageState from '@/components/common/EntityMessageState';
 import { ResolvedEntity } from '@/utils/api-client/resolve-client';
 import { NotFoundEntityData } from '@/utils/entity-error-handler';
+import {
+  getResolveEntityIcon,
+  LockOutlinedIcon,
+  SwapHorizOutlinedIcon,
+} from '@/utils/entity-detail-icons';
 import { writeActiveProjectId } from '@/utils/active-project';
 
 interface CrossProjectAlertProps {
@@ -26,28 +29,20 @@ export function CrossProjectAlert({
 
   const displayName =
     entityData.model_name_display || entityData.model_name || 'item';
+  const EntityIcon = getResolveEntityIcon(entityData.table_name);
 
   if (resolvedEntity.resolution === 'no_access') {
     return (
-      <Alert severity="warning" icon={<LockOutlinedIcon />}>
-        <Box mb={2}>
-          <Typography>
-            This {displayName.toLowerCase()} belongs to a project you don't have
-            access to. Contact your administrator to request access.
-          </Typography>
-        </Box>
-
-        <Box display="flex" gap={2} flexWrap="wrap">
-          <Button
-            variant="outlined"
-            size="medium"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => window.history.back()}
-          >
-            Back
-          </Button>
-        </Box>
-      </Alert>
+      <EntityMessageState
+        icon={LockOutlinedIcon}
+        title={`${displayName} is in another project`}
+        description={`This ${displayName.toLowerCase()} belongs to a project you don't have access to. Contact your administrator to request access.`}
+        secondaryAction={{
+          label: 'Back',
+          onClick: () => window.history.back(),
+          startIcon: <ArrowBackIcon />,
+        }}
+      />
     );
   }
 
@@ -69,42 +64,31 @@ export function CrossProjectAlert({
 
   if (switching) {
     return (
-      <Alert severity="info">
-        <Typography>
-          Switching to <strong>{resolvedEntity.project_name}</strong>...
-        </Typography>
-      </Alert>
+      <EntityMessageState
+        icon={SwapHorizOutlinedIcon}
+        title={`Switching to ${resolvedEntity.project_name}...`}
+        description="Updating your active project."
+        loading
+      />
     );
   }
 
   return (
-    <Alert severity="info">
-      <Box mb={2}>
-        <Typography>
-          This {displayName.toLowerCase()} belongs to project{' '}
-          <strong>{resolvedEntity.project_name}</strong>. Switch to that project
-          to view it.
-        </Typography>
-      </Box>
-
-      <Box display="flex" gap={2} flexWrap="wrap">
-        <Button
-          variant="contained"
-          size="medium"
-          startIcon={<SwapHorizIcon />}
-          onClick={handleSwitch}
-        >
-          Switch to {resolvedEntity.project_name}
-        </Button>
-        <Button
-          variant="outlined"
-          size="medium"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => window.history.back()}
-        >
-          Back
-        </Button>
-      </Box>
-    </Alert>
+    <EntityMessageState
+      icon={EntityIcon}
+      title={`${displayName} is in another project`}
+      description={`This ${displayName.toLowerCase()} belongs to project ${resolvedEntity.project_name}. Switch to that project to view it.`}
+      primaryAction={{
+        label: `Switch to ${resolvedEntity.project_name}`,
+        onClick: handleSwitch,
+        startIcon: <SwapHorizOutlinedIcon />,
+        variant: 'contained',
+      }}
+      secondaryAction={{
+        label: 'Back',
+        onClick: () => window.history.back(),
+        startIcon: <ArrowBackIcon />,
+      }}
+    />
   );
 }
