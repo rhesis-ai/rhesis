@@ -112,7 +112,11 @@ export default function EntityEmptyState({
 
       <Typography
         variant="h6"
-        sx={useCompactLayout ? emptyStateCompactTitleSx : emptyStateStandaloneTitleSx}
+        sx={
+          useCompactLayout
+            ? emptyStateCompactTitleSx
+            : emptyStateStandaloneTitleSx
+        }
       >
         {title}
       </Typography>

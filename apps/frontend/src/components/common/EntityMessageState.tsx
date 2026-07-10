@@ -1,12 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Typography,
-} from '@mui/material';
+import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import {
   EMPTY_STATE,
@@ -121,7 +116,9 @@ export default function EntityMessageState({
 
         {(primaryAction || secondaryAction) && (
           <Box sx={emptyStateActionsRowSx}>
-            {secondaryAction && <MessageActionButton action={secondaryAction} />}
+            {secondaryAction && (
+              <MessageActionButton action={secondaryAction} />
+            )}
             {primaryAction && <MessageActionButton action={primaryAction} />}
           </Box>
         )}

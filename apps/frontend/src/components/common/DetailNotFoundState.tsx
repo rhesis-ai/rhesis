@@ -109,7 +109,9 @@ export default function DetailNotFoundState({
     );
   }
 
-  const listLabel = displayLabel.endsWith('s') ? displayLabel : `${displayLabel}s`;
+  const listLabel = displayLabel.endsWith('s')
+    ? displayLabel
+    : `${displayLabel}s`;
 
   return contentWrapper(
     <EntityMessageState

@@ -49,7 +49,9 @@ const URL_SEGMENT_LABEL_OVERRIDES: Record<string, string> = {
 };
 
 export function urlSegmentToResolveEntityType(urlSegment: string): string {
-  return URL_SEGMENT_TABLE_OVERRIDES[urlSegment] ?? urlSegmentToTableName(urlSegment);
+  return (
+    URL_SEGMENT_TABLE_OVERRIDES[urlSegment] ?? urlSegmentToTableName(urlSegment)
+  );
 }
 
 export interface ParsedPathEntity {
@@ -80,7 +82,9 @@ function formatEntityLabelFromSegment(urlSegment: string): string {
  * Extract entity type and id from a protected detail-page pathname.
  * Returns null for list pages or non-UUID detail routes.
  */
-export function parseEntityFromPathname(pathname: string): ParsedPathEntity | null {
+export function parseEntityFromPathname(
+  pathname: string
+): ParsedPathEntity | null {
   const segments = pathname.split('/').filter(Boolean);
 
   if (

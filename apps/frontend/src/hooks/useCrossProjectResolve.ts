@@ -18,9 +18,8 @@ export function useCrossProjectResolve(
   enabled = true
 ): UseCrossProjectResolveResult {
   const { data: session } = useSession();
-  const [crossProjectData, setCrossProjectData] = useState<ResolvedEntity | null>(
-    null
-  );
+  const [crossProjectData, setCrossProjectData] =
+    useState<ResolvedEntity | null>(null);
   const [resolveAttempted, setResolveAttempted] = useState(false);
 
   useEffect(() => {

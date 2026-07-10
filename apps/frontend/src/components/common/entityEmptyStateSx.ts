@@ -119,7 +119,10 @@ export function emptyStateEnrichedActionSx(
   variant: 'outlined' | 'contained'
 ): SxProps<Theme> {
   return variant === 'outlined'
-    ? { ...emptyStateEnrichedActionBaseSx, ...emptyStateEnrichedOutlinedBorderSx }
+    ? {
+        ...emptyStateEnrichedActionBaseSx,
+        ...emptyStateEnrichedOutlinedBorderSx,
+      }
     : emptyStateEnrichedActionBaseSx;
 }
 

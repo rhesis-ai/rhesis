@@ -16,7 +16,10 @@ import {
   TracesIcon,
 } from '@/components/icons';
 
-const RESOLVE_ENTITY_ICONS: Record<string, React.ComponentType<SvgIconProps>> = {
+const RESOLVE_ENTITY_ICONS: Record<
+  string,
+  React.ComponentType<SvgIconProps>
+> = {
   test_set: CategoryIcon,
   test: ScienceIcon,
   test_run: PlayArrowIcon,
