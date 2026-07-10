@@ -704,7 +704,7 @@ stop_all() {
 
     local compose_flags
     compose_flags=$(quickstart_compose_flags_from_file)
-    docker compose $compose_flags -p "$PROJECT_NAME" down
+    docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local down
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services stopped${NC}"
@@ -781,10 +781,10 @@ view_logs() {
 
     if [ -z "$1" ]; then
         # No service specified, show all logs
-        docker compose $compose_flags -p "$PROJECT_NAME" logs -f
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local logs -f
     else
         # Show logs for specific service
-        docker compose $compose_flags -p "$PROJECT_NAME" logs -f "$1"
+        docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local logs -f "$1"
     fi
 }
 
@@ -824,10 +824,10 @@ delete_all() {
     compose_flags=$(quickstart_compose_flags_from_file)
 
     # Stop and remove containers, networks, and volumes managed by this compose file
-    docker compose $compose_flags -p "$PROJECT_NAME" down -v --rmi all 2>/dev/null || {
+    docker compose $compose_flags -p "$PROJECT_NAME" --env-file .env.docker.local down -v --rmi all 2>/dev/null || {
         # Fallback: If project name doesn't match, try without -p flag
         echo -e "${YELLOW}⚠️  Project-specific deletion failed, trying default method...${NC}"
-        docker compose $compose_flags down -v --rmi all
+        docker compose $compose_flags --env-file .env.docker.local down -v --rmi all
     }
 
     rm -f .env.docker.local
