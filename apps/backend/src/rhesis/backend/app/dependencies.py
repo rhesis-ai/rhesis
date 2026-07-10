@@ -2,6 +2,7 @@
 Dependency injection functions for FastAPI.
 """
 
+import logging
 import uuid
 from functools import lru_cache
 from typing import Optional
@@ -14,6 +15,8 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.endpoint import EndpointService
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache()
@@ -161,17 +164,28 @@ def get_project_context(
     values must match — a project-scoped token cannot be used to access a
     different project (403).
 
-    When a project_id is resolved the dependency validates that the authenticated
-    user is a member of that project.  Non-members receive **403**.
+    Scope source determines strictness:
+
+    * **Project-scoped API token** — the token *asserts* a project (it is a
+      credential, not a UI hint). A stale/mismatched/non-member project is a hard
+      **403**.
+    * **Ambient header only** (the browser's ``rh_active_project_id`` cookie
+      forwarded as ``X-Project-Id``) — the header is only a hint. A stale or
+      unauthorized value must not lock the user out of every endpoint, so it
+      **degrades to no project scope** (returns ``None``) instead of raising. The
+      request then runs org-level scoped; RLS stays fail-closed to org-level rows
+      (``project_id = NULL``), so nothing leaks — the frontend simply drops the
+      stale cookie on its next fetch.
 
     Returns:
-        The project UUID as a string, or None if no project scope was requested.
-        When None, the request is fail-closed to org-level rows (project_id = NULL)
-        only -- project-scoped rows are not visible.
+        The project UUID as a string, or None if no project scope was requested
+        (or an ambient scope was stale and degraded). When None, the request is
+        fail-closed to org-level rows (project_id = NULL) only -- project-scoped
+        rows are not visible.
     """
     # 1. Prefer explicit header (FastAPI already parsed it via the Header() annotation)
     explicit_project_id = x_project_id or request.headers.get("X-Project-Id")
-    token_project_id = getattr(request.state, "api_token_project_id", None)
+    token_project_id = getattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None)
 
     # 2. Fall back to the project bound to the API token
     project_id_str = explicit_project_id or token_project_id
@@ -179,9 +193,37 @@ def get_project_context(
     if not project_id_str:
         return None
 
-    return assert_project_access(
-        request, current_user, project_id_str, invalid_uuid_detail="Invalid X-Project-Id format"
-    )
+    # A project-scoped API token asserts a project — keep it strict (may raise 400/403,
+    # including the token/header mismatch check inside assert_project_access).
+    if token_project_id:
+        return assert_project_access(
+            request,
+            current_user,
+            project_id_str,
+            invalid_uuid_detail="Invalid X-Project-Id format",
+        )
+
+    # Ambient header only (cookie-derived hint). A stale/invalid value degrades to
+    # org-level scope instead of hard-locking the user out of unrelated endpoints.
+    try:
+        return assert_project_access(
+            request,
+            current_user,
+            project_id_str,
+            invalid_uuid_detail="Invalid X-Project-Id format",
+        )
+    except HTTPException as exc:
+        if exc.status_code in (400, 403):
+            logger.info(
+                "Ignoring stale/unauthorized ambient X-Project-Id %r for user %s "
+                "(status %s: %s); falling back to org-level scope.",
+                project_id_str,
+                getattr(current_user, "id", None),
+                exc.status_code,
+                exc.detail,
+            )
+            return None
+        raise
 
 
 def get_db_session():
