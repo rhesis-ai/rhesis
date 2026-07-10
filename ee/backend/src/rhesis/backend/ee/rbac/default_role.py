@@ -30,6 +30,28 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
+def _sync_project_roles_from_org_role(
+    db: Session,
+    user_id: UUID,
+    organization_id: UUID,
+    role_id: UUID,
+) -> None:
+    """Copy *role_id* into project memberships that have no explicit project role.
+
+    Idempotent — never overwrites an existing ``project_membership.role_id``.
+    """
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    db.query(ProjectMembership).filter_by(
+        organization_id=organization_id,
+        user_id=user_id,
+    ).filter(ProjectMembership.role_id.is_(None)).update(
+        {ProjectMembership.role_id: role_id},
+        synchronize_session=False,
+    )
+    db.flush()
+
+
 def assign_default_org_role(db: Session, user_id: UUID, organization_id: UUID) -> None:
     """Insert the default ``organization_member`` row for *user_id* in *organization_id*.
 
@@ -53,6 +75,10 @@ def assign_default_org_role(db: Session, user_id: UUID, organization_id: UUID) -
         .first()
     )
     if existing is not None:
+        if existing.role_id is not None:
+            _sync_project_roles_from_org_role(
+                db, user_id, organization_id, existing.role_id
+            )
         return
 
     role_name = "Owner" if str(org.owner_id) == str(user_id) else "Member"
@@ -80,6 +106,7 @@ def assign_default_org_role(db: Session, user_id: UUID, organization_id: UUID) -
         )
     )
     db.flush()
+    _sync_project_roles_from_org_role(db, user_id, organization_id, role.id)
 
     # Revocation/grant must take effect immediately for this user.
     try:

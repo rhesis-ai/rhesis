@@ -93,6 +93,9 @@ def initialize_local_environment(db: Session) -> None:
                     default_model_ids = load_initial_data(db, str(org.id), str(user.id))
                     _apply_default_model_ids_to_user(user, default_model_ids)
                     db.flush()
+                    # Seed data enrolls the admin in projects after the org-role
+                    # hook may have already run — re-fire so project roles sync.
+                    _ensure_local_admin_org_role(db, user.id, org.id)
                     db.commit()
                     logger.info("✅ Initial seed data loaded successfully!")
                 else:
@@ -166,6 +169,10 @@ def initialize_local_environment(db: Session) -> None:
         default_model_ids = load_initial_data(db, str(org_id), str(user_id))
         _apply_default_model_ids_to_user(user, default_model_ids)
         db.flush()
+
+        # enroll_user_in_project runs inside load_initial_data after the org-role
+        # hook above — re-fire so project_membership.role_id is backfilled.
+        _ensure_local_admin_org_role(db, user_id, org_id)
 
         db.commit()
 

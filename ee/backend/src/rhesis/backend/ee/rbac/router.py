@@ -135,6 +135,40 @@ def _get_actor_permissions(principal, project_id, db: Session) -> set[str]:
     )
 
 
+def _resolve_member_project_role_read(
+    user_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    project_id: uuid.UUID,
+    stored_role_id: Optional[uuid.UUID],
+    db: Session,
+) -> Optional[RoleRead]:
+    """Return the role a member effectively holds in *project_id* for display.
+
+    When ``stored_role_id`` is set, returns that role.  Otherwise resolves via
+    the auth provider so inherited org roles (and the owner floor) surface in the
+    Members grid even before ``project_membership.role_id`` is backfilled.
+    """
+    from rhesis.backend.app.auth.principal import AuthKind, Principal
+    from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
+
+    if stored_role_id is not None:
+        stored = _load_role(stored_role_id, db)
+        if stored is not None:
+            return _role_to_read(stored, db)
+
+    member_principal = Principal(
+        user_id=user_id,
+        organization_id=organization_id,
+        kind=AuthKind.SESSION,
+    )
+    effective = PermissionAuthorizationProvider().resolve_effective_role(
+        member_principal, project_id, db
+    )
+    if effective is not None:
+        return _role_to_read(effective, db)
+    return None
+
+
 def _resolve_permission_ids(permission_names: list[str], db: Session) -> list[uuid.UUID]:
     """Map capability strings to Permission PKs. Raises 422 on unknown names."""
     from rhesis.backend.ee.rbac.models import Permission
@@ -799,19 +833,18 @@ def list_user_project_memberships(
         .all()
     )
 
-    unique_role_ids = {m.role_id for m in memberships if m.role_id is not None}
-    roles_by_id = {}
-    for role_id in unique_role_ids:
-        role = _load_role(role_id, db)
-        if role is not None:
-            roles_by_id[role_id] = _role_to_read(role, db)
-
     return [
         UserProjectMembershipRead(
             project_id=m.project_id,
             user_id=m.user_id,
             role_id=m.role_id,
-            role=roles_by_id.get(m.role_id),
+            role=_resolve_member_project_role_read(
+                m.user_id,
+                current_user.organization_id,
+                m.project_id,
+                m.role_id,
+                db,
+            ),
             project=ProjectSummary.model_validate(m.project),
         )
         for m in memberships
@@ -1015,9 +1048,10 @@ def list_project_members(
 ):
     """List all project members with their RBAC role assignments.
 
-    Returns every ``project_membership`` row for *project_id*, including the
-    resolved role when ``role_id`` is set.  Members without an explicit
-    project-level role have ``role_id`` and ``role`` as ``None``.
+    Returns every ``project_membership`` row for *project_id*.  ``role_id`` is
+    the stored explicit assignment (nullable).  ``role`` is the *effective*
+    project role — when ``role_id`` is NULL the member's inherited org role
+    (or owner floor) is resolved for display and ``permitted_actions``.
 
     ``member:read`` is org-scoped, so the capability gate alone does not confirm
     the caller may see *this* project's roster. Enforce project access
@@ -1044,20 +1078,19 @@ def list_project_members(
         .all()
     )
 
-    unique_role_ids = {m.role_id for m in memberships if m.role_id is not None}
-    roles_by_id = {}
-    for role_id in unique_role_ids:
-        role = _load_role(role_id, db)
-        if role is not None:
-            roles_by_id[role_id] = _role_to_read(role, db)
-
     principal = resolve_principal(current_user)
     actor_level = _get_actor_level(principal, project_id=project_id, db=db)
     actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
 
     result = []
     for m in memberships:
-        current_role = roles_by_id.get(m.role_id)
+        current_role = _resolve_member_project_role_read(
+            m.user_id,
+            current_user.organization_id,
+            project_id,
+            m.role_id,
+            db,
+        )
         is_self = str(m.user_id) == str(current_user.id)
         actions = _member_permitted_actions(
             is_self=is_self,
@@ -1075,7 +1108,7 @@ def list_project_members(
                 project_id=project_id,
                 user_id=m.user_id,
                 role_id=m.role_id,
-                role=roles_by_id.get(m.role_id),
+                role=current_role,
                 permitted_actions=actions,
             )
         )
