@@ -118,12 +118,25 @@ export const emptyStateEnrichedOutlinedBorderSx: SxProps<Theme> = {
 export function emptyStateEnrichedActionSx(
   variant: 'outlined' | 'contained'
 ): SxProps<Theme> {
-  return variant === 'outlined'
-    ? {
-        ...emptyStateEnrichedActionBaseSx,
-        ...emptyStateEnrichedOutlinedBorderSx,
-      }
-    : emptyStateEnrichedActionBaseSx;
+  const base = {
+    fontWeight: 700,
+    fontSize: 14,
+    lineHeight: '22px',
+    borderRadius: BORDER_RADIUS.sm,
+    textTransform: 'none' as const,
+    px: '16px',
+    py: '8px',
+  };
+
+  if (variant === 'outlined') {
+    return {
+      ...base,
+      borderWidth: 2,
+      '&:hover': { borderWidth: 2 },
+    };
+  }
+
+  return base;
 }
 
 export const emptyStateActionsRowSx: SxProps<Theme> = {
