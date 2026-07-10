@@ -114,7 +114,7 @@ def clean_application_env(monkeypatch):
 
 @pytest.fixture
 def minimal_application_env(clean_application_env, monkeypatch):
-    """ApplicationSettings fields that have no default and are required for load."""
+    """Sets API_BASE_URL to a distinct test value (default is http://localhost:8080)."""
     monkeypatch.setenv("API_BASE_URL", "https://api.example.com")
     yield
 
@@ -349,9 +349,10 @@ def test_database_url_comes_from_component_env_vars(clean_database_env, monkeypa
 
 
 @pytest.mark.unit
-def test_frontend_url_is_required(clean_frontend_env):
-    with pytest.raises(ValidationError, match="FRONTEND_URL"):
-        FrontendSettings(_env_file=None)
+def test_frontend_url_uses_dev_default(clean_frontend_env):
+    settings = FrontendSettings(_env_file=None)
+
+    assert settings.url == "http://localhost:3000"
 
 
 @pytest.mark.unit
@@ -643,9 +644,10 @@ def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, mo
 
 
 @pytest.mark.unit
-def test_application_settings_requires_api_base_url(clean_application_env):
-    with pytest.raises(ValidationError):
-        ApplicationSettings(_env_file=None)
+def test_application_settings_api_base_url_uses_dev_default(clean_application_env):
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.api_base_url == "http://localhost:8080"
 
 
 @pytest.mark.unit

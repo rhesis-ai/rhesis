@@ -33,9 +33,9 @@ x-common-jwt: &common-jwt
   JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-jwt-secret-key-change-in-production}
 
 x-common-environment: &common-environment
-  BACKEND_ENV: ${BACKEND_ENV:-local}
-  FRONTEND_ENV: ${FRONTEND_ENV:-local}
-  WORKER_ENV: ${WORKER_ENV:-local}
+  BACKEND_ENV: local
+  FRONTEND_ENV: local
+  WORKER_ENV: local
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   QUICK_START: ${QUICK_START:-false}
 
@@ -70,8 +70,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
       interval: 10s
@@ -84,8 +82,6 @@ services:
   redis:
     image: mirror.gcr.io/redis:7-alpine
     command: redis-server --requirepass rhesis-redis-pass
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -107,10 +103,9 @@ services:
       DB_HOST: postgres
       APP_DB_USER: rhesis-user
       APP_DB_PASS: rhesis-password
-      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
       BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
-
       OTEL_EXPORTER_OTLP_ENDPOINT: https://telemetry.rhesis.ai
       OTEL_SERVICE_NAME: rhesis
       OTEL_DEPLOYMENT_TYPE: self-hosted
@@ -147,18 +142,16 @@ services:
       DB_HOST: postgres
       APP_DB_USER: rhesis-user
       APP_DB_PASS: rhesis-password
-      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
       BROKER_URL: redis://:rhesis-redis-pass@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@redis:6379/1
-      LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      LOG_LEVEL: INFO
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
       CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
-      ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
+      ENABLE_FLOWER: no
     volumes:
       - rhesis-storage:/app/storage
-    ports:
-      - "8081:8081"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
