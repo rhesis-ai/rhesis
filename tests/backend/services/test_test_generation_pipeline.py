@@ -499,7 +499,7 @@ class TestPipelineStream:
 
         test_events = [e for e in events if e["type"] == "test"]
         assert len(test_events) == 2
-        assert all(e["test_type"] == "single_turn" for e in test_events)
+        assert all(e["test_type"] == "Single-Turn" for e in test_events)
 
         done_event = next(e for e in events if e["type"] == "tests_done")
         assert done_event["total"] == 2
@@ -552,14 +552,14 @@ class TestPipelineStream:
                     user=user,
                     prompt="test chatbot",
                     organization_id=org_id,
-                    test_type="multi_turn",
+                    test_type="Multi-Turn",
                     num_tests=1,
                 )
             )
 
         test_events = [e for e in events if e["type"] == "test"]
         assert len(test_events) == 1
-        assert test_events[0]["test_type"] == "multi_turn"
+        assert test_events[0]["test_type"] == "Multi-Turn"
         mock_gen.assert_called_once()
 
     async def test_config_failure_aborts_pipeline(self):

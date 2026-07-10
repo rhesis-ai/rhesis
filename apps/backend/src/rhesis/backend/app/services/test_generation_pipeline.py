@@ -192,7 +192,7 @@ async def test_generation_pipeline_stream(
     organization_id: str,
     project_id: Optional[str] = None,
     previous_messages: Optional[list] = None,
-    test_type: str = "single_turn",
+    test_type: str = "Single-Turn",
     num_tests: int = 5,
     sources: Optional[List[SourceData]] = None,
     model_id: Optional[str] = None,
@@ -252,7 +252,7 @@ async def test_generation_pipeline_stream(
     tests_generated = 0
 
     try:
-        if test_type == "multi_turn":
+        if test_type == "Multi-Turn":
             config_dict = {
                 "generation_prompt": prompt,
                 "behaviors": active_behaviors,
@@ -271,7 +271,7 @@ async def test_generation_pipeline_stream(
                         "type": "test",
                         "index": test_index,
                         "test": test,
-                        "test_type": "multi_turn",
+                        "test_type": "Multi-Turn",
                     }
                 )
                 test_index += 1
@@ -302,7 +302,7 @@ async def test_generation_pipeline_stream(
                         "type": "test",
                         "index": test_index,
                         "test": test,
-                        "test_type": "single_turn",
+                        "test_type": "Single-Turn",
                     }
                 )
                 test_index += 1
@@ -331,7 +331,7 @@ async def test_generation_pipeline_stream(
                         "type": "test",
                         "index": test_index,
                         "test": test,
-                        "test_type": "single_turn",
+                        "test_type": "Single-Turn",
                     }
                 )
                 test_index += 1

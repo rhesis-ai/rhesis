@@ -10,7 +10,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
-import { TEST_TYPES } from '@/constants/test-types';
+import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
 import {
   useStatuses,
   useBehaviors,
@@ -72,11 +72,6 @@ export function countActiveTestFilters(f: TestFilters): number {
     countActivePresenceFilters(f)
   );
 }
-
-const TEST_TYPE_OPTIONS = [
-  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
-  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
-] as const;
 
 const textFieldSx = filterDrawerTextFieldSx;
 
@@ -185,7 +180,7 @@ export default function TestFilterDrawer({
     >
       <FilterSection title="Test Type">
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {TEST_TYPE_OPTIONS.map(opt => (
+          {TEST_TYPE_FILTER_OPTIONS.map(opt => (
             <Box
               key={opt.value}
               component="button"
