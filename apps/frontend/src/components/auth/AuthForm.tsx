@@ -199,12 +199,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
     if (provider.login_url) {
       const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
-    loginUrl.searchParams.set('return_to', returnTo);
-    if (!previouslyAccepted) {
-      // User checked the box this session; backend records it on callback.
-      loginUrl.searchParams.set('terms_accepted', 'true');
-    }
-    window.location.href = loginUrl.toString();
+      loginUrl.searchParams.set('return_to', returnTo);
+      if (!previouslyAccepted) {
+        // User checked the box this session; backend records it on callback.
+        loginUrl.searchParams.set('terms_accepted', 'true');
+      }
+      window.location.href = loginUrl.toString();
       return;
     }
 
