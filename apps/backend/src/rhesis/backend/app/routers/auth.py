@@ -918,6 +918,11 @@ async def reset_password(
 # Magic Link Endpoints
 # =============================================================================
 
+_MAGIC_LINK_SUCCESS_RESPONSE = {
+    "success": True,
+    "message": "A sign-in link has been sent to your email.",
+}
+
 
 @router.post("/magic-link")
 @limiter.limit(AUTH_MAGIC_LINK_LIMIT)
@@ -929,7 +934,10 @@ async def request_magic_link(
     """
     Send a magic link email. Creates a new account if the email
     doesn't exist yet (unified sign-in / sign-up flow).
-    Always returns 200 to prevent email enumeration.
+
+    Always returns 200 to prevent email enumeration. When terms
+    acceptance is still required and not provided, no user is created
+    and no email is sent, but the response is identical.
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.schemas.user import UserCreate
@@ -937,8 +945,9 @@ async def request_magic_link(
     user = crud.get_user_by_email(db, body.email)
     is_new_user = False
 
-    if not user:
-        # Auto-create account for new users (unified flow)
+    if user is None:
+        if not body.accept_terms:
+            return _MAGIC_LINK_SUCCESS_RESPONSE
         try:
             user_data = UserCreate(
                 email=body.email,
@@ -956,17 +965,9 @@ async def request_magic_link(
             )
         except Exception as e:
             logger.warning(f"Failed to create user for magic link: {e}")
-            # Return success to prevent email enumeration
-            return {
-                "success": True,
-                "message": ("A sign-in link has been sent to your email."),
-            }
-
-    if not user_has_accepted_current_terms(user) and not body.accept_terms:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You must accept the Terms and Conditions",
-        )
+            return _MAGIC_LINK_SUCCESS_RESPONSE
+    elif not user_has_accepted_current_terms(user) and not body.accept_terms:
+        return _MAGIC_LINK_SUCCESS_RESPONSE
 
     try:
         token = create_magic_link_token(
@@ -994,10 +995,7 @@ async def request_magic_link(
     if is_new_user:
         _send_welcome_email(user)
 
-    return {
-        "success": True,
-        "message": "A sign-in link has been sent to your email.",
-    }
+    return _MAGIC_LINK_SUCCESS_RESPONSE
 
 
 @router.post("/magic-link/verify")

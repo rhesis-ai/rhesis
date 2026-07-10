@@ -777,6 +777,27 @@ class TestAuthMagicLinkRoutes:
         assert data["success"] is True
         assert "message" in data
 
+    def test_magic_link_missing_accept_terms_returns_200(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """Missing accept_terms must not leak account/terms state via status code."""
+        from rhesis.backend.app import crud
+
+        unknown = client.post(
+            "/auth/magic-link",
+            json={"email": "nobody-magic@example.com"},
+        )
+        assert unknown.status_code == status.HTTP_200_OK
+        assert crud.get_user_by_email(test_db, "nobody-magic@example.com") is None
+
+        email = _unique_email("magic-noterms")
+        org = create_test_organization(test_db, "Magic No Terms Org")
+        create_test_user(test_db, org.id, email, "Magic No Terms User")
+        test_db.commit()
+
+        existing = client.post("/auth/magic-link", json={"email": email})
+        assert existing.status_code == status.HTTP_200_OK
+
     def test_magic_link_verify_valid_token_single_use(
         self, client: TestClient, test_db, test_org_id
     ):
