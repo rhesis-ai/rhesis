@@ -16,6 +16,7 @@ export default async function OnboardingPage() {
     <OnboardingPageClient
       sessionToken={session.session_token}
       userId={session.user.id as UUID}
+      videoUrl={process.env.ONBOARDING_VIDEO_URL?.trim() || undefined}
     />
   );
 }
