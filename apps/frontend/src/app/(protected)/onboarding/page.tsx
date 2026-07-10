@@ -3,6 +3,8 @@ import OnboardingPageClient from './components/OnboardingPageClient';
 import { getOnboardingVideoUrl } from '@/utils/onboarding-video';
 import { UUID } from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 export default async function OnboardingPage() {
   const session = await auth();
   if (!session?.session_token) {
