@@ -12,7 +12,7 @@ the wire format stable independent of Python enum evolution.
 
 from __future__ import annotations
 
-from typing import List
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import status as http_status
@@ -34,6 +34,7 @@ class LicenseInfo(BaseModel):
 class FeaturesResponse(BaseModel):
     license: LicenseInfo
     enabled: List[str]
+    warnings: Dict[str, str] = {}
 
 
 @router.get("", response_model=FeaturesResponse)
@@ -59,7 +60,8 @@ def list_features(
             status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Organization not found",
         )
-    enabled = [f.name.value for f in FeatureRegistry.enabled_features(org)]
+    enabled = [f.name.value for f in FeatureRegistry.licensed_features(org)]
+    warnings = FeatureRegistry.feature_warnings(org)
     info = FeatureRegistry.license_info()
     return FeaturesResponse(
         license=LicenseInfo(
@@ -67,4 +69,5 @@ def list_features(
             licensed=bool(info.get("licensed", False)),
         ),
         enabled=enabled,
+        warnings=warnings,
     )

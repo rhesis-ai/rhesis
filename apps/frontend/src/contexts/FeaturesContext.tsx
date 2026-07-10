@@ -28,6 +28,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 interface FeaturesState {
   license: LicenseInfo | null;
   enabled: ReadonlySet<string>;
+  warnings: Readonly<Record<string, string>>;
   loading: boolean;
   error: Error | null;
 }
@@ -35,6 +36,7 @@ interface FeaturesState {
 const DEFAULT_STATE: FeaturesState = {
   license: null,
   enabled: new Set<string>(),
+  warnings: {},
   loading: true,
   error: null,
 };
@@ -68,6 +70,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
       return {
         license: null,
         enabled: new Set<string>(),
+        warnings: {},
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -75,6 +78,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
     return {
       license: data.license,
       enabled: new Set<string>(data.enabled),
+      warnings: data.warnings ?? {},
       loading: false,
       error: null,
     };
@@ -95,6 +99,17 @@ export function useFeature(name: FeatureName): boolean {
   const { enabled, loading } = useContext(FeaturesContext);
   if (loading) return false;
   return enabled.has(name);
+}
+
+/**
+ * Returns the warning message for a feature, or null if the feature
+ * is fully operational. Use this to show a banner when a feature is
+ * licensed but its backing infrastructure is not yet configured.
+ */
+export function useFeatureWarning(name: FeatureName): string | null {
+  const { warnings, loading } = useContext(FeaturesContext);
+  if (loading) return null;
+  return warnings[name] ?? null;
 }
 
 /**
