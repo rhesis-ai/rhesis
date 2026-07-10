@@ -164,14 +164,7 @@ class MagicLinkRequest(BaseModel):
     """Request body for magic link login."""
 
     email: EmailStr
-    accept_terms: bool
-
-    @field_validator("accept_terms")
-    @classmethod
-    def must_accept_terms(cls, value: bool) -> bool:
-        if not value:
-            raise ValueError("You must accept the Terms and Conditions")
-        return value
+    accept_terms: Optional[bool] = None
 
 
 class TermsStatusResponse(BaseModel):
@@ -233,6 +226,18 @@ def is_running_locally() -> bool:
         return True
 
     return False
+
+
+def _ensure_terms_accepted(user, accept_terms: Optional[bool]) -> None:
+    """Require current T&C acceptance and persist it when not already on file."""
+    if user_has_accepted_current_terms(user):
+        return
+    if not accept_terms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must accept the Terms and Conditions",
+        )
+    record_terms_acceptance(user)
 
 
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
@@ -367,9 +372,10 @@ async def get_terms_status(
     db: Session = Depends(get_db_session),
 ):
     """
-    Check whether a user has accepted the current Terms and Conditions.
+    Check whether a user has accepted the current T&C version.
 
-    Always returns 200 to avoid email enumeration.
+    Used by the login page to skip the checkbox for returning users.
+    Always returns 200 (even for unknown emails) to limit enumeration.
     """
     from rhesis.backend.app import crud
 
@@ -397,6 +403,8 @@ async def login_with_provider(
     Args:
         provider: Provider name (e.g., 'google', 'github')
         return_to: URL to redirect to after successful login
+        terms_accepted: Set by the login page after the user checks the T&C box.
+            Stored in session and recorded on the OAuth callback.
     """
     ProviderRegistry.initialize()
     auth_provider = ProviderRegistry.get_provider(provider)
@@ -563,8 +571,7 @@ async def login_with_email(
         # Find or create user (will update last_login_at)
         user = find_or_create_user_from_auth(db, auth_user)
 
-        if body.accept_terms:
-            record_terms_acceptance(user)
+        _ensure_terms_accepted(user, body.accept_terms)
 
         # Set up session and create tokens
         request.session["user_id"] = str(user.id)
@@ -955,11 +962,17 @@ async def request_magic_link(
                 "message": ("A sign-in link has been sent to your email."),
             }
 
+    if not user_has_accepted_current_terms(user) and not body.accept_terms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must accept the Terms and Conditions",
+        )
+
     try:
         token = create_magic_link_token(
             str(user.id),
             user.email,
-            terms_accepted=body.accept_terms,
+            terms_accepted=bool(body.accept_terms),
         )
         frontend_url = _get_frontend_url()
         magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"

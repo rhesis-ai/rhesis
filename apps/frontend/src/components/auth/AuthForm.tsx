@@ -106,6 +106,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   };
 
   useEffect(() => {
+    // Look up prior acceptance for this email so returning users skip the checkbox.
     const trimmed = email.trim();
     if (!trimmed) {
       setPreviouslyAccepted(false);
@@ -198,11 +199,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
     if (provider.login_url) {
       const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
-      loginUrl.searchParams.set('return_to', returnTo);
-      if (!previouslyAccepted) {
-        loginUrl.searchParams.set('terms_accepted', 'true');
-      }
-      window.location.href = loginUrl.toString();
+    loginUrl.searchParams.set('return_to', returnTo);
+    if (!previouslyAccepted) {
+      // User checked the box this session; backend records it on callback.
+      loginUrl.searchParams.set('terms_accepted', 'true');
+    }
+    window.location.href = loginUrl.toString();
       return;
     }
 
@@ -211,6 +213,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     );
     loginUrl.searchParams.set('return_to', returnTo);
     if (!previouslyAccepted) {
+      // User checked the box this session; backend records it on callback.
       loginUrl.searchParams.set('terms_accepted', 'true');
     }
     window.location.href = loginUrl.toString();
@@ -244,7 +247,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             name: name || undefined,
             accept_terms: true,
           }
-        : { email, password, accept_terms: true };
+        : {
+            email,
+            password,
+            ...(manualTermsAccepted ? { accept_terms: true } : {}),
+          };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -320,7 +327,10 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       const response = await fetch(`${getClientApiBaseUrl()}/auth/magic-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, accept_terms: true }),
+        body: JSON.stringify({
+          email,
+          ...(manualTermsAccepted ? { accept_terms: true } : {}),
+        }),
       });
 
       if (!response.ok) {

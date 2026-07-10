@@ -1,6 +1,6 @@
-"""add_terms_acceptance_to_user
+"""add terms acceptance columns to user
 
-Revision ID: b8c9d0e1f2a3
+Revision ID: c9e8f7a6b5d4
 Revises: a7c3e9f10b24
 Create Date: 2026-07-10
 
@@ -11,7 +11,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "b8c9d0e1f2a3"
+revision: str = "c9e8f7a6b5d4"
 down_revision: Union[str, None] = "a7c3e9f10b24"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

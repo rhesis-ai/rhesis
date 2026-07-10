@@ -30,3 +30,11 @@ def test_record_terms_acceptance_sets_current_version():
     assert user.terms_accepted_at is not None
     assert user.terms_accepted_version == CURRENT_TERMS_VERSION
     assert user_has_accepted_current_terms(user) is True
+
+
+def test_record_terms_acceptance_is_idempotent():
+    user = User(email="a@example.com")
+    record_terms_acceptance(user)
+    first_timestamp = user.terms_accepted_at
+    record_terms_acceptance(user)
+    assert user.terms_accepted_at == first_timestamp

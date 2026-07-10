@@ -31,12 +31,12 @@ class User(Base):
     terms_accepted_at = Column(
         DateTime(timezone=True),
         nullable=True,
-        comment="When the user last accepted the Terms and Conditions",
+        comment="UTC timestamp of the user's most recent T&C acceptance",
     )
     terms_accepted_version = Column(
         String(20),
         nullable=True,
-        comment="T&C version accepted by the user (e.g. 1.0)",
+        comment="T&C version accepted (e.g. 1.0); compared to CURRENT_TERMS_VERSION",
     )
 
     # Native authentication columns (provider-agnostic)
