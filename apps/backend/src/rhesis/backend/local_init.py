@@ -11,9 +11,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
@@ -58,6 +60,7 @@ def initialize_local_environment(db: Session) -> None:
                 # so the RBAC default-org-role hook never fired for pre-existing
                 # local envs. Seed it now — no-op if RBAC is unavailable or the
                 # row already exists.
+                set_session_variables(db, str(org.id), str(user.id))
                 _ensure_local_admin_org_role(db, user.id, org.id)
                 db.commit()
 
@@ -151,6 +154,7 @@ def initialize_local_environment(db: Session) -> None:
         # default-org-role hook never fires on its own. owner_id is already set
         # on the org, so this resolves the admin to Owner (mirrors
         # routers/organization.py's post-onboarding hook invocation).
+        set_session_variables(db, str(org_id), str(user_id))
         _ensure_local_admin_org_role(db, user_id, org_id)
 
         # Create API token
@@ -185,11 +189,44 @@ def _ensure_local_admin_org_role(
     construction rather than ``crud.create_user``/the onboarding endpoint, so
     the hook that seeds the ``organization_member`` row never runs on its own.
     No-op when RBAC is unavailable or a row already exists (idempotent).
+
+    Caller must set RLS session variables before invoking this function.
     """
     from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
 
     on_user_org_assigned(db, user_id, organization_id)
     db.flush()
+
+    try:
+        from rhesis.backend.ee.rbac.models import OrganizationMember
+
+        row = (
+            db.query(OrganizationMember)
+            .filter_by(organization_id=organization_id, user_id=user_id)
+            .first()
+        )
+        if row:
+            logger.info(
+                "Verified organization_member row for user %s (role_id=%s)",
+                user_id,
+                row.role_id,
+            )
+        else:
+            logger.warning(
+                "organization_member row NOT found for user %s in org %s "
+                "— RBAC may not be active or the insert was rejected by RLS",
+                user_id,
+                organization_id,
+            )
+    except ImportError:
+        pass
+    except SQLAlchemyError:
+        logger.warning(
+            "Could not verify organization_member row for user %s — "
+            "organization_member table may not exist yet (migrations pending)",
+            user_id,
+            exc_info=True,
+        )
 
 
 def _apply_default_model_ids_to_user(
