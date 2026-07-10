@@ -20,6 +20,11 @@ export const TEST_TYPES = {
  */
 export type TestTypeValue = (typeof TEST_TYPES)[keyof typeof TEST_TYPES];
 
+const TEST_TYPE_ALIASES: Record<string, TestTypeValue> = {
+  single_turn: TEST_TYPES.SINGLE_TURN,
+  multi_turn: TEST_TYPES.MULTI_TURN,
+};
+
 /**
  * Check if a string value matches a known test type (case-insensitive)
  * @param value The value to check
@@ -30,12 +35,25 @@ export function getTestType(
 ): TestTypeValue | null {
   if (!value) return null;
 
+  const alias = TEST_TYPE_ALIASES[value.toLowerCase()];
+  if (alias) return alias;
+
   const valueLower = value.toLowerCase();
   const entries = Object.values(TEST_TYPES);
 
   return (
     entries.find(testType => testType.toLowerCase() === valueLower) || null
   );
+}
+
+/**
+ * Normalize legacy or variant test type strings to canonical values.
+ */
+export function normalizeTestType(
+  value: string | undefined | null,
+  fallback: TestTypeValue = TEST_TYPES.SINGLE_TURN
+): TestTypeValue {
+  return getTestType(value) ?? fallback;
 }
 
 /**

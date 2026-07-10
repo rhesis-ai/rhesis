@@ -3,6 +3,7 @@ import {
   getTestType,
   isMultiTurnTest,
   isSingleTurnTest,
+  normalizeTestType,
 } from '../test-types';
 
 describe('getTestType', () => {
@@ -15,6 +16,11 @@ describe('getTestType', () => {
     expect(getTestType('single-turn')).toBe(TEST_TYPES.SINGLE_TURN);
     expect(getTestType('MULTI-TURN')).toBe(TEST_TYPES.MULTI_TURN);
     expect(getTestType('Single-turn')).toBe(TEST_TYPES.SINGLE_TURN);
+  });
+
+  it('accepts legacy snake_case aliases', () => {
+    expect(getTestType('single_turn')).toBe(TEST_TYPES.SINGLE_TURN);
+    expect(getTestType('multi_turn')).toBe(TEST_TYPES.MULTI_TURN);
   });
 
   it('returns null for unknown types', () => {
@@ -60,6 +66,20 @@ describe('isSingleTurnTest', () => {
   it('returns false for null/undefined', () => {
     expect(isSingleTurnTest(null)).toBe(false);
     expect(isSingleTurnTest(undefined)).toBe(false);
+  });
+});
+
+describe('normalizeTestType', () => {
+  it('returns canonical values for known inputs', () => {
+    expect(normalizeTestType('Single-Turn')).toBe(TEST_TYPES.SINGLE_TURN);
+    expect(normalizeTestType('multi_turn')).toBe(TEST_TYPES.MULTI_TURN);
+  });
+
+  it('falls back for unknown values', () => {
+    expect(normalizeTestType('unknown')).toBe(TEST_TYPES.SINGLE_TURN);
+    expect(normalizeTestType(null, TEST_TYPES.MULTI_TURN)).toBe(
+      TEST_TYPES.MULTI_TURN
+    );
   });
 });
 

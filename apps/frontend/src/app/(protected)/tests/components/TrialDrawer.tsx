@@ -98,7 +98,7 @@ export default function TrialDrawer({
     []
   );
   const [trialResponse, setTrialResponse] = useState<{
-    type: 'single_turn' | 'multi_turn';
+    type: 'Single-Turn' | 'Multi-Turn';
     output?: unknown;
     conversation?: ConversationTurn[];
     execution_time?: number;
@@ -348,7 +348,7 @@ export default function TrialDrawer({
         }
 
         setTrialResponse({
-          type: 'multi_turn',
+          type: 'Multi-Turn',
           conversation,
           execution_time: executeResponse.execution_time,
           status: executeResponse.status,
@@ -363,7 +363,7 @@ export default function TrialDrawer({
         });
 
         setTrialResponse({
-          type: 'single_turn',
+          type: 'Single-Turn',
           output: data?.output || data,
         });
       }
@@ -725,7 +725,7 @@ export default function TrialDrawer({
               >
                 Run the test to see the response
               </Typography>
-            ) : trialResponse.type === 'multi_turn' ? (
+            ) : trialResponse.type === 'Multi-Turn' ? (
               // Multi-turn response
               <Box>
                 {trialResponse.conversation &&

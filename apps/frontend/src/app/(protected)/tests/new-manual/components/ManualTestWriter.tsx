@@ -51,16 +51,16 @@ import {
 } from '@/utils/api-client/interfaces/tests';
 import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
-import { TEST_TYPES, TYPE_NAMES } from '@/constants/test-types';
+import { TEST_TYPES, TYPE_NAMES, normalizeTestType } from '@/constants/test-types';
 import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { EntityType } from '@/types/entity-type';
 import { useTypeLookups } from '@/hooks/useLookups';
 
-type TestType = 'single_turn' | 'multi_turn';
+type TestType = 'Single-Turn' | 'Multi-Turn';
 
 interface SingleTurnTestCase {
   id: string;
-  testType: 'single_turn';
+  testType: 'Single-Turn';
   prompt: string;
   category: string;
   topic: string;
@@ -70,7 +70,7 @@ interface SingleTurnTestCase {
 
 interface MultiTurnTestCase {
   id: string;
-  testType: 'multi_turn';
+  testType: 'Multi-Turn';
   goal: string;
   instructions: string;
   restrictions: string;
@@ -93,10 +93,10 @@ export default function ManualTestWriter() {
 
   const [testType, setTestType] = useState<TestType>(() => {
     if (typeof window !== 'undefined') {
-      const storedType = sessionStorage.getItem('testType') as TestType | null;
-      return storedType || 'single_turn';
+      const storedType = sessionStorage.getItem('testType');
+      return normalizeTestType(storedType) as TestType;
     }
-    return 'single_turn';
+    return 'Single-Turn';
   });
 
   const handleTestTypeChange = (newType: TestType) => {
@@ -106,10 +106,10 @@ export default function ManualTestWriter() {
       sessionStorage.setItem('testType', newType);
     }
     const initialCase: TestCase =
-      newType === 'single_turn'
+      newType === 'Single-Turn'
         ? {
             id: '1',
-            testType: 'single_turn',
+            testType: 'Single-Turn',
             prompt: '',
             category: '',
             topic: '',
@@ -118,7 +118,7 @@ export default function ManualTestWriter() {
           }
         : {
             id: '1',
-            testType: 'multi_turn',
+            testType: 'Multi-Turn',
             goal: '',
             instructions: '',
             restrictions: '',
@@ -135,10 +135,10 @@ export default function ManualTestWriter() {
 
   const [testCases, setTestCases] = useState<TestCase[]>(() => {
     const initialTestCase: TestCase =
-      testType === 'single_turn'
+      testType === 'Single-Turn'
         ? {
             id: '1',
-            testType: 'single_turn',
+            testType: 'Single-Turn',
             prompt: '',
             category: '',
             topic: '',
@@ -147,7 +147,7 @@ export default function ManualTestWriter() {
           }
         : {
             id: '1',
-            testType: 'multi_turn',
+            testType: 'Multi-Turn',
             goal: '',
             instructions: '',
             restrictions: '',
@@ -178,7 +178,7 @@ export default function ManualTestWriter() {
   // Test set type ID resolved from testType
   const [testSetTypeId, setTestSetTypeId] = useState<UUID | undefined>();
   const testTypeValue =
-    testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
+    testType === 'Single-Turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
   const { data: resolvedTestSetTypes } = useTypeLookups(
     session?.session_token ?? '',
     `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`,
@@ -248,10 +248,10 @@ export default function ManualTestWriter() {
 
   const addNewRow = () => {
     const newTestCase: TestCase =
-      testType === 'single_turn'
+      testType === 'Single-Turn'
         ? {
             id: Date.now().toString(),
-            testType: 'single_turn',
+            testType: 'Single-Turn',
             prompt: '',
             category: '',
             topic: '',
@@ -260,7 +260,7 @@ export default function ManualTestWriter() {
           }
         : {
             id: Date.now().toString(),
-            testType: 'multi_turn',
+            testType: 'Multi-Turn',
             goal: '',
             instructions: '',
             restrictions: '',
@@ -298,7 +298,7 @@ export default function ManualTestWriter() {
   const handleSave = () => {
     // Filter out completely empty rows
     const nonEmptyTestCases = testCases.filter(tc => {
-      if (tc.testType === 'single_turn') {
+      if (tc.testType === 'Single-Turn') {
         return (
           tc.prompt.trim() ||
           tc.category.trim() ||
@@ -329,7 +329,7 @@ export default function ManualTestWriter() {
 
     // Validate that all non-empty rows have required fields filled
     const hasIncompleteRows = nonEmptyTestCases.some(tc => {
-      if (tc.testType === 'single_turn') {
+      if (tc.testType === 'Single-Turn') {
         return (
           !tc.prompt.trim() ||
           !tc.category.trim() ||
@@ -348,7 +348,7 @@ export default function ManualTestWriter() {
 
     if (hasIncompleteRows) {
       const requiredFields =
-        testType === 'single_turn'
+        testType === 'Single-Turn'
           ? 'Prompt, Category, Topic, Behavior'
           : 'Goal, Category, Topic, Behavior';
       notifications.show(
@@ -373,7 +373,7 @@ export default function ManualTestWriter() {
 
       // Filter out completely empty rows
       const nonEmptyTestCases = testCases.filter(tc => {
-        if (tc.testType === 'single_turn') {
+        if (tc.testType === 'Single-Turn') {
           return (
             tc.prompt.trim() ||
             tc.category.trim() ||
@@ -500,7 +500,7 @@ export default function ManualTestWriter() {
 
   /** Build payload for single createTest (returns ID for file upload). */
   const buildTestPayload = (tc: TestCase): TestCreate => {
-    if (tc.testType === 'single_turn') {
+    if (tc.testType === 'Single-Turn') {
       const prompt: TestPromptCreate = {
         content: tc.prompt,
         expected_response: tc.expectedOutput || undefined,
@@ -530,7 +530,7 @@ export default function ManualTestWriter() {
 
   /** Build payload for bulk createTestsBulk (no file support). */
   const buildBulkPayload = (tc: TestCase): TestBulkCreate => {
-    if (tc.testType === 'single_turn') {
+    if (tc.testType === 'Single-Turn') {
       return {
         prompt: {
           content: tc.prompt,
@@ -673,8 +673,8 @@ export default function ManualTestWriter() {
                 }}
                 size="small"
               >
-                <ToggleButton value="single_turn">Single-Turn</ToggleButton>
-                <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
+                <ToggleButton value="Single-Turn">Single-Turn</ToggleButton>
+                <ToggleButton value="Multi-Turn">Multi-Turn</ToggleButton>
               </ToggleButtonGroup>
             </Box>
             <TableContainer
@@ -753,7 +753,7 @@ export default function ManualTestWriter() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    {testType === 'single_turn' ? (
+                    {testType === 'Single-Turn' ? (
                       <>
                         <TableCell sx={{ minWidth: 300 }}>
                           Test Prompt *
@@ -792,7 +792,7 @@ export default function ManualTestWriter() {
                 <TableBody>
                   {testCases.map(testCase => (
                     <TableRow key={testCase.id}>
-                      {testCase.testType === 'single_turn' ? (
+                      {testCase.testType === 'Single-Turn' ? (
                         <>
                           <TableCell sx={{ p: 1 }}>
                             <TextField

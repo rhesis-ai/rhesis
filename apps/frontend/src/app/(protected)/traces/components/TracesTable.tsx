@@ -32,8 +32,8 @@ import {
 
 const PILL_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: 'single_turn' },
-  { label: 'Multi Turn', value: 'multi_turn' },
+  { label: 'Single Turn', value: 'Single-Turn' },
+  { label: 'Multi Turn', value: 'Multi-Turn' },
 ];
 
 interface TracesToolbarState {

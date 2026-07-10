@@ -33,7 +33,7 @@ export default function TestTypeSelectionScreen({
       iconColor: 'warning.main',
       buttonLabel: 'Select Single-Turn',
       buttonVariant: 'outlined',
-      onClick: () => onSelectTestType('single_turn'),
+      onClick: () => onSelectTestType('Single-Turn'),
       preview: (
         <ChatPreview
           messages={[
@@ -59,7 +59,7 @@ export default function TestTypeSelectionScreen({
       iconColor: 'secondary.main',
       buttonLabel: 'Select Multi-Turn',
       buttonVariant: 'contained',
-      onClick: () => onSelectTestType('multi_turn'),
+      onClick: () => onSelectTestType('Multi-Turn'),
       preview: (
         <ChatPreview
           messages={[

@@ -93,7 +93,7 @@ export default function TestSampleCard({
 
   // Determine what to display based on test type
   const displayText =
-    sample.testType === 'multi_turn' ? sample.prompt.goal : sample.prompt;
+    sample.testType === 'Multi-Turn' ? sample.prompt.goal : sample.prompt;
 
   return (
     <Card
@@ -152,7 +152,7 @@ export default function TestSampleCard({
                 color="success"
                 variant="outlined"
               />
-              {sample.testType === 'multi_turn' && (
+              {sample.testType === 'Multi-Turn' && (
                 <Chip
                   label={sample.category}
                   size="small"
@@ -186,7 +186,7 @@ export default function TestSampleCard({
                   py: 1,
                 }}
               >
-                {sample.testType === 'multi_turn' ? (
+                {sample.testType === 'Multi-Turn' ? (
                   <Box>
                     {/* Goal - Always Visible */}
                     <Typography
@@ -331,7 +331,7 @@ export default function TestSampleCard({
             </Box>
 
             {/* Single-turn response preview */}
-            {sample.testType === 'single_turn' &&
+            {sample.testType === 'Single-Turn' &&
               /* Single-turn response (Right-aligned) - if present or loading */
               (sample.response ||
                 sample.isLoadingResponse ||
@@ -446,7 +446,7 @@ export default function TestSampleCard({
         )}
 
         {/* Action Button - for multi-turn, show either simulate or view response button */}
-        {sample.testType === 'multi_turn' &&
+        {sample.testType === 'Multi-Turn' &&
           (actionButton ||
             sample.conversation ||
             sample.isLoadingConversation ||
@@ -488,7 +488,7 @@ export default function TestSampleCard({
           )}
 
         {/* Action Button - for single-turn, just show the action button if provided */}
-        {sample.testType === 'single_turn' && actionButton && (
+        {sample.testType === 'Single-Turn' && actionButton && (
           <Box
             sx={{
               mt: 2,
@@ -505,7 +505,7 @@ export default function TestSampleCard({
       </CardContent>
 
       {/* Conversation History Modal for Multi-Turn Tests */}
-      {sample.testType === 'multi_turn' && sample.conversation && (
+      {sample.testType === 'Multi-Turn' && sample.conversation && (
         <ConversationHistoryModal
           open={showConversationModal}
           onClose={() => setShowConversationModal(false)}

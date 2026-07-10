@@ -27,6 +27,7 @@ import {
 } from '@/utils/api-client/interfaces/test-set';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { Source } from '@/utils/api-client/interfaces/source';
+import { normalizeTestType } from '@/constants/test-types';
 import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
 import TestConfigurationConfirmation from './TestConfigurationConfirmation';
@@ -100,7 +101,7 @@ const generateSamplesForTestType = async (
   numTests: number = 5,
   modelId?: string | null
 ): Promise<AnyTestSample[]> => {
-  if (testType === 'multi_turn') {
+  if (testType === 'Multi-Turn') {
     // Generate multi-turn tests
     const response = await servicesClient.generateMultiTurnTests({
       generation_prompt: description,
@@ -117,7 +118,7 @@ const generateSamplesForTestType = async (
           const t = test as GeneratedMultiTurnTest;
           return {
             id: `sample-${Date.now()}-${index}`,
-            testType: 'multi_turn',
+            testType: 'Multi-Turn',
             prompt: {
               goal: t.test_configuration.goal,
               instructions: t.test_configuration.instructions,
@@ -162,7 +163,7 @@ const generateSamplesForTestType = async (
         const t = test as GeneratedSingleTurnTest;
         return {
           id: `sample-${Date.now()}-${index}`,
-          testType: 'single_turn',
+          testType: 'Single-Turn',
           prompt: t.prompt.content,
           behavior: t.behavior,
           topic: t.topic,
@@ -208,11 +209,11 @@ const categoryColorVariant: Record<
 const convertTestEventToSample = (
   event: Extract<TestPipelineEvent, { type: 'test' }>
 ): AnyTestSample => {
-  if (event.test_type === 'multi_turn') {
+  if (event.test_type === 'Multi-Turn') {
     const t = event.test as unknown as GeneratedMultiTurnTest;
     return {
       id: `sample-${Date.now()}-${event.index}`,
-      testType: 'multi_turn',
+      testType: 'Multi-Turn',
       prompt: {
         goal: t.test_configuration.goal,
         instructions: t.test_configuration.instructions,
@@ -230,7 +231,7 @@ const convertTestEventToSample = (
   const t = event.test as unknown as GeneratedSingleTurnTest;
   return {
     id: `sample-${Date.now()}-${event.index}`,
-    testType: 'single_turn',
+    testType: 'Single-Turn',
     prompt: t.prompt.content,
     behavior: t.behavior,
     topic: t.topic,
@@ -261,10 +262,9 @@ export default function TestGenerationFlow({
     typeof window !== 'undefined' &&
     sessionStorage.getItem('selectedTemplateId') !== null;
 
-  // Get test type from sessionStorage
   const storedTestType =
     typeof window !== 'undefined'
-      ? (sessionStorage.getItem('testType') as TestType | null)
+      ? sessionStorage.getItem('testType')
       : null;
 
   // Navigation State - start with null to prevent premature rendering
@@ -275,7 +275,7 @@ export default function TestGenerationFlow({
     hasTemplate ? 'template' : 'ai'
   );
   const [testType, setTestType] = useState<TestType>(
-    storedTestType || 'single_turn'
+    normalizeTestType(storedTestType) as TestType
   );
 
   // Data State
@@ -587,7 +587,7 @@ export default function TestGenerationFlow({
           .map(c => c.label);
 
         // For single-turn tests, use rated samples
-        if (testType === 'single_turn' && sample.testType === 'single_turn') {
+        if (testType === 'Single-Turn' && sample.testType === 'Single-Turn') {
           const generationPrompt = `Generate an improved test case based on feedback: ${feedback}`;
 
           const ratedSample = {
@@ -621,7 +621,7 @@ export default function TestGenerationFlow({
             const t = response.tests[0] as GeneratedSingleTurnTest;
             const newSample: TestSample = {
               id: `sample-${Date.now()}-regenerated`,
-              testType: 'single_turn',
+              testType: 'Single-Turn',
               prompt: t?.prompt?.content || '',
               behavior: t?.behavior || '',
               topic: t?.topic || '',
