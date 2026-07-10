@@ -156,3 +156,51 @@ class TestProjectMemberPermittedActions:
 
         results = self._list(admin_id)
         assert self._row(results, owner_id).permitted_actions == []
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestProjectMemberInheritedRoleDisplay:
+    """Members with NULL project_membership.role_id inherit their org role for
+    authorization; list_project_members must surface that effective role in the
+  ``role`` field so the Members grid does not show "—"."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, test_db: Session):
+        self.db = test_db
+        self.org_id = _create_org(test_db)
+        self.project_id = _create_project(test_db, self.org_id)
+
+    def _list(self, actor_id):
+        with _rbac_enabled():
+            return list_project_members(
+                project_id=self.project_id,
+                request=_request(),
+                db=self.db,
+                current_user=_user(actor_id, self.org_id),
+                _org=None,
+            )
+
+    def test_owner_without_project_role_shows_inherited_owner(self):
+        owner_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, owner_id, "Owner")
+        _add_project_member(self.db, self.org_id, self.project_id, owner_id)
+
+        row = next(r for r in self._list(owner_id) if r.user_id == owner_id)
+        assert row.role_id is None
+        assert row.role is not None
+        assert row.role.name == "Owner"
+
+    def test_admin_sees_no_manage_on_inherited_owner_row(self):
+        admin_id = _create_user(self.db, self.org_id)
+        owner_id = _create_user(self.db, self.org_id)
+        _assign_org_role(self.db, self.org_id, admin_id, "Admin")
+        _assign_org_role(self.db, self.org_id, owner_id, "Owner")
+        _add_project_member(self.db, self.org_id, self.project_id, admin_id)
+        _add_project_member(self.db, self.org_id, self.project_id, owner_id)
+
+        results = self._list(admin_id)
+        owner_row = next(r for r in results if r.user_id == owner_id)
+        assert owner_row.role is not None
+        assert owner_row.role.name == "Owner"
+        assert owner_row.permitted_actions == []
