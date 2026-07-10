@@ -766,7 +766,7 @@ class TestAuthMagicLinkRoutes:
         """POST /auth/magic-link always 200 (enumeration-safe)."""
         response = client.post(
             "/auth/magic-link",
-            json={"email": "unknown@example.com"},
+            json={"email": "unknown@example.com", "accept_terms": True},
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -1363,3 +1363,97 @@ class TestGetCallbackUrl:
         )
         url = get_callback_url(request)
         assert url == "https://self-hosted.example.com/auth/callback"
+
+
+@pytest.mark.unit
+class TestTermsAcceptance:
+    """Tests for T&C acceptance persistence and lookup."""
+
+    def test_terms_status_unknown_email_returns_false(self, client: TestClient):
+        response = client.get(
+            "/auth/terms-status",
+            params={"email": "nobody@example.com"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"terms_accepted": False}
+
+    def test_terms_status_returns_true_for_current_version(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from datetime import datetime, timezone
+
+        from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
+
+        email = _unique_email("terms")
+        org = create_test_organization(test_db, "Terms Org")
+        user = create_test_user(test_db, org.id, email, "Terms User")
+        user.terms_accepted_at = datetime.now(timezone.utc)
+        user.terms_accepted_version = CURRENT_TERMS_VERSION
+        test_db.commit()
+
+        response = client.get("/auth/terms-status", params={"email": email})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"terms_accepted": True}
+
+    def test_terms_status_returns_false_for_outdated_version(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from datetime import datetime, timezone
+
+        email = _unique_email("terms-old")
+        org = create_test_organization(test_db, "Terms Old Org")
+        user = create_test_user(test_db, org.id, email, "Terms Old User")
+        user.terms_accepted_at = datetime.now(timezone.utc)
+        user.terms_accepted_version = "0.9"
+        test_db.commit()
+
+        response = client.get("/auth/terms-status", params={"email": email})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == {"terms_accepted": False}
+
+    def test_register_requires_accept_terms(self, client: TestClient):
+        response = client.post(
+            "/auth/register",
+            json={
+                "email": "new@example.com",
+                "password": "validpassword123",
+                "accept_terms": False,
+            },
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_magic_link_verify_records_terms_acceptance(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
+
+        email = _unique_email("magic-terms")
+        org = create_test_organization(test_db, "Magic Terms Org")
+        user = create_test_user(test_db, org.id, email, "Magic Terms User")
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            token = create_magic_link_token(
+                str(user.id),
+                user.email,
+                terms_accepted=True,
+            )
+            response = client.post(
+                "/auth/magic-link/verify",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        test_db.refresh(user)
+        assert user.terms_accepted_at is not None
+        assert user.terms_accepted_version == CURRENT_TERMS_VERSION

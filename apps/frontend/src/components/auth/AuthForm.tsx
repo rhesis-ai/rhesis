@@ -59,7 +59,7 @@ interface AuthFormProps {
 }
 
 export default function AuthForm({ isRegistration = false }: AuthFormProps) {
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [manualTermsAccepted, setManualTermsAccepted] = useState(false);
   const [showTermsWarning, setShowTermsWarning] = useState(false);
   const [previouslyAccepted, setPreviouslyAccepted] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -89,6 +89,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   // Password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const termsAccepted = previouslyAccepted || manualTermsAccepted;
 
   const handleTogglePasswordVisibility = () => {
     const input = passwordInputRef.current;
@@ -104,14 +105,41 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     }, 0);
   };
 
-  // Check local storage for previous acceptance on component mount
   useEffect(() => {
-    const hasAcceptedTerms = localStorage.getItem('termsAccepted') === 'true';
-    if (hasAcceptedTerms) {
-      setTermsAccepted(true);
-      setPreviouslyAccepted(true);
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setPreviouslyAccepted(false);
+      setManualTermsAccepted(false);
+      setShowTermsWarning(false);
+      return;
     }
-  }, []);
+
+    if (!trimmed.includes('@')) {
+      setPreviouslyAccepted(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const url = `${getClientApiBaseUrl()}/auth/terms-status?email=${encodeURIComponent(trimmed)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        if (data.terms_accepted) {
+          setPreviouslyAccepted(true);
+          setShowTermsWarning(false);
+        } else {
+          setPreviouslyAccepted(false);
+        }
+      } catch {
+        // Ignore lookup failures; the user can still accept manually.
+      }
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [email]);
 
   useEffect(() => {
     const fetchProviders = async () => {
@@ -147,9 +175,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const accepted = event.target.checked;
-    setTermsAccepted(accepted);
+    setManualTermsAccepted(accepted);
     if (accepted) {
-      localStorage.setItem('termsAccepted', 'true');
       setShowTermsWarning(false);
     }
   };
@@ -172,6 +199,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     if (provider.login_url) {
       const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
       loginUrl.searchParams.set('return_to', returnTo);
+      if (!previouslyAccepted) {
+        loginUrl.searchParams.set('terms_accepted', 'true');
+      }
       window.location.href = loginUrl.toString();
       return;
     }
@@ -180,6 +210,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       `${getClientApiBaseUrl()}/auth/login/${provider.name}`
     );
     loginUrl.searchParams.set('return_to', returnTo);
+    if (!previouslyAccepted) {
+      loginUrl.searchParams.set('terms_accepted', 'true');
+    }
     window.location.href = loginUrl.toString();
   };
 
@@ -205,8 +238,13 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         : `${getClientApiBaseUrl()}/auth/login/email`;
 
       const body = isRegistration
-        ? { email, password, name: name || undefined }
-        : { email, password };
+        ? {
+            email,
+            password,
+            name: name || undefined,
+            accept_terms: true,
+          }
+        : { email, password, accept_terms: true };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -282,7 +320,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       const response = await fetch(`${getClientApiBaseUrl()}/auth/magic-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, accept_terms: true }),
       });
 
       if (!response.ok) {

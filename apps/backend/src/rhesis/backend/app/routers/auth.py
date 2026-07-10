@@ -6,7 +6,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from jwt import PyJWTError as JWTError
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
@@ -25,6 +25,10 @@ from rhesis.backend.app.auth.session_invalidation import (
     is_session_valid,
 )
 from rhesis.backend.app.auth.session_utils import regenerate_session
+from rhesis.backend.app.auth.terms import (
+    record_terms_acceptance,
+    user_has_accepted_current_terms,
+)
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
@@ -60,6 +64,7 @@ from rhesis.backend.app.utils.rate_limit import (
     AUTH_MAGIC_LINK_LIMIT,
     AUTH_REGISTER_LIMIT,
     AUTH_RESEND_VERIFICATION_LIMIT,
+    AUTH_TERMS_STATUS_LIMIT,
     limiter,
 )
 from rhesis.backend.app.utils.redact import redact_email
@@ -84,6 +89,7 @@ class EmailLoginRequest(BaseModel):
 
     email: EmailStr
     password: str = Field(..., min_length=1)
+    accept_terms: Optional[bool] = None
 
 
 class EmailRegisterRequest(BaseModel):
@@ -92,6 +98,14 @@ class EmailRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
     name: Optional[str] = None
+    accept_terms: bool
+
+    @field_validator("accept_terms")
+    @classmethod
+    def must_accept_terms(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("You must accept the Terms and Conditions")
+        return value
 
 
 class ProviderInfo(BaseModel):
@@ -150,6 +164,20 @@ class MagicLinkRequest(BaseModel):
     """Request body for magic link login."""
 
     email: EmailStr
+    accept_terms: bool
+
+    @field_validator("accept_terms")
+    @classmethod
+    def must_accept_terms(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("You must accept the Terms and Conditions")
+        return value
+
+
+class TermsStatusResponse(BaseModel):
+    """Response for terms acceptance lookup."""
+
+    terms_accepted: bool
 
 
 class MagicLinkVerifyRequest(BaseModel):
@@ -331,6 +359,26 @@ async def get_providers(
     )
 
 
+@router.get("/terms-status", response_model=TermsStatusResponse)
+@limiter.limit(AUTH_TERMS_STATUS_LIMIT)
+async def get_terms_status(
+    request: Request,
+    email: EmailStr,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Check whether a user has accepted the current Terms and Conditions.
+
+    Always returns 200 to avoid email enumeration.
+    """
+    from rhesis.backend.app import crud
+
+    user = crud.get_user_by_email(db, email)
+    if user and user_has_accepted_current_terms(user):
+        return TermsStatusResponse(terms_accepted=True)
+    return TermsStatusResponse(terms_accepted=False)
+
+
 # =============================================================================
 # OAuth Login Endpoints
 # =============================================================================
@@ -341,6 +389,7 @@ async def login_with_provider(
     request: Request,
     provider: str,
     return_to: str = "/home",
+    terms_accepted: bool = False,
 ):
     """
     Initiate OAuth login with a specific provider.
@@ -378,6 +427,8 @@ async def login_with_provider(
         request.session["original_frontend"] = origin
     request.session["return_to"] = return_to
     request.session["auth_provider"] = provider
+    if terms_accepted:
+        request.session["terms_accepted"] = True
 
     callback_url = get_callback_url(request, provider)
 
@@ -428,6 +479,10 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Capture values from pre-auth session before regeneration
         original_frontend = request.session.get("original_frontend")
         return_to = request.session.get("return_to", "/architect")
+        oauth_terms_accepted = request.session.pop("terms_accepted", False)
+
+        if oauth_terms_accepted:
+            record_terms_acceptance(user)
 
         # Set up session and create tokens
         clear_user_logout(str(user.id))
@@ -507,6 +562,9 @@ async def login_with_email(
 
         # Find or create user (will update last_login_at)
         user = find_or_create_user_from_auth(db, auth_user)
+
+        if body.accept_terms:
+            record_terms_acceptance(user)
 
         # Set up session and create tokens
         request.session["user_id"] = str(user.id)
@@ -601,6 +659,8 @@ async def register_with_email(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="User creation failed",
             )
+
+        record_terms_acceptance(user)
 
         # Set up session and create tokens
         request.session["user_id"] = str(user.id)
@@ -896,7 +956,11 @@ async def request_magic_link(
             }
 
     try:
-        token = create_magic_link_token(str(user.id), user.email)
+        token = create_magic_link_token(
+            str(user.id),
+            user.email,
+            terms_accepted=body.accept_terms,
+        )
         frontend_url = _get_frontend_url()
         magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
         email_service = _get_email_service()
@@ -968,6 +1032,9 @@ async def verify_magic_link(
     # Mark email as verified (user clicked a link in their email)
     if not user.is_email_verified:
         user.is_email_verified = True
+
+    if payload.get("terms_accepted"):
+        record_terms_acceptance(user)
 
     # Update last login
     from datetime import datetime, timezone

@@ -28,6 +28,16 @@ class User(Base):
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)  # Track when user last logged in
+    terms_accepted_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When the user last accepted the Terms and Conditions",
+    )
+    terms_accepted_version = Column(
+        String(20),
+        nullable=True,
+        comment="T&C version accepted by the user (e.g. 1.0)",
+    )
 
     # Native authentication columns (provider-agnostic)
     provider_type = Column(

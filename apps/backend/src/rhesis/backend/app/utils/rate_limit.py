@@ -67,6 +67,7 @@ AUTH_RESEND_VERIFICATION_LIMIT = "5/hour"
 AUTH_MAGIC_LINK_LIMIT = "5/hour"
 AUTH_LOGIN_EMAIL_LIMIT = "20/hour"
 AUTH_REGISTER_LIMIT = "10/hour"
+AUTH_TERMS_STATUS_LIMIT = "30/hour"
 
 # EE features that need their own rate-limit constants define them
 # alongside their routers and decorate handlers with the shared

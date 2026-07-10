@@ -172,6 +172,8 @@ class UserBase(Base):
     is_email_verified: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
+    terms_accepted_at: Optional[datetime] = None
+    terms_accepted_version: Optional[str] = None
     user_settings: Optional[UserSettings] = Field(
         default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
     )
