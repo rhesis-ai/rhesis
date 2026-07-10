@@ -20,7 +20,10 @@
 import { FeatureName } from '@/constants/features';
 import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { LicenseInfo } from '@/utils/api-client/features-client';
+import type {
+  LicenseInfo,
+  FeaturesResponse,
+} from '@/utils/api-client/features-client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
@@ -43,7 +46,20 @@ const DEFAULT_STATE: FeaturesState = {
 
 const FeaturesContext = createContext<FeaturesState>(DEFAULT_STATE);
 
-export function FeaturesProvider({ children }: { children: ReactNode }) {
+export function FeaturesProvider({
+  children,
+  initialFeatures = null,
+}: {
+  children: ReactNode;
+  /**
+   * Server-fetched `GET /features` result (see `(protected)/layout.tsx`),
+   * seeded as this query's `initialData` so `loading` is already `false` on
+   * the very first client render instead of flashing "no features enabled"
+   * for one round trip. `null` (no session server-side, or the fetch failed)
+   * falls back to the normal client-side fetch.
+   */
+  initialFeatures?: FeaturesResponse | null;
+}) {
   const { data: session, status } = useSession();
   const sessionToken =
     status === 'authenticated' ? session?.session_token : undefined;
@@ -57,6 +73,7 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
       new ApiClientFactory(sessionToken!).getFeaturesClient().getFeatures(),
     enabled: !!sessionToken,
     staleTime: 5 * 60_000,
+    ...(initialFeatures ? { initialData: initialFeatures } : {}),
   });
 
   const value = useMemo<FeaturesState>(() => {

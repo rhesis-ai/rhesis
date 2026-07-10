@@ -40,11 +40,9 @@ import {
 import { NavItem } from './NavItem';
 import { NavLinkItem } from './NavLinkItem';
 import { NavSection } from './NavSection';
-import { NavSkeleton } from './NavSkeleton';
 import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
 import SupportDrawer from './SupportDrawer';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
-import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -99,10 +97,6 @@ export function Sidebar() {
 
   // Support drawer
   const [supportOpen, setSupportOpen] = useState(false);
-
-  // Ambient permissions gate nav-item visibility; while they resolve, items
-  // can't decide and render nothing, so show a skeleton instead of an empty rail.
-  const { loading: permsLoading } = useAmbientPermissions();
 
   const orgName = branding?.title ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
@@ -442,41 +436,37 @@ export function Sidebar() {
         />
 
         {/* Main nav groups */}
-        {permsLoading && (
-          <NavSkeleton groups={mainGroups} collapsed={collapsed} />
-        )}
-        {!permsLoading &&
-          mainGroups.map(group => {
-            if (group.type === 'standalone') {
-              return (
-                <Box
-                  key={`standalone-${group.items.map(i => i.segment).join('-')}`}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    ...(collapsed ? collapsedNavGroupSx : {}),
-                  }}
-                >
-                  {group.items.map(item => (
-                    <NavItem
-                      key={`standalone-${item.segment}`}
-                      item={item}
-                      collapsed={collapsed}
-                    />
-                  ))}
-                </Box>
-              );
-            }
+        {mainGroups.map(group => {
+          if (group.type === 'standalone') {
             return (
-              <NavSection
-                key={`section-${group.header.title}`}
-                header={group.header}
-                items={group.items}
-                collapsed={collapsed}
-              />
+              <Box
+                key={`standalone-${group.items.map(i => i.segment).join('-')}`}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  ...(collapsed ? collapsedNavGroupSx : {}),
+                }}
+              >
+                {group.items.map(item => (
+                  <NavItem
+                    key={`standalone-${item.segment}`}
+                    item={item}
+                    collapsed={collapsed}
+                  />
+                ))}
+              </Box>
             );
-          })}
+          }
+          return (
+            <NavSection
+              key={`section-${group.header.title}`}
+              header={group.header}
+              items={group.items}
+              collapsed={collapsed}
+            />
+          );
+        })}
       </Box>
 
       {/* ── Bottom section: footer link card + user avatar ── */}
