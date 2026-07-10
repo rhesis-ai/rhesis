@@ -712,9 +712,7 @@ def update_review(
     latest_status = review_to_update["status"]
     update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
     if preserved_original_status_id is not None:
-        db_test_result.test_reviews["metadata"]["original_status_id"] = (
-            preserved_original_status_id
-        )
+        db_test_result.test_reviews["metadata"]["original_status_id"] = preserved_original_status_id
 
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
