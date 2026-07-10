@@ -83,6 +83,7 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'architect',
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
+      requiredPermission: Capability.Architect.READ,
     },
     // DEFINE section — core definition items
     {
@@ -94,12 +95,14 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'knowledge',
       title: 'Knowledge',
       icon: <KnowledgeIcon key="knowledge-icon" />,
+      requiredPermission: Capability.Source.READ,
     },
     {
       kind: 'page',
       segment: 'behaviors',
       title: 'Behaviors',
       icon: <BehaviorsIcon key="behaviors-icon" />,
+      requiredPermission: Capability.Behavior.READ,
     },
     {
       kind: 'page',
@@ -118,24 +121,28 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'playground',
       title: 'Playground',
       icon: <PlaygroundIcon key="playground-icon" />,
+      requiredPermission: Capability.Endpoint.READ,
     },
     {
       kind: 'page',
       segment: 'explorer',
       title: 'Explorer',
       icon: <AccountTreeIcon key="explorer-icon" />,
+      requiredPermission: Capability.Explorer.READ,
     },
     {
       kind: 'page',
       segment: 'tests',
       title: 'Tests',
       icon: <ScienceIcon key="tests-icon" />,
+      requiredPermission: Capability.Test.READ,
     },
     {
       kind: 'page',
       segment: 'test-sets',
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
+      requiredPermission: Capability.TestSet.READ,
     },
     // IMPROVE section — analysis and iteration
     {
@@ -147,30 +154,35 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'insights',
       title: 'Insights',
       icon: <AssessmentIcon key="insights-icon" />,
+      requiredPermission: Capability.TestResult.READ,
     },
     {
       kind: 'page',
       segment: 'test-runs',
       title: 'Test Runs',
       icon: <TestRunsIcon key="test-runs-icon" />,
+      requiredPermission: Capability.TestRun.READ,
     },
     {
       kind: 'page',
       segment: 'experiments',
       title: 'Experiments',
       icon: <BiotechIcon key="experiments-icon" />,
+      requiredPermission: Capability.Experiment.READ,
     },
     {
       kind: 'page',
       segment: 'traces',
       title: 'Traces',
       icon: <TracesIcon key="traces-icon" />,
+      requiredPermission: Capability.Telemetry.READ,
     },
     {
       kind: 'page',
       segment: 'tasks',
       title: 'Tasks',
       icon: <TasksIcon key="tasks-icon" />,
+      requiredPermission: Capability.Task.READ,
     },
     // CONNECT section — tools and infrastructure (collapsible, collapsed by default)
     {
@@ -184,6 +196,7 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'endpoints',
       title: 'Endpoints',
       icon: <EndpointsIcon key="endpoints-icon" />,
+      requiredPermission: Capability.Endpoint.READ,
     },
     {
       kind: 'page',
@@ -197,6 +210,7 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'tools',
       title: 'Tools',
       icon: <BuildIcon key="tool-icon" />,
+      requiredPermission: Capability.Tool.READ,
     },
     {
       kind: 'page',

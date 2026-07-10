@@ -38,7 +38,8 @@ export interface BehaviorInsightsData {
 
 export function useBehaviorInsightsData(
   sessionToken: string,
-  filters: InsightsFilters
+  filters: InsightsFilters,
+  enabled = true
 ): BehaviorInsightsData {
   const [summary, setSummary] = useState<PassFailStats | null>(null);
   const [metadata, setMetadata] = useState<TestResultsStatsMetadata | null>(
@@ -58,7 +59,11 @@ export function useBehaviorInsightsData(
     requestIdRef.current === requestId;
 
   useEffect(() => {
-    if (!sessionToken || !filters.endpointId) {
+    // `enabled` is the caller's capability gate (e.g. the Insights page passes
+    // `test_result:read`). When denied we must not fire any request — the hook
+    // still runs unconditionally (rules of hooks), so this is the direct guard
+    // rather than relying on `endpointId` never being populated.
+    if (!enabled || !sessionToken || !filters.endpointId) {
       setLoading(false);
       setSummary(null);
       setMetadata(null);
@@ -207,7 +212,7 @@ export function useBehaviorInsightsData(
         clearTimeout(debounceRef.current);
       }
     };
-  }, [sessionToken, filters.endpointId, filters.timeRange]);
+  }, [enabled, sessionToken, filters.endpointId, filters.timeRange]);
 
   return {
     summary,
