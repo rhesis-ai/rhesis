@@ -228,10 +228,6 @@ describe('useBehaviorInsightsData', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
-    expect(mockFetchTestRunIds).toHaveBeenCalledWith(
-      'token',
-      'ep-1',
-      '1m'
-    );
+    expect(mockFetchTestRunIds).toHaveBeenCalledWith('token', 'ep-1', '1m');
   });
 });

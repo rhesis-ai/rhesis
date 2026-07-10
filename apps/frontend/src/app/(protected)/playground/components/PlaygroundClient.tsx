@@ -135,7 +135,10 @@ export default function PlaygroundClient() {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(session?.session_token ?? '', !permsLoading && canRead);
+  } = useEndpointOptions(
+    session?.session_token ?? '',
+    !permsLoading && canRead
+  );
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;
