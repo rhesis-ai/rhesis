@@ -175,10 +175,9 @@ services:
       context: .
       dockerfile: apps/frontend/Dockerfile
       args:
-        FRONTEND_ENV: ${FRONTEND_ENV:-local}
+        FRONTEND_ENV: local
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
-      PORT: ${FRONTEND_PORT:-3000}
     ports:
       - "3000:3000"
     depends_on:
