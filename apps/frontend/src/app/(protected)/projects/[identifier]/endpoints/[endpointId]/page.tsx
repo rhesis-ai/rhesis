@@ -3,7 +3,7 @@
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
@@ -80,7 +80,8 @@ export default function ProjectEndpointPage() {
 
   if (fetchError && isNotFoundApiError(fetchError) && params?.endpointId) {
     return (
-      <DetailNotFoundState
+      <DetailEntityMissingState
+        error={fetchError}
         entityLabel="Endpoint"
         entityId={params.endpointId}
         entityTableName="endpoint"

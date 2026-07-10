@@ -3,7 +3,7 @@
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
-import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -88,7 +88,8 @@ export default function EndpointPage({ params }: PageProps) {
 
   if (fetchError && isNotFoundApiError(fetchError)) {
     return (
-      <DetailNotFoundState
+      <DetailEntityMissingState
+        error={fetchError}
         entityLabel="Endpoint"
         entityId={identifier}
         entityTableName="endpoint"

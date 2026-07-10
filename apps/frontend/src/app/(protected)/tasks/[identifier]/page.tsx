@@ -25,6 +25,7 @@ import CreateJiraIssueButton from '../components/CreateJiraIssueButton';
 import TaskDetailTabs from './components/TaskDetailTabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import DetailNotFoundState from '@/components/common/DetailNotFoundState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -189,7 +190,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isTaskNotFound, setIsTaskNotFound] = useState(false);
+  const [missingError, setMissingError] = useState<unknown>(null);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -226,7 +227,7 @@ export default function TaskDetailPage({ params }: PageProps) {
           setIsLoading(true);
         }
         setError(null);
-        setIsTaskNotFound(false);
+        setMissingError(null);
 
         if (!taskId) {
           throw new Error('No task ID provided');
@@ -260,7 +261,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         setHasInitialLoad(true);
       } catch (err) {
         if (isNotFoundApiError(err)) {
-          setIsTaskNotFound(true);
+          setMissingError(err);
           setHasInitialLoad(true);
           return;
         }
@@ -311,7 +312,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   const handleRetry = () => {
     setLoadingTimeout(false);
     setHasInitialLoad(false);
-    setIsTaskNotFound(false);
+    setMissingError(null);
     loadInitialData(true);
   };
 
@@ -329,7 +330,26 @@ export default function TaskDetailPage({ params }: PageProps) {
     );
   }
 
-  if (isTaskNotFound || (!task && hasInitialLoad && !error)) {
+  if (missingError) {
+    return (
+      <DetailEntityMissingState
+        error={missingError}
+        entityLabel="Task"
+        entityId={taskId}
+        entityTableName="task"
+        listUrl="/tasks"
+        breadcrumbs={[
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Not Found', href: `/tasks/${taskId}` },
+        ]}
+        onBack={() => router.push('/tasks')}
+        onRetry={handleRetry}
+        isRetrying={isRetrying}
+      />
+    );
+  }
+
+  if (!task && hasInitialLoad && !error) {
     return (
       <DetailNotFoundState
         entityLabel="Task"

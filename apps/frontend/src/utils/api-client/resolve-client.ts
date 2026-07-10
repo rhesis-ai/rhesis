@@ -1,4 +1,5 @@
 import { BaseApiClient } from './base-client';
+import { getApiErrorStatus } from './is-not-found-error';
 
 export type EntityResolution = 'switchable' | 'no_access';
 
@@ -19,8 +20,11 @@ export class ResolveClient extends BaseApiClient {
       return await this.fetch<ResolvedEntity>(
         `/resolve?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId)}`
       );
-    } catch {
-      return null;
+    } catch (error: unknown) {
+      if (getApiErrorStatus(error) === 404) {
+        return null;
+      }
+      throw error;
     }
   }
 }

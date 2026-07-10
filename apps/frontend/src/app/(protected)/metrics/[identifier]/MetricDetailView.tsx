@@ -31,7 +31,7 @@ import {
 import EditableSectionCard from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
 import { PageLayout } from '@/components/layout/PageLayout';
-import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { useRouter } from 'next/navigation';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { useSession } from 'next-auth/react';
@@ -195,7 +195,7 @@ export function MetricDetailView({
   const canEditMetric = useCan(Capability.Metric.UPDATE);
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [missingError, setMissingError] = useState<unknown>(null);
   const notifications = useNotifications();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [editData, setEditData] = useState<Partial<EditData>>({});
@@ -226,7 +226,7 @@ export function MetricDetailView({
     dataFetchedRef.current = false;
     setLoading(true);
     setMetric(null);
-    setNotFound(false);
+    setMissingError(null);
   }, [metricId]);
 
   useEffect(() => {
@@ -267,7 +267,7 @@ export function MetricDetailView({
         }
       } catch (error: unknown) {
         if (isNotFoundApiError(error)) {
-          setNotFound(true);
+          setMissingError(error);
         } else {
           notifications.show('Failed to load metric details', {
             severity: 'error',
@@ -827,9 +827,10 @@ export function MetricDetailView({
   }
 
   if (!metric) {
-    if (notFound && mode === 'page') {
+    if (missingError && mode === 'page') {
       return (
-        <DetailNotFoundState
+        <DetailEntityMissingState
+          error={missingError}
           entityLabel="Metric"
           entityId={metricId}
           entityTableName="metric"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ResolvedEntity } from '@/utils/api-client/resolve-client';
@@ -10,6 +10,8 @@ interface UseCrossProjectResolveResult {
   crossProjectData: ResolvedEntity | null;
   isResolving: boolean;
   resolveAttempted: boolean;
+  resolveError: unknown;
+  retryResolve: () => void;
 }
 
 export function useCrossProjectResolve(
@@ -21,10 +23,20 @@ export function useCrossProjectResolve(
   const [crossProjectData, setCrossProjectData] =
     useState<ResolvedEntity | null>(null);
   const [resolveAttempted, setResolveAttempted] = useState(false);
+  const [resolveError, setResolveError] = useState<unknown>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const requestIdRef = useRef(0);
+
+  const retryResolve = useCallback(() => {
+    setResolveAttempted(false);
+    setResolveError(null);
+    setRetryCount(count => count + 1);
+  }, []);
 
   useEffect(() => {
     setCrossProjectData(null);
     setResolveAttempted(false);
+    setResolveError(null);
   }, [entityType, entityId, enabled]);
 
   useEffect(() => {
@@ -42,28 +54,32 @@ export function useCrossProjectResolve(
       return;
     }
 
-    let cancelled = false;
+    const requestId = ++requestIdRef.current;
     const factory = new ApiClientFactory(session.session_token);
     const resolveClient = factory.getResolveClient();
 
     resolveClient
       .resolveEntity(entityType, entityId)
       .then(result => {
-        if (!cancelled) {
-          setCrossProjectData(result);
-          setResolveAttempted(true);
+        if (requestIdRef.current !== requestId) {
+          return;
         }
+        setCrossProjectData(result);
+        setResolveError(null);
+        setResolveAttempted(true);
       })
-      .catch(() => {
-        if (!cancelled) {
-          setResolveAttempted(true);
+      .catch(error => {
+        if (requestIdRef.current !== requestId) {
+          return;
         }
+        setResolveError(error);
+        setResolveAttempted(true);
       });
 
     return () => {
-      cancelled = true;
+      requestIdRef.current += 1;
     };
-  }, [enabled, entityType, entityId, session?.session_token]);
+  }, [enabled, entityType, entityId, session?.session_token, retryCount]);
 
   const isResolving =
     enabled &&
@@ -77,5 +93,7 @@ export function useCrossProjectResolve(
     crossProjectData,
     isResolving,
     resolveAttempted: resolveAttempted || !session?.session_token,
+    resolveError,
+    retryResolve,
   };
 }

@@ -7,6 +7,7 @@ offer a "switch project" prompt instead of a confusing "Not Found" page.
 """
 
 import uuid
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -22,14 +23,30 @@ from rhesis.backend.app.scope import bypass_tenant_filter
 
 router = APIRouter(prefix="/resolve", tags=["resolve"])
 
+# Entity tables with a protected detail page and cross-project link UX.
+# Keep in sync with frontend ``parseEntityFromPathname`` / detail routes.
+RESOLVABLE_ENTITY_TABLES = frozenset(
+    {
+        "behavior",
+        "endpoint",
+        "experiment",
+        "metric",
+        "source",
+        "task",
+        "test",
+        "test_run",
+        "test_set",
+    }
+)
 
+
+@lru_cache(maxsize=1)
 def get_resolvable_entities() -> dict[str, type]:
-    """Discover project-scoped models eligible for cross-project resolution.
+    """Return project-scoped models eligible for cross-project resolution.
 
-    Mirrors the ``get_all_models()`` pattern in ``routers/recycle.py``: every
-    model is found via SQLAlchemy's own class registry instead of a hand-kept
-    list, so newly added project-scoped models are picked up automatically.
-    Only models carrying both ``project_id`` and ``organization_id`` qualify.
+    Restricted to ``RESOLVABLE_ENTITY_TABLES`` so internal tables are not
+    exposed via guessed ``entity_type`` values. Model classes are resolved from
+    SQLAlchemy's registry (same pattern as ``routers/recycle.py``).
     """
     entities: dict[str, type] = {}
     for mapper in Base.registry.mappers:
@@ -37,8 +54,11 @@ def get_resolvable_entities() -> dict[str, type]:
             model_class = mapper.class_
         except UnmappedClassError:
             continue
+        table_name = model_class.__tablename__
+        if table_name not in RESOLVABLE_ENTITY_TABLES:
+            continue
         if hasattr(model_class, "project_id") and hasattr(model_class, "organization_id"):
-            entities[model_class.__tablename__] = model_class
+            entities[table_name] = model_class
     return entities
 
 

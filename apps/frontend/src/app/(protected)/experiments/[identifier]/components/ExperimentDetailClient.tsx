@@ -45,7 +45,7 @@ import ExperimentVersionsGrid from './ExperimentVersionsGrid';
 import ExperimentRunsTab from './ExperimentRunsTab';
 import ExperimentParametersTab from './ExperimentParametersTab';
 import { formatDate } from '@/utils/date';
-import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 
 const TAB_KEYS = ['overview', 'parameters', 'versions', 'runs'] as const;
@@ -282,7 +282,8 @@ export default function ExperimentDetailClient({
 
   if (fetchError && isNotFoundApiError(fetchError)) {
     return (
-      <DetailNotFoundState
+      <DetailEntityMissingState
+        error={fetchError}
         entityLabel="Experiment"
         entityId={experimentId}
         entityTableName="experiment"

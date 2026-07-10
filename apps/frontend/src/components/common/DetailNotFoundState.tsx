@@ -52,10 +52,8 @@ export default function DetailNotFoundState({
   onRetry,
   isRetrying = false,
 }: DetailNotFoundStateProps) {
-  const { crossProjectData, isResolving } = useCrossProjectResolve(
-    entityTableName,
-    entityId
-  );
+  const { crossProjectData, isResolving, resolveError, retryResolve } =
+    useCrossProjectResolve(entityTableName, entityId);
 
   const entityData = useMemo(
     () =>
@@ -113,11 +111,19 @@ export default function DetailNotFoundState({
     ? displayLabel
     : `${displayLabel}s`;
 
+  const showResolveRetry = Boolean(resolveError);
+  const handleRetry = showResolveRetry ? retryResolve : onRetry;
+  const retrying = showResolveRetry ? isResolving : isRetrying;
+
   return contentWrapper(
     <EntityMessageState
       icon={FolderOffOutlinedIcon}
       title={`Couldn't load this ${displayLabel.toLowerCase()}`}
-      description={entityData.message}
+      description={
+        showResolveRetry
+          ? 'We could not check other projects right now. Try again in a moment.'
+          : entityData.message
+      }
       meta={`${displayLabel} ID: ${entityId}`}
       primaryAction={{
         label: `Back to ${listLabel}`,
@@ -126,13 +132,13 @@ export default function DetailNotFoundState({
         variant: 'contained',
       }}
       secondaryAction={
-        onRetry
+        handleRetry
           ? {
-              label: isRetrying ? 'Retrying...' : 'Try Again',
-              onClick: onRetry,
+              label: retrying ? 'Retrying...' : 'Try Again',
+              onClick: handleRetry,
               startIcon: <RefreshIcon />,
-              disabled: isRetrying,
-              loading: isRetrying,
+              disabled: retrying,
+              loading: retrying,
             }
           : undefined
       }
