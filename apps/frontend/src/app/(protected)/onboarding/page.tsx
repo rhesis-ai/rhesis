@@ -2,6 +2,8 @@ import { auth } from '@/auth';
 import OnboardingPageClient from './components/OnboardingPageClient';
 import { UUID } from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 export default async function OnboardingPage() {
   const session = await auth();
   if (!session?.session_token) {
@@ -16,6 +18,7 @@ export default async function OnboardingPage() {
     <OnboardingPageClient
       sessionToken={session.session_token}
       userId={session.user.id as UUID}
+      videoUrl={process.env.ONBOARDING_VIDEO_URL?.trim() || undefined}
     />
   );
 }

@@ -96,5 +96,9 @@ export function getYouTubeWatchUrl(raw: string): string | null {
 }
 
 export function getOnboardingVideoUrl(): string | undefined {
-  return process.env.NEXT_PUBLIC_ONBOARDING_VIDEO_URL?.trim() || undefined;
+  return (
+    process.env.ONBOARDING_VIDEO_URL?.trim() ||
+    process.env.NEXT_PUBLIC_ONBOARDING_VIDEO_URL?.trim() ||
+    undefined
+  );
 }
