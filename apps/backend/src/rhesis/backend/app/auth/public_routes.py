@@ -43,6 +43,7 @@ PUBLIC_ROUTES: list[str] = [
     "/auth/callback",
     "/auth/logout",
     "/auth/providers",
+    "/auth/terms-status",
     "/auth/register",
     "/auth/verify-email",
     "/auth/resend-verification",

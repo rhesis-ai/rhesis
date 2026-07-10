@@ -211,7 +211,11 @@ class TestEmailRegistration:
         """Test registration with password too short (policy validation)."""
         response = client.post(
             "/auth/register",
-            json={"email": "test@example.com", "password": "short"},
+            json={
+                "email": "test@example.com",
+                "password": "short",
+                "accept_terms": True,
+            },
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
