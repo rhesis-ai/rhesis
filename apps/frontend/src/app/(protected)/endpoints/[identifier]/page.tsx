@@ -91,6 +91,8 @@ export default function EndpointPage({ params }: PageProps) {
       <DetailNotFoundState
         entityLabel="Endpoint"
         entityId={identifier}
+        entityTableName="endpoint"
+        listUrl="/endpoints"
         breadcrumbs={[
           { label: 'Endpoints', href: '/endpoints' },
           { label: 'Not Found', href: `/endpoints/${identifier}` },

@@ -33,7 +33,107 @@ export interface NotFoundEntityData {
  * @param urlSegment - The URL segment (e.g., 'test-runs')
  * @returns The database table name (e.g., 'test_run')
  */
-function urlSegmentToTableName(urlSegment: string): string {
+export const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** URL segments whose resolve entity type differs from urlSegmentToTableName. */
+const URL_SEGMENT_TABLE_OVERRIDES: Record<string, string> = {
+  knowledge: 'source',
+  explorer: 'test_set',
+};
+
+/** URL segments whose display label differs from the path segment name. */
+const URL_SEGMENT_LABEL_OVERRIDES: Record<string, string> = {
+  knowledge: 'Source',
+  explorer: 'Session',
+};
+
+export function urlSegmentToResolveEntityType(urlSegment: string): string {
+  return URL_SEGMENT_TABLE_OVERRIDES[urlSegment] ?? urlSegmentToTableName(urlSegment);
+}
+
+export interface ParsedPathEntity {
+  entityType: string;
+  entityId: string;
+  listUrl: string;
+  entityLabel: string;
+}
+
+function formatEntityLabelFromSegment(urlSegment: string): string {
+  if (URL_SEGMENT_LABEL_OVERRIDES[urlSegment]) {
+    return URL_SEGMENT_LABEL_OVERRIDES[urlSegment];
+  }
+
+  const formatted = urlSegment
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  if (formatted.endsWith('s') && !formatted.endsWith('ss')) {
+    return formatted.slice(0, -1);
+  }
+
+  return formatted;
+}
+
+/**
+ * Extract entity type and id from a protected detail-page pathname.
+ * Returns null for list pages or non-UUID detail routes.
+ */
+export function parseEntityFromPathname(pathname: string): ParsedPathEntity | null {
+  const segments = pathname.split('/').filter(Boolean);
+
+  if (
+    segments.length >= 4 &&
+    segments[0] === 'projects' &&
+    segments[2] === 'endpoints' &&
+    UUID_PATTERN.test(segments[3])
+  ) {
+    return {
+      entityType: 'endpoint',
+      entityId: segments[3],
+      listUrl: `/projects/${segments[1]}`,
+      entityLabel: 'Endpoint',
+    };
+  }
+
+  if (segments.length >= 2 && UUID_PATTERN.test(segments[1])) {
+    const urlSegment = segments[0];
+    return {
+      entityType: urlSegmentToResolveEntityType(urlSegment),
+      entityId: segments[1],
+      listUrl: `/${urlSegment}`,
+      entityLabel: formatEntityLabelFromSegment(urlSegment),
+    };
+  }
+
+  return null;
+}
+
+export function buildNotFoundEntityData({
+  entityLabel,
+  entityId,
+  tableName,
+  listUrl,
+}: {
+  entityLabel: string;
+  entityId: string;
+  tableName: string;
+  listUrl?: string;
+}): NotFoundEntityData {
+  const modelName = entityLabel.replace(/\s+/g, '');
+
+  return {
+    model_name: modelName,
+    model_name_display: entityLabel,
+    item_id: entityId,
+    table_name: tableName,
+    list_url: listUrl ?? `/${tableName.replace(/_/g, '-')}s`,
+    message: `The ${entityLabel.toLowerCase()} you're looking for doesn't exist or you don't have permission to access it.`,
+  };
+}
+
+export function urlSegmentToTableName(urlSegment: string): string {
   // First convert hyphens to underscores
   let tableName = urlSegment.replace(/-/g, '_');
 
@@ -309,6 +409,24 @@ export function getDeletedEntityData(error: unknown): DeletedEntityData | null {
   }
 
   return null;
+}
+
+// ============================================================================
+// 403 Forbidden Error Handling
+// ============================================================================
+
+export function isForbiddenError(error: unknown): boolean {
+  const e = error as ErrorLike | null | undefined;
+  if (e?.status === 403) {
+    return true;
+  }
+  if (e?.message?.includes('API error: 403')) {
+    return true;
+  }
+  if (e?.digest && e?.message?.includes('403')) {
+    return true;
+  }
+  return false;
 }
 
 // ============================================================================

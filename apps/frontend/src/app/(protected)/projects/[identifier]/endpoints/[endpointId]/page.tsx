@@ -83,6 +83,8 @@ export default function ProjectEndpointPage() {
       <DetailNotFoundState
         entityLabel="Endpoint"
         entityId={params.endpointId}
+        entityTableName="endpoint"
+        listUrl={`/projects/${params.identifier}`}
         breadcrumbs={[
           { label: 'Projects', href: '/projects' },
           {

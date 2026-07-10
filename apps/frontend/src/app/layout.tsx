@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
+import Script from 'next/script';
 import { cookies } from 'next/headers';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
@@ -300,14 +301,10 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en" suppressHydrationWarning data-theme-mode={initialThemeMode}>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: runtimeEnvScript,
-          }}
-        />
-      </head>
       <body suppressHydrationWarning>
+        <Script id="rhesis-runtime-env" strategy="beforeInteractive">
+          {runtimeEnvScript}
+        </Script>
         <ThemeContextProvider
           disableTransitionOnChange
           initialMode={initialThemeMode}

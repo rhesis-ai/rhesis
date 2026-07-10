@@ -8,6 +8,8 @@ import FolderOffOutlinedIcon from '@mui/icons-material/FolderOffOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import { parseEntityFromPathname } from '@/utils/entity-error-handler';
 
 function formatEntityName(segment: string): string {
   return segment
@@ -25,10 +27,15 @@ function pluralize(name: string): string {
  *
  * Shown when a server component calls notFound() — e.g. when the backend
  * returns 404 because the resource doesn't exist or belongs to a different
- * project.
+ * project. Detail pages with a UUID attempt cross-project resolution.
  */
 export default function ProtectedNotFound() {
   const pathname = usePathname();
+
+  const parsedEntity = useMemo(
+    () => parseEntityFromPathname(pathname),
+    [pathname]
+  );
 
   const { entityName, listHref, breadcrumbs } = useMemo(() => {
     const segments = pathname.split('/').filter(Boolean);
@@ -36,12 +43,37 @@ export default function ProtectedNotFound() {
     const name = rawEntity ? formatEntityName(rawEntity) : 'Page';
     const href = rawEntity ? `/${rawEntity}` : '/';
 
+    const crumbs: { label: string; href?: string }[] = [
+      { label: name, href },
+      { label: 'Not Found' },
+    ];
+
+    if (parsedEntity && segments.length >= 2) {
+      crumbs.splice(1, 0, {
+        label: parsedEntity.entityId,
+        href: pathname,
+      });
+    }
+
     return {
       entityName: name,
-      listHref: href,
-      breadcrumbs: [{ label: name, href }, { label: 'Not Found' }],
+      listHref: parsedEntity?.listUrl ?? href,
+      breadcrumbs: crumbs,
     };
-  }, [pathname]);
+  }, [pathname, parsedEntity]);
+
+  if (parsedEntity) {
+    return (
+      <DetailNotFoundState
+        entityLabel={parsedEntity.entityLabel}
+        entityId={parsedEntity.entityId}
+        entityTableName={parsedEntity.entityType}
+        listUrl={parsedEntity.listUrl}
+        breadcrumbs={breadcrumbs}
+        onBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <PageLayout title="" breadcrumbs={breadcrumbs}>
@@ -54,7 +86,6 @@ export default function ProtectedNotFound() {
         textAlign="center"
         px={3}
       >
-        {/* Large backdrop number */}
         <Box position="relative" mb={2}>
           <Typography
             component="span"
@@ -71,7 +102,6 @@ export default function ProtectedNotFound() {
             404
           </Typography>
 
-          {/* Overlay icon */}
           <Box
             sx={{ position: 'absolute', inset: 0 }}
             display="flex"
