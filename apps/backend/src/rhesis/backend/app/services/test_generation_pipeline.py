@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     SourceData,
@@ -212,6 +213,10 @@ async def test_generation_pipeline_stream(
       - ``{"type": "error", "phase": str, "message": str}``
       - ``{"type": "done"}``
     """
+    resolved_type = TestSetType.from_string(test_type)
+    if resolved_type is None:
+        resolved_type = TestSetType.SINGLE_TURN
+    test_type = resolved_type.value
 
     config_response: Optional[TestConfigResponse] = config
 
