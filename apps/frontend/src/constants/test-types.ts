@@ -20,6 +20,18 @@ export const TEST_TYPES = {
  */
 export type TestTypeValue = (typeof TEST_TYPES)[keyof typeof TEST_TYPES];
 
+/** Filter/dropdown options — label matches the canonical value. */
+export const TEST_TYPE_FILTER_OPTIONS = [
+  { label: TEST_TYPES.SINGLE_TURN, value: TEST_TYPES.SINGLE_TURN },
+  { label: TEST_TYPES.MULTI_TURN, value: TEST_TYPES.MULTI_TURN },
+] as const;
+
+/** Grid toolbar pill tabs including "All". */
+export const TEST_TYPE_PILL_TABS = [
+  { label: 'All', value: 'all' },
+  ...TEST_TYPE_FILTER_OPTIONS,
+] as const;
+
 const TEST_TYPE_ALIASES: Record<string, TestTypeValue> = {
   single_turn: TEST_TYPES.SINGLE_TURN,
   multi_turn: TEST_TYPES.MULTI_TURN,

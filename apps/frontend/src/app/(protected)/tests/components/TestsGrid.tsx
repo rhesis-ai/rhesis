@@ -65,7 +65,7 @@ import {
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
-import { TEST_TYPES } from '@/constants/test-types';
+import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import {
   applyTestDrawerFiltersToModel,
   buildTestIdsODataFilter,
@@ -121,11 +121,7 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
   setCheckboxSelectionMode: () => {},
 });
 
-const PILL_TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
-  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
-];
+const PILL_TABS = TEST_TYPE_PILL_TABS;
 
 function TestsUnifiedToolbar() {
   const {

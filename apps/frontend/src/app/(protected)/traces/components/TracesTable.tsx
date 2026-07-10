@@ -22,6 +22,7 @@ import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import { formatDate } from '@/utils/date';
+import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
@@ -30,11 +31,7 @@ import {
   countActiveTraceDrawerFilters,
 } from './trace-filter-params';
 
-const PILL_TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: 'Single-Turn' },
-  { label: 'Multi Turn', value: 'Multi-Turn' },
-];
+const PILL_TABS = TEST_TYPE_PILL_TABS;
 
 interface TracesToolbarState {
   searchQuery: string;

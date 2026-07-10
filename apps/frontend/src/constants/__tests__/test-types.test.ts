@@ -1,5 +1,7 @@
 import {
   TEST_TYPES,
+  TEST_TYPE_FILTER_OPTIONS,
+  TEST_TYPE_PILL_TABS,
   getTestType,
   isMultiTurnTest,
   isSingleTurnTest,
@@ -87,5 +89,21 @@ describe('TEST_TYPES constants', () => {
   it('has expected values', () => {
     expect(TEST_TYPES.SINGLE_TURN).toBe('Single-Turn');
     expect(TEST_TYPES.MULTI_TURN).toBe('Multi-Turn');
+  });
+});
+
+describe('TEST_TYPE_FILTER_OPTIONS', () => {
+  it('uses hyphenated labels matching canonical values', () => {
+    expect(TEST_TYPE_FILTER_OPTIONS).toEqual([
+      { label: 'Single-Turn', value: 'Single-Turn' },
+      { label: 'Multi-Turn', value: 'Multi-Turn' },
+    ]);
+  });
+});
+
+describe('TEST_TYPE_PILL_TABS', () => {
+  it('includes All plus filter options', () => {
+    expect(TEST_TYPE_PILL_TABS[0]).toEqual({ label: 'All', value: 'all' });
+    expect(TEST_TYPE_PILL_TABS.slice(1)).toEqual([...TEST_TYPE_FILTER_OPTIONS]);
   });
 });
