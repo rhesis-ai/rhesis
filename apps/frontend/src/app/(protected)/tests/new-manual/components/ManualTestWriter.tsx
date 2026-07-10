@@ -51,7 +51,11 @@ import {
 } from '@/utils/api-client/interfaces/tests';
 import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
-import { TEST_TYPES, TYPE_NAMES, normalizeTestType } from '@/constants/test-types';
+import {
+  TEST_TYPES,
+  TYPE_NAMES,
+  normalizeTestType,
+} from '@/constants/test-types';
 import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { EntityType } from '@/types/entity-type';
 import { useTypeLookups } from '@/hooks/useLookups';

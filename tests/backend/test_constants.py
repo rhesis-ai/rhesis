@@ -75,8 +75,7 @@ def test_backend_and_sdk_constants_match():
 
     # Span attributes should match
     assert (
-        TestExecutionContext.SpanAttributes.TEST_RUN_ID
-        == SDKTestContext.SpanAttributes.TEST_RUN_ID
+        TestExecutionContext.SpanAttributes.TEST_RUN_ID == SDKTestContext.SpanAttributes.TEST_RUN_ID
     )
     assert TestExecutionContext.SpanAttributes.TEST_ID == SDKTestContext.SpanAttributes.TEST_ID
     assert (

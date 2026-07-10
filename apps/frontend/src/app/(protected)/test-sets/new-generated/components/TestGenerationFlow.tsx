@@ -263,9 +263,7 @@ export default function TestGenerationFlow({
     sessionStorage.getItem('selectedTemplateId') !== null;
 
   const storedTestType =
-    typeof window !== 'undefined'
-      ? sessionStorage.getItem('testType')
-      : null;
+    typeof window !== 'undefined' ? sessionStorage.getItem('testType') : null;
 
   // Navigation State - start with null to prevent premature rendering
   const [currentScreen, setCurrentScreen] = useState<FlowStep | null>(
