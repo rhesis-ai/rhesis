@@ -15,12 +15,13 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import PlaygroundIcon from '@/components/PlaygroundIcon';
+import EndpointsIcon from '@/components/EndpointsIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
-import PlaygroundEndpointSelect from './PlaygroundEndpointSelect';
+import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -140,6 +141,7 @@ export default function PlaygroundClient() {
   );
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
+  const [endpointDrawerOpen, setEndpointDrawerOpen] = useState(false);
 
   const selectedOption = useMemo(
     () =>
@@ -196,6 +198,15 @@ export default function PlaygroundClient() {
       actions={
         <FabGroup>
           <Fab
+            icon={<EndpointsIcon />}
+            tooltip={
+              selectedEndpointId ? 'Switch endpoint' : 'Select endpoint'
+            }
+            aria-label="Select endpoint"
+            onClick={() => setEndpointDrawerOpen(true)}
+            loading={isLoading}
+          />
+          <Fab
             icon={<RestartAltIcon />}
             tooltip="Reset playground"
             aria-label="Reset playground"
@@ -205,7 +216,9 @@ export default function PlaygroundClient() {
         </FabGroup>
       }
     >
-      <PlaygroundEndpointSelect
+      <PlaygroundEndpointDrawer
+        open={endpointDrawerOpen}
+        onClose={() => setEndpointDrawerOpen(false)}
         endpointOptions={endpointOptions}
         selectedEndpointId={selectedEndpointId}
         isLoading={isLoading}
@@ -216,7 +229,7 @@ export default function PlaygroundClient() {
       {/* Chat Area */}
       <Box
         sx={{
-          height: 'calc(100vh - 260px)',
+          height: 'calc(100vh - 210px)',
           minHeight: 400,
           display: 'flex',
           flexDirection: 'row',
