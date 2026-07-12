@@ -114,7 +114,9 @@ export default function TestsPage() {
       setFileImportDrawerOpen(false);
       queryClient.invalidateQueries({ queryKey: testKeys.all() });
       queryClient.invalidateQueries({ queryKey: testSetKeys.all() });
-      notifications.show('Tests imported successfully', { severity: 'success' });
+      notifications.show('Tests imported successfully', {
+        severity: 'success',
+      });
       router.push(`/test-sets/${testSetId}`);
     },
     [queryClient, notifications, router]
