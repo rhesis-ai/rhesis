@@ -25,20 +25,37 @@ export class PlaygroundPage extends BasePage {
   /** Wait for endpoint options to finish loading. */
   async waitForEndpointsReady() {
     await this.page.waitForLoadState('networkidle');
-    await this.page
-      .getByText(/loading endpoints/i)
-      .waitFor({ state: 'hidden', timeout: 20_000 })
-      .catch(() => {
-        /* ignore if never appeared */
-      });
+
+    const endpointFab = this.page.getByRole('button', {
+      name: /select endpoint/i,
+    });
+    if (
+      !(await endpointFab.isVisible({ timeout: 10_000 }).catch(() => false))
+    ) {
+      return;
+    }
+
+    await endpointFab.click();
+    const drawer = this.openDrawer();
+    await expect(drawer.getByText('Select Endpoint').first()).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const loading = drawer.getByText(/loading endpoints/i);
+    if (await loading.isVisible().catch(() => false)) {
+      await loading.waitFor({ state: 'hidden', timeout: 20_000 });
+    }
+
+    await this.page.keyboard.press('Escape');
   }
 
   /** Opens the endpoint selection drawer via the header FAB. */
   async openEndpointDrawer() {
     await this.page.getByRole('button', { name: /select endpoint/i }).click();
-    await expect(
-      this.page.getByRole('heading', { name: /select endpoint/i })
-    ).toBeVisible({ timeout: 10_000 });
+    const drawer = this.openDrawer();
+    await expect(drawer.getByText('Select Endpoint').first()).toBeVisible({
+      timeout: 10_000,
+    });
   }
 
   /**
@@ -64,6 +81,11 @@ export class PlaygroundPage extends BasePage {
     await this.openEndpointDrawer();
 
     const drawer = this.openDrawer();
+    const loading = drawer.getByText(/loading endpoints/i);
+    if (await loading.isVisible().catch(() => false)) {
+      await loading.waitFor({ state: 'hidden', timeout: 20_000 });
+    }
+
     const noEndpointsAlert = drawer.getByText(/no endpoints available/i);
     if (
       await noEndpointsAlert.isVisible({ timeout: 3_000 }).catch(() => false)
