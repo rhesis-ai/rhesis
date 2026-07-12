@@ -48,9 +48,10 @@ export default function PlaygroundEndpointDrawer({
       open={open}
       onClose={onClose}
       title="Select Endpoint"
-      onSave={canSelect ? handleSave : undefined}
+      onSave={handleSave}
       saveButtonText="Select"
-      saveDisabled={!pendingEndpointId}
+      saveDisabled={!canSelect}
+      loading={isLoading}
       closeButtonText="Cancel"
     >
       {isLoading ? (
@@ -69,8 +70,8 @@ export default function PlaygroundEndpointDrawer({
       ) : (
         <>
           <Typography variant="body2" color="text.secondary">
-            Choose an endpoint to chat with interactively and generate test cases
-            from your conversations.
+            Choose an endpoint to chat with interactively and generate test
+            cases from your conversations.
           </Typography>
           <EndpointSelectField
             label="Select Endpoint"

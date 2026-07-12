@@ -199,12 +199,9 @@ export default function PlaygroundClient() {
         <FabGroup>
           <Fab
             icon={<EndpointsIcon />}
-            tooltip={
-              selectedEndpointId ? 'Switch endpoint' : 'Select endpoint'
-            }
+            tooltip={selectedEndpointId ? 'Switch endpoint' : 'Select endpoint'}
             aria-label="Select endpoint"
             onClick={() => setEndpointDrawerOpen(true)}
-            loading={isLoading}
           />
           <Fab
             icon={<RestartAltIcon />}

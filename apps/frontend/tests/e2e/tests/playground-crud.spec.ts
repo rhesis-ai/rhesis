@@ -49,7 +49,9 @@ test.describe('Playground — full flow @crud', () => {
       });
       const noEndpointsAlert = drawer.getByText(/no endpoints available/i);
       const hasCombobox = await combobox.isVisible().catch(() => false);
-      const hasNoEndpoints = await noEndpointsAlert.isVisible().catch(() => false);
+      const hasNoEndpoints = await noEndpointsAlert
+        .isVisible()
+        .catch(() => false);
       expect(
         hasCombobox || hasNoEndpoints,
         'Expected endpoint dropdown or no-endpoints message in drawer'
@@ -95,7 +97,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const selected = await playgroundPage.selectFirstEndpointInDrawer();
     if (!selected) {
-      test.skip(true, 'Endpoint selector not available — skipping send-button test');
+      test.skip(
+        true,
+        'Endpoint selector not available — skipping send-button test'
+      );
       return;
     }
 
