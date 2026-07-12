@@ -26,6 +26,8 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import type { UUID } from 'crypto';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
@@ -68,6 +70,7 @@ export default function TestSetMetrics({
 }: TestSetMetricsProps) {
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+  const canEditTestSet = useCan(Capability.TestSet.UPDATE);
 
   const notifications = useNotifications();
   const queryClient = useQueryClient();
@@ -139,6 +142,28 @@ export default function TestSetMetrics({
 
   const excludeMetricIds = metrics.map(m => m.id as UUID);
 
+  const addMetricButton = canEditTestSet ? (
+    <Button
+      size="small"
+      startIcon={<AddIcon />}
+      onClick={() => setMetricsDialogOpen(true)}
+    >
+      Add Metric
+    </Button>
+  ) : null;
+
+  const metricsDialog = canEditTestSet ? (
+    <SelectMetricsDialog
+      open={metricsDialogOpen}
+      onClose={() => setMetricsDialogOpen(false)}
+      onSelect={handleAddMetric}
+      sessionToken={sessionToken}
+      excludeMetricIds={excludeMetricIds}
+      title="Add Metric to Test Set"
+      subtitle="Select a metric to add to this test set"
+    />
+  ) : null;
+
   if (loading) {
     return (
       <Box sx={{ mb: 3 }}>
@@ -178,26 +203,12 @@ export default function TestSetMetrics({
           <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
             Test Set Metrics
           </Typography>
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setMetricsDialogOpen(true)}
-          >
-            Add Metric
-          </Button>
+          {addMetricButton}
         </Box>
         <Alert severity="error" sx={{ mt: 1 }}>
           {error}
         </Alert>
-        <SelectMetricsDialog
-          open={metricsDialogOpen}
-          onClose={() => setMetricsDialogOpen(false)}
-          onSelect={handleAddMetric}
-          sessionToken={sessionToken}
-          excludeMetricIds={excludeMetricIds}
-          title="Add Metric to Test Set"
-          subtitle="Select a metric to add to this test set"
-        />
+        {metricsDialog}
       </Box>
     );
   }
@@ -217,13 +228,7 @@ export default function TestSetMetrics({
           <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
             Test Set Metrics
           </Typography>
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setMetricsDialogOpen(true)}
-          >
-            Add Metric
-          </Button>
+          {addMetricButton}
         </Box>
         <Box
           sx={{
@@ -246,15 +251,7 @@ export default function TestSetMetrics({
             evaluation.
           </Typography>
         </Box>
-        <SelectMetricsDialog
-          open={metricsDialogOpen}
-          onClose={() => setMetricsDialogOpen(false)}
-          onSelect={handleAddMetric}
-          sessionToken={sessionToken}
-          excludeMetricIds={excludeMetricIds}
-          title="Add Metric to Test Set"
-          subtitle="Select a metric to add to this test set"
-        />
+        {metricsDialog}
       </Box>
     );
   }
@@ -273,13 +270,7 @@ export default function TestSetMetrics({
         <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
           Test Set Metrics
         </Typography>
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setMetricsDialogOpen(true)}
-        >
-          Add Metric
-        </Button>
+        {addMetricButton}
       </Box>
       <Box
         sx={{
@@ -307,25 +298,27 @@ export default function TestSetMetrics({
             }}
           >
             {/* Remove button */}
-            <Tooltip title="Remove metric from test set">
-              <IconButton
-                size="small"
-                onClick={() => handleRemoveMetric(metric.id as string)}
-                disabled={isRemoving === metric.id}
-                sx={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  padding: 0.5,
-                }}
-              >
-                {isRemoving === metric.id ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <CloseIcon fontSize="small" />
-                )}
-              </IconButton>
-            </Tooltip>
+            {canEditTestSet && (
+              <Tooltip title="Remove metric from test set">
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemoveMetric(metric.id as string)}
+                  disabled={isRemoving === metric.id}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    padding: 0.5,
+                  }}
+                >
+                  {isRemoving === metric.id ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <CloseIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </Tooltip>
+            )}
 
             <Box
               sx={{
@@ -415,15 +408,7 @@ export default function TestSetMetrics({
         overriding any behavior-level metric configurations.
       </Typography>
 
-      <SelectMetricsDialog
-        open={metricsDialogOpen}
-        onClose={() => setMetricsDialogOpen(false)}
-        onSelect={handleAddMetric}
-        sessionToken={sessionToken}
-        excludeMetricIds={excludeMetricIds}
-        title="Add Metric to Test Set"
-        subtitle="Select a metric to add to this test set"
-      />
+      {metricsDialog}
     </Box>
   );
 }

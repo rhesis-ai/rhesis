@@ -166,6 +166,12 @@ class TestAccessMatrix:
     def test_viewer_cannot_manage_members(self):
         assert not self._check("Viewer", "member:manage")
 
+    def test_viewer_can_read_project_members(self):
+        assert self._check("Viewer", "project_member:read")
+
+    def test_viewer_cannot_manage_project_members(self):
+        assert not self._check("Viewer", "project_member:manage")
+
     def test_viewer_can_read_org_context(self):
         assert self._check("Viewer", "organization:read")
         assert self._check("Viewer", "member:read")
@@ -173,6 +179,12 @@ class TestAccessMatrix:
     def test_viewer_cannot_read_sensitive_org_admin(self):
         assert not self._check("Viewer", "role:read")
         assert not self._check("Viewer", "token:read")
+
+    def test_viewer_cannot_request_polyphemus(self):
+        assert not self._check("Viewer", "polyphemus:request")
+
+    def test_member_can_request_polyphemus(self):
+        assert self._check("Member", "polyphemus:request")
 
     # None role — every permission denied
     def test_none_role_denies_read(self):

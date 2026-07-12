@@ -7,6 +7,8 @@ import WarningIcon from '@mui/icons-material/Warning';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
+import { can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
@@ -68,6 +70,11 @@ export function ConnectedModelCard({
     (!polyphemusAccess?.revoked_at ||
       polyphemusAccess.requested_at > polyphemusAccess.revoked_at);
 
+  const canRequestPolyphemusAccess = can(
+    userSettings,
+    Capability.Polyphemus.REQUEST
+  );
+
   // Chip sections
   const chipSections: ChipSection[] = [];
 
@@ -98,7 +105,7 @@ export function ConnectedModelCard({
       sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
       onClick={e => e.stopPropagation()}
     >
-      {onRequestAccess && (
+      {onRequestAccess && canRequestPolyphemusAccess && (
         <Button
           variant="outlined"
           size="small"

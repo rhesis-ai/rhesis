@@ -23,6 +23,8 @@ import PlanDisplay from './PlanDisplay';
 import ArchitectChatInput, {
   ArchitectChatInputHandle,
 } from './ArchitectChatInput';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface ArchitectChatProps {
   sessionId: string | null;
@@ -132,6 +134,7 @@ export default function ArchitectChat({
   sessionProjectId,
 }: ArchitectChatProps) {
   const { data: authSession } = useSession();
+  const canCreate = useCan(Capability.Architect.CREATE);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ArchitectChatInputHandle>(null);
 
@@ -265,17 +268,17 @@ export default function ArchitectChat({
 
   const handleSend = useCallback(
     (message: string, attachments?: ChatAttachments) => {
+      if (!canCreate) return;
       sendMessage(message, attachments);
       onUserActivity?.();
     },
-    [sendMessage, onUserActivity]
+    [canCreate, sendMessage, onUserActivity]
   );
 
   const handleSuggestedPrompt = (prompt: string) => {
-    if (!isLoading) {
-      sendMessage(prompt);
-      onUserActivity?.();
-    }
+    if (!canCreate || isLoading) return;
+    sendMessage(prompt);
+    onUserActivity?.();
   };
 
   if (!sessionId) {
@@ -335,6 +338,7 @@ export default function ArchitectChat({
                   size="small"
                   checked={autoApproveAll}
                   onChange={e => setAutoApproveAll(e.target.checked)}
+                  disabled={!canCreate}
                 />
               }
               label={
@@ -386,7 +390,8 @@ export default function ArchitectChat({
                   label={prompt}
                   variant="outlined"
                   onClick={() => handleSuggestedPrompt(prompt)}
-                  sx={{ cursor: 'pointer' }}
+                  disabled={!canCreate || isLoading}
+                  sx={{ cursor: canCreate ? 'pointer' : 'default' }}
                 />
               ))}
             </Box>
@@ -426,7 +431,8 @@ export default function ArchitectChat({
                 }
               }
 
-              const showActions = isLastContentAssistant && pendingConfirmation;
+              const showActions =
+                canCreate && isLastContentAssistant && pendingConfirmation;
 
               const showWaitingSpinner =
                 isLastContentAssistant && !showActions && isAwaitingTask;
@@ -482,10 +488,11 @@ export default function ArchitectChat({
         ref={chatInputRef}
         key={sessionId}
         onSend={handleSend}
-        disabled={isLoading}
+        disabled={isLoading || !canCreate}
         isLoading={isLoading}
         isConnected={isConnected}
         sessionToken={sessionToken}
+        readOnly={!canCreate}
       />
     </Paper>
   );

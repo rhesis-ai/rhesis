@@ -144,6 +144,16 @@ class UserSettings(BaseModel):
     is_verified: Optional[bool] = Field(None, description="User verification status")
 
 
+class UserSettingsRead(UserSettings):
+    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+
+    permitted_actions: list[str] = Field(
+        default_factory=list,
+        description="Capabilities the caller may exercise on their own settings "
+        "(e.g. polyphemus:request).",
+    )
+
+
 class UserSettingsUpdate(BaseModel):
     """Schema for updating user settings (all fields optional for partial updates)"""
 

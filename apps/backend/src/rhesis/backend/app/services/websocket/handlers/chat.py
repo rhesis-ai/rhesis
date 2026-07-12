@@ -88,9 +88,31 @@ async def handle_chat_message(
     )
 
     try:
+        from uuid import UUID
+
+        from rhesis.backend.app.auth.capabilities import Permission
+        from rhesis.backend.app.auth.principal import resolve_principal
+        from rhesis.backend.app.auth.rbac import authorize
+
         with get_db_with_tenant_variables(
             str(user.organization_id), str(user.id), client_project_id
         ) as db:
+            principal = manager._principals.get(conn_id) or resolve_principal(user)
+            authz_project_id = UUID(client_project_id) if client_project_id else None
+            if not authorize(
+                principal,
+                Permission.Playground.USE,
+                project_id=authz_project_id,
+                db=db,
+            ):
+                await _send_chat_error(
+                    manager,
+                    conn_id,
+                    correlation_id,
+                    "Not authorized to use the playground",
+                )
+                return
+
             # Create endpoint service and invoke
             endpoint_service = EndpointService()
 

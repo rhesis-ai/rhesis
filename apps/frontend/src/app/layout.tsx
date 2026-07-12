@@ -122,7 +122,7 @@ async function getNavigationItems(session: Session | null): Promise<{
       segment: 'playground',
       title: 'Playground',
       icon: <PlaygroundIcon key="playground-icon" />,
-      requiredPermission: Capability.Endpoint.READ,
+      requiredPermission: Capability.Playground.USE,
     },
     {
       kind: 'page',

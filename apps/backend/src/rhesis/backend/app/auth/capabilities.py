@@ -93,6 +93,7 @@ class Permission:
         DELETE = "test_set:delete"
         GENERATE = "test_set:generate"
         EXECUTE = "test_set:execute"
+        EXPORT = "test_set:export"
 
     class Test(_PermissionEnum):
         READ = "test:read"
@@ -130,6 +131,11 @@ class Permission:
         CREATE = "endpoint:create"
         UPDATE = "endpoint:update"
         DELETE = "endpoint:delete"
+
+    class Playground(_PermissionEnum):
+        """Interactive endpoint chat in the Playground UI and WebSocket handler."""
+
+        USE = "playground:use"
 
     # --- Metrics & models (project-scoped) ----------------------------------
 
@@ -241,7 +247,10 @@ class Permission:
         UPDATE = "project:update"
 
     class ProjectMember(_PermissionEnum):
-        #: List/add/remove project members. Owner-only in the community tier
+        #: List project members. Granted to any enrolled project member in the
+        #: community tier; Viewer+ in EE via the built-in :read baseline.
+        READ = "project_member:read"
+        #: Add/remove project members. Owner-only in the community tier
         #: (plan §1.5); EE Phase 2 (SP8) grants it via project-admin roles.
         MANAGE = "project_member:manage"
 
@@ -290,6 +299,11 @@ class Permission:
 
         MANAGE = "api_clients:manage"
 
+    class Polyphemus(_PermissionEnum):
+        """Polyphemus adversarial model — org-scoped self-service access request."""
+
+        REQUEST = "polyphemus:request"
+
 
 class ResourceType(_PermissionEnum):
     """Resource identifiers — the prefix of a ``resource:action`` capability.
@@ -331,6 +345,7 @@ _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
         "recycle",
         "sso",
         "api_clients",
+        "polyphemus",
     }
 )
 
