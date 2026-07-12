@@ -291,8 +291,11 @@ class TestGetMyPermissions:
         context can't leak into org-admin actions they don't otherwise hold.
 
         ``project_member:read`` is project-scoped and granted by plain project
-        membership; ``project_member:manage`` stays owner-only via
-        ``_OWNER_ONLY_CAPABILITIES``.
+        membership. ``project_member:manage`` is owner-only for org-scoped
+        requests (no ``project_id``) via ``_OWNER_ONLY_CAPABILITIES``, but the
+        community provider's rule 3 still grants every project-scoped cap —
+        including ``project_member:manage`` — to enrolled members when
+        ``project_id`` is present (EE RBAC tightens this via role matrices).
         """
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
         from rhesis.backend.app.auth.rbac import _OWNER_ONLY_CAPABILITIES

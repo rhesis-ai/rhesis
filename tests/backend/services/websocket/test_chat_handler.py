@@ -35,6 +35,16 @@ def mock_manager():
     return manager
 
 
+def _chat_payload(**overrides) -> dict:
+    payload = {
+        "endpoint_id": str(uuid4()),
+        "message": "Hello, world!",
+        "project_id": str(uuid4()),
+    }
+    payload.update(overrides)
+    return payload
+
+
 class TestChatMessageHandler:
     """Tests for handle_chat_message function."""
 
@@ -116,16 +126,52 @@ class TestChatMessageHandler:
         assert msg.type == EventType.CHAT_ERROR
 
     @pytest.mark.asyncio
+    async def test_missing_project_id(self, mock_manager, mock_user):
+        """Test that missing project_id returns error before authorization."""
+        message = WebSocketMessage(
+            type=EventType.CHAT_MESSAGE,
+            correlation_id="corr-123",
+            payload={
+                "endpoint_id": str(uuid4()),
+                "message": "Hello",
+            },
+        )
+
+        await handle_chat_message(mock_manager, "conn-1", mock_user, message)
+
+        mock_manager.broadcast.assert_called_once()
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.type == EventType.CHAT_ERROR
+        assert "project_id" in msg.payload["error"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_project_id(self, mock_manager, mock_user):
+        """Test that invalid project_id returns error before authorization."""
+        message = WebSocketMessage(
+            type=EventType.CHAT_MESSAGE,
+            correlation_id="corr-123",
+            payload={
+                "endpoint_id": str(uuid4()),
+                "message": "Hello",
+                "project_id": "not-a-uuid",
+            },
+        )
+
+        await handle_chat_message(mock_manager, "conn-1", mock_user, message)
+
+        mock_manager.broadcast.assert_called_once()
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.type == EventType.CHAT_ERROR
+        assert "Invalid project_id" in msg.payload["error"]
+
+    @pytest.mark.asyncio
     async def test_successful_invocation(self, mock_manager, mock_user):
         """Test successful endpoint invocation."""
         endpoint_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         # Mock the endpoint service
@@ -171,10 +217,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         with patch(
@@ -209,10 +252,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         # Create an ErrorResponse object (simulating what the endpoint returns on error)
@@ -257,10 +297,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         # Mock the endpoint service to return a conversation_id
@@ -301,11 +338,11 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Continue our conversation",
-                "conversation_id": input_conversation_id,
-            },
+            payload=_chat_payload(
+                endpoint_id=endpoint_id,
+                message="Continue our conversation",
+                conversation_id=input_conversation_id,
+            ),
         )
 
         # Mock result without conversation_id
@@ -344,10 +381,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id=correlation_id,
-            payload={
-                "endpoint_id": str(uuid4()),
-                "message": "Test message",
-            },
+            payload=_chat_payload(message="Test message"),
         )
 
         mock_result = {"output": "Response", "trace_id": str(uuid4())}
@@ -384,11 +418,7 @@ class TestPlaygroundChatAuthorization:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-denied",
-            payload={
-                "endpoint_id": str(uuid4()),
-                "message": "Hello",
-                "project_id": str(uuid4()),
-            },
+            payload=_chat_payload(),
         )
 
         with patch(
