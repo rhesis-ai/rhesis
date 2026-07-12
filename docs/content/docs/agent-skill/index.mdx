@@ -7,11 +7,22 @@ Rhesis ships one **agent skill** (`rhesis`) that covers the full workflow via th
 | [**Platform**](/docs/agent-skill/platform) | Explore endpoints, design and run tests, analyze results |
 | [**PRD → test foundation**](/docs/agent-skill/prd) | Paste requirements; create behaviors, metrics, tags, and test sets |
 
-One install. Invoke with `/rhesis` or natural language — the skill routes to the right workflow from your message.
+One install. Invoke with `/rhesis` for a **four-path menu** when intent is unclear, or speak naturally and the skill routes automatically.
 
 <Callout type="info">
   **This is different from Rhesis's inbound MCP connector** (where the platform imports content from Notion, GitHub, or Jira). The agent skill lets an external AI interface call *into* Rhesis to drive testing workflows.
 </Callout>
+
+## Four paths
+
+On an ambiguous `/rhesis` (no endpoint, PRD, or run request yet), the skill offers:
+
+1. **Quick exploration** — fast endpoint scan
+2. **Comprehensive exploration** — full capability and boundary analysis
+3. **PRD → test foundation** — behaviors, metrics, tags, test sets from requirements
+4. **Run or analyze** — execute test sets or compare past runs (returning users)
+
+If you already paste a PRD or name an endpoint, the menu is skipped.
 
 ## Quick install
 
@@ -24,12 +35,22 @@ Connect the MCP server in your agent — see [Install in Cursor](/docs/agent-ski
 ## Examples
 
 ```text
+# Ambiguous — shows four-path menu
+/rhesis
+
 # Platform — explore and test an endpoint
 "I want to test my travel chatbot. The endpoint is called 'travel-agent-v2'."
 
 # PRD — build a test foundation first
 "Here's our agent PRD: [paste requirements]"
+
+# Returning user — run or analyze
+"Compare my last two test runs for the safety test set"
 ```
+
+## Telemachus (native Architect)
+
+The in-app **Architect** agent should mirror the same four paths. The port checklist lives at `skills/rhesis/references/telemachus-parity.md` in the repository.
 
 ## Source
 

@@ -16,16 +16,44 @@ One skill for the full Rhesis workflow: **explore endpoints**, **build test foun
 | User intent | Workflow | Guide |
 |---|---|---|
 | Paste PRD / requirements / product spec | **PRD → test foundation** | `references/prd-workflow.md` |
-| Test an endpoint, run suites, analyze runs | **Platform** (discover → plan → execute) | Below |
+| Quick or Comprehensive exploration of an endpoint | **Platform** (discover → plan → create) | Below + `references/exploration-strategies.md` |
+| Run or analyze existing tests | **Execute / analyze** | [Execution](#execution-phase) + [Analysis](#analysis-phase) |
 | Direct command ("list test sets", "improve metric X") | **Direct** | [Direct requests](#direct-requests) |
 
-**Routing rules:**
+### Ambiguous start (`/rhesis` or vague "help me test")
 
-- PRD, spec, guardrails doc, or "build from requirements" → **PRD workflow** first. Do not explore an endpoint unless the user asks after the foundation exists.
-- Endpoint name, test run, exploration → **platform workflow**.
-- Ambiguous `/rhesis` with no context → ask once: *explore an endpoint*, *build from a PRD*, or *run/analyze existing tests*?
+When the user has **not** named an endpoint, pasted a PRD, or asked to run/analyze something specific, present **one** menu and wait for their choice:
 
-PRD workflow creates org entities — **always present the plan and wait for approval** before any create/generate call.
+```text
+What would you like to do?
+
+1. Quick exploration — fast scan of an endpoint's domain and boundaries
+2. Comprehensive exploration — full capability and boundary analysis
+3. Build a test foundation from your PRD — behaviors, metrics, and test sets (paste or attach requirements)
+4. Run or analyze existing tests — execute a test set or review/compare past runs
+```
+
+**Skip the menu** when intent is already clear:
+
+| User already said | Go to |
+|---|---|
+| Pasted PRD / spec / numbered FRs | PRD workflow (option 3) — no exploration |
+| Named an endpoint + wants to test | Resolve endpoint → option 1 or 2 if mode unclear; if they said "comprehensive", skip mode question |
+| "Run tests", "compare runs", "analyze last run" | Execute / analyze (option 4) |
+| "List my test sets", "improve metric X" | Direct requests |
+
+**Routing after menu choice:**
+
+| Choice | Next step |
+|---|---|
+| **1 Quick** | Resolve endpoint (ask name if missing) → `check_endpoint` → `explore_endpoint` quick → plan → create |
+| **2 Comprehensive** | Same → `explore_endpoint` comprehensive → plan → create |
+| **3 PRD foundation** | PRD workflow — no `explore_endpoint` unless user asks after foundation exists |
+| **4 Run / analyze** | Resolve test set and/or endpoint by name → `execute_test_set` and/or `get_test_result_stats` — no new plan unless user asks |
+
+PRD workflow and platform **create** paths — **always present the plan and wait for approval** before any create/generate call.
+
+See `references/telemachus-parity.md` for how the native Architect (Telemachus) should mirror this menu.
 
 ## Prerequisites
 
@@ -58,11 +86,13 @@ When a user refers to any entity by name, look it up using the appropriate `list
 
 ## Discovery phase
 
-When a user mentions an endpoint or says "test my chatbot / test my AI":
+Applies to **menu options 1–2** or when the user names an endpoint to test. **Skip entirely** for PRD foundation (option 3) and run/analyze (option 4).
+
+When exploring an endpoint:
 
 1. Resolve the endpoint by name using `list_endpoints` with `$select=name,id,url,description`. If the endpoint isn't registered yet, create it with `create_endpoint` — resolve the target project via `list_projects` first and pass its id as `project_id` (required). Then continue.
 2. Check connectivity via `check_endpoint` before doing anything else. If it fails, report the error before proceeding.
-3. Ask which exploration mode the user prefers before running:
+3. If exploration mode is not already chosen from the menu, ask before running:
    - **Quick** — domain probing only. Fast; good for familiar endpoints or when the user wants to start quickly.
    - **Comprehensive** — domain probing, then capability mapping and boundary discovery. Thorough; best for unfamiliar endpoints.
    - Default to **Quick** if the user is vague ("just explore it", "go ahead").

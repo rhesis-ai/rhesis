@@ -4,7 +4,7 @@ Turn a **PRD, product spec, or requirements doc** into a durable **test foundati
 
 **When to use this workflow** (not endpoint exploration):
 
-- User pastes or attaches a PRD, spec, guardrails doc, or requirements
+- User chose **menu option 3** or pasted/attached a PRD, spec, guardrails doc, or requirements
 - User asks to scaffold behaviors, build evaluation from requirements, or set up a test foundation
 - User is onboarding an agent and has requirements but no test suite yet
 
