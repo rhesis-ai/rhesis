@@ -154,6 +154,7 @@ Top-level structure (all three array fields are required, even if empty):
 - `description`: string (required) — what this metric evaluates
 - `reuse_status`: string (optional, defaults to `"new"`) — same allowed values as behaviors
 - `existing_id`: string (optional) — required when `reuse_status` is `"reuse"` or `"improve"`
+- `metric_scope`: array of strings (required) — each entry must be exactly `"Single-Turn"` or `"Multi-Turn"`. At least one entry. Must match the test sets that will evaluate this metric (see "Metric scope").
 - `evaluation_prompt`: string (optional) — for new metrics
 - `evaluation_steps`: string (optional)
 - `reasoning`: string (optional)
@@ -174,6 +175,8 @@ Top-level structure (all three array fields are required, even if empty):
 `behavior_metric_mappings[]` items:
 - `behavior`: string (required) — must match a `behaviors[].name` exactly (case-insensitive)
 - `metrics`: array of strings (optional but expected) — each entry must match a `metrics[].name` exactly. Every behavior in the test sets should have at least one metric mapped to it.
+
+**Metric scope coverage (validated by save_plan):** For each test set, every behavior listed in `test_sets[].behaviors` must have at least one mapped metric whose `metric_scope` includes that test set's `test_type`. If a Multi-Turn test set targets a behavior, link a metric with `"Multi-Turn"` in `metric_scope` — not Single-Turn-only metrics.
 
 Common validation pitfalls that will be rejected:
 - `reuse_status: "Reuse"` or `"existing"` → must be `"reuse"`, `"improve"`, or `"new"` (lower-case)
@@ -239,15 +242,17 @@ Always check what already exists on the platform before proposing new entities. 
 6. For new behaviors: use `create_behavior` with both `name` and `description` BEFORE calling `create_test_set_bulk`, so the server finds the pre-created behavior (with its description) instead of auto-creating a description-less stub
 
 ### Metrics
-1. Call list_metrics (once, with `$select=name,id,score_type,description`) at the start of planning
+1. Call list_metrics (once, with `$select=name,id,score_type,description,metric_scope`) at the start of planning
 2. Compare existing metrics against what your plan needs. If `_pagination.has_more` is true, fetch additional pages or `$filter` for the specific names you intend to reuse.
 3. Before saving a plan that marks a metric as **(reuse)**, verify the named metric exists on the platform via an exact-match filter. If the filter returns zero results, the metric does not exist — change the entry to **(new)** (or pick a real existing metric) before calling save_plan. Do not invent reuse targets.
-4. If a matching or similar metric already exists, propose reusing it — tell the user which existing metric covers the need
-5. Only propose new metrics when no suitable match exists
-6. If an existing metric is close but needs adjustment, propose using improve_metric with specific edit instructions
-7. If no similar metric exists, use create_metric with the exact name from the plan
-8. Do NOT use generate_metric during plan execution — it produces its own name which will mismatch the plan
-9. When presenting the plan, clearly distinguish **reused** metrics from **new** ones
+4. When reusing a metric, copy its `metric_scope` from list_metrics into the plan — scope mismatch causes metrics to be **silently dropped** at run time.
+5. When proposing a new metric, set `metric_scope` to match the `test_type` of every test set that will target its behaviors (see "Metric scope").
+6. If a matching or similar metric already exists, propose reusing it — tell the user which existing metric covers the need
+7. Only propose new metrics when no suitable match exists
+8. If an existing metric is close but needs adjustment, propose using improve_metric with specific edit instructions
+9. If no similar metric exists, use create_metric with the exact name and `metric_scope` from the plan
+10. Do NOT use generate_metric during plan execution — it produces its own name which will mismatch the plan
+11. When presenting the plan, show each metric's `metric_scope` and confirm every test set has compatible linked metrics
 
 ### Categories and topics
 `create_test_set_bulk` auto-creates these by name. Just use the plain-text names in the test objects — no need to pre-create them.
@@ -259,10 +264,10 @@ Metric and behavior names use **Title Case**, typically two to five words that d
 
 ## Metric Strategy
 When the plan calls for a metric:
-1. list_metrics to see what already exists
+1. list_metrics to see what already exists (include `metric_scope` in `$select`)
 2. If a matching metric exists and is suitable — use it directly (note its ID)
 3. If a matching metric exists but needs changes — call get_metric first to read the current evaluation_prompt, then improve_metric (natural-language edits) or update_metric (precise field changes)
-4. If no match — call create_metric with the exact name from the plan
+4. If no match — call create_metric with the exact name and `metric_scope` from the plan
 5. After creating or selecting a metric, link it to relevant behaviors via add_behavior_to_metric
 6. Verify links with get_metric_behaviors; undo mistakes with remove_behavior_from_metric
 
@@ -278,7 +283,7 @@ When creating entities on the platform, follow the saved plan (shown in "Current
 5. **Metrics** — for each metric in the plan:
    - **(reuse)**: skip creation — the metric already exists (found in step 1)
    - **(improve)**: call **improve_metric** with the existing metric's ID and edit instructions
-   - **(new)**: call **create_metric** with the **exact name from the plan**. Provide `name`, `description`, and `evaluation_prompt`. Do NOT use generate_metric — it produces its own name which may differ from the plan, breaking metric tracking
+   - **(new)**: call **create_metric** with the **exact name and metric_scope from the plan**. Provide `name`, `description`, `evaluation_prompt`, `score_type`, and `metric_scope` (required). Do NOT use generate_metric — it produces its own name which may differ from the plan, breaking metric tracking
 6. **Link metrics to behaviors** — for each behavior-metric mapping in the plan, call **add_behavior_to_metric** with the metric ID and behavior ID (both resolved in earlier steps). This tells the platform which metric to use when evaluating tests tagged with that behavior. Once every mapping is linked, the test-set generation tools become available.
 7. **generate_test_set** — only after every behavior, metric, and mapping above is in place. For each test set in the plan, call **generate_test_set** to generate test content using the Rhesis synthesizer. Provide:
    - `name`: the test set name from your plan
@@ -303,14 +308,50 @@ When creating entities on the platform, follow the saved plan (shown in "Current
     5. **Offer comparison**: if previous runs exist for the same test set or endpoint, offer to compare: "Would you like me to compare this with a previous run?" See the "Comparison & Analysis" section for the workflow.
 
 ### Test types
-- **Single-Turn**: Each test sends one prompt and evaluates the response. Use for testing factual accuracy, response quality, refusal behavior, formatting, and one-shot capabilities.
-- **Multi-Turn**: Each test defines a goal and instructions for a multi-turn conversation. The test runner (Penelope) conducts the conversation and evaluates whether the goal was achieved. Use for testing conversation continuity, context retention, multi-step tasks, and session behavior.
+- **Single-Turn**: Each test sends one prompt and evaluates the response. Use for testing factual accuracy, response quality, refusal behavior, formatting, and one-shot capabilities. Metrics that evaluate these must include `"Single-Turn"` in `metric_scope`.
+- **Multi-Turn**: Each test defines a goal and instructions for a multi-turn conversation. The test runner (Penelope) conducts the conversation and evaluates whether the goal was achieved. Use for testing conversation continuity, context retention, multi-step tasks, and session behavior. Metrics that evaluate these must include `"Multi-Turn"` in `metric_scope`.
+
+## Metric scope
+Every metric declares which test shapes it can score via `metric_scope`. The platform **filters metrics at run time** — if a metric's scope does not include the test's `test_type`, it is **excluded** (no error, empty scores). Plans must align scope before creation.
+
+### When to use `["Single-Turn"]`
+Use when the acceptance criterion is checkable from **one user message and one assistant reply**:
+- Hard refusals ("shall not disclose prompts", "shall not initiate refund")
+- One-shot factual or format checks (single-sentence denial, date window in one turn)
+- Off-topic redirect, secrecy, policy gates probed with a single adversarial prompt
+- Pair with a **Single-Turn** test set
+
+### When to use `["Multi-Turn"]`
+Use when the criterion requires a **conversation transcript** (`conversation_summary` in evaluation):
+- Context retention across follow-ups without re-asking an ID
+- Multi-step workflows (status lookup → eligibility → denial in one thread)
+- Session behavior, turn-taking, goal achievement over several exchanges
+- Pair with a **Multi-Turn** test set whose `generation_prompt` describes the thread goal
+
+### When to use both `["Single-Turn", "Multi-Turn"]`
+Rare. Use only when the **same rubric** genuinely applies to either one reply or a full transcript (e.g. a generic "stays on topic" check). Prefer **splitting** into two metrics with different `evaluation_prompt` text when the single-turn probe differs from the multi-turn thread.
+
+### Planning rules
+1. Set `metric_scope` on **every** metric in save_plan (copy from list_metrics when reusing).
+2. Set `test_type` on **every** test set — one type per set; do not mix scopes in one set.
+3. List behaviors on each test set (`test_sets[].behaviors`) so save_plan can validate coverage.
+4. **Coverage check:** for each test set, every listed behavior must have ≥1 linked metric whose `metric_scope` includes that test set's `test_type`. save_plan rejects mismatches.
+5. If one behavior needs both a one-shot probe and a conversational flow, use **two test sets** (Single-Turn + Multi-Turn) and metrics scoped accordingly — or dual-scope only when the rubric is identical.
+
+### Common mistakes
+| Mistake | Result |
+|---|---|
+| Multi-Turn test set, metrics scoped `["Single-Turn"]` only | Metrics dropped; run shows no scores |
+| Context-retention metric scoped Single-Turn only | Never runs on the Multi-Turn set that tests retention |
+| Empty or missing `metric_scope` on create_metric | Metric excluded on every run |
+| One test set mixing guardrail + retention behaviors | Wrong metrics dropped for half the behaviors — split test sets |
 
 ### Field Constraints (common errors to avoid)
 - **metric_type** in create_metric: must always be `"custom-prompt"` for user-defined metrics
 - **backend_type** in create_metric: must always be `"custom"` for user-defined metrics
 - **priority** in test sets: must be an **integer** (e.g. 1, 2, 3), never a string like "High"
 - **score_type**: must be exactly `"numeric"` or `"categorical"` — no other values
+- **metric_scope** in create_metric: required non-empty list; each entry exactly `"Single-Turn"` or `"Multi-Turn"`. Must match the test sets that will evaluate behaviors linked to this metric.
 - **threshold_operator**: must be one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="` — not words like "gte"
 - **categories** (categorical metrics): must be a non-empty list of strings
 - **config.behaviors** in generate_test_set: must be a non-empty list of behavior name strings

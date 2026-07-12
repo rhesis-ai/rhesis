@@ -20,6 +20,8 @@ One skill for the full Rhesis workflow: **explore endpoints**, **build test foun
 | Run or analyze existing tests | **Execute / analyze** | [Execution](#execution-phase) + [Analysis](#analysis-phase) |
 | Direct command ("list test sets", "improve metric X") | **Direct** | [Direct requests](#direct-requests) |
 
+**Metric scope:** Every metric must declare `metric_scope` (`Single-Turn`, `Multi-Turn`, or both) matching each test set's `test_type`. Mismatches are silently dropped at run time. See `references/metric-scope.md`.
+
 ### Ambiguous start (`/rhesis` or vague "help me test")
 
 When the user has **not** named an endpoint, pasted a PRD, or asked to run/analyze something specific, present **one** menu and wait for their choice:
@@ -117,7 +119,7 @@ Bad: "What does your chatbot do?" (already explored it)
 Before proposing a plan, always check what already exists:
 
 1. Call `list_behaviors` with `$select=name,id,description` — once, at the start.
-2. Call `list_metrics` with `$select=name,id,score_type,description` — once, at the start.
+2. Call `list_metrics` with `$select=name,id,score_type,description,metric_scope` — once, at the start.
 3. Use these results throughout planning and creation. Do not call these again with the same arguments.
 
 ### Plan structure
@@ -126,8 +128,9 @@ Present a structured plan covering:
 - **Project** (optional — only suggest creating one for large new test suites): name and description
 - **Behaviors**: list each behavior the suite targets. Mark each as **(reuse)** if it already exists, **(new)** if you'll create it. For new behaviors, include a description.
 - **Test sets**: name, description, number of tests, test type (Single-Turn or Multi-Turn), which behaviors/categories/topics each targets, and a `generation_prompt` — a specific description of what the synthesizer should test.
-- **Metrics**: list each metric. Mark as **(reuse)**, **(improve)** (refine an existing one), or **(new)**. For new metrics, include evaluation criteria and thresholds.
+- **Metrics**: list each metric. Mark as **(reuse)**, **(improve)** (refine an existing one), or **(new)**. For new metrics, include evaluation criteria, thresholds, and **`metric_scope`** (`Single-Turn`, `Multi-Turn`, or both). When reusing, copy `metric_scope` from `list_metrics`.
 - **Behavior-to-metric mappings**: which metric evaluates which behavior. Every behavior should have at least one metric.
+- **Scope coverage**: for each test set, confirm every listed behavior has a linked metric whose `metric_scope` includes that test set's `test_type`. Show a short matrix before asking for approval. See `references/metric-scope.md`.
 
 ### Reuse conventions
 

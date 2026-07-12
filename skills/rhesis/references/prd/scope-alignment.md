@@ -1,5 +1,7 @@
 # Metric scope ↔ test set alignment (platform rules)
 
+**Start here for when to use Single-Turn vs Multi-Turn:** [metric-scope.md](../metric-scope.md).
+
 The PRD skill must plan **`metric_scope` on every metric** and **`test_type` on every test set** so they match. The platform does **not** auto-fix mismatches — incompatible metrics are **silently dropped** at execution.
 
 ## How the platform resolves metrics at run time

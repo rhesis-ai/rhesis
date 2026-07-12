@@ -58,6 +58,18 @@ Architect looks up the matching source in your platform knowledge library, passe
   Knowledge source grounding only applies to **single-turn** test sets. Multi-turn test generation does not consume sources.
 </Callout>
 
+## Metric scope
+
+Every metric declares which test shapes it can score. At run time the platform **only applies metrics whose `metric_scope` includes the test's type** — mismatches are silently dropped.
+
+| Scope | Use when | Test set type |
+| --- | --- | --- |
+| `Single-Turn` | One prompt → one response (refusals, one-shot format, factual checks) | Single-Turn |
+| `Multi-Turn` | Full conversation needed (context retention, multi-step threads) | Multi-Turn |
+| Both | Same rubric works for either shape (rare — prefer splitting) | Matching sets |
+
+When planning, Architect shows each metric's scope and validates that every behavior in a test set has at least one linked metric with a compatible scope. If you need both one-shot guardrails and conversational retention tests, expect **two test sets** with separately scoped metrics.
+
 ## Iterating on the plan
 
 The plan is a conversation. After Architect presents it, you can:

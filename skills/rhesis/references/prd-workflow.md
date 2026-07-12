@@ -20,6 +20,7 @@ Turn a **PRD, product spec, or requirements doc** into a durable **test foundati
 | [behavior-design.md](behavior-design.md) | Split bundled PRD text into behaviors |
 | [metric-design.md](metric-design.md) | AC-driven metrics (binary, categorical, numeric) |
 | [scope-alignment.md](scope-alignment.md) | `metric_scope` ↔ test set `test_type` (platform enforces at run time) |
+| [metric-scope.md](../metric-scope.md) | When to use Single-Turn vs Multi-Turn (all workflows) |
 
 ## Pipeline
 
@@ -67,7 +68,7 @@ Split by **theme and `metric_scope`**. Each test set has one `test_type`. Every 
 
 ## 6. Present plan
 
-Include: PRD summary, behaviors table, metrics table (with AC source + `metric_scope`), mappings, test sets table (with metrics that will run).
+Include: PRD summary, behaviors table, metrics table (with AC source + `metric_scope`), mappings, test sets table (with `test_type` and metrics expected to run), **scope coverage matrix** (see [metric-scope.md](metric-scope.md)).
 
 End with: "Does this look right? Shall I create this test foundation on Rhesis?"
 

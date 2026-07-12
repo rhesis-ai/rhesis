@@ -43,16 +43,21 @@ Port from `references/prd-workflow.md` and `references/prd/*`:
 
 **Optional:** `AgentMode` for PRD in `tool_registry.py` so the mode chip shows the active workflow.
 
-## 3. `metric_scope` + scope coverage (priority: critical)
+## 3. `metric_scope` + scope coverage (priority: critical) — **implemented**
 
-Platform **drops** metrics whose `metric_scope` does not include the test's `test_type`. Architect prompt and `MetricSpec` in `plan.py` do not require `metric_scope` today.
+Platform **drops** metrics whose `metric_scope` does not include the test's `test_type`.
 
-**Port target:**
+**Done / in progress on this branch:**
 
-- `system_prompt.j2` — Metric Strategy, Field Constraints, Entity Creation Order
-- `plan.py` — `MetricSpec.metric_scope: List[Literal["Single-Turn", "Multi-Turn"]]`
-- Planning phase — coverage check before `save_plan`
-- `PlanDisplay.tsx` — show scope column
+- `plan.py` — `MetricSpec.metric_scope` + `save_plan` coverage validation
+- `system_prompt.j2` — "Metric scope" section, planning + creation guidance
+- `skills/rhesis/references/metric-scope.md` — shared when-to-use guide
+- `docs/architect/planning.mdx` — user-facing scope section
+
+**Remaining:**
+
+- `PlanDisplay.tsx` — show scope column (optional)
+- PRD workflow section in `system_prompt.j2` (separate from scope)
 
 ## 4. Plan schema extensions (priority: medium)
 
