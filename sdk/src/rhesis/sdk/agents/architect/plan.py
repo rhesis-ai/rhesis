@@ -1,6 +1,6 @@
 """ArchitectPlan and spec models for test suite configuration."""
 
-from typing import Any, Dict, List, Literal, Optional, Self
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -108,10 +108,10 @@ class MetricSpec(BaseModel):
     metric_scope: List[MetricScope] = Field(
         default_factory=lambda: ["Single-Turn"],
         description=(
-            'Which test types this metric can evaluate. Each entry must be '
+            "Which test types this metric can evaluate. Each entry must be "
             'exactly "Single-Turn" or "Multi-Turn". Use ["Single-Turn"] for '
-            "one-shot prompts; [\"Multi-Turn\"] for conversational goals; "
-            'both only when the same rubric applies to either shape.'
+            'one-shot prompts; ["Multi-Turn"] for conversational goals; '
+            "both only when the same rubric applies to either shape."
         ),
         min_length=1,
     )
@@ -125,9 +125,7 @@ class MetricSpec(BaseModel):
         invalid = [entry for entry in value if entry not in _VALID_METRIC_SCOPES]
         if invalid:
             allowed = ", ".join(sorted(_VALID_METRIC_SCOPES))
-            raise ValueError(
-                f"metric_scope entries must be {allowed}; got invalid: {invalid}"
-            )
+            raise ValueError(f"metric_scope entries must be {allowed}; got invalid: {invalid}")
         return value
 
 
@@ -187,7 +185,7 @@ class ArchitectPlan(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _validate_metric_scope_coverage(self) -> Self:
+    def _validate_metric_scope_coverage(self) -> "ArchitectPlan":
         """Ensure every test-set behavior has a compatible linked metric."""
         if not self.test_sets:
             return self
@@ -218,13 +216,11 @@ class ArchitectPlan(BaseModel):
                 compatible = [
                     metric_name
                     for metric_name in linked_metrics
-                    if test_set.test_type
-                    in metric_scopes.get(metric_name.lower(), [])
+                    if test_set.test_type in metric_scopes.get(metric_name.lower(), [])
                 ]
                 if not compatible:
                     scope_details = ", ".join(
-                        f"{name} ({metric_scopes.get(name.lower(), [])})"
-                        for name in linked_metrics
+                        f"{name} ({metric_scopes.get(name.lower(), [])})" for name in linked_metrics
                     )
                     errors.append(
                         f"Test set '{test_set.name}' ({test_set.test_type}): "

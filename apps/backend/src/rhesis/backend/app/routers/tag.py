@@ -1,7 +1,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
@@ -73,7 +72,9 @@ def read_tags(
         user_id=user_id,
     )
     if select:
-        serialized = jsonable_encoder(results)
+        serialized = [
+            schemas.Tag.model_validate(tag).model_dump(mode="json") for tag in results
+        ]
         return JSONResponse(content=apply_select(serialized, select))
     return results
 

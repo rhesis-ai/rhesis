@@ -16,10 +16,10 @@ Turn a **PRD, product spec, or requirements doc** into a durable **test foundati
 
 | File | Purpose |
 |---|---|
-| [prd-anatomy.md](prd-anatomy.md) | How real PRDs are structured |
-| [behavior-design.md](behavior-design.md) | Split bundled PRD text into behaviors |
-| [metric-design.md](metric-design.md) | AC-driven metrics (binary, categorical, numeric) |
-| [scope-alignment.md](scope-alignment.md) | `metric_scope` ↔ test set `test_type` (platform enforces at run time) |
+| [prd-anatomy.md](prd/prd-anatomy.md) | How real PRDs are structured |
+| [behavior-design.md](prd/behavior-design.md) | Split bundled PRD text into behaviors |
+| [metric-design.md](prd/metric-design.md) | AC-driven metrics (binary, categorical, numeric) |
+| [scope-alignment.md](prd/scope-alignment.md) | `metric_scope` ↔ test set `test_type` (platform enforces at run time) |
 | [metric-scope.md](../metric-scope.md) | When to use Single-Turn vs Multi-Turn (all workflows) |
 
 ## Pipeline
@@ -31,7 +31,7 @@ PRD intake → Extract behaviors → Design metrics (AC + scope) → Plan tags &
 
 ## 1. PRD intake
 
-Accept markdown, Confluence/Notion export, file attachment, or repo files. Expect mixed structure — see [prd-anatomy.md](prd-anatomy.md).
+Accept markdown, Confluence/Notion export, file attachment, or repo files. Expect mixed structure — see [prd-anatomy.md](prd/prd-anatomy.md).
 
 Read for: stakeholder/legal blocks, persona stories, numbered FRs with `(P#)`, acceptance criteria quantifiers, appendices, TBD items.
 
@@ -39,18 +39,18 @@ If guardrails are vague, ask **one** focused question — otherwise infer defaul
 
 ## 2. Extract fine-grained behaviors
 
-See [behavior-design.md](behavior-design.md). One behavior = one testable expectation. Never use section titles, persona names, or umbrella labels ("Reliability", "Operate Safely") as behaviors.
+See [behavior-design.md](prd/behavior-design.md). One behavior = one testable expectation. Never use section titles, persona names, or umbrella labels ("Reliability", "Operate Safely") as behaviors.
 
 Target **6–12 behaviors** for a typical agent PRD.
 
 ## 3. Design custom metrics
 
-See [metric-design.md](metric-design.md). Metrics come from **acceptance criteria / FR text**, not behavior names.
+See [metric-design.md](prd/metric-design.md). Metrics come from **acceptance criteria / FR text**, not behavior names.
 
 Every metric needs:
 
 - `score_type`: `categorical` or `numeric` derived from AC language
-- `metric_scope`: `["Single-Turn"]`, `["Multi-Turn"]`, or both — see [scope-alignment.md](scope-alignment.md)
+- `metric_scope`: `["Single-Turn"]`, `["Multi-Turn"]`, or both — see [scope-alignment.md](prd/scope-alignment.md)
 - `evaluation_prompt` quoting the source FR/AC with checkable bullets
 
 Use `create_metric` during plan execution (not `generate_metric`).
@@ -61,7 +61,7 @@ Use `create_metric` during plan execution (not `generate_metric`).
 
 ## 5. Plan test sets
 
-Split by **theme and `metric_scope`**. Each test set has one `test_type`. Every behavior in the set must have ≥1 linked metric whose `metric_scope` includes that type — run the coverage check in [scope-alignment.md](scope-alignment.md) before approval.
+Split by **theme and `metric_scope`**. Each test set has one `test_type`. Every behavior in the set must have ≥1 linked metric whose `metric_scope` includes that type — run the coverage check in [scope-alignment.md](prd/scope-alignment.md) before approval.
 
 - **Single-Turn** — guardrails, refusals, one-shot lookups
 - **Multi-Turn** — context retention, multi-step threads from user stories
