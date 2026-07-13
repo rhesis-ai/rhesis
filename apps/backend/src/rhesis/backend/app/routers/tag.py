@@ -1,8 +1,7 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
-from rhesis.backend.app.routers.base import RhesisRouter
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -12,6 +11,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -72,9 +72,7 @@ def read_tags(
         user_id=user_id,
     )
     if select:
-        serialized = [
-            schemas.Tag.model_validate(tag).model_dump(mode="json") for tag in results
-        ]
+        serialized = [schemas.Tag.model_validate(tag).model_dump(mode="json") for tag in results]
         return JSONResponse(content=apply_select(serialized, select))
     return results
 
