@@ -127,4 +127,59 @@ describe('useGridState', () => {
       ])
     );
   });
+
+  it('drops stale column filters when the same field becomes toolbar-managed', () => {
+    const drawerFilters = { ...EMPTY_TEST_FILTERS, status: 'Active' };
+
+    const { result, rerender } = renderHook(
+      ({
+        searchQuery,
+        drawerFilters: filters,
+      }: {
+        searchQuery: string;
+        drawerFilters: typeof EMPTY_TEST_FILTERS;
+      }) =>
+        useGridState({
+          searchQuery,
+          applyDrawerFilters: (prev: GridFilterModel) =>
+            applyTestDrawerFiltersToModel(prev, filters),
+        }),
+      {
+        initialProps: {
+          searchQuery: '',
+          drawerFilters: EMPTY_TEST_FILTERS,
+        },
+      }
+    );
+
+    act(() => {
+      result.current.handleFilterModelChange({
+        items: [
+          {
+            field: 'status.name',
+            operator: 'contains',
+            value: 'Draft',
+          },
+        ],
+      });
+    });
+
+    expect(result.current.filterModel.items).toEqual([
+      {
+        field: 'status.name',
+        operator: 'contains',
+        value: 'Draft',
+      },
+    ]);
+
+    rerender({ searchQuery: '', drawerFilters });
+
+    expect(result.current.filterModel.items).toEqual([
+      {
+        field: 'status.name',
+        operator: 'contains',
+        value: 'Active',
+      },
+    ]);
+  });
 });

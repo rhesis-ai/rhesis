@@ -35,6 +35,26 @@ function isQuickFilterItem(item: GridFilterItem): boolean {
   return QUICK_FILTER_FIELDS.has(item.field ?? '');
 }
 
+function getManagedFilterFields(model: GridFilterModel): Set<string> {
+  return new Set(
+    model.items
+      .map(item => item.field)
+      .filter((field): field is string => !!field)
+  );
+}
+
+function stripManagedColumnItems(
+  columnItems: GridFilterItem[],
+  managedFields: Set<string>
+): GridFilterItem[] {
+  return columnItems.filter(
+    item =>
+      item.field &&
+      !managedFields.has(item.field) &&
+      !isQuickFilterItem(item)
+  );
+}
+
 function buildManagedFilterModel(
   searchQuery: string,
   typeFilter: string | undefined,
@@ -82,6 +102,12 @@ export function useGridState({
   const [columnFilterItems, setColumnFilterItems] = useState<GridFilterItem[]>(
     []
   );
+  const [gridFilterMeta, setGridFilterMeta] = useState<
+    Pick<
+      GridFilterModel,
+      'logicOperator' | 'quickFilterValues' | 'quickFilterLogicOperator'
+    >
+  >({});
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: initialPageSize,
@@ -99,11 +125,22 @@ export function useGridState({
     [searchQuery, typeFilter, typeFilterField, applyDrawerFilters]
   );
 
+  const managedFields = useMemo(
+    () => getManagedFilterFields(managedFilterModel),
+    [managedFilterModel]
+  );
+
+  const reconciledColumnFilterItems = useMemo(
+    () => stripManagedColumnItems(columnFilterItems, managedFields),
+    [columnFilterItems, managedFields]
+  );
+
   const filterModel = useMemo(
     () => ({
-      items: [...managedFilterModel.items, ...columnFilterItems],
+      ...gridFilterMeta,
+      items: [...managedFilterModel.items, ...reconciledColumnFilterItems],
     }),
-    [managedFilterModel, columnFilterItems]
+    [gridFilterMeta, managedFilterModel, reconciledColumnFilterItems]
   );
 
   useEffect(() => {
@@ -119,23 +156,17 @@ export function useGridState({
 
   const handleFilterModelChange = useCallback(
     (model: GridFilterModel) => {
-      const managedFields = new Set(
-        managedFilterModel.items
-          .map(item => item.field)
-          .filter((field): field is string => !!field)
-      );
-
-      const columnItems = model.items.filter(
-        item =>
-          item.field &&
-          !managedFields.has(item.field) &&
-          !isQuickFilterItem(item)
-      );
+      const columnItems = stripManagedColumnItems(model.items, managedFields);
 
       setColumnFilterItems(columnItems);
+      setGridFilterMeta({
+        logicOperator: model.logicOperator,
+        quickFilterValues: model.quickFilterValues,
+        quickFilterLogicOperator: model.quickFilterLogicOperator,
+      });
       setPaginationModel(prev => ({ ...prev, page: 0 }));
     },
-    [managedFilterModel]
+    [managedFields]
   );
 
   const setFilterModel = useCallback(
