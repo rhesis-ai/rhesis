@@ -128,7 +128,7 @@ const SCAFFOLD_CATEGORIES = [
  */
 export default function TestInputScreen({
   sessionToken,
-  testType = 'single_turn',
+  testType = 'Single-Turn',
   onTestTypeChange,
   onContinue,
   initialDescription = '',
@@ -216,8 +216,8 @@ export default function TestInputScreen({
                 }}
                 size="small"
               >
-                <ToggleButton value="single_turn">Single-Turn</ToggleButton>
-                <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
+                <ToggleButton value="Single-Turn">Single-Turn</ToggleButton>
+                <ToggleButton value="Multi-Turn">Multi-Turn</ToggleButton>
               </ToggleButtonGroup>
             </Box>
           )}

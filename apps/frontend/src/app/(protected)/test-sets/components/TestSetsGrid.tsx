@@ -51,7 +51,7 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { TEST_TYPES } from '@/constants/test-types';
+import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
 import { useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
@@ -85,11 +85,7 @@ const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
   activeFilterCount: 0,
 });
 
-const PILL_TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
-  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
-];
+const PILL_TABS = TEST_TYPE_PILL_TABS;
 
 function TestSetsUnifiedToolbar() {
   const {

@@ -76,6 +76,7 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "25m"
   # Observed startup time: ~93s after container start (StatReload + Garak/LiteLLM imports).
   # Image pull adds ~90s before container start but doesn't count toward probe delay.
   # Helm replaces nested maps — keep full blocks.

@@ -53,13 +53,20 @@ class TestType(str, Enum):
 
     @classmethod
     def from_string(cls, value: str):
-        """Get enum from string value (case-sensitive, accepts only allowed values)."""
+        """Get enum from string value, accepting canonical or snake_case forms."""
         if not value:
             return None
+        canonical = _TEST_TYPE_ALIASES.get(value, value)
         for test_type in cls:
-            if test_type.value == value:
+            if test_type.value == canonical:
                 return test_type
         return None
+
+
+_TEST_TYPE_ALIASES = {
+    "single_turn": "Single-Turn",
+    "multi_turn": "Multi-Turn",
+}
 
 
 # TestSetType Enum - DB-level test set classification aligned with initial_data.json type_lookup
@@ -76,11 +83,12 @@ class TestSetType(str, Enum):
 
     @classmethod
     def from_string(cls, value: str):
-        """Get enum from string value (case-sensitive, accepts only allowed values)."""
+        """Get enum from string value, accepting canonical or snake_case forms."""
         if not value:
             return None
+        canonical = _TEST_TYPE_ALIASES.get(value, value)
         for test_set_type in cls:
-            if test_set_type.value == value:
+            if test_set_type.value == canonical:
                 return test_set_type
         return None
 

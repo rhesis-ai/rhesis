@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
+import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -45,7 +46,13 @@ export default async function TestDetailPage({ params }: PageProps) {
   const promptsClient = apiFactory.getPromptsClient();
   const { identifier } = await params;
 
-  const test = await testsClient.getTest(identifier);
+  let test;
+  try {
+    test = await testsClient.getTest(identifier);
+  } catch (error) {
+    notFoundIfEntityMissing(error);
+    throw error;
+  }
 
   if (test.prompt_id) {
     const promptData = await promptsClient.getPrompt(test.prompt_id);

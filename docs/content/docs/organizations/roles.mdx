@@ -33,37 +33,54 @@ Built-in roles are fixed and cannot be edited or deleted.
 
 ## Organization roles vs. project roles
 
+A project-level role can only **add** to what your organization role already grants — it can never take access away. This mirrors how GitLab and Google Cloud IAM handle nested scopes: a narrower scope (project) can elevate access above a broader scope (organization), but it never restricts what the broader scope already grants. If you have both an organization role and an explicit role on a specific project, the **higher-level role always wins** for that project.
+
 ```mermaid
 %%{init: {'flowchart': {'nodeSpacing': 30, 'rankSpacing': 50}}}%%
 graph TB
-    A["Has an explicit project role?"]
-    B["Use the project role"]
-    C["Org role is Admin or Owner?"]
-    D["Implicit access to the project"]
-    E["Is a project member?"]
-    F["Inherit the org role"]
-    G["Denied"]
+    A["Has an org role?"]
+    Z["Has an explicit project role?"]
+    K["Use the explicit project role"]
+    D["Denied"]
+    B["Org role is Admin or Owner?"]
+    E["Has an explicit project role?"]
+    F["Use the higher of org role and project role"]
+    G["Use the org role"]
+    C["Is a project member?"]
+    H["Has an explicit project role?"]
+    I["Use the higher of org role and project role"]
+    J["Inherit the org role"]
 
+    A -- "No" --> Z
+    Z -- "Yes" --> K
+    Z -- "No" --> D
     A -- "Yes" --> B
-    A -- "No" --> C
-    C -- "Yes" --> D
-    C -- "No" --> E
+    B -- "Yes" --> E
     E -- "Yes" --> F
     E -- "No" --> G
+    B -- "No" --> C
+    C -- "No" --> D
+    C -- "Yes" --> H
+    H -- "Yes" --> I
+    H -- "No" --> J
 
-    style B fill:#4caf50,color:#fff
-    style D fill:#4caf50,color:#fff
+    style K fill:#4caf50,color:#fff
     style F fill:#4caf50,color:#fff
-    style G fill:#9c27b0,color:#fff
+    style G fill:#4caf50,color:#fff
+    style I fill:#4caf50,color:#fff
+    style J fill:#4caf50,color:#fff
+    style D fill:#9c27b0,color:#fff
 ```
 
-- A project-level role, if assigned, fully overrides the org role for that project (not additive).
-- Org Members and Viewers need to be added to a project to inherit their org role there.
+- No organization role at all: the explicit project role (if any) is the whole answer — there's no broader role to compare it against.
+- Org Admin or Owner: implicit access to every project already. An explicit project role only matters if it's *higher*, in which case it elevates further for that one project.
+- Org Member or Viewer: must be added to a project (given a project role, or added as a plain member) before they get any access there. Once added, the higher of their org role and any explicit project role applies.
 
 **Examples**
 
-- A contractor is added to one project only, with a Member role on that project. They have no access to any other project, regardless of their org role.
-- An org Viewer is promoted to Admin on a single project. They keep Viewer access everywhere else and gain full Admin access on that one project.
+- A contractor with no organization role is added to one project only, with a Member role on that project. They have no access to any other project — there's no org role to fall back on.
+- An org Viewer is granted an explicit Owner role on a single project. They keep Viewer access everywhere else and gain full Owner access on that one project (elevation).
+- An org Owner is also explicitly assigned a lower Admin role on one project (for example, from a default project setup). Their access on that project stays at Owner level — the lower project role does not restrict them.
 - An org Admin never needs to be added to a project explicitly. Admin and Owner get implicit access to every project.
 
 ## Custom roles
@@ -112,6 +129,10 @@ Owners can create custom roles with a hand-picked set of permissions (`role:mana
 ## Revoking access
 
 Assign the **None** role at the org tier to revoke a member while keeping them in the organization. **None** is not a valid project-tier assignment (the API returns a 422 error), since it has no meaning there.
+
+<Callout type="warning">
+  Because project roles can elevate but never restrict, setting a member's org role to **None** does not by itself remove any *higher* explicit role they still hold on individual projects — that project role now outranks None and still applies there. To fully revoke someone, also remove or downgrade their project-level role assignments.
+</Callout>
 
 ## Notes
 

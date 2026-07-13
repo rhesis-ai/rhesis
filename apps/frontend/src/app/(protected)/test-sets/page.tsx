@@ -110,16 +110,20 @@ export default function TestSetsPage() {
         breadcrumbs={[]}
         actions={
           <FabGroup>
-            <Fab
-              icon={<FileUploadIcon />}
-              tooltip="Import from File"
-              onClick={() => setFileImportDrawerOpen(true)}
-            />
-            <Fab
-              icon={<SecurityIcon />}
-              tooltip="Import from Garak"
-              onClick={() => setGarakImportDrawerOpen(true)}
-            />
+            <Can capability={Capability.File.IMPORT}>
+              <Fab
+                icon={<FileUploadIcon />}
+                tooltip="Import from File"
+                onClick={() => setFileImportDrawerOpen(true)}
+              />
+            </Can>
+            <Can capability={Capability.Garak.CREATE}>
+              <Fab
+                icon={<SecurityIcon />}
+                tooltip="Import from Garak"
+                onClick={() => setGarakImportDrawerOpen(true)}
+              />
+            </Can>
             <Can capability={Capability.TestSet.GENERATE}>
               <Fab
                 icon={<AutoFixHighIcon />}

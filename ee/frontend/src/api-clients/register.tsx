@@ -18,9 +18,9 @@
  */
 
 import * as React from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import { Alert, Box, CircularProgress } from '@mui/material';
 import { FeatureName } from '@/constants/features';
-import { FeatureGate } from '@/contexts/FeaturesContext';
+import { FeatureGate, useFeatureWarning } from '@/contexts/FeaturesContext';
 import { registerOrgSettingsTab } from '@/lib/extension-registries';
 import ApiClientsEmptyState from './components/ApiClientsEmptyState';
 
@@ -29,11 +29,18 @@ const ApiClientsSection = React.lazy(
 );
 
 function ApiClientsSectionGate() {
+  const warning = useFeatureWarning(FeatureName.API_CLIENTS);
+
   return (
     <FeatureGate
       feature={FeatureName.API_CLIENTS}
       fallback={<ApiClientsEmptyState />}
     >
+      {warning && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {warning}
+        </Alert>
+      )}
       <React.Suspense
         fallback={
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>

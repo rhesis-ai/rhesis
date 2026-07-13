@@ -9,7 +9,7 @@ Deny-first matrix:
 - new invitee (user != owner) → **Member**: allowed on Member endpoints,
   denied on Admin-only ones;
 - org creator (user == owner) → **Owner**: allowed everywhere;
-- RBAC off / community build → handler no-ops (no row written);
+- RBAC off / community build → handler still writes the row (dormant until RBAC on);
 - idempotent: an existing Owner is never downgraded on re-invite.
 
 Run with:
@@ -412,16 +412,28 @@ class TestOnboardingHttpSequenceUnderRbac:
 @pytest.mark.ee
 @pytest.mark.integration
 class TestNoOpAndIdempotency:
-    def test_rbac_off_writes_no_row(self, test_db: Session):
+    def test_writes_row_even_when_rbac_off(self, test_db: Session):
         org_id = _create_org(test_db)
         user_id = _create_user(test_db, org_id)
 
-        # DefaultLicenseProvider allows RBAC by default (dev/unlicensed EE);
-        # force it off here to cover the licensed-off / community-build case.
         with _rbac_off():
             assign_default_org_role(test_db, user_id, org_id)
 
-        assert _member_row(test_db, org_id, user_id) is None
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Member"
+
+    def test_creator_gets_owner_even_when_rbac_off(self, test_db: Session):
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        _set_owner(test_db, org_id, user_id)
+
+        with _rbac_off():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        member = _member_row(test_db, org_id, user_id)
+        assert member is not None
+        assert _role_name(test_db, member.role_id) == "Owner"
 
     def test_existing_owner_not_downgraded(self, test_db: Session):
         """Re-invite of an existing Owner must keep Owner, not reset to Member."""
@@ -440,6 +452,75 @@ class TestNoOpAndIdempotency:
 
         member = _member_row(test_db, org_id, user_id)
         assert _role_name(test_db, member.role_id) == "Owner"
+
+    def test_seeds_null_project_membership_roles_from_org_role(self, test_db: Session):
+        from sqlalchemy import text
+
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+        from tests.backend.ee.rbac._rbac_helpers import _create_project
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        project_id = _create_project(test_db, org_id)
+        test_db.execute(
+            text(
+                "INSERT INTO project_membership "
+                "(id, project_id, user_id, organization_id, role_id) "
+                "VALUES (gen_random_uuid(), :pid, :uid, :oid, NULL)"
+            ),
+            {"pid": str(project_id), "uid": str(user_id), "oid": str(org_id)},
+        )
+        test_db.flush()
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        with bypass_tenant_filter():
+            pm = (
+                test_db.query(ProjectMembership)
+                .filter_by(project_id=project_id, user_id=user_id)
+                .first()
+            )
+        member = _member_row(test_db, org_id, user_id)
+        assert pm is not None
+        assert pm.role_id == member.role_id
+        assert _role_name(test_db, pm.role_id) == "Member"
+
+    def test_existing_org_member_syncs_null_project_roles(self, test_db: Session):
+        from sqlalchemy import text
+
+        from rhesis.backend.app.models.project_membership import ProjectMembership
+        from tests.backend.ee.rbac._rbac_helpers import _create_project
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        project_id = _create_project(test_db, org_id)
+        with bypass_tenant_filter():
+            owner_role = test_db.query(Role).filter_by(name="Owner", is_built_in=True).first()
+        test_db.add(
+            OrganizationMember(organization_id=org_id, user_id=user_id, role_id=owner_role.id)
+        )
+        test_db.execute(
+            text(
+                "INSERT INTO project_membership "
+                "(id, project_id, user_id, organization_id, role_id) "
+                "VALUES (gen_random_uuid(), :pid, :uid, :oid, NULL)"
+            ),
+            {"pid": str(project_id), "uid": str(user_id), "oid": str(org_id)},
+        )
+        test_db.flush()
+
+        with _rbac_on():
+            assign_default_org_role(test_db, user_id, org_id)
+
+        with bypass_tenant_filter():
+            pm = (
+                test_db.query(ProjectMembership)
+                .filter_by(project_id=project_id, user_id=user_id)
+                .first()
+            )
+        assert pm is not None
+        assert pm.role_id == owner_role.id
 
 
 # ---------------------------------------------------------------------------

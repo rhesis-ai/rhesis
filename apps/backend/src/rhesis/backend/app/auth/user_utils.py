@@ -28,6 +28,19 @@ if TYPE_CHECKING:
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def mark_user_joined_if_needed(user: User, when: datetime | None = None) -> bool:
+    """Stamp ``joined_at`` the first time a user becomes an active org member.
+
+    A user is considered joined once they belong to an organization and have
+    authenticated (or, for org founders, attached to the org they created).
+    Returns True when ``joined_at`` was set on this call.
+    """
+    if user.organization_id is None or user.joined_at is not None:
+        return False
+    user.joined_at = when or datetime.now(timezone.utc)
+    return True
+
+
 def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     """
     Find existing user or create a new one from provider-agnostic AuthUser.
@@ -68,6 +81,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         user.last_login_at = current_time
         # Authenticating via any provider confirms email ownership
         user.is_email_verified = True
+        mark_user_joined_if_needed(user, when=current_time)
         return user
 
     # OAuth providers verify email ownership themselves; skip MX deliverability
@@ -91,6 +105,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     )
     user = crud.create_user(db, user_data)
     is_new_user = True
+    mark_user_joined_if_needed(user, when=current_time)
 
     # Send welcome email to new users
     if is_new_user:

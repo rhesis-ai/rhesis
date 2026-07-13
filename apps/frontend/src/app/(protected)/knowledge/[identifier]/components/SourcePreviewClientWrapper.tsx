@@ -37,6 +37,8 @@ import {
 import { formatDate } from '@/utils/date';
 import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -126,6 +128,7 @@ export default function SourcePreviewClientWrapper({
   );
   const notifications = useNotifications();
   const theme = useTheme();
+  const canEditSource = useCan(Capability.Source.UPDATE);
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -338,6 +341,8 @@ export default function SourcePreviewClientWrapper({
 
   const handleEdit = useCallback(
     (section: EditableSectionType) => {
+      if (!canEditSource) return;
+
       setIsEditing(section);
       // Populate refs with current values when entering edit mode
       if (section === 'general') {
@@ -349,7 +354,7 @@ export default function SourcePreviewClientWrapper({
         }
       }
     },
-    [localSource]
+    [canEditSource, localSource]
   );
 
   const handleCancelEdit = useCallback(() => {
@@ -438,31 +443,33 @@ export default function SourcePreviewClientWrapper({
                 <>
                   {localSource.source_type?.type_value === 'Tool' ? (
                     <>
-                      <Button
-                        startIcon={
-                          isUpdating ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <RefreshIcon />
-                          )
-                        }
-                        onClick={handleUpdateFromTool}
-                        variant="outlined"
-                        size="small"
-                        disabled={isUpdating || isConnectionInvalid}
-                        sx={{
-                          color: theme.palette.text.secondary,
-                          borderColor: theme.palette.divider,
-                          '&:hover': {
-                            borderColor: theme.palette.text.secondary,
-                          },
-                          '&:disabled': {
-                            opacity: 0.6,
-                          },
-                        }}
-                      >
-                        {isUpdating ? 'Updating...' : 'Update'}
-                      </Button>
+                      {canEditSource && (
+                        <Button
+                          startIcon={
+                            isUpdating ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <RefreshIcon />
+                            )
+                          }
+                          onClick={handleUpdateFromTool}
+                          variant="outlined"
+                          size="small"
+                          disabled={isUpdating || isConnectionInvalid}
+                          sx={{
+                            color: theme.palette.text.secondary,
+                            borderColor: theme.palette.divider,
+                            '&:hover': {
+                              borderColor: theme.palette.text.secondary,
+                            },
+                            '&:disabled': {
+                              opacity: 0.6,
+                            },
+                          }}
+                        >
+                          {isUpdating ? 'Updating...' : 'Update'}
+                        </Button>
+                      )}
                       {localSource.source_metadata?.url &&
                         localSource.source_metadata?.provider && (
                           <Button
@@ -505,22 +512,24 @@ export default function SourcePreviewClientWrapper({
                       Download
                     </Button>
                   )}
-                  <Button
-                    startIcon={<EditIcon />}
-                    onClick={() => handleEdit('general')}
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      color: theme.palette.primary.main,
-                      borderColor: theme.palette.primary.main,
-                      '&:hover': {
-                        backgroundColor: theme.palette.primary.light,
+                  {canEditSource && (
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={() => handleEdit('general')}
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        color: theme.palette.primary.main,
                         borderColor: theme.palette.primary.main,
-                      },
-                    }}
-                  >
-                    Edit Section
-                  </Button>
+                        '&:hover': {
+                          backgroundColor: theme.palette.primary.light,
+                          borderColor: theme.palette.primary.main,
+                        },
+                      }}
+                    >
+                      Edit Section
+                    </Button>
+                  )}
                 </>
               )}
             </Box>
@@ -688,13 +697,6 @@ export default function SourcePreviewClientWrapper({
           )}
         </Paper>
 
-        <SourceTagsCard
-          sessionToken={sessionToken}
-          source={localSource}
-          userId={currentUserId ? (currentUserId as UUID) : undefined}
-          onUpdate={handleTagsUpdate}
-        />
-
         {/* Extracted Content Section */}
         {content && (
           <Paper
@@ -784,24 +786,22 @@ export default function SourcePreviewClientWrapper({
           </Paper>
         )}
 
+        <SourceTagsCard
+          sessionToken={sessionToken}
+          source={localSource}
+          userId={currentUserId ? (currentUserId as UUID) : undefined}
+          onUpdate={handleTagsUpdate}
+        />
+
         {/* Comments Section */}
-        <Paper
-          sx={{
-            p: theme.spacing(3),
-            borderRadius: theme.spacing(1),
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1],
-          }}
-        >
-          <CommentsWrapper
-            entityType="Source"
-            entityId={localSource.id}
-            sessionToken={sessionToken}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            currentUserPicture={currentUserPicture}
-          />
-        </Paper>
+        <CommentsWrapper
+          entityType="Source"
+          entityId={localSource.id}
+          sessionToken={sessionToken}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+        />
       </Stack>
     </PageLayout>
   );

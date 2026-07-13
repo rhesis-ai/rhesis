@@ -144,6 +144,16 @@ class UserSettings(BaseModel):
     is_verified: Optional[bool] = Field(None, description="User verification status")
 
 
+class UserSettingsRead(UserSettings):
+    """GET /users/settings — includes server-resolved affordances for self-service actions."""
+
+    permitted_actions: list[str] = Field(
+        default_factory=list,
+        description="Capabilities the caller may exercise on their own settings "
+        "(e.g. polyphemus:request).",
+    )
+
+
 class UserSettingsUpdate(BaseModel):
     """Schema for updating user settings (all fields optional for partial updates)"""
 
@@ -172,6 +182,10 @@ class UserBase(Base):
     is_email_verified: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
+    joined_at: Optional[datetime] = Field(
+        None,
+        description="When the user first became an active organization member",
+    )
     user_settings: Optional[UserSettings] = Field(
         default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
     )
@@ -209,6 +223,7 @@ class User(UserBase):
 # For use in responses where we need minimal user info
 class UserReference(Base):
     id: UUID4
+    name: Optional[str] = ""  # Default to empty string to avoid validation errors
     given_name: Optional[str] = ""  # Default to empty string to avoid validation errors
     family_name: Optional[str] = ""  # Default to empty string to avoid validation errors
     email: Optional[str] = ""  # Default to empty string to avoid validation errors

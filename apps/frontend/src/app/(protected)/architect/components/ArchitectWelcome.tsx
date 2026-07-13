@@ -13,6 +13,8 @@ import SendIcon from '@mui/icons-material/Send';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 
 const SUGGESTED_PROMPTS = [
   {
@@ -37,19 +39,22 @@ interface ArchitectWelcomeProps {
 }
 
 export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
+  const canCreate = useCan(Capability.Architect.CREATE);
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const inputDisabled = isSubmitting || !canCreate;
+
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
-    if (!trimmed || isSubmitting) return;
+    if (!trimmed || inputDisabled) return;
     setIsSubmitting(true);
     onSubmit(trimmed);
   };
 
   const handleSuggestedPrompt = (prompt: string) => {
-    if (isSubmitting) return;
+    if (inputDisabled) return;
     setIsSubmitting(true);
     onSubmit(prompt);
   };
@@ -97,12 +102,16 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
           fullWidth
           multiline
           maxRows={6}
-          placeholder="Describe what you want to test..."
+          placeholder={
+            canCreate
+              ? 'Describe what you want to test...'
+              : 'View-only access — you cannot start new Architect sessions'
+          }
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={isSubmitting}
-          autoFocus
+          disabled={inputDisabled}
+          autoFocus={canCreate}
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: theme => theme.spacing(3.5),
@@ -119,7 +128,7 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
                 <InputAdornment position="end">
                   <IconButton
                     onClick={handleSubmit}
-                    disabled={!inputValue.trim() || isSubmitting}
+                    disabled={!inputValue.trim() || inputDisabled}
                     sx={{
                       bgcolor: 'primary.main',
                       color: 'primary.contrastText',
@@ -155,7 +164,7 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
               label={label}
               variant="outlined"
               onClick={() => handleSuggestedPrompt(prompt)}
-              disabled={isSubmitting}
+              disabled={inputDisabled}
               sx={{ cursor: 'pointer' }}
             />
           ))}

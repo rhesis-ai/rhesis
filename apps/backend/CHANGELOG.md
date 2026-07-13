@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-09
+
+### Added
+- **Role-Based Access Control (RBAC) & Enterprise Features**:
+  - Implemented a tiered project access policy where Owners/Admins have implicit access to all projects, while Members/Viewers require explicit project membership.
+  - Added support for assigning built-in organization roles (Admin, Member, Viewer) at the project tier.
+  - Added
+
+
 ## [0.9.1] - 2026-06-25
 
 ana).
