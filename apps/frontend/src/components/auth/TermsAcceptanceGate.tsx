@@ -43,6 +43,12 @@ export default function TermsAcceptanceGate() {
         if (cancelled) return;
         setOpen(!accepted);
       })
+      .catch(() => {
+        // Fail open: if we cannot reach the API (e.g. during E2E or transient
+        // outages), don't crash the app with an unhandled rejection.
+        if (cancelled) return;
+        setOpen(false);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });

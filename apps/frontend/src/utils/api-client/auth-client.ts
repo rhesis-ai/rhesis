@@ -1,17 +1,21 @@
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
 export async function fetchTermsStatus(sessionToken: string): Promise<boolean> {
-  const response = await fetch(`${getClientApiBaseUrl()}/auth/terms-status`, {
-    headers: {
-      Authorization: `Bearer ${sessionToken}`,
-    },
-    credentials: 'include',
-  });
-  if (!response.ok) {
+  try {
+    const response = await fetch(`${getClientApiBaseUrl()}/auth/terms-status`, {
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const data = await response.json();
+    return Boolean(data.terms_accepted);
+  } catch {
     return false;
   }
-  const data = await response.json();
-  return Boolean(data.terms_accepted);
 }
 
 export async function acceptTerms(sessionToken: string): Promise<void> {
