@@ -16,13 +16,13 @@ export default async function OnboardingPage() {
   }
 
   // Resolved at request time from pod env (Helm ConfigMap), not client bundle.
-  const onboardingVideoUrl = getOnboardingVideoUrl();
+  const videoUrl = getOnboardingVideoUrl();
 
   return (
     <OnboardingPageClient
       sessionToken={session.session_token}
       userId={session.user.id as UUID}
-      onboardingVideoUrl={onboardingVideoUrl}
+      videoUrl={videoUrl}
     />
   );
 }

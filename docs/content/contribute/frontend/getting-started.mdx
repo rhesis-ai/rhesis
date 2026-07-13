@@ -66,6 +66,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
 - `npm run type-check`: Validates TypeScript types.
 - `npm run clean`: Removes the .next directory.
 
+### Linting and formatting
+
+From `apps/frontend`:
+
+<CodeBlock filename="lint-and-format.sh" language="bash">
+{`make format        # Prettier — write fixes (npm run format)
+make format-check  # Prettier — check only (npm run format:check)
+make eslint        # ESLint — fails if eslint output contains "Error:" (npm run lint)`}
+</CodeBlock>
+
+Full gate (format check, types, ESLint, then `next build`): `make lint`. Without the production build step: `make lint-fast`. See targets in `Makefile`.
+
 ### Code Editor Setup
 
 We recommend using Visual Studio Code with the following extensions:
