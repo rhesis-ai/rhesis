@@ -142,15 +142,15 @@ class UserSettings(BaseModel):
         None, description="The user's default project, auto-selected on login"
     )
     is_verified: Optional[bool] = Field(None, description="User verification status")
-    terms: Optional[dict] = Field(
-        None,
-        description="Server-managed terms acceptance metadata (read-only for users)",
-    )
 
 
 class UserSettingsRead(UserSettings):
     """GET /users/settings — includes server-resolved affordances for self-service actions."""
 
+    terms: Optional[dict] = Field(
+        None,
+        description="Server-managed terms acceptance metadata (read-only for users)",
+    )
     permitted_actions: list[str] = Field(
         default_factory=list,
         description="Capabilities the caller may exercise on their own settings "
