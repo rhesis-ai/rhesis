@@ -238,7 +238,7 @@ $DEV_ENV_MARKER on $timestamp
 API_BASE_URL=http://localhost:8080
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
-NEXTAUTH_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
 NEXTAUTH_SECRET=dev-nextauth-secret-change-in-production
 NEXT_TELEMETRY_DISABLED=1
 EOF

@@ -16,6 +16,19 @@ if (!process.env.NEXTAUTH_SECRET) {
   );
 }
 
+// Make FRONTEND_URL the single source of truth for NextAuth's base URL.
+// Auth.js reads AUTH_URL/NEXTAUTH_URL from process.env at runtime (see
+// next-auth/lib/env.js:reqWithEnvURL); without it, trustHost infers the base
+// URL from the container hostname (e.g. http://<container-id>:3000), which
+// breaks post-login redirects. An explicitly set AUTH_URL/NEXTAUTH_URL wins.
+if (
+  !process.env.AUTH_URL &&
+  !process.env.NEXTAUTH_URL &&
+  process.env.FRONTEND_URL
+) {
+  process.env.NEXTAUTH_URL = process.env.FRONTEND_URL;
+}
+
 const BACKEND_URL = getServerBackendUrl();
 
 export const authConfig: NextAuthConfig = {
