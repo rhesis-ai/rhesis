@@ -71,13 +71,12 @@ export default function OrganizationDetailsStep({
   const step = ONBOARDING_STEPS[0];
 
   useEffect(() => {
-    const email = session?.user?.email;
-    if (!email) {
+    if (!sessionToken) {
       return;
     }
 
     let cancelled = false;
-    fetchTermsStatus(email)
+    fetchTermsStatus(sessionToken)
       .then(accepted => {
         if (!cancelled && accepted) {
           setAlreadyAcceptedTerms(true);
@@ -90,7 +89,7 @@ export default function OrganizationDetailsStep({
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.email]);
+  }, [sessionToken]);
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;

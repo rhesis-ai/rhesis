@@ -1,8 +1,12 @@
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
-export async function fetchTermsStatus(email: string): Promise<boolean> {
-  const url = `${getClientApiBaseUrl()}/auth/terms-status?email=${encodeURIComponent(email)}`;
-  const response = await fetch(url);
+export async function fetchTermsStatus(sessionToken: string): Promise<boolean> {
+  const response = await fetch(`${getClientApiBaseUrl()}/auth/terms-status`, {
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+    },
+    credentials: 'include',
+  });
   if (!response.ok) {
     return false;
   }

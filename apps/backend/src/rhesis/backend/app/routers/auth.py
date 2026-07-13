@@ -348,19 +348,14 @@ async def get_providers(
 @limiter.limit(AUTH_TERMS_STATUS_LIMIT)
 async def get_terms_status(
     request: Request,
-    email: EmailStr,
-    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """
-    Check whether a user has accepted the current T&C version.
+    Check whether the authenticated user has accepted the current T&C version.
 
-    Used by the login page to skip the checkbox for returning users.
-    Always returns 200 (even for unknown emails) to limit enumeration.
+    Used by onboarding step 0 to skip the checkbox for users who already accepted.
     """
-    from rhesis.backend.app import crud
-
-    user = crud.get_user_by_email(db, email)
-    if user and user_has_accepted_current_terms(user):
+    if user_has_accepted_current_terms(current_user):
         return TermsStatusResponse(terms_accepted=True)
     return TermsStatusResponse(terms_accepted=False)
 

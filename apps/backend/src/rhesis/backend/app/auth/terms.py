@@ -1,19 +1,19 @@
 """Terms and Conditions acceptance tracking.
 
-The login page requires users to accept the active T&C version before
-authenticating. Acceptance is stored on the user record so returning users
-are not prompted again until the version changes.
+New users accept the active T&C version during onboarding (step 0). Acceptance
+is stored on the user record so they are not prompted again until the version
+changes.
 
 Bump ``CURRENT_TERMS_VERSION`` (and ``CURRENT_TERMS_EFFECTIVE_DATE``) when
 publishing new terms; users with an older ``terms_accepted_version`` must
-re-accept on next login.
+re-accept before continuing.
 """
 
 from datetime import date, datetime, timezone
 
 from rhesis.backend.app.models.user import User
 
-# Active T&C version shown on the login page (effective 2025-09-01).
+# Active T&C version (effective 2025-09-01).
 CURRENT_TERMS_VERSION = "1.0"
 CURRENT_TERMS_EFFECTIVE_DATE = date(2025, 9, 1)
 

@@ -43,7 +43,6 @@ PUBLIC_ROUTES: list[str] = [
     "/auth/callback",
     "/auth/logout",
     "/auth/providers",
-    "/auth/terms-status",
     "/auth/register",
     "/auth/verify-email",
     "/auth/resend-verification",
@@ -95,6 +94,7 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("PUT", "/users/{user_id}"),
         # Onboarding: new users accept T&C before they have an organization.
         ("POST", "/auth/accept-terms"),
+        ("GET", "/auth/terms-status"),
     }
 )
 

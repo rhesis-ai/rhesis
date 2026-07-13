@@ -1402,13 +1402,9 @@ class TestGetCallbackUrl:
 class TestTermsAcceptance:
     """Tests for T&C acceptance persistence and lookup."""
 
-    def test_terms_status_unknown_email_returns_false(self, client: TestClient):
-        response = client.get(
-            "/auth/terms-status",
-            params={"email": "nobody@example.com"},
-        )
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"terms_accepted": False}
+    def test_terms_status_requires_authentication(self, client: TestClient):
+        response = client.get("/auth/terms-status")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_terms_status_returns_true_for_current_version(
         self, client: TestClient, test_db, test_org_id
@@ -1416,6 +1412,7 @@ class TestTermsAcceptance:
         from datetime import datetime, timezone
 
         from rhesis.backend.app.auth.terms import CURRENT_TERMS_VERSION
+        from rhesis.backend.app.auth.token_utils import create_session_token
 
         email = _unique_email("terms")
         org = create_test_organization(test_db, "Terms Org")
@@ -1424,7 +1421,11 @@ class TestTermsAcceptance:
         user.terms_accepted_version = CURRENT_TERMS_VERSION
         test_db.commit()
 
-        response = client.get("/auth/terms-status", params={"email": email})
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {"terms_accepted": True}
 
@@ -1433,6 +1434,8 @@ class TestTermsAcceptance:
     ):
         from datetime import datetime, timezone
 
+        from rhesis.backend.app.auth.token_utils import create_session_token
+
         email = _unique_email("terms-old")
         org = create_test_organization(test_db, "Terms Old Org")
         user = create_test_user(test_db, org.id, email, "Terms Old User")
@@ -1440,6 +1443,10 @@ class TestTermsAcceptance:
         user.terms_accepted_version = "0.9"
         test_db.commit()
 
-        response = client.get("/auth/terms-status", params={"email": email})
+        token = create_session_token(user)
+        response = client.get(
+            "/auth/terms-status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {"terms_accepted": False}
