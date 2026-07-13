@@ -44,6 +44,22 @@ setup('authenticate via Quick Start', async ({ page, browser }) => {
     }
   });
 
+  // Accept current T&C so TermsAcceptanceGate does not block test interactions.
+  await page.evaluate(async () => {
+    try {
+      const res = await fetch('/api/v1/auth/accept-terms', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        // Backfill may already have run in local_init; ignore failures here.
+      }
+    } catch (_) {
+      // Non-fatal
+    }
+  });
+
   // Ensure the .auth directory exists — it is gitignored so it won't be
   // present on a fresh checkout or in CI without an explicit mkdir step.
   await fs.promises.mkdir('tests/e2e/.auth', { recursive: true });

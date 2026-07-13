@@ -12,8 +12,10 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.auth.terms import record_terms_acceptance
 from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
@@ -61,6 +63,7 @@ def initialize_local_environment(db: Session) -> None:
                 # row already exists.
                 set_session_variables(db, str(org.id), str(user.id))
                 _ensure_local_admin_org_role(db, user.id, org.id)
+                _ensure_local_admin_terms_accepted(user)
                 db.commit()
 
                 # Check if token exists
@@ -151,6 +154,7 @@ def initialize_local_environment(db: Session) -> None:
         # Update user with organization_id
         user.organization_id = org_id
         user.joined_at = current_time
+        record_terms_acceptance(user)
         db.flush()
 
         # Direct ORM construction above bypasses crud.create_user, so the RBAC
@@ -185,6 +189,11 @@ def initialize_local_environment(db: Session) -> None:
         logger.error(f"❌ Failed to initialize local environment: {str(e)}")
         logger.error("   This is not critical - you can still use the application.")
         db.rollback()
+
+
+def _ensure_local_admin_terms_accepted(user: models.User) -> None:
+    """Ensure the Quick Start admin has accepted the current T&C version."""
+    record_terms_acceptance(user)
 
 
 def _ensure_local_admin_org_role(

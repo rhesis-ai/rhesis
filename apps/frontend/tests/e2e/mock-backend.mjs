@@ -149,6 +149,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (method === 'GET' && pathname === '/auth/terms-status') {
+    sendJson(res, 200, { terms_accepted: true });
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/auth/accept-terms') {
+    sendJson(res, 200, { success: true, terms_accepted: true });
+    return;
+  }
+
   if (method === 'GET' && pathname === '/features') {
     // Shape must match FeaturesResponse (utils/api-client/features-client.ts):
     // {license: {edition, licensed}, enabled: string[]}. Individual specs
