@@ -138,8 +138,13 @@ def _make_membership(role_id=None) -> MagicMock:
 
 @pytest.mark.ee
 class TestRoleResolutionPrecedence:
-    def test_explicit_project_role_overrides_org_role(self, provider):
-        """Explicit project role must be used even when org role is present (not union)."""
+    def test_lower_explicit_project_role_does_not_restrict_org_role(self, provider):
+        """A lower explicit project role must not restrict a higher org role.
+
+        Model A ("higher role wins, never restricts" — mirrors GitLab/GCP IAM):
+        an org Admin/Owner keeps their org-level access to a project even if
+        someone explicitly assigned them a lower project role there.
+        """
         principal = _make_principal()
         db = MagicMock()
         project_id = uuid.uuid4()
@@ -158,8 +163,31 @@ class TestRoleResolutionPrecedence:
         ):
             provider.is_authorized(principal, "test_set:read", project_id=project_id, db=db)
 
-        # Must use the project role, not the org role.
-        mock_check.assert_called_once_with(fake_project_role, "test_set:read", db)
+        # The higher-level org role must be used, not the lower project role.
+        mock_check.assert_called_once_with(fake_org_role, "test_set:read", db)
+
+    def test_higher_explicit_project_role_elevates_above_org_role(self, provider):
+        """An explicit project role can still elevate access above the org role."""
+        principal = _make_principal()
+        db = MagicMock()
+        project_id = uuid.uuid4()
+
+        fake_project_role_id = uuid.uuid4()
+        fake_membership = _make_membership(role_id=fake_project_role_id)
+        fake_project_role = _make_role("Owner", level=100)
+        fake_org_role = _make_role("Member", level=60)
+
+        with (
+            patch.object(provider, "_rbac_available", return_value=True),
+            patch.object(provider, "_get_project_membership", return_value=fake_membership),
+            patch.object(provider, "_load_role", return_value=fake_project_role),
+            patch.object(provider, "_get_org_role", return_value=fake_org_role),
+            patch.object(provider, "_role_has_permission", return_value=True) as mock_check,
+        ):
+            provider.is_authorized(principal, "test_set:delete", project_id=project_id, db=db)
+
+        # The higher-level project role must be used, elevating above the org role.
+        mock_check.assert_called_once_with(fake_project_role, "test_set:delete", db)
 
     def test_org_role_used_when_no_project_id(self, provider):
         """When no project_id, the org role must be used directly."""
@@ -297,9 +325,7 @@ class TestExplicitEnrollmentRequired:
         mock_check.assert_called_once_with(org_role, "test_set:read", db)
 
     @pytest.mark.parametrize("role_name,level", [("Member", 60), ("Viewer", 40)])
-    def test_explicit_project_role_overrides_for_member_viewer(
-        self, provider, role_name, level
-    ):
+    def test_explicit_project_role_overrides_for_member_viewer(self, provider, role_name, level):
         """Explicit project role overrides org role even for Member/Viewer."""
         principal = _make_principal()
         db = MagicMock()
@@ -517,3 +543,69 @@ class TestBuiltInRoleBranch:
 
         assert perms == set()
         db.query.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Owner floor — org owner without organization_member row
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ee
+@pytest.mark.integration
+class TestOwnerFloor:
+    def test_owner_without_member_row_gets_owner_permissions(self, test_db):
+        from sqlalchemy import text
+
+        from tests.backend.ee.rbac._rbac_helpers import _authorized, _create_org, _create_user
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        test_db.execute(
+            text("UPDATE organization SET owner_id = :owner WHERE id = :id"),
+            {"owner": str(user_id), "id": str(org_id)},
+        )
+        test_db.flush()
+
+        assert _authorized(test_db, user_id, org_id, "member:manage", project_id=None)
+
+    def test_non_owner_without_member_row_still_denied(self, test_db):
+        from tests.backend.ee.rbac._rbac_helpers import _authorized, _create_org, _create_user
+
+        org_id = _create_org(test_db)
+        _create_user(test_db, org_id)  # owner not set — plain member
+        other_id = _create_user(test_db, org_id)
+
+        assert not _authorized(test_db, other_id, org_id, "test_set:read", project_id=None)
+
+    def test_owner_floor_respects_token_scope_intersection(self, test_db):
+        from sqlalchemy import text
+
+        from rhesis.backend.app.auth.rbac import authorize
+
+        from tests.backend.ee.rbac._rbac_helpers import (
+            _create_org,
+            _create_user,
+            _ee_provider_active,
+            _principal,
+        )
+
+        org_id = _create_org(test_db)
+        user_id = _create_user(test_db, org_id)
+        test_db.execute(
+            text("UPDATE organization SET owner_id = :owner WHERE id = :id"),
+            {"owner": str(user_id), "id": str(org_id)},
+        )
+        test_db.flush()
+
+        principal = _principal(user_id, org_id)
+        principal = Principal(
+            user_id=principal.user_id,
+            organization_id=principal.organization_id,
+            kind="token",
+            scopes=frozenset(["test_set:read"]),
+        )
+
+        with _ee_provider_active():
+            assert authorize(principal, "test_set:read", project_id=None, db=test_db)
+            assert not authorize(principal, "test_set:delete", project_id=None, db=test_db)
+

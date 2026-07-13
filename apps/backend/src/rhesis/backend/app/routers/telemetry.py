@@ -275,8 +275,8 @@ def list_traces(
     trace_type: TraceType = Query(
         TraceType.ALL,
         description=(
-            "Filter: 'all' (default), 'single_turn' (no conversation_id), "
-            "'multi_turn' (has conversation_id)"
+            "Filter: 'all' (default), 'Single-Turn' (no conversation_id), "
+            "'Multi-Turn' (has conversation_id)"
         ),
     ),
     trace_metrics_status: Optional[TestResultStatus] = Query(

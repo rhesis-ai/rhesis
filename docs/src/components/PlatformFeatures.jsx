@@ -144,9 +144,9 @@ const features = [
   },
   {
     icon: SettingsInputComponentIcon,
-    title: 'MCP',
-    description: 'Connect to Model Context Protocol servers to import knowledge sources.',
-    link: '/docs/mcp',
+    title: 'Tools',
+    description: 'Connect external tools and services to import knowledge sources.',
+    link: '/docs/tools',
   },
 ]
 

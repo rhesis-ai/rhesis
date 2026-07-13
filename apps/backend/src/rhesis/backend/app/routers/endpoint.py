@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_endpoint_service,
@@ -323,7 +324,7 @@ def update_endpoint(
     return db_endpoint
 
 
-@router.post("/{endpoint_id}/invoke")
+@router.post("/{endpoint_id}/invoke", **capability(Permission.Endpoint.UPDATE))
 async def invoke_endpoint(
     endpoint_id: uuid.UUID,
     input_data: Dict[str, Any],

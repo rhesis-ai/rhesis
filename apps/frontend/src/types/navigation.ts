@@ -11,7 +11,7 @@ export interface NavigationPageItem {
   icon?: React.ReactNode;
   action?: React.ReactNode;
   children?: NavigationPageItem[];
-  /** When set, the nav item renders locked for users who lack this capability. */
+  /** When set, the nav item is hidden entirely for users who lack this capability. */
   requiredPermission?: string;
 }
 

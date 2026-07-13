@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -407,7 +408,11 @@ def delete_test(
     )
 
 
-@router.post("/execute", response_model=schemas.TestExecuteResponse)
+@router.post(
+    "/execute",
+    response_model=schemas.TestExecuteResponse,
+    **capability(Permission.TestSet.EXECUTE),
+)
 async def execute_test_endpoint(
     request: schemas.TestExecuteRequest,
     db: Session = Depends(get_tenant_db_session),

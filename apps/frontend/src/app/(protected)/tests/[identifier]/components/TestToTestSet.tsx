@@ -106,11 +106,13 @@ export default function TestToTestSet({
             loading={isDuplicating}
           />
         </Can>
-        <Fab
-          icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
-          tooltip="Run test"
-          onClick={() => setTrialDrawerOpen(true)}
-        />
+        <Can capability={Capability.TestSet.EXECUTE}>
+          <Fab
+            icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+            tooltip="Run test"
+            onClick={() => setTrialDrawerOpen(true)}
+          />
+        </Can>
       </FabGroup>
 
       <TrialDrawer

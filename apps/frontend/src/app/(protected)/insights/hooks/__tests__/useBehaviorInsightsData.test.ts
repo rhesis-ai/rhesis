@@ -179,4 +179,55 @@ describe('useBehaviorInsightsData', () => {
     expect(result.current.failedTestCaseCount).toBe(0);
     expect(mockFetchFailedIds).not.toHaveBeenCalled();
   });
+
+  it('does not fetch when enabled is false, even with a valid endpointId', async () => {
+    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+
+    const { result } = renderHook(() =>
+      useBehaviorInsightsData(
+        'token',
+        {
+          ...DEFAULT_INSIGHTS_FILTERS,
+          endpointId: 'ep-1',
+          timeRange: '1m',
+        },
+        false
+      )
+    );
+
+    jest.advanceTimersByTime(300);
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.summary).toBeNull();
+    expect(mockFetchTestRunIds).not.toHaveBeenCalled();
+  });
+
+  it('starts fetching once enabled flips from false to true', async () => {
+    mockFetchTestRunIds.mockResolvedValue(['run-1']);
+
+    const { result, rerender } = renderHook(
+      ({ enabled }) =>
+        useBehaviorInsightsData(
+          'token',
+          {
+            ...DEFAULT_INSIGHTS_FILTERS,
+            endpointId: 'ep-1',
+            timeRange: '1m',
+          },
+          enabled
+        ),
+      { initialProps: { enabled: false } }
+    );
+
+    jest.advanceTimersByTime(300);
+    expect(mockFetchTestRunIds).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(mockFetchTestRunIds).toHaveBeenCalledWith('token', 'ep-1', '1m');
+  });
 });

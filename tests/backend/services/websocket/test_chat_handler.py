@@ -35,8 +35,25 @@ def mock_manager():
     return manager
 
 
+def _chat_payload(**overrides) -> dict:
+    payload = {
+        "endpoint_id": str(uuid4()),
+        "message": "Hello, world!",
+        "project_id": str(uuid4()),
+    }
+    payload.update(overrides)
+    return payload
+
+
 class TestChatMessageHandler:
     """Tests for handle_chat_message function."""
+
+    @pytest.fixture(autouse=True)
+    def _allow_playground_use(self, monkeypatch):
+        monkeypatch.setattr(
+            "rhesis.backend.app.auth.rbac.authorize",
+            lambda *args, **kwargs: True,
+        )
 
     @pytest.mark.asyncio
     async def test_missing_endpoint_id(self, mock_manager, mock_user):
@@ -109,16 +126,52 @@ class TestChatMessageHandler:
         assert msg.type == EventType.CHAT_ERROR
 
     @pytest.mark.asyncio
+    async def test_missing_project_id(self, mock_manager, mock_user):
+        """Test that missing project_id returns error before authorization."""
+        message = WebSocketMessage(
+            type=EventType.CHAT_MESSAGE,
+            correlation_id="corr-123",
+            payload={
+                "endpoint_id": str(uuid4()),
+                "message": "Hello",
+            },
+        )
+
+        await handle_chat_message(mock_manager, "conn-1", mock_user, message)
+
+        mock_manager.broadcast.assert_called_once()
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.type == EventType.CHAT_ERROR
+        assert "project_id" in msg.payload["error"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_project_id(self, mock_manager, mock_user):
+        """Test that invalid project_id returns error before authorization."""
+        message = WebSocketMessage(
+            type=EventType.CHAT_MESSAGE,
+            correlation_id="corr-123",
+            payload={
+                "endpoint_id": str(uuid4()),
+                "message": "Hello",
+                "project_id": "not-a-uuid",
+            },
+        )
+
+        await handle_chat_message(mock_manager, "conn-1", mock_user, message)
+
+        mock_manager.broadcast.assert_called_once()
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.type == EventType.CHAT_ERROR
+        assert "Invalid project_id" in msg.payload["error"]
+
+    @pytest.mark.asyncio
     async def test_successful_invocation(self, mock_manager, mock_user):
         """Test successful endpoint invocation."""
         endpoint_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         # Mock the endpoint service
@@ -164,10 +217,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         with patch(
@@ -202,10 +252,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         # Create an ErrorResponse object (simulating what the endpoint returns on error)
@@ -250,10 +297,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Hello, world!",
-            },
+            payload=_chat_payload(endpoint_id=endpoint_id),
         )
 
         # Mock the endpoint service to return a conversation_id
@@ -294,11 +338,11 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
-            payload={
-                "endpoint_id": endpoint_id,
-                "message": "Continue our conversation",
-                "conversation_id": input_conversation_id,
-            },
+            payload=_chat_payload(
+                endpoint_id=endpoint_id,
+                message="Continue our conversation",
+                conversation_id=input_conversation_id,
+            ),
         )
 
         # Mock result without conversation_id
@@ -337,10 +381,7 @@ class TestChatMessageHandler:
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id=correlation_id,
-            payload={
-                "endpoint_id": str(uuid4()),
-                "message": "Test message",
-            },
+            payload=_chat_payload(message="Test message"),
         )
 
         mock_result = {"output": "Response", "trace_id": str(uuid4())}
@@ -363,6 +404,43 @@ class TestChatMessageHandler:
         call_args = mock_manager.broadcast.call_args
         msg = call_args[0][0]
         assert msg.correlation_id == correlation_id
+
+
+class TestPlaygroundChatAuthorization:
+    @pytest.mark.asyncio
+    async def test_denied_without_playground_use(self, mock_manager, mock_user, monkeypatch):
+        """Viewers without playground:use receive a chat error, not an invocation."""
+        monkeypatch.setattr(
+            "rhesis.backend.app.auth.rbac.authorize",
+            lambda *args, **kwargs: False,
+        )
+
+        message = WebSocketMessage(
+            type=EventType.CHAT_MESSAGE,
+            correlation_id="corr-denied",
+            payload=_chat_payload(),
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.chat.EndpointService"
+        ) as MockEndpointService:
+            mock_service = MockEndpointService.return_value
+            mock_service.invoke_endpoint = AsyncMock()
+
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
+                mock_db = MagicMock()
+                mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
+                mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+                await handle_chat_message(mock_manager, "conn-1", mock_user, message)
+
+        mock_service.invoke_endpoint.assert_not_called()
+        mock_manager.broadcast.assert_called_once()
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.type == EventType.CHAT_ERROR
+        assert "Not authorized" in msg.payload["error"]
 
 
 class TestSendChatError:

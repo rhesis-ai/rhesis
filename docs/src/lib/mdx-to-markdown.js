@@ -152,7 +152,7 @@ export function cleanMdxToMarkdown(source, meta = {}) {
     'ArchitectureOverview',
     'ObservabilitySection',
     'TestsSection',
-    'McpSection',
+    'ToolsSection',
     'ModelProvidersSection',
     'Table',
     'FileTree',

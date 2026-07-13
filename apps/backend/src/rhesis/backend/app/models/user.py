@@ -38,6 +38,11 @@ class User(Base):
         nullable=True,
         comment="T&C version accepted (e.g. 1.0); compared to CURRENT_TERMS_VERSION",
     )
+    joined_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When the user first became an active organization member",
+    )
 
     # Native authentication columns (provider-agnostic)
     provider_type = Column(
@@ -183,6 +188,7 @@ class User(Base):
             "picture": self.picture,
             "is_active": self.is_active,
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
+            "joined_at": self.joined_at.isoformat() if self.joined_at else None,
             "provider_type": self.provider_type,
             "external_provider_id": self.external_provider_id,
         }
@@ -196,6 +202,11 @@ class User(Base):
 
             if isinstance(data["last_login_at"], str):
                 data["last_login_at"] = datetime.fromisoformat(data["last_login_at"])
+        if "joined_at" in data and data["joined_at"]:
+            from datetime import datetime
+
+            if isinstance(data["joined_at"], str):
+                data["joined_at"] = datetime.fromisoformat(data["joined_at"])
         return cls(**data)
 
     @property

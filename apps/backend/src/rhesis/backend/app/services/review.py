@@ -111,10 +111,15 @@ def classify_test_result_review_counts(
     )
     review_status = last_review.get("status") or {}
     review_status_id = review_status.get("status_id")
-    if not review_status_id or not status_id:
+    # Prefer the pre-review snapshot over the live status_id: applying a
+    # review overwrites the live status to match the verdict, so comparing
+    # against it would always match and hide genuine disagreements.
+    metadata = test_reviews.get("metadata") or {}
+    original_status_id = metadata.get("original_status_id") or status_id
+    if not review_status_id or not original_status_id:
         return is_reviewed, False
 
-    is_corrected = str(review_status_id) != str(status_id)
+    is_corrected = str(review_status_id) != str(original_status_id)
     return is_reviewed, is_corrected
 
 

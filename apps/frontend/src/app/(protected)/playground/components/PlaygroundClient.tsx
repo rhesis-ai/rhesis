@@ -15,12 +15,17 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import PlaygroundIcon from '@/components/PlaygroundIcon';
+import EndpointsIcon from '@/components/EndpointsIcon';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useEndpointOptions } from '@/hooks/useEndpoints';
+import { useCanWithStatus } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
+import PageLoadingState from '@/components/common/PageLoadingState';
 import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
-import PlaygroundEndpointSelect from './PlaygroundEndpointSelect';
+import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -123,12 +128,18 @@ function ChatPlaceholder({
 export default function PlaygroundClient() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
+  const { allowed: canUsePlayground, loading: permsLoading } = useCanWithStatus(
+    Capability.Playground.USE
+  );
 
   const {
     options: endpointOptions,
     isLoading,
     error: optionsError,
-  } = useEndpointOptions(session?.session_token ?? '');
+  } = useEndpointOptions(
+    session?.session_token ?? '',
+    !permsLoading && canUsePlayground
+  );
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
     : null;
@@ -140,6 +151,7 @@ export default function PlaygroundClient() {
   );
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
+  const [endpointDrawerOpen, setEndpointDrawerOpen] = useState(false);
 
   const selectedOption = useMemo(
     () =>
@@ -188,6 +200,9 @@ export default function PlaygroundClient() {
 
   const hasActiveSession = !!(selectedEndpointId || isSplit);
 
+  if (permsLoading) return <PageLoadingState />;
+  if (!canUsePlayground) return <AccessDenied resource="playground" />;
+
   return (
     <PageLayout
       title="Playground"
@@ -195,6 +210,12 @@ export default function PlaygroundClient() {
       breadcrumbs={[]}
       actions={
         <FabGroup>
+          <Fab
+            icon={<EndpointsIcon />}
+            tooltip={selectedEndpointId ? 'Switch endpoint' : 'Select endpoint'}
+            aria-label="Select endpoint"
+            onClick={() => setEndpointDrawerOpen(true)}
+          />
           <Fab
             icon={<RestartAltIcon />}
             tooltip="Reset playground"
@@ -205,7 +226,9 @@ export default function PlaygroundClient() {
         </FabGroup>
       }
     >
-      <PlaygroundEndpointSelect
+      <PlaygroundEndpointDrawer
+        open={endpointDrawerOpen}
+        onClose={() => setEndpointDrawerOpen(false)}
         endpointOptions={endpointOptions}
         selectedEndpointId={selectedEndpointId}
         isLoading={isLoading}
@@ -216,7 +239,7 @@ export default function PlaygroundClient() {
       {/* Chat Area */}
       <Box
         sx={{
-          height: 'calc(100vh - 260px)',
+          height: 'calc(100vh - 210px)',
           minHeight: 400,
           display: 'flex',
           flexDirection: 'row',

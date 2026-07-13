@@ -246,7 +246,11 @@ export default function ReviewJudgementDrawer({
         mentionableMetrics={mentionableMetrics}
         mentionableTurns={mentionableTurns}
         error={!!error && !selectedStatusId}
-        helperText="Add a comment to support your review decision"
+        helperText={
+          reason.trim().length < 10
+            ? `Minimum 10 characters required (${reason.trim().length}/10)`
+            : 'Add a comment to support your review decision'
+        }
         minRows={4}
       />
     </BaseDrawer>

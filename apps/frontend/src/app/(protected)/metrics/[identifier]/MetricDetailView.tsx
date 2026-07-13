@@ -31,7 +31,9 @@ import {
 import EditableSectionCard from '@/components/common/EditableSection';
 import TagsField from '@/components/common/TagsField';
 import { PageLayout } from '@/components/layout/PageLayout';
+import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { useRouter } from 'next/navigation';
+import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -193,6 +195,7 @@ export function MetricDetailView({
   const canEditMetric = useCan(Capability.Metric.UPDATE);
   const [metric, setMetric] = useState<MetricDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [missingError, setMissingError] = useState<unknown>(null);
   const notifications = useNotifications();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [editData, setEditData] = useState<Partial<EditData>>({});
@@ -223,6 +226,7 @@ export function MetricDetailView({
     dataFetchedRef.current = false;
     setLoading(true);
     setMetric(null);
+    setMissingError(null);
   }, [metricId]);
 
   useEffect(() => {
@@ -261,12 +265,14 @@ export function MetricDetailView({
           }
           return;
         }
-      } catch (_error) {
-        // Use notifications without depending on it
-        const notificationsContext = notifications;
-        notificationsContext.show('Failed to load metric details', {
-          severity: 'error',
-        });
+      } catch (error: unknown) {
+        if (isNotFoundApiError(error)) {
+          setMissingError(error);
+        } else {
+          notifications.show('Failed to load metric details', {
+            severity: 'error',
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -821,6 +827,23 @@ export function MetricDetailView({
   }
 
   if (!metric) {
+    if (missingError && mode === 'page') {
+      return (
+        <DetailEntityMissingState
+          error={missingError}
+          entityLabel="Metric"
+          entityId={metricId}
+          entityTableName="metric"
+          listUrl="/metrics"
+          breadcrumbs={[
+            { label: 'Metrics', href: '/metrics' },
+            { label: 'Not Found', href: `/metrics/${metricId}` },
+          ]}
+          onBack={() => router.push('/metrics')}
+        />
+      );
+    }
+
     if (mode === 'embedded') {
       return (
         <Box

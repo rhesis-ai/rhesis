@@ -156,7 +156,7 @@ class TestOwnerException:
         # Owner is NOT enrolled in the project, yet may enter its context.
         assert _call(owner_id, org_id, project_id) == str(project_id)
 
-    def test_plain_member_still_denied(self, patch_ctx_session):
+    def test_plain_member_ambient_header_degrades_to_org_scope(self, patch_ctx_session):
         db = patch_ctx_session
         org_id = _create_org(db)
         owner_id = _create_user(db, org_id)
@@ -165,19 +165,38 @@ class TestOwnerException:
         project_id = _create_project(db, org_id)
         _point_session_at_org(db, org_id)
 
-        with pytest.raises(HTTPException) as exc:
-            _call(other_id, org_id, project_id)
-        assert exc.value.status_code == 403
+        # Ambient X-Project-Id is a hint — stale/unauthorized values degrade to None.
+        assert _call(other_id, org_id, project_id) is None
 
-    def test_nonexistent_project_denied_even_for_owner(self, patch_ctx_session):
+    def test_nonexistent_project_ambient_header_degrades_to_org_scope(self, patch_ctx_session):
         db = patch_ctx_session
         org_id = _create_org(db)
         owner_id = _create_user(db, org_id)
         _set_owner(db, org_id, owner_id)
         _point_session_at_org(db, org_id)
 
+        assert _call(owner_id, org_id, uuid.uuid4()) is None
+
+    def test_token_scoped_project_stays_strict(self, patch_ctx_session):
+        db = patch_ctx_session
+        org_id = _create_org(db)
+        owner_id = _create_user(db, org_id)
+        _set_owner(db, org_id, owner_id)
+        project_id = _create_project(db, org_id)
+        _point_session_at_org(db, org_id)
+
+        request = SimpleNamespace(
+            headers={},
+            state=SimpleNamespace(api_token_project_id=str(project_id)),
+        )
+        current_user = SimpleNamespace(id=owner_id, organization_id=org_id)
+        # Mismatched ambient header vs token — credential wins, hard 403.
         with pytest.raises(HTTPException) as exc:
-            _call(owner_id, org_id, uuid.uuid4())  # no such project
+            get_project_context(
+                request,
+                current_user,
+                x_project_id=str(uuid.uuid4()),
+            )
         assert exc.value.status_code == 403
 
 
@@ -202,7 +221,7 @@ class TestEeAdminException:
         with _ee_provider_active():
             assert _call(admin_id, org_id, project_id) == str(project_id)
 
-    def test_ee_viewer_denied(self, patch_ctx_session):
+    def test_ee_viewer_ambient_header_degrades_to_org_scope(self, patch_ctx_session):
         from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 
         db = patch_ctx_session
@@ -220,6 +239,4 @@ class TestEeAdminException:
         _point_session_at_org(db, org_id)
 
         with _ee_provider_active():
-            with pytest.raises(HTTPException) as exc:
-                _call(viewer_id, org_id, project_id)
-            assert exc.value.status_code == 403
+            assert _call(viewer_id, org_id, project_id) is None

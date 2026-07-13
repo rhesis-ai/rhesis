@@ -50,16 +50,11 @@ import MemberAccessDrawer from './MemberAccessDrawer';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
+import { getMemberJoinStatus } from '@/utils/member-join-status';
 
 interface TeamMembersGridProps {
   refreshTrigger?: number;
   onTotalCountChange?: (count: number) => void;
-}
-
-function getUserStatus(user: User): 'active' | 'invited' {
-  const hasProfileData =
-    user.name || user.given_name || user.family_name || user.auth0_id;
-  return hasProfileData ? 'active' : 'invited';
 }
 
 function getDisplayName(user: User): string {
@@ -293,7 +288,7 @@ export default function TeamMembersGrid({
               </TableRow>
             ) : (
               users.map(user => {
-                const status = getUserStatus(user);
+                const status = getMemberJoinStatus(user);
                 const displayName = getDisplayName(user);
 
                 return (

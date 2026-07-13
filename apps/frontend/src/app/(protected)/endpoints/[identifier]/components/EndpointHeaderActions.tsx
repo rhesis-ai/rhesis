@@ -49,13 +49,15 @@ export default function EndpointHeaderActions() {
   return (
     <>
       <FabGroup>
-        <Fab
-          icon={<PlaygroundIcon />}
-          tooltip="Playground"
-          aria-label="Playground"
-          onClick={() => router.push(`/playground?endpointId=${endpoint.id}`)}
-          disabled={deleteMutation.isPending}
-        />
+        <Can capability={Capability.Playground.USE}>
+          <Fab
+            icon={<PlaygroundIcon />}
+            tooltip="Playground"
+            aria-label="Playground"
+            onClick={() => router.push(`/playground?endpointId=${endpoint.id}`)}
+            disabled={deleteMutation.isPending}
+          />
+        </Can>
         <Can capability={Capability.Endpoint.CREATE}>
           <Fab
             icon={<ContentCopyIcon />}

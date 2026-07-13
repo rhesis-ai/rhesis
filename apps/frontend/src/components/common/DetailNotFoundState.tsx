@@ -1,13 +1,22 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Typography,
-} from '@mui/material';
+import { useMemo, type ReactNode } from 'react';
+import { Box } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
+import RefreshIcon from '@mui/icons-material/RefreshOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { CrossProjectAlert } from '@/components/common/CrossProjectAlert';
+import EntityMessageState from '@/components/common/EntityMessageState';
+import { useCrossProjectResolve } from '@/hooks/useCrossProjectResolve';
+import {
+  buildNotFoundEntityData,
+  NotFoundEntityData,
+} from '@/utils/entity-error-handler';
+import {
+  FolderOffOutlinedIcon,
+  getResolveEntityIcon,
+} from '@/utils/entity-detail-icons';
+import { AccountTreeIcon } from '@/components/icons';
 
 interface Breadcrumb {
   label: string;
@@ -17,56 +26,122 @@ interface Breadcrumb {
 interface DetailNotFoundStateProps {
   entityLabel: string;
   entityId: string;
+  /** Database table name for the /resolve endpoint (e.g. "endpoint", "task"). */
+  entityTableName: string;
+  /** Structured data from a 404 API response, when available. */
+  entityData?: NotFoundEntityData;
   breadcrumbs: Breadcrumb[];
+  listUrl?: string;
   onBack: () => void;
   onRetry?: () => void;
   isRetrying?: boolean;
 }
 
+/**
+ * Shared not-found UI for entity detail pages.
+ * Attempts cross-project resolution, then falls back to a standard warning.
+ */
 export default function DetailNotFoundState({
   entityLabel,
   entityId,
+  entityTableName,
+  entityData: entityDataProp,
   breadcrumbs,
+  listUrl,
   onBack,
   onRetry,
   isRetrying = false,
 }: DetailNotFoundStateProps) {
-  const listLabel = entityLabel.endsWith('s') ? entityLabel : `${entityLabel}s`;
+  const { crossProjectData, isResolving, resolveError, retryResolve } =
+    useCrossProjectResolve(entityTableName, entityId);
 
-  return (
-    <PageLayout title={`${entityLabel} Not Found`} breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Sorry, we couldn&apos;t load this {entityLabel.toLowerCase()}
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            The {entityLabel.toLowerCase()} you&apos;re looking for might have
-            been deleted, moved, belongs to a different project, or you may not
-            have permission to view it.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {entityLabel} ID: {entityId}
-          </Typography>
-        </Alert>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" onClick={onBack}>
-            Back to {listLabel}
-          </Button>
-          {onRetry && (
-            <Button variant="outlined" onClick={onRetry} disabled={isRetrying}>
-              {isRetrying ? (
-                <>
-                  <CircularProgress color="inherit" size={16} sx={{ mr: 1 }} />
-                  Retrying...
-                </>
-              ) : (
-                'Try Again'
-              )}
-            </Button>
-          )}
-        </Box>
-      </Box>
+  const entityData = useMemo(
+    () =>
+      entityDataProp ??
+      buildNotFoundEntityData({
+        entityLabel,
+        entityId,
+        tableName: entityTableName,
+        listUrl,
+      }),
+    [entityDataProp, entityLabel, entityId, entityTableName, listUrl]
+  );
+
+  const displayLabel =
+    entityData.model_name_display || entityData.model_name || entityLabel;
+
+  const EntityIcon =
+    entityLabel === 'Session'
+      ? AccountTreeIcon
+      : getResolveEntityIcon(entityTableName);
+
+  const pageTitle = crossProjectData
+    ? crossProjectData.resolution === 'no_access'
+      ? `${displayLabel} — No access`
+      : `${displayLabel} in another project`
+    : `${displayLabel} not found`;
+
+  const contentWrapper = (children: ReactNode) => (
+    <PageLayout title={pageTitle} breadcrumbs={breadcrumbs}>
+      <Box sx={{ mt: 2, mb: 2 }}>{children}</Box>
     </PageLayout>
+  );
+
+  if (isResolving) {
+    return contentWrapper(
+      <EntityMessageState
+        icon={EntityIcon}
+        title="Checking other projects..."
+        description="Looking for this item in projects you have access to."
+        loading
+      />
+    );
+  }
+
+  if (crossProjectData) {
+    return contentWrapper(
+      <CrossProjectAlert
+        resolvedEntity={crossProjectData}
+        entityData={entityData}
+      />
+    );
+  }
+
+  const listLabel = displayLabel.endsWith('s')
+    ? displayLabel
+    : `${displayLabel}s`;
+
+  const showResolveRetry = Boolean(resolveError);
+  const handleRetry = showResolveRetry ? retryResolve : onRetry;
+  const retrying = showResolveRetry ? isResolving : isRetrying;
+
+  return contentWrapper(
+    <EntityMessageState
+      icon={FolderOffOutlinedIcon}
+      title={`Couldn't load this ${displayLabel.toLowerCase()}`}
+      description={
+        showResolveRetry
+          ? 'We could not check other projects right now. Try again in a moment.'
+          : entityData.message
+      }
+      meta={`${displayLabel} ID: ${entityId}`}
+      primaryAction={{
+        label: `Back to ${listLabel}`,
+        onClick: onBack,
+        startIcon: <ArrowBackIcon />,
+        variant: 'contained',
+      }}
+      secondaryAction={
+        handleRetry
+          ? {
+              label: retrying ? 'Retrying...' : 'Try Again',
+              onClick: handleRetry,
+              startIcon: <RefreshIcon />,
+              disabled: retrying,
+              loading: retrying,
+            }
+          : undefined
+      }
+    />
   );
 }

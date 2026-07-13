@@ -717,10 +717,46 @@ class TestRealAppCapabilities:
             "test_set:execute",
             "comment:react",
             "recycle:restore",
+            "project_member:read",
             "project_member:manage",
+            "polyphemus:request",
         }
         missing = explicit_caps - cap_set
         assert not missing, f"Missing explicit @capability() overrides: {missing}"
+
+    def test_no_verb_drift_on_tests_execute_path(self):
+        """
+        POST /tests/execute must yield test_set:execute (explicit),
+        not the default POST→create derivation.
+        """
+        from rhesis.backend.app.auth.capabilities import build_capability_map, get_all_capabilities
+        from rhesis.backend.app.main import app
+
+        cap_set = set(get_all_capabilities())
+        assert "test_set:execute" in cap_set
+
+        cap_map = build_capability_map(app)
+        execute_paths = cap_map.get("test_set:execute", [])
+        assert "/tests/execute" in execute_paths, (
+            f"/tests/execute not mapped to test_set:execute; got: {execute_paths}"
+        )
+
+    def test_no_verb_drift_on_endpoint_invoke_path(self):
+        """
+        POST /endpoints/{id}/invoke must yield endpoint:update (explicit),
+        not the default POST→create derivation.
+        """
+        from rhesis.backend.app.auth.capabilities import build_capability_map, get_all_capabilities
+        from rhesis.backend.app.main import app
+
+        cap_set = set(get_all_capabilities())
+        assert "endpoint:update" in cap_set
+
+        cap_map = build_capability_map(app)
+        invoke_paths = cap_map.get("endpoint:update", [])
+        assert "/endpoints/{endpoint_id}/invoke" in invoke_paths, (
+            f"endpoint invoke not mapped to endpoint:update; got: {invoke_paths}"
+        )
 
     def test_no_verb_drift_on_execute_path(self):
         """

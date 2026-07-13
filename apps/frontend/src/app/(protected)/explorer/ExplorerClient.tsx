@@ -15,8 +15,9 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
-import { Can, useCan } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import AccessDenied from '@/components/common/AccessDenied';
 import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 import ExplorerGrid from './components/ExplorerGrid';
@@ -37,6 +38,9 @@ export default function ExplorerClient() {
 
   const sessionToken = session?.session_token ?? '';
   const canCreateSession = useCan(Capability.Explorer.CREATE);
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Explorer.READ
+  );
 
   const handleImportedExplorerSet = React.useCallback(
     (result: ImportExplorerTestSetResponse) => {
@@ -56,7 +60,7 @@ export default function ExplorerClient() {
     [queryClient, notifications, router]
   );
 
-  if (status === 'loading') {
+  if (status === 'loading' || permsLoading) {
     return (
       <PageLayout title="Explorer" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
@@ -75,6 +79,8 @@ export default function ExplorerClient() {
       </PageLayout>
     );
   }
+
+  if (!canRead) return <AccessDenied resource="explorer sessions" />;
 
   return (
     <>

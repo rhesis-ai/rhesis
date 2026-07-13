@@ -67,7 +67,7 @@ config:
   nextTelemetryDisabled: "1"
   nextPublicQuickStart: "false"
   nextPublicSupportEmail: "hello@rhesis.ai"
-  nextPublicOnboardingVideoUrl: ""
+  onboardingVideoUrl: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""
@@ -156,6 +156,7 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "25m"
     host: ""
     tlsSecretName: "rhesis-backend-tls"
   env: []
