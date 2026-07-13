@@ -717,7 +717,9 @@ class TestRealAppCapabilities:
             "test_set:execute",
             "comment:react",
             "recycle:restore",
+            "project_member:read",
             "project_member:manage",
+            "polyphemus:request",
         }
         missing = explicit_caps - cap_set
         assert not missing, f"Missing explicit @capability() overrides: {missing}"

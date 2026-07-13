@@ -124,6 +124,7 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
 const PILL_TABS = TEST_TYPE_PILL_TABS;
 
 function TestsUnifiedToolbar() {
+  const canExport = useCan(Capability.TestSet.EXPORT);
   const {
     searchQuery,
     setSearchQuery,
@@ -173,7 +174,7 @@ function TestsUnifiedToolbar() {
           />
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
-          <GridToolbarExport />
+          {canExport && <GridToolbarExport />}
         </>
       }
     />

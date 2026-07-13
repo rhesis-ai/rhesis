@@ -290,14 +290,19 @@ class TestGetMyPermissions:
         before delegating to the provider, so a project member's ambient project
         context can't leak into org-admin actions they don't otherwise hold.
 
-        ``project_member:manage`` is the one exception: it's project-scoped (not
-        org-scoped) by nature, so it's untouched by that normalization and is still
-        granted by plain project membership, per the provider's existing rule 3.
+        ``project_member:read`` is project-scoped and granted by plain project
+        membership. ``project_member:manage`` is owner-only for org-scoped
+        requests (no ``project_id``) via ``_OWNER_ONLY_CAPABILITIES``, but the
+        community provider's rule 3 still grants every project-scoped cap —
+        including ``project_member:manage`` — to enrolled members when
+        ``project_id`` is present (EE RBAC tightens this via role matrices).
         """
         from rhesis.backend.app.auth.capabilities import get_all_capabilities
         from rhesis.backend.app.auth.rbac import _OWNER_ONLY_CAPABILITIES
 
         all_caps = set(get_all_capabilities())
+        # Community provider rule 3 grants every project-scoped cap (including
+        # project_member:manage) to any enrolled member when project_id is set.
         expected = (all_caps - _OWNER_ONLY_CAPABILITIES) | {"project_member:manage"}
         my_perms = set(
             authed_client.get(

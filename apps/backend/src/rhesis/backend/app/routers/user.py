@@ -26,7 +26,7 @@ from rhesis.backend.app.schemas.polyphemus import (
     PolyphemusAccessRequest,
     PolyphemusAccessResponse,
 )
-from rhesis.backend.app.schemas.user import UserSettings, UserSettingsUpdate
+from rhesis.backend.app.schemas.user import UserSettings, UserSettingsRead, UserSettingsUpdate
 from rhesis.backend.app.services import polyphemus as polyphemus_service
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -47,6 +47,32 @@ def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
     """True if the client explicitly tried to update models.embedding (PATCH must reject)."""
     models = settings_dict.get("models")
     return isinstance(models, dict) and "embedding" in models
+
+
+def _user_settings_permitted_actions(
+    request: Request,
+    current_user: User,
+    db: Session,
+) -> list[str]:
+    """Resolve self-service affordances broadcast on GET /users/settings."""
+    principal = resolve_principal_from_request(current_user, request)
+    actions: list[str] = []
+    if authorize(principal, Permission.Polyphemus.REQUEST, project_id=None, db=db):
+        actions.append(str(Permission.Polyphemus.REQUEST))
+    return actions
+
+
+def _user_settings_read_payload(
+    db_user: models.User,
+    request: Request,
+    current_user: User,
+    db: Session,
+) -> dict:
+    return {
+        **db_user.user_settings,
+        "is_verified": db_user.is_verified,
+        "permitted_actions": _user_settings_permitted_actions(request, current_user, db),
+    }
 
 
 router = RhesisRouter(
@@ -195,8 +221,9 @@ async def read_users(
     )
 
 
-@router.get("/settings", response_model=UserSettings)
+@router.get("/settings", response_model=UserSettingsRead)
 def get_user_settings(
+    request: Request,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -212,10 +239,7 @@ def get_user_settings(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return {
-        **db_user.user_settings,
-        "is_verified": db_user.is_verified,
-    }
+    return _user_settings_read_payload(db_user, request, current_user, db)
 
 
 @router.patch("/settings", response_model=UserSettings)
@@ -462,7 +486,7 @@ def update_user(
 @router.post(
     "/request-polyphemus-access",
     response_model=PolyphemusAccessResponse,
-    **capability(Permission.Member.UPDATE),
+    **capability(Permission.Polyphemus.REQUEST),
 )
 def request_polyphemus_access(
     request_data: PolyphemusAccessRequest,

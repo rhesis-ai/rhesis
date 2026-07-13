@@ -127,8 +127,8 @@ function ChatPlaceholder({
 export default function PlaygroundClient() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
-  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
-    Capability.Endpoint.READ
+  const { allowed: canUsePlayground, loading: permsLoading } = useCanWithStatus(
+    Capability.Playground.USE
   );
 
   const {
@@ -137,7 +137,7 @@ export default function PlaygroundClient() {
     error: optionsError,
   } = useEndpointOptions(
     session?.session_token ?? '',
-    !permsLoading && canRead
+    !permsLoading && canUsePlayground
   );
   const error = optionsError
     ? 'Failed to load endpoints. Please try again.'
@@ -199,7 +199,7 @@ export default function PlaygroundClient() {
   const hasActiveSession = !!(selectedEndpointId || isSplit);
 
   if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="endpoints" />;
+  if (!canUsePlayground) return <AccessDenied resource="playground" />;
 
   return (
     <PageLayout

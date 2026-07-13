@@ -90,7 +90,9 @@ BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
     "Member": (
         "Create, edit, and run evaluations across their projects. Manage their own API tokens."
     ),
-    "Viewer": ("Read-only access to all resources. Can browse and export but cannot make changes."),
+    "Viewer": (
+        "Read-only access to project resources. Can browse but cannot make changes."
+    ),
     "None": "No access. Explicitly revoke a member while keeping them in the organization.",
 }
 
@@ -150,7 +152,17 @@ def _member_permissions(cap_set: set[str]) -> set[str]:
         for c in cap_set
         if capability_scope(c) == SCOPE_PROJECT and _primary_action(c) in _MEMBER_ACTIONS
     }
-    return project_actions | _viewer_permissions(cap_set)
+    perms = project_actions | _viewer_permissions(cap_set)
+    # Org-scoped self-service: Members may request Polyphemus access; Viewers may not.
+    if "polyphemus:request" in cap_set:
+        perms.add("polyphemus:request")
+    # Interactive playground chat: Members+ only; Viewers may browse endpoints read-only.
+    if "playground:use" in cap_set:
+        perms.add("playground:use")
+    # Test set CSV export: Members+ only; Viewers may browse test sets read-only.
+    if "test_set:export" in cap_set:
+        perms.add("test_set:export")
+    return perms
 
 
 def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> set[str]:

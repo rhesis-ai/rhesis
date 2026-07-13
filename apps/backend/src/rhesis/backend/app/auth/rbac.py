@@ -106,7 +106,7 @@ class AuthorizationProvider:
 # EE overrides the whole provider; this set only drives community-tier decisions.
 #
 # ProjectMember.MANAGE is included here so that managing project membership
-# (add/remove/list members) requires org ownership in the community tier.  When
+# (add/remove members) requires org ownership in the community tier.  When
 # a project IS in the ambient scope the DefaultAuthorizationProvider would
 # normally allow any project member — but membership management is sensitive
 # enough that we restrict it to org owners (and, in EE Phase 2, project admins

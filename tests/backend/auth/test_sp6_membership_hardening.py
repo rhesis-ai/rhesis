@@ -172,12 +172,12 @@ class TestRoleIdColumn:
 
 @pytest.mark.routes
 class TestMemberEndpointGating:
-    """GET/POST/DELETE /projects/{id}/members require org ownership.
+    """GET/POST/DELETE /projects/{id}/members authorization.
 
     In the community tier ``Permission.ProjectMember.MANAGE`` is in
-    ``_OWNER_ONLY_CAPABILITIES`` and gates all three member endpoints
-    (list/add/remove, plan §1.5), so any caller who is NOT the org owner
-    receives 403.  The org owner continues to work normally.
+    ``_OWNER_ONLY_CAPABILITIES`` and gates add/remove (plan §1.5). Listing
+    uses ``Permission.ProjectMember.READ``, which any enrolled project member
+    may exercise.  The org owner continues to work normally for all three.
     """
 
     # The tests temporarily strip the org's owner_id so the authenticated_client
@@ -196,7 +196,7 @@ class TestMemberEndpointGating:
         test_org_id,
         authenticated_user_id,
     ):
-        """GET /projects/{id}/members → 403 for a caller without ProjectMember.MANAGE."""
+        """GET /projects/{id}/members → 403 for a caller without ProjectMember.READ."""
         project = _make_project(test_db, test_org_id, owner_id=authenticated_user_id)
         _enroll(test_db, str(authenticated_user_id), str(project.id), test_org_id)
 
