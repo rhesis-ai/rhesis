@@ -219,6 +219,7 @@ class User(UserBase):
 # For use in responses where we need minimal user info
 class UserReference(Base):
     id: UUID4
+    name: Optional[str] = ""  # Default to empty string to avoid validation errors
     given_name: Optional[str] = ""  # Default to empty string to avoid validation errors
     family_name: Optional[str] = ""  # Default to empty string to avoid validation errors
     email: Optional[str] = ""  # Default to empty string to avoid validation errors
