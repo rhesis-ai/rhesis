@@ -465,10 +465,12 @@ def update_user(
     # requires app.current_organization for the INSERT to succeed.
     if had_no_organization and updated_user.organization_id is not None:
         from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+        from rhesis.backend.app.auth.user_utils import mark_user_joined_if_needed
         from rhesis.backend.app.database import set_session_variables
 
         set_session_variables(db, str(updated_user.organization_id), str(updated_user.id))
         on_user_org_assigned(db, updated_user.id, updated_user.organization_id)
+        mark_user_joined_if_needed(updated_user)
 
     # If this is the current user being updated, refresh their session token
     if str(updated_user.id) == str(current_user.id):

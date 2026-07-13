@@ -150,6 +150,7 @@ def initialize_local_environment(db: Session) -> None:
 
         # Update user with organization_id
         user.organization_id = org_id
+        user.joined_at = current_time
         db.flush()
 
         # Direct ORM construction above bypasses crud.create_user, so the RBAC

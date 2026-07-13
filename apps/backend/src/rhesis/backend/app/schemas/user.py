@@ -182,6 +182,10 @@ class UserBase(Base):
     is_email_verified: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
+    joined_at: Optional[datetime] = Field(
+        None,
+        description="When the user first became an active organization member",
+    )
     user_settings: Optional[UserSettings] = Field(
         default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
     )

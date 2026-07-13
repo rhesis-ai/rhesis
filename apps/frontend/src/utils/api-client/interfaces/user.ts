@@ -107,7 +107,12 @@ export interface User {
   picture?: string;
   is_active?: boolean;
   is_verified?: boolean;
+  is_email_verified?: boolean;
   organization_id?: UUID;
+  last_login_at?: string | null;
+  joined_at?: string | null;
+  provider_type?: string;
+  external_provider_id?: string;
   user_settings?: UserSettings;
 }
 
