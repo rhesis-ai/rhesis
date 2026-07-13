@@ -1071,7 +1071,10 @@ class TestListUserProjectMemberships:
 
         results = self._list(user_id)
         assert results[0].role_id is None
-        assert results[0].role is None
+        # Role is resolved for display from the effective auth provider role when
+        # project_membership.role_id is NULL (inherited org role / owner floor).
+        assert results[0].role is not None
+        assert results[0].role.name == "Owner"
 
 
 # ---------------------------------------------------------------------------
