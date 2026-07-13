@@ -90,7 +90,8 @@ export default function TermsAcceptanceGate() {
       <DialogContent>
         <Box sx={{ mt: 1 }}>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            We’ve updated our Terms and Privacy Policy. Please accept to continue.
+            We’ve updated our Terms and Privacy Policy. Please accept to
+            continue.
           </Typography>
 
           <TermsAcceptanceField
@@ -121,4 +122,3 @@ export default function TermsAcceptanceGate() {
     </Dialog>
   );
 }
-

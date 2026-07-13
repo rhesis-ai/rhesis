@@ -132,7 +132,9 @@ describe('Project detail ClientWrapper delete flow', () => {
       screen.getByRole('button', { name: /confirm delete/i })
     );
 
-    await waitFor(() => expect(mockDeleteProject).toHaveBeenCalledWith('proj-1'));
+    await waitFor(() =>
+      expect(mockDeleteProject).toHaveBeenCalledWith('proj-1')
+    );
     await waitFor(() =>
       expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument()
     );
