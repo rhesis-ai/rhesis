@@ -37,6 +37,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { safeRandomUUID } from '@/utils/uuid';
 import { UUID } from 'crypto';
 
 interface InviteItem {
@@ -60,7 +61,7 @@ interface TeamInviteFormProps {
 }
 
 function createInvite(email = ''): InviteItem {
-  return { id: crypto.randomUUID(), email, orgRoleId: null };
+  return { id: safeRandomUUID(), email, orgRoleId: null };
 }
 
 const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
