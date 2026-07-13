@@ -20,7 +20,7 @@ Turn a **PRD, product spec, or requirements doc** into a durable **test foundati
 | [behavior-design.md](prd/behavior-design.md) | Split bundled PRD text into behaviors |
 | [metric-design.md](prd/metric-design.md) | AC-driven metrics (binary, categorical, numeric) |
 | [scope-alignment.md](prd/scope-alignment.md) | `metric_scope` ↔ test set `test_type` (platform enforces at run time) |
-| [metric-scope.md](../metric-scope.md) | When to use Single-Turn vs Multi-Turn (all workflows) |
+| [metric-scope.md](metric-scope.md) | When to use Single-Turn vs Multi-Turn (all workflows) |
 
 ## Pipeline
 
