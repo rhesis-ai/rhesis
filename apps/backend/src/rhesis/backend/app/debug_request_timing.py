@@ -9,31 +9,52 @@ aggregate total-vs-db split, AND a per-query breakdown (normalized SQL +
 duration, slowest first) so a single log line can point at exactly which
 query dominates a slow request, not just that "db was slow".
 
-"other" (total - db) is itself a grab bag, so three more phases are broken
-out of it:
+A first cut split ``total`` into ``handler`` (everything up to the first
+ASGI ``http.response.start`` message) and ``encode`` (everything after).
+That was misleading: FastAPI does all response-model validation, the
+``permitted_actions`` affordance validator, and JSON encoding *inside* the
+route's ASGI callable, before it ever calls ``send()`` -- so all of that
+landed in ``handler``, and ``encode`` measured almost nothing (just writing
+already-built bytes to the socket). This version instruments FastAPI's own
+internal request-handling stages directly instead of guessing from the
+ASGI boundary:
 
+- ``deps``: ``fastapi.routing.solve_dependencies`` -- resolving every
+  ``Depends(...)`` in the route's dependency tree (auth, tenant DB session,
+  permission checks). ``authz`` (time inside ``rbac.authorize()``) is a
+  subset of this.
+- ``endpoint``: ``fastapi.routing.run_endpoint_function`` -- the route
+  body itself: building/running the DB query/queries and turning the
+  result rows into ORM objects. ``db`` (subset of this) is only the
+  ``cursor.execute()`` portion; ``endpoint - db`` is ORM row hydration plus
+  any pure-Python logic in the route, previously invisible.
+- ``validate`` / ``to_json``: the two halves of
+  ``fastapi.routing.serialize_response``, patched at the
+  ``ModelField.validate`` / ``ModelField.serialize`` / ``.serialize_json``
+  level so both response *and* incidental request-param validation are
+  covered. ``validate`` runs Pydantic model validation (attribute reads +
+  any ``@model_validator``s, e.g. the affordance one) over every row in the
+  response; ``to_json`` is pydantic-core's conversion to JSON-compatible
+  output. ``affordance`` (subset of ``validate``) is time inside
+  ``permitted_actions_for`` specifically, when the response model carries
+  ``WithPermittedActions`` (``Test`` itself does not, so this is 0 for
+  ``/tests/``).
 - ``pre_db``: wall-clock from request start to the first DB cursor execute.
-  A proxy for connection-pool checkout wait + dependency resolution (tenant
-  scoping, auth) that happens before any query runs -- there's no public
-  SQLAlchemy "about to wait for a pool slot" hook, so this is measured
-  indirectly instead of instrumenting the pool.
-- ``authz``: time inside ``rbac.authorize()``, the single authorization
-  decision point (cache lookup + provider call). Patched onto the live
-  function object at import time rather than instrumented in rbac.py itself,
-  so this probe stays fully confined to this file and costs nothing when
-  RHESIS_ENABLE_REQUEST_TIMING is unset.
-- ``encode``: wall-clock from the first ASGI ``http.response.start`` message
-  to the last message sent. Covers response-model serialization (incl. the
-  ``permitted_actions`` affordance validator), JSON encoding, and gzip --
-  everything that happens after the route handler has produced its return
-  value. ``handler`` (total minus encode) is what's left: dependencies +
-  route body + DB work.
+  A cruder proxy for connection-pool checkout wait that predates the
+  ``deps`` instrumentation above -- kept as a cross-check since there's no
+  public SQLAlchemy "about to wait for a pool slot" hook to measure pool
+  wait directly.
+
+``deps + endpoint + validate + to_json`` should roughly equal ``handler``
+minus a small residual (FastAPI's own glue code) -- large unexplained gaps
+there point at something this probe still isn't instrumenting.
 
 Enable with RHESIS_ENABLE_REQUEST_TIMING=1. Logs one summary line plus one
 line per query for each request:
 
     GET /tests/?skip=75&limit=25 total=2190.3ms db=1181.4ms(17q) \
-pre_db=45.2ms authz=8.1ms handler=1980.9ms encode=209.4ms other=1008.9ms
+pre_db=45.2ms deps=52.1ms authz=8.1ms endpoint=1820.4ms validate=140.2ms \
+to_json=25.6ms affordance=0.0ms handler=2038.3ms encode=152.0ms
       412.1ms | SELECT test.id FROM test JOIN behavior ON ... WHERE ...
       203.4ms | SELECT prompt.id, prompt.content FROM prompt WHERE prompt.id IN (?)
       ...
@@ -141,12 +162,124 @@ def _patch_authorize() -> None:
     rbac.authorize = _timed_authorize
 
 
+def _patch_permitted_actions_for() -> None:
+    """Time ``permitted_actions_for``, the per-object affordance computation.
+
+    Called from the ``WithPermittedActions`` model validator, which is the
+    part of ``validate`` (below) this probe can't reach directly: pydantic-core
+    compiles ``@model_validator``s into the class's core schema at class
+    definition time, so patching the Python method afterwards would not be
+    picked up. ``permitted_actions_for`` is a plain module function the
+    validator calls into, and reassigning it here works the same way as the
+    ``authorize`` patch above.
+    """
+    from rhesis.backend.app.auth import capabilities
+
+    if getattr(capabilities.permitted_actions_for, "_rhesis_timing_patched", False):
+        return
+
+    original = capabilities.permitted_actions_for
+
+    def _timed_permitted_actions_for(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original(*args, **kwargs)
+        finally:
+            _record_phase("affordance", (time.perf_counter() - start) * 1000)
+
+    _timed_permitted_actions_for._rhesis_timing_patched = True
+    capabilities.permitted_actions_for = _timed_permitted_actions_for
+
+    # affordances.py imported the original function by reference
+    # (`from ...capabilities import permitted_actions_for`), so its own module
+    # global must be repointed too -- reassigning capabilities.permitted_actions_for
+    # alone would not be visible there.
+    from rhesis.backend.app.auth import affordances
+
+    affordances.permitted_actions_for = _timed_permitted_actions_for
+
+
+def _patch_fastapi_request_stages() -> None:
+    """Time FastAPI's own per-request stages: deps, endpoint, validate, to_json.
+
+    All three of ``solve_dependencies``, ``run_endpoint_function``, and
+    ``serialize_response`` are free functions in ``fastapi.routing``, called by
+    bare module-global name from the request-handling closure built once per
+    route -- reassigning the module attribute here is picked up on every
+    subsequent call, the same mechanism as the ``authorize`` patch above.
+
+    ``serialize_response`` itself is not patched directly (its control flow
+    -- sync vs threadpool validation, ``dump_json`` branch -- is internal and
+    could drift across FastAPI versions); instead the two calls it makes
+    (``field.validate`` and ``field.serialize``/``serialize_json``) are timed
+    at the ``ModelField`` class level, which is stable regardless of how
+    ``serialize_response`` invokes them. This also happens to cover query/path
+    param validation, not just response serialization -- negligible next to a
+    25-row response body, but not a pure "response serialization" number.
+    """
+    import fastapi.routing as fastapi_routing
+    from fastapi._compat.v2 import ModelField
+
+    if getattr(fastapi_routing.solve_dependencies, "_rhesis_timing_patched", False):
+        return
+
+    original_solve_dependencies = fastapi_routing.solve_dependencies
+    original_run_endpoint_function = fastapi_routing.run_endpoint_function
+    original_validate = ModelField.validate
+    original_serialize = ModelField.serialize
+    original_serialize_json = ModelField.serialize_json
+
+    async def _timed_solve_dependencies(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return await original_solve_dependencies(*args, **kwargs)
+        finally:
+            _record_phase("deps", (time.perf_counter() - start) * 1000)
+
+    async def _timed_run_endpoint_function(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return await original_run_endpoint_function(*args, **kwargs)
+        finally:
+            _record_phase("endpoint", (time.perf_counter() - start) * 1000)
+
+    def _timed_validate(self, *args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original_validate(self, *args, **kwargs)
+        finally:
+            _record_phase("validate", (time.perf_counter() - start) * 1000)
+
+    def _timed_serialize(self, *args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original_serialize(self, *args, **kwargs)
+        finally:
+            _record_phase("to_json", (time.perf_counter() - start) * 1000)
+
+    def _timed_serialize_json(self, *args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original_serialize_json(self, *args, **kwargs)
+        finally:
+            _record_phase("to_json", (time.perf_counter() - start) * 1000)
+
+    _timed_solve_dependencies._rhesis_timing_patched = True
+    fastapi_routing.solve_dependencies = _timed_solve_dependencies
+    fastapi_routing.run_endpoint_function = _timed_run_endpoint_function
+    ModelField.validate = _timed_validate
+    ModelField.serialize = _timed_serialize
+    ModelField.serialize_json = _timed_serialize_json
+
+
 if is_enabled():
     _patch_authorize()
+    _patch_permitted_actions_for()
+    _patch_fastapi_request_stages()
 
 
 class RequestTimingMiddleware:
-    """Logs total/db/other wall-clock time plus a per-query breakdown.
+    """Logs total/db/deps/endpoint/serialization time plus a per-query breakdown.
 
     Plain ASGI middleware rather than BaseHTTPMiddleware -- the latter runs
     the downstream app via call_next() in a background task, and if the
@@ -174,9 +307,11 @@ class RequestTimingMiddleware:
         start = time.perf_counter()
         start_token = _request_start.set(start)
 
-        # Marks when the route handler finished and Starlette began sending
-        # the response, splitting `handler` (deps + route body + DB) from
-        # `encode` (serialization, incl. the affordance validator, + gzip).
+        # Marks when Starlette began sending the response. Kept for cross-checking
+        # against deps+endpoint+validate+to_json below -- see module docstring for
+        # why this boundary alone doesn't isolate serialization/gzip as `encode`
+        # might suggest (both happen before the first send() call, i.e. inside
+        # `handler`).
         first_send_time = None
 
         async def _timed_send(message):
@@ -200,21 +335,41 @@ class RequestTimingMiddleware:
             handler_ms = ((first_send_time - start) * 1000) if first_send_time else total_ms
             encode_ms = max(total_ms - handler_ms, 0.0)
 
+            deps_ms = phases.get("deps", 0.0)
+            endpoint_ms = phases.get("endpoint", 0.0)
+            validate_ms = phases.get("validate", 0.0)
+            to_json_ms = phases.get("to_json", 0.0)
+            # Everything endpoint() spent that wasn't a DB cursor.execute() --
+            # ORM row hydration + pure-Python route logic, previously invisible.
+            endpoint_nondb_ms = max(endpoint_ms - db_ms, 0.0)
+            # Should be small: what's left of `handler` once every instrumented
+            # FastAPI stage is subtracted out. Large here means something is
+            # still unaccounted for.
+            unlabeled_ms = max(handler_ms - deps_ms - endpoint_ms - validate_ms - to_json_ms, 0.0)
+
             query_string = scope.get("query_string", b"").decode()
             path = scope["path"] + (f"?{query_string}" if query_string else "")
             logger.info(
-                "%s %s total=%.1fms db=%.1fms(%dq) pre_db=%.1fms authz=%.1fms "
-                "handler=%.1fms encode=%.1fms other=%.1fms",
+                "%s %s total=%.1fms db=%.1fms(%dq) pre_db=%.1fms deps=%.1fms "
+                "authz=%.1fms endpoint=%.1fms endpoint_nondb=%.1fms validate=%.1fms "
+                "affordance=%.1fms to_json=%.1fms handler=%.1fms encode=%.1fms "
+                "unlabeled=%.1fms",
                 scope["method"],
                 path,
                 total_ms,
                 db_ms,
                 len(log),
                 phases.get("pre_db", 0.0),
+                deps_ms,
                 phases.get("authz", 0.0),
+                endpoint_ms,
+                endpoint_nondb_ms,
+                validate_ms,
+                phases.get("affordance", 0.0),
+                to_json_ms,
                 handler_ms,
                 encode_ms,
-                total_ms - db_ms,
+                unlabeled_ms,
             )
             for elapsed_ms, sql in sorted(log, reverse=True):
                 logger.info("  %.1fms | %s", elapsed_ms, sql)
