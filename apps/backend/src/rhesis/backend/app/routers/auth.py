@@ -45,6 +45,7 @@ from rhesis.backend.app.auth.used_token_store import (
 from rhesis.backend.app.auth.user_utils import (
     _send_welcome_email,
     find_or_create_user_from_auth,
+    mark_user_joined_if_needed,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -969,10 +970,12 @@ async def verify_magic_link(
     if not user.is_email_verified:
         user.is_email_verified = True
 
-    # Update last login
+    # Update last login and stamp first org join when applicable
     from datetime import datetime, timezone
 
-    user.last_login_at = datetime.now(timezone.utc)
+    current_time = datetime.now(timezone.utc)
+    user.last_login_at = current_time
+    mark_user_joined_if_needed(user, when=current_time)
     db.commit()
 
     # Set up session and create tokens
