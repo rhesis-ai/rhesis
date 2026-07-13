@@ -49,9 +49,7 @@ function stripManagedColumnItems(
 ): GridFilterItem[] {
   return columnItems.filter(
     item =>
-      item.field &&
-      !managedFields.has(item.field) &&
-      !isQuickFilterItem(item)
+      item.field && !managedFields.has(item.field) && !isQuickFilterItem(item)
   );
 }
 
