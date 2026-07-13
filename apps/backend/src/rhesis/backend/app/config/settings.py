@@ -126,6 +126,10 @@ class ApplicationSettings(BaseSettings):
         return bool(self.cloud_run_service or self.cloud_run_revision)
 
     @property
+    def secure_cookies(self) -> bool:
+        return urlparse(self.api_base_url).scheme == "https"
+
+    @property
     def quick_start_allowed_by_env(self) -> bool:
         """Whether process-level configuration permits Quick Start mode.
 

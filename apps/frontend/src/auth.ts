@@ -5,7 +5,10 @@ import {
   SESSION_DURATION_MS,
   SESSION_DURATION_SECONDS,
 } from './constants/auth';
-import { getServerBackendUrl } from './utils/url-resolver';
+import {
+  getServerBackendUrl,
+  shouldUseSecureCookies,
+} from './utils/url-resolver';
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error(
@@ -257,7 +260,7 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.FRONTEND_ENV !== 'development',
+        secure: shouldUseSecureCookies(),
         maxAge: SESSION_DURATION_SECONDS,
         // Use undefined domain to isolate sessions per subdomain (prevents cross-environment conflicts)
         domain: undefined,

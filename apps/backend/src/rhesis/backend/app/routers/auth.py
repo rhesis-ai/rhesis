@@ -1249,8 +1249,9 @@ async def logout(
     # Clear the backend SessionMiddleware cookie (host-only on the API origin).
     # NextAuth cookies live on the frontend host and are cleared there.
     # Emit both Secure and non-Secure clears so logout works regardless of
-    # how the cookie was set (SessionMiddleware uses https_only=not
-    # is_running_locally()). The mismatched variant is a harmless no-op.
+    # how the cookie was set (SessionMiddleware derives https_only from the
+    # API_BASE_URL scheme via ApplicationSettings.secure_cookies). The
+    # mismatched variant is a harmless no-op.
     for secure in (False, True):
         response.set_cookie(
             key="session",
