@@ -59,9 +59,7 @@ export class InsightsPage extends BasePage {
       return;
     }
 
-    await expect(
-      this.page.getByPlaceholder(/search behaviors/i)
-    ).toBeVisible();
+    await expect(this.page.getByPlaceholder(/search behaviors/i)).toBeVisible();
     await expect(timeRange1M).toBeVisible();
     await expect(passRate.first()).toBeVisible({ timeout: 15_000 });
   }
