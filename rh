@@ -622,9 +622,14 @@ start_all() {
             echo "# Local Authentication Bypass" >> .env.docker.local
             echo "QUICK_START=true" >> .env.docker.local
             echo "" >> .env.docker.local
-            echo "# Host ports" >> .env.docker.local
+            # Host bind ports plus the matching public URLs. Compose keeps these
+            # decoupled, but for localhost dev the public URL is just localhost on
+            # the chosen host port, so derive and write both here.
+            echo "# Host ports and matching public URLs" >> .env.docker.local
             echo "BACKEND_PORT=$backend_port" >> .env.docker.local
             echo "FRONTEND_PORT=$frontend_port" >> .env.docker.local
+            echo "API_BASE_URL=http://localhost:$backend_port" >> .env.docker.local
+            echo "FRONTEND_URL=http://localhost:$frontend_port" >> .env.docker.local
             echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
         else
             # Update existing file

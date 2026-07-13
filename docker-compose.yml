@@ -1,11 +1,15 @@
-# Host-facing access — single source of truth.
-# Internal container ports stay constant (backend 8080, frontend 3000);
-# these only control the host ports and the URLs derived from them.
+# Host-facing access. Internal container ports stay constant (backend 8080,
+# frontend 3000). Two independent layers:
+#   *_PORT — host bind port (docker `published:` mapping, i.e. where the
+#            container is reachable on the host machine).
+#   *_URL  — public address the browser/backend use for links, redirects, cookies.
+# On localhost they happen to match; in self-hosting the public URL (domain /
+# reverse proxy) is unrelated to the bind port, so neither derives from the other.
 x-host:
   backend_port:  &backend_port  ${BACKEND_PORT:-8080}
   frontend_port: &frontend_port ${FRONTEND_PORT:-3000}
-  api_base_url:  &api_base_url  ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8080}}
-  frontend_url:  &frontend_url  ${FRONTEND_URL:-http://localhost:${FRONTEND_PORT:-3000}}
+  api_base_url:  &api_base_url  ${API_BASE_URL:-http://localhost:8080}
+  frontend_url:  &frontend_url  ${FRONTEND_URL:-http://localhost:3000}
 
 # Object storage configuration (local dev defaults to bind-mounted /app/storage)
 x-common-storage: &common-storage
