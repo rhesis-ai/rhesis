@@ -368,6 +368,7 @@ async def accept_terms(
 ):
     """Record the authenticated user's acceptance of the current T&C version."""
     from rhesis.backend.app import crud
+    from sqlalchemy.orm.attributes import flag_modified
 
     user = crud.get_user_by_id(db, current_user.id)
     if not user:
@@ -376,6 +377,7 @@ async def accept_terms(
             detail="User not found",
         )
     record_terms_acceptance(user)
+    flag_modified(user, "user_settings")
     db.commit()
     return {"success": True, "terms_accepted": True}
 

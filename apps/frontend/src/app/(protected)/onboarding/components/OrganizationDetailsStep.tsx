@@ -182,6 +182,11 @@ export default function OrganizationDetailsStep({
       return;
     }
 
+    if (!sessionToken) {
+      setErrorMessage('Your session expired. Please log in again.');
+      return;
+    }
+
     if (!alreadyAcceptedTerms && !termsAccepted) {
       setShowTermsWarning(true);
       return;

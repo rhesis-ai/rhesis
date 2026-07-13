@@ -803,8 +803,9 @@ class TestAuthMagicLinkRoutes:
         assert response.json() == {"success": True, "terms_accepted": True}
 
         test_db.refresh(user)
-        assert user.terms_accepted_at is not None
-        assert user.terms_accepted_version == CURRENT_TERMS_VERSION
+        terms = (user.user_settings or {}).get("terms") or {}
+        assert terms.get("accepted_at") is not None
+        assert terms.get("version") == CURRENT_TERMS_VERSION
 
     def test_magic_link_verify_valid_token_single_use(
         self, client: TestClient, test_db, test_org_id
@@ -1417,8 +1418,10 @@ class TestTermsAcceptance:
         email = _unique_email("terms")
         org = create_test_organization(test_db, "Terms Org")
         user = create_test_user(test_db, org.id, email, "Terms User")
-        user.terms_accepted_at = datetime.now(timezone.utc)
-        user.terms_accepted_version = CURRENT_TERMS_VERSION
+        user.user_settings = {
+            **(user.user_settings or {}),
+            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": CURRENT_TERMS_VERSION},
+        }
         test_db.commit()
 
         token = create_session_token(user)
@@ -1439,8 +1442,10 @@ class TestTermsAcceptance:
         email = _unique_email("terms-old")
         org = create_test_organization(test_db, "Terms Old Org")
         user = create_test_user(test_db, org.id, email, "Terms Old User")
-        user.terms_accepted_at = datetime.now(timezone.utc)
-        user.terms_accepted_version = "0.9"
+        user.user_settings = {
+            **(user.user_settings or {}),
+            "terms": {"accepted_at": datetime.now(timezone.utc).isoformat(), "version": "0.9"},
+        }
         test_db.commit()
 
         token = create_session_token(user)

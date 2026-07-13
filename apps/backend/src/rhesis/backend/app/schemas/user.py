@@ -142,6 +142,10 @@ class UserSettings(BaseModel):
         None, description="The user's default project, auto-selected on login"
     )
     is_verified: Optional[bool] = Field(None, description="User verification status")
+    terms: Optional[dict] = Field(
+        None,
+        description="Server-managed terms acceptance metadata (read-only for users)",
+    )
 
 
 class UserSettingsRead(UserSettings):
@@ -182,8 +186,6 @@ class UserBase(Base):
     is_email_verified: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
-    terms_accepted_at: Optional[datetime] = None
-    terms_accepted_version: Optional[str] = None
     joined_at: Optional[datetime] = Field(
         None,
         description="When the user first became an active organization member",

@@ -28,16 +28,6 @@ class User(Base):
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)  # Track when user last logged in
-    terms_accepted_at = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="UTC timestamp of the user's most recent T&C acceptance",
-    )
-    terms_accepted_version = Column(
-        String(20),
-        nullable=True,
-        comment="T&C version accepted (e.g. 1.0); compared to CURRENT_TERMS_VERSION",
-    )
     joined_at = Column(
         DateTime(timezone=True),
         nullable=True,
