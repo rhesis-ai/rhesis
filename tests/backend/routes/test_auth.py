@@ -792,7 +792,7 @@ class TestAuthMagicLinkRoutes:
         email = _unique_email("accept-terms")
         org = create_test_organization(test_db, "Accept Terms Org")
         user = create_test_user(test_db, org.id, email, "Accept Terms User")
-        test_db.flush()
+        test_db.commit()
 
         token = create_session_token(user)
         response = client.post(

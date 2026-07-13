@@ -93,6 +93,8 @@ AUTHZ_EXEMPT_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # they first complete their profile (name, picture, etc.) after OAuth sign-in.
         # Cross-user update authorization is enforced by the in-handler authorize() call.
         ("PUT", "/users/{user_id}"),
+        # Onboarding: new users accept T&C before they have an organization.
+        ("POST", "/auth/accept-terms"),
     }
 )
 

@@ -49,7 +49,7 @@ from rhesis.backend.app.auth.used_token_store import (
 from rhesis.backend.app.auth.user_utils import (
     _send_welcome_email,
     find_or_create_user_from_auth,
-    require_current_user_or_token,
+    require_current_user_or_token_without_context,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -368,7 +368,7 @@ async def get_terms_status(
 @router.post("/accept-terms")
 async def accept_terms(
     db: Session = Depends(get_db_session),
-    current_user: User = Depends(require_current_user_or_token),
+    current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """Record the authenticated user's acceptance of the current T&C version."""
     record_terms_acceptance(current_user)
