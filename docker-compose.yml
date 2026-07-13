@@ -61,6 +61,7 @@ x-telemetry-config: &telemetry-config
 
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
+  NEXTAUTH_URL: *frontend_url
   NEXT_TELEMETRY_DISABLED: 1
 
 
