@@ -1,7 +1,6 @@
 # Host-facing access. Internal container ports stay constant (backend 8080,
 # frontend 3000). Two independent layers:
-#   *_PORT — host bind port (docker `published:` mapping, i.e. where the
-#            container is reachable on the host machine).
+#   BACKEND_PORT / FRONTEND_PORT — host bind port in `host:container` mappings.
 #   *_URL  — public address the browser/backend use for links, redirects, cookies.
 # On localhost they happen to match; in self-hosting the public URL (domain /
 # reverse proxy) is unrelated to the bind port, so neither derives from the other.
