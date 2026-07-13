@@ -194,6 +194,7 @@ def initialize_local_environment(db: Session) -> None:
 def _ensure_local_admin_terms_accepted(user: models.User) -> None:
     """Ensure the Quick Start admin has accepted the current T&C version."""
     record_terms_acceptance(user)
+    flag_modified(user, "user_settings")
 
 
 def _ensure_local_admin_org_role(

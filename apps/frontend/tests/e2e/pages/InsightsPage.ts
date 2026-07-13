@@ -1,4 +1,5 @@
 import { type Page, expect } from '@playwright/test';
+import { dismissTermsGateIfVisible } from '../helpers/TermsHelper';
 import { BasePage } from './BasePage';
 
 /**
@@ -63,37 +64,73 @@ export class InsightsPage extends BasePage {
     });
   }
 
+  private mainNav() {
+    return this.page.locator('nav[aria-label="Main navigation"]');
+  }
+
+  /** Expand the sidebar when it is in icon-only mode. */
+  async ensureSidebarExpanded() {
+    const expandButton = this.page.getByRole('button', {
+      name: /expand sidebar/i,
+    });
+    if (await expandButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expandButton.click();
+    }
+  }
+
+  /** Wait until primary sidebar navigation is interactive. */
+  async waitForNavReady() {
+    await this.ensureSidebarExpanded();
+    await this.mainNav().waitFor({ state: 'visible', timeout: 15_000 });
+    await dismissTermsGateIfVisible(this.page);
+  }
+
   /** Expand a collapsible sidebar section (e.g. CONNECT for Endpoints). */
   async expandSidebarSection(sectionTitle: string) {
-    const header = this.page
-      .locator('nav')
-      .getByText(sectionTitle, { exact: true });
-    await header.waitFor({ state: 'visible', timeout: 10_000 });
+    const header = this.mainNav().getByText(sectionTitle, { exact: true });
+    await header.waitFor({ state: 'visible', timeout: 15_000 });
     await header.click();
   }
 
   /** Projects moved to the organisation menu — not a primary sidebar link. */
   async navigateToProjectsViaOrgMenu() {
-    await this.page
-      .getByRole('button', { name: /open organisation menu/i })
-      .click();
-    await this.page.getByRole('menuitem', { name: 'Projects' }).click();
+    const orgMenuButton = this.page.getByRole('button', {
+      name: /open organisation menu/i,
+    });
+    await orgMenuButton.waitFor({ state: 'visible', timeout: 15_000 });
+    await orgMenuButton.click();
+
+    const popover = this.page.locator('.MuiPopover-root').last();
+    await popover.waitFor({ state: 'visible', timeout: 15_000 });
+    await popover.getByText('Projects', { exact: true }).click();
   }
 
   async navigateTo(itemText: string) {
+    await this.waitForNavReady();
+
     if (itemText === 'Projects') {
       await this.navigateToProjectsViaOrgMenu();
       return;
     }
 
     if (itemText === 'Endpoints') {
-      await this.expandSidebarSection('CONNECT');
+      await this.mainNav()
+        .getByText('CONNECT', { exact: true })
+        .waitFor({ state: 'visible', timeout: 15_000 });
+
+      const endpointLink = this.mainNav().locator('a[href="/endpoints"]');
+      if (!(await endpointLink.isVisible().catch(() => false))) {
+        await this.expandSidebarSection('CONNECT');
+      }
+
+      await endpointLink.waitFor({ state: 'visible', timeout: 15_000 });
+      await endpointLink.scrollIntoViewIfNeeded();
+      await endpointLink.click();
+      return;
     }
 
-    const navItem = this.page
-      .locator('nav')
-      .getByRole('link', { name: itemText });
-    await navItem.waitFor({ state: 'visible', timeout: 10_000 });
+    const navItem = this.mainNav().getByRole('link', { name: itemText });
+    await navItem.waitFor({ state: 'visible', timeout: 15_000 });
     await navItem.scrollIntoViewIfNeeded();
     await navItem.click();
   }
